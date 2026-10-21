@@ -13,13 +13,21 @@
  *   gamepad     true/false                        jugar con mando (gamepad.js)
  *   padRumble   true/false                        que el mando vibre al recibir daño
  *   aimManual   true/false                        apuntar a mano (ratón o stick derecho) en vez de solo
+ *   hpUnder     true/false                        barrita de vida bajo tu Pokémon (y los compañeros)
+ *   hudScale    1 | 1.25 | 1.5                    tamaño del HUD de la partida
+ *   lowHpWarn   true/false                        bordes rojos que laten con menos del 30 % de vida
+ *   eco         true/false                        ahorro de energía: resolución 1× y fondo del menú más lento
+ *   ownFx       1 | 0.6 | 0.35                    opacidad de tus propios ataques
+ *   hazardHi    true/false                        avisos enemigos en blanco y negro con rayas (daltónicos)
+ *   keys        null | { acción: código }         teclas cambiadas en Ajustes > Controles (input.js)
  *
  *   G.Settings.get('quality')  ·  G.Settings.set('fps', true)  ·  G.Settings.on(fn)
  *   G.Settings.fx   nivel efectivo 0 (bajo) .. 2 (alto), ya resuelto el 'auto'
  */
 G.Settings = (() => {
   const KEY = 'ps.settings';
-  const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'float', pad: null, gamepad: true, padRumble: true, aimManual: false };
+  const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'float', pad: null, gamepad: true, padRumble: true, aimManual: false,
+    hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null };
   let s = Object.assign({}, DEF);
   try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* nada */ }
   const fns = new Set();

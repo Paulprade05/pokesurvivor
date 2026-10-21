@@ -17,13 +17,26 @@ G.FX = (() => {
 
   const snap = v => Math.round(v / PX) * PX;
 
+  /*
+   * «Transparencia de tus ataques» (Ajustes, ownFx: 1 · 0,6 · 0,35): lo que es
+   * de tus ataques (own) se dibuja más transparente para que se vean los
+   * disparos y avisos enemigos. Son tuyos los tajos, los rayos (menos los de
+   * los peligros, que llevan fx.foe), los sprites sueltos y las estelas de los
+   * proyectiles; las demás partículas, anillos y números de daño, no.
+   */
+  function ownAlpha() {
+    const v = +G.Settings.get('ownFx');
+    return v > 0 && v < 1 ? Math.max(0.2, v) : 1;
+  }
+  let mine = false, foe = false;     // lo que se está creando ahora es de tus ataques / de un enemigo
+
   // ---------------- partículas ----------------
 
   /** Partícula cuadrada. o: { vx, vy, life, size (en píxeles de arte), grav, drag } */
   function px(x, y, color, o = {}) {
     if (parts.length >= CAP_PARTS[q()]) return;
     parts.push({ x, y, vx: o.vx || 0, vy: o.vy || 0, t: 0, life: o.life || 0.4, color,
-                 s: (o.size || 1) * PX, grav: o.grav || 0, drag: o.drag == null ? 0.9 : o.drag });
+                 s: (o.size || 1) * PX, grav: o.grav || 0, drag: o.drag == null ? 0.9 : o.drag, own: mine });
   }
 
   function burst(x, y, color, n = 8, power = 110) {
@@ -48,7 +61,7 @@ G.FX = (() => {
     if (sprites.length >= CAP_SPRITES[q()]) return;
     sprites.push({ shape, pal, x, y, vx: o.vx || 0, vy: o.vy || 0, t: 0, life: o.life || 0.4,
                    scale: o.scale || 1, angle: o.angle || 0, spin: o.spin || 0, grav: o.grav || 0,
-                   fr: o.frameRate || 10, fade: o.fade !== false });
+                   fr: o.frameRate || 10, fade: o.fade !== false, own: !foe });
   }
 
   /** Centelleo de shiny (cruz de píxeles que nace y se apaga). */
@@ -63,6 +76,7 @@ G.FX = (() => {
     const P = G.VFX.PAL[pal] || G.VFX.PAL.normal;
     const back = Math.atan2(-vy, -vx);
     const j = () => G.U.rand(-3, 3);
+    mine = true;                     // (los disparos enemigos no dejan estela)
     switch (kind) {
       case 'ember':   px(x + j(), y + j(), P[Math.random() < 0.5 ? 3 : 2], { vx: Math.cos(back) * 30, vy: -40, life: 0.35 }); break;
       case 'drip':    px(x + j(), y + j(), P[3], { vx: Math.cos(back) * 20, vy: 10, grav: 260, life: 0.35 }); break;
@@ -71,6 +85,7 @@ G.FX = (() => {
       case 'dirt':    px(x + j(), y + j(), P[Math.random() < 0.5 ? 2 : 1], { vx: Math.cos(back) * 25, vy: -20, grav: 300, life: 0.35 }); break;
       case 'wisp':    px(x + j() * 2, y + j() * 2, P[Math.random() < 0.5 ? 1 : 2], { vy: -30, life: 0.5, size: 2 }); break;
     }
+    mine = false;
   }
 
   function dmgText(x, y, value, color = '#ffffff', big = false) {
@@ -109,9 +124,11 @@ G.FX = (() => {
 
   /** Rayo recto. fx: { pal, beam } — beam = forma que viaja por él o 'lightning'. */
   function beam(x, y, angle, len, width, color, fx = {}) {
-    beams.push({ x, y, angle, len, width, pal: fx.pal || 'normal', shape: fx.beam || null, t: 0, life: 0.2, seed: Math.random() * 100 });
+    beams.push({ x, y, angle, len, width, pal: fx.pal || 'normal', shape: fx.beam || null, t: 0, life: 0.2, seed: Math.random() * 100, own: !fx.foe });
+    foe = !!fx.foe;
     sp('impact', fx.pal || 'normal', x + Math.cos(angle) * 10, y + Math.sin(angle) * 10, { life: 0.12, scale: 1 });
     sp('impact', fx.pal || 'normal', x + Math.cos(angle) * len, y + Math.sin(angle) * len, { life: 0.18, scale: 1.5 });
+    foe = false;
   }
 
   // ---------------- actualización ----------------
@@ -153,14 +170,14 @@ G.FX = (() => {
   // La transparencia va a escalones (1 · ,66 · ,33) para que no parezca vectorial.
   const step = k => k > 0.66 ? 1 : k > 0.33 ? 0.66 : 0.33;
 
-  function drawBeam(ctx, b) {
+  function drawBeam(ctx, b, own) {
     const k = 1 - b.t / b.life;
     const P = G.VFX.PAL[b.pal] || G.VFX.PAL.normal;
     const a = Math.round(b.angle / (Math.PI / 16)) * (Math.PI / 16);
     ctx.save();
     ctx.translate(snap(b.x), snap(b.y));
     ctx.rotate(a);
-    ctx.globalAlpha = step(k);
+    ctx.globalAlpha = step(k) * (b.own ? own : 1);
     const seg = PX * 2, now = performance.now() / 1000;
 
     if (b.shape === 'lightning') {
@@ -195,13 +212,14 @@ G.FX = (() => {
     ctx.restore();
   }
 
-  function drawSlash(ctx, s) {
+  // (Los tajos son siempre de tus ataques: sólo los crea combat.js.)
+  function drawSlash(ctx, s, own) {
     const k = 1 - s.t / s.life;
     const P = G.VFX.PAL[s.pal] || G.VFX.PAL.normal;
     const half = Math.min(s.arc, 6.2832) / 2;
     const r = s.radius * (0.72 + 0.28 * (1 - k));
     const n = Math.max(8, Math.ceil(r * half * 2 / PX));
-    ctx.globalAlpha = step(k);
+    ctx.globalAlpha = step(k) * own;
     for (let i = 0; i <= n; i++) {
       const u = i / n, a = s.angle - half + u * half * 2;
       const thick = Math.round(Math.sin(Math.PI * u) * 3 * k);      // grosor en píxeles de arte
@@ -229,13 +247,16 @@ G.FX = (() => {
     ctx.globalAlpha = 1;
   }
 
+  const FONT_N = '700 13px Pixelify,"Segoe UI",sans-serif', FONT_B = '700 20px Pixelify,"Segoe UI",sans-serif';
+
   function draw(ctx) {
-    for (const b of beams) drawBeam(ctx, b);
-    for (const s of slashes) drawSlash(ctx, s);
+    const own = ownAlpha();
+    for (const b of beams) drawBeam(ctx, b, own);
+    for (const s of slashes) drawSlash(ctx, s, own);
     for (const r of rings) drawRing(ctx, r);
 
     for (const p of parts) {
-      ctx.globalAlpha = step(1 - p.t / p.life);
+      ctx.globalAlpha = step(1 - p.t / p.life) * (p.own ? own : 1);
       ctx.fillStyle = p.color;
       ctx.fillRect(snap(p.x), snap(p.y), p.s, p.s);
     }
@@ -245,27 +266,32 @@ G.FX = (() => {
       const k = 1 - s.t / s.life;
       if (s.twinkle) { G.Icons.twinkle(ctx, s.x, s.y, s.t / s.life, PX); continue; }
       G.VFX.draw(ctx, s.shape, s.pal, s.x, s.y, {
-        angle: s.angle, scale: s.scale, alpha: s.fade ? step(k) : 1,
+        angle: s.angle, scale: s.scale, alpha: (s.fade ? step(k) : 1) * (s.own ? own : 1),
         frame: Math.floor(s.t * s.fr)
       });
     }
 
-    // Números de daño.
-    for (const t of texts) {
-      const k = 1 - t.t / t.life;
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, k * 2.2);
-      ctx.font = (t.big ? '700 20px' : '700 13px') + ' Pixelify,"Segoe UI",sans-serif';
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(0,0,0,.75)';
-      ctx.strokeText(t.s, t.x, t.y);
-      ctx.fillStyle = t.color;
-      ctx.fillText(t.s, t.x, t.y);
-      ctx.restore();
+    // Números de daño (siempre opacos). La fuente y el trazo se ponen una vez
+    // por tanda, no por número: los normales y luego los grandes, encima.
+    if (!texts.length) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    for (let big = 0; big < 2; big++) {
+      let font = false;
+      for (const t of texts) {
+        if (!t.big === !!big) continue;
+        if (!font) { ctx.font = big ? FONT_B : FONT_N; font = true; }
+        ctx.globalAlpha = Math.min(1, (1 - t.t / t.life) * 2.2);
+        ctx.strokeText(t.s, t.x, t.y);
+        ctx.fillStyle = t.color;
+        ctx.fillText(t.s, t.x, t.y);
+      }
     }
+    ctx.restore();
   }
 
-  return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw,
+  return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw, ownAlpha,
            get count() { return parts.length + sprites.length + texts.length; } };
 })();

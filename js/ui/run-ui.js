@@ -123,22 +123,30 @@ G.RunUI = (() => {
 
   function showOver(r, onBack) {
     $('over-title').textContent = r.dead ? 'Has caído…' : 'Run terminada';
+    const n = v => Math.round(v || 0).toLocaleString(G.I18n.locale);
+    // Con cuenta en la nube, lo de esta partida aún no está subido: se ofrece Guardar aquí mismo.
+    const unsaved = G.DB.mode === 'cloud' && !G.DB.guest && G.DB.syncState === 'pending';
     $('over-stats').innerHTML = `
       <div><span>Tiempo</span><b>${G.U.mmss(r.time)}</b></div>
       <div><span>Nivel</span><b>${r.level}</b></div>
       <div><span>Derrotados</span><b>${r.kills}</b></div>
       <div><span>Jefes</span><b>${r.bosses}</b></div>
       ${r.judge ? `<div style="grid-column:1/-1"><span>Ante Arceus</span><b class="gold">${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div>` : ''}
+      <div class="over-dmg" style="grid-column:1/-1">
+        <div><span>Daño total</span><b>${n(r.dealt)}</b></div>
+        <div><span>Daño recibido</span><b>${n(r.taken)}</b></div>
+        <div><span>Curación</span><b>${n(r.healed)}</b></div></div>
       <div style="grid-column:1/-1"><span>Pokémonedas ganadas</span>
         <b class="gold"><span class="coin"></span> +${r.coins}</b>
         <div style="font-size:12px;color:var(--muted)">${r.breakdown}</div></div>
       ${r.t1 || r.t10 ? `<div style="grid-column:1/-1"><span>Tickets del gacha</span><b>
         ${r.t1 ? G.Icons.html('ticket', 22) + ' +' + r.t1 + ' ' : ''}${r.t10 ? G.Icons.html('ticket10', 22) + ' +' + r.t10 + ' ×10' : ''}</b></div>` : ''}
-      <div style="grid-column:1/-1"><span>Movimientos</span><b style="font-size:15px">
-        ${r.moves.map(m => `${G.Icons.html('move:' + m.id, 16)} ${G.T(m.name, 'move')} Nv.${m.lvl}`).join(' · ') || '—'}</b></div>
+      <div style="grid-column:1/-1;min-width:0"><span>Movimientos</span>
+        ${r.moves.length ? `<div class="over-moves">${movesTable(r.moves, r.time, false)}</div>` : '<b>—</b>'}</div>
       ${r.caught && r.caught.length ? `<div style="grid-column:1/-1" class="caught"><span>${G.Icons.html('shiny', 12)} Shinies conseguidos</span>
         <div class="caught-row" id="over-caught"></div></div>` : ''}
       ${r.record ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nuevo récord de tiempo!</div>' : ''}
+      ${unsaved ? '<div class="over-save" id="over-save" style="grid-column:1/-1"></div>' : ''}
       ${askSupport(r) ? `<div class="support-ask" id="over-ask" style="grid-column:1/-1">
         <button class="x" type="button" aria-label="Cerrar">×</button>
         <p>¿Te está gustando PokéSurvivor? Lo hago yo solo y los servidores cuestan dinero. Si quieres, puedes ayudarme a mantenerlo en línea.</p>
@@ -146,6 +154,8 @@ G.RunUI = (() => {
       </div>` : ''}`;
     const ask = $('over-ask');
     if (ask) ask.querySelector('.x').onclick = () => ask.remove();
+    const sv = $('over-save');
+    if (sv) { saveNote(sv, G.DB.syncState); watchSave(); }
     $('btn-again').onclick = onBack;
     if (r.caught && r.caught.length) {
       const row = $('over-caught');
@@ -157,6 +167,25 @@ G.RunUI = (() => {
       }
     }
     G.UI.show('scr-over');
+  }
+
+  /**
+   * Aviso del resumen final: «sin guardar» con un botón que pulsa el Guardar de
+   * la barra de arriba (oculta en partida; así son los mismos avisos y esperas), o «guardado».
+   */
+  function saveNote(el, st) {
+    el.classList.toggle('ok', st === 'ok');
+    el.innerHTML = st === 'ok' ? `<p>${G.Icons.html('save', 16)} Guardado en la nube</p>`
+      : `<p>Tu progreso aún no está en la nube</p><button class="btn small gold" type="button" data-sfx="none"${st === 'syncing' ? ' disabled' : ''}>${G.Icons.html('save', 16)} Guardar</button>`;
+    const b = el.querySelector('button');
+    if (b) b.onclick = () => $('btn-save').click();
+  }
+  // Sigue al estado de la nube mientras se ve (se apunta una sola vez).
+  let saveWatch = false;
+  function watchSave() {
+    if (saveWatch) return;
+    saveWatch = true;
+    G.DB.onSync(st => { const el = $('over-save'); if (el && G.UI.isOpen('scr-over')) saveNote(el, st); });
   }
 
   /** Has encontrado un objeto llevando ya otro: ¿con cuál te quedas? */
@@ -243,8 +272,27 @@ G.RunUI = (() => {
   }
 
   /*
-   * Resumen de la partida en la pausa: tus ataques (categoría, daño hecho y
-   * daño por segundo), tus estadísticas con todo lo subido y el objeto y las
+   * Tabla de tus ataques, del que más daño ha hecho al que menos: daño, parte
+   * del total y daño por segundo (desde que lo aprendiste). La usan la pausa y
+   * el resumen final. withCat: con la columna de categoría (físico, especial o mejora).
+   */
+  function movesTable(moves, t, withCat = true) {
+    const n = v => Math.round(v).toLocaleString(G.I18n.locale);
+    const dealt = m => (m.cat ? m.dealt || 0 : -1);          // los de mejora no hacen daño: al final
+    const total = moves.reduce((a, m) => a + Math.max(0, dealt(m)), 0);
+    const rows = moves.slice().sort((a, b) => dealt(b) - dealt(a)).map(m => {
+      const secs = Math.max(5, t - (m.since || 0)), col = G.U.TYPE_COLOR[m.type], d = m.dealt || 0;
+      const cat = !withCat ? '' : `<td>${m.cat ? `<span class="tag-chip" style="background:${col}">${G.Stats.NAME[m.cat]}</span>` : '<span class="sub">Mejora</span>'}</td>`;
+      return `<tr><td>${G.Icons.html('move:' + m.id, 18)} ${G.T(m.name, 'move')} <small>Nv.${m.lvl}</small></td>${cat}
+        <td class="num">${m.cat ? n(d) : '—'}</td><td class="num">${m.cat && total ? Math.round(d / total * 100) + ' %' : '—'}</td>
+        <td class="num">${m.cat ? n(d / secs) + '/s' : '—'}</td></tr>`;
+    }).join('');
+    return `<table class="sum-moves"><tr><th></th>${withCat ? '<th></th>' : ''}<th class="num">Daño</th><th class="num">%</th><th class="num">Por segundo</th></tr>${rows}</table>`;
+  }
+
+  /*
+   * Resumen de la partida en la pausa: tus ataques (categoría, daño hecho, parte
+   * del total y daño por segundo), tus estadísticas con todo lo subido y el objeto y las
    * cartas de mejora que llevas.
    */
   function pauseSummary() {
@@ -253,12 +301,6 @@ G.RunUI = (() => {
     const t = G.Game.st.time, n = v => Math.round(v).toLocaleString('es');
     const k2 = v => '×' + v.toFixed(2).replace('.', ',');
     const pct = v => Math.round(v * 100) + ' %';
-    const moves = pl.moves.map(m => {
-      const secs = Math.max(5, t - (m.since || 0)), col = G.U.TYPE_COLOR[m.type];
-      const cat = m.cat ? `<span class="tag-chip" style="background:${col}">${G.Stats.NAME[m.cat]}</span>` : '<span class="sub">Mejora</span>';
-      return `<tr><td>${G.Icons.html('move:' + m.id, 18)} ${G.T(m.name, 'move')} <small>Nv.${m.lvl}</small></td><td>${cat}</td>
-        <td class="num">${m.cat ? n(m.dealt || 0) : '—'}</td><td class="num">${m.cat ? n((m.dealt || 0) / secs) + '/s' : '—'}</td></tr>`;
-    }).join('');
     const mon = pl.mon, fis = 1 - G.Stats.taken(mon, 'physical'), esp = 1 - G.Stats.taken(mon, 'special');
     const guard = v => (v >= 0 ? '−' : '+') + Math.round(Math.abs(v) * 100) + ' %';
     const st = [
@@ -279,14 +321,24 @@ G.RunUI = (() => {
       return s ? `<span class="chip">${G.Icons.html(s.icon, 12)} ${s.title} ×${c}</span>` : '';
     }).join('');
     return `<h3>Tus ataques</h3>
-      <table class="sum-moves"><tr><th></th><th></th><th class="num">Daño</th><th class="num">Por segundo</th></tr>${moves}</table>
+      ${movesTable(pl.moves, t)}
       <h3>Tus estadísticas</h3><div class="sum-stats">${st}</div>
       <h3>Objeto y cartas</h3>
       <p class="sub">${it ? G.Icons.html(pl.item, 18) + ' <b>' + it.name + '</b>: ' + it.desc : 'Sin objeto.'}</p>
       <div class="chips">${cards || '<span class="sub">Aún no has cogido cartas de mejora.</span>'}</div>`;
   }
 
+  /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
+  function keyHint() {
+    const I = G.Input, k = s => '<kbd>' + String(s).replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';') + '</kbd>';
+    const sl = ['m1', 'm2', 'm3', 'm4'].map(a => I.keyLabel(a));
+    return k(I.moveLabel()) + ' moverse · ' + (sl.join() === '1,2,3,4' ? k(1) + '–' + k(4) : sl.map(k).join(' '))
+      + ' movimiento · ' + k(I.keyLabel('prev')) + '/' + k(I.keyLabel('next')) + ' ciclar · ' + k('Esc') + ' pausa';
+  }
+
   function showPause(coop = false) {
+    const kh = document.querySelector('#scr-pause .kbd-hint');
+    if (kh) kh.innerHTML = keyHint();
     $('pause-sum').innerHTML = pauseSummary();
     G.UI.soundControls($('pause-sound'));
     $('pause-coop').classList.toggle('hidden', !coop);

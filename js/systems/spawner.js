@@ -22,11 +22,13 @@ G.Spawner = (() => {
   // hacia el minuto 6, cuando ya tienes ataques para tumbarlos.
   const hpK = t => 3.3 + Math.min(1.7, t / 210);
   const SHINY_RATE = 1 / 4096;
+  const BOSS_GAP = 45, BOSS_LATE = 60;
   let acc = 0, bossIdx = 0, surgeT = 32, announce = null, announceT = 0, preloadT = 0;
+  let lastBossT = -Infinity;    // cuándo salió el último jefe del calendario
   let forceShiny = 0;           // para pruebas: los N próximos salen shiny
 
   function reset() {
-    acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0;
+    acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0; lastBossT = -Infinity;
     G.Enemies.rollRun();
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
   }
@@ -140,8 +142,13 @@ G.Spawner = (() => {
     if (preloadT <= 0) { preloadT = 10; G.Sprites.preload(G.Enemies.upcomingDex(t, 60)); }
 
     // --- jefes ---
+    // Uno a la vez (#255): si sigue vivo el anterior, el siguiente espera, salvo
+    // que ya lleve BOSS_LATE s de retraso; y nunca dos con menos de BOSS_GAP s
+    // (al volver de una grieta larga salían dos en fotogramas seguidos).
     const b = G.Enemies.BOSSES[bossIdx];
-    if (b && t >= b.at) { spawnBoss(anchor(), t, b); bossIdx++; }
+    if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > BOSS_LATE || !G.EnemyMgr.bossAlive())) {
+      spawnBoss(anchor(), t, b); bossIdx++; lastBossT = t;
+    }
 
     // Combate de jefe: las oleadas bajan al 25% y no hay mareas, para que el
     // jefe sea un momento propio y se le pueda apuntar entre la multitud.

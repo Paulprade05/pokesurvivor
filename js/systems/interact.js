@@ -14,7 +14,7 @@
  * el botín y el daño a los enemigos (ver world.destroyProp y coop.propBroken).
  */
 G.Interact = (() => {
-  const CHEST_TIME = 3.5;
+  const CHEST_TIME = 3.5, CHEST_DUO = 1.6;   // con dos al lado: unos 2,2 s
   const POWER_TIME = 25;
   const POWERS = [
     { id: 'dmg', name: 'Furia', desc: 'daño ×2', color: '#ff5f6d', on: p => { p.atkMul *= 2; }, off: p => { p.atkMul /= 2; } },
@@ -23,6 +23,7 @@ G.Interact = (() => {
     { id: 'cd', name: 'Prisa', desc: '-40% recarga', color: '#ffd23f', on: p => { p.cdMul *= 0.6; }, off: p => { p.cdMul /= 0.6; } }
   ];
   const TRAP_R = 74;
+  const SPRING_WET = 0.15;      // carga con la que un manantial seco vuelve a curar (world.js lo dibuja seco por debajo)
   const authority = () => !G.Coop.active || G.Coop.isHost;
   let healShown = 0, healAcc = 0;
 
@@ -40,7 +41,10 @@ G.Interact = (() => {
         case 'bigchest':
           if (!pl.dead && d2 < Math.max(46, p.r + pl.r + 24) ** 2) {
             if (p.open === 0) G.Audio.sfx('select');
-            p.open += dt;
+            // En grupo, con un compañero al lado se abre más deprisa (cuentan 2 como
+            // mucho, #71). Cada ordenador lleva su cuenta; al abrirse se rompe para
+            // todos como siempre (World.breakProp) y el botín sale una vez.
+            p.open += dt * (G.Coop.active && mateAt(p) ? CHEST_DUO : 1);
             if (p.open >= CHEST_TIME) { p.open = 0; G.World.breakProp(p); }
           } else if (p.open > 0) p.open = Math.max(0, p.open - dt * 1.5);
           break;
@@ -52,12 +56,25 @@ G.Interact = (() => {
     }
   }
 
+  /** ¿Hay un compañero en pie junto a este cofre? */
+  function mateAt(p) {
+    for (const o of G.Coop.puppets()) {
+      if (!o.dead && G.U.dist2(o.x, o.y, p.x, p.y) < Math.max(46, p.r + o.r + 24) ** 2) return true;
+    }
+    return false;
+  }
+
   function spring(dt, pl, p, d2) {
     if (p.charge < 1) p.charge = Math.min(1, p.charge + dt / 45);
-    if (pl.dead || d2 > 26 * 26 || p.charge <= 0.02 || pl.hp >= pl.maxHp) return;
+    // Seco hasta recargarse a SPRING_WET (cuando su dibujo vuelve a tener agua): antes,
+    // en cuanto pasaba de 0,02 volvía a curar un fotograma y repetía el aviso sin parar.
+    if (p.dry && p.charge >= SPRING_WET) p.dry = false;
+    if (p.charge >= 1) p.told = false;          // el aviso, otra vez sólo tras llenarse del todo
+    if (p.dry || pl.dead || d2 > 26 * 26 || pl.hp >= pl.maxHp) return;
     const before = pl.hp;
     pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.14 * dt);
     healAcc += pl.hp - before;
+    pl.healed += pl.hp - before;          // curación del resumen final
     p.charge = Math.max(0, p.charge - dt * 0.09);
     if (Math.random() < dt * 14) G.FX.px(pl.x + G.U.rand(-pl.r, pl.r), pl.y - G.U.rand(0, pl.bodyH), '#7dffb0', { vy: -50, life: 0.5 });
     healShown -= dt;
@@ -67,7 +84,10 @@ G.Interact = (() => {
       healAcc = 0;
       G.Audio.sfx('xp');
     }
-    if (p.charge <= 0.02) G.Spawner.say('El manantial se ha secado (se recarga solo)', 2.2, true);
+    if (p.charge <= 0.02) {
+      p.dry = true;
+      if (!p.told) { p.told = true; G.Spawner.say('El manantial se ha secado (se recarga solo)', 2.2, true); }
+    }
   }
 
   function usePower(pl, p) {

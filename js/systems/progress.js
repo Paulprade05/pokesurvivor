@@ -15,6 +15,7 @@
  *   stats.bossesTotal · riftWins · evolutions · missionsDone · groupRuns
  *   stats.judged · judgeTime (mejor tiempo ante Arceus) · judgeBosses (mejor nº de jefes)
  *   legends{dex} · arenas{tipo} · itemsFound{id} · evoMoves{id} · ach{id}
+ *   pjudg{dex}  Pokémon con los que has llegado a la Sentencia (fecha)
  *   missions { day, daily[], rerolled, week, weekly[] }
  *
  * Misiones: 3 diarias + 2 semanales, sorteadas con una semilla de la fecha y
@@ -153,9 +154,13 @@ G.Progress = (() => {
       case 'runEnd':
         if (d.group) S.groupRuns = (S.groupRuns || 0) + 1;
         break;
-      case 'judge':
+      case 'judge': {
         S.judged = (S.judged || 0) + 1;
+        // Con qué Pokémon has llegado (trofeo en la colección). En grupo, cada uno el suyo.
+        const pl = G.Game && G.Game.player;
+        if (pl) { s.pjudg = s.pjudg || {}; s.pjudg[pl.dex] = s.pjudg[pl.dex] || Date.now(); }
         break;
+      }
       case 'judgeEnd':
         S.judgeTime = Math.max(S.judgeTime || 0, Math.floor(d.time));
         S.judgeBosses = Math.max(S.judgeBosses || 0, d.bosses);

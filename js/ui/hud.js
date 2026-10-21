@@ -25,94 +25,255 @@ G.HUD = (() => {
     }
   }
 
+  /** Color de la vida: verde, amarillo por debajo de la mitad y rojo por debajo de un cuarto. */
+  const hpColor = f => f > 0.5 ? '#5fe08a' : f > 0.25 ? '#ffd23f' : '#ff5f6d';
+
+  /**
+   * Tamaño del HUD. De base crece con la pantalla (en monitores grandes se veía
+   * diminuto) y se multiplica por el ajuste «Tamaño del HUD»; en pantallas
+   * pequeñas (móvil) no pasa de lo que cabe.
+   */
+  function scaleFor(w, h) {
+    const base = G.Touch.active ? 1 : G.U.clamp(Math.min(w / 1280, h / 800), 1, 1.5);
+    const cap = Math.max(1, Math.min(w / 560, h / 320));
+    return Math.min(base * (+G.Settings.get('hudScale') || 1), cap);
+  }
+
+  // Degradados guardados (crearlos en cada fotograma cuesta); se rehacen si cambia el tamaño.
+  let xpTop = null, xpTopW = 0, xpCard = null, lowG = null, lowW = 0, lowH = 0;
+  const bosses = [];                 // jefes vivos (la lista se reutiliza)
+
+  /** Poca vida: los bordes de la pantalla laten en rojo (lento y suave con «Menos destellos»). */
+  function lowHp(ctx, w, h, f, calm, now) {
+    if (!lowG || lowW !== w || lowH !== h) {
+      lowG = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.72);
+      lowG.addColorStop(0, 'rgba(255,30,50,0)');
+      lowG.addColorStop(1, 'rgba(255,30,50,.8)');
+      lowW = w; lowH = h;
+    }
+    const deep = 1 - f / 0.3, t = now / 1000;        // 0 al 30 % de vida, 1 sin vida
+    ctx.globalAlpha = calm ? (0.14 + 0.12 * deep) * (0.8 + 0.2 * Math.sin(t * 1.6))
+                           : (0.28 + 0.32 * deep) * (0.65 + 0.35 * Math.sin(t * 5));
+    ctx.fillStyle = lowG;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+
+  /** Parte un texto ya traducido en líneas (en chino, por letras). */
+  function wrap(ctx, text, maxW) {
+    const out = [];
+    let line = '';
+    for (const tok of text.match(/[\u3000-\u9fff\uff00-\uffef]|[^\s\u3000-\u9fff\uff00-\uffef]+|\s+/g) || []) {
+      const next = line + tok;
+      if (line.trim() && tok.trim() && G.I18n.rawCanvas(ctx, 'measureText', next.trim()).width > maxW) { out.push(line.trim()); line = tok; }
+      else line = next;
+    }
+    if (line.trim()) out.push(line.trim());
+    return out;
+  }
+
+  // Ficha del objeto: al pasar el ratón por encima (PC) o 3 s al tocarlo.
+  let tipUntil = 0, tipIt = null, tipName = '', tipLines = [], tipW = 0;
+  function itemTip(ctx, it, ix, iy, S, W, a) {
+    ctx.save();
+    ctx.globalAlpha = a;
+    if (tipIt !== it) {
+      // Se traduce y se parte en líneas una vez por objeto.
+      tipIt = it; tipName = G.T(it.name);
+      ctx.font = F(600, 11);
+      tipLines = wrap(ctx, G.T(it.desc), 230);
+      tipW = 0;
+      for (const l of tipLines) tipW = Math.max(tipW, G.I18n.rawCanvas(ctx, 'measureText', l).width);
+      ctx.font = F(800, 12);
+      tipW = Math.max(tipW, G.I18n.rawCanvas(ctx, 'measureText', tipName).width);
+    }
+    const bw = tipW + 20, bh = 28 + tipLines.length * 14;
+    const bx = G.U.clamp(ix, 6, Math.max(6, W - bw - 6));
+    let by = iy - 20 - bh;
+    if (by < 6) by = iy + S + 8;                     // barra arriba (móvil): debajo
+    roundRect(ctx, bx, by, bw, bh, 8);
+    ctx.fillStyle = 'rgba(10,16,32,.94)'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#ffd23f'; ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.font = F(800, 12); ctx.fillStyle = '#ffd23f';
+    G.I18n.rawCanvas(ctx, 'fillText', tipName, bx + 10, by + 18);
+    ctx.font = F(600, 11); ctx.fillStyle = '#e8f0ff';
+    for (let i = 0; i < tipLines.length; i++) G.I18n.rawCanvas(ctx, 'fillText', tipLines[i], bx + 10, by + 34 + i * 14);
+    ctx.restore();
+  }
+
   function draw(ctx, w, h, pl, st) {
     ctx.save();
     ctx.textBaseline = 'alphabetic';
     G.Touch.clearButtons();
     const touch = G.Touch.active;
+    const now = performance.now(), calm = G.Settings.get('calm');
+    const k = scaleFor(w, h);
+    const hpF = G.U.clamp(pl.hp / pl.maxHp, 0, 1);
+
+    if (hpF < 0.3 && !pl.dead && G.Settings.get('lowHpWarn') !== false) lowHp(ctx, w, h, hpF, calm, now);
 
     // ---------- barra de experiencia (borde superior) ----------
-    const xpF = pl.xp / pl.xpNext;
+    const xpF = G.U.clamp(pl.xp / pl.xpNext, 0, 1);
     ctx.fillStyle = 'rgba(0,0,0,.5)';
     ctx.fillRect(0, 0, w, 7);
-    const g = ctx.createLinearGradient(0, 0, w, 0);
-    g.addColorStop(0, '#4fd1ff'); g.addColorStop(1, '#a98bff');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w * G.U.clamp(xpF, 0, 1), 7);
+    if (!xpTop || xpTopW !== w) {
+      xpTop = ctx.createLinearGradient(0, 0, w, 0);
+      xpTop.addColorStop(0, '#4fd1ff'); xpTop.addColorStop(1, '#a98bff');
+      xpTopW = w;
+    }
+    ctx.fillStyle = xpTop;
+    ctx.fillRect(0, 0, w * xpF, 7);
 
-    // ---------- vida + nivel ----------
+    // ---------- tarjeta: nivel, nombre, vida y experiencia (crece con k) ----------
     const sa = G.Touch.safeArea();
-    const px = 16 + sa.left, py = 20 + sa.top;     // lejos de la muesca del iPhone
+    const px = 16 + sa.left, py = 14 + sa.top;     // lejos de la muesca del iPhone
+    const CW = 228, CH = 64;
+    ctx.save();
+    ctx.translate(px, py); ctx.scale(k, k);
+    roundRect(ctx, 0, 0, CW, CH, 9);
+    ctx.fillStyle = 'rgba(10,16,32,.72)'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(190,210,245,.35)'; ctx.stroke();
+
+    // Nivel en una chapa dorada («Nv.» va aparte para que se traduzca).
+    ctx.textAlign = 'left';
+    ctx.font = F(800, 9);
+    const nvW = ctx.measureText('Nv.').width;
+    ctx.font = F(800, 13);
+    const lv = String(pl.level), lw = nvW + ctx.measureText(lv).width + 13;
+    roundRect(ctx, 8, 7, lw, 18, 6);
+    ctx.fillStyle = '#ffcb3d'; ctx.fill();
+    ctx.fillStyle = '#2a1a04';
+    ctx.fillText(lv, 16 + nvW, 21);
+    ctx.font = F(800, 9);
+    ctx.fillText('Nv.', 13, 20);
     ctx.font = F(800, 13);
     ctx.fillStyle = '#eaf2ff';
-    ctx.textAlign = 'left';
-    ctx.fillText(pl.mon.name, px, py + 10);
+    ctx.fillText(pl.mon.name, 15 + lw, 21);
 
-    ctx.font = F(700, 11);
+    // Vida: barra gruesa con los números dentro; el color baja de verde a rojo.
+    ctx.font = F(800, 10);
     ctx.fillStyle = '#ffcb3d';
-    ctx.fillText('Nv. ' + pl.level, px, py + 26);
-
-    bar(ctx, px + 48, py + 17, 168, 11, pl.hp / pl.maxHp, '#ff5f6d');
-    ctx.font = F(700, 10);
-    ctx.fillStyle = 'rgba(255,255,255,.95)';
+    ctx.fillText('PS', 8, 43);
+    bar(ctx, 28, 31, 192, 16, hpF, hpColor(hpF));
+    if (hpF < 0.3 && !pl.dead) {
+      roundRect(ctx, 28, 31, 192, 16, 8);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = calm ? 'rgba(255,95,109,.8)' : 'rgba(255,95,109,' + (0.5 + 0.4 * Math.sin(now / 120)).toFixed(2) + ')';
+      ctx.stroke();
+    }
+    const hpTxt = Math.max(0, Math.ceil(pl.hp)) + ' / ' + Math.round(pl.maxHp);
+    ctx.font = F(800, 12);
     ctx.textAlign = 'center';
-    ctx.fillText(Math.ceil(pl.hp) + ' / ' + Math.round(pl.maxHp), px + 48 + 84, py + 26);
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.8)';
+    ctx.strokeText(hpTxt, 124, 43);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(hpTxt, 124, 43);
 
-    // buffs activos
+    // Experiencia hasta el siguiente nivel, debajo de la vida.
+    ctx.textAlign = 'left';
+    ctx.font = F(800, 8);
+    ctx.fillStyle = '#9ad8ff';
+    ctx.fillText('EXP', 8, 57);
+    if (!xpCard) {
+      xpCard = ctx.createLinearGradient(28, 0, 220, 0);
+      xpCard.addColorStop(0, '#4fd1ff'); xpCard.addColorStop(1, '#a98bff');
+    }
+    bar(ctx, 28, 51, 192, 6, xpF, xpCard);
+
+    // buffs activos (y el poder de altar), debajo de la tarjeta
     const COL = { atk: '#ff6b4d', patk: '#ff6b4d', satk: '#c47bff', spd: '#7fe0ff', def: '#b0b8c8', regen: '#5fe08a' };
     const LBL = { atk: 'ATK', patk: 'ATK', satk: 'AT.E', spd: 'VEL', def: 'DEF', regen: 'REG' };
-    let bx = px;
-    ctx.textAlign = 'left';
-    for (const k in pl.buffs) {
-      const b = pl.buffs[k];
+    let bx = 0;
+    const by = CH + 5;
+    ctx.font = F(800, 9);
+    for (const key in pl.buffs) {
+      const b = pl.buffs[key];
       if (b.n <= 0) continue;
-      ctx.font = F(800, 9);
-      const txt = LBL[k] + ' ×' + b.n;
+      const txt = LBL[key] + ' ×' + b.n;
       const tw = ctx.measureText(txt).width + 12;
-      roundRect(ctx, bx, py + 34, tw, 15, 7);
+      roundRect(ctx, bx, by, tw, 15, 7);
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
-      ctx.fillStyle = COL[k];
-      ctx.fillText(txt, bx + 6, py + 45);
+      ctx.fillStyle = COL[key];
+      ctx.fillText(txt, bx + 6, by + 11);
       bx += tw + 5;
     }
+    // Poder de altar activo.
+    if (pl.power) {
+      const pw = pl.power, txt = pw.def.name.toUpperCase() + ' ' + Math.ceil(pw.t) + 's';
+      const tw = ctx.measureText(txt).width + 12;
+      roundRect(ctx, bx, by, tw, 15, 7);
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
+      ctx.fillStyle = pw.def.color;
+      ctx.fillText(txt, bx + 6, by + 11);
+      bx += tw + 5;
+    }
+    ctx.restore();
+    const cardR = px + CW * k, cardB = py + (bx > 0 ? by + 15 : CH) * k;
 
     // ---------- reloj / bioma / kills ----------
+    const clockY = 16 + 26 * k, infoY = clockY + 17 * k;
     ctx.textAlign = 'center';
-    ctx.font = F(800, 26);
+    ctx.font = F(800, 26 * k);
     ctx.fillStyle = 'rgba(255,255,255,.95)';
-    ctx.fillText(G.U.mmss(st.time), w / 2, 42);
-    ctx.font = F(600, 10);
-    ctx.fillStyle = '#8fa3c4';
-    ctx.fillText(G.World.biomeName().toUpperCase() + '  ·  ' + pl.kills + ' DERROTADOS  ·  ' + pl.coins + ' MONEDAS', w / 2, 58);
+    ctx.fillText(G.U.mmss(st.time), w / 2, clockY);
+    ctx.font = F(600, 11 * k);
+    const info = G.World.biomeName().toUpperCase() + '  ·  ' + pl.kills + ' DERROTADOS  ·  ' + pl.coins + ' MONEDAS';
+    // En pantallas estrechas se aparta de la tarjeta en vez de pisarla.
+    const ix0 = Math.max(w / 2, cardR + 10 + ctx.measureText(info).width / 2);
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.5)';
+    ctx.strokeText(info, ix0, infoY);
+    ctx.fillStyle = '#a9bad6';
+    ctx.fillText(info, ix0, infoY);
 
     // ---------- clima (arriba a la derecha) ----------
     const wx = G.Weather.current;
     if (wx) {
+      ctx.save();
+      ctx.translate(w - 16 - sa.right - (touch ? 56 : 0), 14 + sa.top); ctx.scale(k, k);
       ctx.font = F(800, 11);
       ctx.textAlign = 'left';
       const txt = wx.name.toUpperCase() + ' · ' + Math.ceil(wx.left) + 's';
       const tw = ctx.measureText(txt).width + 40;
-      const x0 = w - tw - 16 - sa.right - (touch ? 56 : 0), y0 = 14 + sa.top;
-      roundRect(ctx, x0, y0, tw, 26, 9);
+      roundRect(ctx, -tw, 0, tw, 26, 9);
       ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
-      G.Icons.draw(ctx, wx.icon, x0 + 6, y0 + 3, 20);
+      G.Icons.draw(ctx, wx.icon, -tw + 6, 3, 20);
       ctx.fillStyle = wx.color;
-      ctx.fillText(txt, x0 + 32, y0 + 17);
+      ctx.fillText(txt, -tw + 32, 17);
+      ctx.restore();
     }
 
-    // ---------- barra del jefe ----------
-    const boss = G.EnemyMgr.all().find(e => e.boss && !e.dead);
-    if (boss) {
-      const bw = Math.min(420, w - 80);
-      bar(ctx, (w - bw) / 2, 70, bw, 12, boss.hp / boss.maxHp, '#ffcb3d');
-      ctx.font = F(800, 10);
-      ctx.fillStyle = '#20160a';
-      ctx.fillText(boss.name.toUpperCase(), w / 2, 80);
+    // ---------- barras de los jefes (una por jefe vivo, apiladas) ----------
+    bosses.length = 0;
+    for (const e of G.EnemyMgr.all()) if (e.boss && !e.dead) bosses.push(e);
+    let bossB = 0;                   // dónde acaban (lo de la grieta va debajo)
+    if (bosses.length) {
+      const nb = Math.min(3, bosses.length), bh = 13 * k, left = cardR + 12;
+      let bw = Math.min(420 * k, w - 80), bx0 = (w - bw) / 2;
+      if (bx0 < left) { bx0 = left; bw = Math.min(bw, w - 16 - sa.right - left); }
+      let y = infoY + 11 * k;
+      ctx.textAlign = 'center';
+      ctx.font = F(800, 10 * k);
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+      for (let i = 0; i < nb; i++) {
+        const b = bosses[i], name = b.name.toUpperCase();
+        bar(ctx, bx0, y, bw, bh, b.hp / b.maxHp, '#ffcb3d');
+        // Nombre en claro con borde: se lee aunque la barra esté medio vacía.
+        ctx.strokeText(name, bx0 + bw / 2, y + bh - 3 * k);
+        ctx.fillStyle = '#fff8e0';
+        ctx.fillText(name, bx0 + bw / 2, y + bh - 3 * k);
+        y += bh + 3 * k;
+      }
+      if (bosses.length > nb) {
+        ctx.textAlign = 'left'; ctx.fillStyle = '#ffcb3d';
+        ctx.fillText('+' + (bosses.length - nb), bx0 + bw + 6, y - 6 * k);
+      }
+      bossB = y;
     }
 
     // ---------- aviso ----------
     // ---------- shinies fuera de pantalla: destello en el borde ----------
-    const cam = G.Camera, pulse = 0.6 + Math.sin(performance.now() / 160) * 0.4;
+    const cam = G.Camera, pulse = 0.6 + Math.sin(now / 160) * 0.4;
     for (const e of G.EnemyMgr.shinies()) {
       const sx = (e.x - cam.left()) * cam.scale, sy = (e.y - cam.top()) * cam.scale;
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
@@ -133,20 +294,40 @@ G.HUD = (() => {
       ctx.restore();
     }
 
-    // Poder de altar activo.
-    if (pl.power) {
-      const pw = pl.power, txt = pw.def.name.toUpperCase() + ' ' + Math.ceil(pw.t) + 's';
-      ctx.font = F(800, 9);
-      ctx.textAlign = 'left';
-      const tw = ctx.measureText(txt).width + 12;
-      roundRect(ctx, bx, py + 34, tw, 15, 7);
-      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
-      ctx.fillStyle = pw.def.color;
-      ctx.fillText(txt, bx + 6, py + 45);
-      bx += tw + 5;
+    // ---------- jefes fuera de la vista: flecha dorada en el borde y a cuántos metros ----------
+    // (También en el invitado: EnemyMgr.all() lleva los enemigos que manda el anfitrión.)
+    for (const b of bosses) {
+      const sx = (b.x - cam.left()) * cam.scale, sy = (b.y - (b.bodyH || 0) * 0.5 - cam.top()) * cam.scale;
+      if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
+      const M = 40;
+      // (Por debajo de las barras de los jefes, que con el HUD grande bajan más.)
+      const ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, Math.max(M + 70, bossB + 34), h - M - 80);
+      const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sn = Math.sin(a);
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.fillStyle = 'rgba(0,0,0,.6)';
+      ctx.beginPath(); ctx.arc(0, 0, 15, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = pulse;
+      ctx.beginPath();
+      ctx.moveTo(ca * 30, sn * 30);
+      ctx.lineTo(Math.cos(a + 2.45) * 15, Math.sin(a + 2.45) * 15);
+      ctx.lineTo(Math.cos(a - 2.45) * 15, Math.sin(a - 2.45) * 15);
+      ctx.closePath();
+      ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.stroke();
+      ctx.fillStyle = '#ffcb3d'; ctx.fill();
+      ctx.globalAlpha = 1;
+      G.Icons.draw(ctx, 'crown', -10, -10, 20);
+      const label = Math.round(G.U.dist(pl.x, pl.y, b.x, b.y) / 32) + ' m';
+      ctx.font = F(800, 11);
+      ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+      ctx.strokeText(label, -ca * 26, -sn * 24 + 4);
+      ctx.fillStyle = '#ffcb3d';
+      ctx.fillText(label, -ca * 26, -sn * 24 + 4);
+      ctx.restore();
     }
 
-    if (G.Coop.active) drawCoop(ctx, w, h, pl, px, py + (bx > px ? 56 : 40));
+    if (G.Coop.active) drawCoop(ctx, w, h, pl, px, cardB + 6 * k, k);
 
     // Grieta: flecha grande que late en el borde si no se ve, y si se ve, una
     // flecha que bota encima; en la arena, cuenta atrás.
@@ -198,13 +379,15 @@ G.HUD = (() => {
     }
     if (G.Rift.inArena) {
       ctx.textAlign = 'center';
-      ctx.font = F(800, 12);
+      ctx.font = F(800, 12 * k);
       ctx.fillStyle = '#d9c2ff';
-      ctx.fillText('GRIETA · ' + G.U.mmss(G.Rift.timeLeft), w / 2, boss ? 98 : 76);
+      ctx.fillText('GRIETA · ' + G.U.mmss(G.Rift.timeLeft), w / 2, bossB ? bossB + 12 * k : infoY + 18 * k);
     }
 
     // Eventos: cuenta atrás, flecha al Pokémon perdido / a la marca y a los duendes.
-    G.Events.drawHud(ctx, w, h, pl, F);
+    // La cuenta atrás va en y = 112 (events.js): si las barras de los jefes llegan ahí, se baja.
+    const evDy = G.Events.current && G.Events.current !== 'lost' ? Math.max(0, bossB - 98) : 0;
+    G.Events.drawHud(ctx, w, h, pl, F, evDy);   // sólo baja la cuenta atrás, no las flechas del borde
 
     // Aviso propio al abrirse una grieta (no lo tapan los otros avisos).
     if (rift && rift.t < 4.5) {
@@ -242,20 +425,26 @@ G.HUD = (() => {
     }
 
     // ---------- ranura de movimientos ----------
+    // En PC crece con el HUD (kb); en móvil no, para que case con «Colocar los
+    // botones» (layout-ui.js). Se dibuja en una pantalla de W×H y los botones
+    // táctiles se registran en píxeles de verdad (× kb).
+    const kb = touch ? 1 : k, W = w / kb, H = h / kb;
+    ctx.save();
+    ctx.scale(kb, kb);
     const S = 54, GAP = 9;
     const n = Math.max(1, pl.slots.length);
     const totalW = n * S + (n - 1) * GAP;
-    let sx = (w - totalW) / 2;
+    let sx = (W - totalW) / 2;
     // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
-    let sy = h - S - 18 - (touch ? Math.min(28, G.Touch.safeArea().bottom) : 0);
+    let sy = H - S - 18 - (touch ? Math.min(28, G.Touch.safeArea().bottom) : 0);
     // En móvil, donde la haya puesto el jugador: el bloque objeto + todos los
     // huecos (aunque aún no estén llenos), por su centro, como en el editor
     // (layout-ui.js); los ataques nuevos van saliendo hacia la derecha.
     const pb = touch && G.Touch.spot('bar');
     if (pb) {
       const nAll = Math.max(n, pl.maxMoves), bw = S + 18 + nAll * S + (nAll - 1) * GAP;
-      sx = G.U.clamp(pb[0] * w - bw / 2, 6, Math.max(6, w - bw - 6)) + S + 18;
-      sy = G.U.clamp(pb[1] * h - S / 2, 24, h - S - 6);
+      sx = G.U.clamp(pb[0] * W - bw / 2, 6, Math.max(6, W - bw - 6)) + S + 18;
+      sy = G.U.clamp(pb[1] * H - S / 2, 24, H - S - 6);
     }
     const BOND = '#ff8ad8';
     const cdOf = m => m.kind === 'orbit' ? 0 : G.U.clamp(m.t / (m.cd * pl.cdMul), 0, 1);
@@ -268,8 +457,17 @@ G.HUD = (() => {
       const x = sx + i * (S + GAP);
       const y = on ? sy - 6 : sy;
       // Tocar (o hacer clic en) un icono activa ese movimiento.
-      if (m) G.Touch.addButton(x, y, S, S, () => { if (G.Game.state === 'playing' && pl.active !== i) { pl.setActive(i); G.Audio.sfx('click'); } }, GAP / 2 + 3);
+      if (m) G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing' && pl.active !== i) { pl.setActive(i); G.Audio.sfx('click'); } }, (GAP / 2 + 3) * kb);
       const col = m ? G.U.TYPE_COLOR[m.type] : '#4a5468';
+
+      // Activo: halo de su color alrededor, para ver de un vistazo cuál dispara.
+      if (on && m) {
+        roundRect(ctx, x - 3, y - 3, S + 6, S + 6, 14);
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 4; ctx.strokeStyle = fused ? BOND : col;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
 
       // fondo
       roundRect(ctx, x, y, S, S, 12);
@@ -296,18 +494,31 @@ G.HUD = (() => {
           if (fl > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fl * 0.55).toFixed(2) + ')'; ctx.fillRect(cx, cy, C, C); }
         });
       } else {
-        // recarga: se vacía de abajo a arriba
+        // recarga: barrido de reloj (lo oscuro es lo que falta) y, si falta mucho, los segundos
         const cdFrac = cdOf(m);
         if (cdFrac > 0) {
           ctx.save();
           roundRect(ctx, x, y, S, S, 12); ctx.clip();
           ctx.fillStyle = 'rgba(0,0,0,.6)';
-          ctx.fillRect(x, y, S, S * cdFrac);
+          ctx.beginPath();
+          ctx.moveTo(x + S / 2, y + S / 2);
+          ctx.arc(x + S / 2, y + S / 2, S, -Math.PI / 2 + (1 - cdFrac) * 6.2832, Math.PI * 1.5);
+          ctx.closePath(); ctx.fill();
           ctx.restore();
         }
 
         // emblema del tipo + insignia de la familia
         G.Icons.draw(ctx, 'move:' + m.id, x + (S - 32) / 2, y + (S - 32) / 2 - 2, 32);
+
+        if (cdFrac > 0 && m.t > 1.5) {
+          const secs = String(Math.ceil(m.t));
+          ctx.font = F(800, 15);
+          ctx.textAlign = 'center';
+          ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+          ctx.strokeText(secs, x + S / 2, y + S / 2 + 4);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(secs, x + S / 2, y + S / 2 + 4);
+        }
 
         // nivel del movimiento (puntitos)
         const dots = m.def.maxLvl;
@@ -319,18 +530,33 @@ G.HUD = (() => {
         }
       }
 
-      // tecla
-      ctx.font = F(800, 9);
-      ctx.fillStyle = fused ? BOND : on ? col : 'rgba(180,200,230,.6)';
-      ctx.textAlign = 'left';
-      ctx.fillText(String(i + 1), x + 3, y + 10);
+      // tecla: en PC, la que tenga asignada, en una chapita en la esquina
+      ctx.font = F(800, touch ? 9 : 10);
+      if (touch) {
+        ctx.fillStyle = fused ? BOND : on ? col : 'rgba(180,200,230,.6)';
+        ctx.textAlign = 'left';
+        ctx.fillText(String(i + 1), x + 3, y + 10);
+      } else {
+        const key = String((G.Input.keyLabel && G.Input.keyLabel('m' + (i + 1))) || i + 1);
+        const kw = Math.min(S + 6, Math.max(14, ctx.measureText(key).width + 8));
+        roundRect(ctx, x - 4, y - 4, kw, 15, 4);
+        ctx.fillStyle = 'rgba(6,10,20,.85)'; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = fused ? BOND : on ? col : 'rgba(180,200,230,.5)';
+        ctx.stroke();
+        ctx.fillStyle = fused ? BOND : on ? col : '#dfe8f7';
+        ctx.textAlign = 'center';
+        ctx.fillText(key, x - 4 + kw / 2, y + 7, kw - 6);
+      }
 
       // nombre encima del activo (con un vínculo: "Ascuas +2")
       if (on) {
-        ctx.font = F(700, 10);
+        const nm = fused ? G.T(m.name, 'move') + ' +' + (g.length - 1) : G.T(m.name, 'move');
+        ctx.font = F(700, 11);
         ctx.textAlign = 'center';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)';
+        ctx.strokeText(nm, x + S / 2, y - 8);
         ctx.fillStyle = fused ? BOND : col;
-        ctx.fillText(fused ? G.T(m.name, 'move') + ' +' + (g.length - 1) : G.T(m.name, 'move'), x + S / 2, y - 7);
+        ctx.fillText(nm, x + S / 2, y - 8);
       }
     }
 
@@ -356,13 +582,21 @@ G.HUD = (() => {
       ctx.strokeStyle = pl.item ? '#ffd23f' : 'rgba(140,170,210,.18)';
       ctx.stroke();
       if (pl.item) {
+        const it = G.Items.BY[pl.item];
         G.Icons.draw(ctx, pl.item, ix + (S - 36) / 2, iy + (S - 36) / 2, 36);
         ctx.font = F(700, 9);
         ctx.textAlign = 'center';
         ctx.fillStyle = '#ffd23f';
-        ctx.fillText(G.Items.BY[pl.item].name, ix + S / 2, iy - 6);
+        ctx.fillText(it.name, ix + S / 2, iy - 6);
+        // Qué hace: al pasar el ratón por encima o 3 s al tocarlo (o hacer clic).
+        G.Touch.addButton(ix * kb, iy * kb, S * kb, S * kb, () => { tipUntil = performance.now() + 3000; }, 4);
+        const ms = G.Input.mouse();
+        const hover = !touch && G.Game.state === 'playing' &&
+          ms.x >= ix * kb && ms.x <= (ix + S) * kb && ms.y >= iy * kb && ms.y <= (iy + S) * kb;
+        if (hover || now < tipUntil) itemTip(ctx, it, ix, iy, S, W, hover ? 1 : Math.min(1, (tipUntil - now) / 300));
       }
     }
+    ctx.restore();
 
     // ---------- botón de pausa (táctil) ----------
     if (touch) {
@@ -384,7 +618,7 @@ G.HUD = (() => {
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(180,200,230,.55)';
       ctx.fillText(touch ? 'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo'
-                         : 'WASD moverse  ·  1-4 / Q / E o clic en un ataque para cambiarlo  ·  Esc pausa', w / 2, h - 4);
+                         : G.Input.hint(), w / 2, h - 4);
     }
 
     ctx.restore();
@@ -398,19 +632,22 @@ G.HUD = (() => {
    *   y a cuántos metros están (roja y parpadeando si está caído).
    * - Si has caído tú: aviso y barra de "te están levantando".
    */
-  function drawCoop(ctx, w, h, pl, px, top) {
+  function drawCoop(ctx, w, h, pl, px, top, k = 1) {
     const cam = G.Camera;
     const t = performance.now() / 1000;
-    let y = top;
+    // La lista crece con el HUD, como tu tarjeta.
+    ctx.save();
+    ctx.translate(px, top); ctx.scale(k, k);
+    let y = 0;
     ctx.textAlign = 'left';
     for (const m of G.Coop.mates) {
       if (!m.connected) continue;
       const o = m.pl;
       ctx.font = F(800, 10);
       ctx.fillStyle = m.color;
-      G.I18n.rawCanvas(ctx, 'fillText', m.name, px, y + 9);
-      const lx = px + 78;
-      bar(ctx, lx, y + 1, 110, 8, o.dead ? 0 : o.hp / o.maxHp, o.dead ? '#ff5f6d' : '#5fe08a');
+      G.I18n.rawCanvas(ctx, 'fillText', m.name, 0, y + 9);
+      const lx = 78, f = o.dead ? 0 : G.U.clamp(o.hp / o.maxHp, 0, 1);
+      bar(ctx, lx, y + 1, 110, 8, f, o.dead ? '#ff5f6d' : hpColor(f));
       if (o.dead) {
         ctx.font = F(800, 9);
         ctx.fillStyle = Math.sin(t * 8) > 0 ? '#ff8a96' : '#ffd0d5';
@@ -418,6 +655,7 @@ G.HUD = (() => {
       }
       y += 15;
     }
+    ctx.restore();
 
     // Flechas hacia los compañeros fuera de la vista.
     for (const m of G.Coop.mates) {
@@ -475,7 +713,7 @@ G.HUD = (() => {
       if (w0 || G.Coop.puppets().some(p => !p.dead)) {
         const m = w0 && G.Coop.mates.find(x => x.pl === w0);
         const label = (m ? G.I18n.f('Viendo a {x}', m.name) + ' · ' + G.I18n.t('cambiar') : G.I18n.t('Ver a un compañero'))
-          + (G.Touch.active ? '' : '  (E)');
+          + (G.Touch.active ? '' : '  (' + G.T(G.Input.keyLabel('next')) + ')');
         ctx.font = F(800, 13);
         const bw = ctx.measureText(label).width + 28, bh = 28, bx = w / 2 - bw / 2, by = h * 0.62 + 32;
         roundRect(ctx, bx, by, bw, bh, 8);
@@ -489,5 +727,5 @@ G.HUD = (() => {
     }
   }
 
-  return { draw, roundRect, bar };
+  return { draw, roundRect, bar, hpColor, scale: scaleFor };
 })();

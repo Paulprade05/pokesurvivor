@@ -19,7 +19,11 @@
  *
  * API:  open(roomId, isHost, hostUid) · close() · send(to, msg) · toHost(msg)
  *       broadcast(msg) · on(fn(from, msg)) · onPeer(fn(uid, state))
- *       peers() · mode(uid) -> 'connecting' | 'direct' | 'relay' | 'closed'
+ *       peers() · mode(uid) -> 'connecting' | 'direct' | 'relay' | 'failed' | 'closed'
+ *
+ * Cada intento de conexión del anfitrión lleva un número (a) en la oferta, la
+ * respuesta y los candidatos ICE: lo de un intento viejo no se mezcla con el
+ * nuevo. Las versiones viejas no lo mandan: sin número cuenta como el actual.
  */
 G.Net = (() => {
   const ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -37,7 +41,11 @@ G.Net = (() => {
 
   let rtdb = null, uid = null, roomId = null, isHost = false, hostUid = null;
   let qref = null;
-  const peers = new Map();         // uid -> { pc, dc, mode, timer }
+  const peers = new Map();         // uid -> { pc, dc, mode, timer, a }
+  let want = new Set();            // anfitrión: los que están en la sala (a los demás no se les reintenta)
+  let attempt = 0;                 // anfitrión: número del último intento de conexión
+  // Este navegador no tiene WebRTC (desactivado o bloqueado): no puede jugar en grupo.
+  let noRtc = false;
   // Anfitrión: invitados con los que ya falló la vía directa. Se recuerda toda la
   // sesión (no sólo la sala) para no perder otra vez la espera sin TURN; y si ha
   // fallado con 2 o más, el problema será la red propia: TURN desde el principio.
@@ -137,7 +145,9 @@ G.Net = (() => {
     // oferta). Así, si no llega nunca, se sigue por el relé y se sabe cuándo se va.
     if (!isHost) {
       const p = { pc: null, dc: null, mode: 'connecting', timer: 0 };
-      p.timer = setTimeout(() => { if (p.mode === 'connecting') { p.mode = ALLOW_RELAY ? 'relay' : 'failed'; emitPeer(hostId); } }, DIRECT_TIMEOUT + TURN_TIMEOUT + 3000);
+      // Sin WebRTC no hay nada que esperar (la sala lo explica).
+      if (typeof RTCPeerConnection !== 'function') { noRtc = true; p.mode = ALLOW_RELAY ? 'relay' : 'failed'; }
+      else p.timer = setTimeout(() => { if (p.mode === 'connecting') { p.mode = ALLOW_RELAY ? 'relay' : 'failed'; emitPeer(hostId); } }, DIRECT_TIMEOUT + TURN_TIMEOUT + 3000);
       peers.set(hostId, p);
     }
   }
@@ -146,31 +156,41 @@ G.Net = (() => {
     for (const u of [...peers.keys()]) drop(u);
     if (qref) { qref.off(); qref = null; }
     roomId = null; isHost = false; hostUid = null;
+    want = new Set(); pendingIce.clear(); offerSeen.clear();
   }
 
   const turnFirst = u => needTurn.has(u) || needTurn.size >= 2;
 
-  /** El anfitrión llama a esto cuando cambian los miembros de la sala. */
-  function syncMembers(uids) {
+  /**
+   * El anfitrión llama a esto cuando cambian los miembros de la sala.
+   * @param keep  en plena partida: no se suelta a quien siga conectado directo
+   *              aunque falte en la sala (un corte breve con la base de datos
+   *              borra su plaza, pero la partida no la necesita; #253)
+   */
+  function syncMembers(uids, keep) {
     if (!roomId) return;
+    want = new Set(uids);
+    const stay = u => keep && peers.has(u) && peers.get(u).mode === 'direct';
     if (isHost) {
       for (const u of uids) if (u !== uid && !peers.has(u)) connect(u);
-      for (const u of [...peers.keys()]) if (!uids.includes(u)) drop(u);
-    } else if (!uids.includes(hostUid)) {
+      for (const u of [...peers.keys()]) if (!uids.includes(u) && !stay(u)) drop(u);
+    } else if (!uids.includes(hostUid) && !stay(hostUid)) {
       drop(hostUid);
     }
   }
 
   // ---------------- WebRTC ----------------
 
-  function newPeer(u, turnIce) {
-    const p = { pc: null, dc: null, mode: 'connecting', timer: 0, viaTurn: false, turn: !!(turnIce && turnIce.length) };
+  /** @param a  número del intento (el del anfitrión; undefined si viene de una versión vieja) */
+  function newPeer(u, turnIce, a) {
+    const p = { pc: null, dc: null, mode: 'connecting', timer: 0, viaTurn: false, turn: !!(turnIce && turnIce.length), a };
     peers.set(u, p);
-    // Sin WebRTC (navegador antiguo o bloqueado): directamente por el relé.
+    // Sin WebRTC (navegador antiguo o bloqueado): por el relé si estuviera encendido;
+    // si no, esa pareja no puede jugar ('failed', y no se reintenta: no serviría).
     let pc;
     try { pc = p.pc = new RTCPeerConnection({ iceServers: ICE.concat(turnIce || []) }); }
-    catch (e) { p.mode = 'relay'; emitPeer(u); return p; }
-    pc.onicecandidate = e => { if (e.candidate) signal(u, { c: e.candidate.toJSON() }); };
+    catch (e) { noRtc = true; p.mode = ALLOW_RELAY ? 'relay' : 'failed'; emitPeer(u); return p; }
+    pc.onicecandidate = e => { if (e.candidate) signal(u, tagged({ c: e.candidate.toJSON() }, p.a)); };
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'failed' && p.mode !== 'closed') useRelay(u);
     };
@@ -224,10 +244,17 @@ G.Net = (() => {
     try { if (p.pc) p.pc.close(); } catch (e) { /* nada */ }
     emitPeer(u);
     if (!isHost) return;
+    // Ya no está en la sala (se le mantenía sólo durante la partida): ni reintento ni needTurn.
+    if (!want.has(u)) { drop(u); return; }
     // Primer fallo sin TURN: se reintenta ya, esta vez con él (si la cuenta lo tiene).
     const withTurn = !p.turn && !needTurn.has(u) && !!turnUser();
     if (withTurn) needTurn.add(u);
-    p.timer = setTimeout(() => { if (peers.get(u) === p && p.mode === 'failed' && roomId) { drop(u, true); connect(u); } }, withTurn ? 0 : RETRY_MS);
+    p.timer = setTimeout(() => {
+      if (peers.get(u) !== p || p.mode !== 'failed' || !roomId) return;
+      // Ya no está en la sala (se le mantenía sólo durante la partida): no se le busca más.
+      if (!want.has(u)) { drop(u); return; }
+      drop(u, true); connect(u);
+    }, withTurn ? 0 : RETRY_MS);
   }
 
   /** Anfitrión: abre conexión con un invitado. */
@@ -238,49 +265,83 @@ G.Net = (() => {
       const room = roomId; turnIce = await turnServers();
       if (roomId !== room || peers.has(u)) return;
     }
-    const p = newPeer(u, turnIce);
+    const p = newPeer(u, turnIce, ++attempt);
     if (!p.pc) return;
     wireChannel(u, p, p.pc.createDataChannel('g', { ordered: true }));
     try {
       const offer = await p.pc.createOffer();
       await p.pc.setLocalDescription(offer);
       // t: el invitado también usa el TURN en este intento (las versiones viejas lo ignoran).
-      signal(u, p.turn ? { sdp: p.pc.localDescription.toJSON(), t: 1 } : { sdp: p.pc.localDescription.toJSON() });
+      signal(u, tagged(p.turn ? { sdp: p.pc.localDescription.toJSON(), t: 1 } : { sdp: p.pc.localDescription.toJSON() }, p.a));
     } catch (e) { useRelay(u); }
   }
 
-  const pendingIce = new Map();     // candidatos que llegan antes que la oferta
+  // Candidatos que llegan antes que la descripción remota (oferta en el invitado,
+  // respuesta en el anfitrión) o que son de un intento que aún no ha llegado: { c, a }.
+  const pendingIce = new Map();
+  const offerSeen = new Map();      // invitado: número de la última oferta de cada uno
+  const MAX_PENDING = 64;
+
+  /** Señal con el número de intento (si lo hay). */
+  const tagged = (sig, a) => (a === undefined ? sig : Object.assign(sig, { a }));
+  /** ¿Es de este intento? Sin número (versión vieja) cuenta como el actual. */
+  const current = (p, a) => a === undefined || a === p.a;
+
+  /** Aplica los candidatos que esperaban a la descripción remota de este intento. */
+  async function flushIce(from, p) {
+    const list = pendingIce.get(from);
+    if (!list) return;
+    pendingIce.delete(from);
+    const later = [];
+    for (const s of list) {
+      if (current(p, s.a)) await p.pc.addIceCandidate(s.c).catch(() => {});
+      else if (p.a !== undefined && s.a > p.a) later.push(s);       // de un intento más nuevo
+    }
+    if (later.length) pendingIce.set(from, later.concat(pendingIce.get(from) || []));
+  }
 
   async function onSignal(from, sig) {
     let p = peers.get(from);
+    const a = typeof sig.a === 'number' ? sig.a : undefined;
     try {
       if (sig.sdp && sig.sdp.type === 'offer') {
         if (isHost) return;
+        // Una oferta más vieja que otra ya vista llega tarde: fuera.
+        if (a !== undefined) { if (a < (offerSeen.get(from) || 0)) return; offerSeen.set(from, a); }
         let turnIce = sig.t ? turnNow() : [];
         if (!turnIce) {
           const room = roomId; turnIce = await turnServers();
-          if (roomId !== room) return;
+          if (roomId !== room || (a !== undefined && offerSeen.get(from) !== a)) return;
           p = peers.get(from);
         }
         if (p) drop(from, true);
-        p = newPeer(from, turnIce);
+        p = newPeer(from, turnIce, a);
         if (!p.pc) return;
         p.pc.ondatachannel = e => wireChannel(from, p, e.channel);
         await p.pc.setRemoteDescription(sig.sdp);
         const ans = await p.pc.createAnswer();
         await p.pc.setLocalDescription(ans);
-        signal(from, { sdp: p.pc.localDescription.toJSON() });
-        for (const c of pendingIce.get(from) || []) await p.pc.addIceCandidate(c).catch(() => {});
-        pendingIce.delete(from);
+        signal(from, tagged({ sdp: p.pc.localDescription.toJSON() }, p.a));
+        await flushIce(from, p);
       } else if (sig.sdp && sig.sdp.type === 'answer') {
-        if (p && p.pc) await p.pc.setRemoteDescription(sig.sdp);
+        // La respuesta a un intento viejo no vale para la conexión nueva.
+        if (p && p.pc && current(p, a)) {
+          await p.pc.setRemoteDescription(sig.sdp);
+          // Los candidatos que llegaron mientras tanto (antes se perdían en el anfitrión).
+          await flushIce(from, p);
+        }
       } else if (sig.c) {
-        if (p && p.pc && p.pc.remoteDescription) await p.pc.addIceCandidate(sig.c).catch(() => {});
-        else { if (!pendingIce.has(from)) pendingIce.set(from, []); pendingIce.get(from).push(sig.c); }
+        if (p && p.pc && p.pc.remoteDescription && current(p, a)) await p.pc.addIceCandidate(sig.c).catch(() => {});
+        else if (!(p && p.a !== undefined && a !== undefined && a < p.a)) {      // los de un intento viejo, fuera
+          if (!pendingIce.has(from)) pendingIce.set(from, []);
+          const list = pendingIce.get(from);
+          if (list.length < MAX_PENDING) list.push({ c: sig.c, a });
+        }
       }
     } catch (e) {
       console.warn('[Net] señalización:', e.message);
-      useRelay(from);
+      // Si ya hay otro intento en marcha, el fallo de éste no le afecta.
+      if (!p || peers.get(from) === p) useRelay(from);
     }
   }
 
@@ -346,6 +407,8 @@ G.Net = (() => {
     /** ¿Va por el relé (o no hay conexión)? Entonces se manda menos a menudo. */
     slow(u) { const p = peers.get(u); return !p || p.mode !== 'direct'; },
     peers() { return [...peers.keys()]; },
+    /** ¿Este navegador no puede usar WebRTC? (entonces no se puede jugar en grupo) */
+    get noRtc() { return noRtc; },
     get open_() { return !!roomId; },
     get isHost() { return isHost; },
     get uid() { return uid; },

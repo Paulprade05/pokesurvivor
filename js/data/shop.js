@@ -54,9 +54,20 @@ G.Shop = (() => {
     for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
     return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   }
+  /**
+   * MT que algún Pokémon puede aprender. Las de tipo Normal ya las saben todos
+   * (G.Mons.natural) y se vendían sin servir para nada. Sólo depende de los datos,
+   * así que la tienda del día sigue siendo la misma para todos.
+   */
+  let sellable = null;
+  function tmPool() {
+    if (!sellable) sellable = Object.keys(G.TM_MOVES).filter(id => G.Moves.BY_ID[id] &&
+      G.TM_MOVES[id].some(d => G.DEX_BY[d] && !G.Mons.natural(d, id))).sort();
+    return sellable;
+  }
   /** Las 8 MT a la venta hoy. */
   function dailyTms() {
-    const all = Object.keys(G.TM_MOVES).sort(), r = rng('kecleon:' + today());
+    const all = tmPool().slice(), r = rng('kecleon:' + today());
     for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
     const list = all.slice(0, DAILY);
     const s = save(), dex = s && s.partner;

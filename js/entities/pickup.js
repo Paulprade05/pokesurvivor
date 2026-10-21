@@ -132,10 +132,15 @@ G.Pickups = (() => {
 
       if (p.pulled || d2 < mag2) {
         p.pulled = true;
+        p.pt = (p.pt || 0) + dt;
         const d = Math.sqrt(d2) || 1;
-        const pull = 240 + 1400 / d;
-        p.vx = G.U.damp(p.vx, (dx / d) * pull, 7, dt);
-        p.vy = G.U.damp(p.vy, (dy / d) * pull, 7, dt);
+        // Siempre más rápido que quien lo atrae (#263: a 240 fijos, un Pokémon
+        // veloz los dejaba atrás) y acelerando con el tiempo que lleva atraído.
+        // (_vx, _vy: su velocidad suavizada, ver EnemyMgr.update.)
+        const sp = Math.hypot(pl._vx || 0, pl._vy || 0);
+        const pull = Math.max(240, sp * 1.4) + 1400 / d + Math.min(400, p.pt * 160);
+        p.vx = G.U.damp(p.vx, (dx / d) * pull, 9, dt);
+        p.vy = G.U.damp(p.vy, (dy / d) * pull, 9, dt);
       } else {
         p.vx *= Math.pow(0.02, dt);
         p.vy *= Math.pow(0.02, dt);
@@ -144,7 +149,8 @@ G.Pickups = (() => {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
-      if (d2 < 15 * 15) {
+      // (Rápido, en un fotograma podía pasar de largo: también si este paso ya llega.)
+      if (d2 < 15 * 15 || (p.pulled && d2 < (p.vx * p.vx + p.vy * p.vy) * dt * dt)) {
         list.splice(i, 1);
         onCollect(p, pl);
       }

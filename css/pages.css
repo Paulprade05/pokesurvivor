@@ -55,7 +55,11 @@ footer { max-width: 900px; margin: 0 auto; padding: 10px 16px 40px; color: var(-
 
 /* ---------- piezas de las páginas de contenido ---------- */
 .top nav a.lang { border: 2px solid var(--edge); border-radius: 8px; padding: 2px 10px; font-size: 14px; }
-i.ty { font-style: normal; font-size: 12px; padding: 0 7px; border-radius: 10px; color: #fff; text-shadow: 1px 1px 0 rgba(0,0,0,.6); white-space: nowrap; display: inline-block; }
+i.ty { font-style: normal; font-size: 12px; padding: 0 7px; border-radius: 10px; color: #10131a; white-space: nowrap; display: inline-block; }
+/* Letra oscura sobre los tipos claros (en blanco, Eléctrico o Hielo daban 1,4:1) y
+   blanca sólo sobre Siniestro, Dragón y Fantasma. El color llega en línea (make_seo_pages.py). */
+i.ty[style*="#6b5c52"], i.ty[style*="#6b58ff"], i.ty[style*="#7a6bc4"],
+table.chart th.vt span[style*="#6b5c52"], table.chart th.vt span[style*="#6b58ff"], table.chart th.vt span[style*="#7a6bc4"] { color: #fff; text-shadow: 1px 1px 0 rgba(0,0,0,.6); }
 .dexgrid .tys { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
 .pairs .pair { display: flex; gap: 6px; align-items: flex-end; }
 ul.arenas { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; }
@@ -63,7 +67,7 @@ ul.arenas li { background: rgba(5,10,30,.4); border-radius: 8px; padding: 6px 10
 .tablewrap { overflow-x: auto; margin: 10px 0; }
 table.chart { border-collapse: collapse; font-size: 13px; }
 table.chart th, table.chart td { border: 1px solid rgba(244,248,255,.15); padding: 3px; text-align: center; min-width: 40px; }
-table.chart th.vt span { display: inline-block; padding: 1px 4px; border-radius: 6px; color: #fff; font-size: 11px; text-shadow: 1px 1px 0 rgba(0,0,0,.6); }
+table.chart th.vt span { display: inline-block; padding: 1px 4px; border-radius: 6px; color: #10131a; font-size: 11px; }
 table.chart tbody th { text-align: left; }
 table.chart td.x16 { background: rgba(95,224,138,.35); font-weight: 700; }
 table.chart td.x06 { background: rgba(255,95,109,.25); }

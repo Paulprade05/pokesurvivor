@@ -233,12 +233,23 @@ G.World = (() => {
     return !(p && p.solid);
   }
 
+  /*
+   * Los objetos tienen los pies en y = ty·32+28 y un radio de hasta 14: su
+   * círculo baja hasta PROP_DIP u dentro del tile de debajo. collide e isFree
+   * miran también la fila de arriba cuando el círculo llega a esa franja (si no,
+   * al llegar desde el sur el árbol aparecía de golpe con mucho solape y temblabas).
+   */
+  const PROP_DIP = 10;
+  const propRow = (top, t0y) => (top - t0y * TS < PROP_DIP ? t0y - 1 : t0y);
+
   /** ¿Hay sitio para que algo de radio r esté aquí? */
   function isFree(x, y, r = 12, allowLiquid = false) {
     const t0x = tileOf(x - r), t1x = tileOf(x + r), t0y = tileOf(y - r), t1y = tileOf(y + r);
-    for (let ty = t0y; ty <= t1y; ty++) for (let tx = t0x; tx <= t1x; tx++) {
-      const t = terrainAt(tx, ty);
-      if (t === WALL || (!allowLiquid && t === LIQUID)) return false;
+    for (let ty = propRow(y - r, t0y); ty <= t1y; ty++) for (let tx = t0x; tx <= t1x; tx++) {
+      if (ty >= t0y) {
+        const t = terrainAt(tx, ty);
+        if (t === WALL || (!allowLiquid && t === LIQUID)) return false;
+      }
       const p = propAtTile(tx, ty);
       if (p && G.U.dist2(x, y, p.x, p.y) < (r + p.r) ** 2) return false;
     }
@@ -286,15 +297,17 @@ G.World = (() => {
 
   /**
    * Empuja un círculo fuera de paredes y objetos sólidos (deslizando).
-   * Devuelve true si ha chocado con algo.
+   * Devuelve true si ha chocado con algo. Usa e.wr si lo tiene (el jugador:
+   * su radio contra el terreno, más pequeño que el de los golpes).
    */
   function collide(e) {
-    const r = e.r;
+    const r = e.wr || e.r;
     let hit = false;
     for (let pass = 0; pass < 2; pass++) {
       const t0x = tileOf(e.x - r), t1x = tileOf(e.x + r), t0y = tileOf(e.y - r), t1y = tileOf(e.y + r);
-      for (let ty = t0y; ty <= t1y; ty++) for (let tx = t0x; tx <= t1x; tx++) {
-        if (terrainAt(tx, ty) === WALL) {
+      // (Fila de arriba para los objetos: ver PROP_DIP.)
+      for (let ty = propRow(e.y - r, t0y); ty <= t1y; ty++) for (let tx = t0x; tx <= t1x; tx++) {
+        if (ty >= t0y && terrainAt(tx, ty) === WALL) {
           // Punto más cercano de la caja del tile al centro del círculo.
           const bx0 = tx * TS, by0 = ty * TS, bx1 = bx0 + TS, by1 = by0 + TS;
           const qx = G.U.clamp(e.x, bx0, bx1), qy = G.U.clamp(e.y, by0, by1);
@@ -576,12 +589,16 @@ G.World = (() => {
 
   function biomeName() { return G.Tiles.BIOMES[biome].name; }
 
-  /** Viñeta en coordenadas de pantalla. */
+  /** Viñeta en coordenadas de pantalla (el degradado se guarda: sólo cambia con el tamaño). */
+  let vig = null, vigW = 0, vigH = 0;
   function drawVignette(ctx, w, h) {
-    const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.34, w / 2, h / 2, Math.max(w, h) * 0.78);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,.5)');
-    ctx.fillStyle = g;
+    if (!vig || vigW !== w || vigH !== h) {
+      vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.34, w / 2, h / 2, Math.max(w, h) * 0.78);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,.5)');
+      vigW = w; vigH = h;
+    }
+    ctx.fillStyle = vig;
     ctx.fillRect(0, 0, w, h);
   }
 

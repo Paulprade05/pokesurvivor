@@ -8,7 +8,7 @@
  *   último rodillo se hace esperar y las luces se vuelven locas.
  *   La ×10 son 10 tiradas rápidas; cada premio cae como una bola a la bandeja.
  *
- * Un clic acelera la animación.
+ * Un clic acelera la animación (y se recuerda); Saltar la acaba ya.
  */
 G.Slots = (() => {
   const W = 176, H = 170, CELL = 30;
@@ -21,7 +21,17 @@ G.Slots = (() => {
     led: '#2a0f14', bulbOn: '#ffe9a0', bulbOff: '#6b4a20'
   };
 
-  let cv = null, ctx = null, st = null, raf = 0, last = 0, fast = false;
+  let cv = null, ctx = null, st = null, raf = 0, last = 0, fast = false, skipping = false;
+  // Modo rápido: se recuerda en este aparato entre tiradas (se quita desde la tirada).
+  const FAST_KEY = 'ps.gacha.fast';
+  let keepFast = false;
+  try { keepFast = localStorage.getItem(FAST_KEY) === '1'; } catch (e) { /* sin almacenamiento */ }
+  function setFast(on) {
+    keepFast = fast = !!on;
+    try { localStorage.setItem(FAST_KEY, keepFast ? '1' : '0'); } catch (e) { /* nada */ }
+  }
+  /** Salta lo que quede de la animación (botón Saltar). */
+  function skip() { skipping = true; }
 
   const symOf = r => (r.shiny ? 'shiny' : SYM[r.rarity]);
   const colOf = r => (r.shiny ? '#9ae6ff' : G.Gacha.RARITY_COLOR[r.rarity]);
@@ -29,15 +39,15 @@ G.Slots = (() => {
   function wait(s) {
     return new Promise(res => {
       const end = performance.now() + s * 1000 * (fast ? 0.25 : 1);
-      (function chk() { if (performance.now() >= end || !st) res(); else setTimeout(chk, 16); })();
+      (function chk() { if (performance.now() >= end || !st || skipping) res(); else setTimeout(chk, 16); })();
     });
   }
 
   /** Anima las tiradas. → Promise que se resuelve al terminar. */
   async function play(canvas, results) {
     cv = canvas; ctx = cv.getContext('2d');
-    fast = false;
-    cv.onclick = () => { fast = true; };
+    fast = keepFast; skipping = false;
+    cv.onclick = () => setFast(true);
     st = {
       t: 0, lever: 0, reels: REEL_X.map(() => ({ off: Math.random() * 400, spin: false, sym: 'ball', bounce: 0, speed: 0 })),
       ten: results.length === 10, tray: [], led: results.length === 10 ? 'TIRADA ×10' : '¡SUERTE!', ledCol: C.bulbOn, win: null, frenzy: 0, sparks: []
@@ -47,7 +57,7 @@ G.Slots = (() => {
     raf = requestAnimationFrame(frame);
 
     const ten = results.length === 10;
-    for (let i = 0; i < results.length; i++) {
+    for (let i = 0; i < results.length && !skipping; i++) {
       const r = results[i];
       if (ten) st.led = 'TIRADA ' + (i + 1) + '/10';
       // Palanca.
@@ -58,7 +68,7 @@ G.Slots = (() => {
       st.win = null;
       await wait(ten ? 0.18 : 0.6);
       const big = r.rarity >= 4 || r.shiny;
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < 3 && !skipping; k++) {
         if (k === 2 && big) {
           // Suspense: el último rodillo frena despacio y las luces parpadean.
           st.frenzy = 1;
@@ -71,6 +81,7 @@ G.Slots = (() => {
         await wait(ten ? 0.08 : 0.32);
       }
       st.frenzy = 0;
+      if (skipping) break;                 // Saltar: sin premio ni sonidos de esta tirada
       // Premio.
       st.win = { col: colOf(r), t: 0 };
       st.led = (r.shiny ? 'SHINY · ' : '') + G.Gacha.RARITY_NAME[r.rarity].toUpperCase();
@@ -94,7 +105,7 @@ G.Slots = (() => {
       (function step() {
         const k = Math.min(1, (performance.now() - t0) / d);
         set(a + (b - a) * k);
-        if (k < 1 && st) requestAnimationFrame(step); else res();
+        if (k < 1 && st && !skipping) requestAnimationFrame(step); else res();
       })();
     });
   }
@@ -155,8 +166,9 @@ G.Slots = (() => {
     for (let y = 12; y < 28; y += 7) { bulb(15, y, i++, winCol); bulb(146, y, i++, winCol); }
     ctx.font = '700 12px Pixelify,"Segoe UI",sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = C.dark; ctx.fillText('POKé SLOTS', W / 2 + 1, 23);
-    ctx.fillStyle = C.trim; ctx.fillText('POKé SLOTS', W / 2, 22);
+    // Centrado en el cartel (x 14–148), no en el lienzo, que es más ancho por la palanca.
+    ctx.fillStyle = C.dark; ctx.fillText('POKé SLOTS', 82, 23);
+    ctx.fillStyle = C.trim; ctx.fillText('POKé SLOTS', 81, 22);
 
     // --- ventana de rodillos ---
     R(20, 38, 122, 58, C.dark);
@@ -252,5 +264,5 @@ G.Slots = (() => {
     R(x - 1, REEL_Y, 1, REEL_H, C.dark); R(x + REEL_W, REEL_Y, 1, REEL_H, C.dark);
   }
 
-  return { play, stop: stopAll };
+  return { play, stop: stopAll, skip, setFast, get fast() { return keepFast; } };
 })();

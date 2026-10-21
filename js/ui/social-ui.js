@@ -53,8 +53,27 @@
 
   // ======================= AMIGOS =======================
 
+  /** Copia un texto: con el portapapeles del navegador o, si no deja, a la antigua. */
+  function copyText(text, okMsg) {
+    const done = ok => G.UI.toast(ok ? okMsg : 'No se pudo copiar: cópialo a mano', 2400);
+    const old = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { /* nada */ }
+      ta.remove();
+      done(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), old);
+    else old();
+  }
+
   G.FriendsUI = (() => {
     function init() {
+      // Con hueco para lo que se pega con el apodo (una @, espacios o caracteres
+      // invisibles): Social.request lo limpia antes de buscarlo.
+      $('fr-name').maxLength = 40;
       $('fr-add').onsubmit = async e => {
         e.preventDefault();
         const name = $('fr-name').value;
@@ -77,6 +96,7 @@
       withNick(() => {
         G.UI.show('scr-friends', true); msg(''); render();
         G.Social.ensureFriends().then(() => { if (G.UI.isOpen('scr-friends')) render(); });
+        G.Social.repairNick();              // una vez por sesión: que te puedan encontrar
       });
     }
 
@@ -88,8 +108,11 @@
     }
 
     function render() {
-      const room = G.Social.room;
-      $('fr-me').innerHTML = 'Tu apodo: <b class="gold" translate="no">' + esc(G.Social.me ? G.Social.me.name : '') + '</b> · dáselo a tus amigos para que te añadan.';
+      const room = G.Social.room, nick = G.Social.me ? G.Social.me.name : '';
+      // Tu apodo bien visible y con botón de copiar: es lo que tus amigos tienen que escribir.
+      $('fr-me').innerHTML = 'Tu apodo: <b class="gold" translate="no" style="font-size:18px">' + esc(nick) +
+        '</b> <button type="button" id="fr-copy" class="btn small ghost" style="margin:0 4px">Copiar</button> · dáselo a tus amigos para que te añadan.';
+      $('fr-copy').onclick = () => copyText(nick, 'Apodo copiado');
       $('fr-room').classList.toggle('hidden', !room);
       const list = G.Social.friends.sort((a, b) => {
         const rank = f => f.status === 'in' ? 0 : f.status === 'ok' ? 1 : 2;
@@ -139,48 +162,97 @@
 
   G.LobbyUI = (() => {
     let membersKey = '';
+    // "¡Estoy listo!" (#97): va sólo por la conexión directa, sin escribir nada en la
+    // base de datos. Invitado: lo suyo (se repite al conectar con el anfitrión y se
+    // quita al irse al menú o al empezar). Anfitrión: lo de cada invitado; las
+    // versiones viejas no lo mandan y no cuentan.
+    let ready = false, readyRoom = '';
+    const readyBy = new Map();
+
+    function sendReady() {
+      const room = G.Social.room;
+      if (!room || room.isHost) return;
+      if (room.id !== readyRoom) { readyRoom = room.id; ready = false; }     // en otra sala, otra vez sin listo
+      G.Net.toHost({ k: 'rdy', on: ready ? 1 : 0 });
+    }
+    function setReady(on) {
+      readyRoom = G.Social.room ? G.Social.room.id : '';
+      ready = on; sendReady();
+      if (G.UI.isOpen('scr-lobby')) render();
+    }
 
     function init() {
       $('lobby-leave').onclick = async () => {
+        ready = false;
         await G.Social.leaveRoom();
         G.Net.close();
         G.MenuUI.open();
       };
-      $('lobby-menu').onclick = () => G.MenuUI.open();
+      $('lobby-menu').onclick = () => { if (ready) setReady(false); G.MenuUI.open(); };
       $('lobby-start').onclick = start;
       $('lobby-start').dataset.sfx = 'confirm';
+      // El botón del invitado, junto al de empezar (que sólo ve el anfitrión).
+      const rb = document.createElement('button');
+      rb.id = 'lobby-ready'; rb.type = 'button'; rb.className = 'btn gold grow hidden'; rb.dataset.sfx = 'confirm';
+      rb.onclick = () => setReady(!ready);
+      $('lobby-start').after(rb);
+      G.Net.on((from, msg) => {
+        if (!msg || msg.k !== 'rdy') return;               // (llega cada envío de la partida: lo primero)
+        const room = G.Social.room;
+        if (!room || !room.isHost) return;
+        readyBy.set(from, !!msg.on);
+        if (G.UI.isOpen('scr-lobby')) render();
+      });
       // Conecta / desconecta la red al entrar o salir de una sala.
       G.Social.on(what => {
         const room = G.Social.room;
+        // En plena partida, un corte breve con la base de datos puede borrar la sala o
+        // una plaza aunque la conexión directa siga bien (#253): no se suelta a nadie
+        // ni se cierra la red; se hace al acabar la partida (G.Flow.afterRun / LobbyUI.open).
+        const playing = G.Coop.active;
         if (room) {
           G.Net.open(room.id, room.isHost, room.host);
-          G.Net.syncMembers(room.members.map(m => m.uid));
-        } else if (G.Net.open_) G.Net.close();
-        if (what === 'room-closed') {
+          G.Net.syncMembers(room.members.map(m => m.uid), playing);
+        } else if (G.Net.open_) {
+          // (Sin sala no hay señalización: se sigue con los que están conectados y no
+          // se reintenta a nadie, que sólo gastaría huecos del TURN.)
+          if (playing) G.Net.syncMembers([], true); else G.Net.close();
+        }
+        if (what === 'room-closed' && !playing) {
           G.UI.toast('La sala se ha cerrado', 2600);
           if (G.UI.isOpen('scr-lobby')) G.MenuUI.open();
         }
         if (G.UI.isOpen('scr-lobby')) render();
       });
-      G.Net.onPeer(() => { if (G.UI.isOpen('scr-lobby')) render(); });
+      G.Net.onPeer((u, mode) => {
+        const room = G.Social.room;
+        if (room && !room.isHost && u === room.host && mode === 'direct') sendReady();
+        if (G.UI.isOpen('scr-lobby')) render();
+      });
     }
 
     function open() {
       if (!G.Social.room) { G.MenuUI.open(); return; }
+      // Tras una partida: se suelta a quien ya no está en la sala (en partida se le mantenía).
+      G.Net.syncMembers(G.Social.room.members.map(m => m.uid));
       G.Social.refreshMember();
       G.Social.ensureFriends().then(() => { if (G.UI.isOpen('scr-lobby')) { membersKey = ''; render(); } });
       G.UI.show('scr-lobby', true);
       membersKey = '';
+      sendReady();
       render();
     }
 
-    function close() { G.UI.hide('scr-lobby'); }
+    /** Empieza la partida: nadie sigue "listo" para la siguiente. */
+    function close() { ready = false; readyBy.clear(); G.UI.hide('scr-lobby'); }
 
     function connText(m, room) {
       if (m.uid === room.host) return 'Anfitrión';
       if (!room.isHost) return m.uid === G.Social.uid ? 'Tú' : 'En la sala';
       const mode = G.Net.mode(m.uid);
-      return mode === 'direct' ? (G.Net.viaTurn(m.uid) ? 'Conectado (por servidor)' : 'Conectado') : mode === 'relay' ? 'Conectado (por servidor)' : mode === 'failed' ? 'No se pudo conectar (reintentando…)' : 'Conectando…';
+      // (Sin WebRTC en este navegador no se reintenta: no serviría.)
+      return mode === 'direct' ? (G.Net.viaTurn(m.uid) ? 'Conectado (por servidor)' : 'Conectado') : mode === 'relay' ? 'Conectado (por servidor)'
+        : mode === 'failed' ? (G.Net.noRtc ? 'No se pudo conectar' : 'No se pudo conectar (reintentando…)') : 'Conectando…';
     }
 
     function render() {
@@ -204,7 +276,8 @@
           if (m) {
             c.style.setProperty('--pc', G.Coop.COLORS[i]);
             c.appendChild(G.UI.spriteCanvas(m.dex, 120, 96, { scale: 2, lively: true, shiny: !!m.shiny }));
-            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="conn" data-u="${m.uid}"></span>`);
+            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="conn" data-u="${m.uid}"></span>` +
+              (m.uid !== room.host ? `<span class="conn rdy" data-r="${m.uid}"></span>` : ''));
           } else c.innerHTML = '<span>Libre</span>';
           box.appendChild(c);
         }
@@ -216,6 +289,17 @@
         el.textContent = t;
         el.className = 'conn' + (t === 'Conectando…' ? ' wait' : '');
       });
+      // Listo o no (sólo lo sabe el anfitrión; vacío si su versión no lo dice).
+      if (room.isHost) for (const u of [...readyBy.keys()]) if (!ms.some(m => m.uid === u)) readyBy.delete(u);
+      box.querySelectorAll('.rdy').forEach(el => {
+        const r = room.isHost ? readyBy.get(el.dataset.r) : undefined;
+        el.textContent = r === undefined ? '' : r ? 'Listo' : 'No está listo';
+        el.className = 'conn rdy' + (r === false ? ' wait' : '');
+      });
+      const rb = $('lobby-ready'), on = ready && readyRoom === room.id;
+      rb.classList.toggle('hidden', room.isHost);
+      rb.classList.toggle('gold', !on); rb.classList.toggle('ghost', on);
+      rb.textContent = on ? 'No estoy listo' : '¡Estoy listo!';
 
       // Invitar (sólo el anfitrión y si queda sitio).
       const canInvite = room.isHost && ms.length < G.Social.MAX_PLAYERS;
@@ -244,7 +328,8 @@
       const failed = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'failed');
       btn.disabled = !room.isHost || ms.length < 2 || connecting || failed;
       btn.textContent = 'Empezar partida (' + ms.length + '/' + G.Social.MAX_PLAYERS + ')';
-      $('lobby-note').textContent = !room.isHost ? 'Cuando el anfitrión empiece, entraréis todos a la vez.'
+      $('lobby-note').textContent = G.Net.noRtc ? 'Este navegador no permite jugar en grupo (WebRTC está desactivado o bloqueado). Prueba con otro navegador.'
+        : !room.isHost ? 'Cuando el anfitrión empiece, entraréis todos a la vez.'
         : ms.length < 2 ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
         : connecting ? 'Conectando con tus amigos…' : 'La partida empieza para todos a la vez.';
@@ -253,6 +338,9 @@
     function start() {
       const room = G.Social.room;
       if (!room || !room.isHost || room.members.length < 2) return;
+      // Alguien no ha dicho que está listo: se pregunta (el botón no se bloquea).
+      const notReady = room.members.filter(m => m.uid !== room.host && readyBy.get(m.uid) === false).map(m => m.name);
+      if (notReady.length && !confirm('Sin pulsar «¡Estoy listo!»: ' + notReady.join(', ') + '. ¿Empezar igualmente?')) return;
       const cfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny }))

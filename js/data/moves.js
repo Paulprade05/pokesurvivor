@@ -634,7 +634,9 @@
     if (m.spread == null) m.spread = 0.12;
   }
 
-  const BY_ID = {};
+  // Sin prototipo: un id que llega de la red o de una partida guardada como
+  // 'toString' o 'constructor' no debe parecer un movimiento.
+  const BY_ID = Object.create(null);
   for (const m of RAW) {
     m.cat = m.kind === 'buff' ? null : PHYSICAL.has(m.id) ? 'physical' : 'special';
     m.ups = LADDERS[m.kind];
@@ -655,10 +657,13 @@
 
   /**
    * Instancia de movimiento en una run: los números base de `def` con todas
-   * las mejoras de la escalera hasta `lvl` ya aplicadas.
+   * las mejoras de la escalera hasta `lvl` ya aplicadas. null si no existe.
    */
   function instance(id, lvl = 1) {
-    const def = BY_ID[id];
+    const def = typeof id === 'string' ? BY_ID[id] : null;
+    if (!def) return null;
+    // El nivel puede venir de un compañero (red): entre 1 y el máximo (con más de 5 se colgaba).
+    lvl = typeof lvl === 'number' && lvl > 1 ? Math.min(def.maxLvl, Math.floor(lvl)) : 1;
     const s = Object.assign({}, def, { id, def, lvl, t: 0 });
     delete s.ups;
     for (let i = 0; i < lvl - 1; i++) applyMods(s, def.ups[i].m);

@@ -17,6 +17,9 @@ G.Player = class Player {
     this.anim = new G.Sprites.Animator(mon.dex, this.scale, this.shiny);
     this.x = 0; this.y = 0;
     this.r = G.Sprites.playerRadius(mon.dex);
+    // Radio contra paredes y objetos: menos de medio tile, para que todos quepan
+    // por un hueco de un tile (#265: Celesteela no pasaba). Los golpes siguen con r.
+    this.wr = Math.min(Player.WALL_R, this.r);
     this.bodyH = G.Sprites.bodyHeight(mon.dex, this.scale);
 
     this.atkMul = perks.atkMul || 1;
@@ -62,8 +65,13 @@ G.Player = class Player {
     this.coins = 0;            // monedas recogidas en esta run
     this.t1 = 0; this.t10 = 0; // tickets del gacha recogidos en esta run
     this.dmgDealt = 0;
+    this.dmgTaken = 0;         // vida perdida por golpes (resumen final)
+    this.healed = 0;           // vida recuperada (resumen final)
 
     this.invuln = 0;
+    // Gracia: invulnerable aunque los peligros, la lava o las trampas pongan
+    // invuln a 0 (vuelta de la grieta, levantarse, Banda Focus). Ver hurt().
+    this.graceT = 0;
     this.flash = 0;
     this.aim = Math.PI / 2;
     this.moveAngle = Math.PI / 2;
@@ -75,11 +83,11 @@ G.Player = class Player {
     this.power = null;         // poder de altar activo: { def, t, dur }
     this.slowT = 0;            // pegado por una trampa
     this.item = null;          // objeto equipado (data/items.js), uno por run
-    this.sashT = -999;         // última vez que salvó la Banda Focus
+    this.sashT = -Infinity;    // última vez que salvó la Banda Focus (tiempo de partida)
     this.bellHeal = 0;         // curación pendiente del Cascabel Concha
     this.statsTaken = {};      // mejoras de stat cogidas (condición de evolución)
     this.abil = null;          // efecto de su habilidad (data/ability-fx.js), lo pone game.js
-    this.sturdyAt = -999;      // última vez que le salvó Robustez
+    this.sturdyAt = -Infinity; // última vez que le salvó Robustez (tiempo de partida)
   }
 
   /** Pone la habilidad (G.AbilityFX.of) y aplica lo que hace al empezar. */
@@ -92,6 +100,9 @@ G.Player = class Player {
 
   /** Segundos que hay que estar junto a un compañero caído para levantarlo. */
   static get REVIVE_TIME() { return 3; }
+
+  /** Radio máximo contra el terreno (un tile mide 32). */
+  static get WALL_R() { return 14; }
 
   // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido.)
   static xpFor(level) {
@@ -167,15 +178,26 @@ G.Player = class Player {
 
   setActive(i) {
     if (i < 0 || i >= this.slots.length || i === this.active) return;
-    // Cinta Elección: no se puede cambiar de movimiento.
-    if (this.hasItem('choiceband') && this.slots[this.active]) {
+    // Cinta Elección: no se puede cambiar de movimiento. Salvo si el que llevas no
+    // hace daño (#92: con Agilidad activa al cogerla te quedabas sin atacar).
+    const cur = this.activeGroup();
+    if (this.hasItem('choiceband') && cur.some(m => m.kind !== 'buff')) {
       G.FX.dmgText(this.x, this.y - this.bodyH - 8, 'Cinta Elección', '#ff8ad8');
       return;
     }
+    // Recargas (#174): corren en todos los huecos (combat.js) y cambiar no las acorta.
+    // Además el hueco nuevo no dispara antes de cuando lo habría hecho el que dejas
+    // (como mucho espera su propia recarga): así cambiar rápido no da más disparos,
+    // y uno que lleva rato sin usarse sale en cuanto le toca.
+    // La espera entera sigue contando aunque pases por otro hueco (una órbita o uno de
+    // recarga corta, swapLock baja en combat.js): si no, pasando por él salían todos.
+    let own = Infinity;
+    for (const m of cur) if (m.kind !== 'orbit') own = Math.min(own, Math.max(0, m.t));
+    const lock = this.swapLock = Math.max(own === Infinity ? 0 : own, this.swapLock || 0);
     this.active = i;
     G.Projectiles.clearOrbs(this);
     G.Audio.sfx('select');
-    for (const m of this.slots[i]) m.t = Math.min(m.t, m.cd * 0.35);
+    for (const m of this.slots[i]) if (m.kind !== 'orbit') m.t = Math.max(m.t, Math.min(lock, G.Combat.cooldown(this, m)));
     const m = this.slots[i][0];
     G.FX.ring(this.x, this.y - G.LIFT * 0.5, 6, this.r * 3.4, G.U.TYPE_COLOR[m.type], 0.3, 3);
   }
@@ -257,7 +279,8 @@ G.Player = class Player {
    */
   /** @param cat  'physical' | 'special': con qué defensa tuya se para (la del enemigo que pega). */
   hurt(amount, type = null, pure = false, cat = null) {
-    if (this.invuln > 0 || this.dead) return;
+    // La gracia sólo la atraviesa el daño puro de Arceus (la Sentencia no se salta).
+    if (this.invuln > 0 || this.dead || (this.graceT > 0 && !pure)) return;
     // Habilidad (data/ability-fx.js): absorber un tipo, esquivar o recibir menos.
     const ab = this.abil, cls = cat === 'physical' ? 'p' : cat === 'special' ? 's' : '';
     if (ab && !pure) {
@@ -284,6 +307,7 @@ G.Player = class Player {
     // estar encima de los enemigos para pegar (iban muy por detrás).
     const close = this.activeGroup().some(m => m.kind === 'melee') ? 0.75 : 1;
     const d = pure ? Math.max(1, amount) : Math.max(1, amount * (1 - this.reduction) * close);
+    this.dmgTaken += Math.min(d, Math.max(0, this.hp));
     this.hp -= d;
     this.invuln = 0.45;
     this.flash = 0.14;
@@ -292,17 +316,20 @@ G.Player = class Player {
     if (!this.remote) G.Pad.rumble(0.25 + Math.min(0.75, d / this.maxHp * 3), 140);
     G.FX.dmgText(this.x, this.y - this.bodyH - 4, '-' + Math.round(d), eff === 'super' ? '#ff3048' : eff === 'weak' ? '#c9a0a8' : '#ff6b7a', eff === 'super');
     G.FX.burst(this.x, this.y - this.bodyH * 0.5, '#ff5f6d', 6, 90);
-    // Banda Focus: aguanta el golpe con 1 de vida (una vez cada 60 s).
-    if (this.hp <= 0 && this.hasItem('focussash') && performance.now() - this.sashT > 60000) {
-      this.sashT = performance.now();
-      this.hp = 1; this.invuln = 1.2;
+    // Banda Focus: aguanta el golpe con 1 de vida (una vez cada 60 s de partida;
+    // con performance.now() contaba la pausa y no iba hasta 60 s después de cargar la página).
+    // Los 1,2 s son de gracia: una lluvia de 4-6 zonas de un jefe ya no te remata.
+    const now = G.Game.st.time;
+    if (this.hp <= 0 && this.hasItem('focussash') && now - this.sashT > 60) {
+      this.sashT = now;
+      this.hp = 1; this.invuln = 1.2; this.graceT = Math.max(this.graceT, 1.2);
       G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Banda Focus!', '#ff9a3d', true);
       G.FX.ring(this.x, this.y, 6, 70, '#ff9a3d', 0.5, 4);
     }
     // Robustez (habilidad): lo mismo, una vez cada 90 s.
-    if (this.hp <= 0 && ab && ab.sturdy && performance.now() - this.sturdyAt > 90000) {
-      this.sturdyAt = performance.now();
-      this.hp = 1; this.invuln = 1.2;
+    if (this.hp <= 0 && ab && ab.sturdy && now - this.sturdyAt > 90) {
+      this.sturdyAt = now;
+      this.hp = 1; this.invuln = 1.2; this.graceT = Math.max(this.graceT, 1.2);
       G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Robustez!', '#c9b48a', true);
       G.FX.ring(this.x, this.y, 6, 70, '#c9b48a', 0.5, 4);
     }
@@ -319,6 +346,7 @@ G.Player = class Player {
     if (this.abil && this.abil.healMul) amount *= this.abil.healMul;     // Gula, Recogida
     const before = this.hp;
     this.hp = Math.min(this.maxHp, this.hp + amount);
+    this.healed += Math.max(0, this.hp - before);
     const got = Math.round(this.hp - before);
     if (got >= 1) G.FX.dmgText(this.x, this.y - this.bodyH - 6, '+' + got, '#5fe08a');
   }
@@ -362,12 +390,29 @@ G.Player = class Player {
     this.power = { def, t: dur, dur };
   }
 
-  addBuff(stat, amount, dur, maxStacks) {
+  /**
+   * Potenciador acumulable. Cada origen (`src`: el id del movimiento, o 'abil' la
+   * habilidad) lleva sus pilas, su duración y su potencia: antes compartían hueco y
+   * un golpe con Firmeza o Impasible dejaba 7 pilas de Agilidad en 1 o 2. En b
+   * queda la suma (n × amount = el total) para los stats y el HUD.
+   */
+  addBuff(stat, amount, dur, maxStacks, src = 'abil') {
     const b = this.buffs[stat];
     if (!b) return;
-    b.amount = amount;
-    b.n = Math.min(maxStacks, b.n + 1);
-    b.t = dur;
+    const l = b.src || (b.src = []);
+    let s = l.find(o => o.id === src);
+    if (!s) l.push(s = { id: src, n: 0, t: 0, amount: 0 });
+    s.amount = amount;
+    s.n = Math.min(maxStacks, s.n + 1);
+    s.t = dur;
+    Player.sumBuff(b);
+  }
+
+  /** Junta los orígenes de un potenciador en b.n, b.amount y b.t. */
+  static sumBuff(b) {
+    let n = 0, tot = 0, t = 0;
+    for (const s of b.src) if (s.n > 0) { n += s.n; tot += s.n * s.amount; t = Math.max(t, s.t); }
+    b.n = n; b.amount = n ? tot / n : 0; b.t = t;
   }
 
   // ---------------- ciclo ----------------
@@ -375,18 +420,28 @@ G.Player = class Player {
     this.anim.update(dt);
     if (this.dead) return;
     if (this.invuln > 0) this.invuln -= dt;
+    // Mientras dura la gracia, invuln la acompaña (así parpadea aunque algo la ponga a 0).
+    if (this.graceT > 0) { this.graceT -= dt; if (this.invuln < this.graceT) this.invuln = this.graceT; }
     if (this.flash > 0) this.flash -= dt;
     if (this.attackFace > 0) this.attackFace -= dt;
 
     for (const k in this.buffs) {
       const b = this.buffs[k];
-      if (b.n > 0) { b.t -= dt; if (b.t <= 0) b.n = 0; }
+      if (!(b.n > 0)) continue;
+      // Cada origen caduca por su cuenta (ver addBuff).
+      let gone = false;
+      for (const s of b.src) if (s.n > 0 && (s.t -= dt) <= 0) { s.n = 0; gone = true; }
+      if (gone) Player.sumBuff(b); else b.t -= dt;
     }
     if (this.slowT > 0) this.slowT -= dt;
+    const hp0 = this.hp;       // Cascabel Concha y regeneración: cuentan en la curación
     if (this.bellHeal > 0) { const h = Math.min(this.bellHeal, 4 * dt); this.hp = Math.min(this.maxHp, this.hp + h); this.bellHeal -= h; }
     if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
+    if (this.hp > hp0) this.healed += this.hp - hp0;
+    const hp1 = this.hp;       // y lo que cura la habilidad (Cura Lluvia, Gélido, Mudar...)
     if (this.abil && this.abil.tick) this.abil.tick(this, dt);
+    if (this.hp > hp1) this.healed += this.hp - hp1;
     // Sequía, Llovizna...: su clima al empezar y cada 3 min, si no hay otro (en
     // grupo lo pone el anfitrión, que es quien manda el clima a todos).
     if (this.abil && this.abil.summon && (!G.Coop.active || G.Coop.isHost) && (this.sumT = (this.sumT || 0) - dt) <= 0) {
@@ -403,9 +458,15 @@ G.Player = class Player {
     const slide = this.inLiquid && G.World.liquidEffect(this.mon.types).slide;
     this.svx = slide ? G.U.damp(this.svx || 0, ax * s * 1.15, 1.6, dt) : ax * s;
     this.svy = slide ? G.U.damp(this.svy || 0, ay * s * 1.15, 1.6, dt) : ay * s;
-    this.x += this.svx * dt;
-    this.y += this.svy * dt;
-    G.World.collide(this);
+    // En pasos de como mucho medio radio, chocando en cada uno: muy rápido, el
+    // paso entero de un fotograma cruzaba las paredes (#202).
+    const mx = this.svx * dt, my = this.svy * dt;
+    const n = Math.min(32, Math.ceil(Math.hypot(mx, my) / (this.wr * 0.5))) || 1;
+    for (let k = 0; k < n; k++) {
+      this.x += mx / n;
+      this.y += my / n;
+      G.World.collide(this);
+    }
     if (this.walking) this.moveAngle = Math.atan2(ay, ax);
 
     // --- terreno líquido ---
@@ -431,12 +492,17 @@ G.Player = class Player {
     //   cuerpo a cuerpo y el resto:   lo que te toca > el jefe > el más cercano
     // Con una horda encima casi siempre te toca algo; si eso ganara siempre,
     // los ataques a distancia no le darían nunca al jefe.
+    // El jefe sólo cuenta si algún ataque del hueco le llega (#186, #208: con uno
+    // cuerpo a cuerpo y el jefe a 200 px te quedabas quieto sin pegar a los de al
+    // lado). Los de un vínculo que no le lleguen pegan al más cercano (combat.js).
     // Sin enemigos, apunta a la roca o cofre más cercano.
     const all = G.EnemyMgr.all();
     const m = this.activeMove();
     const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam');
     const threat = G.Projectiles.nearest(all, this.x, this.y, this.r + 24);
-    const boss = all.find(e => e.boss && !e.dead && G.U.dist(this.x, this.y, e.x, e.y) < 330);
+    let bossR = m ? 0 : 330;
+    for (const a of this.activeGroup()) bossR = Math.max(bossR, Math.min(330, G.Combat.reach(a)));
+    const boss = all.find(e => e.boss && !e.dead && G.U.dist(this.x, this.y, e.x, e.y) <= bossR);
     const tg = (ranged ? boss || threat : threat || boss)
             || G.Projectiles.nearest(all, this.x, this.y, 520)
             || G.World.nearestBreakable(this.x, this.y, 200);
@@ -495,6 +561,7 @@ G.Player = class Player {
     this.dead = false;
     this.hp = Math.max(1, this.maxHp * frac);
     this.invuln = 2;
+    this.graceT = Math.max(this.graceT || 0, 2);   // ni la lava ni los ataques avisados la quitan
     this.reviveT = 0;
     this.anim._start('Idle', false);
     G.FX.ring(this.x, this.y, 6, 70, '#5fe08a', 0.5, 4);
@@ -524,8 +591,12 @@ G.Player = class Player {
     if (n.dead && !this.dead) { this.dead = true; this.anim.play('Faint', { hold: true }); G.Projectiles.clearOrbs(this); }
     else if (!n.dead && this.dead) this.revive(n.hp / (n.maxHp || 1));
     // Movimiento activo (para el halo, el HUD y los orbes).
-    if (n.mv && (!this.moves[0] || this.moves[0].id !== n.mv || this.moves[0].lvl !== n.ml) && G.Moves.BY_ID[n.mv]) {
-      this.moves = [G.Moves.instance(n.mv, n.ml || 1)];
+    // El nivel que llega se ajusta igual que en Moves.instance (1..máximo, entero): si no,
+    // un nivel raro no coincidiría nunca y el movimiento se rehacía en cada fotograma.
+    const mdef = n.mv ? G.Moves.BY_ID[n.mv] : null;
+    const ml = mdef && typeof n.ml === 'number' && n.ml > 1 ? Math.min(mdef.maxLvl, Math.floor(n.ml)) : 1;
+    if (mdef && (!this.moves[0] || this.moves[0].id !== n.mv || this.moves[0].lvl !== ml)) {
+      this.moves = [G.Moves.instance(n.mv, ml)];
       this.slots = [this.moves.slice()];
       this.active = 0;
       G.Projectiles.clearOrbs(this);
@@ -578,6 +649,16 @@ G.Player = class Player {
       ctx.stroke();
       ctx.restore();
       i++;
+    }
+
+    // Vida bajo los pies (Ajustes: «Vida bajo tu Pokémon»); también la de los compañeros.
+    if (!this.dead && G.Settings.get('hpUnder') !== false) {
+      const f = G.U.clamp(this.hp / this.maxHp, 0, 1), bw = 26;
+      const x = Math.round(this.x - bw / 2), y = Math.round(this.y + 8);
+      ctx.fillStyle = 'rgba(0,0,0,.65)';
+      ctx.fillRect(x - 1, y - 1, bw + 2, 5);
+      ctx.fillStyle = f > 0.5 ? '#5fe08a' : f > 0.25 ? '#ffd23f' : '#ff5f6d';
+      ctx.fillRect(x, y, Math.ceil(bw * f), 3);
     }
 
     // Cooperativo: anillo de "reviviendo" y nombre encima.

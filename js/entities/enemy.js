@@ -30,6 +30,9 @@
    * escudos (uno cada 6 s) ~1/5: tarda más, pero siempre cae.
    */
   const RD_TAU = 6, BOSS_HEAL_S = 0.4, BOSS_SHIELD_S = 1.2;
+  // s entre dos curas al mismo enemigo, de cualquier curandero (un poco menos que
+  // la recarga de un curandero, 3,5 s: uno solo sigue curando como antes).
+  const HEAL_LOCK = 3.4;
   const bossDps = e => e.rd / RD_TAU;
 
   /*
@@ -469,8 +472,11 @@
       }
       let vx = dx * spd * k * 1.1, vy = dy * spd * k * 1.1;
       const [ddx, ddy] = G.U.norm(pl.x - this.x, pl.y - this.y);
+      if (this.landT > 0) this.landT -= dt;
       if (ai.mode === 'far') {
-        if (dist < 170) { vx = -ddx * spd; vy = -ddy * spd; }
+        // Retrocede más despacio, y nada justo después de caer de un salto (#255:
+        // huía a toda velocidad, se escondía entre la horda y no había quien lo alcanzara).
+        if (dist < 170 && !(this.landT > 0)) { vx = -ddx * spd * 0.6; vy = -ddy * spd * 0.6; }
         else if (dist < 300) { vx = -ddy * spd * 0.55 * ai.side; vy = ddx * spd * 0.55 * ai.side; }   // te rodea
       }
       if (ai.cd <= 0) {
@@ -632,9 +638,14 @@
       // mucho ×2,5. (Como los enemigos que tienen más vida si haces más daño.)
       const pow = Math.max(1, ...G.Game.everyone().map(p => (p.atk > 0 && p.baseAtk > 0 ? p.atk / p.baseAtk : 1)));
       const k = 0.07 * Math.min(2.5, Math.pow(pow, 0.35));
+      const now = G.Game.st.time;
       let n = 0;
       for (const e of G.EnemyMgr.queryCircle(this.x, this.y, 150)) {
-        if (e.dead || e.hp >= e.maxHp) continue;
+        // No se cura a sí mismo, y cada enemigo recibe como mucho una cura cada
+        // HEAL_LOCK s aunque haya varios curanderos (21-10-2026, #140: 3 juntos
+        // se sumaban y se curaban entre ellos sin parar).
+        if (e === this || e.dead || e.hp >= e.maxHp || e.healLock > now) continue;
+        e.healLock = now + HEAL_LOCK;
         // A un jefe, como mucho lo que le quitas en 0,4 s: así nunca se vuelve inmatable.
         const heal = e.maxHp * k;
         e.hp = Math.min(e.maxHp, e.hp + (e.boss ? Math.min(heal, bossDps(e) * BOSS_HEAL_S) : heal));
@@ -706,6 +717,7 @@
       this.anim.dir = G.Sprites.dirFromAngle(Math.atan2(j.ty - j.sy, j.tx - j.sx));
       if (k >= 1) {
         this.jump = null; this.jumpLift = 0;
+        this.landT = 2;          // jefes: no huyen nada más caer (ver bossMove)
         if (!this.flying) G.World.collide(this);
         this.anim.play('Attack', { speed: 1.4 });
       }
@@ -851,7 +863,7 @@
       const e = byId.get(id);
       if (!e) return;
       byId.delete(id);
-      if (died) { e.die(); G.Progress.kill(e); }
+      if (died) { e.die(); G.Progress.kill(e); killHook(G.Game.player, G.Game.everyone(), e); }
       const i = list.indexOf(e);
       if (i >= 0) list.splice(i, 1);
       if (died) corpses.push(e);
@@ -919,6 +931,18 @@
       }
     }
 
+    /**
+     * Autoestima y parecidas (gancho kill de data/ability-fx.js), para el Pokémon
+     * de este ordenador. En grupo no se sabe quién dio el último golpe (el de un
+     * invitado llega por la red), así que cuenta para el más cercano a quien cae:
+     * antes el anfitrión se llevaba las de todos y los invitados, ninguna.
+     */
+    function killHook(me, players, e) {
+      if (!me || !me.abil || !me.abil.kill) return;
+      if (players.length > 1 && nearestPlayer(players, e.x, e.y) !== me) return;
+      me.abil.kill(me, e);
+    }
+
     /** El jugador vivo más cercano (los caídos no atraen a nadie). */
     function nearestPlayer(players, x, y) {
       let best = null, bd = Infinity;
@@ -937,6 +961,7 @@
     // Segundos que un rezagado tiene que llevar fuera de la vista antes de volver por delante.
     const LAG_T = 2.5;
     const BOSS_FAR = 2500;    // jefe más lejos que esto de todos: se ha perdido (ver update)
+    const BOSS_LOST = 15;     // s fuera de la vista de todos antes de volver a salir delante
 
     function update(dt, players) {
       if (!Array.isArray(players)) players = [players];
@@ -960,8 +985,8 @@
         const e = list[i];
         if (e.remote) continue;
         if (e.dead) {
-          pl.kills++;
-          if (pl.abil && pl.abil.kill) pl.abil.kill(pl, e);     // Autoestima y parecidas
+          pl.kills++;                                          // (del equipo: el anfitrión lo manda a todos)
+          killHook(pl, players, e);
           if (e.boss && !e.judge) pl.bosses++;
           G.Progress.kill(e);
           corpses.push(e);
@@ -983,8 +1008,15 @@
         // grieta, o se quedó atrás): a los 4 s vuelve a salir cerca, fuera de la vista.
         // Si no, no se le encontraba y, con un jefe vivo, no salen grietas.
         if (e.boss && !e.judge && !G.Rift.inArena) {
-          e.lagT = G.U.dist2(e.x, e.y, near.x, near.y) > BOSS_FAR * BOSS_FAR ? e.lagT + dt : 0;
+          const bd2 = G.U.dist2(e.x, e.y, near.x, near.y);
+          e.lagT = bd2 > BOSS_FAR * BOSS_FAR ? e.lagT + dt : 0;
           if (e.lagT > 4) { e.lagT = 0; G.Spawner.ahead(e, near); }
+          // Perdido más cerca (tras agua o paredes, o le dejas atrás corriendo):
+          // si lleva BOSS_LOST s fuera de la vista de todos, sale delante del más
+          // cercano (#86: con el jefe vivo no salen grietas).
+          const R = G.Camera.outerRadius() + 200;
+          e.lostT = !near.dead && bd2 > R * R ? (e.lostT || 0) + dt : 0;
+          if (e.lostT > BOSS_LOST && G.Spawner.ahead(e, near)) e.lostT = 0;
         }
         if (e.boss || e.shiny || G.Rift.inArena) continue;
         // Rezagados: los que se quedan atrás mientras corres y llevan un rato
@@ -1019,8 +1051,15 @@
 
     function bossAlive() { return list.some(e => e.boss && !e.dead); }
     function shinies() { return list.filter(e => e.shiny && !e.dead); }
+    /** Jefes vivos (también las copias del invitado). Reutiliza la lista: no guardarla. */
+    const bossList = [];
+    function bosses() {
+      bossList.length = 0;
+      for (const e of list) if (e.boss && !e.dead) bossList.push(e);
+      return bossList;
+    }
 
-    return { clear, all, add, get, addRemote, removeRemote, stash, restore, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, nearestPlayer,
+    return { clear, all, add, get, addRemote, removeRemote, stash, restore, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, bosses, nearestPlayer,
              get count() { return list.length; } };
   })();
 })();

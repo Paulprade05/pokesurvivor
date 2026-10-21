@@ -47,6 +47,12 @@ G.Coop = (() => {
   // y la última que has elegido (invitado). Y el último "quién elige" aplicado.
   let levelSeq = 0, levelNow = 1, seenSeq = 0, doneSeq = 0, lastHo = '';
   const STALL_MS = 2500;
+  // Anfitrión: a quien no manda nada no se le espera para siempre en las cartas,
+  // objetos o vínculos. Si no ha mandado nada desde que empezó (se quedó en otra
+  // pantalla y no entró), START_MS; si dejó de mandar (móvil bloqueado, una
+  // llamada...), IDLE_MS. Si vuelve, cuenta otra vez.
+  const START_MS = 10000, IDLE_MS = 45000;
+  let beganAt = 0;
   let members = [];
 
   // ---------------- escalado de dificultad ----------------
@@ -70,7 +76,7 @@ G.Coop = (() => {
     members = cfg.members;
     mates.clear();
     outEv = []; flushT = 0; waiting = new Set(); holds = new Set();
-    hostAway = false; stalled = false; lastHostAt = performance.now();
+    hostAway = false; stalled = false; lastHostAt = beganAt = performance.now();
     levelSeq = 0; levelNow = 1; seenSeq = 0; doneSeq = 0; lastHo = '';
     cfg.members.forEach((m, i) => {
       const x = (i - (cfg.members.length - 1) / 2) * 34, y = 0;
@@ -81,7 +87,9 @@ G.Coop = (() => {
       p.x = x; p.y = y;
       p.net = { x, y, ang: Math.PI / 2, walk: 0, hp: p.maxHp, maxHp: p.maxHp, dead: 0, mv: G.baseStartOf(mon.dex), ml: 1, mag: 78, aim: Math.PI / 2, rev: 0 };
       G.Sprites.preload([mon.dex], 8000, p.shiny);
-      mates.set(m.uid, { uid: m.uid, name: m.name, color: COLORS[i], pl: p, connected: true, q: [], flushT: 0, xpMul: 1 });
+      // seen: ya ha mandado algo · lastAt: cuándo · away: no responde y no se le espera
+      mates.set(m.uid, { uid: m.uid, name: m.name, color: COLORS[i], pl: p, connected: true, q: [], flushT: 0, xpMul: 1,
+                         seen: false, lastAt: 0, away: false });
     });
   }
 
@@ -220,6 +228,7 @@ G.Coop = (() => {
   function tick(dt) {
     if (!active) return;
     if (host) {
+      if (waiting.size || holds.size) checkAbsent();
       for (const m of mates.values()) {
         if (!m.connected) continue;
         m.flushT -= dt;
@@ -242,7 +251,7 @@ G.Coop = (() => {
 
   G.Net.on((from, msg) => {
     if (!msg) return;
-    if (msg.k === 'start') { if (G.Flow.startCoop) G.Flow.startCoop(msg); return; }
+    if (msg.k === 'start') { if (G.Flow.startCoop) G.Flow.startCoop(msg, from); return; }
     if (!active || msg.k !== 'f') return;
     if (host) onClientFrame(from, msg); else if (from === hostUid) onHostFrame(msg);
   });
@@ -264,12 +273,38 @@ G.Coop = (() => {
     if (api.mateLeft) api.mateLeft(m);
   }
 
+  /**
+   * Anfitrión, mientras se elige algo: deja de esperar a quien no manda nada
+   * (ver START_MS). Antes, un invitado que no entró en la partida (seguía en el
+   * resumen de la anterior) o con el móvil bloqueado dejaba a todos parados.
+   */
+  function checkAbsent() {
+    const now = performance.now();
+    for (const m of mates.values()) {
+      if (!m.connected || m.away || !(waiting.has(m.uid) || holds.has(m.uid))) continue;
+      if (m.seen ? now - m.lastAt < IDLE_MS : now - beganAt < START_MS) continue;
+      m.away = true;
+      if (waiting.has(m.uid)) picked(m.uid);
+      if (holds.has(m.uid)) holdOff(m.uid);
+      // (Después: holdOff rehace el aviso de quién elige y borraría éste.)
+      G.Spawner.say(m.name + ' no responde: seguimos sin esperar', 3);
+    }
+  }
+
   // --- en el anfitrión ---
 
   function onClientFrame(from, msg) {
     const m = mates.get(from);
     if (!m || !m.connected) return;
-    if (msg.p) { m.state = msg.p; m.pl.net = readState(msg.p); m.xpMul = m.pl.net.xpMul || 1; reconcile(from, m.pl.net); }
+    const back = m.away;
+    m.seen = true; m.away = false; m.lastAt = performance.now();
+    if (msg.p) {
+      m.state = msg.p; m.pl.net = readState(msg.p); m.xpMul = m.pl.net.xpMul || 1;
+      // Vuelve uno al que se dejó de esperar: si aún no ha elegido la carta de esta
+      // ronda, se le espera otra vez (sólo versiones que dicen qué ronda eligieron).
+      if (back && waiting.size && m.pl.net.ch !== undefined && m.pl.net.ld < levelSeq && !waiting.has(from)) { waiting.add(from); sendWaiting(); }
+      reconcile(from, m.pl.net);
+    }
     for (const ev of msg.ev || []) {
       switch (ev[0]) {
         case 'h': {
@@ -455,7 +490,8 @@ G.Coop = (() => {
 
   function levelStart(level) {
     waiting = new Set([me]);
-    for (const m of mates.values()) if (m.connected) waiting.add(m.uid);
+    // (A quien no responde no se le espera: si vuelve, se le añade al llegar su envío.)
+    for (const m of mates.values()) if (m.connected && !m.away) waiting.add(m.uid);
     levelSeq++; levelNow = level;
     emit(['lu', level, levelSeq]);
     flushAll();

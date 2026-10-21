@@ -25,6 +25,8 @@ G.Audio = (() => {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
     ctx = new AC();
+    // Si arranca (o vuelve) estando la pestaña escondida, se para también.
+    ctx.onstatechange = () => { if (document.hidden) hide(); };
     master = ctx.createDynamicsCompressor();
     master.threshold.value = -14; master.ratio.value = 4;
     const out = outNode = ctx.createGain(); out.gain.value = 0.9;
@@ -66,6 +68,25 @@ G.Audio = (() => {
   // En móvil, tocar la pantalla (pointerdown) no cuenta como gesto para el
   // sonido: sí levantar el dedo (pointerup / touchend). Se escuchan todos.
   for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventListener(ev, unlock, { capture: true });
+
+  // Al salir a otra pestaña o app se para todo el sonido (en el móvil la música
+  // seguía con la pantalla apagada) y al volver sigue, sólo si sonaba antes.
+  // Si el navegador no deja reanudarlo solo (iPhone), lo hace unlock() al tocar.
+  let stoppedHidden = false;
+  function hide() {
+    if (!ctx || ctx.state !== 'running') return;
+    stoppedHidden = true;
+    ctx.suspend().catch(() => {});
+  }
+  function show() {
+    if (!ctx || !stoppedHidden) return;
+    stoppedHidden = false;
+    // Siempre: si se vuelve muy rápido, el suspend() aún no ha cambiado el estado.
+    ctx.resume().catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) hide(); else show(); });
+  addEventListener('pagehide', hide);
+  addEventListener('pageshow', () => { if (!document.hidden) show(); });
 
   function applyVolumes() {
     if (!ctx) return;
@@ -333,6 +354,10 @@ G.Audio = (() => {
   setInterval(() => {
     if (!ctx || !current || ctx.state !== 'running') return;
     const c = current, sd = 60 / c.song.bpm / 4;
+    // Si el temporizador llega tarde (un tirón, la pestaña escondida), los pasos
+    // atrasados se saltan: antes sonaban todos a la vez.
+    const late = ctx.currentTime - 0.05 - c.next;
+    if (late > 0) { const k = Math.ceil(late / sd); c.next += k * sd; c.step += k; }
     while (c.next < ctx.currentTime + 0.15) {
       const i = c.step % c.song.steps;
       // Swing: retrasa las corcheas a contratiempo.

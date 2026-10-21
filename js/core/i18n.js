@@ -218,7 +218,12 @@ G.I18n = (() => {
 
   function set(l) {
     if (!supported.includes(l)) return;
+    // Cambiar de idioma recarga la página: en plena partida (Ajustes desde la
+    // pausa) se perdía la run entera. Se cambia al acabarla.
+    const game = G.Game, s = game && game.state;
+    if (s && s !== 'ui' && s !== 'over') { if (G.UI) G.UI.toast('Cambia el idioma al acabar la partida', 3000); return; }
     try { localStorage.setItem(KEY, l); } catch (e) { /* nada */ }
+    if (game && game.allowLeave) game.allowLeave();
     location.reload();
   }
 

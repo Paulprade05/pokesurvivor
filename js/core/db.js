@@ -292,10 +292,10 @@ G.DB = (() => {
     for (const k in b) addTo(led, dev, k, b[k] - Math.max(0, ledSum(led, k)));
     return led;
   }
-  /** Apunta en la libreta de ESTE aparato lo que ha cambiado desde la última vez. */
-  function fold(s) {
+  /** Apunta en la libreta de ESTE aparato (o `dev`) lo que ha cambiado desde la última vez. */
+  function fold(s, dev = DEV) {
     if (!s) return s;
-    s.led = ledOf(s, DEV);
+    s.led = ledOf(s, dev);
     return s;
   }
 
@@ -347,7 +347,7 @@ G.DB = (() => {
       for (const d in older[k] || {}) if (!(d in r[k])) r[k][d] = older[k][d];
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
-    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach']) {
+    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }
@@ -423,6 +423,7 @@ G.DB = (() => {
     key = k; user = name; guest = false;
     save = fold(loadLocal(k, name));
     write(K_SES, k);
+    startTab();
   }
 
   async function registerLocal(name, pass) {
@@ -506,6 +507,7 @@ G.DB = (() => {
   //   - con el botón Guardar (lo decide el jugador)
   //   - antes de recargar por una actualización (updater.js, G.DB.flush)
   //   - al cerrar sesión
+  //   - una vez al crear la partida en la nube (cuenta nueva, ver firstPush)
   // Nada más: ni solo cada cierto tiempo, ni al entrar, ni al cerrar la pestaña.
   // Todo se guarda al momento en este navegador igualmente, y al entrar se junta
   // con lo de la nube. Y se escribe sin leer antes (era una transacción: 1
@@ -634,6 +636,8 @@ G.DB = (() => {
     if (!online) { pending = true; setSync('offline'); }
     else if (same) setSync('ok');
     else { pending = true; setSync('pending'); }
+    firstUp = online && !remote;           // aún no está en la nube: se sube una vez (firstPush)
+    startTab();
   }
 
   /*
@@ -647,14 +651,18 @@ G.DB = (() => {
    * Si el admin ha baneado la cuenta del ranking (ban = true en la nube, ver
    * firestore.rules), cada guardado tiene que conservarlo: sólo se escriben
    * save, updatedAt y v (mergeFields) y el resto del documento (ban) se queda.
-   * Nunca se sube dos veces en menos de 65 s; mientras, todo está en el navegador.
+   * Nunca se sube dos veces en menos de 65 s (salvo flush: al cerrar sesión o
+   * actualizar, 20 s); mientras, todo está en el navegador.
    */
   const K_OK = 'ps.cloudok.', MIN_GAP = 65000;
   const sinceOk = () => Date.now() - (+read(K_OK + uid) || 0);
 
-  /** Sube la partida tal cual (sin leer la nube antes: lo de la nube ya se juntó al entrar). */
-  function pushNow() {
-    if (mode !== 'cloud' || guest || !save || !uid) return Promise.resolve();
+  /**
+   * Sube la partida tal cual (sin leer la nube antes: lo de la nube ya se juntó al entrar).
+   * force: sin esperar los 65 s de MIN_GAP (ver flush). Sólo sube la pestaña que lleva la partida.
+   */
+  function pushNow(force) {
+    if (mode !== 'cloud' || guest || !save || !uid || !tabOn) return Promise.resolve();
     // Si ya hay una subida en marcha, se hace otra justo después (para lo que haya cambiado mientras).
     if (pushing) { pending = true; return pushing.then(() => (pending ? pushNow() : undefined)); }
     clearTimeout(pushT); pushT = 0; pushDue = 0;
@@ -662,7 +670,7 @@ G.DB = (() => {
       pending = true; setSync('offline'); scheduleRetry();
       return Promise.resolve();
     }
-    if (sinceOk() < MIN_GAP) {
+    if (!force && sinceOk() < MIN_GAP) {
       pending = true; setSync('pending');
       schedulePush(MIN_GAP - sinceOk() + 500);
       return Promise.resolve();
@@ -679,7 +687,7 @@ G.DB = (() => {
     pushing = send(rev + 1).catch(async e => {
       // Rechazada: si es porque otro aparato subió antes (rev distinto), se junta
       // con lo suyo y se sube otra vez. Como mucho una lectura cada 5 min.
-      if (e.code !== 'permission-denied' || Date.now() - lastCheck < 5 * 60e3) throw e;
+      if (e.code !== 'permission-denied' || uid !== u || Date.now() - lastCheck < 5 * 60e3) throw e;
       lastCheck = Date.now();
       const snap = await docRef().get();
       if (!snap.exists || uid !== u || !save || (+snap.data().rev || 0) === rev) throw e;
@@ -690,13 +698,16 @@ G.DB = (() => {
       return send(rev + 1);
     }).then(r => {
       fails = 0;
-      if (uid === u) setRev(r);
-      write(K_OK + uid, Date.now());
+      write(K_OK + u, Date.now());
+      // Se cerró sesión mientras subía (logout espera como mucho 30 s): sólo se apunta la versión.
+      if (uid !== u) { write(K_REV + u, r); return; }
+      setRev(r);
       // (Lo cambiado mientras se subía queda pendiente para el próximo Guardar.)
       setSync(pending ? 'pending' : 'ok');
       if (G.UI && G.UI.refreshCoins) G.UI.refreshCoins();
     }).catch(e => {
       console.warn('[DB] no se pudo sincronizar:', e.code || e.message);
+      if (uid !== u) return;
       pending = true;
       setSync(navigator.onLine === false || e.code === 'unavailable' ? 'offline' : 'pending');
       // Lo pediste tú (Guardar o una actualización): se reintenta solo, con espera creciente.
@@ -744,6 +755,138 @@ G.DB = (() => {
     fails = Math.min(fails + 1, 8);
     clearTimeout(retryT);
     retryT = setTimeout(() => { if (pending) pushNow(); }, ms);
+  }
+
+  /**
+   * Sube YA lo pendiente, sin esperar los 65 s entre subidas: al cerrar sesión y
+   * antes de recargar por una actualización. Antes sólo se programaba y, al
+   * cerrar sesión, se cancelaba: no llegaba a la nube. La nube no deja escribir
+   * dos veces en menos de 20 s (firestore.rules): si hace falta, se espera lo
+   * justo. Quien llama pone el tope de tiempo.
+   */
+  async function flush() {
+    if (pushing) await pushing;
+    if (mode !== 'cloud' || guest || !save || !uid || !tabOn || !pending) return;
+    const u = uid, wait = 21000 - sinceOk();
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    if (pushing) await pushing;
+    if (uid === u && pending) await pushNow(true);
+  }
+
+  /*
+   * Partida que aún no está en la nube (cuenta nueva): se sube UNA vez en cuanto
+   * tiene compañero (al elegir el inicial), para que otro aparato la encuentre.
+   * Antes el apodo ya estaba en la nube pero la partida no, y en el otro aparato
+   * salía el test del inicial con una partida vacía.
+   */
+  let firstUp = false;
+  function firstPush() {
+    if (!firstUp || !tabOn || !save || !save.partner) return;
+    firstUp = false;
+    pushNow();
+  }
+
+  // =====================================================================
+  //                     VARIAS PESTAÑAS (21-10-2026)
+  // =====================================================================
+  /*
+   * Con el juego abierto en dos pestañas del mismo navegador, cada una guardaba
+   * su copia entera encima de la de la otra (ps.cloud.<uid>) y una pestaña vieja
+   * borraba lo conseguido en la nueva. Ahora sólo juega una: la última que entra
+   * (o la que pulsa «Jugar aquí», takeOver) avisa por BroadcastChannel y las
+   * demás de esa cuenta muestran un aviso que no deja jugar (G.UI.otherTab).
+   * Lo que una pestaña bloqueada aún guarde (el final de una partida en grupo)
+   * se junta con lo de la otra, nunca encima. Los invitados no cuentan.
+   */
+  const TAB = 't' + Math.random().toString(36).slice(2, 10), K_TAB = 'ps.tab', K_TABOFF = 'ps.tab.off';
+  let tabOn = false;        // esta pestaña lleva la partida
+  let tabWait = false;      // abierta en segundo plano: la coge cuando se vea
+  let tabCh = null;
+  try { tabCh = new BroadcastChannel(K_TAB); tabCh.onmessage = e => onTab(e.data); } catch (e) { tabCh = null; }
+  // Sin BroadcastChannel (navegadores viejos): el evento storage de localStorage.
+  if (!tabCh) addEventListener('storage', e => { if (e.key === K_TAB && e.newValue) { try { onTab(JSON.parse(e.newValue)); } catch (x) { /* nada */ } } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && tabWait) claim(true); });
+
+  function tabSay(t) {
+    const m = { t, k: key, id: TAB };
+    if (tabCh) { try { tabCh.postMessage(m); } catch (e) { /* nada */ } }
+    else write(K_TAB, Object.assign({ n: Math.random() }, m));
+  }
+  function onTab(m) {
+    if (!m || guest || !key || !save || m.k !== key || m.id === TAB) return;
+    if (m.t === 'hi') block();
+    else if (m.t === 'sync' && tabOn) rebase();
+  }
+  const storeKey = () => (mode === 'local' ? K_SAVE + key : K_CLOUD + uid);
+  // Las pestañas comparten aparato (DEV) en la libreta: lo que gana o gasta una que no lleva
+  // la partida va a su propio apunte, para que al juntar se sume y no se quede el mayor.
+  const myDev = () => (tabOn ? DEV : DEV + TAB);
+
+  /** Junta la partida con la copia que haya guardado otra pestaña (si hay algo nuevo). */
+  function rebase() {
+    if (mode === 'cloud' && uid) rev = Math.max(rev, +read(K_REV + uid) || 0);   // por si la otra la subió
+    const st = read(storeKey());
+    if (!st || !save || (st.updated || 0) === (save.updated || 0)) return;
+    applyInPlace(merge(plain(fold(save, myDev())), migrate(st, st.name)));
+    write(storeKey(), save);
+    if (mode === 'cloud') { pending = true; setSync('pending'); }
+    if (G.UI && G.UI.refreshCoins) G.UI.refreshCoins();
+  }
+
+  /** Esta pestaña pasa a llevar la partida; las demás de la cuenta se bloquean. */
+  function claim(look) {
+    if (guest || !key || !save) return;
+    tabWait = false;
+    if (look) rebase();                                   // lo guardado mientras por la otra
+    tabOn = true;
+    try { sessionStorage.removeItem(K_TABOFF); } catch (e) { /* nada */ }
+    tabSay('hi');
+    if (G.UI && G.UI.otherTab) G.UI.otherTab(false);
+    firstPush();
+  }
+  function block() {
+    const was = tabOn;
+    tabOn = false; tabWait = false;
+    clearTimeout(pushT); pushT = 0; pushDue = 0; clearTimeout(retryT);   // ya sube la otra
+    // Lo guardado aquí mientras la otra entraba (al abrir pisa la copia con la que leyó): se junta.
+    if (was) { const st = read(storeKey()); if (st && (+st.updated || 0) < (+save.updated || 0)) commitAside(save.updated, true); }
+    // Si esta pestaña se recarga (p. ej. por una actualización), sigue bloqueada.
+    try { sessionStorage.setItem(K_TABOFF, key); } catch (e) { /* nada */ }
+    if (G.UI && G.UI.otherTab) G.UI.otherTab(true);
+  }
+  /** Al abrir la partida: se coge, salvo que esta pestaña ya estuviera bloqueada o no se vea. */
+  function startTab() {
+    let off = null;
+    try { off = sessionStorage.getItem(K_TABOFF); } catch (e) { /* nada */ }
+    if (off === key) block();
+    else if (document.hidden) { tabOn = false; tabWait = true; }
+    else claim(false);
+  }
+  function endTab() {
+    tabOn = tabWait = false;
+    try { sessionStorage.removeItem(K_TABOFF); } catch (e) { /* nada */ }
+    if (G.UI && G.UI.otherTab) G.UI.otherTab(false);
+  }
+  /**
+   * Guardar desde una pestaña que no lleva la partida (`prev`: su última versión).
+   * Si otra ha guardado desde entonces, se junta con lo suyo sin pisarlo (lo suyo
+   * manda en compañero, pity...) y se le avisa para que lo coja.
+   */
+  /** mineWins: la copia de esta pestaña es la más nueva (al bloquearse) y manda en la fusión. */
+  function commitAside(prev, mineWins) {
+    const st = read(storeKey()), was = st ? +st.updated || 0 : 0;
+    if (st && was !== (prev || 0)) {
+      const mine = plain(save);
+      if (!mineWins) mine.updated = 0;     // lo normal: manda lo de la otra pestaña
+      applyInPlace(merge(mine, migrate(st, st.name)));
+    }
+    // Siempre más nuevo que lo de antes (la otra pestaña compara updated para cogerlo,
+    // y dos guardados en el mismo milisegundo se confundían).
+    save.updated = Math.max(Date.now(), was + 1, (+prev || 0) + 1);
+    const ok = write(storeKey(), save);
+    tabSay('sync');
+    if (mode === 'cloud') { pending = true; setSync('pending'); }
+    return ok;
   }
 
   function authError(e) {
@@ -847,28 +990,43 @@ G.DB = (() => {
    */
   function commit(urgent = false) {
     if (guest || !key || !save) return false;
+    const prev = save.updated;
     save.updated = Date.now();
-    fold(save);
+    fold(save, myDev());
+    if (!tabOn) return commitAside(prev);   // otra pestaña lleva la partida
     if (mode === 'local') return write(K_SAVE + key, save);
     write(K_CLOUD + uid, save);
     pending = true;
     setSync('pending');                // se sube al pulsar Guardar
+    firstPush();
     return true;
   }
 
   /** Funciones que se ejecutan al cerrar sesión o borrar la cuenta (amigos, salas...). */
   const leaveHooks = [];
 
-  async function logout() {
+  // Mientras se cierra (puede tardar hasta 30 s subiendo), otro «Salir» espera al mismo.
+  let leaving = null;
+  function logout() { return leaving || (leaving = logoutNow().finally(() => { leaving = null; })); }
+  async function logoutNow() {
     for (const fn of leaveHooks) { try { await fn('logout'); } catch (e) { /* nada */ } }
     if (mode === 'cloud' && !guest && save) {
-      if (pending) { try { await pushNow(); } catch (e) { /* queda la copia local */ } }
+      // Lo pendiente se sube YA (como mucho 30 s): antes, si hacía menos de 65 s
+      // de la última subida, sólo se programaba y aquí se cancelaba.
+      if (tabOn && (pending || pushing)) {
+        const say = (m, ms) => { if (G.UI && G.UI.toast) G.UI.toast(m, ms); };
+        if (G.UI && G.UI.hideAll) G.UI.hideAll();       // que no se empiece nada mientras
+        say('Subiendo tu partida a la nube…', 30000);
+        try { await Promise.race([flush(), new Promise(r => setTimeout(r, 30000))]); } catch (e) { /* queda la copia local */ }
+        say(syncState === 'ok' ? '¡Partida guardada en la nube!' : 'No se pudo subir a la nube: lo nuevo sigue guardado en este navegador.', 4500);
+      }
       stopListening();
       try { await auth.signOut(); } catch (e) { /* nada */ }
     } else if (mode === 'local' && !guest) {
       commit();
       remove(K_SES);
     }
+    endTab(); firstUp = false;
     clearTimeout(pushT); clearTimeout(retryT);
     user = key = save = uid = null; guest = false; pending = false;
     setSync(mode === 'cloud' ? 'ok' : 'local');
@@ -886,6 +1044,14 @@ G.DB = (() => {
   function hasGoogle() {
     const u = auth && auth.currentUser;
     return !!(u && u.providerData.some(p => p.providerId === 'google.com'));
+  }
+  /** Correo de Google con el que se entra (o el vinculado), para Ajustes > Cuenta; nunca el interno. */
+  function googleEmail() {
+    const u = auth && auth.currentUser;
+    if (!u) return '';
+    const g = u.providerData.find(p => p && p.providerId === 'google.com');
+    const e = (g && g.email) || (nameAccount() ? '' : u.email) || '';
+    return e.endsWith('@' + NAME_DOMAIN) ? '' : e;
   }
   async function linkGoogle() {
     if (!auth || !auth.currentUser) return { ok: false, error: 'Inicia sesión primero.' };
@@ -912,6 +1078,7 @@ G.DB = (() => {
       delete accs[key];
       write(K_ACC, accs);
       remove(K_SAVE + key); remove(K_SES);
+      endTab();
       user = key = save = null;
       return { ok: true };
     }
@@ -934,6 +1101,7 @@ G.DB = (() => {
       await docRef().delete().catch(() => {});
       remove(K_CLOUD + uid);
       await auth.currentUser.delete();
+      endTab(); firstUp = false;
       user = key = save = uid = null;
       return { ok: true };
     } catch (e) { return { ok: false, error: authError(e) }; }
@@ -974,7 +1142,9 @@ G.DB = (() => {
   }
 
   return {
-    ready, register, login, loginWithGoogle, playAsGuest, logout, commit, deleteAccount, flush: pushNow, saveNow,
+    ready, register, login, loginWithGoogle, playAsGuest, logout, commit, deleteAccount, flush, saveNow,
+    /** «Jugar aquí»: esta pestaña coge la partida y las demás se bloquean (ver VARIAS PESTAÑAS). */
+    takeOver() { claim(true); },
     owns, grant, ownsShiny, grantShiny, merge, setName, upgradesOf, isFav, setFav,
     onSync(fn) { listeners.add(fn); },
     onLeave(fn) { leaveHooks.push(fn); },
@@ -982,9 +1152,12 @@ G.DB = (() => {
     get fb() { return mode === 'cloud' ? { auth, fs, rtdb, uid, emulator: !!(G.FIREBASE_CONFIG || {}).emulator } : null; },
     /** ¿Está disponible lo online (amigos, ranking, multijugador)? */
     get online() { return mode === 'cloud' && !guest && !!uid && !!save; },
+    /** ¿Se está cerrando la sesión (subiendo lo pendiente antes de salir)? */
+    get leaving() { return !!leaving; },
     /** ¿La cuenta es de usuario y contraseña (no de Google)? */
     get nameAccount() { return nameAccount(); },
     get hasGoogle() { return hasGoogle(); }, linkGoogle,
+    get email() { return googleEmail(); },
     get mode() { return mode; },
     get localReason() { return localReason; },
     get syncState() { return syncState; },

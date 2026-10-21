@@ -20,8 +20,18 @@ G.Combat = (() => {
 
   function tick(dt, pl, now) {
     if (pl.dead) return;
+    const act = pl.activeGroup();
+    // Las recargas de los otros huecos también corren (#174: antes se congelaban y
+    // al volver se cortaban al 35 %; cambiando de hueco se disparaba casi el triple).
+    for (const g of pl.slots) if (g !== act) for (const m of g) if (m.t > 0) m.t -= dt;
+    if (pl.swapLock > 0) pl.swapLock -= dt;          // espera que arrastra el cambio de hueco (player.js setActive)
     // Vínculos: todos los movimientos del hueco activo, cada uno con su recarga.
-    for (const m of pl.activeGroup()) tickMove(dt, pl, m, now);
+    for (const m of act) tickMove(dt, pl, m, now);
+  }
+
+  /** Recarga de m para este jugador (Bromista: los potenciadores se recargan antes, ver data/ability-fx.js). */
+  function cooldown(pl, m) {
+    return Math.max(0.05, m.cd * pl.cdMul * (m.kind === 'buff' && pl.abil && pl.abil.statusCd || 1));
   }
 
   function tickMove(dt, pl, m, now) {
@@ -30,12 +40,21 @@ G.Combat = (() => {
     m.t -= dt;
     if (m.t > 0) return;
     // Los ataques que necesitan blanco esperan a tenerlo (no gastes animación al aire).
-    if (needsTarget(m, pl) && !(pl.target && G.U.dist(pl.x, pl.y, pl.target.x, pl.target.y) <= reach(m))) {
-      m.t = 0.05;
-      return;
+    let swap = false, t0 = null, a0 = 0;
+    if (needsTarget(m, pl)) {
+      const t = pl.target, r = reach(m);
+      if (!(t && !t.dead && G.U.dist(pl.x, pl.y, t.x, t.y) <= r)) {
+        // Si el blanco no está a tiro (un jefe lejos con un ataque cuerpo a cuerpo, o
+        // el segundo ataque de un vínculo, que llega menos), el más cercano que sí lo esté.
+        // Sólo para este ataque: los demás del vínculo siguen con el blanco de siempre.
+        const e = G.Projectiles.nearest(G.EnemyMgr.all(), pl.x, pl.y, r);
+        if (!e) { m.t = 0.05; return; }
+        swap = true; t0 = t; a0 = pl.aim;
+        pl.target = e;
+        if (!pl.manualAim) pl.aim = Math.atan2(e.y - pl.y, e.x - pl.x);
+      }
     }
-    // (Bromista: los potenciadores se recargan antes, ver data/ability-fx.js.)
-    m.t = Math.max(0.05, m.cd * pl.cdMul * (m.kind === 'buff' && pl.abil && pl.abil.statusCd || 1));
+    m.t = cooldown(pl, m);
     pl.cast(m);
     if (G.Coop.active) G.Coop.cast(pl, m);
     // Vínculo: su icono destella en el HUD al lanzarse (uno que explota pegado al
@@ -43,6 +62,7 @@ G.Combat = (() => {
     m.castAt = performance.now();
 
     run(pl, m);
+    if (swap) { pl.target = t0; pl.aim = a0; }
   }
 
   function run(pl, m) {
@@ -213,7 +233,7 @@ G.Combat = (() => {
   }
 
   function buff(pl, m) {
-    pl.addBuff(m.stat, m.amount, m.dur, m.stacks | 0);
+    pl.addBuff(m.stat, m.amount, m.dur, m.stacks | 0, m.id);
     const col = G.U.TYPE_COLOR[m.type];
     G.FX.ring(pl.x, pl.y, pl.r * 2.4, pl.r * 1.1, col, 0.35, 2.5);
     const vis = G.VFX.forMove(m);
@@ -317,7 +337,7 @@ G.Combat = (() => {
     const sx = pl.x, sy = pl.y;
     let len = 0;
     for (let d = 8; d <= m.radius; d += 8) {
-      if (!G.World.isFree(sx + ca * d, sy + sa * d, pl.r * 0.8, true)) break;
+      if (!G.World.isFree(sx + ca * d, sy + sa * d, (pl.wr || pl.r) * 0.8, true)) break;
       len = d;
     }
     // Estela: varias copias del golpe a lo largo del recorrido.
@@ -326,7 +346,12 @@ G.Combat = (() => {
     if (ghost) return;
     pl.x = sx + ca * len; pl.y = sy + sa * len;
     G.World.collide(pl);
-    pl.invuln = Math.max(pl.invuln || 0, 0.3);
+    // Invulnerable un momento al cruzar (0,3 s), pero como mucho el 60 % del tiempo
+    // desde la embestida anterior: con la recarga por debajo de 0,3 s (Ataque Rápido
+    // evolucionado y Reflejos) o varias en un vínculo no te tocaba nada nunca.
+    const at = G.Game.st.time, gap = pl.dashAt == null ? 1 : at - pl.dashAt;
+    pl.dashAt = at;
+    pl.invuln = Math.max(pl.invuln || 0, Math.min(0.3, gap * 0.6));
     const w = m.width || 34;
     const mx = sx + ca * len / 2, my = sy + sa * len / 2;
     for (const e of G.EnemyMgr.queryCircle(mx, my, len / 2 + w)) {
@@ -342,13 +367,17 @@ G.Combat = (() => {
   function trailPatch(pl, m) {
     const col = G.U.TYPE_COLOR[m.type], vis = G.VFX.forMove(m);
     // Parado no deja uno nuevo encima del anterior (sólo de vez en cuando).
-    const last = pl.lastPatch;
+    // Cada rastro mira el suyo (#104: con Tóxico y Rueda Fuego en un vínculo, el
+    // charco de uno tapaba al otro y casi sólo salía fuego). Por id: el compañero
+    // (ghostCast) crea una instancia nueva en cada lanzamiento.
+    const lp = pl.lastPatch || (pl.lastPatch = {});
+    const last = lp[m.id];
     if (last && G.U.dist2(last.x, last.y, pl.x, pl.y) < (m.radius * 0.9) ** 2 && last.t < 1) return;
     const f = { kind: 'patch', owner: pl, ghost, m, col, vis, x: pl.x, y: pl.y, t: 0, life: m.dur || 3, r: m.radius,
                 tick: 0, dmg: m.dmg * pl.atkFor(m) };
     fields.push(f);
-    pl.lastPatch = f;
-    const mine = fields.filter(o => o.kind === 'patch' && o.owner === pl && !o.gone);
+    lp[m.id] = f;
+    const mine = fields.filter(o => o.kind === 'patch' && o.owner === pl && o.m.id === m.id && !o.gone);
     for (const o of mine.slice(0, Math.max(0, mine.length - 18))) o.gone = true;
   }
 
@@ -599,15 +628,17 @@ G.Combat = (() => {
   /** Lo de los campos que va en el suelo (debajo de los Pokémon). */
   function drawGroundFields(ctx) {
     const now = performance.now() / 1000;
+    // Todos los campos son de los jugadores: «Transparencia de tus ataques».
+    const own = G.FX.ownAlpha();
     for (const f of fields) {
       if (!G.Camera.sees(f.x, f.y, 60)) continue;
       ctx.save();
       if (f.kind === 'vortex') {
         const a = Math.min(1, (f.life - f.t) * 2, f.t * 6);
-        ctx.globalAlpha = 0.22 * a;
+        ctx.globalAlpha = 0.22 * a * own;
         ctx.fillStyle = f.col;
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.6, 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = 0.6 * a;
+        ctx.globalAlpha = 0.6 * a * own;
         ctx.strokeStyle = f.col; ctx.lineWidth = 2;
         for (let k = 0; k < 3; k++) {
           const rr = f.r * (0.35 + k * 0.28), a0 = now * (3 - k * 0.6) + k * 2;
@@ -615,37 +646,37 @@ G.Combat = (() => {
         }
       } else if (f.kind === 'stunzone') {
         const k = G.U.clamp(f.t / f.delay, 0, 1);
-        ctx.globalAlpha = 0.15 + 0.25 * k;
+        ctx.globalAlpha = (0.15 + 0.25 * k) * own;
         ctx.fillStyle = f.col;
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * k, f.r * k * 0.6, 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 0.8 * own;
         ctx.strokeStyle = f.col; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.6, 0, 0, 6.2832); ctx.stroke();
       } else if (f.kind === 'patch') {
         const a = Math.min(1, (f.life - f.t) * 2, f.t * 6);
-        ctx.globalAlpha = 0.32 * a;
+        ctx.globalAlpha = 0.32 * a * own;
         ctx.fillStyle = f.col;
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.62, 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = 0.5 * a;
+        ctx.globalAlpha = 0.5 * a * own;
         ctx.strokeStyle = f.col; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * 0.8, f.r * 0.5, 0, 0, 6.2832); ctx.stroke();
       } else if (f.kind === 'mine') {
         const armed = f.t >= f.arm, blink = armed && Math.sin(now * 8 + f.x) > 0.3;
-        ctx.globalAlpha = 0.18;
+        ctx.globalAlpha = 0.18 * own;
         ctx.fillStyle = f.col;
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * 0.45, f.r * 0.28, 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = own;
         G.VFX.draw(ctx, f.vis.proj, f.vis.pal, f.x, f.y - 4, { scale: 1, alpha: blink ? 1 : 0.75, frame: 0 });
       } else if (f.kind === 'meteor') {
         const k = G.U.clamp(f.t / f.fall, 0, 1);
-        ctx.globalAlpha = 0.2 + k * 0.3;
+        ctx.globalAlpha = (0.2 + k * 0.3) * own;
         ctx.fillStyle = '#000';
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.3 + k * 0.7), f.r * 0.6 * (0.3 + k * 0.7), 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 0.6 * own;
         ctx.strokeStyle = f.col; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.6, 0, 0, 6.2832); ctx.stroke();
       } else if (f.kind === 'turret') {
-        ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = 0.3 * own;
         ctx.fillStyle = '#000';
         ctx.beginPath(); ctx.ellipse(f.x, f.y, 11, 4.5, 0, 0, 6.2832); ctx.fill();
       }
@@ -656,6 +687,7 @@ G.Combat = (() => {
   /** Lo de los campos que va por encima (meteoros cayendo, torretas). */
   function drawAirFields(ctx) {
     const now = performance.now() / 1000;
+    ctx.globalAlpha = G.FX.ownAlpha();         // VFX.draw multiplica sobre esto
     for (const f of fields) {
       if (!G.Camera.sees(f.x, f.y, 200)) continue;
       if (f.kind === 'meteor' && f.t > 0) {
@@ -668,6 +700,7 @@ G.Combat = (() => {
         G.VFX.draw(ctx, f.vis.proj, f.vis.pal, f.x, f.y - 16 + bob, { scale: 1.5, alpha: fade, frame: Math.floor(now * 8) });
       }
     }
+    ctx.globalAlpha = 1;
   }
 
   function clearFields(owner) { fields = owner ? fields.filter(f => f.owner !== owner) : []; }
@@ -691,6 +724,9 @@ G.Combat = (() => {
         dmg: m.dmg * pl.atkFor(m),
         oa: (i / want) * 6.2832, orad: m.radius, ospeed: m.speed,
         rehit: Math.max(0.12, m.cd),
+        // Cada orbe recuerda a quién ha golpeado aunque se vuelva a crear al cambiar
+        // de hueco: si no, cambiando y volviendo enseguida golpeaban a cada momento.
+        hitLog: (m.orbLogs || (m.orbLogs = []))[i] || (m.orbLogs[i] = new Map()),
         knock: m.knock || 0, burn: m.burn || 0, poison: m.poison || 0, slow: m.slow || 0, mtype: m.type, mcat: m.cat, src: m
       });
     }
@@ -710,11 +746,12 @@ G.Combat = (() => {
 
   /** Repite el ataque de un compañero sólo para verlo (sin daño). */
   function ghostCast(pl, id, lvl, aim, evolved) {
-    const def = G.Moves.BY_ID[id];
+    // Viene de la red: no se cree a ciegas (un id o un nivel raros colgaban a los demás).
+    const def = typeof id === 'string' ? G.Moves.BY_ID[id] : null;
     if (!def || def.kind === 'orbit') return;
     const m = G.Moves.instance(id, lvl);
     if (evolved) G.Moves.evolve(m);
-    pl.aim = aim;
+    if (typeof aim === 'number' && Number.isFinite(aim)) pl.aim = aim;
     ghost = true;
     try {
       pl.cast(m);
@@ -900,5 +937,6 @@ G.Combat = (() => {
   }
 
   return { tick, resolve, ghostCast, ghostOrbit, updateFields, drawGroundFields, drawAirFields, clearFields,
+           reach, cooldown,
            get fieldCount() { return fields.length; } };
 })();

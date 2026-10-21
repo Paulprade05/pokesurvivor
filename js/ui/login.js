@@ -70,12 +70,14 @@ G.LoginUI = (() => {
    */
   const cloud = () => G.DB.mode === 'cloud' && !G.DB.guest;
   const NOTES = [
-    { key: 'ps.savenote.1', when: cloud,              // botón Guardar (18-10-2026)
+    // Botón Guardar (18-10-2026). El .1 decía que se subía sola cada 10 minutos, y no es
+    // así desde el 20-10-2026: con otra clave (.2) se vuelve a enseñar a todos con lo cierto.
+    { key: 'ps.savenote.2', when: cloud,
       title: ['Importante: guarda tu partida', 'Important: save your game'],
-      body: ['<p>Debido a problemas con el guardado, a partir de ahora la partida se guarda en la nube automáticamente <b>cada 10 minutos</b>.</p>' +
-             '<p>Hemos incorporado un botón <b class="gold">Guardar</b> arriba a la derecha. Úsalo antes de cerrar el juego o de cambiar de aparato: <b>es muy importante para no perder tu partida</b>.</p>',
-             '<p>Because of problems with saving, from now on your game is saved to the cloud automatically <b>every 10 minutes</b>.</p>' +
-             '<p>We have added a <b class="gold">Save</b> button at the top right. Use it before closing the game or switching devices: <b>it is very important so you don’t lose your progress</b>.</p>'] },
+      body: ['<p>Tu progreso se guarda al momento <b>en este aparato</b>, pero a la nube sólo se sube cuando pulsas <b class="gold">Guardar</b> (arriba a la derecha), antes de una actualización automática o al cerrar sesión.</p>' +
+             '<p><b>Pulsa Guardar antes de cambiar de aparato</b>: si no, en el otro no estará lo último que hayas conseguido.</p>',
+             '<p>Your progress is saved instantly <b>on this device</b>, but it is only uploaded to the cloud when you press <b class="gold">Save</b> (top right), before an automatic update or when you log out.</p>' +
+             '<p><b>Press Save before switching devices</b>: otherwise your latest progress won’t be on the other one.</p>'] },
     { key: 'ps.ranknote.1', when: () => cloud() && ((G.DB.save.stats || {}).runs || 0) > 0,   // rankings desde cero (18-10-2026)
       title: ['Los rankings se han reiniciado', 'The leaderboards have been reset'],
       body: ['<p>Hemos ajustado la <b>Sentencia de Arceus</b>: huir corriendo con toda la velocidad subida y el veneno ya no sirven para aguantar para siempre.</p>' +
@@ -88,16 +90,19 @@ G.LoginUI = (() => {
     const queue = NOTES.filter(n => { try { return n.when() && !localStorage.getItem(n.key); } catch (e) { return false; } });
     if (!queue.length) return false;
     const en = G.I18n.lang === 'en' ? 1 : 0;
+    // Otros idiomas: título, aviso y botón de su diccionario (el aviso entero: por trozos
+    // sale raro); si falta, en inglés. La caja va con translate="no" (dev.html).
+    const other = G.I18n.lang !== 'es' && !en;
+    const pick = (es, eng) => (!other ? (en ? eng : es) : G.I18n.has(es) ? G.T(es) : eng);
     const next = () => {
       const n = queue.shift();
       if (!n) { $('scr-savenote').classList.add('hidden'); return; }
       try { localStorage.setItem(n.key, '1'); } catch (e) { /* nada */ }
-      $('savenote-title').textContent = n.title[en];
-      // Otros idiomas: el aviso entero va traducido en su diccionario (por trozos sale raro); si falta, en inglés.
-      const other = G.I18n.lang !== 'es' && !en, body = $('savenote-body');
+      $('savenote-title').textContent = pick(n.title[0], n.title[1]);
+      const body = $('savenote-body');
       if (other) body.setAttribute('translate', 'no');
-      body.innerHTML = !other ? n.body[en] : G.I18n.has(n.body[0]) ? G.T(n.body[0]) : n.body[1];
-      $('savenote-ok').textContent = en ? 'Got it' : 'Entendido';
+      body.innerHTML = pick(n.body[0], n.body[1]);
+      $('savenote-ok').textContent = pick('Entendido', 'Got it');
     };
     $('savenote-ok').onclick = next;
     next();

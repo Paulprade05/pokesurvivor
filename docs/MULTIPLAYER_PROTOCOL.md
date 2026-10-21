@@ -101,3 +101,37 @@ both host and guest with test world/network doubles.
 No desktop/browser-control tests were used. Real cross-browser WebRTC sessions,
 mobile CPU, NAT traversal and TURN are not validated by these automated tests.
 This bandwidth/cost implementation change does not add a player changelog entry.
+
+# Signalling attempt numbers (2026-10-21)
+
+Signalling still travels through `rooms/{room}/q/{to}` as `{f, sig}`. Each host
+connection attempt now has a number `a` (a counter per host page, increasing).
+The host puts it in its offer and ICE candidates; the guest copies it into its
+answer and candidates. A receiver applies a description or candidate only to the
+connection of the same attempt: older ones are dropped, and guest-side candidates
+of a newer attempt wait until its offer is applied (the guest may be fetching
+TURN credentials). A missing `a` (older clients) counts as the current attempt,
+so mixed versions behave as before.
+
+ICE candidates that arrive before the remote description (the offer on the
+guest, the answer on the host) are queued and applied right after it. The host
+used to drop the ones that arrived while it applied the answer.
+
+Without `RTCPeerConnection` (WebRTC disabled or blocked) the pair is `failed`,
+not `relay` (the database relay is off), and it is not retried. `G.Net.noRtc`
+lets the room explain it.
+
+During a co-op run `syncMembers(uids, true)` keeps peers whose direct channel is
+open even if their seat vanished from the room (a short Realtime Database outage
+runs the `onDisconnect`, both on the server and locally in the SDK), and the room
+UI no longer closes the network when the room node disappears mid-run; it is
+closed when the run ends. A guest whose seat was removed writes it again when no
+run is active and the room is open (the rules allow it) and re-arms its
+`onDisconnect`; a host's room removed that way is not recreated. Covered by
+`tests/net.test.cjs` with WebRTC and Firebase test doubles.
+
+Lobby readiness (#97) is a new peer-to-peer control message, guest to host:
+`{k:'rdy', on:0|1}`, JSON over the data channel only (never the database). Older
+clients ignore it; a guest that never sends it is not counted as "not ready".
+The `start` message is accepted only from the room's host (`from === room.host
+=== cfg.host`) by a member listed in `cfg.members`, also from the results screen.

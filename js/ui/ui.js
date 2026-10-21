@@ -193,6 +193,29 @@ G.UI = (() => {
     };
   }
 
+  /*
+   * La misma cuenta abierta en otra pestaña (db.js, VARIAS PESTAÑAS): aviso por
+   * encima de todo hasta que se pulse «Jugar aquí».
+   */
+  let tabEl = null;
+  function otherTab(on) {
+    if (!on) { if (tabEl) tabEl.classList.add('hidden'); return; }
+    if (!tabEl) {
+      tabEl = document.createElement('section');
+      tabEl.className = 'scr dim';
+      tabEl.style.zIndex = 150;
+      tabEl.innerHTML = `<div class="box center" style="max-width:400px">
+        <h3>El juego está abierto en otra pestaña</h3>
+        <p class="sub">Sólo se puede jugar en una pestaña a la vez, para no mezclar tu partida. No se pierde nada.</p>
+        <button class="btn gold" type="button">Jugar aquí</button></div>`;
+      tabEl.querySelector('button').onclick = () => G.DB.takeOver();
+      document.body.appendChild(tabEl);
+    }
+    tabEl.classList.remove('hidden');
+    // En solitario, la partida se pausa (en grupo los demás siguen).
+    if (G.Game && G.Game.state === 'playing' && !(G.Coop && G.Coop.active)) G.Game.togglePause();
+  }
+
   // ---------------- sprites en canvas del DOM ----------------
 
   const live = new Set();
@@ -323,5 +346,7 @@ G.UI = (() => {
   }
 
   return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, typeChips, stars, confirmDelete,
-           sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap };
+           sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap, otherTab,
+           /** ¿Está puesto el aviso de «abierto en otra pestaña»? (bloquea teclado y mando) */
+           tabBlocked: () => !!tabEl && !tabEl.classList.contains('hidden') };
 })();

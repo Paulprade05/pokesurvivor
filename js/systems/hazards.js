@@ -55,11 +55,14 @@ G.Hazards = (() => {
     }
   }
 
+  // Efecto de un enemigo: no se atenúa con «Transparencia de tus ataques» (ver fx.js).
+  const foeFx = type => Object.assign(G.VFX.forType(type), { foe: true });
+
   function detonate(h) {
     const near = G.Camera.sees(h.x, h.y, 120);
     if (h.vis === 'pillar') {
       // Pilar de luz que cae del cielo.
-      G.FX.beam(h.x, h.y, -Math.PI / 2, 420, h.r * 1.1, h.color, G.VFX.forType('electric'));
+      G.FX.beam(h.x, h.y, -Math.PI / 2, 420, h.r * 1.1, h.color, foeFx('electric'));
       G.FX.ring(h.x, h.y, 4, h.r * 1.3, '#fff3c8', 0.4, 5);
       G.FX.burst(h.x, h.y - 6, h.color, 10, 180);
       if (near) { G.Audio.sfx('judge'); G.Camera.kick(0.2); }
@@ -68,40 +71,91 @@ G.Hazards = (() => {
       G.FX.burst(h.x, h.y - 6, h.color, Math.round(h.r / 3), 160);
       if (near) { G.Audio.sfx('break'); if (h.r > 60) G.Camera.kick(0.35); }
     } else {
-      G.FX.beam(h.x, h.y - G.LIFT, h.angle, h.len, h.w, h.color, G.VFX.forType(h.type || (h.pure ? 'electric' : 'normal')));
+      G.FX.beam(h.x, h.y - G.LIFT, h.angle, h.len, h.w, h.color, foeFx(h.type || (h.pure ? 'electric' : 'normal')));
       if (near) G.Audio.sfx('shot', { kind: 'beam', type: h.type });
     }
   }
 
+  /*
+   * Camino del área que golpea de verdad a tu Pokémon (radio r), igual que
+   * inside(): la zona es un círculo de h.r + 0,6·r y el rayo, un rectángulo
+   * que sobra r por los extremos y 0,6·r por los lados. (Antes se dibujaba una
+   * elipse de 0,75·h.r de alto y golpeaba fuera de lo que se veía.)
+   * s: escala (la parte que se va llenando); inset: hacia dentro, en unidades.
+   * Con el contexto ya movido al peligro (y girado, si es un rayo).
+   */
+  function area(ctx, h, r, s, inset = 0) {
+    ctx.beginPath();
+    if (h.kind === 'zone') ctx.arc(0, 0, Math.max(1, (h.r + r * 0.6) * s - inset), 0, 6.2832);
+    else {
+      const hw = Math.max(0.5, (h.w / 2 + r * 0.6) * s - inset);
+      ctx.rect(-r + inset, -hw, h.len + 2 * (r - inset), hw * 2);
+    }
+  }
+
+  // Rayas diagonales blancas para los avisos de alto contraste (se hacen una vez).
+  let stripes = null;
+  function stripePattern(ctx) {
+    if (!stripes) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 12;
+      const g = c.getContext('2d');
+      g.strokeStyle = '#fff'; g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(-3, 15); g.lineTo(15, -3);
+      g.moveTo(-3, 3); g.lineTo(3, -3);
+      g.moveTo(9, 15); g.lineTo(15, 9);
+      g.stroke();
+      stripes = ctx.createPattern(c, 'repeat');
+    }
+    return stripes;
+  }
+
   /** Avisos en el suelo (debajo de los Pokémon). */
   function draw(ctx) {
+    if (!list.length) return;
     const blink = Math.sin(performance.now() / 60) > 0;
+    const pl = G.Game.player, r = pl ? pl.r : 12;
+    // «Avisos de alto contraste» (daltónicos): negro y blanco con rayas, sin el color del tipo.
+    const hi = !!G.Settings.get('hazardHi'), calm = G.Settings.get('calm');
     for (const h of list) {
       if (h.hit) continue;
-      const k = Math.min(1, h.t / h.delay);
+      const k = Math.min(1, h.t / h.delay), near = k > 0.75;
       ctx.save();
-      if (h.kind === 'zone') {
-        ctx.globalAlpha = 0.16;
-        ctx.fillStyle = h.color;
-        ctx.beginPath(); ctx.ellipse(h.x, h.y, h.r, h.r * 0.75, 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = 0.32;
-        ctx.beginPath(); ctx.ellipse(h.x, h.y, h.r * k, h.r * 0.75 * k, 0, 0, 6.2832); ctx.fill();
-        ctx.globalAlpha = k > 0.75 && blink ? 0.95 : 0.6;
-        ctx.strokeStyle = h.color; ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.ellipse(h.x, h.y, h.r, h.r * 0.75, 0, 0, 6.2832); ctx.stroke();
+      ctx.translate(h.x, h.y);
+      if (h.kind !== 'zone') ctx.rotate(h.angle);
+      if (hi) {
+        area(ctx, h, r, 1);
+        ctx.globalAlpha = 0.4; ctx.fillStyle = '#000'; ctx.fill();
+        area(ctx, h, r, k);
+        ctx.globalAlpha = 0.6; ctx.fillStyle = stripePattern(ctx); ctx.fill();
+        area(ctx, h, r, 1);
+        ctx.globalAlpha = 0.9; ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.stroke();
+        ctx.lineWidth = 2.5; ctx.strokeStyle = near && (calm || blink) ? '#ffe14d' : '#fff'; ctx.stroke();
       } else {
-        ctx.translate(h.x, h.y);
-        ctx.rotate(h.angle);
-        ctx.globalAlpha = 0.14;
-        ctx.fillStyle = h.color;
-        ctx.fillRect(0, -h.w / 2, h.len, h.w);
-        ctx.globalAlpha = 0.34;
-        ctx.fillRect(0, -h.w / 2 * k, h.len, h.w * k);
-        ctx.globalAlpha = k > 0.75 && blink ? 0.95 : 0.55;
+        area(ctx, h, r, 1);
+        ctx.globalAlpha = h.kind === 'zone' ? 0.16 : 0.14;
+        ctx.fillStyle = h.color; ctx.fill();
+        area(ctx, h, r, k);
+        ctx.globalAlpha = h.kind === 'zone' ? 0.32 : 0.34;
+        ctx.fill();
+        // Borde oscuro debajo del de color: se ve aunque el suelo se parezca
+        // al color del ataque (el marrón de la arena de Tierra).
+        area(ctx, h, r, 1);
+        ctx.globalAlpha = 0.6; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.7)';
+        ctx.stroke();
+        ctx.globalAlpha = near && blink ? 0.95 : 0.6;
         ctx.strokeStyle = h.color; ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect(0, -h.w / 2, h.len, h.w);
+        ctx.setLineDash(h.kind === 'zone' ? [4, 4] : [6, 4]);
+        ctx.stroke();
+        // A punto de golpear: borde blanco por dentro que parpadea (fijo con «Menos destellos»).
+        if (near) {
+          ctx.setLineDash([]);
+          area(ctx, h, r, 1, 3);
+          ctx.globalAlpha = calm ? 0.7 : blink ? 0.9 : 0.25;
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }

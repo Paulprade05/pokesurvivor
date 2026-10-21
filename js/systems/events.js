@@ -35,12 +35,16 @@ G.Events = (() => {
   // ---------------- ciclo ----------------
 
   function update(dt, players, time) {
+    // En la grieta y en la Sentencia el evento espera a que volváis: antes la
+    // horda y la hora dorada se gastaban sin enemigos y el Pokémon perdido se
+    // cansaba (o se iba andando hacia la arena).
+    if (G.Rift.inArena || G.Judgment.active) return;
     if (cur) {
       cur.t += dt;
       if (cur.id !== 'lost' && cur.t >= cur.dur && authority()) end();
     }
     if (lost) lostTick(dt, players);
-    if (!authority() || G.Rift.inArena || G.Judgment.active) return;
+    if (!authority()) return;
 
     if (thieves < 2) {
       thiefT -= dt;
@@ -298,7 +302,8 @@ G.Events = (() => {
   }
 
   /** Flecha en el borde hacia el Pokémon perdido (o hacia la marca, si ya te sigue). */
-  function drawHud(ctx, w, h, pl, F) {
+  function drawHud(ctx, w, h, pl, F, dy = 0) {   // dy: cuánto bajar la cuenta atrás (barras de jefes)
+    if (G.Rift.inArena || G.Judgment.active) return;     // en pausa (ver update)
     const cam = G.Camera;
     if (lost) {
       const L = lost, to = L.state === 'wait' ? [L.x, L.y - 10] : [L.tx, L.ty];
@@ -314,9 +319,9 @@ G.Events = (() => {
       ctx.save();
       ctx.font = F(800, 12); ctx.textAlign = 'center';
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)';
-      ctx.strokeText(txt, w / 2, 112);
+      ctx.strokeText(txt, w / 2, 112 + dy);
       ctx.fillStyle = cur.id === 'gold' ? '#ffd23f' : G.U.TYPE_COLOR[cur.type] || '#fff';
-      ctx.fillText(txt, w / 2, 112);
+      ctx.fillText(txt, w / 2, 112 + dy);
       ctx.restore();
     }
   }

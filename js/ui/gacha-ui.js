@@ -5,12 +5,24 @@ G.GachaUI = (() => {
   const $ = G.UI.$;
   let busy = false;
   let gen = 1;
+  let skipCards = false;        // Saltar: las cartas que falten salen de golpe
 
   function init() {
     $('pull-1').onclick = () => pull(1);
     $('pull-10').onclick = () => pull(10, 't1');
     $('pull-10b').onclick = () => pull(10, 't10');
     $('pull-close').onclick = close;
+    // Tirar todos, y en la tirada: modo rápido (se recuerda), Saltar y el resumen.
+    $('pull-10b').insertAdjacentHTML('afterend',
+      '<button id="pull-all" class="btn gold grow hidden" data-sfx="none">Tirar todos · <span id="cost-all"></span></button>');
+    $('pull-all').onclick = pullAll;
+    $('slot').insertAdjacentHTML('afterend', `<div class="pull-ctl hidden" id="pull-ctl">
+      <button class="chip" id="pull-fast" type="button">${G.Icons.html('boot', 12)} Rápido</button>
+      <button class="btn small" id="pull-skip" type="button">Saltar</button></div>`);
+    $('pull-results').insertAdjacentHTML('beforebegin', '<p class="pull-sum hidden" id="pull-sum"></p>');
+    $('pull-fast').onclick = () => { G.Slots.setFast(!G.Slots.fast); fastChip(); };
+    $('pull-skip').onclick = () => { skipCards = true; G.Slots.skip(); };
+    $('slot').addEventListener('click', () => { if (busy) { G.Slots.setFast(true); fastChip(); } });
 
     const tabs = $('gacha-gens');
     G.Gacha.BANNERS.forEach(b => {
@@ -73,6 +85,9 @@ G.GachaUI = (() => {
     $('pull-1').disabled = !G.Gacha.costOf(s, 1);
     $('pull-10').disabled = !G.Gacha.costOf(s, 10, 't1');
     $('pull-10b').disabled = !G.Gacha.costOf(s, 10, 't10');
+    const plan = allPlan(s);
+    $('pull-all').classList.toggle('hidden', plan.n < 2);
+    $('cost-all').textContent = '×' + plan.n * 10;
     G.UI.refreshCoins();
   }
 
@@ -84,21 +99,71 @@ G.GachaUI = (() => {
     if (!res) { G.Audio.sfx('error'); G.UI.toast('No tienes tickets suficientes: consíguelos jugando'); return; }
     G.Progress.checkAch();
     G.DB.commit(true);
-    busy = true;
+    await reveal(res);
+  }
 
+  /*
+   * Tirar todos: tiradas ×10 seguidas mientras haya tickets (primero los ×10),
+   * como mucho ALL_MAX. Cada una es una ×10 normal (G.Gacha.pull), con su
+   * Épica asegurada y su contador de legendaria: no cambia ninguna probabilidad.
+   */
+  const ALL_MAX = 20;
+  function allPlan(s) {
+    const t = s.tickets || { t1: 0, t10: 0 };
+    const a = Math.min(t.t10, ALL_MAX), b = Math.min(Math.floor(t.t1 / 10), ALL_MAX - a);
+    return { a, b, n: a + b };
+  }
+
+  async function pullAll() {
+    if (busy) return;
+    const s = G.DB.save, p = allPlan(s);
+    if (p.n < 1) { refresh(); return; }
+    if (!confirm(`¿Hacer ${p.n} tiradas ×10? Gastarás ${p.a} tickets ×10 y ${p.b * 10} tickets.`)) return;
+    const all = [];
+    for (let i = 0; i < p.n; i++) {
+      const res = G.Gacha.pull(s, 10, gen, G.Gacha.costOf(s, 10, 't10') ? 't10' : 't1');
+      if (!res) break;
+      all.push(...res);
+    }
+    if (!all.length) { refresh(); return; }
+    G.Progress.checkAch();
+    G.DB.commit(true);
+    // Lo nuevo y los shiny primero; luego de más a menos rareza.
+    const top = r => (r.isNew ? 2 : 0) + (r.shiny ? 1 : 0);
+    all.sort((x, y) => top(y) - top(x) || y.rarity - x.rarity);
+    await reveal(all, true);
+  }
+
+  /**
+   * Enseña lo que ha salido: la tragaperras y luego las cartas.
+   * many (Tirar todos): la tragaperras sólo con las 10 mejores, cartas sólo de
+   * lo nuevo y los shiny y sin esperas; el resumen de arriba cuenta todo.
+   */
+  async function reveal(res, many = false) {
+    busy = true; skipCards = false;
     const best = Math.max(...res.map(r => r.rarity));
     const fx = $('pull-fx'), slot = $('slot'), out = $('pull-results');
     out.innerHTML = '';
     $('pull-close').classList.add('hidden');
+    $('pull-sum').classList.add('hidden');
+    $('pull-ctl').classList.remove('hidden');
+    fastChip();
     slot.style.display = '';
     fx.classList.remove('hidden');
 
     // La tragaperras (ui/slots.js) y luego las cartas.
-    await G.Slots.play(slot, res);
+    await G.Slots.play(slot, many ? res.slice(0, 10) : res);
     G.Audio.sfx('burst', { rarity: best });
     slot.style.display = 'none';
+    if (res.length > 1) {
+      const dup = res.filter(r => !r.isNew);
+      $('pull-sum').innerHTML = `<span>Nuevos: ${res.length - dup.length} · Repetidos: ${dup.length}</span>
+        · <span class="coin"></span> +${dup.reduce((a, r) => a + r.refund, 0).toLocaleString(G.I18n.locale)}`;
+      $('pull-sum').classList.remove('hidden');
+    }
 
-    for (const r of res) {
+    const cards = many ? res.filter(r => r.isNew || r.shiny) : res;
+    for (const r of cards) {
       const mon = G.DEX_BY[r.dex];
       const c = document.createElement('div');
       c.className = 'pcard r' + r.rarity + (r.shiny ? ' shiny' : '');
@@ -113,12 +178,17 @@ G.GachaUI = (() => {
       const who = ab ? `<div class="pmon" translate="no">${G.Mons.name(G.Mons.natureOf(r.dex).n)} · <span class="${ab.slot === 2 ? 'gold' : ''}">${G.Mons.abilityName(ab.id)}</span></div>` : '';
       c.insertAdjacentHTML('beforeend', `<b>${r.shiny ? G.Icons.html('shiny', 12) + ' ' : ''}${mon.name}</b>${who}<div class="tag">${tag}</div>`);
       out.appendChild(c);
+      if (many || skipCards) continue;        // de golpe: un solo sonido al final
       G.Audio.sfx('reveal', { rarity: r.rarity });
-      await wait(n === 10 ? 150 : 0);
+      await wait(res.length === 10 ? 150 : 0);
     }
+    if ((many || skipCards) && cards.length) G.Audio.sfx('reveal', { rarity: Math.max(...cards.map(r => r.rarity)) });
+    $('pull-ctl').classList.add('hidden');
     $('pull-close').classList.remove('hidden');
     busy = false;
   }
+
+  function fastChip() { $('pull-fast').classList.toggle('on', G.Slots.fast); }
 
   function close() {
     $('pull-fx').classList.add('hidden');

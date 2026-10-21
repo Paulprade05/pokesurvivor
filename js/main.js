@@ -45,7 +45,11 @@
     G.I18n.startDom();
     // Espera a la fuente pixel para que la UI no salte al cargarla.
     const ready = document.fonts && document.fonts.load ? document.fonts.load('16px Pixelify') : Promise.resolve();
-    ready.catch(() => {}).then(() => G.Flow.boot());
+    ready.catch(() => {}).then(() => G.Flow.boot()).catch(e => {
+      // Antes el fallo se perdía y se quedaba «Cargando…» para siempre: botón de recargar (boot.js).
+      console.error('[Arranque] ha fallado:', e);
+      if (window.PS_BOOT_FAIL) window.PS_BOOT_FAIL();
+    });
   }
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot);
   else boot();

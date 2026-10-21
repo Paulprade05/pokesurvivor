@@ -12,8 +12,7 @@
  *     siempre (récords, monedas, tickets, ranking) y, al volver al menú, se
  *     recarga.
  *   - Antes de recargar se espera a que la partida guardada suba a la nube
- *     (como mucho unos segundos; si no, queda en este navegador y se sube al
- *     entrar).
+ *     (como mucho 30 s; si no, queda en este navegador y se sube con Guardar).
  *   - Versión OBLIGATORIA (node tools/build.js --forzar escribe force:true en
  *     version.json): quien esté en partida ve un aviso de 10 s y la partida
  *     se termina como al abandonarla (se guardan monedas, tickets, récords y
@@ -41,6 +40,7 @@ G.Updater = (() => {
 
   /** ¿Se puede recargar ahora sin cortar nada? */
   function safe() {
+    if (G.DB.leaving) return false;                                       // cerrando sesión: que acabe antes
     if (!G.Game || G.Game.state !== 'ui') return false;                   // en partida o en el resumen
     if (['scr-gacha', 'scr-upgrades', 'scr-settings'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
     const fx = document.getElementById('pull-fx');
@@ -51,9 +51,19 @@ G.Updater = (() => {
   }
 
   async function reload() {
-    // Que lo guardado suba a la nube antes de recargar (como mucho 6 s).
+    // Que lo guardado suba a la nube antes de recargar. G.DB.flush sube ya, aunque
+    // se acabe de guardar (antes sólo lo programaba y se perdía al recargar); si
+    // hace menos de 20 s de la última subida, espera lo justo. Como mucho 30 s.
+    counting = true;                     // que loop no vuelva a llamar mientras se espera
     const dirty = G.DB.syncState && G.DB.syncState !== 'ok' && G.DB.syncState !== 'local';
-    if (dirty) { try { await Promise.race([G.DB.flush(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { /* queda en este navegador */ } }
+    if (dirty) {
+      G.UI.toast('Guardando tu partida en la nube antes de actualizar…', 30000);
+      try { await Promise.race([G.DB.flush(), new Promise(r => setTimeout(r, 30000))]); } catch (e) { /* queda en este navegador */ }
+    }
+    // Si mientras tanto ha empezado una partida o se está cerrando sesión, no se recarga todavía:
+    // con versión normal se espera a que acabe; con obligatoria, loop vuelve a llamar a forceEnd.
+    if (G.DB.leaving || (forced ? inRun() : !safe())) { counting = false; G.UI.toast('', 1); return; }
+    if (G.Game && G.Game.allowLeave) G.Game.allowLeave();   // ya no hay partida: que el navegador no pregunte
     location.reload();
   }
 

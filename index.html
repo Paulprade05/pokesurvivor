@@ -81,8 +81,8 @@
 }
 </script>
 
-<link rel="stylesheet" href="css/style.css?v=7ec35e9cc4">
-<script src="js/core/locales.js?v=23650f5e5d"></script>
+<link rel="stylesheet" href="css/style.css?v=e7e564e46e">
+<script src="js/core/locales.js?v=ccb4de53a6"></script>
 <script src="js/noframe.js"></script>
 </head>
 <body>
@@ -93,13 +93,17 @@
 
 <!-- ====== Inicio: login / registro / invitado ====== -->
 <section id="scr-login" class="scr hidden">
-  <div class="box" style="width:min(420px,100%)">
+  <div class="box login-box">
+    <!-- Grupos sólo para colocarlos en dos columnas en el móvil en horizontal (style.css) -->
+    <div class="login-head">
     <div class="logo">
       <div class="t1">PokéSurvivor</div>
       <div class="t2">Mundo Misterioso</div>
     </div>
     <p class="login-tag">Sobrevive a las hordas con tu compañero Pokémon · gratis, en PC y móvil</p>
     <p class="login-official">Web oficial: pokesurvivor.com · si alguien te pide pagar, no somos nosotros</p>
+    </div>
+    <div class="login-main">
     <div class="tabs">
       <div class="tab on" data-tab="login">Entrar</div>
       <div class="tab" data-tab="register">Crear cuenta</div>
@@ -117,14 +121,19 @@
         <button id="btn-auth" class="btn gold grow" type="submit">Entrar</button>
       </div>
     </form>
-    <div class="row" style="margin-top:10px">
+    </div>
+    <div class="login-alt">
+    <div class="row">
       <button id="btn-google" class="btn google grow hidden" type="button">Entrar con Google</button>
     </div>
-    <div class="row" style="margin-top:10px">
+    <div class="row">
       <button id="btn-guest" class="btn ghost grow" type="button">Jugar como invitado</button>
     </div>
+    </div>
+    <div class="login-foot">
     <p class="note center" id="login-mode"></p>
     <p class="note center"><a href="guia/">Guía</a> · <a href="pokedex/">Pokédex</a> · <a href="#" class="legal-link" data-legal>Aviso legal y privacidad</a></p>
+    </div>
   </div>
 </section>
 
@@ -413,7 +422,7 @@
       <div class="tab on" data-tab="rep">Reportes</div>
       <div class="tab" data-tab="sus">Baneados</div>
     </div>
-    <div id="mod-list" class="rk-list" style="max-height:60vh"></div>
+    <div id="mod-list" class="rk-list"></div>
   </div>
 </section>
 
@@ -553,9 +562,9 @@
 <section id="scr-levelup" class="scr dim hidden">
   <div class="box center">
     <h2>¡Nivel <span id="lvl-num">2</span>!</h2>
-    <p class="sub">Elige una recompensa · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
+    <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></p>
     <div id="cards" class="cards"></div>
-    <button id="lvl-reroll" class="btn small ghost hidden" data-sfx="none" style="margin-top:10px">Cambiar opciones (<span id="lvl-rr-n">1</span>) · <kbd>R</kbd></button>
+    <button id="lvl-reroll" class="btn small ghost hidden" data-sfx="none" style="margin-top:10px">Cambiar opciones (<span id="lvl-rr-n">1</span>)<span class="kbd-hint"> · <kbd>R</kbd></span></button>
     <p id="lvl-wait" class="note hidden"></p>
   </div>
 </section>
@@ -573,7 +582,7 @@
 <section id="scr-item" class="scr dim hidden">
   <div class="box center">
     <h2>¡Un objeto!</h2>
-    <p class="sub">Sólo puedes llevar uno · <kbd>1</kbd> <kbd>2</kbd></p>
+    <p class="sub">Sólo puedes llevar uno<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd></span></p>
     <div id="item-cards" class="cards"></div>
   </div>
 </section>
@@ -595,7 +604,7 @@
 </section>
 
 <section id="scr-over" class="scr dim hidden">
-  <div class="box center" style="width:min(480px,100%)">
+  <div class="box center over-box">
     <h2 id="over-title">Has caído…</h2>
     <div id="over-stats" class="stats"></div>
     <button id="btn-again" class="btn gold">Volver al menú</button>
@@ -603,6 +612,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=9c81bc64df"></script>
+<script defer src="js/app.min.js?v=30622461c7"></script>
 </body>
 </html>

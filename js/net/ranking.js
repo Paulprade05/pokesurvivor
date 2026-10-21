@@ -232,14 +232,31 @@ G.Ranking = (() => {
   /** La subida de una marca (para que la partida siguiente espere a que acabe). */
   function track(p) { busy = p.catch(() => {}); return p; }
 
+  /*
+   * Fallos al guardar (21-10-2026): antes se perdían sin decir nada (#182). Los
+   * pasajeros (la transacción choca con otras: todo el mundo escribe en el mismo
+   * resumen al empezar el día; sin red un momento) se reintentan una vez, y si
+   * aun así no se guarda, se avisa al jugador.
+   */
+  const RETRY = new Set(['aborted', 'unavailable', 'deadline-exceeded', 'failed-precondition', 'internal']);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function failed(codes) {
+    if (!codes.length) return;
+    const has = (...cs) => codes.some(c => cs.includes(c));
+    G.UI.toast(has('permission-denied') ? 'Tu marca no se ha podido guardar en el ranking: el servidor la ha rechazado.'
+      : has('unavailable', 'deadline-exceeded') ? 'Tu marca no se ha podido guardar en el ranking: no hay conexión.'
+      : has('aborted', 'failed-precondition', 'resource-exhausted') ? 'Tu marca no se ha podido guardar en el ranking: el servidor estaba ocupado.'
+      : 'Tu marca no se ha podido guardar en el ranking.', 4200);
+  }
+
   /** Guarda la entrada en cada tabla donde mejore. → periodos mejorados */
   async function store(boards, id, entry) {
     const fb = fbx();
-    const better = [];
+    const better = [], codes = [];
     const known = bests();
     await Promise.all(boards.map(async ([b, period]) => {
       const key = b + ':' + id;
-      try {
+      for (let tries = 0; ; tries++) try {
         const topOnly = TOP_ONLY.has(period);
         // Si no llegas a la 50.ª marca que conoce este navegador, no entras: en
         // diario, semanal, mensual y por Pokémon no hay nada que hacer (ni leer).
@@ -297,9 +314,24 @@ G.Ranking = (() => {
         // (Si la marca espera para subir, tu puesto en la nube aún no ha cambiado.)
         if (!waiting) { mem.delete('r:' + b); try { localStorage.removeItem('ps.rk.c.r:' + b); } catch (e) { /* nada */ } }
         if (period && period !== 'p' && !better.includes(period)) better.push(period);
-      } catch (e) { console.warn('[Ranking] no se pudo guardar en', b, e.code || e.message); }
+        return;
+      } catch (e) {
+        const code = (e && e.code) || 'error';
+        console.warn('[Ranking] no se pudo guardar en', b, code, e && e.message);
+        // Las reglas también la rechazan si en la nube ya hay una marca tuya mejor (de
+        // otro aparato; este navegador no lo sabía): eso no es un fallo. Se mira (1
+        // lectura, sólo cuando pasa) para no avisar en falso y se apunta.
+        if (code === 'permission-denied') {
+          const old = await col(b).doc(id).get().catch(() => null);
+          const t = old && old.exists ? +old.data().t || 0 : 0;
+          if (t >= entry.t) { known[key] = t; return; }
+        }
+        if (tries || !RETRY.has(code)) { codes.push(code); return; }
+        await wait(1200 + Math.random() * 1800);       // (un poco al azar: no chocar otra vez con los mismos)
+      }
     }));
     saveBests(known);
+    failed(codes);
     return better;
   }
 
@@ -311,8 +343,14 @@ G.Ranking = (() => {
   }
 
   function submitSolo(r) { return track(submitSoloNow(r)); }
+  let nickHint = false;
   async function submitSoloNow(r) {
     const fb = fbx();
+    // Sin apodo no se sale en el ranking: se dice una vez por sesión (antes, nada).
+    if (fb && !G.Social.me && G.Social.started && r.t >= MIN_T && !nickHint) {
+      nickHint = true;
+      G.UI.toast('Elige un apodo (en Amigos) para salir en el ranking.', 4200);
+    }
     if (!fb || !G.Social.me || r.t < MIN_T) return [];
     flushDeferred();
     const ids = boardIds();

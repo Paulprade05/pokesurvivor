@@ -98,8 +98,11 @@ G.Social = (() => {
     return 'ok';
   }
 
-  /** Reserva un apodo único y crea el perfil público. */
-  async function claimNick(name) {
+  /**
+   * Reserva un apodo único y crea el perfil público.
+   * @param keep  reparación (ver repairNick): el perfil se reescribe con lo que ya enseñaba
+   */
+  async function claimNick(name, keep) {
     name = (name || '').trim();
     if (!VALID.test(name)) return { ok: false, error: 'El apodo debe tener 3-16 letras, números o _.' };
     const lower = name.toLowerCase();
@@ -110,7 +113,7 @@ G.Social = (() => {
         if (n.exists && n.data().uid !== uid) throw { code: 'taken' };
         if (!n.exists) tx.set(nref, { uid });
         tx.set(fb.fs.collection('profiles').doc(uid),
-          { name, lower, at: firebase.firestore.FieldValue.serverTimestamp() });
+          Object.assign(keep ? profileData() : {}, { name, lower, at: firebase.firestore.FieldValue.serverTimestamp() }));
       });
     } catch (e) {
       if (e && e.code === 'taken') return { ok: false, error: 'Ese apodo ya lo tiene otro jugador.' };
@@ -120,7 +123,7 @@ G.Social = (() => {
     try { localStorage.setItem('ps.nick.' + uid, name); } catch (e) { /* nada */ }
     G.DB.setName(name);
     if (started && !beatT) online();
-    publishProfile(true);
+    if (!keep) publishProfile(true);              // (al reparar ya va todo en la transacción)
     return { ok: true };
   }
 
@@ -128,18 +131,17 @@ G.Social = (() => {
    * Amigos e invitaciones. Nada de esto usa la Realtime Database.
    * Desde el 20-10-2026 la lista de amigos NO se carga al entrar (1 lectura por
    * amigo en cada carga de la página, para todos): sólo al abrir Amigos, la sala
-   * o el ranking de amigos (ensureFriends). Las invitaciones sí se escuchan desde
-   * el principio si este navegador sabe que tienes amigos (hasFrKey); el servidor
-   * ya comprueba que sean de un amigo.
+   * o el ranking de amigos (ensureFriends). Las invitaciones se escuchan desde el
+   * principio (una sola consulta: 1 lectura al empezar si no hay ninguna, y 1 por
+   * invitación). Hasta el 21-10-2026 sólo si este navegador sabía que tenías
+   * amigos, y en un aparato nuevo no llegaban hasta abrir Amigos. El servidor ya
+   * comprueba que sean de un amigo.
    */
-  const hasFrKey = () => 'ps.hasfr.' + uid;
   function online() {
     if (beatT) return;                        // ya estaba en marcha
     beatT = 1;
     if (fb.rtdb) fb.rtdb.goOffline();         // se conecta sólo al entrar en una sala
-    let known = false;
-    try { known = localStorage.getItem(hasFrKey()) === '1'; } catch (e) { /* nada */ }
-    if (known) listenInvites();
+    listenInvites();
   }
 
   /** Carga la lista de amigos (y la sigue escuchando) la primera vez que hace falta. */
@@ -150,7 +152,27 @@ G.Social = (() => {
     return friendsReady;
   }
 
-  /** Invitaciones a salas: sólo te pueden llegar de amigos, así que sin amigos no se escucha (lecturas). */
+  /**
+   * Una vez por sesión, al abrir Amigos: que tu apodo se pueda encontrar. Si
+   * names/{apodo} no existe (el apodo de este navegador era de una caché vieja o
+   * se borró), se vuelve a reservar. Cuesta 1 lectura. Si lo tiene otra cuenta,
+   * no se puede arreglar desde aquí (las reglas no dejan quitárselo).
+   */
+  let nickChecked = false;
+  async function repairNick() {
+    if (nickChecked || !fb || !me) return;
+    nickChecked = true;
+    const name = me.name;
+    let n;
+    try { n = await fb.fs.collection('names').doc(name.toLowerCase()).get(); }
+    catch (e) { nickChecked = false; return; }           // sin red: otra vez la próxima
+    if (n.exists && n.data().uid === uid) return;
+    if (n.exists) { console.warn('[Social] tu apodo lo tiene otra cuenta:', name); return; }
+    const r = await claimNick(name, true);
+    if (!r.ok) console.warn('[Social] no se pudo reparar el apodo:', r.error);
+  }
+
+  /** Invitaciones a salas: sólo te pueden llegar de amigos (el servidor lo comprueba). */
   function listenInvites() {
     if (unInv || !fb) return;
     unInv = fb.fs.collection('inv').where('to', '==', uid).onSnapshot(snap => {
@@ -178,7 +200,7 @@ G.Social = (() => {
     await leaveRoom().catch(() => {});
     if (unFriends) { unFriends(); unFriends = null; }
     if (unInv) { unInv(); unInv = null; }
-    clearInterval(beatT); beatT = 0; friendsReady = null;
+    clearInterval(beatT); beatT = 0; friendsReady = null; nickChecked = false;
     try { localStorage.removeItem(presKey()); } catch (e) { /* nada */ }
     if (why === 'delete') {
       try { localStorage.removeItem('ps.nick.' + uid); } catch (e) { /* nada */ }
@@ -224,9 +246,7 @@ G.Social = (() => {
       });
       friends = next;
       emit('friends');
-      // Con amigos ya te pueden invitar (y este navegador lo recuerda para la próxima vez).
-      try { if (hasFriends()) localStorage.setItem(hasFrKey(), '1'); else localStorage.removeItem(hasFrKey()); } catch (e) { /* nada */ }
-      if (hasFriends()) listenInvites();
+      if (hasFriends()) listenInvites();           // (normalmente ya se escuchaban: ver online)
       if (ready) { ready(); ready = null; }
     }, e => { console.warn('[Social] amigos:', e.code || e.message); if (ready) { ready(); ready = null; } });
   }
@@ -234,13 +254,22 @@ G.Social = (() => {
   /** (Quitado el 20-10-2026 con el "en línea": ya no lee nada.) */
   async function refreshPresence() {}
 
+  /** Lo que se pega con un apodo: espacios, caracteres invisibles y una @ delante. */
+  const cleanNick = s => String(s || '').replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '').trim().replace(/^@\s*/, '');
+
   /** Envía una solicitud de amistad (o acepta la que ya te había mandado). */
   async function request(name) {
-    name = (name || '').trim();
+    name = cleanNick(name);
     if (!me) return { ok: false, error: 'Primero elige tu apodo.' };
     if (!VALID.test(name)) return { ok: false, error: 'Escribe el apodo exacto de tu amigo.' };
-    const n = await fb.fs.collection('names').doc(name.toLowerCase()).get().catch(() => null);
-    if (!n || !n.exists) return { ok: false, error: 'No hay ningún jugador con ese apodo.' };
+    // Un fallo al leer (sin red, servidor saturado...) no es lo mismo que "no existe" (#122).
+    let n;
+    try { n = await fb.fs.collection('names').doc(name.toLowerCase()).get(); }
+    catch (e) {
+      console.warn('[Social] buscar apodo:', e.code || e.message);
+      return { ok: false, error: 'No se pudo buscar ahora mismo. Prueba en un rato.' };
+    }
+    if (!n.exists) return { ok: false, error: 'No hay ningún jugador con ese apodo. Pídele el que sale en su pantalla de Amigos.' };
     const other = n.data().uid;
     if (other === uid) return { ok: false, error: 'Ese eres tú.' };
     const f = friends.get(other);
@@ -326,23 +355,40 @@ G.Social = (() => {
     return { ok: true };
   }
 
-  function enterRoom(id, host) {
-    room = { id, host, isHost: host === uid, members: [], open: true };
+  /** @param members  los que ya se conocían (al volver a entrar tras perder la plaza) */
+  function enterRoom(id, host, members) {
+    room = { id, host, isHost: host === uid, members: members || [], open: true };
     watchRoomDisconnect();
     const mref = fb.rtdb.ref('rooms/' + id + '/m');
+    // (Un invitado sin su plaza tampoco puede leer la sala: el error también es seatLost.)
     mref.on('value', s => {
       if (!room || room.id !== id) return;
       const m = s.val() || {};
       // El anfitrión siempre primero; el resto por orden de llegada.
       room.members = Object.keys(m).map(k => Object.assign({ uid: k }, m[k]))
         .sort((a, b) => (a.uid === room.host ? -1 : b.uid === room.host ? 1 : (a.at || 0) - (b.at || 0)));
+      if (!room.isHost && !m[uid]) seatLost(id);
       emit('room');
-    }, () => closedRoom());
+    }, () => { if (!room || room.id !== id) return; if (room.isHost) closedRoom(); else seatLost(id); });
     const href = fb.rtdb.ref('rooms/' + id + '/host');
     href.on('value', s => { if (room && room.id === id && !s.val()) closedRoom(); }, () => closedRoom());
     const oref = fb.rtdb.ref('rooms/' + id + '/open');
-    oref.on('value', s => { if (room && room.id === id) { room.open = s.val() === true; emit('room'); } }, () => {});
-    roomRefs = [mref, href, oref];
+    oref.on('value', s => {
+      if (!room || room.id !== id) return;
+      room.open = s.val() === true;
+      if (room.lost) seatLost(id);                 // vuelve a abrirse (acabó la partida): a por la plaza
+      emit('room');
+    }, () => {});
+    // Tras un corte con la Realtime Database el servidor ya ha gastado el
+    // onDisconnect (y quizá borrado tu plaza): se vuelve a programar al reconectar.
+    const cref = fb.rtdb.ref('.info/connected');
+    let wasOn = true;
+    cref.on('value', s => {
+      const on = s.val() === true;
+      if (on && !wasOn && room && room.id === id) { if (room.lost) seatLost(id); else watchRoomDisconnect(); }
+      wasOn = on;
+    });
+    roomRefs = [mref, href, oref, cref];
     writeStatus();
     emit('room');
   }
@@ -351,7 +397,36 @@ G.Social = (() => {
   function watchRoomDisconnect() {
     if (!room) return;
     const ref = room.isHost ? fb.rtdb.ref('rooms/' + room.id) : fb.rtdb.ref('rooms/' + room.id + '/m/' + uid);
-    ref.onDisconnect().remove();
+    ref.onDisconnect().remove().catch(() => {});
+  }
+
+  /*
+   * Invitado: tu plaza ha desaparecido sin que salieras. Un corte breve con la
+   * Realtime Database hace que el servidor ejecute el onDisconnect y la borre
+   * aunque sigas aquí (#253). Fuera de partida y con la sala abierta se vuelve a
+   * escribir (las reglas lo dejan: open === true); en partida se espera (la
+   * partida va por la conexión directa) y se repone cuando la sala se reabra.
+   * Si es la sala entera la que ya no existe, lo cierra el aviso de su host.
+   */
+  let healing = false, healId = '', heals = 0, healAt = 0;
+  function seatLost(id) {
+    if (!room || room.id !== id || room.isHost) return;
+    room.lost = true;
+    if (healing || !room.open || (G.Coop && G.Coop.active)) return;
+    // Como mucho 5 veces seguidas (con menos de 2 min entre una y otra): si algo la
+    // borra una y otra vez, se deja. Los cortes sueltos de una tarde larga no cuentan.
+    if (healId !== id || Date.now() - healAt > 120000) { healId = id; heals = 0; }
+    healAt = Date.now();
+    if (++heals > 5) { closedRoom(); return; }
+    healing = true;
+    const host = room.host, ref = fb.rtdb.ref('rooms/' + id + '/m/' + uid);
+    ref.set(memberInfo()).then(() => {
+      healing = false;
+      if (!room || room.id !== id) { ref.remove().catch(() => {}); return; }   // saliste mientras tanto
+      const ms = room.members;
+      detachRoom();
+      enterRoom(id, host, ms);
+    }, () => { healing = false; });                         // no se puede ahora: al reabrirse o reconectar
   }
 
   function detachRoom() {
@@ -390,7 +465,11 @@ G.Social = (() => {
 
   /** Actualiza tu Pokémon en la sala (si cambias de compañero). */
   function refreshMember() {
-    if (room && me) fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(
+    if (!room || !me) return;
+    // Sin plaza (se borró en plena partida): se vuelve a escribir entera (un update
+    // la crearía a medias). Por si la sala se reabrió antes de acabar tu partida.
+    if (room.lost) { seatLost(room.id); return; }
+    fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(
       { dex: G.DB.save.partner, shiny: !!G.DB.save.partnerShiny && G.DB.ownsShiny(G.DB.save.partner) }).catch(() => {});
   }
 
@@ -519,7 +598,7 @@ G.Social = (() => {
 
   return {
     start, stop, claimNick, request, accept, remove, publishProfile, getProfile, profileData,
-    createRoom, joinRoom, leaveRoom, setOpen, refreshMember, setPlaying, refreshPresence, ensureFriends,
+    createRoom, joinRoom, leaveRoom, setOpen, refreshMember, setPlaying, refreshPresence, ensureFriends, repairNick,
     invite, acceptInvite, declineInvite,
     on(fn) { listeners.add(fn); }, off(fn) { listeners.delete(fn); },
     get me() { return me; },

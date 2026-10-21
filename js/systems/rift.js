@@ -24,6 +24,7 @@ G.Rift = (() => {
   // Desde 2 min antes de la Sentencia de Arceus (minuto 30) ya no se abren.
   const CHECK = 30, CHANCE = 0.2, TTL = 45;
   const ARENA_R = 11, ARENA_TIME = 120, FROM = 75;
+  const EXIT_GRACE = 2.5, EXIT_R = 140;     // al volver: segundos de gracia y hueco sin enemigos
   let rift = null;          // { x, y, ttl, t }
   let arena = null;         // { tx, ty, r, dex, shiny, x, y, back, biome, t, phase, endT, bossId }
   let zone = null;          // dónde estaba la última arena { x, y, r } (ver leftBehind)
@@ -56,7 +57,9 @@ G.Rift = (() => {
       if (checkT <= 0) {
         checkT = CHECK;
         if (G.EnemyMgr.bossAlive()) return;           // con un jefe vivo no cuenta como intento
-        if (Math.random() < CHANCE * (1 + misses)) { misses = 0; open(); }
+        // Si no hay sitio libre para la grieta, se vuelve a probar a los 5 s sin
+        // perder lo acumulado (antes se perdía la grieta "segura").
+        if (Math.random() < CHANCE * (1 + misses)) { if (open()) misses = 0; else checkT = 5; }
         else misses++;
       }
     }
@@ -72,8 +75,9 @@ G.Rift = (() => {
       if (!G.World.isFree(x, y, 22)) continue;
       show(x, y, TTL);
       if (G.Coop.isHost) G.Coop.broadcast(['rift', Math.round(x), Math.round(y), TTL]);
-      return;
+      return true;
     }
+    return false;
   }
 
   /** Aparece la grieta (también la que manda el anfitrión). */
@@ -140,6 +144,9 @@ G.Rift = (() => {
     if (th && th.weather) G.Weather.force(th.weather, ARENA_TIME + 15);
     // Todos al sur de la arena, en fila; el legendario aparece al norte.
     const ps = G.Game.everyone();
+    // Quien manda apunta de dónde sale cada uno para hacerle hueco al volver: cada
+    // invitado vuelve a donde estaba él, no adonde el anfitrión (ver clearExit).
+    if (authority()) arena.backs = ps.map(p => ({ x: p.x, y: p.y }));
     ps.forEach((p, i) => { p.x = arena.x + (i - (ps.length - 1) / 2) * 34; p.y = arena.y + ts * 3; });
     G.Camera.x = pl.x; G.Camera.y = pl.y;
     G.Game.flash('#c9a6ff', 0.9);
@@ -232,16 +239,41 @@ G.Rift = (() => {
     // van y de los del mapa que vuelven; si el invitado terminaba su cuenta
     // atrás un poco más tarde (pasa casi siempre), borraba los que acababan de
     // volver y no se veían hasta que caían (sólo sus ataques).
-    if (authority()) G.EnemyMgr.restore();
+    if (authority()) { G.EnemyMgr.restore(); for (const b of a.backs || [a.back]) clearExit(b.x, b.y); }
     G.Projectiles.clear();
     G.Combat.clearFields();
     G.Hazards.clear();
     for (const p of G.Game.everyone()) { p.x = a.back.x; p.y = a.back.y; }
     pl.x = a.back.x; pl.y = a.back.y;
     if (pl.dead) pl.revive(0.3);
+    // Unos segundos de gracia al volver: la horda seguía donde la dejaste y te
+    // tumbaba al instante (#11, #156). Cada uno, la de su Pokémon.
+    pl.graceT = Math.max(pl.graceT || 0, EXIT_GRACE);
     G.Camera.x = pl.x; G.Camera.y = pl.y;
     G.Game.flash('#c9a6ff', 0.8);
     if (pl.bonds > 0) G.Game.offerBond();
+  }
+
+  /**
+   * Quien manda: aparta a los enemigos (no a los jefes) que esperaban encima del
+   * punto de vuelta, hasta un poco más allá de EXIT_R. Avanzan hacia fuera de 8
+   * en 8 mientras haya sitio, así no cruzan paredes; no se ve porque la vuelta
+   * llega con un destello.
+   */
+  function clearExit(x, y) {
+    for (const e of G.EnemyMgr.all()) {
+      if (e.dead || e.boss || e.remote) continue;
+      const d = Math.hypot(e.x - x, e.y - y);
+      if (d >= EXIT_R) continue;
+      const a = d > 1 ? Math.atan2(e.y - y, e.x - x) : Math.random() * 6.2832;
+      const ca = Math.cos(a), sa = Math.sin(a), r = Math.min(e.r, 14);
+      let s = d;
+      for (let k = d + 8; k <= EXIT_R + 20; k += 8) {
+        if (!e.flying && !G.World.isFree(x + ca * k, y + sa * k, r, true)) break;
+        s = k;
+      }
+      e.x = x + ca * s; e.y = y + sa * s;
+    }
   }
 
   // ---------------- dibujo ----------------

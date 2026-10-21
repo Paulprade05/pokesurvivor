@@ -12,11 +12,11 @@ G.SettingsUI = (() => {
 
   function init() {
     document.querySelectorAll('#set-tabs .gen-tab').forEach(b => { b.onclick = () => { tab = b.dataset.t; render(); }; });
-    // En el móvil no hay apuntado a mano (siempre apunta solo): fuera la pestaña, que sólo tenía eso.
-    if (G.Settings.touch) document.querySelector('#set-tabs [data-t="a11y"]').classList.add('hidden');
     // Al conectar o quitar un mando con Controles abierto, se ve al momento.
     for (const ev of ['gamepadconnected', 'gamepaddisconnected']) addEventListener(ev, () => { if (isOpen() && tab === 'ctl') render(); });
     $('set-close').onclick = close;
+    // Cuenta abierta: el estado de la partida se ve al momento (Guardar, subiendo...).
+    G.DB.onSync(() => { if (isOpen() && tab === 'acc') render(); });
     $('btn-settings').innerHTML = G.Icons.html('gear', 20);
     $('btn-settings').onclick = () => open();
     $('btn-pause-settings').onclick = () => open('sound');
@@ -33,7 +33,7 @@ G.SettingsUI = (() => {
     $('scr-settings').classList.remove('hidden');
     render();
   }
-  function close() { $('scr-settings').classList.add('hidden'); }
+  function close() { stopBind(); keyMsg = ''; $('scr-settings').classList.add('hidden'); }
   const isOpen = () => !$('scr-settings').classList.contains('hidden');
 
   // ---------------- pantalla completa ----------------
@@ -69,7 +69,44 @@ G.SettingsUI = (() => {
     return `<div class="chips set-chips">${opts.map(([v, l]) => `<button class="chip ${v === cur ? 'on' : ''}" data-k="${key}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
   }
 
+  // ---------------- teclas (En PC) ----------------
+  let binding = null, keyMsg = '';       // la acción que espera su tecla nueva · último aviso
+  const DIRS = { up: ['↑', 'Arriba'], down: ['↓', 'Abajo'], left: ['←', 'Izquierda'], right: ['→', 'Derecha'] };
+  function keyBtn(a) {
+    const d = DIRS[a], on = binding === a;
+    return `<button class="btn small keybind${on ? ' gold' : ''}" data-bind="${a}"${d ? ` title="${d[1]}"` : ''}>`
+      + (d ? `<small>${d[0]}</small> ` : '') + (on ? '…' : esc(G.Input.keyLabel(a))) + '</button>';
+  }
+  function pcKeys() {
+    const mv = ['keyw', 'keya', 'keys', 'keyd'].map(c => `<kbd>${esc(G.Input.codeLabel(c))}</kbd>`).join('');
+    return `<div class="keys">
+             <div>${mv} o flechas</div><span>moverse</span>
+             <div>${['m1', 'm2', 'm3', 'm4'].map(a => keyBtn(a)).join('')} o clic en el icono</div><span>elegir ataque</span>
+             <div>${keyBtn('prev')} / ${keyBtn('next')}</div><span>ataque anterior / siguiente</span>
+             <div><kbd>Esc</kbd> / ${keyBtn('pause')}</div><span>pausa</span>
+             <div><kbd>1</kbd>–<kbd>3</kbd></div><span>elegir carta al subir de nivel</span>
+             <div>${['up', 'down', 'left', 'right'].map(a => keyBtn(a)).join('')}</div><span>teclas de más para moverte (las de siempre siguen valiendo)</span>
+           </div>`
+      + (binding ? '<p class="note">Pulsa la tecla nueva (Esc cancela)</p>' : keyMsg ? `<p class="note">${esc(keyMsg)}</p>` : '')
+      + '<div class="row" style="margin-top:10px"><button class="btn small" id="set-keys-reset">Restablecer teclas</button></div>';
+  }
+  /** Espera la siguiente tecla para la acción `a` (pulsar otra vez el mismo botón cancela). */
+  function bindKey(a) {
+    if (binding === a) { stopBind(); keep(); return; }
+    binding = a; keyMsg = '';
+    G.Input.grab(c => {
+      binding = null;
+      keyMsg = c === 'escape' ? '' : G.Input.bind(a, c);
+      if (isOpen() && tab === 'ctl') keep();
+    });
+    keep();
+  }
+  function stopBind() { if (binding) { binding = null; G.Input.grab(null); } }
+  /** Redibuja sin volver arriba (las teclas están al final de la pestaña). */
+  function keep() { const y = $('set-body').scrollTop; render(); $('set-body').scrollTop = y; }
+
   function render() {
+    if (tab !== 'ctl') { stopBind(); keyMsg = ''; }
     document.querySelectorAll('#set-tabs .gen-tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
     const box = $('set-body');
     box.scrollTop = 0;
@@ -87,6 +124,11 @@ G.SettingsUI = (() => {
         + toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.')
         + toggle('calm', 'Menos sacudidas y destellos', 'La cámara tiembla menos y los fogonazos son suaves.')
         + toggle('fps', 'Mostrar FPS', 'Fotogramas por segundo, en la esquina de abajo.')
+        + toggle('hpUnder', 'Vida bajo tu Pokémon', 'Una barra pequeña bajo tu Pokémon (y bajo tus compañeros) con la vida que le queda.')
+        + toggle('lowHpWarn', 'Aviso de poca vida', 'Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.')
+        + toggle('eco', 'Ahorro de energía', 'Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.')
+        + `<div class="set-row"><div class="grow"><b>Tamaño del HUD</b><small>Vida, nivel, reloj y ataques de la partida. En pantallas grandes ya sale algo más grande.</small></div></div>`
+        + choice('hudScale', [[1, 'Normal'], [1.25, 'Grande'], [1.5, 'Muy grande']])
         + (canFull() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>Sin barras del navegador.</small></div>
              <button class="btn small" id="set-full">${isFull() ? 'Salir' : 'Activar'}</button></div>`
            : iosTip() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>${esc(IOS_TIP)}</small></div></div>` : '');
@@ -112,17 +154,16 @@ G.SettingsUI = (() => {
         + choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']])
         + `<div class="set-row"><div class="grow"><b>Colocar los botones</b><small>Pon los ataques, la pausa y el joystick (fijo, si quieres) donde quieras de la pantalla.</small></div>
              <button class="btn small" id="set-layout">Colocar</button></div>`
-        + section('En PC')
-        + `<div class="keys">
-             <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o flechas</div><span>moverse</span>
-             <div><kbd>1</kbd>–<kbd>4</kbd> o clic en el icono</div><span>elegir ataque</span>
-             <div><kbd>Q</kbd> / <kbd>E</kbd></div><span>ataque anterior / siguiente</span>
-             <div><kbd>Esc</kbd> o <kbd>P</kbd></div><span>pausa</span>
-             <div><kbd>1</kbd>–<kbd>3</kbd></div><span>elegir carta al subir de nivel</span>
-           </div>`;
+        + section('En PC', 'Haz clic en una tecla y pulsa la nueva. Si ya la usaba otra acción, se intercambian.')
+        + pcKeys();
     } else if (tab === 'a11y') {
-      box.innerHTML = section('Apuntado')
-        + toggle('aimManual', 'Apuntar a mano', 'Tus ataques van hacia el ratón (o hacia donde empujes el stick derecho del mando) en vez de al enemigo más cercano. Si sueltas el stick y no mueves el ratón, vuelve a apuntar solo. La cadena y los meteoros siguen buscando a los enemigos solos.');
+      // En el móvil no hay apuntado a mano (siempre apunta solo).
+      box.innerHTML = (G.Settings.touch ? '' : section('Apuntado')
+        + toggle('aimManual', 'Apuntar a mano', 'Tus ataques van hacia el ratón (o hacia donde empujes el stick derecho del mando) en vez de al enemigo más cercano. Si sueltas el stick y no mueves el ratón, vuelve a apuntar solo. La cadena y los meteoros siguen buscando a los enemigos solos.'))
+        + section('Ver mejor el combate')
+        + `<div class="set-row"><div class="grow"><b>Transparencia de tus ataques</b><small>Tus ataques se ven más transparentes para que veas mejor los disparos y avisos de los enemigos.</small></div></div>`
+        + choice('ownFx', [[1, 'Normal'], [0.6, 'Suaves'], [0.35, 'Muy suaves']])
+        + toggle('hazardHi', 'Avisos de alto contraste', 'Los avisos de ataques enemigos en el suelo salen en blanco y negro con rayas en vez del color del tipo, y los disparos enemigos llevan un aro amarillo. Para daltónicos.');
     } else if (tab === 'acc') {
       renderAccount(box);
     } else {
@@ -148,20 +189,29 @@ G.SettingsUI = (() => {
 
   function renderAccount(box) {
     const st = G.DB.guest ? 'guest' : G.DB.syncState;
-    const SYNC = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Pendiente de subir (se sube al salir del juego)',
-                   offline: 'Sin conexión: se subirá al volver', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
+    // Lo mismo que el punto de la barra de arriba (ui.js): a la nube sólo se sube con Guardar.
+    const SYNC = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Sin guardar en la nube: pulsa Guardar',
+                   offline: 'Sin conexión: pulsa Guardar cuando vuelva', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
     if (G.DB.guest) {
       box.innerHTML = section('Cuenta', 'Estás jugando como <b>invitado</b>: tu progreso no se guarda al salir.')
         + `<button class="btn gold" id="set-login">Crear cuenta o entrar</button>`;
       return;
     }
     const nick = G.Social.me ? G.Social.me.name : (G.DB.user || '');
-    const kind = G.DB.mode === 'local' ? 'Cuenta de este navegador' : G.DB.nameAccount ? 'Nombre y contraseña' : 'Google';
+    const cloud = G.DB.mode === 'cloud', named = cloud && G.DB.nameAccount, mail = cloud ? G.DB.email : '';
+    const MAIL = s => `<span translate="no" style="overflow-wrap:anywhere">${esc(s)}</span>`;
+    // Con qué cuenta has entrado: con otro Gmail sería otra partida (#139).
+    const who = !cloud ? `<span>${esc('Cuenta de este navegador')}</span>`
+      : named ? `<span>${esc('Cuenta con nombre y contraseña')}</span>` : MAIL(mail || 'Google');
     box.innerHTML = section('Cuenta')
       + `<div class="set-row"><div class="grow"><b>Apodo</b><small>Es único y no se puede cambiar.</small></div><span class="gold" translate="no">${esc(nick)}</span></div>`
-      + `<div class="set-row"><div class="grow"><b>Tipo de cuenta</b></div><span>${esc(kind)}</span></div>`
-      + `<div class="set-row"><div class="grow"><b>Partida</b></div><span>${esc(SYNC[st] || st)}</span></div>`
-      + `<div class="row wrap" style="gap:8px;margin-top:12px">
+      + `<div class="set-row"><div class="grow"><b>Has entrado con</b>${cloud && !named ? '<small>Cuenta de Google. Con otro Gmail tendrías otra partida.</small>' : ''}</div>${who}</div>`
+      + (named ? `<div class="set-row"><div class="grow"><b>Gmail vinculado</b><small>${G.DB.hasGoogle
+            ? 'Si olvidas la contraseña, entra con Google.' : 'Vincúlalo para entrar con Google si olvidas la contraseña.'}</small></div>`
+          + (G.DB.hasGoogle ? MAIL(mail || 'Google') : '<button class="btn small gold" id="set-link">Vincular Gmail</button>') + '</div>' : '')
+      + `<div class="set-row"><div class="grow"><b>Partida</b>${cloud
+          ? '<small>La nube se actualiza al pulsar Guardar, antes de una actualización automática y al cerrar sesión. Pulsa Guardar antes de cambiar de aparato.</small>' : ''}</div><span>${esc(SYNC[st] || st)}</span></div>`
+      + `<div class="row wrap" style="gap:8px;margin-top:12px">${cloud && st !== 'ok' && st !== 'syncing' ? '<button class="btn gold" id="set-save">Guardar</button>' : ''}
            <button class="btn" id="set-logout">Cerrar sesión</button>
            <button class="btn danger" id="set-delete">Borrar cuenta</button>
          </div><p class="note" id="set-msg"></p>`;
@@ -174,9 +224,21 @@ G.SettingsUI = (() => {
     });
     const full = $('set-full'); if (full) full.onclick = toggleFull;
     const lay = $('set-layout'); if (lay) lay.onclick = () => G.LayoutUI.open();
+    box.querySelectorAll('[data-bind]').forEach(b => { b.onclick = () => bindKey(b.dataset.bind); });
+    const kr = $('set-keys-reset'); if (kr) kr.onclick = () => { stopBind(); keyMsg = ''; G.Input.resetKeys(); keep(); };
     box.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => { if (b.dataset.lang !== G.I18n.lang) G.I18n.set(b.dataset.lang); }; });
     const lo = $('set-login'); if (lo) lo.onclick = () => { close(); leave(); };
     const out = $('set-logout'); if (out) out.onclick = () => { close(); leave(); };
+    // Cuenta: Guardar (lo mismo que el botón de arriba) y vincular Gmail.
+    const sv = $('set-save'); if (sv) sv.onclick = () => $('btn-save').click();
+    const lk = $('set-link');
+    if (lk) lk.onclick = async () => {
+      lk.disabled = true;
+      const r = await G.DB.linkGoogle();
+      if (!r.ok) { lk.disabled = false; $('set-msg').textContent = r.error; return; }
+      G.UI.toast('¡Gmail vinculado! Si olvidas la contraseña, entra con Google.', 4500);
+      if (isOpen() && tab === 'acc') render();
+    };
     const del = $('set-delete');
     if (del) del.onclick = async () => {
       const ok = await G.UI.confirmDelete();

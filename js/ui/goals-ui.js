@@ -129,6 +129,27 @@
         }
         box.appendChild(lg);
       }
+
+      // Combate: todos los movimientos que evolucionan y cuáles has evolucionado ya
+      // (el logro «Maestro de movimientos» cuenta lo mismo: save.evoMoves).
+      if (cat === 'combate') {
+        const EVO = G.Moves.EVO, BY = G.Moves.BY_ID, types = Object.keys(G.U.TYPE_NAME);
+        const all = Object.keys(EVO), ok = id => !!(s.evoMoves && s.evoMoves[id]);
+        const ids = all.filter(id => BY[id]).sort((a, b) => types.indexOf(BY[a].type) - types.indexOf(BY[b].type)
+          || G.T(BY[a].name, 'move').localeCompare(G.T(BY[b].name, 'move'), G.I18n.locale));
+        box.insertAdjacentHTML('beforeend', `<h3 style="margin:14px 0 6px">Movimientos evolucionados ${all.filter(ok).length} / ${all.length}</h3>
+          <p class="sub" style="margin:0 0 8px">Un movimiento al nivel máximo evoluciona si en esa partida coges la carta que pide.</p>`);
+        const eg = document.createElement('div');
+        eg.className = 'leg-grid evo-grid';
+        eg.innerHTML = ids.map(id => {
+          const need = G.LevelUp.STATS.find(x => x.id === EVO[id][1]);
+          return `<div class="leg-cell evo-cell${ok(id) ? ' ok' : ''}">${G.Icons.html('move:' + id, 28)}
+            <div><b>${G.T(BY[id].name, 'move')}</b><small class="gold">→ ${G.T(EVO[id][0], 'move')}</small>
+            <small>${need ? G.Icons.html(need.icon, 12) : ''} <span>${G.Moves.NEED_NAME[EVO[id][1]]}</span></small></div>
+            ${ok(id) ? G.Icons.html('medal3', 18) : ''}</div>`;
+        }).join('');
+        box.appendChild(eg);
+      }
     }
 
     function achCard(a, s) {

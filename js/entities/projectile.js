@@ -109,16 +109,25 @@ G.Projectiles = (() => {
 
   function draw(ctx) {
     const L = G.LIFT;
+    // «Transparencia de tus ataques»: los tuyos (y su sombra), más suaves; los enemigos, igual.
+    const own = G.FX.ownAlpha();
     // Sombras primero, todas juntas.
     ctx.fillStyle = 'rgba(0,0,0,.25)';
     for (const p of list) {
+      ctx.globalAlpha = p.friendly ? own : 1;
       ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 0.9, p.r * 0.38, 0, 0, 6.2832); ctx.fill();
     }
+    ctx.globalAlpha = 1;
     // Los disparos enemigos llevan un aro rojo en el suelo: "esto te hace daño".
-    ctx.fillStyle = 'rgba(255,60,80,.35)';
+    // Con «Avisos de alto contraste», amarillo con borde negro (el rojo sobre la
+    // hierba es lo que peor ven los daltónicos).
+    const hi = G.Settings.get('hazardHi');
+    ctx.fillStyle = hi ? 'rgba(255,225,77,.6)' : 'rgba(255,60,80,.35)';
+    if (hi) { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 1.5; }
     for (const p of list) {
       if (p.friendly) continue;
       ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.5, p.r * 0.6, 0, 0, 6.2832); ctx.fill();
+      if (hi) ctx.stroke();
     }
     for (const p of list) {
       const v = p.vis || G.VFX.forType('normal');
@@ -128,7 +137,7 @@ G.Projectiles = (() => {
       if (G.VFX.isDir(shape)) angle = p.orb ? p.oa + Math.PI / 2 : Math.atan2(p.vy, p.vx);
       else if (G.VFX.spins(shape)) angle = p.t * 9;
       G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, {
-        angle, alpha: a, scale: p.r >= 8 ? 1.5 : 1,
+        angle, alpha: p.friendly ? a * own : a, scale: p.r >= 8 ? 1.5 : 1,
         frame: Math.floor(p.t * 12)
       });
     }

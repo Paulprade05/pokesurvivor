@@ -199,7 +199,8 @@ G.MenuUI = (() => {
       if (f.shiny && !(s.shiny && s.shiny[p.dex])) return false;
       if (f.fav && !G.DB.isFav(p.dex)) return false;
       if (f.rar.size && !f.rar.has(p.rarity)) return false;
-      if (f.type && !(own && p.types.includes(f.type))) return false;
+      // Por tipo también los que te faltan (siguen en silueta y sin nombre): «Me faltan» + tipo.
+      if (f.type && !p.types.includes(f.type)) return false;
       return true;
     });
     const at = p => (s.owned[p.dex] && s.owned[p.dex].at) || 0, used = p => +(s.pused || {})[p.dex] || 0;
@@ -253,13 +254,16 @@ G.MenuUI = (() => {
     gridIO.observe(more);
   }
 
+  /** Cuándo llegaste con él a la Sentencia de Arceus (save.pjudg, lo apunta progress.js), o 0. */
+  const judged = dex => +(G.DB.save.pjudg || {})[dex] || 0;
+
   function dexCell(p) {
     const s = G.DB.save;
     const own = !!s.owned[p.dex], sh = !!(s.shiny && s.shiny[p.dex]);
     const cell = document.createElement('div');
     cell.className = 'cell' + (own ? '' : ' locked') + (p.dex === dexSel ? ' on' : '');
     cell.dataset.pad = '1';
-    cell.insertAdjacentHTML('beforeend', `<span class="no">${String(p.dex).padStart(3, '0')}${G.DB.isFav(p.dex) ? ' ' + G.Icons.html('star', 10) : ''}</span>`);
+    cell.insertAdjacentHTML('beforeend', `<span class="no">${String(p.dex).padStart(3, '0')}${G.DB.isFav(p.dex) ? ' ' + G.Icons.html('star', 10) : ''}${judged(p.dex) ? ` <span title="Llegó a la Sentencia de Arceus">${G.Icons.html('trophy', 10)}</span>` : ''}</span>`);
     if (p.dex === s.partner) cell.insertAdjacentHTML('beforeend', `<span class="badge-r" title="Compañero">${G.Icons.html('crown', 14)}</span>`);
     else if (sh) cell.insertAdjacentHTML('beforeend', `<span class="badge-r" title="Tienes su shiny">${G.Icons.html('shiny', 12)}</span>`);
     const useShiny = sh && p.dex === s.partner && s.partnerShiny;
@@ -312,6 +316,8 @@ G.MenuUI = (() => {
         ${own ? `<button id="dex-fav" class="chip${G.DB.isFav(dex) ? ' on' : ''}" type="button">${G.Icons.html(G.DB.isFav(dex) ? 'star' : 'starDim', 12)} ${G.DB.isFav(dex) ? 'Favorito' : 'Marcar como favorito'}</button>` : ''}
         <div style="color:${G.Gacha.RARITY_COLOR[p.rarity]}">${G.UI.stars(p.rarity, 24)} ${G.Gacha.RARITY_NAME[p.rarity]}</div>
         <div style="margin:6px 0">${own ? G.UI.typeChips(p.types) : ''}</div>
+        ${own && judged(dex) ? `<p class="sub" style="margin:0 0 6px">${G.Icons.html('trophy', 14)} <span>Llegó a la Sentencia de Arceus</span>
+          <small>${new Date(judged(dex)).toLocaleDateString(G.I18n.locale)}</small></p>` : ''}
       </div>
       ${own ? `
         ${bar('Vida', q.hp, max.hp, q.hp)}
@@ -452,6 +458,7 @@ G.MenuUI = (() => {
       // Mejoras que necesitan otra (Segundo movimiento inicial → Repertorio).
       const locked = !maxed && u.needs && !levels[u.needs];
       const pick2 = u.id === 'start2' && lvl > 0 ? G.startMove2Of(upgDex) : null;
+      const [many] = maxBuy(u, lvl, s.coins);
       const el = document.createElement('div');
       el.className = 'panel upg-item';
       el.innerHTML = `
@@ -464,6 +471,7 @@ G.MenuUI = (() => {
           ${u.id === 'ban' && lvl > 0 ? `<button class="btn small" data-ban>Elegir (${banList().length}/${lvl})</button>` : ''}
           ${u.id === 'start' && lvl > 0 ? `<button class="btn small" data-start>Elegir: ${G.Moves.BY_ID[G.startMoveOf(upgDex)].name}</button>` : ''}
           ${u.id === 'start2' && lvl > 0 ? `<button class="btn small" data-start2>Elegir: ${pick2 ? G.Moves.BY_ID[pick2].name : G.T('Al azar')}</button>` : ''}
+          ${!locked && many > 1 ? `<button class="btn small" data-max data-sfx="none" title="Compra todos los niveles que puedes pagar">Máx. +${many}</button>` : ''}
           <button class="btn small ${maxed ? '' : 'gold'}" data-buy data-sfx="none" ${maxed || locked || s.coins < cost ? 'disabled' : ''}
             ${locked ? `title="${G.T('Primero compra Repertorio')}"` : ''}>
           ${maxed ? 'Máx.' : locked ? G.T('Necesita Repertorio') : `<span class="coin"></span> ${cost}`}</button></div>`;
@@ -471,18 +479,18 @@ G.MenuUI = (() => {
       if (u.id === 'start' && lvl > 0) el.querySelector('[data-start]').onclick = () => { startOpen = !startOpen; renderUpgrades(); };
       if (u.id === 'start2' && lvl > 0) el.querySelector('[data-start2]').onclick = () => { start2Open = !start2Open; renderUpgrades(); };
       el.querySelector('[data-buy]').onclick = () => {
-        // Se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).
-        const sv = G.DB.save, lv = G.DB.upgradesOf(upgDex), now = lv[u.id] || 0;
-        if (now >= u.max || (u.needs && !lv[u.needs])) { renderUpgrades(); return; }
-        const price = G.Upgrades.cost(u.id, now);
-        if (sv.coins < price) { renderUpgrades(); return; }
-        sv.coins -= price;
-        lv[u.id] = now + 1;
-        G.DB.commit(true);
-        G.Audio.sfx('buy');
-        G.UI.refreshCoins();
-        G.UI.toast(`${mon.name} · ${u.name}: nivel ${now + 1}`);
-        renderUpgrades();
+        const got = buyLevel(u);
+        if (got) bought(mon, u, got); else renderUpgrades();
+      };
+      // Máx.: los niveles que llegues a pagar, uno a uno como el botón de comprar, y se guarda una vez.
+      const mx = el.querySelector('[data-max]');
+      if (mx) mx.onclick = () => {
+        const [k, total] = maxBuy(u, G.DB.upgradesOf(upgDex)[u.id] || 0, G.DB.save.coins);
+        if (k < 1) { renderUpgrades(); return; }
+        if (!confirm(`¿Comprar ${k} niveles de ${u.name} por ${total.toLocaleString(G.I18n.locale)} monedas?`)) return;
+        let got = 0;
+        for (let i = 0; i < k; i++) { const lv = buyLevel(u); if (!lv) break; got = lv; }
+        if (got) bought(mon, u, got); else renderUpgrades();
       };
       box.appendChild(el);
       if (u.id === 'ban' && lvl > 0 && banOpen) box.appendChild(banPicker(lvl));
@@ -490,6 +498,37 @@ G.MenuUI = (() => {
       if (u.id === 'start2' && lvl > 0 && start2Open) box.appendChild(start2Picker());
     }
     box.appendChild(bindPanel());
+  }
+
+  /** Compra un nivel de la mejora u del Pokémon que se ve (sin guardar). → nivel nuevo, o 0 si no se puede. */
+  function buyLevel(u) {
+    // Se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).
+    const sv = G.DB.save, lv = G.DB.upgradesOf(upgDex), now = lv[u.id] || 0;
+    if (now >= u.max || (u.needs && !lv[u.needs])) return 0;
+    const price = G.Upgrades.cost(u.id, now);
+    if (sv.coins < price) return 0;
+    sv.coins -= price;
+    lv[u.id] = now + 1;
+    return now + 1;
+  }
+
+  function bought(mon, u, lvl) {
+    G.DB.commit(true);
+    G.Audio.sfx('buy');
+    G.UI.refreshCoins();
+    G.UI.toast(`${mon.name} · ${u.name}: nivel ${lvl}`);
+    renderUpgrades();
+  }
+
+  /** Cuántos niveles seguidos de u se pueden pagar desde el nivel lvl → [niveles, coste total]. */
+  function maxBuy(u, lvl, coins) {
+    let k = 0, total = 0;
+    while (lvl + k < u.max) {
+      const c = G.Upgrades.cost(u.id, lvl + k);
+      if (total + c > coins) break;
+      total += c; k++;
+    }
+    return [k, total];
   }
 
   // ---------------- atajos: hueco fijo para cada movimiento ----------------
