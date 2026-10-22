@@ -1,13 +1,17 @@
 /* ============ ranking-ui.js — pantalla del ranking ============
- * Pestañas Solo / Grupo, periodo (diario ... histórico), todos o sólo amigos,
- * filtro por Pokémon (sólo en el histórico) y tu puesto abajo aunque no salgas
- * en el top. Lo leído se guarda 2 h (ver ranking.js).
+ * Hoja con una barra de filtros: Solo / Grupo, Todos / Amigos y el periodo
+ * (diario ... histórico); el filtro por Pokémon (sólo en el histórico) se abre
+ * con la lupa. Los tres primeros llevan medalla (chapas de oro, plata y bronce)
+ * y tu puesto va fijo abajo aunque no salgas en el top. Lo leído se guarda 2 h
+ * (ver ranking.js). Estilos: style.css, «pantallas: social».
  */
 G.RankingUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let mode = 's', period = 'w', scope = 'all', dex = null;
-  let token = 0;
+  let token = 0, findOn = false;
+  // Medalla de los tres primeros: chapa dorada, plateada y de bronce (icons.js), en su baldosa.
+  const MEDAL = { 1: ['medal3', 't-gold'], 2: ['medal2', 'rk-silver'], 3: ['medal1', 'rk-bronze'] };
 
   function init() {
     const dl = $('rk-dl');
@@ -21,6 +25,17 @@ G.RankingUI = (() => {
     };
     $('rk-clear').onclick = () => { $('rk-poke').value = ''; setDex(null); };
     $('rk-mod').onclick = () => G.ModUI.open();
+    $('rk-find').onclick = () => setFind(!findOn, true);
+    $('rk-me-ico').innerHTML = G.Icons.html('trophy', 30);
+  }
+
+  /** Abre o cierra la fila del filtro por Pokémon (con un Pokémon elegido se queda abierta). */
+  function setFind(on, focus) {
+    findOn = !!on || !!dex;
+    $('scr-rank').classList.toggle('find-on', findOn);
+    $('rk-find').classList.toggle('on', findOn);
+    $('rk-find').setAttribute('aria-expanded', findOn ? 'true' : 'false');
+    if (findOn && focus) setTimeout(() => $('rk-poke').focus(), 30);
   }
 
   /** El filtro por Pokémon sólo existe en el histórico: al elegir uno se pasa a esa pestaña. */
@@ -28,6 +43,7 @@ G.RankingUI = (() => {
     dex = d;
     if (d && period !== 'a') period = 'a';
     $('rk-clear').classList.toggle('hidden', !d);
+    setFind(findOn);
     tabs(); load();
   }
 
@@ -36,6 +52,7 @@ G.RankingUI = (() => {
     G.UI.show('scr-rank', true);
     if (!G.Social.started) G.Social.start();
     $('rk-mod').classList.toggle('hidden', !G.Ranking.isAdmin());
+    setFind(false);
     tabs();
     load();
   }
@@ -45,19 +62,20 @@ G.RankingUI = (() => {
       box.innerHTML = '';
       for (const [k, label] of items) {
         const b = document.createElement('button');
-        b.className = cls + (k === cur ? ' on' : '');
-        b.innerHTML = label;
-        b.onclick = () => { set(k); tabs(); load(); };
+        b.type = 'button';
+        b.className = (cls + (k === cur ? ' on' : '')).trim();
+        b.textContent = label;
+        b.setAttribute('aria-pressed', k === cur ? 'true' : 'false');
+        b.onclick = () => { if (k === cur) return; set(k); tabs(); load(); };
         box.appendChild(b);
       }
     };
-    mk($('rk-mode'), [['s', `<b>${G.Icons.html('user', 16)} Solo</b>`], ['g', `<b>${G.Icons.html('friends', 16)} Grupo</b>`]],
-       mode, k => { mode = k; }, 'gen-tab');
+    mk($('rk-mode'), [['s', 'Solo'], ['g', 'Grupo']], mode, k => { mode = k; }, '');
+    mk($('rk-scope'), [['all', 'Todos'], ['friends', 'Amigos']], scope, k => { scope = k; }, '');
     mk($('rk-period'), G.Ranking.PERIODS, period, k => {
       period = k;
-      if (k !== 'a' && dex) { dex = null; $('rk-poke').value = ''; $('rk-clear').classList.add('hidden'); }
+      if (k !== 'a' && dex) { dex = null; $('rk-poke').value = ''; $('rk-clear').classList.add('hidden'); setFind(findOn); }
     }, 'chip');
-    mk($('rk-scope'), [['all', 'Todos'], ['friends', 'Sólo amigos']], scope, k => { scope = k; }, 'chip');
   }
 
   const fmt = t => t >= 3600 ? Math.floor(t / 3600) + ':' + G.U.mmss(t % 3600).padStart(5, '0') : G.U.mmss(t);
@@ -65,7 +83,8 @@ G.RankingUI = (() => {
   async function load() {
     const my = ++token;
     const list = $('rk-list');
-    list.innerHTML = '<p class="sub">Cargando…</p>';
+    list.classList.toggle('grp', mode === 'g');           // en grupo, cada fila en dos líneas en el móvil
+    list.innerHTML = '<p class="rk-msg">Cargando…</p>';
     $('rk-me').innerHTML = '';
     let rows = [], me = null;
     try {
@@ -75,13 +94,14 @@ G.RankingUI = (() => {
       ]);
     } catch (e) {
       if (my !== token) return;
-      list.innerHTML = '<p class="sub">No se pudo cargar el ranking (' + esc(e.code || e.message) + ').</p>';
+      list.innerHTML = '<p class="rk-msg err">No se pudo cargar el ranking (' + esc(e.code || e.message) + ').</p>';
       return;
     }
     if (my !== token) return;
     list.innerHTML = '';
     if (!rows.length) {
-      list.innerHTML = '<p class="sub">Todavía no hay marcas aquí. ¡Sé el primero!</p>';
+      list.innerHTML = `<div class="empty-state"><span class="ico-tile l round t-gold">${G.Icons.html('medalOff', 60)}</span>` +
+        '<b>Todavía no hay marcas aquí. ¡Sé el primero!</b></div>';
     }
     const uid = G.Social.uid;
     const b = G.Ranking.board(mode, period, dex), done = G.Ranking.reported();
@@ -113,34 +133,41 @@ G.RankingUI = (() => {
       : (en ? `<span translate="no">You don't have a ${where} record ${pn} yet.</span>` : `Aún no tienes marca ${pn} ${where}.`);
   }
 
+  /** Una fila: puesto (medalla en los tres primeros), equipo, nombres, tiempo y la bandera de reportar. */
   function rowEl(r, pos, mine, b, done) {
     const el = document.createElement('div');
-    el.className = 'rk-row' + (mine ? ' mine' : '') + (pos <= 3 ? ' top' + pos : '');
-    el.insertAdjacentHTML('beforeend', `<span class="pos">${pos <= 3 ? G.Icons.html('trophy', 20) : ''}${pos}</span>`);
+    el.className = 'rk-item' + (mine ? ' mine' : '') + (pos <= 3 ? ' top' + pos : '');
+    const md = MEDAL[pos];
+    el.insertAdjacentHTML('beforeend', md
+      ? `<span class="rk-pos"><span class="rk-medal ico-tile s round ${md[1]}">${G.Icons.html(md[0], 30)}<i>${pos}</i></span></span>`
+      : `<span class="rk-pos">${pos}</span>`);
     const mons = document.createElement('span');
-    mons.className = 'mons';
+    mons.className = 'rk-mons';
     r.dex.forEach((d, i) => { if (G.DEX_BY[d]) mons.appendChild(G.UI.spriteCanvas(d, 44, 40, { scale: 1, shiny: !!r.shiny[i] })); });
     el.appendChild(mons);
     el.insertAdjacentHTML('beforeend',
-      `<span class="who"><b translate="no">${r.names.map((n, i) => `<a href="#" class="plink" data-u="${esc(r.uids[i] || '')}">${esc(n)}</a>`).join(' · ')}</b><small>Nv. ${r.lv || 1} · ${(r.kills || 0).toLocaleString(G.I18n.locale)} derrotados</small></span>
-       <span class="time">${fmt(r.t)}</span>`);
-    el.querySelectorAll('.plink').forEach(a => { a.onclick = e => { e.preventDefault(); G.ProfileUI.show(a.dataset.u); }; });
+      `<span class="rk-who"><b translate="no">${r.names.map((n, i) => `<a href="#" class="rk-name" data-u="${esc(r.uids[i] || '')}">${esc(n)}</a>`).join(' · ')}</b>` +
+      `<small>Nv. ${r.lv || 1} · ${(r.kills || 0).toLocaleString(G.I18n.locale)} derrotados</small></span>` +
+      `<span class="rk-time">${fmt(r.t)}</span>`);
+    el.querySelectorAll('.rk-name').forEach(a => { a.onclick = e => { e.preventDefault(); G.ProfileUI.show(a.dataset.u); }; });
     // Reportar una marca sospechosa (no la tuya). Lo revisa el admin (mod-ui.js).
     if (!mine && G.Social.me) {
       const rep = document.createElement('button');
       const sent = done.has(b + '__' + r.id);
-      rep.className = 'rk-rep' + (sent ? ' sent' : '');
-      rep.title = sent ? 'Ya la has reportado' : 'Reportar marca sospechosa';
-      rep.innerHTML = G.Icons.html('flag', 16);
+      const tip = t => { rep.title = t; rep.setAttribute('aria-label', t); };
+      rep.type = 'button';
+      rep.className = 'icon-btn plain rk-flag' + (sent ? ' sent' : '');
+      tip(sent ? 'Ya la has reportado' : 'Reportar marca sospechosa');
+      rep.innerHTML = G.Icons.html('flag', 18);
       rep.onclick = async () => {
         if (rep.classList.contains('sent')) { G.UI.toast('Ya has reportado esta marca'); return; }
         if (!confirm('¿Reportar la marca de ' + r.names.join(', ') + ' como trampa?')) return;
-        rep.classList.add('sent'); rep.title = 'Ya la has reportado';
+        rep.classList.add('sent'); tip('Ya la has reportado');
         await G.Ranking.report(b, r);
         G.UI.toast('Gracias: la revisaremos');
       };
       el.appendChild(rep);
-    } else el.appendChild(document.createElement('span'));
+    }
     return el;
   }
 

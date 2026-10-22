@@ -447,6 +447,7 @@ G.ShopUI = (() => {
 
   function open() {
     G.UI.show('scr-shop', true);
+    $('shop-stall').parentElement.scrollTop = 0;          // siempre se entra viendo el puesto
     const sg = $('shop-sign');
     sg.classList.remove('lit', 'show', 'shown');
     $('shop-bubble').classList.add('hide');
@@ -463,15 +464,22 @@ G.ShopUI = (() => {
     };
   }
 
-  /** Mochila desde el menú principal. */
+  /**
+   * Mochila desde el menú principal. Arriba a la derecha, la tienda; abajo,
+   * «Ir a la colección» (donde se usa). Vacía: sólo el botón de ir a comprar.
+   */
   function openBag() {
     G.UI.show('scr-bag', true);
-    const box = $('bag-body');
-    box.innerHTML = bagHtml();
-    const go = box.querySelector('[data-go-dex]');
-    if (go) go.onclick = () => G.MenuUI.openDex();
-    const shop = box.querySelector('[data-go-shop]');
-    if (shop) shop.onclick = () => open();
+    const r = bagHtml(), body = $('bag-body');
+    body.innerHTML = r.html;
+    body.scrollTop = 0;
+    $('bag-foot').classList.toggle('hidden', r.empty);
+    const dex = $('bag-foot').querySelector('[data-go-dex]');
+    dex.innerHTML = `${G.Icons.html('book', 30)}<span>${G.T('Ir a la colección')}</span>`;
+    dex.onclick = () => G.MenuUI.openDex();
+    const top = $('scr-bag').querySelector('.sheet-acts [data-go-shop]');
+    if (!top.firstChild) top.innerHTML = G.Icons.html('shop', 30);
+    $('scr-bag').querySelectorAll('[data-go-shop]').forEach(b => { b.onclick = () => open(); });
   }
 
   /** Lo que dice el Kecleon morado en el bocadillo (se va solo a los 6 s). */
@@ -489,7 +497,7 @@ G.ShopUI = (() => {
   /** El objeto comprado sale de la estantería (from) y vuela hasta su fila de la lista
    *  (key, donde pone cuántos tienes), que bota al recibirlo. */
   function flyToBag(iconHtml, from, key) {
-    const target = $('shop-body').querySelector(`[data-buy="${key}"]`)?.closest('.upg-item').querySelector('.ic');
+    const target = $('shop-body').querySelector(`[data-buy="${key}"]`)?.closest('.shop-row').querySelector('.ico-tile');
     if (!target) return;
     const to = target.getBoundingClientRect();
     if (!from) { const r = $('shop-stall').getBoundingClientRect(); from = { x: r.left + r.width / 2, y: r.bottom - 50 }; }
@@ -497,7 +505,7 @@ G.ShopUI = (() => {
     el.className = 'shop-fly';
     el.innerHTML = iconHtml;
     document.body.appendChild(el);
-    const x0 = from.x - 16, y0 = from.y - 16, x1 = to.left + to.width / 2 - 16, y1 = to.top + to.height / 2 - 16;
+    const x0 = from.x - 15, y0 = from.y - 15, x1 = to.left + to.width / 2 - 15, y1 = to.top + to.height / 2 - 15;
     const mid = { x: (x0 + x1) / 2, y: Math.min(y0, y1) - 70 };
     const anim = el.animate([
       { transform: `translate(${x0}px, ${y0}px) scale(.5)`, opacity: 0 },
@@ -511,14 +519,29 @@ G.ShopUI = (() => {
     };
   }
 
-  const coin = n => `<span class="coin"></span> ${n.toLocaleString(G.I18n.locale)}`;
   const moveName = id => G.T(G.Moves.BY_ID[id].name, 'move');
+  // Baldosa de cada objeto teñida con su color (las MT, con el de su tipo: ver tmTile).
+  const TINT = { mint: 't-green', cap: 't-red', caph: 't-purple' };
+  const tmTile = (id, size, cls = '') => {
+    const m = G.Moves.BY_ID[id];
+    return `<span class="ico-tile tint${cls}" style="--tile-c:${G.U.TYPE_COLOR[m.type]}">${G.Icons.html('move:' + id, size)}</span>`;
+  };
+  /** Tipo y físico / especial de una MT, en etiquetas. */
+  function tmTags(id) {
+    const m = G.Moves.BY_ID[id];
+    const cat = G.Stats.NAME[m.cat || (m.stat === 'patk' ? 'physical' : m.stat === 'satk' ? 'special' : '')];
+    return `<span class="tag-chip" style="background:${G.U.TYPE_COLOR[m.type]}">${G.U.TYPE_NAME[m.type]}</span>${cat ? `<span class="tag-chip cat">${cat}</span>` : ''}`;
+  }
 
-  /** Fila de la lista: icono, nombre, texto y botón. */
-  function row(icon, title, desc, right) {
-    return `<div class="panel upg-item"><div class="ic">${icon}</div>
-      <div><b>${title}</b><div class="sub" style="font-size:13px">${desc}</div></div>
-      <div class="upg-btns">${right}</div></div>`;
+  /**
+   * Fila de la tienda: baldosa con el objeto, nombre (y etiquetas, y cuántos
+   * tienes), descripción y, a la derecha, el precio, que es el botón de comprar.
+   */
+  function row(key, tile, title, tags, desc, price) {
+    const s = G.DB.save;
+    return `<div class="list-row shop-row">${tile}
+      <div class="grow shop-txt"><b>${title}</b>${tags ? `<span class="shop-tags">${tags}</span>` : ''}<small>${desc}</small></div>
+      <button class="btn small gold ic shop-buy" type="button" data-buy="${key}" data-sfx="none" ${s.coins < price ? 'disabled' : ''}>${G.Icons.html('coin', 30)}<span>${price.toLocaleString(G.I18n.locale)}</span></button></div>`;
   }
 
   // Qué hay en la estantería de cada cosa que se compra (para que salga de ahí).
@@ -533,7 +556,7 @@ G.ShopUI = (() => {
         if (!r.ok) { if (r.error) G.UI.toast(r.error); G.Audio.sfx('error'); return; }
         G.Audio.sfx('buy');
         G.UI.refreshCoins();
-        const icon = b.closest('.upg-item').querySelector('.ic').innerHTML;
+        const icon = b.closest('.shop-row').querySelector('.ico-tile').innerHTML;
         const from = Scene.cheer(key.startsWith('tm:') ? 'tm' : SHELF_ICON[key]);
         say(G.U.pick(['¡Muchas gracias!', '¡Gracias, vuelve pronto!']));
         render();
@@ -541,54 +564,66 @@ G.ShopUI = (() => {
       };
     });
     // Pasar por algo de la tienda: el Kecleon más cercano va a señalarlo.
-    box.querySelectorAll('.upg-item').forEach(it => {
+    box.querySelectorAll('.shop-row').forEach(it => {
       it.addEventListener('pointerenter', () => { const r = it.getBoundingClientRect(); Scene.point(r.left + r.width / 2); });
     });
   }
 
   function buyHtml() {
-    const s = G.DB.save, partner = s.partner, mine = n => (n ? ` <small class="gold">· ${G.I18n.f('tienes {x}', n)}</small>` : '');
-    const buyBtn = (key, price) => `<button class="btn small gold" data-buy="${key}" data-sfx="none" ${s.coins < price ? 'disabled' : ''}>${coin(price)}</button>`;
-    let h = `<h3 style="margin:10px 0 6px">${G.T('Objetos')}</h3><div class="upg">`;
+    const s = G.DB.save, partner = s.partner;
+    const mine = n => (n ? `<span class="shop-own">${G.I18n.f('tienes {x}', n)}</span>` : '');
+    let h = `<section class="shop-sec"><h3 class="shop-h">${G.T('Objetos')}</h3><div class="shop-grid">`;
     for (const id of G.Shop.ORDER) {
       const it = G.Shop.ITEMS[id];
-      h += row(G.Icons.html(it.icon, 32), G.T(it.name) + mine(G.Shop.count(id)), G.T(it.desc), buyBtn(id, it.price));
+      h += row(id, `<span class="ico-tile ${TINT[id] || ''}">${G.Icons.html(it.icon, 30)}</span>`, G.T(it.name), mine(G.Shop.count(id)), G.T(it.desc), it.price);
     }
-    h += `</div><h3 style="margin:14px 0 6px">${G.T('MT de hoy')}</h3>
-      <p class="sub" style="margin:0 0 8px">${G.T('Cada día hay otras 8. Una MT enseña su ataque a un Pokémon que lo aprenda en los juegos, para siempre (se gasta al usarla).')}</p><div class="upg">`;
+    h += `</div></section><section class="shop-sec"><h3 class="shop-h">${G.T('MT de hoy')}</h3>
+      <p class="sub shop-note">${G.T('Cada día hay otras 8. Una MT enseña su ataque a un Pokémon que lo aprenda en los juegos, para siempre (se gasta al usarla).')}</p><div class="shop-grid">`;
     for (const id of G.Shop.dailyTms()) {
       const m = G.Moves.BY_ID[id];
       const fits = partner && G.Mons.canLearn(partner, id);
-      const cat = G.Stats.NAME[m.cat || (m.stat === 'patk' ? 'physical' : m.stat === 'satk' ? 'special' : '')];
-      const tag = `<span class="tag-chip" style="background:${G.U.TYPE_COLOR[m.type]}">${G.U.TYPE_NAME[m.type]}</span>${cat ? `<span class="tag-chip cat">${cat}</span>` : ''}`;
       const note = fits ? `<span class="gold">${G.I18n.f('{x} la puede aprender', G.DEX_BY[partner].name)}</span>`
         : partner && G.Mons.taught(partner).includes(id) ? G.I18n.f('{x} ya la sabe', G.DEX_BY[partner].name) : G.T(m.desc);
-      h += row(G.Icons.html('move:' + id, 32), `${G.T('MT')} ${moveName(id)} ${tag}${mine(G.Shop.tmCount(id))}`, note, buyBtn('tm:' + id, G.Shop.tmPrice(id)));
+      h += row('tm:' + id, tmTile(id, 30), `${G.T('MT')} ${moveName(id)}`, tmTags(id) + mine(G.Shop.tmCount(id)), note, G.Shop.tmPrice(id));
     }
-    return h + '</div>';
+    return h + '</div></section>';
   }
 
+  /** La Mochila: tarjetas con el objeto grande y cuántos tienes. → { html, empty } */
   function bagHtml() {
     const s = G.DB.save;
     const items = G.Shop.ORDER.filter(id => G.Shop.count(id) > 0);
     const tms = Object.keys(s.tms || {}).filter(id => G.Moves.BY_ID[id] && s.tms[id] > 0).sort((a, b) => moveName(a).localeCompare(moveName(b)));
     if (!items.length && !tms.length) {
-      return `<p class="sub center" style="margin:24px 0">${G.T('Tu Mochila está vacía.')}<br><br>
-            <button class="btn gold" data-go-shop>${G.Icons.html('shop', 16)} ${G.T('Ir a la Tienda Kecleon')}</button></p>`;
+      return { empty: true, html: `<div class="empty-state bag-empty"><span class="ico-tile l t-gold">${G.Icons.html('bag', 60)}</span>
+        <b>${G.T('Tu Mochila está vacía.')}</b><span>${G.T('Compra Mentas, Cápsulas y MT en la Tienda Kecleon.')}</span>
+        <button class="btn gold ic" type="button" data-go-shop>${G.Icons.html('shop', 30)}<span>${G.T('Ir a la Tienda Kecleon')}</span></button></div>` };
     }
-    let h = `<p class="sub" style="margin:10px 0">${G.T('Para usarlo, abre la colección, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.')}
-      <button class="btn small" data-go-dex>${G.Icons.html('book', 14)} ${G.T('Ir a la colección')}</button></p><div class="upg">`;
-    for (const id of items) {
-      const it = G.Shop.ITEMS[id];
-      h += row(G.Icons.html(it.icon, 32), G.T(it.name), G.T(it.desc), `<b class="gold">×${G.Shop.count(id)}</b>`);
+    const card = (tile, title, tags, desc) => `<div class="bag-item">${tile}
+      <div class="grow"><b>${title}</b>${tags ? `<span class="shop-tags">${tags}</span>` : ''}<small>${desc}</small></div></div>`;
+    const count = n => `<span class="bag-n">×${n}</span>`;
+    const head = (title, n) => `<h3 class="shop-h">${title}<span class="badge ghost">${n}</span></h3>`;
+    let h = `<p class="sub bag-hint">${G.T('Para usarlo, abre la colección, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.')}</p>`;
+    if (items.length) {
+      h += `<section class="shop-sec">${head(G.T('Objetos'), items.reduce((a, id) => a + G.Shop.count(id), 0))}<div class="bag-grid">`;
+      for (const id of items) {
+        const it = G.Shop.ITEMS[id];
+        h += card(`<span class="ico-tile bag-tile ${TINT[id] || ''}">${G.Icons.html(it.icon, 60)}${count(G.Shop.count(id))}</span>`, G.T(it.name), '', G.T(it.desc));
+      }
+      h += '</div></section>';
     }
-    for (const id of tms) {
-      // Cuántos de tus Pokémon la pueden aprender.
-      const n = Object.keys(s.owned).filter(d => G.DEX_BY[d] && G.Mons.canLearn(+d, id)).length;
-      h += row(G.Icons.html('move:' + id, 32), `${G.T('MT')} ${moveName(id)}`,
-        n ? G.I18n.f('La pueden aprender {x} de tus Pokémon', n) : G.T('Ninguno de tus Pokémon la puede aprender'), `<b class="gold">×${s.tms[id]}</b>`);
+    if (tms.length) {
+      h += `<section class="shop-sec">${head(G.T('MT'), tms.reduce((a, id) => a + s.tms[id], 0))}<div class="bag-grid">`;
+      for (const id of tms) {
+        // Cuántos de tus Pokémon la pueden aprender.
+        const n = Object.keys(s.owned).filter(d => G.DEX_BY[d] && G.Mons.canLearn(+d, id)).length;
+        const tile = tmTile(id, 60, ' bag-tile').replace(/<\/span>$/, count(s.tms[id]) + '</span>');
+        h += card(tile, `${G.T('MT')} ${moveName(id)}`, tmTags(id),
+          n ? G.I18n.f('La pueden aprender {x} de tus Pokémon', n) : G.T('Ninguno de tus Pokémon la puede aprender'));
+      }
+      h += '</div></section>';
     }
-    return h + '</div>';
+    return { empty: false, html: h };
   }
 
   return { open, openBag, render };

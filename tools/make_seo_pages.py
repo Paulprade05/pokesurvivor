@@ -396,12 +396,17 @@ document.querySelectorAll('#chart td').forEach(td => {
     write(pid, lang, page(pid, lang, title, desc, body, {'@context': 'https://schema.org', '@graph': [crumbs(pid, lang, h1)]}))
 
 # ================= movimientos =================
-KIND = {'es': {'projectile': 'Proyectil', 'melee': 'Cuerpo a cuerpo', 'beam': 'Rayo', 'orbit': 'Órbita', 'nova': 'Ráfaga', 'aura': 'Aura', 'buff': 'Mejora',
-               'boomerang': 'Bumerán', 'chain': 'Cadena', 'mine': 'Minas', 'meteor': 'Meteoros', 'turret': 'Torreta', 'dash': 'Embestida',
-               'trail': 'Rastro', 'cone': 'Abanico'},
-        'en': {'projectile': 'Projectile', 'melee': 'Melee', 'beam': 'Beam', 'orbit': 'Orbit', 'nova': 'Burst', 'aura': 'Aura', 'buff': 'Buff',
-               'boomerang': 'Boomerang', 'chain': 'Chain', 'mine': 'Mines', 'meteor': 'Meteors', 'turret': 'Turret', 'dash': 'Dash',
-               'trail': 'Trail', 'cone': 'Spray'}}
+# Familias de ataque: los mismos nombres que en el juego (KIND_NAME de js/ui/run-ui.js).
+KIND = {'es': {'projectile': 'Proyectil', 'melee': 'Golpe', 'beam': 'Haz', 'orbit': 'Órbita', 'nova': 'Estallido', 'aura': 'Aura', 'buff': 'Potenciador',
+               'boomerang': 'Bumerán', 'chain': 'Cadena', 'mine': 'Minas', 'meteor': 'Meteoro', 'turret': 'Torreta', 'dash': 'Embestida', 'trail': 'Estela',
+               'cone': 'Abanico', 'homing': 'Teledirigido', 'bounce': 'Rebote', 'charge': 'Carga', 'spin': 'Giro', 'quake': 'Temblor', 'vortex': 'Vórtice',
+               'shove': 'Empujón', 'stun': 'Aturdimiento', 'lob': 'Parábola', 'knife': 'Ráfaga', 'cross': 'Aspas', 'column': 'Columna', 'sweep': 'Aguja',
+               'ricochet': 'Carambola', 'wipe': 'Barrido', 'ward': 'Escudo', 'ally': 'Aliados', 'wings': 'Aves', 'puddle': 'Charcos', 'dusting': 'Chaparrón'},
+        'en': {'projectile': 'Projectile', 'melee': 'Strike', 'beam': 'Beam', 'orbit': 'Orbit', 'nova': 'Burst', 'aura': 'Aura', 'buff': 'Boost',
+               'boomerang': 'Boomerang', 'chain': 'Chain', 'mine': 'Mines', 'meteor': 'Meteor', 'turret': 'Turret', 'dash': 'Dash', 'trail': 'Trail',
+               'cone': 'Cone', 'homing': 'Homing', 'bounce': 'Bounce', 'charge': 'Charge', 'spin': 'Spin', 'quake': 'Quake', 'vortex': 'Vortex',
+               'shove': 'Shove', 'stun': 'Stun', 'lob': 'Lob', 'knife': 'Volley', 'cross': 'Cross', 'column': 'Column', 'sweep': 'Clock hand',
+               'ricochet': 'Ricochet', 'wipe': 'Screen wipe', 'ward': 'Shield', 'ally': 'Allies', 'wings': 'Birds', 'puddle': 'Pools', 'dusting': 'Shower'}}
 def moves_page(lang):
     pid = 'moves'
     rows = []
@@ -476,6 +481,9 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-22', ('Lavado de imagen y ataques nuevos', 'A fresh new look and new moves'),
+  ('Interfaz nueva pensada para el móvil (menús redondeados, letra moderna e iconos de objetos reales de Pokémon) y 37 ataques nuevos al estilo de Vampire Survivors: rocas en parábola, aspas, columnas, escudos, aliados, aves, charcos y más, con 5 mejoras pasivas nuevas.',
+   'A new mobile-first interface (rounded menus, a modern font and real Pokémon item icons) and 37 new moves in the style of Vampire Survivors: lobbed rocks, spinning crosses, columns, shields, allies, birds, pools and more, plus 5 new passive upgrades.')),
  ('2026-10-14', ('Coloca los botones a tu gusto en el móvil', 'Place the buttons your way on mobile'),
   ('En Ajustes > Controles > Colocar los botones puedes arrastrar los ataques, la pausa y el joystick a donde quieras, y elegir un joystick fijo.',
    'In Settings > Controls > Place the buttons you can drag the attacks, the pause button and the joystick wherever you want, and choose a fixed joystick.')),

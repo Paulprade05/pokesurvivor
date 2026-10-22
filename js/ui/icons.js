@@ -318,18 +318,19 @@ G.Icons = (() => {
   /** La imagen de un nombre ya resuelto (se guarda en él: nada que buscar en cada fotograma). */
   function picOf(r) { return r.pic || (r.pic = pic(r.t === 'vec' ? vecUrl(r.name) : r.file)); }
 
-  /** Insignia de la familia (9×9, abajo a la derecha del disco: x, y 21..29). */
+  /** Insignia de la familia (14×14 con el dibujo al doble, abajo a la derecha del disco: x, y 16..29):
+   *  a 9×9 no se distinguían los ataques del mismo tipo en el HUD. */
   const badges = new Map();
   function badge(kind) {
     let cv = badges.get(kind);
     if (cv) return cv;
     cv = document.createElement('canvas');
-    cv.width = cv.height = 9;
+    cv.width = cv.height = 14;
     const c = cv.getContext('2d');
-    c.fillStyle = K; c.fillRect(1, 0, 7, 9); c.fillRect(0, 1, 9, 7);
-    c.fillStyle = '#1d3b78'; c.fillRect(1, 1, 7, 7);
+    c.fillStyle = K; c.fillRect(1, 0, 12, 14); c.fillRect(0, 1, 14, 12);
+    c.fillStyle = '#1d3b78'; c.fillRect(1, 1, 12, 12);
     c.fillStyle = '#ffcb05';
-    KIND_GLYPH[kind].forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === '#') c.fillRect(x + 2, y + 2, 1, 1); });
+    KIND_GLYPH[kind].forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === '#') c.fillRect(x * 2 + 2, y * 2 + 2, 2, 2); });
     badges.set(kind, cv);
     return cv;
   }
@@ -444,8 +445,8 @@ G.Icons = (() => {
     const key = 'badge:' + kind;
     let u = urls.get(key);
     if (!u) {
-      let r = `<rect x="22" y="21" width="7" height="9" fill="${K}"/><rect x="21" y="22" width="9" height="7" fill="${K}"/><rect x="22" y="22" width="7" height="7" fill="#1d3b78"/>`;
-      KIND_GLYPH[kind].forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === '#') r += `<rect x="${x + 23}" y="${y + 23}" width="1" height="1" fill="#ffcb05"/>`; });
+      let r = `<rect x="17" y="16" width="12" height="14" fill="${K}"/><rect x="16" y="17" width="14" height="12" fill="${K}"/><rect x="17" y="17" width="12" height="12" fill="#1d3b78"/>`;
+      KIND_GLYPH[kind].forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === '#') r += `<rect x="${x * 2 + 18}" y="${y * 2 + 18}" width="2" height="2" fill="#ffcb05"/>`; });
       u = svgDoc(30, 30, r);
       urls.set(key, u);
     }
@@ -557,7 +558,7 @@ G.Icons = (() => {
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = r.t === 'vec' || k < 1;
     ctx.drawImage(s.img, s.x, s.y, s.w, s.h, ox + (s.x - bx) * k, oy + (s.y - by) * k, s.w * k, s.h * k);
-    if (r.kind) ctx.drawImage(badge(r.kind), ox + (21 - bx) * k, oy + (21 - by) * k, 9 * k, 9 * k);
+    if (r.kind) ctx.drawImage(badge(r.kind), ox + (16 - bx) * k, oy + (16 - by) * k, 14 * k, 14 * k);
     ctx.imageSmoothingEnabled = prev;
   }
 

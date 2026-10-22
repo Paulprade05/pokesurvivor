@@ -195,6 +195,8 @@ G.UI = (() => {
 
   function openLegal() {
     legalBack = SCREENS.find(s => isOpen(s)) || null;
+    const ico = $('legal-ico');
+    if (ico && !ico.firstChild) ico.innerHTML = G.Icons.html('cleanse-tag', 30);
     $('legal-mail').textContent = CONTACT;
     $('legal-mail').href = 'mailto:' + CONTACT + '?subject=Pok%C3%A9Survivor';
     $('legal-repo').textContent = REPO.replace('https://', '');
@@ -202,36 +204,54 @@ G.UI = (() => {
     const canDelete = G.DB.loggedIn && !G.DB.guest;
     $('legal-delete').disabled = !canDelete;
     $('legal-del-msg').textContent = canDelete ? '' : 'Inicia sesión para poder borrar tu cuenta.';
+    $('legal-body').scrollTop = 0;
     $('scr-legal').classList.remove('hidden');
   }
 
+  /** ¿Es la ventana de más arriba? (con otra encima, Esc es para esa) */
+  function onTop(el) {
+    const z = s => parseInt(getComputedStyle(s).zIndex, 10) || 0, mine = z(el);
+    for (const s of document.querySelectorAll('.scr:not(.hidden)')) if (s !== el && z(s) > mine) return false;
+    return true;
+  }
+
   /**
-   * "¿Seguro que quieres borrar la cuenta?". Las cuentas de nombre y
+   * "¿Seguro que quieres borrar la cuenta?" en una ventana pequeña (.mcard, por
+   * encima de Ajustes, el aviso legal e Instalar). Las cuentas de nombre y
    * contraseña escriben su contraseña (Firebase pide confirmar quién eres);
    * las de Google la confirman en la ventana de Google al seguir.
+   * Esc, «Cancelar» (botón B del mando) o tocar fuera cancelan.
    * Devuelve { pass } o null si se cancela.
    */
   function confirmDelete() {
-    if (!G.DB.nameAccount) return Promise.resolve(confirm(G.T('Se borrarán tu cuenta y toda tu partida, para siempre. ¿Seguro?')) ? { pass: '' } : null);
+    const pw = !!G.DB.nameAccount;
     return new Promise(done => {
       const el = document.createElement('section');
+      el.id = 'scr-delacc';
       el.className = 'scr dim';
-      el.style.zIndex = 70;
-      el.innerHTML = `<div class="box center" style="max-width:380px">
-        <h3>Borrar cuenta</h3>
-        <p class="sub">Se borrarán tu cuenta y toda tu partida, para siempre. Para confirmarlo, escribe tu contraseña.</p>
-        <input class="field" type="password" maxlength="64" autocomplete="current-password" style="width:100%">
-        <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap">
-          <button class="btn ghost" data-a="no">Cancelar</button>
-          <button class="btn danger" data-a="yes">Borrar para siempre</button>
+      el.setAttribute('role', 'alertdialog');
+      el.setAttribute('aria-labelledby', 'delacc-title');
+      el.innerHTML = `<div class="box mcard">
+        <span class="ico-tile l round t-red mcard-ico" aria-hidden="true">${G.Icons.html('ban', 60)}</span>
+        <h2 id="delacc-title">Borrar cuenta</h2>
+        <p class="mcard-txt">${pw ? 'Se borrarán tu cuenta y toda tu partida, para siempre. Para confirmarlo, escribe tu contraseña.'
+          : 'Se borrarán tu cuenta y toda tu partida, para siempre. ¿Seguro?'}</p>
+        ${pw ? '<input class="field" type="password" maxlength="64" autocomplete="current-password" aria-label="Contraseña" placeholder="Contraseña">' : ''}
+        <div class="mcard-acts">
+          <button class="btn danger big block" type="button" data-a="yes">Borrar para siempre</button>
+          <button class="btn ghost block" type="button" data-a="no" data-back>Cancelar</button>
         </div></div>`;
       document.body.appendChild(el);
       const inp = el.querySelector('input');
-      const end = v => { el.remove(); done(v); };
+      const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); end(null); } };
+      const end = v => { removeEventListener('keydown', onKey, true); el.remove(); done(v); };
+      addEventListener('keydown', onKey, true);
       el.querySelector('[data-a=no]').onclick = () => end(null);
-      el.querySelector('[data-a=yes]').onclick = () => { if (inp.value) end({ pass: inp.value }); else inp.focus(); };
-      inp.onkeydown = e => { if (e.key === 'Enter' && inp.value) end({ pass: inp.value }); if (e.key === 'Escape') end(null); };
-      setTimeout(() => inp.focus(), 50);
+      el.querySelector('[data-a=yes]').onclick = () => { if (!inp || inp.value) end({ pass: inp ? inp.value : '' }); else inp.focus(); };
+      el.addEventListener('click', e => { if (e.target === el) end(null); });
+      if (inp) inp.onkeydown = e => { if (e.key === 'Enter' && inp.value) end({ pass: inp.value }); };
+      // Con contraseña, al campo; si no, a «Cancelar» (Intro no borra nada sin querer).
+      setTimeout(() => (inp || el.querySelector('[data-a=no]')).focus(), 50);
     });
   }
 
@@ -242,6 +262,11 @@ G.UI = (() => {
       if (e.target.closest('[data-legal]')) { e.preventDefault(); openLegal(); }
     });
     $('legal-close').onclick = closeLegal;
+    // Esc cierra el aviso legal (no Ajustes, que puede estar debajo).
+    addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || !isOpen('scr-legal') || !onTop($('scr-legal'))) return;
+      e.stopPropagation(); e.preventDefault(); closeLegal();
+    }, true);
     $('legal-delete').onclick = async () => {
       const ok = await confirmDelete();
       if (!ok) return;
@@ -298,19 +323,22 @@ G.UI = (() => {
 
   /*
    * La misma cuenta abierta en otra pestaña (db.js, VARIAS PESTAÑAS): aviso por
-   * encima de todo hasta que se pulse «Jugar aquí».
+   * encima de todo (#scr-othertab, z 150) hasta que se pulse «Jugar aquí».
    */
   let tabEl = null;
   function otherTab(on) {
     if (!on) { if (tabEl) tabEl.classList.add('hidden'); return; }
     if (!tabEl) {
       tabEl = document.createElement('section');
+      tabEl.id = 'scr-othertab';
       tabEl.className = 'scr dim';
-      tabEl.style.zIndex = 150;
-      tabEl.innerHTML = `<div class="box center" style="max-width:400px">
-        <h3>El juego está abierto en otra pestaña</h3>
-        <p class="sub">Sólo se puede jugar en una pestaña a la vez, para no mezclar tu partida. No se pierde nada.</p>
-        <button class="btn gold" type="button">Jugar aquí</button></div>`;
+      tabEl.setAttribute('role', 'alertdialog');
+      tabEl.setAttribute('aria-labelledby', 'othertab-title');
+      tabEl.innerHTML = `<div class="box mcard">
+        <img class="mcard-app" src="assets/icons/icon-192.png" width="64" height="64" alt="">
+        <h2 id="othertab-title">El juego está abierto en otra pestaña</h2>
+        <p class="mcard-txt">Sólo se puede jugar en una pestaña a la vez, para no mezclar tu partida. No se pierde nada.</p>
+        <div class="mcard-acts"><button class="btn gold big block" type="button">Jugar aquí</button></div></div>`;
       tabEl.querySelector('button').onclick = () => G.DB.takeOver();
       document.body.appendChild(tabEl);
     }

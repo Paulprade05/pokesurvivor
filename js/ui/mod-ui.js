@@ -8,6 +8,9 @@
  *                     subir marcas, y se borra su marca de todas las tablas de
  *                     ahora) o descartar el reporte.
  *   Baneados          las cuentas baneadas del ranking; se pueden desbanear.
+ *
+ * Es una hoja (cabecera con las pestañas, lista y, abajo, «Quitar marcas de más
+ * de 1 hora»); Esc vuelve al ranking (social-ui.js, wireEsc).
  */
 G.ModUI = (() => {
   const $ = G.UI.$;
@@ -42,12 +45,12 @@ G.ModUI = (() => {
   async function render() {
     document.querySelectorAll('#mod-tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
     const list = $('mod-list');
-    list.innerHTML = '<p class="sub">Cargando…</p>';
+    list.innerHTML = '<p class="rk-msg">Cargando…</p>';
     try {
       if (tab === 'rep') await renderReports(list);
       else await renderMarked(list);
     } catch (e) {
-      list.innerHTML = '<p class="sub">No se pudo cargar (' + esc(e.code || e.message) + ').</p>';
+      list.innerHTML = '<p class="rk-msg err">No se pudo cargar (' + esc(e.code || e.message) + ').</p>';
     }
   }
 
@@ -64,24 +67,25 @@ G.ModUI = (() => {
 
   async function renderReports(list) {
     const groups = await G.Ranking.reports();
-    list.innerHTML = groups.length ? '' : '<p class="sub">No hay reportes.</p>';
+    list.innerHTML = groups.length ? '' : '<p class="rk-msg">No hay reportes.</p>';
     for (const g of groups) {
+      // Fila: veces reportada, equipo, nombres y tabla, tiempo y, debajo, las acciones.
       const row = document.createElement('div');
-      row.className = 'rk-row mod-row rep';
+      row.className = 'mod-item rep';
       const mode = g.board.startsWith('g_') ? 'g' : 's';
       // Lo que se ve de la marca ahora en su tabla (nivel, derrotados, Pokémon).
       const info = await G.Ranking.entryInfo(g.board, g.e).catch(() => null);
       const t = info ? info.t : g.t;
       const sus = t > SUSPECT_T;
       const mons = document.createElement('span');
-      mons.className = 'mons';
+      mons.className = 'rk-mons';
       if (info) info.dex.forEach((d, i) => { if (G.DEX_BY[d]) mons.appendChild(G.UI.spriteCanvas(d, 44, 40, { scale: 1, shiny: !!(info.shiny || [])[i] })); });
-      row.innerHTML = `<span class="pos" title="veces reportada">${g.n}×</span>`;
+      row.innerHTML = `<span class="rk-pos mod-n" title="veces reportada">${g.n}×</span>`;
       row.appendChild(mons);
-      row.insertAdjacentHTML('beforeend', `<span class="who"><b translate="no">${g.names.map(esc).join(' · ')}</b>
+      row.insertAdjacentHTML('beforeend', `<span class="rk-who"><b translate="no">${g.names.map(esc).join(' · ')}</b>
           <small>${esc(boardName(g.board))}${info ? ' · Nv. ' + (info.lv || 1) + ' · ' + (info.kills || 0).toLocaleString(G.I18n.locale) + ' derrotados' : ' · ya no está en el top 50'}</small>
           ${sus ? '<small class="mod-warn">Más de 33 min: casi imposible con la Sentencia de Arceus</small>' : ''}</span>
-        <span class="time${sus ? ' mod-warn' : ''}">${fmt(t)}</span>`);
+        <span class="rk-time${sus ? ' mod-warn' : ''}">${fmt(t)}</span>`);
       const acts = document.createElement('span');
       acts.className = 'mod-acts';
       const busy = async (fn, msg) => {
@@ -112,12 +116,12 @@ G.ModUI = (() => {
 
   async function renderMarked(list) {
     const accs = await G.Ranking.markedAccounts();
-    list.innerHTML = accs.length ? '' : '<p class="sub">No hay cuentas baneadas.</p>';
+    list.innerHTML = accs.length ? '' : '<p class="rk-msg">No hay cuentas baneadas.</p>';
     for (const a of accs) {
       const row = document.createElement('div');
-      row.className = 'rk-row mod-row';
-      row.innerHTML = `<span class="pos"></span>
-        <span class="who"><b translate="no">${esc(a.name)}</b><small translate="no">${esc(G.I18n.f('{x} monedas · {x} tickets · {x} ×10 · {x} Pokémon', a.coins.toLocaleString(G.I18n.locale), a.t1, a.t10, a.owned))} · ${esc(a.uid)}</small></span>`;
+      row.className = 'mod-item';
+      row.innerHTML = `<span class="fr-av mod-av" aria-hidden="true" translate="no">${esc([...String(a.name || '?')][0].toUpperCase())}</span>
+        <span class="rk-who"><b translate="no">${esc(a.name)}</b><small translate="no">${esc(G.I18n.f('{x} monedas · {x} tickets · {x} ×10 · {x} Pokémon', a.coins.toLocaleString(G.I18n.locale), a.t1, a.t10, a.owned))} · ${esc(a.uid)}</small></span>`;
       const acts = document.createElement('span');
       acts.className = 'mod-acts';
       acts.append(btn('Desbanear', 'ghost', async () => {

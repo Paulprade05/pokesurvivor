@@ -91,8 +91,9 @@
 <link rel="apple-touch-startup-image" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="assets/splash/splash-2266x1488.png">
 <!-- splash:end -->
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link rel="preload" href="assets/fonts/PixelifyPS-400.ttf" as="font" type="font/ttf" crossorigin>
-<link rel="preload" href="assets/fonts/PixelifyPS-700.ttf" as="font" type="font/ttf" crossorigin>
+<!-- Letras de la interfaz (22-10-2026): Fredoka (títulos, botones, números) y Nunito (texto). OFL. -->
+<link rel="preload" href="assets/fonts/Fredoka-var.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="assets/fonts/Nunito-var.ttf" as="font" type="font/ttf" crossorigin>
 
 <!-- Datos estructurados para Google (tipo de página: videojuego gratuito) -->
 <script type="application/ld+json">
@@ -128,8 +129,8 @@
 }
 </script>
 
-<link rel="stylesheet" href="css/style.css?v=feabd593bf">
-<script src="js/core/locales.js?v=7205eecaec"></script>
+<link rel="stylesheet" href="css/style.css?v=59ad31cf52">
+<script src="js/core/locales.js?v=7bca2d1695"></script>
 <script src="js/noframe.js"></script>
 </head>
 <body>
@@ -141,43 +142,39 @@
   <div class="box login-box">
     <!-- Grupos sólo para colocarlos en dos columnas en el móvil en horizontal (style.css) -->
     <div class="login-head">
-    <div class="logo">
-      <div class="t1">PokéSurvivor</div>
-      <div class="t2">Mundo Misterioso</div>
-    </div>
-    <p class="login-tag">Sobrevive a las hordas con tu compañero Pokémon · gratis, en PC y móvil</p>
-    <p class="login-official">Web oficial: pokesurvivor.com · si alguien te pide pagar, no somos nosotros</p>
+      <div class="logo">
+        <div class="t1">PokéSurvivor</div>
+        <div class="t2">Mundo Misterioso</div>
+      </div>
+      <p class="login-tag">Sobrevive a las hordas con tu compañero Pokémon · gratis, en PC y móvil</p>
+      <p class="login-official">Web oficial: pokesurvivor.com · si alguien te pide pagar, no somos nosotros</p>
     </div>
     <div class="login-main">
-    <div class="tabs">
-      <div class="tab on" data-tab="login">Entrar</div>
-      <div class="tab" data-tab="register">Crear cuenta</div>
-    </div>
-    <form id="login-form" autocomplete="off">
-      <label for="f-user">Nombre</label>
-      <input id="f-user" class="field" maxlength="16" spellcheck="false">
-      <label for="f-pass">Contraseña</label>
-      <input id="f-pass" class="field" type="password" maxlength="64">
-      <p id="login-err" class="err"></p>
-      <p class="note"><a href="#" id="f-forgot">¿Olvidaste tu contraseña?</a></p>
-      <p id="forgot-note" class="note hidden">Si vinculaste tu Gmail, pulsa <b>Entrar con Google</b> con ese Gmail: es tu misma cuenta.
-        Si no lo vinculaste, no se puede recuperar: crea una cuenta nueva (y esta vez vincula tu Gmail desde el aviso que sale al entrar).</p>
-      <div class="row">
-        <button id="btn-auth" class="btn gold grow" type="submit">Entrar</button>
+      <div class="tabs">
+        <div class="tab on" data-tab="login">Entrar</div>
+        <div class="tab" data-tab="register">Crear cuenta</div>
       </div>
-    </form>
+      <form id="login-form" autocomplete="off">
+        <label for="f-user">Nombre</label>
+        <input id="f-user" class="field" maxlength="16" spellcheck="false" autocapitalize="off">
+        <label for="f-pass">Contraseña</label>
+        <input id="f-pass" class="field" type="password" maxlength="64">
+        <p id="login-err" class="err" role="alert"></p>
+        <p class="note"><a href="#" id="f-forgot">¿Olvidaste tu contraseña?</a></p>
+        <p id="forgot-note" class="note hidden">Si vinculaste tu Gmail, pulsa <b>Entrar con Google</b> con ese Gmail: es tu misma cuenta.
+          Si no lo vinculaste, no se puede recuperar: crea una cuenta nueva (y esta vez vincula tu Gmail desde el aviso que sale al entrar).</p>
+        <div class="row">
+          <button id="btn-auth" class="btn gold big grow" type="submit">Entrar</button>
+        </div>
+      </form>
     </div>
     <div class="login-alt">
-    <div class="row">
-      <button id="btn-google" class="btn google grow hidden" type="button">Entrar con Google</button>
-    </div>
-    <div class="row">
-      <button id="btn-guest" class="btn ghost grow" type="button">Jugar como invitado</button>
-    </div>
+      <button id="btn-google" class="btn google block hidden" type="button">Entrar con Google</button>
+      <button id="btn-guest" class="btn ghost block" type="button">Jugar como invitado</button>
     </div>
     <div class="login-foot">
-    <p class="note center" id="login-mode"></p>
-    <p class="note center"><a href="guia/">Guía</a> · <a href="pokedex/">Pokédex</a> · <a href="#" class="legal-link" data-legal>Aviso legal y privacidad</a></p>
+      <p class="note center" id="login-mode"></p>
+      <p class="note center"><a href="guia/">Guía</a> · <a href="pokedex/">Pokédex</a> · <a href="#" class="legal-link" data-legal>Aviso legal y privacidad</a></p>
     </div>
   </div>
 </section>
@@ -198,181 +195,242 @@
     <p class="sub">Tu personalidad es…</p>
     <div class="trait" id="res-trait"></div>
     <p id="res-text"></p>
-    <canvas id="res-stage" class="stage" width="200" height="150"></canvas>
+    <canvas id="res-stage" class="stage" width="240" height="180"></canvas>
     <h3>Tu compañero: <span class="gold" id="res-name"></span></h3>
-    <div class="row" style="justify-content:center;margin-top:14px">
-      <button id="res-ok" class="btn gold">¡Vamos juntos!</button>
-      <button id="res-other" class="btn">Elegir otro</button>
+    <div class="res-acts">
+      <button id="res-ok" class="btn gold big">¡Vamos juntos!</button>
+      <button id="res-other" class="btn ghost">Elegir otro</button>
     </div>
   </div>
 </section>
 
-<!-- ====== Elegir compañero ====== -->
+<!-- ====== Elegir compañero (hoja: cabecera, rejilla que se desplaza y pie con «Elegir») ====== -->
 <section id="scr-starters" class="scr dim hidden">
-  <div class="box wide">
-    <h2>Elige a tu compañero</h2>
-    <p class="sub">Los iniciales de todas las regiones, y dos amigos más.</p>
-    <div class="grid" id="starter-grid"></div>
-    <div class="row between" style="margin-top:14px">
-      <button id="starter-back" class="btn ghost">Volver</button>
-      <span id="starter-info" class="grow" style="color:var(--muted)"></span>
-      <button id="starter-ok" class="btn gold" disabled>Elegir</button>
+  <div class="box sheet-box wide">
+    <header class="sheet-head">
+      <button id="starter-back" class="icon-btn" type="button" data-ico="back" aria-label="Volver" title="Volver"></button>
+      <div class="grow">
+        <h2>Elige a tu compañero</h2>
+        <p class="sub">Los iniciales de todas las regiones, y dos amigos más.</p>
+      </div>
+    </header>
+    <div class="sheet-body">
+      <div class="grid" id="starter-grid"></div>
     </div>
+    <footer class="sheet-foot">
+      <span id="starter-info" class="grow starter-info"></span>
+      <button id="starter-ok" class="btn gold" disabled>Elegir</button>
+    </footer>
   </div>
 </section>
 
-<!-- ====== Menú principal ====== -->
+<!-- ====== Menú principal (pantalla de inicio) ======
+     Izquierda: título y compañero. Derecha (.menu-right, install-ui.js pone ahí su
+     tarjeta): «Jugar», las secciones en baldosas y las estadísticas. menu.js añade
+     el icono (.mi-ico) a cada [data-go]. -->
 <section id="scr-menu" class="scr hidden">
   <div class="menu-left">
     <div class="logo">
-      <div class="t1">PokéSurvivor<span class="splash">Folagor, Sekiam, PokeAlex: ¿un hueco?</span></div>
+      <div class="t1">PokéSurvivor</div>
       <div class="t2">Mundo Misterioso</div>
+      <span class="splash">Folagor, Sekiam, PokeAlex: ¿un hueco?</span>
     </div>
     <div class="partner-card">
-      <canvas id="menu-partner" class="stage" width="260" height="200"></canvas>
-      <div class="nm" id="menu-partner-name"></div>
-      <div class="lv" id="menu-partner-info"></div>
-      <div class="seg hidden" id="menu-shiny"><button data-v="0">Normal</button><button data-v="1"></button></div>
+      <div class="partner-stage" id="menu-stage"><canvas id="menu-partner" width="340" height="260"></canvas></div>
+      <div class="partner-info">
+        <div class="nm" id="menu-partner-name"></div>
+        <div class="lv" id="menu-partner-info"></div>
+        <div class="seg hidden" id="menu-shiny"><button data-v="0">Normal</button><button data-v="1"></button></div>
+      </div>
     </div>
   </div>
   <div class="menu-right">
-    <div class="box">
-      <div class="menu-list">
-        <button class="menu-item play" data-go="play">Jugar<small>Entra en la mazmorra</small></button>
-        <button class="menu-item" data-go="dex">Pokémon<small id="menu-dex-count">Tu colección</small></button>
-        <button class="menu-item" data-go="upgrades">Mejoras<small>Haz más fuerte cada run</small></button>
-        <button class="menu-item" data-go="shop">Tienda Kecleon<small>Mentas, Cápsulas y MT</small></button>
-        <button class="menu-item" data-go="bag">Mochila<small id="menu-bag-sub">Vacía</small></button>
-        <button class="menu-item" data-go="gacha">Gacha<small>9 regiones · Pokémon y shinies</small></button>
-        <button class="menu-item" data-go="goals">Misiones<small id="menu-goals-sub">Misiones, logros y perfil</small></button>
-        <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 4</small></button>
-        <button class="menu-item" data-go="rank">Ranking<small>Quién aguanta más</small></button>
-        <button class="menu-item" data-go="settings">Ajustes<small>Sonido, gráficos, controles y cuenta</small></button>
-      </div>
+    <button class="menu-item play" data-go="play"><span class="mi-t">Jugar</span><small>Entra en la mazmorra</small></button>
+    <div class="menu-list">
+      <button class="menu-item tile" data-go="dex"><span class="mi-t">Pokémon</span><small id="menu-dex-count">Tu colección</small></button>
+      <button class="menu-item tile" data-go="upgrades"><span class="mi-t">Mejoras</span><small>Haz más fuerte cada run</small></button>
+      <button class="menu-item tile" data-go="shop"><span class="mi-t">Tienda Kecleon</span><small>Mentas, Cápsulas y MT</small></button>
+      <button class="menu-item tile" data-go="bag"><span class="mi-t">Mochila</span><small id="menu-bag-sub">Vacía</small></button>
+      <button class="menu-item tile" data-go="gacha"><span class="mi-t">Gacha</span><small>9 regiones · Pokémon y shinies</small></button>
+      <button class="menu-item tile" data-go="goals"><span class="mi-t">Misiones</span><small id="menu-goals-sub">Misiones, logros y perfil</small></button>
+      <button class="menu-item tile" data-go="friends"><span class="mi-t">Amigos</span><small id="menu-friends-sub">Juega en grupo, hasta 4</small></button>
+      <button class="menu-item tile" data-go="rank"><span class="mi-t">Ranking</span><small>Quién aguanta más</small></button>
+      <button class="menu-item tile" data-go="settings"><span class="mi-t">Ajustes</span><small>Sonido, gráficos, controles y cuenta</small></button>
     </div>
-    <div class="box" style="padding:14px 18px">
-      <div id="menu-stats" style="font-size:14px;color:var(--muted)"></div>
-    </div>
+    <div id="menu-stats" class="menu-stats"></div>
   </div>
 </section>
 
+<!-- ====== Barra de arriba (ui.js: chrome, refreshCoins y sus iconos) ======
+     Izquierda: monedas y tickets. Derecha: perfil, Guardar y .tb-menu, que en
+     pantalla ancha va en la barra y, más estrecha, se abre con «Más» (⋯). -->
 <div id="topbar" class="topbar hidden">
-  <div class="pill"><span class="coin"></span><span id="coins">0</span></div>
-  <div class="pill" id="tickets-pill" title="Tickets del gacha"></div>
-  <div class="pill" id="user-pill"></div>
-  <button id="btn-save" class="btn small gold save-btn hidden" title="Guardar la partida en la nube"></button>
-  <button id="btn-news" class="btn small ghost news-btn" title="Novedades"></button>
-  <button id="btn-support" class="btn small gold hidden" title="Apoyar el proyecto"></button>
-  <button id="btn-sound" class="btn small ghost" title="Sonido"></button>
-  <button id="btn-full" class="btn small ghost hidden" title="Pantalla completa"></button>
-  <button id="btn-settings" class="btn small ghost" title="Ajustes"></button>
-  <button id="btn-logout" class="btn small ghost"><span>Salir</span></button>
+  <div class="tb-wallet">
+    <div class="pill cur-pill" id="coins-pill" title="Pokémonedas"><span class="cur-ico" id="coins-ico"></span><span id="coins">0</span></div>
+    <div class="pill cur-pill" id="tickets-pill" title="Tickets del gacha"></div>
+  </div>
+  <div class="tb-acts">
+    <div class="pill" id="user-pill"></div>
+    <button id="btn-save" class="tb-btn save-btn hidden" type="button" title="Guardar la partida en la nube"></button>
+    <div class="tb-menu" id="tb-menu">
+      <button id="tb-profile" class="tb-btn tb-profile" type="button"></button>
+      <button id="btn-news" class="tb-btn news-btn" type="button" title="Novedades"></button>
+      <button id="btn-support" class="tb-btn hidden" type="button" title="Apoyar el proyecto"></button>
+      <button id="btn-sound" class="tb-btn" type="button" title="Sonido"></button>
+      <button id="btn-full" class="tb-btn hidden" type="button" title="Pantalla completa"></button>
+      <button id="btn-settings" class="tb-btn" type="button" title="Ajustes"></button>
+      <button id="btn-logout" class="tb-btn" type="button" title="Salir"><span class="lbl">Salir</span></button>
+    </div>
+    <button id="btn-more" class="tb-btn tb-more" type="button" title="Más" aria-label="Más" aria-expanded="false" aria-controls="tb-menu"></button>
+  </div>
 </div>
 <div id="sound-panel" class="box sound-panel hidden"></div>
 <div id="credits-line" class="credits-line hidden">Proyecto de fan sin ánimo de lucro · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK · <a href="#" class="legal-link" data-legal>Aviso legal</a></div>
 
-<!-- ====== Novedades (cambios del juego) ====== -->
-<section id="scr-news" class="scr dim hidden">
-  <div class="box news-box">
-    <div class="row between"><h2>Novedades</h2><button class="btn small ghost" id="news-close">Cerrar</button></div>
-    <div id="news-body" class="news-body"></div>
+<!-- ====== Novedades: hoja con una tarjeta por fecha (news-ui.js) ====== -->
+<section id="scr-news" class="scr dim hidden" role="dialog" aria-labelledby="news-title">
+  <div class="box sheet-box news-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="news-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <span class="ico-tile s" id="news-ico" aria-hidden="true"></span>
+      <h2 id="news-title">Novedades</h2>
+    </header>
+    <div id="news-body" class="sheet-body news-body"></div>
   </div>
 </section>
 
-<!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery) ====== -->
-<section id="scr-recover" class="scr dim hidden">
-  <div class="box" style="width:min(440px,100%)">
-    <h2>¿Te da miedo perder tu cuenta?</h2>
-    <p>Vincula tu Gmail: si un día olvidas la contraseña, pulsas <b>Entrar con Google</b> y es tu misma cuenta, con todo lo tuyo.</p>
+<!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery): ventana pequeña ====== -->
+<section id="scr-recover" class="scr dim hidden" role="dialog" aria-labelledby="rec-title">
+  <div class="box mcard">
+    <span class="ico-tile l round t-blue mcard-ico" id="rec-ico" aria-hidden="true"></span>
+    <h2 id="rec-title">¿Te da miedo perder tu cuenta?</h2>
+    <p class="mcard-txt">Vincula tu Gmail: si un día olvidas la contraseña, pulsas <b>Entrar con Google</b> y es tu misma cuenta, con todo lo tuyo.</p>
     <p class="err" id="rec-err"></p>
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <button class="btn gold grow" id="rec-link" type="button">Vincular mi Gmail</button>
-      <button class="btn ghost" id="rec-later" type="button">Ahora no</button>
+    <div class="mcard-acts">
+      <button class="btn gold big block" id="rec-link" type="button">Vincular mi Gmail</button>
+      <button class="btn ghost block" id="rec-later" type="button" data-back>Ahora no</button>
     </div>
-    <p class="note center"><a href="#" id="rec-never">No volver a preguntar</a></p>
+    <p class="note center mcard-foot"><a href="#" id="rec-never">No volver a preguntar</a></p>
   </div>
 </section>
 
 <!-- ====== Avisos de una actualización (una vez por navegador, ver LoginUI.updateNotices) ====== -->
-<section id="scr-savenote" class="scr dim hidden">
-  <div class="box" style="width:min(460px,100%)" translate="no">
+<section id="scr-savenote" class="scr dim hidden" role="dialog" aria-labelledby="savenote-title">
+  <div class="box mcard" translate="no">
+    <span class="ico-tile l round t-gold mcard-ico" id="savenote-ico" aria-hidden="true"></span>
     <h2 id="savenote-title"></h2>
-    <div id="savenote-body"></div>
-    <button class="btn gold" id="savenote-ok" type="button" style="width:100%;margin-top:10px"></button>
-  </div>
-</section>
-
-<!-- ====== Apoyar el proyecto (donaciones) ====== -->
-<section id="scr-support" class="scr dim hidden">
-  <div class="box support">
-    <div class="row between"><h2>Apoyar el proyecto</h2><button class="btn small ghost" id="sup-close">Cerrar</button></div>
-    <div id="sup-body"></div>
-  </div>
-</section>
-
-<!-- ====== Ajustes ====== -->
-<section id="scr-settings" class="scr dim hidden">
-  <div class="box settings">
-    <div class="row between"><h2>Ajustes</h2><button class="btn small ghost" id="set-close">Cerrar</button></div>
-    <div class="tabs" id="set-tabs">
-      <button class="gen-tab" data-t="sound">Sonido</button>
-      <button class="gen-tab" data-t="gfx">Gráficos</button>
-      <button class="gen-tab" data-t="ctl">Controles</button>
-      <button class="gen-tab" data-t="a11y">Accesibilidad</button>
-      <button class="gen-tab" data-t="acc">Cuenta</button>
-      <button class="gen-tab" data-t="about">Acerca de</button>
-    </div>
-    <div id="set-body" class="set-body"></div>
-  </div>
-</section>
-
-<!-- ====== Aviso legal y privacidad ====== -->
-<section id="scr-legal" class="scr dim hidden">
-  <div class="box legal" style="width:min(640px,100%)">
-    <div class="row between"><h2>Aviso legal</h2><button class="btn small ghost" id="legal-close">Cerrar</button></div>
-    <h3>Proyecto de fan</h3>
-    <p><b>PokéSurvivor</b> es un juego hecho por fans, <b>gratuito y sin ánimo de lucro</b>.
-      No tiene anuncios ni compras. Se puede apoyar con donaciones voluntarias, que se usan sólo para pagar los servidores y el dominio, y que no dan ninguna ventaja en el juego.</p>
-    <p>No está afiliado, patrocinado ni aprobado por Nintendo, Creatures Inc., GAME FREAK ni
-      The Pokémon Company. Pokémon y todos los nombres y personajes relacionados son marcas y
-      propiedad de sus respectivos dueños.</p>
-    <h3>Web oficial</h3>
-    <p>La única web oficial de PokéSurvivor es pokesurvivor.com. El juego es y será gratis: si alguien te pide pagar, no somos nosotros.</p>
-    <h3>Criptomonedas</h3>
-    <p>PokéSurvivor no tiene ninguna criptomoneda, token ni NFT oficial, y su autor no ha creado ninguno. Cualquier token que use el nombre del juego lo han creado terceros: no nos hacemos cargo de ninguna compra, venta o inversión que hagas con ellos, y nada de lo que hay aquí es una recomendación de inversión.</p>
-    <h3>Contenido de terceros</h3>
-    <p>Sprites de <a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener">SpriteCollab</a>
-      (CC BY-NC 4.0, créditos completos en CREDITS.md del repositorio). Datos de la Pokédex de
-      <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a>. Fuente Pixelify Sans (OFL).
-      La música y los efectos de sonido son originales del proyecto.</p>
-    <h3>Contacto y retirada de contenido</h3>
-    <p>Si eres titular de derechos y quieres que retiremos algo, escríbenos y lo quitaremos lo
-      antes posible: <a id="legal-mail" href="#"></a></p>
-    <p>Código fuente: <a id="legal-repo" href="#" target="_blank" rel="noopener"></a></p>
-    <p>Licencia del código: PolyForm Noncommercial 1.0.0 (se puede usar, estudiar y modificar, pero no para ganar dinero). Las versiones hasta el 14-10-2026 siguen bajo MIT.</p>
-    <h3>Privacidad</h3>
-    <p>Si creas una cuenta, guardamos tu nombre de jugador y tu partida (colección, monedas,
-      mejoras y estadísticas) en Google Firebase para que puedas seguir en cualquier ordenador.
-      Si entras con Google, Firebase guarda también tu correo de Google para identificarte
-      (nunca se enseña a otros jugadores).
-      No usamos tus datos para nada más, ni los compartimos, ni hay publicidad ni seguimiento.
-      Como invitado no se guarda nada fuera de tu navegador.</p>
-    <p>Amigos y ranking: tu <b>apodo</b> es público para otros jugadores. Guardamos tu lista de
-      amigos, si estás en línea y tus mejores tiempos (con tu apodo y tu Pokémon).</p>
-    <p>Partidas en grupo: tu navegador se conecta <b>directamente</b> con el de tus compañeros
-      (como en una videollamada), así que cada uno puede llegar a ver la dirección IP del otro.
-      Juega en grupo sólo con gente que conozcas. Si la conexión directa no es posible, la partida
-      pasa por los servidores de Firebase.</p>
-    <p>Puedes borrar tu cuenta cuando quieras (se borran también tu apodo, tus amigos y tus marcas):</p>
-    <div class="row">
-      <button class="btn small" id="legal-delete">Borrar mi cuenta y mi partida</button>
-      <span id="legal-del-msg" class="note" style="margin:0"></span>
+    <div id="savenote-body" class="mcard-txt"></div>
+    <div class="mcard-acts">
+      <!-- data-back: el botón B del mando también pulsa «Entendido» (como Esc). -->
+      <button class="btn gold big block" id="savenote-ok" type="button" data-back></button>
     </div>
   </div>
 </section>
+
+<!-- ====== Apoyar el proyecto (donaciones): hoja con «Donar en Ko-fi» en el pie (support-ui.js) ====== -->
+<section id="scr-support" class="scr dim hidden" role="dialog" aria-labelledby="sup-title">
+  <div class="box sheet-box narrow sup-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="sup-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <h2 id="sup-title">Apoyar el proyecto</h2>
+    </header>
+    <div id="sup-body" class="sheet-body"></div>
+    <footer class="sheet-foot" id="sup-foot"></footer>
+  </div>
+</section>
+
+<!-- ====== Ajustes: hoja con las pestañas a la izquierda (en el móvil de pie, arriba y
+     deslizables) y el contenido de cada una a la derecha (settings-ui.js) ====== -->
+<section id="scr-settings" class="scr dim hidden" role="dialog" aria-labelledby="set-title">
+  <div class="box sheet-box set-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="set-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <span class="ico-tile s" data-ico="gear" aria-hidden="true"></span>
+      <h2 id="set-title">Ajustes</h2>
+    </header>
+    <div class="set-main">
+      <nav class="set-nav" id="set-nav" role="tablist" aria-label="Ajustes">
+        <button class="set-tab" type="button" role="tab" data-t="sound" data-tico="metronome"><span class="ico-tile s"></span><span class="set-tab-t">Sonido</span></button>
+        <button class="set-tab" type="button" role="tab" data-t="gfx" data-tico="scope-lens"><span class="ico-tile s"></span><span class="set-tab-t">Gráficos</span></button>
+        <button class="set-tab" type="button" role="tab" data-t="ctl" data-tico="protective-pads"><span class="ico-tile s"></span><span class="set-tab-t">Controles</span></button>
+        <button class="set-tab" type="button" role="tab" data-t="a11y" data-tico="wide-lens"><span class="ico-tile s"></span><span class="set-tab-t">Accesibilidad</span></button>
+        <button class="set-tab" type="button" role="tab" data-t="acc" data-tico="crown"><span class="ico-tile s"></span><span class="set-tab-t">Cuenta</span></button>
+        <button class="set-tab" type="button" role="tab" data-t="about" data-tico="ball"><span class="ico-tile s"></span><span class="set-tab-t">Acerca de</span></button>
+      </nav>
+      <div id="set-body" class="set-body" role="tabpanel" aria-labelledby="set-title"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Aviso legal y privacidad: hoja con un apartado por tarjeta; el de borrar
+     la cuenta, al final y en rojo (ui.js, openLegal) ====== -->
+<section id="scr-legal" class="scr dim hidden" role="dialog" aria-labelledby="legal-title">
+  <div class="box sheet-box legal-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="legal-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <span class="ico-tile s" id="legal-ico" aria-hidden="true"></span>
+      <h2 id="legal-title">Aviso legal</h2>
+    </header>
+    <div class="sheet-body legal" id="legal-body">
+      <section class="legal-sec">
+        <h3>Proyecto de fan</h3>
+        <p><b>PokéSurvivor</b> es un juego hecho por fans, <b>gratuito y sin ánimo de lucro</b>.
+          No tiene anuncios ni compras. Se puede apoyar con donaciones voluntarias, que se usan sólo para pagar los servidores y el dominio, y que no dan ninguna ventaja en el juego.</p>
+        <p>No está afiliado, patrocinado ni aprobado por Nintendo, Creatures Inc., GAME FREAK ni
+          The Pokémon Company. Pokémon y todos los nombres y personajes relacionados son marcas y
+          propiedad de sus respectivos dueños.</p>
+      </section>
+      <section class="legal-sec">
+        <h3>Web oficial</h3>
+        <p>La única web oficial de PokéSurvivor es pokesurvivor.com. El juego es y será gratis: si alguien te pide pagar, no somos nosotros.</p>
+      </section>
+      <section class="legal-sec">
+        <h3>Criptomonedas</h3>
+        <p>PokéSurvivor no tiene ninguna criptomoneda, token ni NFT oficial, y su autor no ha creado ninguno. Cualquier token que use el nombre del juego lo han creado terceros: no nos hacemos cargo de ninguna compra, venta o inversión que hagas con ellos, y nada de lo que hay aquí es una recomendación de inversión.</p>
+      </section>
+      <section class="legal-sec">
+        <h3>Contenido de terceros</h3>
+        <p>Sprites de <a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener">SpriteCollab</a>
+          (CC BY-NC 4.0, créditos completos en CREDITS.md del repositorio). Datos de la Pokédex de
+          <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a>. Fuentes Fredoka, Nunito y Pixelify Sans (OFL).
+          La música y los efectos de sonido son originales del proyecto.</p>
+      </section>
+      <section class="legal-sec">
+        <h3>Contacto y retirada de contenido</h3>
+        <p>Si eres titular de derechos y quieres que retiremos algo, escríbenos y lo quitaremos lo
+          antes posible: <a id="legal-mail" href="#"></a></p>
+        <p>Código fuente: <a id="legal-repo" href="#" target="_blank" rel="noopener"></a></p>
+        <p>Licencia del código: PolyForm Noncommercial 1.0.0 (se puede usar, estudiar y modificar, pero no para ganar dinero). Las versiones hasta el 14-10-2026 siguen bajo MIT.</p>
+      </section>
+      <section class="legal-sec">
+        <h3>Privacidad</h3>
+        <p>Si creas una cuenta, guardamos tu nombre de jugador y tu partida (colección, monedas,
+          mejoras y estadísticas) en Google Firebase para que puedas seguir en cualquier ordenador.
+          Si entras con Google, Firebase guarda también tu correo de Google para identificarte
+          (nunca se enseña a otros jugadores).
+          No usamos tus datos para nada más, ni los compartimos, ni hay publicidad ni seguimiento.
+          Como invitado no se guarda nada fuera de tu navegador.</p>
+        <p>Amigos y ranking: tu <b>apodo</b> es público para otros jugadores. Guardamos tu lista de
+          amigos, si estás en línea y tus mejores tiempos (con tu apodo y tu Pokémon).</p>
+        <p>Partidas en grupo: tu navegador se conecta <b>directamente</b> con el de tus compañeros
+          (como en una videollamada), así que cada uno puede llegar a ver la dirección IP del otro.
+          Juega en grupo sólo con gente que conozcas. Si la conexión directa no es posible, la partida
+          pasa por los servidores de Firebase.</p>
+      </section>
+      <section class="legal-sec legal-danger">
+        <p>Puedes borrar tu cuenta cuando quieras (se borran también tu apodo, tus amigos y tus marcas):</p>
+        <button class="btn danger" id="legal-delete" type="button">Borrar mi cuenta y mi partida</button>
+        <p id="legal-del-msg" class="note"></p>
+      </section>
+    </div>
+  </div>
+</section>
+<!-- Pantalla de carga: título, frase y la Poké Ball que gira (.boot-ld::before).
+     boot.js traduce los dos <p> (el primero, la frase; el segundo, «Cargando…»).
+     tools/make_seo_pages.py busca estos dos <p> tal cual para la versión inglesa: no cambiarlos. -->
 <div id="boot" class="boot">
   <div class="boot-in">
-    <h1>PokéSurvivor</h1>
+    <h1 class="wordmark">PokéSurvivor</h1>
     <p>Juego de supervivencia con Pokémon, gratis en el navegador y en el móvil.</p>
     <p class="boot-ld">Cargando…</p>
   </div>
@@ -380,7 +438,7 @@
 <script src="js/boot.js"></script>
 <div id="tap-start" class="tapstart hidden">
   <div class="boot-in">
-    <h1>PokéSurvivor</h1>
+    <h1 class="wordmark">PokéSurvivor</h1>
     <p>Sobrevive a las hordas con tu compañero Pokémon</p>
     <p class="tap-blink">Pulsa para empezar</p>
   </div>
@@ -396,267 +454,441 @@
   </div>
 </noscript>
 
-<!-- ====== Apodo (para amigos y ranking) ====== -->
-<section id="scr-nick" class="scr dim hidden">
-  <div class="box" style="width:min(440px,100%)">
-    <h2>Elige tu apodo</h2>
-    <p class="sub">Es el nombre que verán tus amigos y el que sale en el ranking.
-      Tu nombre y tu correo de Google no se enseñan a nadie.</p>
-    <form id="nick-form" autocomplete="off">
-      <input id="nick-in" class="field" maxlength="16" spellcheck="false" placeholder="3-16 letras, números o _">
-      <p id="nick-err" class="err"></p>
-      <div class="row"><button id="nick-ok" class="btn gold grow" type="submit">Guardar apodo</button></div>
+<!-- ====== Apodo (para amigos y ranking): tarjeta centrada con las normas a la vista ======
+     social-ui.js (NickUI) pone el icono, el contador y marca cada norma mientras escribes. -->
+<section id="scr-nick" class="scr dim modal hidden">
+  <div class="box nick-box">
+    <div class="nick-head">
+      <span class="ico-tile l round t-blue" id="nick-ico" aria-hidden="true"></span>
+      <h2>Elige tu apodo</h2>
+      <p class="sub">Es el nombre que verán tus amigos y el que sale en el ranking.
+        Tu nombre y tu correo de Google no se enseñan a nadie.</p>
+    </div>
+    <form id="nick-form" class="nick-form" autocomplete="off">
+      <div class="nick-field">
+        <input id="nick-in" class="field" maxlength="16" spellcheck="false" autocapitalize="off" autocorrect="off"
+          placeholder="3-16 letras, números o _" aria-describedby="nick-rules nick-err">
+        <span id="nick-count" class="nick-count" aria-hidden="true">0/16</span>
+      </div>
+      <ul id="nick-rules" class="nick-rules">
+        <li id="nick-r-len"><span class="nr-ico" data-ico="check" data-ico-size="14"></span><span>De 3 a 16 caracteres</span></li>
+        <li id="nick-r-chr"><span class="nr-ico" data-ico="check" data-ico-size="14"></span><span>Sólo letras, números y _</span></li>
+        <li id="nick-r-uniq"><span class="nr-ico" data-ico="check" data-ico-size="14"></span><span>Nadie más puede tenerlo</span></li>
+      </ul>
+      <p id="nick-err" class="err" role="alert"></p>
+      <button id="nick-ok" class="btn gold big block" type="submit">Guardar apodo</button>
     </form>
-    <div class="row" style="margin-top:8px"><button id="nick-later" class="btn ghost grow" type="button">Ahora no</button></div>
+    <button id="nick-later" class="btn ghost block nick-later" type="button" data-back>Ahora no</button>
   </div>
 </section>
 
-<!-- ====== Amigos ====== -->
-<section id="scr-friends" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Amigos</h2>
-      <div class="row"><button id="fr-room" class="btn small gold hidden">Ir a la sala</button><button class="btn small ghost" data-back>Volver</button></div></div>
-    <p class="sub" id="fr-me"></p>
-    <form id="fr-add" class="row" autocomplete="off">
-      <input id="fr-name" class="field grow" maxlength="16" spellcheck="false" placeholder="Apodo de tu amigo">
-      <button class="btn gold" type="submit" data-sfx="confirm">Añadir amigo</button>
-    </form>
-    <p id="fr-msg" class="note"></p>
-    <div id="fr-list" class="fr-list"></div>
-  </div>
-</section>
-
-<!-- ====== Sala (partida en grupo) ====== -->
-<section id="scr-lobby" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Sala</h2>
-      <div class="row"><button id="lobby-menu" class="btn small ghost">Menú</button><button id="lobby-leave" class="btn small ghost">Salir de la sala</button></div></div>
-    <p class="sub" id="lobby-sub"></p>
-    <div id="lobby-members" class="lobby-members"></div>
-    <h3 id="lobby-inv-title" style="margin:14px 0 6px">Invitar amigos</h3>
-    <div id="lobby-invite" class="fr-list"></div>
-    <div class="row" style="margin-top:14px">
-      <button id="lobby-start" class="btn gold grow">Empezar partida</button>
+<!-- ====== Amigos (hoja): tu apodo con «Copiar», añadir amigo y las listas ======
+     social-ui.js (FriendsUI) rellena #fr-me (tu tarjeta) y #fr-list (solicitudes,
+     amigos y enviadas). Con pantalla ancha o tumbada, en dos columnas. -->
+<section id="scr-friends" class="scr dim under-bar hidden">
+  <div class="box sheet-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Amigos</h2>
+      <div class="sheet-acts">
+        <button id="fr-room" class="btn small hidden" type="button">Ir a la sala</button>
+      </div>
+    </header>
+    <div class="sheet-body fr-body">
+      <div class="fr-side">
+        <div id="fr-me" class="fr-me"></div>
+        <form id="fr-add" class="fr-add" autocomplete="off">
+          <label for="fr-name">Añadir amigo</label>
+          <div class="fr-add-row">
+            <input id="fr-name" class="field" maxlength="16" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Apodo de tu amigo">
+            <button class="btn gold" type="submit" data-sfx="confirm">Añadir</button>
+          </div>
+        </form>
+        <p id="fr-msg" class="fr-msg" role="status"></p>
+      </div>
+      <div id="fr-list" class="fr-lists"></div>
     </div>
-    <p class="note" id="lobby-note"></p>
   </div>
 </section>
 
-<!-- ====== Ranking ====== -->
-<section id="scr-rank" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Ranking <span class="sub" style="font-size:15px">· tiempo aguantado</span></h2><span class="row" style="gap:6px"><button id="rk-mod" class="btn small ghost hidden">Moderación</button><button class="btn small ghost" data-back>Volver</button></span></div>
-    <div class="gen-tabs" id="rk-mode"></div>
-    <div class="filters" id="rk-period"></div>
-    <div class="row rk-tools">
-      <div class="filters" id="rk-scope" style="margin:0"></div>
-      <input id="rk-poke" class="field" list="rk-dl" placeholder="Filtrar por Pokémon (histórico)" spellcheck="false">
-      <datalist id="rk-dl"></datalist>
-      <button id="rk-clear" class="btn small ghost hidden">Quitar filtro</button>
+<!-- ====== Sala (partida en grupo, hoja) ======
+     Arriba, los jugadores en tarjetas (sprite, apodo y estado); debajo, invitar
+     (sólo el anfitrión); abajo fijo, «Empezar partida» o «¡Estoy listo!», que
+     social-ui.js añade detrás de #lobby-start. -->
+<section id="scr-lobby" class="scr dim under-bar hidden">
+  <div class="box sheet-box">
+    <header class="sheet-head">
+      <button id="lobby-menu" class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Sala</h2>
+      <div class="sheet-acts">
+        <button id="lobby-leave" class="btn small ghost" type="button">Salir de la sala</button>
+      </div>
+    </header>
+    <div class="sheet-body lobby-body">
+      <p class="sub" id="lobby-sub"></p>
+      <div id="lobby-members" class="lob-grid"></div>
+      <div id="lobby-inv" class="lob-inv">
+        <h3 id="lobby-inv-title" class="lob-h">Invitar amigos</h3>
+        <div id="lobby-invite" class="lob-invite"></div>
+      </div>
     </div>
-    <div id="rk-list" class="rk-list"></div>
-    <div id="rk-me" class="rk-me"></div>
+    <footer class="sheet-foot lobby-foot">
+      <p class="note" id="lobby-note"></p>
+      <button id="lobby-start" class="btn gold" type="button">Empezar partida</button>
+    </footer>
   </div>
 </section>
 
-<!-- ====== Moderación del ranking (sólo la cuenta de admin, ver js/ui/mod-ui.js) ====== -->
-<section id="scr-mod" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Moderación</h2><span class="row" style="gap:6px"><button class="btn small danger" id="mod-purge">Quitar marcas de más de 1 hora</button><button class="btn small ghost" id="mod-back">Volver</button></span></div>
-    <div class="tabs" id="mod-tabs">
-      <div class="tab on" data-tab="rep">Reportes</div>
-      <div class="tab" data-tab="sus">Baneados</div>
+<!-- ====== Ranking (hoja) ======
+     Cabecera: Solo / Grupo, Todos / Amigos y el periodo en una barra; el filtro por
+     Pokémon se abre con la lupa (en escritorio, siempre a la vista). Abajo fijo,
+     tu puesto (#rk-me). ranking-ui.js rellena todo. -->
+<section id="scr-rank" class="scr dim under-bar hidden">
+  <div class="box sheet-box tall">
+    <header class="sheet-head rk-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <div class="grow rk-title">
+        <h2>Ranking</h2>
+        <p class="sub rk-sub">tiempo aguantado</p>
+      </div>
+      <div class="sheet-acts">
+        <button id="rk-mod" class="btn small ghost hidden" type="button">Moderación</button>
+        <button id="rk-find" class="icon-btn" type="button" data-ico="search" aria-expanded="false" aria-controls="rk-findrow"
+          aria-label="Filtrar por Pokémon (histórico)" title="Filtrar por Pokémon (histórico)"></button>
+      </div>
+      <div class="sheet-row rk-bar">
+        <div class="seg" id="rk-mode"></div>
+        <div class="seg" id="rk-scope"></div>
+        <div class="chips rk-period" id="rk-period"></div>
+      </div>
+      <div class="sheet-row rk-search" id="rk-findrow">
+        <input id="rk-poke" class="field" list="rk-dl" placeholder="Filtrar por Pokémon (histórico)" spellcheck="false" autocomplete="off">
+        <datalist id="rk-dl"></datalist>
+        <button id="rk-clear" class="icon-btn hidden" type="button" data-ico="close" aria-label="Quitar filtro" title="Quitar filtro"></button>
+      </div>
+    </header>
+    <div class="sheet-body">
+      <div id="rk-list" class="rk-rows"></div>
     </div>
-    <div id="mod-list" class="rk-list"></div>
+    <footer class="sheet-foot rk-foot">
+      <span id="rk-me-ico" class="ico-tile s round t-gold" aria-hidden="true"></span>
+      <div id="rk-me" class="rk-you"></div>
+    </footer>
   </div>
 </section>
 
-<!-- ====== Misiones, logros y perfil ====== -->
-<section id="scr-goals" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Misiones</h2><button class="btn small ghost" data-back>Volver</button></div>
-    <div class="tabs" id="goals-tabs">
-      <div class="tab on" data-tab="missions">Misiones</div>
-      <div class="tab" data-tab="ach">Logros</div>
-      <div class="tab" data-tab="profile">Perfil</div>
+<!-- ====== Moderación del ranking (hoja; sólo la cuenta de admin, ver js/ui/mod-ui.js) ====== -->
+<section id="scr-mod" class="scr dim under-bar hidden">
+  <div class="box sheet-box tall">
+    <header class="sheet-head">
+      <button id="mod-back" class="icon-btn" type="button" data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Moderación</h2>
+      <div class="sheet-row">
+        <div class="tabs" id="mod-tabs">
+          <div class="tab on" data-tab="rep">Reportes</div>
+          <div class="tab" data-tab="sus">Baneados</div>
+        </div>
+      </div>
+    </header>
+    <div class="sheet-body">
+      <div id="mod-list" class="mod-list"></div>
     </div>
-    <div id="goals-body" class="goals-body"></div>
+    <footer class="sheet-foot mod-foot">
+      <button class="btn small danger" id="mod-purge" type="button">Quitar marcas de más de 1 hora</button>
+    </footer>
   </div>
 </section>
 
-<!-- ====== Perfil público de un jugador ====== -->
-<section id="scr-profile" class="scr dim hidden">
-  <div class="box profile-box">
-    <div class="row end"><button class="btn small ghost" id="prof-close">Cerrar</button></div>
-    <div id="prof-body"></div>
+<!-- ====== Misiones, logros y perfil (hoja: cabecera con pestañas y cuerpo que se desplaza; goals-ui.js lo rellena) ====== -->
+<section id="scr-goals" class="scr dim under-bar hidden">
+  <div class="box sheet-box tall goals-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Misiones</h2>
+      <div class="sheet-row">
+        <div class="tabs" id="goals-tabs" role="tablist">
+          <button class="tab on" type="button" role="tab" data-tab="missions">Misiones</button>
+          <button class="tab" type="button" role="tab" data-tab="ach">Logros</button>
+          <button class="tab" type="button" role="tab" data-tab="profile">Perfil</button>
+        </div>
+      </div>
+    </header>
+    <div id="goals-body" class="sheet-body goals-body"></div>
   </div>
 </section>
 
-<!-- ====== Invitación recibida ====== -->
-<div id="invite-pop" class="box invite-pop hidden">
-  <div id="inv-text"></div>
-  <div class="row" style="margin-top:10px">
-    <button id="inv-yes" class="btn gold small grow" data-sfx="confirm">Unirme</button>
-    <button id="inv-no" class="btn ghost small">No, gracias</button>
+<!-- ====== Perfil público de un jugador (ventana que tapa la barra) ====== -->
+<section id="scr-profile" class="scr dim modal hidden">
+  <div class="box sheet-box profile-sheet">
+    <header class="sheet-head">
+      <h2>Perfil</h2>
+      <div class="sheet-acts">
+        <button class="icon-btn" type="button" id="prof-close" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      </div>
+    </header>
+    <div id="prof-body" class="sheet-body"></div>
+  </div>
+</section>
+
+<!-- ====== Invitación recibida: aviso arriba, como una notificación (social-ui.js, InvitePop) ====== -->
+<div id="invite-pop" class="invite-pop hidden" role="alertdialog" aria-labelledby="inv-text">
+  <span id="inv-ico" class="ico-tile round t-blue" aria-hidden="true"></span>
+  <div class="inv-txt">
+    <span class="eyebrow">Invitación</span>
+    <div id="inv-text"></div>
+  </div>
+  <div class="inv-acts">
+    <button id="inv-yes" class="btn gold small" type="button" data-sfx="confirm">Unirme</button>
+    <button id="inv-no" class="icon-btn" type="button" data-ico="close" aria-label="No, gracias" title="No, gracias"></button>
   </div>
 </div>
 
-<!-- ====== Colección ====== -->
-<section id="scr-dex" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Pokémon <span id="dex-total" class="sub" style="font-size:15px"></span></h2><button class="btn small ghost" data-back>Volver</button></div>
-    <div class="gen-tabs" id="dex-gens"></div>
-    <div class="split" style="margin-top:8px">
-      <div>
-        <div class="dex-tools">
-          <input id="dex-q" type="search" placeholder="Buscar por nombre o número" autocomplete="off" spellcheck="false">
-          <select id="dex-type" title="Tipo"></select>
-          <span id="dex-count" class="sub"></span>
-          <button class="btn small ghost hidden" id="dex-clear" type="button">Limpiar</button>
+<!-- ====== Colección (hoja, 22-10-2026) ======
+     Escritorio, tableta y móvil tumbado: la lista a la izquierda y la ficha a la
+     derecha. Móvil de pie (≤ 760 px de ancho): la lista llena la hoja y, al tocar
+     un Pokémon, su ficha la ocupa entera (#scr-dex.detail-open); «Volver» la
+     cierra. Lo de dentro lo pinta menu.js (openDex, dexCell, showDetail). -->
+<section id="scr-dex" class="scr dim under-bar hidden">
+  <div class="box sheet-box wide tall dex-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Pokémon</h2>
+      <div class="sheet-acts"><span id="dex-total" class="dx-total"></span></div>
+      <div class="sheet-row"><div class="gen-tabs" id="dex-gens"></div></div>
+    </header>
+    <div class="dex-main">
+      <div class="dex-list" id="dex-list">
+        <div class="dx-tools" id="dex-tools">
+          <div class="dx-search">
+            <label class="dx-q" data-ico="search" data-ico-size="18">
+              <input id="dex-q" class="field" type="search" placeholder="Buscar por nombre o número" aria-label="Buscar por nombre o número" autocomplete="off" spellcheck="false">
+            </label>
+            <span id="dex-count" class="dx-count"></span>
+            <button class="chip hidden" id="dex-clear" type="button">Limpiar</button>
+          </div>
+          <div class="dx-filters" id="dex-row">
+            <label class="dx-pick" title="Tipo" data-ico="filter" data-ico-size="16"><select id="dex-type" aria-label="Tipo"></select></label>
+            <label class="dx-pick" title="Orden" data-ico="sort" data-ico-size="16"><select id="dex-sort" aria-label="Orden"></select></label>
+            <div class="dx-chips" id="dex-filters"></div>
+          </div>
         </div>
-        <div class="filters" id="dex-filters"></div>
-        <div class="filters dex-sort" id="dex-sort"></div>
-        <div class="grid" id="dex-grid"></div>
+        <div class="dx-grid" id="dex-grid"></div>
       </div>
-      <div class="panel" id="dex-detail"></div>
+      <aside class="dex-detail" id="dex-detail"></aside>
     </div>
   </div>
 </section>
 
-<!-- ====== Tienda Kecleon (20-10-2026, del PR #236 de TheAdro7) ====== -->
-<section id="scr-shop" class="scr dim hidden">
-  <div class="box wide shop-box">
-    <!-- El puesto: cae, se despliega el toldo, sube la persiana y salen los dos Kecleon (ver shop-ui.js). -->
-    <div class="shop-stall" id="shop-stall">
-      <!-- Todo el puesto (paisaje, toldo, estanterías, persiana, farolillos y los dos
-           Kecleon) se dibuja en pixel art en este lienzo: ver Scene en shop-ui.js. -->
-      <canvas id="shop-scene" class="shop-scene"></canvas>
-      <div class="shop-sign" id="shop-sign"><span>Tienda Kecleon</span></div>
-      <div class="shop-bubble hide" id="shop-bubble"></div>
-    </div>
-    <div class="shop-inner">
-      <div class="row between">
-        <h2 style="margin:0">Tienda Kecleon</h2>
-        <button class="btn small ghost" data-back>Volver</button>
+<!-- ====== Tienda Kecleon (20-10-2026, del PR #236 de TheAdro7; hoja desde el 22-10-2026) ====== -->
+<section id="scr-shop" class="scr dim under-bar hidden">
+  <div class="box sheet-box wide tall shop-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Tienda Kecleon</h2>
+    </header>
+    <div class="sheet-body shop-scroll">
+      <!-- El puesto: cae, se despliega el toldo, sube la persiana y salen los dos Kecleon (ver shop-ui.js). -->
+      <div class="shop-stall" id="shop-stall">
+        <!-- Todo el puesto (paisaje, toldo, estanterías, persiana, farolillos y los dos
+             Kecleon) se dibuja en pixel art en este lienzo: ver Scene en shop-ui.js. -->
+        <canvas id="shop-scene" class="shop-scene"></canvas>
+        <div class="shop-sign" id="shop-sign"><span>Tienda Kecleon</span></div>
+        <div class="shop-bubble hide" id="shop-bubble"></div>
       </div>
-      <p class="sub" style="margin:8px 0 0" id="shop-hello">¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la colección.</p>
-      <div id="shop-body"></div>
+      <div class="shop-inner">
+        <p class="sub shop-hello" id="shop-hello">¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la colección.</p>
+        <div id="shop-body"></div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ====== Mochila (desde el menú principal, sin entrar en la tienda) ====== -->
-<section id="scr-bag" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Mochila</h2><button class="btn small ghost" data-back>Volver</button></div>
-    <div id="bag-body"></div>
+<!-- ====== Mochila (desde el menú principal, sin entrar en la tienda). shop-ui.js: openBag ====== -->
+<section id="scr-bag" class="scr dim under-bar hidden">
+  <div class="box sheet-box wide bag-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Mochila</h2>
+      <div class="sheet-acts"><button class="icon-btn bag-shop" type="button" data-go-shop aria-label="Tienda Kecleon" title="Tienda Kecleon"></button></div>
+    </header>
+    <div class="sheet-body" id="bag-body"></div>
+    <!-- Donde se usa lo de la Mochila: la ficha de cada Pokémon. -->
+    <footer class="sheet-foot" id="bag-foot">
+      <button class="btn gold ic" type="button" data-go-dex></button>
+    </footer>
   </div>
 </section>
 
-<!-- ====== Mejoras ====== -->
-<section id="scr-upgrades" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Mejoras</h2><button class="btn small ghost" data-back>Volver</button></div>
-    <div class="upg-head">
-      <canvas id="upg-stage" class="stage" width="120" height="96"></canvas>
+<!-- ====== Mejoras (hoja). menu.js: openUpgrades / renderUpgrades ======
+     Escritorio: el Pokémon a la izquierda (fijo) y las mejoras en tarjetas a la
+     derecha. Móvil: el Pokémon arriba y las tarjetas debajo, en una columna. -->
+<section id="scr-upgrades" class="scr dim under-bar hidden">
+  <div class="box sheet-box wide tall upg-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
-        <p class="sub" style="margin:0">Cada Pokémon tiene sus propias mejoras: sólo cuentan cuando juegas con él.</p>
-        <div class="row" style="margin-top:8px">
-          <label for="upg-mon" style="margin:0">Pokémon</label>
-          <select id="upg-mon" class="field"></select>
+        <h2>Mejoras</h2>
+        <p class="sub">Cada Pokémon tiene sus propias mejoras: sólo cuentan cuando juegas con él.</p>
+      </div>
+    </header>
+    <div class="sheet-body upg-body">
+      <div class="upg-mon">
+        <div class="upg-stage" id="upg-stage-box"><canvas id="upg-stage"></canvas></div>
+        <div class="upg-who">
+          <span class="eyebrow" id="upg-mon-lbl">Pokémon</span>
+          <select id="upg-mon" class="field" aria-labelledby="upg-mon-lbl"></select>
+          <div class="upg-sum" id="upg-sum"></div>
         </div>
       </div>
+      <div class="upg-grid" id="upg-list"></div>
     </div>
-    <div class="upg" id="upg-list"></div>
   </div>
 </section>
 
-<!-- ====== Gacha ====== -->
-<section id="scr-gacha" class="scr dim hidden">
-  <div class="box wide">
-    <div class="row between"><h2>Gacha</h2><button class="btn small ghost" data-back>Volver</button></div>
-    <div class="gen-tabs" id="gacha-gens"></div>
-    <div class="split" style="margin-top:8px">
-      <div>
-        <div class="banner" id="banner">
+<!-- ====== Gacha (hoja: regiones arriba, el cartel y las probabilidades en el cuerpo
+     y los botones de tirar en el pie, a mano del pulgar; gacha-ui.js lo rellena) ====== -->
+<section id="scr-gacha" class="scr dim under-bar hidden">
+  <div class="box sheet-box wide gacha-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Gacha</h2>
+      <div class="sheet-row"><div class="gen-tabs" id="gacha-gens" role="tablist" aria-label="Regiones"></div></div>
+    </header>
+    <div class="sheet-body gacha-body">
+      <!-- Cartel de la región: texto a un lado y sus legendarios (canvas a escala entera) al otro. -->
+      <section class="gacha-hero" id="banner">
+        <div class="gh-text">
+          <p class="eyebrow gh-gen" id="gacha-gen"></p>
           <h3 id="banner-title"></h3>
-          <p id="banner-desc" style="margin:4px 0 6px"></p>
-          <p class="sub" id="gacha-owned" style="margin:0"></p>
-          <div class="feat" id="gacha-feat"></div>
+          <p class="gh-desc" id="banner-desc"></p>
+          <div class="gh-owned">
+            <p id="gacha-owned"></p>
+            <div class="meter" id="gacha-owned-bar"><i></i></div>
+          </div>
         </div>
-        <div class="row" style="margin-top:14px">
-          <button id="pull-1" class="btn grow" data-sfx="none">Tirar ×1 · <span id="cost-1"></span></button>
-          <button id="pull-10" class="btn gold grow" data-sfx="none">Tirar ×10 · <span id="cost-10"></span></button>
-          <button id="pull-10b" class="btn gold grow" data-sfx="none">Tirar ×10 · <span id="cost-10b"></span></button>
+        <div class="gh-feat" id="gacha-feat"></div>
+      </section>
+      <div class="gacha-info">
+        <div class="panel gacha-pity">
+          <span class="ico-tile round t-gold" id="gacha-pity-ico"></span>
+          <div class="grow">
+            <b>Legendaria asegurada</b>
+            <small id="gacha-pity"></small>
+            <div class="meter" id="gacha-pity-bar"><i></i></div>
+          </div>
         </div>
-        <p class="note tickets-line" id="gacha-tickets"></p>
-        <p class="note" id="gacha-pity"></p>
+        <div class="panel gacha-wallet" id="gacha-tickets"></div>
+        <div class="panel gacha-rates" id="gacha-rates"></div>
       </div>
-      <div class="panel rates" id="gacha-rates"></div>
     </div>
+    <footer class="sheet-foot gacha-foot">
+      <button id="pull-1" class="btn pull-btn" type="button" data-sfx="none"><span class="pb-t">Tirar ×1</span><span class="pb-cost" id="cost-1"></span></button>
+      <button id="pull-10" class="btn gold pull-btn" type="button" data-sfx="none"><span class="pb-t">Tirar ×10</span><span class="pb-cost" id="cost-10"></span></button>
+      <button id="pull-10b" class="btn pull-btn rainbow" type="button" data-sfx="none"><span class="pb-t">Tirar ×10</span><span class="pb-cost" id="cost-10b"></span></button>
+      <button id="pull-all" class="btn ghost pull-btn pull-all hidden" type="button" data-sfx="none"><span class="pb-t">Tirar todos</span><span class="pb-cost" id="cost-all"></span></button>
+    </footer>
   </div>
 </section>
 
-<div id="pull-fx" class="hidden">
-  <canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas>
-  <div class="pull-results" id="pull-results"></div>
-  <button id="pull-close" class="btn gold hidden">Continuar</button>
+<!-- ====== Tirada: la tragaperras pixel art (slots.js, a escala entera) y luego las cartas ======
+     Es una .scr (z 40) para que el mando la tome como la pantalla de arriba. -->
+<div id="pull-fx" class="scr dim hidden" role="dialog" aria-modal="true" aria-label="Gacha">
+  <div class="pfx-spin">
+    <div class="pfx-machine"><canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas></div>
+    <div class="pfx-ctl hidden" id="pull-ctl">
+      <button class="chip" id="pull-fast" type="button"><span>Rápido</span></button>
+      <button class="btn small ghost" id="pull-skip" type="button">Saltar</button>
+    </div>
+  </div>
+  <p class="pfx-sum hidden" id="pull-sum"></p>
+  <div class="pfx-grid" id="pull-results"></div>
+  <div class="pfx-foot"><button id="pull-close" class="btn gold big hidden" type="button">Continuar</button></div>
 </div>
 
-<!-- ====== Durante la run ====== -->
+<!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ====== -->
+<!-- Subir de nivel, vínculo y objeto: las mismas cartas (.pick-card, las pinta run-ui.js). -->
 <section id="scr-levelup" class="scr dim hidden">
-  <div class="box center">
-    <h2>¡Nivel <span id="lvl-num">2</span>!</h2>
-    <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></p>
-    <div id="cards" class="cards"></div>
-    <button id="lvl-reroll" class="btn small ghost hidden" data-sfx="none" style="margin-top:10px">Cambiar opciones (<span id="lvl-rr-n">1</span>)<span class="kbd-hint"> · <kbd>R</kbd></span></button>
-    <p id="lvl-wait" class="note hidden"></p>
+  <div class="box pick-box">
+    <header class="pick-head">
+      <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="up"></span><h2>¡Nivel <span id="lvl-num">2</span>!</h2></div>
+      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></p>
+    </header>
+    <div id="cards" class="cards pick-cards"></div>
+    <footer class="pick-foot">
+      <button id="lvl-reroll" class="btn ghost ic hidden" data-sfx="none"><span class="rr-ico" aria-hidden="true"></span><span>Cambiar opciones (<span id="lvl-rr-n">1</span>)</span><span class="kbd-hint"><kbd>R</kbd></span></button>
+      <p id="lvl-wait" class="pick-wait hidden"></p>
+    </footer>
   </div>
 </section>
 
 <section id="scr-bond" class="scr dim hidden">
-  <div class="box center">
-    <h2 class="bond-title">¡Vínculo!</h2>
-    <p class="sub bond-hint">Los movimientos unidos se lanzan a la vez y ocupan un solo hueco</p>
-    <p id="bond-sub" class="sub"></p>
-    <div id="bond-cards" class="cards"></div>
-    <div class="row" style="justify-content:center"><button id="bond-back" class="btn hidden">Atrás</button></div>
+  <div class="box pick-box">
+    <header class="pick-head">
+      <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bond"></span><h2 class="bond-title">¡Vínculo!</h2></div>
+      <p class="sub bond-hint">Los movimientos unidos se lanzan a la vez y ocupan un solo hueco</p>
+      <p id="bond-sub" class="bond-step"></p>
+    </header>
+    <div id="bond-cards" class="cards pick-cards"></div>
+    <footer class="pick-foot">
+      <button id="bond-back" class="btn ghost ic hidden" data-ico="back" data-ico-size="20"><span>Atrás</span></button>
+    </footer>
   </div>
 </section>
 
 <section id="scr-item" class="scr dim hidden">
-  <div class="box center">
-    <h2>¡Un objeto!</h2>
-    <p class="sub">Sólo puedes llevar uno<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd></span></p>
-    <div id="item-cards" class="cards"></div>
+  <div class="box pick-box">
+    <header class="pick-head">
+      <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bag"></span><h2>¡Un objeto!</h2></div>
+      <p class="sub">Sólo puedes llevar uno<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd></span></p>
+    </header>
+    <div id="item-cards" class="cards pick-cards"></div>
   </div>
 </section>
 
+<!-- Pausa: hoja. Escritorio y tumbado: los botones en la cabecera; móvil de pie: abajo (style.css). -->
 <section id="scr-pause" class="scr dim hidden">
-  <div class="box center pause-box">
-    <h2>Pausa</h2>
-    <p class="sub kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
-    <p class="sub touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
-    <p id="pause-coop" class="note hidden">Partida en grupo: el juego sigue mientras estás aquí.</p>
-    <div class="row" style="justify-content:center">
-      <button id="btn-resume" class="btn gold">Continuar</button>
-      <button id="btn-pause-settings" class="btn">Ajustes</button>
-      <button id="btn-quit" class="btn">Abandonar run</button>
+  <div class="box sheet-box wide pause-box">
+    <header class="sheet-head pause-head">
+      <h2>Pausa</h2>
+      <div class="sheet-acts pause-acts">
+        <button id="btn-resume" class="btn gold ic" data-ico="play" data-ico-size="20"><span>Continuar</span></button>
+        <button id="btn-pause-settings" class="btn ghost ic" data-ico="gear" data-ico-size="20"><span>Ajustes</span></button>
+        <button id="btn-quit" class="btn danger ic" data-ico="logout" data-ico-size="20"><span class="quit-t">Abandonar run</span></button>
+      </div>
+      <div class="sheet-row pause-hint">
+        <p class="kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
+        <p class="touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
+        <p id="pause-coop" class="pause-coop hidden">Partida en grupo: el juego sigue mientras estás aquí.</p>
+      </div>
+    </header>
+    <div class="sheet-body pause-body">
+      <div class="pause-cols">
+        <div id="pause-sum" class="pause-sum"></div>
+        <section class="ps-card ps-sound"><h3>Sonido</h3><div id="pause-sound" class="sound-inline"></div></section>
+      </div>
     </div>
-    <div id="pause-sum" class="pause-sum"></div>
-    <div id="pause-sound" class="sound-inline"></div>
   </div>
 </section>
 
+<!-- Resumen final: hoja con «Volver al menú» siempre abajo. -->
 <section id="scr-over" class="scr dim hidden">
-  <div class="box center over-box">
-    <h2 id="over-title">Has caído…</h2>
-    <div id="over-stats" class="stats"></div>
-    <button id="btn-again" class="btn gold">Volver al menú</button>
+  <div class="box sheet-box over-box">
+    <div class="sheet-body over-body">
+      <header class="over-hero">
+        <span id="over-ico" class="ico-tile l round over-ico"></span>
+        <p class="eyebrow">Resumen de la partida</p>
+        <h2 id="over-title">Has caído…</h2>
+        <p id="over-record" class="over-record hidden">¡Nuevo récord de tiempo!</p>
+      </header>
+      <div id="over-stats" class="over-stats"></div>
+    </div>
+    <footer class="sheet-foot over-foot">
+      <button id="btn-again" class="btn gold big">Volver al menú</button>
+    </footer>
   </div>
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=35d741e023"></script>
+<script defer src="js/app.min.js?v=bdb438e59b"></script>
 </body>
 </html>

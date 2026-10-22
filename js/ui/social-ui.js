@@ -1,7 +1,24 @@
-/* ============ social-ui.js — apodo, amigos, sala e invitaciones ============ */
+/* ============ social-ui.js — apodo, amigos, sala e invitaciones ============
+ * Pantallas en hoja (docs/DISENO.md §4): Amigos y Sala; el Apodo es una tarjeta
+ * centrada y la invitación, un aviso arriba. Los estilos, en style.css
+ * («pantallas: social»).
+ */
 (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Iconos: objetos (G.Icons) y controles (G.UI.svg). Con guarda: los tests cargan
+  // este archivo con una interfaz de juguete, sin ellos.
+  const ico = (n, s, cls) => (G.Icons ? G.Icons.html(n, s, cls) : '');
+  const svg = (n, s) => (G.UI.svg ? G.UI.svg(n, s) : '');
+
+  /** Avatar redondo con la inicial del apodo (los amigos no tienen foto); el color sale del nombre. */
+  function avatar(name) {
+    const s = String(name || '?');
+    let h = 0;
+    for (const ch of s) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+    // translate="no": es una letra del apodo (en chino, la «O» sola se traducía por «或»).
+    return `<span class="fr-av av-${h % 6}" aria-hidden="true" translate="no">${esc([...s][0].toUpperCase())}</span>`;
+  }
 
   /** ¿Se puede usar lo online? Si no, explica por qué. */
   function needOnline() {
@@ -15,8 +32,11 @@
 
   G.NickUI = (() => {
     let then = null, skipped = false;
+    let chars = null;          // las letras que valen (G.Social.VALID sin el largo)
 
     function init() {
+      $('nick-ico').innerHTML = ico('friends', 60);
+      $('nick-in').oninput = rules;
       $('nick-form').onsubmit = async e => {
         e.preventDefault();
         $('nick-err').textContent = '';
@@ -32,12 +52,23 @@
       $('nick-later').onclick = () => { skipped = true; then = null; G.MenuUI.open(); };
     }
 
+    /** Las normas, a la vista mientras escribes: el largo y las letras (lo de «nadie más» lo dice el servidor al guardar). */
+    function rules() {
+      const v = $('nick-in').value.trim(), n = [...v].length;
+      if (!chars && G.Social.VALID) chars = new RegExp(G.Social.VALID.source.replace(/\{\d+,\d+\}/, '*'));
+      $('nick-count').textContent = n + '/16';
+      const mark = (id, ok) => { const li = $(id); li.classList.toggle('ok', n > 0 && ok); li.classList.toggle('bad', n > 0 && !ok); };
+      mark('nick-r-len', n >= 3 && n <= 16);
+      mark('nick-r-chr', !chars || chars.test(v));
+    }
+
     /** @param next  qué abrir después de elegirlo */
     function open(next) {
       then = next || null;
       G.UI.show('scr-nick');
       $('nick-err').textContent = '';
       $('nick-in').value = '';
+      rules();
       if (!G.Touch.active) setTimeout(() => $('nick-in').focus(), 50);   // en el móvil, sin abrir el teclado solo
     }
 
@@ -69,7 +100,17 @@
     else old();
   }
 
+  /** Botón para una fila (icono SVG y, si lleva, texto en <span>). label: su aria-label y title. */
+  function actBtn(html, cls, label, fn) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = cls; b.innerHTML = html; b.onclick = fn;
+    if (label) { b.title = label; b.setAttribute('aria-label', label); }
+    return b;
+  }
+
   G.FriendsUI = (() => {
+    let meKey = '';
+
     function init() {
       // Con hueco para lo que se pega con el apodo (una @, espacios o caracteres
       // invisibles): Social.request lo limpia antes de buscarlo.
@@ -88,71 +129,94 @@
 
     function msg(t, bad) {
       $('fr-msg').textContent = t || '';
-      $('fr-msg').style.color = bad ? '#ffb0b8' : '';
+      $('fr-msg').classList.toggle('bad', !!bad);
       if (t) G.Audio.sfx(bad ? 'error' : 'confirm');
     }
 
     function open() {
       withNick(() => {
-        G.UI.show('scr-friends', true); msg(''); render();
+        G.UI.show('scr-friends', true); msg(''); meKey = ''; render();
         G.Social.ensureFriends().then(() => { if (G.UI.isOpen('scr-friends')) render(); });
         G.Social.repairNick();              // una vez por sesión: que te puedan encontrar
       });
     }
 
+    /** Tu tarjeta: tu compañero, tu apodo bien grande y «Copiar» (es lo que tus amigos tienen que escribir). */
+    function renderMe() {
+      const nick = G.Social.me ? G.Social.me.name : '';
+      const s = G.DB.save || {}, dex = s.partner;
+      const shiny = !!s.partnerShiny && !!G.DB.ownsShiny && G.DB.ownsShiny(dex);
+      const key = nick + '|' + dex + '|' + shiny;
+      if (key === meKey) return;            // (si no cambia, el sprite no se rehace)
+      meKey = key;
+      const box = $('fr-me');
+      box.innerHTML = '<span class="fr-me-av" aria-hidden="true"></span><span class="eyebrow">Tu apodo</span>' +
+        `<b class="fr-me-name" translate="no">${esc(nick)}</b>` +
+        '<button type="button" id="fr-copy" class="btn small ghost">Copiar</button>' +
+        '<small>Dáselo a tus amigos para que te añadan.</small>';
+      // A ×2 como en la Sala; los grandes salen centrados y recortados por el círculo.
+      if (G.DEX_BY[dex]) box.firstChild.appendChild(G.UI.spriteCanvas(dex, 64, 64, { scale: 2, shiny }));
+      $('fr-copy').onclick = () => copyText(nick, 'Apodo copiado');
+    }
+
     // (Sin "en línea" desde el 20-10-2026: costaba 1/4 de las escrituras de Firestore.)
-    function stateText(f) {
-      if (f.status === 'in') return 'Quiere ser tu amigo';
-      if (f.status === 'out') return 'Solicitud enviada';
-      return '';
+    function row(f, room) {
+      const el = document.createElement('div');
+      el.className = 'list-row fr-item ' + f.status;
+      const inRoom = !!room && room.members.some(m => m.uid === f.uid);
+      const sub = f.status === 'in' ? 'Quiere ser tu amigo' : f.status === 'out' ? 'Solicitud enviada' : inRoom ? 'En tu sala' : '';
+      const who = avatar(f.name) + `<span class="grow"><b translate="no">${esc(f.name)}</b>` +
+        (sub ? `<small${inRoom ? ' class="ok"' : ''}>${sub}</small>` : '') + '</span>';
+      // Con un amigo de verdad, tocar su nombre abre su perfil.
+      el.innerHTML = f.status === 'ok' ? `<button type="button" class="fr-who" title="Ver su perfil">${who}</button>` : `<span class="fr-who">${who}</span>`;
+      if (f.status === 'ok') el.firstChild.onclick = () => G.ProfileUI.show(f.uid);
+      const acts = document.createElement('span');
+      acts.className = 'fr-acts';
+      const add = (...a) => acts.appendChild(actBtn(...a));
+      if (f.status === 'in') {
+        add(svg('check'), 'icon-btn gold', 'Aceptar', async () => { const r = await G.Social.accept(f.uid); msg(r.ok ? r.msg : r.error, !r.ok); });
+        add(svg('close'), 'icon-btn', 'Rechazar', () => G.Social.remove(f.uid));
+      } else if (f.status === 'out') {
+        add(svg('close'), 'icon-btn plain', 'Cancelar', () => G.Social.remove(f.uid));
+      } else {
+        if (!inRoom && (!room || room.isHost)) {
+          add(svg('plus', 18) + '<span>Invitar</span>', 'btn small ic', '', async () => {
+            const r = await G.Social.invite(f.uid);
+            msg(r.ok ? r.msg : r.error, !r.ok);
+            if (r.ok) G.LobbyUI.open();
+          });
+        }
+        add(svg('close'), 'icon-btn plain', 'Quitar', () => { if (confirm('¿Quitar a ' + f.name + ' de tus amigos?')) G.Social.remove(f.uid); });
+      }
+      el.appendChild(acts);
+      return el;
     }
 
     function render() {
-      const room = G.Social.room, nick = G.Social.me ? G.Social.me.name : '';
-      // Tu apodo bien visible y con botón de copiar: es lo que tus amigos tienen que escribir.
-      $('fr-me').innerHTML = 'Tu apodo: <b class="gold" translate="no" style="font-size:18px">' + esc(nick) +
-        '</b> <button type="button" id="fr-copy" class="btn small ghost" style="margin:0 4px">Copiar</button> · dáselo a tus amigos para que te añadan.';
-      $('fr-copy').onclick = () => copyText(nick, 'Apodo copiado');
+      const room = G.Social.room;
+      renderMe();
       $('fr-room').classList.toggle('hidden', !room);
-      const list = G.Social.friends.sort((a, b) => {
-        const rank = f => f.status === 'in' ? 0 : f.status === 'ok' ? 1 : 2;
-        return rank(a) - rank(b) || a.name.localeCompare(b.name);
-      });
+      const all = G.Social.friends;
       const box = $('fr-list');
       box.innerHTML = '';
-      if (!list.length) {
-        box.innerHTML = '<p class="sub">Aún no tienes amigos añadidos. Escribe arriba el apodo de un amigo.</p>';
+      if (!all.length) {
+        box.innerHTML = `<div class="empty-state"><span class="ico-tile l round t-blue">${ico('friends', 60)}</span>` +
+          '<b>Aún no tienes amigos añadidos.</b><span>Añade a alguien por su apodo.</span></div>';
         return;
       }
-      for (const f of list) {
-        const el = document.createElement('div');
-        el.className = 'fr-row';
-        const dot = f.status !== 'ok' ? 'pend' : 'on';
-        const inRoom = room && room.members.some(m => m.uid === f.uid);
-        el.innerHTML = `<i class="dot ${dot}"></i><b translate="no"><a href="#" class="plink" title="Ver su perfil">${esc(f.name)}</a></b><span class="st">${inRoom ? 'En tu sala' : stateText(f)}</span><span class="grow"></span>`;
-        if (f.status === 'ok') el.querySelector('.plink').onclick = e => { e.preventDefault(); G.ProfileUI.show(f.uid); };
-        else el.querySelector('.plink').onclick = e => e.preventDefault();
-        const btn = (txt, cls, fn) => {
-          const b = document.createElement('button');
-          b.className = 'btn small ' + cls; b.textContent = txt; b.onclick = fn; el.appendChild(b); return b;
-        };
-        if (f.status === 'in') {
-          btn('Aceptar', 'gold', async () => { const r = await G.Social.accept(f.uid); msg(r.ok ? r.msg : r.error, !r.ok); });
-          btn('Rechazar', 'ghost', () => G.Social.remove(f.uid));
-        } else if (f.status === 'out') {
-          btn('Cancelar', 'ghost', () => G.Social.remove(f.uid));
-        } else {
-          if (!inRoom && (!room || room.isHost)) {
-            btn('Invitar', 'gold', async () => {
-              const r = await G.Social.invite(f.uid);
-              msg(r.ok ? r.msg : r.error, !r.ok);
-              if (r.ok) G.LobbyUI.open();
-            });
-          }
-          btn('Quitar', 'ghost', () => { if (confirm('¿Quitar a ' + f.name + ' de tus amigos?')) G.Social.remove(f.uid); });
-        }
-        box.appendChild(el);
-      }
+      // Primero lo que espera respuesta (solicitudes), luego tus amigos y lo que has enviado.
+      const group = (title, st, hot) => {
+        const list = all.filter(f => f.status === st).sort((a, b) => a.name.localeCompare(b.name));
+        if (!list.length) return;
+        const sec = document.createElement('section');
+        sec.className = 'fr-sec';
+        sec.innerHTML = `<h3 class="fr-h"><span>${title}</span><span class="badge${hot ? '' : ' ghost'}">${list.length}</span></h3><div class="list"></div>`;
+        for (const f of list) sec.lastChild.appendChild(row(f, room));
+        box.appendChild(sec);
+      };
+      group('Solicitudes', 'in', true);
+      group('Tus amigos', 'ok');
+      group('Solicitudes enviadas', 'out');
     }
 
     return { init, open, render };
@@ -191,9 +255,9 @@
       $('lobby-menu').onclick = () => { if (ready) setReady(false); G.MenuUI.open(); };
       $('lobby-start').onclick = start;
       $('lobby-start').dataset.sfx = 'confirm';
-      // El botón del invitado, junto al de empezar (que sólo ve el anfitrión).
+      // El botón del invitado, junto al de empezar (que sólo ve el anfitrión), en el pie de la hoja.
       const rb = document.createElement('button');
-      rb.id = 'lobby-ready'; rb.type = 'button'; rb.className = 'btn gold grow hidden'; rb.dataset.sfx = 'confirm';
+      rb.id = 'lobby-ready'; rb.type = 'button'; rb.className = 'btn gold hidden'; rb.dataset.sfx = 'confirm';
       rb.onclick = () => setReady(!ready);
       $('lobby-start').after(rb);
       G.Net.on((from, msg) => {
@@ -246,13 +310,16 @@
     /** Empieza la partida: nadie sigue "listo" para la siguiente. */
     function close() { ready = false; readyBy.clear(); G.UI.hide('scr-lobby'); }
 
-    function connText(m, room) {
-      if (m.uid === room.host) return 'Anfitrión';
-      if (!room.isHost) return m.uid === G.Social.uid ? 'Tú' : 'En la sala';
+    /** Estado de la conexión de un jugador: [texto, clase de color de su chip]. */
+    function connState(m, room) {
+      if (m.uid === room.host) return ['Anfitrión', 'host'];
+      if (!room.isHost) return m.uid === G.Social.uid ? ['Tú', 'me'] : ['En la sala', ''];
       const mode = G.Net.mode(m.uid);
       // (Sin WebRTC en este navegador no se reintenta: no serviría.)
-      return mode === 'direct' ? (G.Net.viaTurn(m.uid) ? 'Conectado (por servidor)' : 'Conectado') : mode === 'relay' ? 'Conectado (por servidor)'
-        : mode === 'failed' ? (G.Net.noRtc ? 'No se pudo conectar' : 'No se pudo conectar (reintentando…)') : 'Conectando…';
+      if (mode === 'direct') return [G.Net.viaTurn(m.uid) ? 'Conectado (por servidor)' : 'Conectado', 'ok'];
+      if (mode === 'relay') return ['Conectado (por servidor)', 'ok'];
+      if (mode === 'failed') return [G.Net.noRtc ? 'No se pudo conectar' : 'No se pudo conectar (reintentando…)', 'bad'];
+      return ['Conectando…', 'wait'];
     }
 
     function render() {
@@ -272,52 +339,58 @@
         for (let i = 0; i < G.Social.MAX_PLAYERS; i++) {
           const m = ms[i];
           const c = document.createElement('div');
-          c.className = 'lob-card' + (m ? '' : ' empty');
+          c.className = 'lob-slot' + (m ? '' : ' empty');
           if (m) {
-            c.style.setProperty('--pc', G.Coop.COLORS[i]);
-            c.appendChild(G.UI.spriteCanvas(m.dex, 120, 96, { scale: 2, lively: true, shiny: !!m.shiny }));
-            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="conn" data-u="${m.uid}"></span>` +
-              (m.uid !== room.host ? `<span class="conn rdy" data-r="${m.uid}"></span>` : ''));
-          } else c.innerHTML = '<span>Libre</span>';
+            // El color de cada jugador es el de su aro en la partida.
+            if (G.Coop.COLORS[i]) c.style.setProperty('--pc', G.Coop.COLORS[i]);
+            if (m.uid === room.host) c.insertAdjacentHTML('beforeend', `<span class="lob-crown ico-tile s round t-gold" title="Anfitrión">${ico('crown', 30)}</span>`);
+            c.appendChild(G.UI.spriteCanvas(m.dex, 112, 84, { scale: 2, lively: true, shiny: !!m.shiny }));
+            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small class="lob-mon">${esc((G.DEX_BY[m.dex] || {}).name || '')}</small>` +
+              `<span class="lob-chips"><span class="conn" data-u="${esc(m.uid)}"></span>` +
+              (m.uid !== room.host ? `<span class="conn rdy" data-r="${esc(m.uid)}"></span>` : '') + '</span>');
+          } else c.innerHTML = `<span class="ico-tile round">${ico('ball', 30, 'ico-off')}</span><span>Libre</span>`;
           box.appendChild(c);
         }
       }
-      box.querySelectorAll('.conn').forEach(el => {
+      box.querySelectorAll('.conn[data-u]').forEach(el => {
         const m = ms.find(x => x.uid === el.dataset.u);
         if (!m) return;
-        const t = connText(m, room);
+        const [t, st] = connState(m, room);
         el.textContent = t;
-        el.className = 'conn' + (t === 'Conectando…' ? ' wait' : '');
+        el.className = 'conn' + (st ? ' ' + st : '');
       });
-      // Listo o no (sólo lo sabe el anfitrión; vacío si su versión no lo dice).
+      // Listo o no: el anfitrión lo sabe de cada invitado (vacío si su versión no lo dice);
+      // cada invitado ve el suyo en su tarjeta.
       if (room.isHost) for (const u of [...readyBy.keys()]) if (!ms.some(m => m.uid === u)) readyBy.delete(u);
+      const on = ready && readyRoom === room.id;
       box.querySelectorAll('.rdy').forEach(el => {
-        const r = room.isHost ? readyBy.get(el.dataset.r) : undefined;
+        const u = el.dataset.r;
+        const r = room.isHost ? readyBy.get(u) : u === G.Social.uid && on ? true : undefined;
         el.textContent = r === undefined ? '' : r ? 'Listo' : 'No está listo';
-        el.className = 'conn rdy' + (r === false ? ' wait' : '');
+        el.className = 'conn rdy' + (r === undefined ? '' : r ? ' ok' : ' wait');
+        const card = el.closest && el.closest('.lob-slot');
+        if (card) card.classList.toggle('ready', r === true);
       });
-      const rb = $('lobby-ready'), on = ready && readyRoom === room.id;
+      const rb = $('lobby-ready');
       rb.classList.toggle('hidden', room.isHost);
       rb.classList.toggle('gold', !on); rb.classList.toggle('ghost', on);
       rb.textContent = on ? 'No estoy listo' : '¡Estoy listo!';
 
       // Invitar (sólo el anfitrión y si queda sitio).
       const canInvite = room.isHost && ms.length < G.Social.MAX_PLAYERS;
-      $('lobby-inv-title').classList.toggle('hidden', !canInvite);
+      $('lobby-inv').classList.toggle('hidden', !canInvite);
       const inv = $('lobby-invite');
-      inv.classList.toggle('hidden', !canInvite);
       if (canInvite) {
         inv.innerHTML = '';
         const free = G.Social.friends.filter(f => f.status === 'ok' && !ms.some(m => m.uid === f.uid));
-        if (!free.length) inv.innerHTML = '<p class="sub" style="margin:0">Aún no tienes amigos añadidos.</p>';
+        if (!free.length) inv.innerHTML = '<p class="lob-none">Aún no tienes amigos añadidos.</p>';
         for (const f of free) {
           const el = document.createElement('div');
-          el.className = 'fr-row';
-          el.innerHTML = `<i class="dot on"></i><b translate="no">${esc(f.name)}</b><span class="grow"></span>`;
-          const b = document.createElement('button');
-          b.className = 'btn small gold'; b.textContent = 'Invitar';
-          b.onclick = async () => { const r = await G.Social.invite(f.uid); G.UI.toast(r.ok ? r.msg : r.error); };
-          el.appendChild(b);
+          el.className = 'list-row fr-item';
+          el.innerHTML = `<span class="fr-who">${avatar(f.name)}<span class="grow"><b translate="no">${esc(f.name)}</b></span></span>`;
+          el.appendChild(actBtn(svg('plus', 18) + '<span>Invitar</span>', 'btn small ic', '', async () => {
+            const r = await G.Social.invite(f.uid); G.UI.toast(r.ok ? r.msg : r.error);
+          }));
           inv.appendChild(el);
         }
       }
@@ -328,11 +401,13 @@
       const failed = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'failed');
       btn.disabled = !room.isHost || ms.length < 2 || connecting || failed;
       btn.textContent = 'Empezar partida (' + ms.length + '/' + G.Social.MAX_PLAYERS + ')';
-      $('lobby-note').textContent = G.Net.noRtc ? 'Este navegador no permite jugar en grupo (WebRTC está desactivado o bloqueado). Prueba con otro navegador.'
+      const note = $('lobby-note');
+      note.textContent = G.Net.noRtc ? 'Este navegador no permite jugar en grupo (WebRTC está desactivado o bloqueado). Prueba con otro navegador.'
         : !room.isHost ? 'Cuando el anfitrión empiece, entraréis todos a la vez.'
         : ms.length < 2 ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
         : connecting ? 'Conectando con tus amigos…' : 'La partida empieza para todos a la vez.';
+      note.classList.toggle('warn', !!G.Net.noRtc || (room.isHost && failed));
     }
 
     function start() {
@@ -359,6 +434,7 @@
     let cur = null;
 
     function init() {
+      $('inv-ico').innerHTML = ico('friends', 30);
       $('inv-yes').onclick = async () => {
         if (!cur) return;
         const from = cur.from;
@@ -380,7 +456,7 @@
       if (!list.length || G.Game.state !== 'ui' || !G.DB.loggedIn) { hide(); return; }
       if (cur && cur.from === list[0].from) return;
       cur = list[0];
-      $('inv-text').innerHTML = `${G.Icons.html('friends', 22)} <b class="gold" translate="no">${esc(cur.name)}</b> te invita a jugar en su sala`;
+      $('inv-text').innerHTML = `<b translate="no">${esc(cur.name)}</b> te invita a jugar en su sala`;
       $('invite-pop').classList.remove('hidden');
       G.Audio.sfx('shiny');
     }
@@ -388,8 +464,41 @@
     return { init, refresh };
   })();
 
+  // ======================= ESC =======================
+
+  /** La pantalla que se ve por encima (como en gamepad.js): la de mayor z-index y, si empatan, la última. */
+  function topScreen() {
+    let top = null, tz = -Infinity;
+    for (const s of document.querySelectorAll('.scr:not(.hidden)')) {
+      const z = parseInt(getComputedStyle(s).zIndex, 10) || 0;
+      if (z >= tz) { tz = z; top = s; }
+    }
+    return top;
+  }
+
+  /**
+   * Esc en el Apodo, la Sala o Moderación pulsa su botón de volver (de Amigos y
+   * Ranking ya se encarga game.js). Se para aquí: si llegara a input.js, game.js
+   * haría además lo suyo con la pantalla a la que se vuelve.
+   */
+  function wireEsc() {
+    if (typeof addEventListener !== 'function' || typeof document.querySelectorAll !== 'function') return;
+    const BACK = { 'scr-nick': 'nick-later', 'scr-lobby': 'lobby-menu', 'scr-mod': 'mod-back' };
+    addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || e.repeat || e.isComposing || !G.Game || G.Game.state !== 'ui' || G.UI.tabBlocked()) return;
+      // Ese Esc ya lo ha usado otro (ui.js cierra el menú «Más» antes que esto y lo para).
+      if (e.cancelBubble) return;
+      const bar = $('topbar');
+      if (bar && bar.classList.contains('more-open')) return;          // (ese Esc cierra el menú «Más»: ui.js)
+      const top = topScreen(), id = top && BACK[top.id];
+      if (!id) return;
+      e.stopPropagation(); e.preventDefault();
+      $(id).click();
+    }, true);
+  }
+
   G.SocialUI = {
-    init() { G.NickUI.init(); G.FriendsUI.init(); G.LobbyUI.init(); G.InvitePop.init(); },
+    init() { G.NickUI.init(); G.FriendsUI.init(); G.LobbyUI.init(); G.InvitePop.init(); wireEsc(); },
     withNick, needOnline
   };
 })();

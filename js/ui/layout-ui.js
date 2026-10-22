@@ -34,31 +34,42 @@ G.LayoutUI = (() => {
     return [G.U.clamp(x, r + 4, w - r - 4), G.U.clamp(y, r + 4, h - r - 4)];
   }
 
+  // Discos MT de ejemplo en los huecos y Restos en el del objeto (sólo para verlos como en la partida).
+  const SAMPLE = ['tm-fire', 'tm-water', 'tm-grass', 'tm-electric'];
+
   function build() {
     el = document.createElement('section');
     el.id = 'scr-layout';
     el.className = 'scr hidden';
-    const slots = Array.from({ length: N }, (_, i) => `<div class="lay-slot${i === 0 ? ' on' : ''}"><i>${i + 1}</i></div>`).join('');
+    const slots = Array.from({ length: N }, (_, i) => `<div class="lay-slot${i === 0 ? ' on' : ''}">${G.Icons.html(SAMPLE[i], 30)}<i>${i + 1}</i></div>`).join('');
     el.innerHTML = `
-      <div class="lay-thing lay-bar" data-k="bar"><div class="lay-slot item"></div>${slots}<span class="lay-tag">Ataques</span></div>
+      <div class="lay-thing lay-bar" data-k="bar"><div class="lay-slot item">${G.Icons.html('leftovers', 30)}</div>${slots}<span class="lay-tag">Ataques</span></div>
       <div class="lay-thing lay-pause" data-k="pause"><b></b><b></b></div>
       <div class="lay-thing lay-stick" data-k="stick"><div class="knob"></div><span class="lay-tag">Joystick</span></div>
-      <div class="box lay-panel">
-        <h3>Arrastra los botones a donde quieras</h3>
+      <div class="box lay-panel" role="dialog" aria-labelledby="lay-title">
+        <h3 id="lay-title">Colocar los botones</h3>
+        <p class="lay-sub">Arrastra los botones a donde quieras</p>
         <p class="lay-turn"><span class="lay-h">Esta colocación es para jugar en horizontal; la de vertical va aparte.</span><span class="lay-v">Esta colocación es para jugar en vertical; la de horizontal va aparte.</span></p>
-        <div class="chips set-chips" id="lay-mode"><b>Joystick</b>
-          <button class="chip" data-m="float">Flotante</button><button class="chip" data-m="fixed">Fijo</button>
+        <div class="lay-row"><b>Joystick</b>
+          <div class="seg" id="lay-mode"><button type="button" data-m="float">Flotante</button><button type="button" data-m="fixed">Fijo</button></div>
         </div>
         <small class="lay-help">Flotante: aparece donde pones el dedo. Fijo: siempre en el mismo sitio.</small>
-        <div class="row wrap lay-btns">
-          <button class="btn small ghost" id="lay-cancel">Cancelar</button>
-          <button class="btn small" id="lay-reset">Restablecer</button>
-          <button class="btn small gold" id="lay-save">Guardar</button>
+        <div class="lay-btns">
+          <button class="btn ghost" type="button" id="lay-cancel" data-back>Cancelar</button>
+          <button class="btn ghost ic" type="button" id="lay-reset" data-ico="refresh" data-ico-size="18"><span>Restablecer</span></button>
+          <button class="btn gold" type="button" id="lay-save">Guardar</button>
         </div>
       </div>`;
     document.body.appendChild(el);
+    G.UI.icons(el);
     el.querySelectorAll('.lay-thing').forEach(drag);
-    el.querySelectorAll('#lay-mode .chip').forEach(b => { b.onclick = () => { mode = b.dataset.m; paint(); }; });
+    el.querySelectorAll('#lay-mode button').forEach(b => { b.onclick = () => { mode = b.dataset.m; paint(); }; });
+    // Esc cierra el editor (sin guardar) y no llega al juego: si no, cerraba Ajustes, que está detrás.
+    addEventListener('keydown', e => {
+      if (!isOpen() || e.key !== 'Escape') return;
+      e.preventDefault(); e.stopPropagation();
+      close();
+    }, true);
     el.querySelector('#lay-cancel').onclick = close;
     el.querySelector('#lay-reset').onclick = () => {
       moved = {}; mode = 'float';
@@ -131,7 +142,7 @@ G.LayoutUI = (() => {
     place('bar', BAR_W, S);
     place('pause', 40, 40);
     place('stick', r * 2, r * 2).classList.toggle('hidden', mode !== 'fixed');
-    el.querySelectorAll('#lay-mode .chip').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
+    el.querySelectorAll('#lay-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
     // Se juega de pie y tumbado: cada orientación tiene su colocación.
     const tall = innerHeight > innerWidth;
     el.querySelector('.lay-h').classList.toggle('hidden', tall);

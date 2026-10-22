@@ -100,7 +100,7 @@ G.InstallUI = (() => {
     }
     if (deferred) {
       return '<p class="sub">Tu navegador puede instalarlo ahora mismo: pulsa Instalar y confírmalo.</p>'
-        + '<button class="btn gold install-now" type="button">Instalar</button>';
+        + '<button class="btn gold big block install-now" type="button">Instalar</button>';
     }
     return (INAPP ? WARN : '') + steps([
       [PIC.dots, 'Abre el menú del navegador', 'El botón ⋮ o ···, arriba o abajo de la pantalla.'],
@@ -109,15 +109,23 @@ G.InstallUI = (() => {
     ]);
   }
 
+  // Hoja estrecha (docs/DISENO.md §4): cabecera con «Cerrar», el icono del juego y el
+  // título; debajo, los pasos. En el móvil de pie ocupa toda la pantalla.
   function open() {
     if (!sheet) {
+      const x = G.UI && G.UI.svg ? G.UI.svg('close') : '×';
       sheet = document.createElement('section');
       sheet.id = 'scr-install';
       sheet.className = 'scr dim hidden';
-      sheet.innerHTML = '<div class="box install-box">'
-        + '<div class="row between"><h2>Instalar como app</h2><button class="btn small ghost" id="install-close" type="button">Cerrar</button></div>'
-        + '<p class="sub">Pantalla completa, sin las barras del navegador y con su icono en la pantalla de inicio.</p>'
-        + '<div class="install-body"></div></div>';
+      sheet.setAttribute('role', 'dialog');
+      sheet.setAttribute('aria-labelledby', 'install-title');
+      sheet.innerHTML = '<div class="box sheet-box narrow install-box">'
+        + '<header class="sheet-head">'
+        + `<button class="icon-btn" id="install-close" type="button" aria-label="Cerrar" title="Cerrar">${x}</button>`
+        + '<img class="install-app" src="assets/icons/icon-96.png" width="48" height="48" alt="">'
+        + '<div class="grow"><h2 id="install-title">Instalar como app</h2>'
+        + '<p class="sub">Pantalla completa, sin las barras del navegador y con su icono en la pantalla de inicio.</p></div>'
+        + '</header><div class="sheet-body install-body"></div></div>';
       sheet.querySelector('#install-close').onclick = close;
       // Tocar fuera de la caja también cierra.
       sheet.addEventListener('click', e => { if (e.target === sheet) close(); });
@@ -127,7 +135,7 @@ G.InstallUI = (() => {
     b.innerHTML = body();
     const now = b.querySelector('.install-now');
     if (now) now.onclick = ask;
-    sheet.querySelector('.box').scrollTop = 0;
+    b.scrollTop = 0;
     sheet.classList.remove('hidden');
   }
   function close() { if (sheet) sheet.classList.add('hidden'); }

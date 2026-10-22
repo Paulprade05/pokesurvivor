@@ -29,18 +29,29 @@ G.MenuUI = (() => {
         else if (go === 'settings') G.SettingsUI.open();
       };
     });
-    document.querySelectorAll('[data-back]').forEach(b => { b.onclick = open; });
+    // Sólo los «Volver» de las cabeceras de hoja: otros data-back (p. ej. «Ahora no» de
+    // recuperar la cuenta) son para Esc y el botón B, y ya tienen su propio clic.
+    document.querySelectorAll('.sheet-head [data-back]').forEach(b => { b.onclick = open; });
     // Colección en el móvil en vertical: con la ficha abierta, «Volver» la cierra primero.
     $('scr-dex').querySelector('[data-back]').onclick = () => {
-      if (sheetOn()) sheet(false); else { $('scr-dex').classList.remove('sheet'); open(); }
+      if (sheetOn()) sheet(false); else { $('scr-dex').classList.remove('detail-open'); open(); }
     };
     G.Social.on(() => { if (G.UI.isOpen('scr-menu')) socialLine(); });
-    // Al girar el móvil o cambiar el tamaño de la ventana, el escenario del compañero cambia de tamaño.
+    // Al girar el móvil o cambiar el tamaño de la ventana, los escenarios (compañero,
+    // ficha de la colección, Mejoras) cambian de tamaño: sus lienzos se ajustan.
     let fitQ = 0;
     addEventListener('resize', () => {
       if (fitQ) return;
-      fitQ = requestAnimationFrame(() => { fitQ = 0; if (G.UI.isOpen('scr-menu')) fitPartner(false); });
+      fitQ = requestAnimationFrame(() => {
+        fitQ = 0;
+        if (G.UI.isOpen('scr-dex')) fitBig(false);
+        else if (G.UI.isOpen('scr-upgrades')) fitUpg(false);
+        else if (G.UI.isOpen('scr-menu')) fitPartner(false);
+      });
     });
+    // Móvil tumbado ↔ de pie: las casillas de la colección cambian de tamaño (lienzos enteros, no estirados).
+    const onCompact = () => { if (G.UI.isOpen('scr-dex')) renderGrid(true); };
+    if (COMPACT.addEventListener) COMPACT.addEventListener('change', onCompact); else if (COMPACT.addListener) COMPACT.addListener(onCompact);
     $('btn-logout').onclick = () => {
       if (G.DB.guest && !confirm('Eres invitado: se perderá todo el progreso. ¿Salir?')) return;
       G.Audio.music(null);
@@ -142,76 +153,103 @@ G.MenuUI = (() => {
   }
 
   // ---------------- colección ----------------
+  // Hoja (dev.html, #scr-dex): cabecera con las regiones; debajo, la lista
+  // (buscador, filtros y rejilla) y la ficha (#dex-detail). Diseño: style.css,
+  // «pantallas: coleccion».
 
-  // Pantalla estrecha y alta (móvil en vertical): la ficha ocupa toda la caja en
-  // vez de quedar debajo de la lista (style.css, bloque «tactil»).
-  const NARROW = window.matchMedia ? matchMedia('(max-width: 760px) and (min-height: 521px)') : { matches: false };
-  let gridTop = 0;
-  const sheetOn = () => NARROW.matches && $('scr-dex').classList.contains('sheet');
+  const mq = q => (window.matchMedia ? matchMedia(q) : { matches: false });
+  // Móvil de pie (estrecho y alto): la ficha ocupa toda la hoja en vez de ir al lado de la lista.
+  const NARROW = mq('(max-width: 760px) and (min-height: 521px)');
+  // Móvil tumbado: casillas más pequeñas (su lienzo, no estirado con CSS).
+  const COMPACT = mq('(max-height: 520px)');
+  let listTop = 0;
+  const sheetOn = () => NARROW.matches && $('scr-dex').classList.contains('detail-open');
+  /** Lo que se desplaza en la lista: la rejilla sola (pantallas altas) o la columna entera (bajas). */
+  function listScroller() {
+    const grid = $('dex-grid');
+    return getComputedStyle(grid).overflowY === 'visible' ? $('dex-list') : grid;
+  }
   /** Abre o cierra la ficha a pantalla completa; al cerrarla, la lista sigue donde estaba. */
   function sheet(on) {
-    const scr = $('scr-dex'), grid = $('dex-grid');
-    if ((on && !NARROW.matches) || on === scr.classList.contains('sheet')) return;
-    if (on) gridTop = grid.scrollTop;
-    scr.classList.toggle('sheet', on);
-    if (on) $('dex-detail').scrollTop = 0; else grid.scrollTop = gridTop;
+    const scr = $('scr-dex');
+    if ((on && !NARROW.matches) || on === scr.classList.contains('detail-open')) return;
+    if (on) listTop = listScroller().scrollTop;
+    scr.classList.toggle('detail-open', on);
+    if (on) $('dex-detail').scrollTop = 0; else listScroller().scrollTop = listTop;
+  }
+  /** Desliza una fila de pestañas o chips lo justo para que se vea el (sin mover nada más). */
+  function keepInView(strip, el) {
+    if (!el) return;
+    const r = el.getBoundingClientRect(), s = strip.getBoundingClientRect();
+    if (r.left < s.left) strip.scrollLeft -= s.left - r.left + 16;
+    else if (r.right > s.right) strip.scrollLeft += r.right - s.right + 16;
   }
 
   function openDex() {
-    if (!G.UI.isOpen('scr-dex')) $('scr-dex').classList.remove('sheet');   // se entra siempre a la lista
+    const first = !G.UI.isOpen('scr-dex');
+    if (first) $('scr-dex').classList.remove('detail-open');   // se entra siempre a la lista
     G.UI.show('scr-dex', true);
     const s = G.DB.save;
     if (dexSel == null) { dexSel = s.partner; dexGen = G.DEX_BY[s.partner].gen; }
     const owned = Object.keys(s.owned).filter(d => G.DEX_BY[d]).length;
-    $('dex-total').textContent = `${owned} / ${G.DEX.length}`;
+    $('dex-total').innerHTML = `${G.Icons.html('ball', 30)}<b>${owned}</b><span>/ ${G.DEX.length}</span>`;
 
-    // Pestañas de generación (y "Todas"), con cuántos tienes de cada una.
-    const tabs = $('dex-gens');
+    // Pestañas de región (y "Todas"), con cuántos tienes de cada una y una barrita de progreso.
+    // Al repintar no vuelven al principio: la elegida sigue a la vista.
+    const tabs = $('dex-gens'), tabsX = tabs.scrollLeft;
     tabs.innerHTML = '';
     ['Todas', ...GEN_NAMES].forEach((name, g) => {
       const list = g ? G.DEX.filter(p => p.gen === g) : G.DEX;
       const have = list.filter(p => s.owned[p.dex]).length;
       const b = document.createElement('button');
+      b.type = 'button';
       b.className = 'gen-tab' + (g === dexGen && !dexF.q ? ' on' : '');
-      b.innerHTML = `<b>${name}</b><small>${have}/${list.length}</small>`;
+      b.innerHTML = `<b>${name}</b><small>${have}/${list.length}</small><span class="dx-gbar"><i style="width:${Math.round(have / list.length * 100)}%"></i></span>`;
       b.onclick = () => { dexGen = g; openDex(); };
       tabs.appendChild(b);
     });
+    tabs.scrollLeft = tabsX;
+    if (first) keepInView(tabs, tabs.querySelector('.on'));
 
-    // Tengo / me faltan (uno), rarezas (las que quieras), shiny y favoritos.
+    // Filtros en chips: tengo / me faltan (uno), shiny, favoritos y rarezas (las que quieras).
+    const row = $('dex-row'), tools = $('dex-tools'), rowX = row.scrollLeft, toolsX = tools.scrollLeft;
     const fb = $('dex-filters');
     fb.innerHTML = '';
     const chip = (html, on, fn) => {
       const c = document.createElement('button');
+      c.type = 'button';
       c.className = 'chip' + (on ? ' on' : '');
+      c.setAttribute('aria-pressed', on ? 'true' : 'false');
       c.innerHTML = html;
       c.onclick = () => { fn(); openDex(); };
       fb.appendChild(c);
     };
+    const sep = () => fb.insertAdjacentHTML('beforeend', '<span class="dx-sep" aria-hidden="true"></span>');
     for (const [k, label] of [['all', 'Todos'], ['own', 'Tengo'], ['miss', 'Me faltan']]) chip(label, dexF.status === k, () => { dexF.status = k; });
-    chip(G.Icons.html('shiny', 12) + ' Shiny', dexF.shiny, () => { dexF.shiny = !dexF.shiny; });
-    chip(G.Icons.html('star', 12) + ' Favoritos', dexF.fav, () => { dexF.fav = !dexF.fav; });
+    sep();
+    chip(G.Icons.html('shiny', 16) + '<span>Shiny</span>', dexF.shiny, () => { dexF.shiny = !dexF.shiny; });
+    chip(G.Icons.html('star', 30) + '<span>Favoritos</span>', dexF.fav, () => { dexF.fav = !dexF.fav; });
+    sep();
     for (const r of [5, 4, 3, 2, 1]) {
-      chip(G.Icons.rarity(r, 12) + ' ' + G.Gacha.RARITY_NAME[r], dexF.rar.has(r), () => { dexF.rar.has(r) ? dexF.rar.delete(r) : dexF.rar.add(r); });
+      chip(G.Icons.html(G.Icons.RARITY_BALL[r], 30) + `<span>${G.Gacha.RARITY_NAME[r]}</span>`, dexF.rar.has(r),
+        () => { dexF.rar.has(r) ? dexF.rar.delete(r) : dexF.rar.add(r); });
     }
+    row.scrollLeft = rowX; tools.scrollLeft = toolsX;
 
-    // Orden.
-    const sb = $('dex-sort');
-    sb.innerHTML = '<span class="sub">Orden:</span>';
-    for (const [k, label] of SORTS) {
-      const c = document.createElement('button');
-      c.className = 'chip' + (dexF.sort === k ? ' on' : '');
-      c.textContent = label;
-      c.onclick = () => { dexF.sort = k; openDex(); };
-      sb.appendChild(c);
-    }
-
-    // Tipo y búsqueda (la búsqueda mira en todas las generaciones).
+    // Orden y tipo: dos desplegables en píldora, al principio de la fila de filtros.
+    const so = $('dex-sort');
+    so.innerHTML = SORTS.map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
+    so.value = dexF.sort;
+    so.onchange = () => { dexF.sort = so.value; openDex(); };
+    so.parentElement.classList.toggle('on', dexF.sort !== 'num');
     const ts = $('dex-type');
     ts.innerHTML = `<option value="">Todos los tipos</option>` +
       Object.keys(G.U.TYPE_NAME).map(t => `<option value="${t}">${G.U.TYPE_NAME[t]}</option>`).join('');
     ts.value = dexF.type;
     ts.onchange = () => { dexF.type = ts.value; openDex(); };
+    ts.parentElement.classList.toggle('on', !!dexF.type);
+
+    // Búsqueda (mira en todas las generaciones).
     const q = $('dex-q');
     if (q.value !== dexF.q) q.value = dexF.q;
     q.oninput = () => {
@@ -261,24 +299,30 @@ G.MenuUI = (() => {
    * uno con su animación y su hoja de sprites, y pintarlos de golpe paraba el
    * juego (y la música) un segundo al borrar la búsqueda o cambiar el orden.
    * Al acercarse al final de la lista se pinta la siguiente tanda.
-   * keep: volver a pintar los mismos que había (marcar un favorito no te
-   * devuelve arriba).
+   * keep: volver a pintar los mismos que había y donde estaban (marcar un
+   * favorito no te devuelve arriba); si no, la lista vuelve al principio.
    */
   const PAGE = 48;
   let qT = 0, gridList = [], gridShown = 0, gridIO = null;
   function renderGrid(keep = false) {
-    const grid = $('dex-grid');
+    const grid = $('dex-grid'), sc = listScroller();
     const want = keep ? Math.max(PAGE, gridShown) : PAGE;
-    const top = grid.scrollTop;
+    const top = sc.scrollTop;
     grid.innerHTML = '';
     gridList = dexList();
     gridShown = 0;
     const f = dexF, busy = f.q || f.status !== 'all' || f.shiny || f.fav || f.rar.size || f.type || f.sort !== 'num';
     $('dex-count').textContent = gridList.length === 1 ? '1 Pokémon' : gridList.length + ' Pokémon';
     $('dex-clear').classList.toggle('hidden', !busy);
-    if (!gridList.length) { grid.innerHTML = '<p class="sub" style="grid-column:1/-1">Ninguno con estos filtros.</p>'; return; }
+    if (!gridList.length) {
+      grid.innerHTML = `<div class="empty-state dx-empty"><span class="ico-tile l">${G.Icons.html('book', 60)}</span>
+        <b>Ninguno con estos filtros.</b>${busy ? '<button class="btn small ghost" type="button" data-clear>Limpiar</button>' : ''}</div>`;
+      const c = grid.querySelector('[data-clear]');
+      if (c) c.onclick = () => { dexF = DEX0(); openDex(); };
+      return;
+    }
     moreCells(want);
-    if (keep) grid.scrollTop = top;
+    sc.scrollTop = keep ? top : 0;
   }
 
   function moreCells(n = PAGE) {
@@ -301,30 +345,59 @@ G.MenuUI = (() => {
   /** Cuándo llegaste con él a la Sentencia de Arceus (save.pjudg, lo apunta progress.js), o 0. */
   const judged = dex => +(G.DB.save.pjudg || {})[dex] || 0;
 
+  /**
+   * Casilla de la rejilla: tarjeta teñida con el color de su rareza; arriba, el
+   * número y la Poké Ball de la rareza; a la izquierda, las marcas (compañero o
+   * shiny, favorito, Sentencia de Arceus); el Pokémon (en silueta si te falta) y su nombre.
+   */
   function dexCell(p) {
     const s = G.DB.save;
     const own = !!s.owned[p.dex], sh = !!(s.shiny && s.shiny[p.dex]);
     const cell = document.createElement('div');
-    cell.className = 'cell' + (own ? '' : ' locked') + (p.dex === dexSel ? ' on' : '');
+    cell.className = `cell dx-cell r${p.rarity}` + (own ? '' : ' miss') + (p.dex === dexSel ? ' on' : '');
     cell.dataset.pad = '1';
-    cell.insertAdjacentHTML('beforeend', `<span class="no">${String(p.dex).padStart(3, '0')}${G.DB.isFav(p.dex) ? ' ' + G.Icons.html('star', 10) : ''}${judged(p.dex) ? ` <span title="Llegó a la Sentencia de Arceus">${G.Icons.html('trophy', 10)}</span>` : ''}</span>`);
-    if (p.dex === s.partner) cell.insertAdjacentHTML('beforeend', `<span class="badge-r" title="Compañero">${G.Icons.html('crown', 14)}</span>`);
-    else if (sh) cell.insertAdjacentHTML('beforeend', `<span class="badge-r" title="Tienes su shiny">${G.Icons.html('shiny', 12)}</span>`);
+    cell.tabIndex = 0;
+    const marks = [];
+    if (p.dex === s.partner) marks.push(['Compañero', G.Icons.html('crown', 30)]);
+    else if (sh) marks.push(['Tienes su shiny', G.Icons.html('shiny', 16)]);
+    if (G.DB.isFav(p.dex)) marks.push(['Favorito', G.Icons.html('star', 30)]);
+    if (judged(p.dex)) marks.push(['Llegó a la Sentencia de Arceus', G.Icons.html('trophy', 30)]);
+    cell.innerHTML = `<span class="no">${String(p.dex).padStart(3, '0')}</span><span class="dx-ball">${G.Icons.rarity(p.rarity, 30)}</span>` +
+      (marks.length ? `<span class="dx-marks">${marks.map(([t, h]) => `<span title="${t}">${h}</span>`).join('')}</span>` : '');
     const useShiny = sh && p.dex === s.partner && s.partnerShiny;
-    cell.appendChild(G.UI.spriteCanvas(p.dex, 92, 80, { scale: 2, silhouette: !own, shadow: own, shiny: useShiny }));
-    cell.insertAdjacentHTML('beforeend', `<b>${own ? p.name : '???'}</b>${G.UI.stars(p.rarity, 9)}`);
+    const [w, h] = COMPACT.matches ? [76, 64] : [92, 80];
+    cell.appendChild(G.UI.spriteCanvas(p.dex, w, h, { scale: 2, silhouette: !own, shadow: own, shiny: useShiny }));
+    cell.insertAdjacentHTML('beforeend', `<b>${own ? p.name : '???'}</b>`);
     cell.onclick = () => {
       dexSel = p.dex;
       $('dex-grid').querySelectorAll('.cell').forEach(c => c.classList.remove('on'));
       cell.classList.add('on');
+      sheet(true);            // primero la hoja: así la ficha ya se ve y su escenario se puede medir
       showDetail(p.dex);
-      sheet(true);
     };
+    // Con el teclado: Intro o espacio la abren, como un botón.
+    cell.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.click(); } };
     return cell;
   }
 
-  // Variante que se está viendo en la ficha (normal o shiny).
-  let viewShiny = false;
+  // Variante que se está viendo en la ficha (normal o shiny) y lo que pinta su escenario.
+  let viewShiny = false, big = null;
+
+  /**
+   * El lienzo grande de la ficha mide lo mismo que su escenario (cambia con la
+   * pantalla): cada píxel del sprite son píxeles enteros. Si la ficha aún no se
+   * ve (móvil de pie, con la lista delante), se ajusta al abrirla.
+   */
+  function fitBig(force) {
+    const cv = $('dex-big');
+    if (!cv || !big) return;
+    const box = cv.parentElement, w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h) return;
+    if (!force && cv.width === w && cv.height === h) return;
+    cv.width = w; cv.height = h;
+    G.UI.sprite(cv, big.dex, { lively: big.own, spin: big.own, silhouette: !big.own, hero: true, shiny: big.shiny,
+      scale: Math.max(2, Math.min(5, Math.floor(h / 40))) });   // (128 px tumbado → ×3; 188-208 → ×4-5; «hero» lo baja si no cabe)
+  }
 
   function showDetail(dex) {
     const s = G.DB.save;
@@ -337,63 +410,75 @@ G.MenuUI = (() => {
     if (dex !== showDetail.last) extraOpen = '';
     // Al redibujar el mismo Pokémon (abrir el selector de Menta, enseñar una MT...)
     // no se vuelve arriba: se quedaba fuera de la vista lo que acababas de abrir.
-    const sameMon = dex === showDetail.last, d0 = $('dex-detail');
-    const scrolls = sameMon && d0 ? [d0, d0.closest('.box')].filter(Boolean).map(el => [el, el.scrollTop]) : [];
+    const box = $('dex-detail');
+    const keepTop = dex === showDetail.last ? box.scrollTop : 0;
     showDetail.last = dex;
 
     const max = { hp: 183, atk: 1.55, spd: 137, def: 160 };
     // Con su naturaleza (20-10-2026): el stat que sube, en verde; el que baja, en rojo.
     const nat = own ? G.Mons.natureOf(dex) : null, q = own ? G.Mons.monFor(dex) : p;
-    const natCls = k => (!nat ? '' : nat.up === k ? ' nat-up' : nat.down === k ? ' nat-down' : '');
+    const natCls = k => (!nat ? '' : nat.up === k ? ' up' : nat.down === k ? ' down' : '');
     const bar = (label, v, m, txt, k) =>
-      `<div class="stat${natCls(k)}"><span>${label}</span><div class="bar"><i style="width:${Math.min(100, v / m * 100)}%"></i></div><span>${txt}</span></div>`;
+      `<div class="dx-stat${natCls(k)}"><span>${label}</span><span class="dx-bar"><i style="width:${Math.min(100, v / m * 100).toFixed(1)}%"></i></span><b>${txt}</b></div>`;
     const usingThis = isPartner && (!hasSh || !!s.partnerShiny === viewShiny);
+    const gen = GEN_NAMES[p.gen - 1];
+    const fav = own && G.DB.isFav(dex), favTxt = fav ? 'Favorito' : 'Marcar como favorito';
+    const start = G.startMoveOf(dex);
 
-    const box = $('dex-detail');
-    box.innerHTML = `
-      <canvas id="dex-big" class="stage" width="220" height="190"></canvas>
-      ${hasSh ? `<div class="seg">
-          <button class="${viewShiny ? '' : 'on'}" data-v="0">Normal</button>
-          <button class="${viewShiny ? 'on' : ''}" data-v="1">${G.Icons.html('shiny', 12)} Shiny</button></div>` : ''}
-      <div class="center">
-        <div style="color:var(--muted);font-size:13px">Nº ${String(p.dex).padStart(3, '0')} · ${GEN_NAMES[p.gen - 1]}</div>
-        <h3>${own ? p.name : '???'}</h3>
-        ${own ? `<button id="dex-fav" class="chip${G.DB.isFav(dex) ? ' on' : ''}" type="button">${G.Icons.html(G.DB.isFav(dex) ? 'star' : 'starDim', 12)} ${G.DB.isFav(dex) ? 'Favorito' : 'Marcar como favorito'}</button>` : ''}
-        <div style="color:${G.Gacha.RARITY_COLOR[p.rarity]}">${G.UI.stars(p.rarity, 24)} ${G.Gacha.RARITY_NAME[p.rarity]}</div>
-        <div style="margin:6px 0">${own ? G.UI.typeChips(p.types) : ''}</div>
-        ${own && judged(dex) ? `<p class="sub" style="margin:0 0 6px">${G.Icons.html('trophy', 14)} <span>Llegó a la Sentencia de Arceus</span>
-          <small>${new Date(judged(dex)).toLocaleDateString(G.I18n.locale)}</small></p>` : ''}
+    box.innerHTML = `<div class="dx-in">
+      <div class="dx-stage${own && viewShiny ? ' shiny' : ''}" id="dex-stage">
+        <canvas id="dex-big"></canvas>
+        <span class="dx-no"><b>#${String(p.dex).padStart(3, '0')}</b><span>${gen}</span></span>
+        ${own ? `<button id="dex-fav" class="icon-btn dx-fav${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${favTxt}" title="${favTxt}">${G.Icons.html(fav ? 'star' : 'starDim', 30)}</button>` : ''}
       </div>
+      ${hasSh ? `<div class="seg dx-seg">
+          <button type="button" class="${viewShiny ? '' : 'on'}" data-v="0">Normal</button>
+          <button type="button" class="${viewShiny ? 'on' : ''}" data-v="1">${G.Icons.html('shiny', 16)} Shiny</button></div>` : ''}
+      <div class="dx-id">
+        <h3 class="dx-name">${own ? p.name : '???'}</h3>
+        <span class="dx-rar" style="color:${G.Gacha.RARITY_COLOR[p.rarity]}">${G.Icons.rarity(p.rarity, 30)}<span>${G.Gacha.RARITY_NAME[p.rarity]}</span></span>
+      </div>
+      ${own ? `<div class="dx-types">${G.UI.typeChips(p.types)}</div>` : ''}
+      ${own && judged(dex) ? `<p class="dx-judged">${G.Icons.html('trophy', 30)}<span>Llegó a la Sentencia de Arceus</span>
+        <small>${new Date(judged(dex)).toLocaleDateString(G.I18n.locale)}</small></p>` : ''}
       ${own ? `
-        ${bar('Vida', q.hp, max.hp, q.hp)}
-        ${bar('Ataque', q.pa, max.atk, '×' + q.pa.toFixed(2), 'pa')}
-        ${bar('At. Esp.', q.sa, max.atk, '×' + q.sa.toFixed(2), 'sa')}
-        ${bar('Defensa', q.df, max.def, Math.round(q.df), 'df')}
-        ${bar('Def. Esp.', q.sd, max.def, Math.round(q.sd), 'sd')}
-        ${bar('Velocidad', q.spd, max.spd, Math.round(q.spd), 'spd')}
-        <p class="sub center" style="margin:6px 0 0">Pega mejor con ataques <b class="gold">${G.Stats.sideOf(q) === 'special' ? 'especiales' : 'físicos'}</b></p>
+        <section class="dx-sec">
+          <h4 class="dx-h">Estadísticas</h4>
+          <div class="dx-stats">
+            ${bar('Vida', q.hp, max.hp, q.hp)}
+            ${bar('Ataque', q.pa, max.atk, '×' + q.pa.toFixed(2), 'pa')}
+            ${bar('At. Esp.', q.sa, max.atk, '×' + q.sa.toFixed(2), 'sa')}
+            ${bar('Defensa', q.df, max.def, Math.round(q.df), 'df')}
+            ${bar('Def. Esp.', q.sd, max.def, Math.round(q.sd), 'sd')}
+            ${bar('Velocidad', q.spd, max.spd, Math.round(q.spd), 'spd')}
+          </div>
+          <p class="dx-note">Pega mejor con ataques <b class="gold">${G.Stats.sideOf(q) === 'special' ? 'especiales' : 'físicos'}</b></p>
+          ${p.types.length === 1 ? `<p class="dx-note">Monotipo: +20 % de daño con sus ataques de tipo ${G.U.TYPE_NAME[p.types[0]]}</p>` : ''}
+        </section>
         ${monExtras(dex)}
-        ${p.types.length === 1 ? `<p class="sub center" style="margin:2px 0 0">Monotipo: +20 % de daño con sus ataques de tipo ${G.U.TYPE_NAME[p.types[0]]}</p>` : ''}
-        <p style="font-size:14px;margin:10px 0 4px">Empieza con <b class="gold">${G.T(G.Moves.BY_ID[G.startMoveOf(dex)].name, 'move')}</b></p>
-        <p class="move-icons" title="Movimientos que puede aprender">
-          ${G.Moves.poolFor(p).map(id => `<span title="${G.T(G.Moves.BY_ID[id].name, 'move')}">${G.Icons.html('move:' + id, 16)}</span>`).join('')}</p>
-        ${usingThis
-          ? '<button class="btn grow" disabled style="width:100%">Es tu compañero</button>'
-          : `<button id="dex-pick" class="btn gold" data-sfx="confirm" style="width:100%">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}
-      ` : `<p class="center" style="color:var(--muted)">Aún no lo tienes.<br>Consíguelo en el banner de <b class="gold">${GEN_NAMES[p.gen - 1]}</b>
-            o derrotándolo cuando salga shiny.</p>`}
-    `;
-    for (const [el, t] of scrolls) el.scrollTop = t;
-    $('dex-big').style.setProperty('--stage-c', !own ? '#5b83d6' : viewShiny ? '#9ae6ff' : G.U.TYPE_COLOR[p.types[0]]);
-    $('dex-big').classList.toggle('shiny', own && viewShiny);
-    G.UI.sprite($('dex-big'), dex, { lively: own, spin: own, silhouette: !own, scale: 3, hero: true, shiny: own && viewShiny });
-    box.querySelectorAll('.seg button').forEach(b => {
+        <section class="dx-sec">
+          <h4 class="dx-h">Movimientos que puede aprender</h4>
+          <p class="dx-start">${G.Icons.html('move:' + start, 30)}<span>Empieza con <b class="gold">${G.T(G.Moves.BY_ID[start].name, 'move')}</b></span></p>
+          <div class="dx-moves">${G.Moves.poolFor(p).map(id => { const nm = G.T(G.Moves.BY_ID[id].name, 'move');
+            return `<button type="button" class="dx-mv" title="${nm}" aria-label="${nm}">${G.Icons.html('move:' + id, 30)}</button>`; }).join('')}</div>
+        </section>
+        <div class="dx-foot">${usingThis
+          ? `<div class="dx-partner">${G.Icons.html('crown', 30)}<span>Es tu compañero</span></div>`
+          : `<button id="dex-pick" class="btn gold block" type="button" data-sfx="confirm">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}</div>
+      ` : `<div class="dx-missing"><p>Aún no lo tienes.<br>Consíguelo en el banner de <b class="gold">${gen}</b>
+            o derrotándolo cuando salga shiny.</p></div>`}
+    </div>`;
+    box.scrollTop = keepTop;
+    $('dex-stage').style.setProperty('--stage-c', !own ? 'var(--c-blue)' : viewShiny ? 'var(--c-cyan)' : G.U.TYPE_COLOR[p.types[0]]);
+    big = { dex, own, shiny: own && viewShiny };
+    fitBig(true);
+    box.querySelectorAll('.dx-seg button').forEach(b => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
     // En el móvil no se ve el «title» de los iconos: al tocar uno sale el nombre del movimiento.
-    box.querySelectorAll('.move-icons [title]').forEach(el => { el.onclick = () => G.UI.toast(el.title); });
-    const fav = $('dex-fav');
-    if (fav) fav.onclick = () => { G.DB.setFav(dex, !G.DB.isFav(dex)); renderGrid(true); showDetail(dex); };
+    box.querySelectorAll('.dx-mv').forEach(el => { el.onclick = () => G.UI.toast(el.title); });
+    const fv = $('dex-fav');
+    if (fv) fv.onclick = () => { G.DB.setFav(dex, !G.DB.isFav(dex)); renderGrid(true); showDetail(dex); };
     const pick = $('dex-pick');
     if (pick) pick.onclick = () => {
       s.partner = dex;
@@ -411,26 +496,32 @@ G.MenuUI = (() => {
   let extraOpen = '';          // 'nat' | 'cap' | 'caph' | 'tm' | '' (qué selector está abierto)
   const natLine = n => (n.up ? `+${G.T(STAT_NAME[n.up])} −${G.T(STAT_NAME[n.down])}` : G.T('neutra'));
 
+  /** Naturaleza, habilidad y MT en filas; a la derecha, el objeto de la Mochila que los cambia (si tienes). */
   function monExtras(dex) {
     const p = G.DEX_BY[dex], n = G.Mons.natureOf(dex), ab = G.Mons.abilityOf(dex);
     const fx = G.AbilityFX.of(ab.id, p), taught = G.Mons.taught(dex);
     const tmsHere = G.Mons.learnable(dex).filter(id => G.Shop.tmCount(id) > 0);
     const btn = (key, icon, label, count) => count > 0
-      ? `<button class="btn small" data-extra="${key}">${G.Icons.html(icon, 14)} <span>${label}</span> <small>×${count}</small></button>` : '';
+      ? `<button class="btn small ic dx-use${extraOpen === key ? ' on' : ''}" type="button" data-extra="${key}" aria-expanded="${extraOpen === key}">${G.Icons.html(icon, 30)}<span>${label}</span><span class="dx-x">×${count}</span></button>` : '';
     const capN = G.Mons.abilityChoices(dex, false).length ? G.Shop.count('cap') : 0;
     const caphN = G.Mons.abilityChoices(dex, true).length ? G.Shop.count('caph') : 0;
-    return `<div class="mon-extra">
-      <div class="mx-row"><span>Naturaleza</span><b translate="no">${G.Mons.name(n.n)}</b><small>${natLine(n)}</small>
-        ${btn('nat', 'mint', 'Menta', G.Shop.count('mint'))}</div>
-      <div class="mx-row"><span>Habilidad</span><b translate="no">${G.Mons.abilityName(ab.id)}</b>${ab.slot === 2 ? `<small class="gold">${G.T('oculta')}</small>` : ''}
-        ${btn('cap', 'capsule', 'Cápsula', capN)}${btn('caph', 'capsuleh', 'Cápsula Oculta', caphN)}</div>
-      <p class="sub mx-desc"><span>${fx.d}</span>${fx.d2 ? ` <span>${fx.d2}</span>` : ''}</p>
-      <div class="mx-row"><span>MT</span>${taught.length
-        ? `<span class="move-icons">${taught.map(id => `<span title="${G.T(G.Moves.BY_ID[id].name, 'move')}">${G.Icons.html('move:' + id, 16)}</span>`).join('')}</span>`
-        : `<small>${G.T('Aún no ha aprendido ninguna')}</small>`}
-        ${btn('tm', 'tm', 'Enseñar MT', tmsHere.length)}</div>
+    return `<section class="dx-sec dx-extra">
+      <div class="dx-row">
+        <div class="dx-rt"><span class="dx-lbl">Naturaleza</span><b translate="no">${G.Mons.name(n.n)}</b><small>${natLine(n)}</small></div>
+        ${btn('nat', 'mint', 'Menta', G.Shop.count('mint'))}
+      </div>
+      <div class="dx-row">
+        <div class="dx-rt"><span class="dx-lbl">Habilidad</span><b translate="no">${G.Mons.abilityName(ab.id)}</b>${ab.slot === 2 ? `<small class="gold">${G.T('oculta')}</small>` : ''}</div>
+        ${btn('cap', 'capsule', 'Cápsula', capN)}${btn('caph', 'capsuleh', 'Cápsula Oculta', caphN)}
+        <p class="dx-desc"><span>${fx.d}</span>${fx.d2 ? ` <span>${fx.d2}</span>` : ''}</p>
+      </div>
+      <div class="dx-row">
+        <div class="dx-rt"><span class="dx-lbl">MT</span>${taught.length ? '' : `<small>${G.T('Aún no ha aprendido ninguna')}</small>`}</div>
+        ${btn('tm', 'tm', 'Enseñar MT', tmsHere.length)}
+        ${taught.length ? `<div class="dx-tms">${taught.map(id => `<span class="dx-tm">${G.Icons.html('move:' + id, 30)}<span>${G.T(G.Moves.BY_ID[id].name, 'move')}</span></span>`).join('')}</div>` : ''}
+      </div>
       <div id="mx-picker"></div>
-    </div>`;
+    </section>`;
   }
 
   function wireExtras(dex, box) {
@@ -439,29 +530,32 @@ G.MenuUI = (() => {
     });
     const host = box.querySelector('#mx-picker');
     if (!host || !extraOpen) return;
-    const s = G.DB.save, mon = G.DEX_BY[dex];
-    const chips = (list, label, onPick) => {
-      host.innerHTML = `<div class="panel ban-picker"><div class="ban-moves">${list.map(x => `<button class="chip" data-v="${x.v}">${x.html}</button>`).join('')}</div></div>`;
+    const mon = G.DEX_BY[dex];
+    const chips = (list, onPick) => {
+      host.innerHTML = `<div class="dx-picker"><div class="dx-chips">${list.map(x => `<button class="chip" type="button" data-v="${x.v}">${x.html}</button>`).join('')}</div></div>`;
       host.querySelectorAll('[data-v]').forEach(c => { c.onclick = () => onPick(c.dataset.v); });
+      // Que se vea el selector recién abierto (sin que lo tape el botón de abajo).
+      const r = host.getBoundingClientRect(), d = box.getBoundingClientRect();
+      if (r.bottom > d.bottom - 72) box.scrollTop += Math.max(0, Math.min(r.top - d.top - 12, r.bottom - d.bottom + 72));
     };
     const done = msg => { extraOpen = ''; G.DB.commit(); G.Audio.sfx('buy'); G.UI.toast(msg, 2600); showDetail(dex); };
     if (extraOpen === 'nat' && G.Shop.count('mint')) {
       const cur = G.Mons.natureOf(dex).id;
-      chips(G.NATURES.filter(n => n.id !== cur).map(n => ({ v: n.id, html: `<b translate="no">${G.Mons.name(n.n)}</b> <small>${natLine(n)}</small>` })), '', id => {
+      chips(G.NATURES.filter(n => n.id !== cur).map(n => ({ v: n.id, html: `<b translate="no">${G.Mons.name(n.n)}</b> <small>${natLine(n)}</small>` })), id => {
         if (!G.Shop.take('mint')) return;
         G.Mons.setNature(dex, id);
         done(G.I18n.f('{x} ahora tiene naturaleza {x}', mon.name, G.Mons.name(G.NATURE_BY[id].n)));
       });
     } else if ((extraOpen === 'cap' || extraOpen === 'caph') && G.Shop.count(extraOpen)) {
       const l = G.Mons.slots(dex);
-      chips(G.Mons.abilityChoices(dex, extraOpen === 'caph').map(i => ({ v: i, html: `<b translate="no">${G.Mons.abilityName(l[i])}</b>${i === 2 ? ` <small class="gold">${G.T('oculta')}</small>` : ''}` })), '', v => {
+      chips(G.Mons.abilityChoices(dex, extraOpen === 'caph').map(i => ({ v: i, html: `<b translate="no">${G.Mons.abilityName(l[i])}</b>${i === 2 ? ` <small class="gold">${G.T('oculta')}</small>` : ''}` })), v => {
         if (!G.Shop.take(extraOpen)) return;
         G.Mons.setAbility(dex, +v);
         done(G.I18n.f('{x} ahora tiene la habilidad {x}', mon.name, G.Mons.abilityName(l[+v])));
       });
     } else if (extraOpen === 'tm') {
       const list = G.Mons.learnable(dex).filter(id => G.Shop.tmCount(id) > 0);
-      chips(list.map(id => ({ v: id, html: `${G.Icons.html('move:' + id, 16)} ${G.T(G.Moves.BY_ID[id].name, 'move')} <small>×${G.Shop.tmCount(id)}</small>` })), '', id => {
+      chips(list.map(id => ({ v: id, html: `${G.Icons.html('move:' + id, 30)}<span>${G.T(G.Moves.BY_ID[id].name, 'move')}</span><small>×${G.Shop.tmCount(id)}</small>` })), id => {
         if (!G.Mons.teach(dex, id)) return;
         done(G.I18n.f('¡{x} ha aprendido {x}!', mon.name, G.T(G.Moves.BY_ID[id].name, 'move')));
       });
@@ -469,8 +563,10 @@ G.MenuUI = (() => {
   }
 
   // ---------------- mejoras ----------------
+  // Hoja (dev.html, #scr-upgrades): el Pokémon (escenario, selector y progreso)
+  // y una tarjeta por mejora: icono, nombre, efecto, nivel en segmentos y precio.
 
-  let upgDex = null, upgPartner = null;
+  let upgDex = null, upgPartner = null, upgShiny = false;
 
   function openUpgrades() {
     G.UI.show('scr-upgrades', true);
@@ -489,13 +585,31 @@ G.MenuUI = (() => {
     renderUpgrades();
   }
 
+  /** El lienzo del Pokémon de Mejoras mide lo mismo que su recuadro (cambia con la pantalla): píxeles enteros. */
+  function fitUpg(force) {
+    const cv = $('upg-stage'), box = $('upg-stage-box');
+    const w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h || upgDex == null) return;
+    if (!force && cv.width === w && cv.height === h) return;
+    cv.width = w; cv.height = h;
+    G.UI.sprite(cv, upgDex, { lively: true, hero: true, shiny: upgShiny, scale: Math.max(2, Math.min(4, Math.floor(h / 44))) });
+  }
+
   function renderUpgrades() {
     const s = G.DB.save;
     const levels = G.DB.upgradesOf(upgDex);
     const mon = G.DEX_BY[upgDex];
-    const shiny = upgDex === s.partner && !!s.partnerShiny && G.DB.ownsShiny(upgDex);
-    G.UI.sprite($('upg-stage'), upgDex, { lively: true, scale: 2, hero: true, shiny });
-    $('upg-stage').style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[mon.types[0]]);
+    upgShiny = upgDex === s.partner && !!s.partnerShiny && G.DB.ownsShiny(upgDex);
+    const st = $('upg-stage-box');
+    st.style.setProperty('--stage-c', upgShiny ? 'var(--c-cyan)' : G.U.TYPE_COLOR[mon.types[0]]);
+    st.classList.toggle('shiny', upgShiny);
+    fitUpg(true);
+    // Debajo del selector: sus tipos y cuántos niveles lleva de todos los que hay.
+    const done = G.Upgrades.LIST.reduce((a, u) => a + Math.min(u.max, levels[u.id] || 0), 0);
+    const all = G.Upgrades.LIST.reduce((a, u) => a + u.max, 0);
+    $('upg-sum').innerHTML = `<span class="upg-types">${G.UI.typeChips(mon.types)}</span>
+      <span class="upg-prog"><span class="meter green"><i style="width:${(done / all * 100).toFixed(1)}%"></i></span><b>${done}<small>/${all}</small></b></span>`;
+
     const box = $('upg-list');
     box.innerHTML = '';
     for (const u of G.Upgrades.LIST) {
@@ -506,31 +620,39 @@ G.MenuUI = (() => {
       const locked = !maxed && u.needs && !levels[u.needs];
       const pick2 = u.id === 'start2' && lvl > 0 ? G.startMove2Of(upgDex) : null;
       const [many] = maxBuy(u, lvl, s.coins);
+      // Segunda línea (sólo si hace falta): elegir movimientos o vetos, «necesita…» y «Máx. +N».
+      const more = [];
+      if (u.id === 'ban' && lvl > 0) more.push(`<button class="btn small upg-pick${banOpen ? ' on' : ''}" type="button" data-ban aria-expanded="${banOpen}">Elegir (${banList().length}/${lvl})</button>`);
+      if (u.id === 'start' && lvl > 0) {
+        const id = G.startMoveOf(upgDex);
+        more.push(`<button class="btn small ic upg-pick${startOpen ? ' on' : ''}" type="button" data-start aria-expanded="${startOpen}">${G.Icons.html('move:' + id, 30)}<span>Elegir: ${G.Moves.BY_ID[id].name}</span></button>`);
+      }
+      if (u.id === 'start2' && lvl > 0) {
+        more.push(`<button class="btn small ic upg-pick${start2Open ? ' on' : ''}" type="button" data-start2 aria-expanded="${start2Open}">${pick2 ? G.Icons.html('move:' + pick2, 30) : ''}<span>Elegir: ${pick2 ? G.Moves.BY_ID[pick2].name : G.T('Al azar')}</span></button>`);
+      }
+      if (locked) more.push(`<span class="upg-lock">${G.UI.svg('lock', 16)}<span>${G.T('Necesita Repertorio')}</span></span>`);
+      if (!locked && many > 1) more.push(`<button class="btn small ghost upg-many" type="button" data-max data-sfx="none" title="Compra todos los niveles que puedes pagar">Máx. +${many}</button>`);
+      const buy = maxed
+        ? '<span class="badge gold upg-maxed">Máx.</span>'
+        : `<button class="btn small gold ic upg-buy" type="button" data-buy data-sfx="none" ${locked || s.coins < cost ? 'disabled' : ''}${locked ? ` title="${G.T('Primero compra Repertorio')}"` : ''}>${G.Icons.html('coin', 30)}<span>${cost.toLocaleString(G.I18n.locale)}</span></button>`;
       const el = document.createElement('div');
-      el.className = 'panel upg-item';
+      el.className = 'upg-card' + (maxed ? ' is-max' : '') + (locked ? ' is-locked' : '');
       el.innerHTML = `
-        <div class="ic">${G.Icons.html(u.icon, 32)}</div>
-        <div>
-          <b>${u.name}</b> <span style="color:var(--muted);font-size:13px">${u.unit}</span>
-          <div class="pips">${Array.from({ length: u.max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</div>
-        </div>
-        <div class="upg-btns">
-          ${u.id === 'ban' && lvl > 0 ? `<button class="btn small" data-ban>Elegir (${banList().length}/${lvl})</button>` : ''}
-          ${u.id === 'start' && lvl > 0 ? `<button class="btn small" data-start>Elegir: ${G.Moves.BY_ID[G.startMoveOf(upgDex)].name}</button>` : ''}
-          ${u.id === 'start2' && lvl > 0 ? `<button class="btn small" data-start2>Elegir: ${pick2 ? G.Moves.BY_ID[pick2].name : G.T('Al azar')}</button>` : ''}
-          ${!locked && many > 1 ? `<button class="btn small" data-max data-sfx="none" title="Compra todos los niveles que puedes pagar">Máx. +${many}</button>` : ''}
-          <button class="btn small ${maxed ? '' : 'gold'}" data-buy data-sfx="none" ${maxed || locked || s.coins < cost ? 'disabled' : ''}
-            ${locked ? `title="${G.T('Primero compra Repertorio')}"` : ''}>
-          ${maxed ? 'Máx.' : locked ? G.T('Necesita Repertorio') : `<span class="coin"></span> ${cost}`}</button></div>`;
-      if (u.id === 'ban' && lvl > 0) el.querySelector('[data-ban]').onclick = () => { banOpen = !banOpen; renderUpgrades(); };
-      if (u.id === 'start' && lvl > 0) el.querySelector('[data-start]').onclick = () => { startOpen = !startOpen; renderUpgrades(); };
-      if (u.id === 'start2' && lvl > 0) el.querySelector('[data-start2]').onclick = () => { start2Open = !start2Open; renderUpgrades(); };
-      el.querySelector('[data-buy]').onclick = () => {
+        <span class="ico-tile${maxed ? ' t-gold' : lvl ? ' t-green' : ''}">${G.Icons.html(u.icon, 30)}</span>
+        <div class="upg-info"><b>${u.name}</b><small>${u.unit}</small></div>
+        <div class="upg-price">${buy}</div>
+        <div class="upg-lv"><span class="upg-pips">${Array.from({ length: u.max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span><span class="upg-num"><b>${lvl}</b>/${u.max}</span></div>
+        ${more.length ? `<div class="upg-more">${more.join('')}</div>` : ''}`;
+      const q = sel => el.querySelector(sel);
+      if (q('[data-ban]')) q('[data-ban]').onclick = () => { banOpen = !banOpen; renderUpgrades(); };
+      if (q('[data-start]')) q('[data-start]').onclick = () => { startOpen = !startOpen; renderUpgrades(); };
+      if (q('[data-start2]')) q('[data-start2]').onclick = () => { start2Open = !start2Open; renderUpgrades(); };
+      if (q('[data-buy]')) q('[data-buy]').onclick = () => {
         const got = buyLevel(u);
         if (got) bought(mon, u, got); else renderUpgrades();
       };
       // Máx.: los niveles que llegues a pagar, uno a uno como el botón de comprar, y se guarda una vez.
-      const mx = el.querySelector('[data-max]');
+      const mx = q('[data-max]');
       if (mx) mx.onclick = () => {
         const [k, total] = maxBuy(u, G.DB.upgradesOf(upgDex)[u.id] || 0, G.DB.save.coins);
         if (k < 1) { renderUpgrades(); return; }
@@ -588,10 +710,10 @@ G.MenuUI = (() => {
     const ids = G.Moves.poolFor(mon).concat([G.startMoveOf(upgDex)]).filter((v, i, a) => a.indexOf(v) === i)
       .sort((a, b) => G.Moves.BY_ID[a].name.localeCompare(G.Moves.BY_ID[b].name, 'es'));
     const el = document.createElement('div');
-    el.className = 'panel bind-panel';
-    el.innerHTML = `<b>Atajos de movimientos</b>
-      <p class="sub" style="margin:2px 0 8px">Elige qué movimiento va siempre en cada hueco (teclas 1-4 o los iconos de abajo), para la memoria muscular. Si aún no tienes tantos movimientos, va al hueco más cercano.</p>
-      <div class="bind-slots">${[0, 1, 2, 3].map(i => `<label class="bind-slot"><span>${i + 1}</span>
+    el.className = 'upg-panel upg-binds';
+    el.innerHTML = `<div class="upg-ph"><span class="ico-tile s">${G.Icons.html('cards', 30)}</span><b>Atajos de movimientos</b></div>
+      <p class="sub">Elige qué movimiento va siempre en cada hueco (teclas 1-4 o los iconos de abajo), para la memoria muscular. Si aún no tienes tantos movimientos, va al hueco más cercano.</p>
+      <div class="upg-slots">${[0, 1, 2, 3].map(i => `<label class="upg-slot"><span class="upg-sn">${i + 1}</span>
         <select class="field" data-slot="${i}"><option value="">Libre</option>${ids.map(id =>
           `<option value="${id}" ${list[i] === id ? 'selected' : ''}>${G.T(G.Moves.BY_ID[id].name, 'move')}</option>`).join('')}</select></label>`).join('')}</div>`;
     el.querySelectorAll('select[data-slot]').forEach(sel => {
@@ -611,16 +733,21 @@ G.MenuUI = (() => {
     return el;
   }
 
+  /** Panel desplegable debajo de una tarjeta de Mejoras: una frase y chips de movimientos (con su disco MT). */
+  function movePanel(text, chipsHtml) {
+    const el = document.createElement('div');
+    el.className = 'upg-panel';
+    el.innerHTML = `<p class="sub">${text}</p><div class="upg-chips">${chipsHtml}</div>`;
+    return el;
+  }
+
   // ---------------- movimiento inicial (Mejoras → Movimiento inicial) ----------------
   let startOpen = false;
   function startPicker() {
     const s = G.DB.save, cur = G.startMoveOf(upgDex), base = G.baseStartOf(upgDex);
     const ids = G.startChoices(upgDex).sort((a, b) => G.Moves.BY_ID[a].name.localeCompare(G.Moves.BY_ID[b].name, 'es'));
-    const el = document.createElement('div');
-    el.className = 'panel ban-picker';
-    el.innerHTML = `<p class="sub" style="margin:0 0 8px">Elige con qué ataque empieza. Lo puedes cambiar cuando quieras, gratis.</p>
-      <div class="ban-moves">${ids.map(id => { const d = G.Moves.BY_ID[id];
-        return `<button class="chip ${id === cur ? 'on' : ''}" data-id="${id}">${G.Icons.html('move:' + id, 16)} ${d.name}${id === base ? ' <small>(de serie)</small>' : ''}</button>`; }).join('')}</div>`;
+    const el = movePanel('Elige con qué ataque empieza. Lo puedes cambiar cuando quieras, gratis.', ids.map(id => { const d = G.Moves.BY_ID[id];
+      return `<button class="chip mv-chip${id === cur ? ' on' : ''}" type="button" data-id="${id}" aria-pressed="${id === cur}">${G.Icons.html('move:' + id, 30)}<span>${d.name}</span>${id === base ? '<small>(de serie)</small>' : ''}</button>`; }).join(''));
     el.querySelectorAll('[data-id]').forEach(b => {
       b.onclick = () => {
         const id = b.dataset.id;
@@ -647,11 +774,9 @@ G.MenuUI = (() => {
     const s = G.DB.save, cur = G.startMove2Of(upgDex), first = G.startMoveOf(upgDex);
     const ids = G.startChoices(upgDex).filter(id => id !== first)
       .sort((a, b) => G.Moves.BY_ID[a].name.localeCompare(G.Moves.BY_ID[b].name, 'es'));
-    const el = document.createElement('div');
-    el.className = 'panel ban-picker';
-    el.innerHTML = `<p class="sub" style="margin:0 0 8px">Elige el segundo ataque con el que empieza. Lo puedes cambiar cuando quieras, gratis.</p>
-      <div class="ban-moves"><button class="chip ${!cur ? 'on' : ''}" data-id="">${G.T('Al azar')}</button>${ids.map(id => { const d = G.Moves.BY_ID[id];
-        return `<button class="chip ${id === cur ? 'on' : ''}" data-id="${id}">${G.Icons.html('move:' + id, 16)} ${d.name}</button>`; }).join('')}</div>`;
+    const el = movePanel('Elige el segundo ataque con el que empieza. Lo puedes cambiar cuando quieras, gratis.',
+      `<button class="chip${!cur ? ' on' : ''}" type="button" data-id="" aria-pressed="${!cur}">${G.T('Al azar')}</button>` + ids.map(id => { const d = G.Moves.BY_ID[id];
+        return `<button class="chip mv-chip${id === cur ? ' on' : ''}" type="button" data-id="${id}" aria-pressed="${id === cur}">${G.Icons.html('move:' + id, 30)}<span>${d.name}</span></button>`; }).join(''));
     el.querySelectorAll('[data-id]').forEach(b => {
       b.onclick = () => {
         const id = b.dataset.id;
@@ -684,11 +809,9 @@ G.MenuUI = (() => {
     const ids = G.Moves.poolFor(mon).filter(id => id !== start && id !== start2)
       .sort((a, b) => G.Moves.BY_ID[a].name.localeCompare(G.Moves.BY_ID[b].name, 'es'));
     const list = banList();
-    const el = document.createElement('div');
-    el.className = 'panel ban-picker';
-    el.innerHTML = `<p class="sub" style="margin:0 0 8px">Toca los movimientos que no quieres que te salgan en las cartas (${list.length}/${max}). El movimiento de inicio no se puede vetar.</p>
-      <div class="ban-moves">${ids.map(id => { const d = G.Moves.BY_ID[id]; const on = list.includes(id);
-        return `<button class="chip ${on ? 'on ban' : ''}" data-id="${id}">${G.Icons.html('move:' + id, 16)} ${G.T(d.name, 'move')}${on ? ' ' + G.Icons.html('ban', 14) : ''}</button>`; }).join('')}</div>`;
+    const el = movePanel(`Toca los movimientos que no quieres que te salgan en las cartas (${list.length}/${max}). El movimiento de inicio no se puede vetar.`,
+      ids.map(id => { const d = G.Moves.BY_ID[id]; const on = list.includes(id);
+        return `<button class="chip mv-chip${on ? ' on ban' : ''}" type="button" data-id="${id}" aria-pressed="${on}">${G.Icons.html('move:' + id, 30)}<span>${G.T(d.name, 'move')}</span>${on ? G.Icons.html('ban', 30) : ''}</button>`; }).join(''));
     el.querySelectorAll('[data-id]').forEach(b => {
       b.onclick = () => {
         const l = banList(), id = b.dataset.id, i = l.indexOf(id);

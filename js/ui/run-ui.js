@@ -1,4 +1,9 @@
-/* ============ run-ui.js — cartas de nivel, pausa y fin de run ============ */
+/* ============ run-ui.js — cartas de nivel, pausa y fin de run ============
+ * Subir de nivel, objeto y vínculo usan la misma carta (cardEl: baldosa con el
+ * icono a 60 px, insignia, nombre, chips de tipo / categoría / familia y
+ * descripción). La pausa y el resumen comparten la lista de ataques
+ * (movesTable). Los estilos, en «pantallas: partida» de css/style.css.
+ */
 G.RunUI = (() => {
   const $ = G.UI.$;
   let offers = null, offerCb = null, coopMode = false;
@@ -20,9 +25,71 @@ G.RunUI = (() => {
   }
   const guarded = () => performance.now() < guardUntil;
 
+  // ---------------- piezas comunes de las cartas ----------------
+
+  /*
+   * Nombre de cada familia de movimiento (kind de data/moves.js), para la chip
+   * de las cartas, la pausa y el resumen. Las 23 de siempre y las 12 nuevas.
+   * («Chaparrón» y no «Lluvia», que ya es el clima en los diccionarios.)
+   */
+  const KIND_NAME = {
+    projectile: 'Proyectil', melee: 'Golpe', beam: 'Haz', orbit: 'Órbita', nova: 'Estallido', aura: 'Aura',
+    buff: 'Potenciador', boomerang: 'Bumerán', chain: 'Cadena', mine: 'Minas', meteor: 'Meteoro',
+    turret: 'Torreta', dash: 'Embestida', trail: 'Estela', cone: 'Abanico', homing: 'Teledirigido',
+    bounce: 'Rebote', charge: 'Carga', spin: 'Giro', quake: 'Temblor', vortex: 'Vórtice', shove: 'Empujón',
+    stun: 'Aturdimiento',
+    // al estilo de Vampire Survivors (22-10-2026)
+    lob: 'Parábola', knife: 'Ráfaga', cross: 'Aspas', column: 'Columna', sweep: 'Aguja', ricochet: 'Carambola',
+    wipe: 'Barrido', ward: 'Escudo', ally: 'Aliados', wings: 'Aves', puddle: 'Charcos', dusting: 'Chaparrón'
+  };
+  // Las cartas de pasivo (afectan a todos los ataques) llevan «Pasivo» en vez de «Mejora».
+  const PASSIVE = new Set(['area', 'dur', 'amt', 'pspd', 'luck']);
+
+  /** Físico o Especial (los potenciadores, el lado que suben; si no, ''). */
+  const catOf = m => G.Stats.NAME[m.cat || (m.stat === 'patk' ? 'physical' : m.stat === 'satk' ? 'special' : '')] || '';
+  const typeCol = m => G.U.TYPE_COLOR[m.type] || '#9fb1c9';
+
+  /** Chips de un movimiento: tipo, categoría (si withCat) y familia. */
+  function moveChips(m, withCat = true) {
+    const cat = withCat ? catOf(m) : '';
+    return `<span class="tag-chip" style="background:${typeCol(m)}">${G.U.TYPE_NAME[m.type] || ''}</span>`
+      + (cat ? `<span class="tag-chip cat">${cat}</span>` : '')
+      + (KIND_NAME[m.kind] ? `<span class="fam-chip">${KIND_NAME[m.kind]}</span>` : '');
+  }
+
+  const badge = (txt, cls = '') => `<span class="badge pc-badge${cls ? ' ' + cls : ''}">${txt}</span>`;
+  /** «Nv. 2 → 3» (o «Nv. 2»): «Nv.» en su propio nodo para que se traduzca. */
+  const lvBadge = (lvl, up, cls = 'blue') => badge(`<span>Nv.</span> ${lvl}${up ? ' → ' + (lvl + 1) : ''}`, cls);
+
+  /**
+   * Una carta. o: { cls, icon, tile (clase de la baldosa), tileC (color para .tint),
+   * badge, eyebrow, title, chips, desc }. i: su número (tecla 1-4).
+   */
+  function cardEl(o, i, onPick, ownSfx = true) {
+    const el = document.createElement('div');
+    el.className = 'card pick-card' + (o.cls ? ' ' + o.cls : '');
+    el.style.setProperty('--i', i);
+    if (o.tileC) el.style.setProperty('--pc', o.tileC);
+    el.innerHTML = `<span class="key">${i + 1}</span>
+      <span class="pc-art"><span class="ico-tile pc-ico${o.tile ? ' ' + o.tile : ''}"${o.tileC ? ` style="--tile-c:${o.tileC}"` : ''}>${G.Icons.html(o.icon, 60)}</span>${o.badge || ''}</span>
+      <span class="pc-txt">${o.eyebrow ? `<span class="pc-eyebrow">${o.eyebrow}</span>` : ''}<span class="nm">${o.title}</span>`
+      + `${o.chips ? `<span class="pc-chips">${o.chips}</span>` : ''}<span class="ds">${o.desc || ''}</span></span>`;
+    if (ownSfx) el.dataset.sfx = 'none';             // el juego pone su propio sonido al elegir
+    el.onclick = onPick;
+    return el;
+  }
+
+  /** Iconos de la cabecera (data-item-ico), la primera vez que se abre. */
+  function headIcons(id) {
+    $(id).querySelectorAll('[data-item-ico]').forEach(el => { if (!el.firstChild) el.innerHTML = G.Icons.html(el.dataset.itemIco, 30); });
+  }
+
+  // ---------------- subir de nivel ----------------
+
   /** @param coop  en grupo: tras elegir, se queda esperando a los demás */
   function showLevelUp(level, list, cb, coop = false) {
     offerCb = cb; coopMode = coop;
+    headIcons('scr-levelup');
     $('lvl-num').textContent = level;
     $('lvl-wait').textContent = '';
     $('lvl-wait').classList.toggle('hidden', !coop);
@@ -51,30 +118,41 @@ G.RunUI = (() => {
     renderCards(G.LevelUp.offer(p));
   }
 
+  /** El movimiento de una carta de nivel (definición o el tuyo), o null. */
+  function moveOf(c) {
+    const id = String(c.key || '').split(':')[1] || '';
+    const pl = G.Game.player;
+    if (c.type === 'new') return G.Moves.BY_ID[id] || null;
+    if (c.type === 'up' || c.type === 'evo') return (pl && pl.moves.find(m => m.id === id)) || G.Moves.BY_ID[id] || null;
+    return null;
+  }
+
+  /** Lo que lleva cada carta de nivel según su clase (ver systems/levelup.js). */
+  function levelCard(c) {
+    const m = moveOf(c);
+    const chips = m ? moveChips(m) : '';
+    if (c.type === 'evo') return { cls: 'evo', icon: c.icon, tile: 't-gold', badge: badge('EVOLUCIÓN', 'gold'), title: c.title, chips, desc: c.desc };
+    if (c.type === 'new') return { cls: 'is-new', icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips, desc: c.desc };
+    if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc };
+    // Mejora de la run (stat o pasivo). Si desbloquea una evolución, dorada y con el aviso.
+    const id = String(c.key || '').slice(5), unlocks = !!c.tag && c.tag !== 'Mejora', passive = PASSIVE.has(id);
+    return {
+      cls: 'is-stat' + (unlocks ? ' unlocks' : ''), icon: c.icon, tile: unlocks ? 't-gold' : passive ? 't-purple' : 't-blue',
+      badge: passive ? badge('Pasivo', 'purple') : badge('Mejora', 'ghost'),
+      title: c.title, chips: unlocks ? `<span class="evo-hint">${c.tag}</span>` : '', desc: c.desc
+    };
+  }
+
   function renderCards(list) {
     offers = list;
     const left = rerollsLeft();
     $('lvl-rr-n').textContent = left;
     $('lvl-reroll').classList.toggle('hidden', left <= 0);
+    const rr = $('lvl-reroll').querySelector('.rr-ico');
+    if (rr && !rr.firstChild) rr.innerHTML = G.Icons.html('reroll', 30);
     const box = $('cards');
     box.innerHTML = '';
-    list.forEach((c, i) => {
-      const el = document.createElement('div');
-      el.className = 'card';
-      const tag = c.type === 'new'
-        ? `<span class="tag-chip" style="background:${c.color}">Nuevo · ${c.tag}</span>${c.cat ? `<span class="tag-chip cat">${c.cat}</span>` : ''}`
-        : c.type === 'up' || c.type === 'evo'
-          ? `<span class="tag-chip" style="background:${c.color}">${c.tag}</span>`
-          : `<span class="tag-chip" style="background:${c.color === '#ffd23f' ? '#ffd23f' : '#9fb1c9'}">${c.tag}</span>`;
-      if (c.type === 'evo') el.classList.add('evo');
-      el.innerHTML =
-        `<div class="ico" style="background:${c.color}33">${G.Icons.html(c.icon, 32)}</div>
-         <div class="txt"><div class="nm">${c.title} ${tag}</div><div class="ds">${c.desc}</div></div>
-         <div class="key">${i + 1}</div>`;
-      el.dataset.sfx = 'none';             // el juego pone su propio sonido al elegir
-      el.onclick = () => pick(i);
-      box.appendChild(el);
-    });
+    list.forEach((c, i) => box.appendChild(cardEl(levelCard(c), i, () => pick(i))));
   }
 
   function pick(i) {
@@ -108,6 +186,8 @@ G.RunUI = (() => {
     G.UI.hide('scr-levelup');
   }
 
+  // ---------------- resumen final ----------------
+
   /**
    * Mensaje de apoyo (Ko-fi) al acabar: tras un récord o cada 10 partidas,
    * nunca en la primera y como mucho una vez al día. Se cierra con la X.
@@ -121,36 +201,47 @@ G.RunUI = (() => {
     return true;
   }
 
+  /** Baldosa de una cifra del resumen: icono, número y qué es (full: la cifra entera, si se ha acortado). */
+  const ovTile = (icon, label, value, full = '') =>
+    `<div class="ov-tile"${full ? ` title="${full}"` : ''}><span class="ico-tile s">${G.Icons.html(icon, 30)}</span><b>${value}</b><span>${label}</span></div>`;
+
   function showOver(r, onBack) {
     $('over-title').textContent = r.dead ? 'Has caído…' : 'Run terminada';
+    $('scr-over').classList.toggle('is-dead', !!r.dead);
+    $('over-ico').innerHTML = G.Icons.html(r.dead ? 'revive' : 'star', 60);
+    $('over-record').classList.toggle('hidden', !r.record);
     const n = v => Math.round(v || 0).toLocaleString(G.I18n.locale);
+    // Daño de millones: abreviado («1,2 M») para que quepa en su baldosa (la cifra entera, al pasar el ratón).
+    const big = v => {
+      if ((v || 0) < 1e6) return n(v);
+      try { return new Intl.NumberFormat(G.I18n.locale, { notation: 'compact', maximumFractionDigits: 1 }).format(v); } catch (e) { return n(v); }
+    };
+    const dmg = (icon, label, v) => ovTile(icon, label, big(v), (v || 0) >= 1e6 ? n(v) : '');
     // Con cuenta en la nube, lo de esta partida aún no está subido: se ofrece Guardar aquí mismo.
     const unsaved = G.DB.mode === 'cloud' && !G.DB.guest && G.DB.syncState === 'pending';
+    const tickets = r.t1 || r.t10 ? `<div class="ov-tickets"><span class="ov-lbl">Tickets del gacha</span>
+        ${r.t1 ? `<span class="ov-tk"><span class="ico-tile s">${G.Icons.html('ticket', 30)}</span><b>+${r.t1}</b></span>` : ''}
+        ${r.t10 ? `<span class="ov-tk"><span class="ico-tile s t-purple">${G.Icons.html('ticket10', 30)}</span><b>+${r.t10}</b></span>` : ''}</div>` : '';
     $('over-stats').innerHTML = `
-      <div><span>Tiempo</span><b>${G.U.mmss(r.time)}</b></div>
-      <div><span>Nivel</span><b>${r.level}</b></div>
-      <div><span>Derrotados</span><b>${r.kills}</b></div>
-      <div><span>Jefes</span><b>${r.bosses}</b></div>
-      ${r.judge ? `<div style="grid-column:1/-1"><span>Ante Arceus</span><b class="gold">${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div>` : ''}
-      <div class="over-dmg" style="grid-column:1/-1">
-        <div><span>Daño total</span><b>${n(r.dealt)}</b></div>
-        <div><span>Daño recibido</span><b>${n(r.taken)}</b></div>
-        <div><span>Curación</span><b>${n(r.healed)}</b></div></div>
-      <div style="grid-column:1/-1"><span>Pokémonedas ganadas</span>
-        <b class="gold"><span class="coin"></span> +${r.coins}</b>
-        <div style="font-size:12px;color:var(--muted)">${r.breakdown}</div></div>
-      ${r.t1 || r.t10 ? `<div style="grid-column:1/-1"><span>Tickets del gacha</span><b>
-        ${r.t1 ? G.Icons.html('ticket', 22) + ' +' + r.t1 + ' ' : ''}${r.t10 ? G.Icons.html('ticket10', 22) + ' +' + r.t10 + ' ×10' : ''}</b></div>` : ''}
-      <div style="grid-column:1/-1;min-width:0"><span>Movimientos</span>
-        ${r.moves.length ? `<div class="over-moves">${movesTable(r.moves, r.time, false)}</div>` : '<b>—</b>'}</div>
-      ${r.caught && r.caught.length ? `<div style="grid-column:1/-1" class="caught"><span>${G.Icons.html('shiny', 12)} Shinies conseguidos</span>
-        <div class="caught-row" id="over-caught"></div></div>` : ''}
-      ${r.record ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nuevo récord de tiempo!</div>' : ''}
-      ${unsaved ? '<div class="over-save" id="over-save" style="grid-column:1/-1"></div>' : ''}
-      ${askSupport(r) ? `<div class="support-ask" id="over-ask" style="grid-column:1/-1">
-        <button class="x" type="button" aria-label="Cerrar">×</button>
+      <div class="ov-tiles">${ovTile('clock', 'Tiempo', G.U.mmss(r.time))}${ovTile('up', 'Nivel', r.level)}${ovTile('ball', 'Derrotados', n(r.kills))}${ovTile('crown', 'Jefes', r.bosses)}</div>
+      ${r.judge ? `<div class="ov-judge"><span class="ico-tile s t-gold">${G.Icons.html('ball4', 30)}</span>
+        <div class="grow"><span class="ov-lbl">Ante Arceus</span><b>${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div></div>` : ''}
+      <div class="ov-tiles ov-dmg">${dmg('choiceband', 'Daño total', r.dealt)}${dmg('rockyhelmet', 'Daño recibido', r.taken)}${dmg('berry', 'Curación', r.healed)}</div>
+      <div class="ov-coins">
+        <span class="ico-tile l round t-gold">${G.Icons.html('coin', 60)}</span>
+        <div class="ov-coins-txt"><span class="ov-lbl">Pokémonedas ganadas</span><b class="ov-big">+${n(r.coins)}</b><small>${r.breakdown}</small></div>
+        ${tickets}
+      </div>
+      <section class="ov-sec"><h3>Movimientos</h3>
+        ${r.moves.length ? movesTable(r.moves, r.time, false) : '<p class="muted">—</p>'}</section>
+      ${r.caught && r.caught.length ? `<section class="ov-sec caught"><h3>${G.Icons.html('shiny', 18)}<span>${r.caught.length} Shinies conseguidos</span></h3>
+        <div class="caught-row" id="over-caught"></div></section>` : ''}
+      ${unsaved ? '<div class="over-save" id="over-save"></div>' : ''}
+      ${askSupport(r) ? `<div class="support-ask" id="over-ask">
+        <button class="icon-btn plain x" type="button" aria-label="Cerrar" title="Cerrar">${G.UI.svg('close', 20)}</button>
+        <span class="ico-tile s t-red">${G.Icons.html('heart', 22)}</span>
         <p>¿Te está gustando PokéSurvivor? Lo hago yo solo y los servidores cuestan dinero. Si quieres, puedes ayudarme a mantenerlo en línea.</p>
-        <a class="btn small gold" href="${G.Funding.url}" target="_blank" rel="noopener">${G.Icons.html('heart', 14)} Apoyar en Ko-fi</a>
+        <a class="btn small ic kofi" href="${G.Funding.url}" target="_blank" rel="noopener">${G.Icons.html('heart', 18)}<span>Apoyar en Ko-fi</span></a>
       </div>` : ''}`;
     const ask = $('over-ask');
     if (ask) ask.querySelector('.x').onclick = () => ask.remove();
@@ -162,21 +253,26 @@ G.RunUI = (() => {
       for (const c of r.caught) {
         const w = document.createElement('div');
         w.appendChild(G.UI.spriteCanvas(c.dex, 90, 72, { shiny: true, lively: true, scale: 2 }));
-        w.insertAdjacentHTML('beforeend', `<small>${G.DEX_BY[c.dex].name}${c.isNew ? ' · ¡nuevo!' : ''}</small>`);
+        w.insertAdjacentHTML('beforeend', `<small><b>${G.DEX_BY[c.dex].name}</b>${c.isNew ? '<span class="gold"> · ¡nuevo!</span>' : ''}</small>`);
         row.appendChild(w);
       }
     }
     G.UI.show('scr-over');
+    const body = $('scr-over').querySelector('.over-body');
+    if (body) body.scrollTop = 0;
   }
 
   /**
    * Aviso del resumen final: «sin guardar» con un botón que pulsa el Guardar de
    * la barra de arriba (oculta en partida; así son los mismos avisos y esperas), o «guardado».
+   * (Azul y no amarillo: la acción principal de la pantalla es «Volver al menú».)
    */
   function saveNote(el, st) {
     el.classList.toggle('ok', st === 'ok');
-    el.innerHTML = st === 'ok' ? `<p>${G.Icons.html('save', 16)} Guardado en la nube</p>`
-      : `<p>Tu progreso aún no está en la nube</p><button class="btn small gold" type="button" data-sfx="none"${st === 'syncing' ? ' disabled' : ''}>${G.Icons.html('save', 16)} Guardar</button>`;
+    el.innerHTML = st === 'ok'
+      ? `<span class="ico-tile s round t-green">${G.UI.svg('check', 20)}</span><p>Guardado en la nube</p>`
+      : `<span class="ico-tile s round t-gold">${G.UI.svg('save', 20)}</span><p>Tu progreso aún no está en la nube</p>`
+        + `<button class="btn small ic" type="button" data-sfx="none"${st === 'syncing' ? ' disabled' : ''}>${G.UI.svg('save', 18)}<span>Guardar</span></button>`;
     const b = el.querySelector('button');
     if (b) b.onclick = () => $('btn-save').click();
   }
@@ -188,19 +284,17 @@ G.RunUI = (() => {
     G.DB.onSync(st => { const el = $('over-save'); if (el && G.UI.isOpen('scr-over')) saveNote(el, st); });
   }
 
+  // ---------------- objeto ----------------
+
   /** Has encontrado un objeto llevando ya otro: ¿con cuál te quedas? */
   function showItemChoice(cur, next, cb) {
+    headIcons('scr-item');
     const box = $('item-cards');
     box.innerHTML = '';
     [[cur, 'Quedarme con'], [next, 'Cambiar a']].forEach(([id, verb], i) => {
       const it = G.Items.BY[id];
-      const el = document.createElement('div');
-      el.className = 'card' + (i === 1 ? ' evo' : '');
-      el.innerHTML = `<div class="ico">${G.Icons.html(id, 36)}</div>
-        <div class="txt"><div class="nm">${verb} ${it.name}</div><div class="ds">${it.desc}</div></div>
-        <div class="key">${i + 1}</div>`;
-      el.onclick = () => { if (guarded()) return; G.UI.hide('scr-item'); cb(id); };
-      box.appendChild(el);
+      box.appendChild(cardEl({ cls: i ? 'is-next' : 'is-cur', icon: id, tile: i ? 't-gold' : 't-blue', eyebrow: verb, title: it.name, desc: it.desc },
+        i, () => { if (guarded()) return; G.UI.hide('scr-item'); cb(id); }, false));
     });
     G.UI.show('scr-item');
     guard(box);
@@ -216,6 +310,7 @@ G.RunUI = (() => {
    */
   function showBond(opt, cb) {
     bond = { opt, cb, first: null, list: [] };
+    headIcons('scr-bond');
     $('bond-back').onclick = bondBack;
     renderBond();
     G.UI.show('scr-bond');
@@ -233,19 +328,11 @@ G.RunUI = (() => {
     const box = $('bond-cards');
     box.innerHTML = '';
     bond.list.forEach((m, i) => {
-      const col = G.U.TYPE_COLOR[m.type];
       const desc = opt.mode === 'add' ? 'Se lanzará a la vez que ' + names(opt.group) + '.'
         : step2 ? 'Se lanzará a la vez que ' + G.T(first.name, 'move') + '. Queda un hueco libre.'
         : m.desc || '';
-      const el = document.createElement('div');
-      el.className = 'card' + (opt.mode === 'add' || step2 ? ' bond' : '');
-      el.innerHTML =
-        `<div class="ico" style="background:${col}33">${G.Icons.html('move:' + m.id, 32)}</div>
-         <div class="txt"><div class="nm">${G.T(m.name, 'move')} <span class="tag-chip" style="background:${col}">Nv.${m.lvl}</span></div><div class="ds">${desc}</div></div>
-         <div class="key">${i + 1}</div>`;
-      el.dataset.sfx = 'none';
-      el.onclick = () => pickBond(i);
-      box.appendChild(el);
+      box.appendChild(cardEl({ cls: opt.mode === 'add' || step2 ? 'bond' : '', icon: 'move:' + m.id, tile: 'tint', tileC: typeCol(m),
+        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name, 'move'), chips: moveChips(m, false), desc }, i, () => pickBond(i)));
     });
   }
 
@@ -271,67 +358,75 @@ G.RunUI = (() => {
     renderBond();
   }
 
+  // ---------------- pausa ----------------
+
   /*
-   * Tabla de tus ataques, del que más daño ha hecho al que menos: daño, parte
-   * del total y daño por segundo (desde que lo aprendiste). La usan la pausa y
-   * el resumen final. withCat: con la columna de categoría (físico, especial o mejora).
+   * Tus ataques, del que más daño ha hecho al que menos: icono, nivel, tipo,
+   * familia, daño, parte del total (con su barra) y daño por segundo (desde que
+   * lo aprendiste). La usan la pausa y el resumen final. withCat: con la
+   * categoría (físico o especial). Los que no hacen daño (potenciadores...), al final.
    */
   function movesTable(moves, t, withCat = true) {
     const n = v => Math.round(v).toLocaleString(G.I18n.locale);
-    const dealt = m => (m.cat ? m.dealt || 0 : -1);          // los de mejora no hacen daño: al final
+    const dealt = m => (m.cat ? m.dealt || 0 : -1);
     const total = moves.reduce((a, m) => a + Math.max(0, dealt(m)), 0);
     const rows = moves.slice().sort((a, b) => dealt(b) - dealt(a)).map(m => {
-      const secs = Math.max(5, t - (m.since || 0)), col = G.U.TYPE_COLOR[m.type], d = m.dealt || 0;
-      const cat = !withCat ? '' : `<td>${m.cat ? `<span class="tag-chip" style="background:${col}">${G.Stats.NAME[m.cat]}</span>` : '<span class="sub">Mejora</span>'}</td>`;
-      return `<tr><td>${G.Icons.html('move:' + m.id, 18)} ${G.T(m.name, 'move')} <small>Nv.${m.lvl}</small></td>${cat}
-        <td class="num">${m.cat ? n(d) : '—'}</td><td class="num">${m.cat && total ? Math.round(d / total * 100) + ' %' : '—'}</td>
-        <td class="num">${m.cat ? n(d / secs) + '/s' : '—'}</td></tr>`;
+      const secs = Math.max(5, t - (m.since || 0)), col = typeCol(m), d = m.dealt || 0;
+      const pct = m.cat && total ? Math.round(d / total * 100) : 0;
+      const nums = m.cat ? `<b>${n(d)}</b><small>${total ? pct + ' %' : '—'} · ${n(d / secs)}/s</small>` : '<b>—</b>';
+      return `<div class="mv-row${m.evolved ? ' evolved' : ''}">
+        <span class="ico-tile s tint" style="--tile-c:${col}">${G.Icons.html('move:' + m.id, 30)}</span>
+        <div class="mv-main"><div class="mv-name"><b>${G.T(m.name, 'move')}</b><span class="badge ghost"><span>Nv.</span> ${m.lvl}</span></div>
+          <div class="mv-tags">${moveChips(m, withCat)}</div></div>
+        <div class="mv-num">${nums}</div>
+        ${m.cat ? `<i class="mv-bar"><i style="width:${pct}%;background:${col}"></i></i>` : ''}</div>`;
     }).join('');
-    return `<table class="sum-moves"><tr><th></th>${withCat ? '<th></th>' : ''}<th class="num">Daño</th><th class="num">%</th><th class="num">Por segundo</th></tr>${rows}</table>`;
+    return `<div class="mv-legend"><span>Daño</span><small><span>%</span> · <span>Por segundo</span></small></div><div class="mv-list">${rows}</div>`;
   }
 
   /*
-   * Resumen de la partida en la pausa: tus ataques (categoría, daño hecho, parte
-   * del total y daño por segundo), tus estadísticas con todo lo subido y el objeto y las
-   * cartas de mejora que llevas.
+   * Resumen de la partida en la pausa, en tarjetas: tus ataques, tus
+   * estadísticas con todo lo subido (cada una con el objeto de su carta) y el
+   * objeto y las cartas de mejora que llevas.
    */
   function pauseSummary() {
     const pl = G.Game.player;
     if (!pl) return '';
-    const t = G.Game.st.time, n = v => Math.round(v).toLocaleString('es');
+    const t = G.Game.st.time, n = v => Math.round(v).toLocaleString(G.I18n.locale);
     const k2 = v => '×' + v.toFixed(2).replace('.', ',');
     const pct = v => Math.round(v * 100) + ' %';
     const mon = pl.mon, fis = 1 - G.Stats.taken(mon, 'physical'), esp = 1 - G.Stats.taken(mon, 'special');
     const guard = v => (v >= 0 ? '−' : '+') + Math.round(Math.abs(v) * 100) + ' %';
     const P = pl.pass || G.Moves.NO_PASS;
     const st = [
-      ['Vida', n(pl.hp) + ' / ' + n(pl.maxHp)],
-      ['Ataque', k2(pl.atkFor({ cat: 'physical' }))],
-      ['At. Esp.', k2(pl.atkFor({ cat: 'special' }))],
-      ['Defensa', mon.df + ' <small>' + guard(fis) + ' físico</small>'],
-      ['Def. Esp.', mon.sd + ' <small>' + guard(esp) + ' especial</small>'],
-      ['Velocidad', n(pl.spd)],
-      ['Crítico', pct(pl.critChance || 0)],
-      ['Reducción de daño', pct(pl.reduction)],
-      ['Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
-      ['Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],
+      ['hpup', 'Vida', n(pl.hp) + ' / ' + n(pl.maxHp)],
+      ['fist', 'Ataque', k2(pl.atkFor({ cat: 'physical' }))],
+      ['lifeorb', 'At. Esp.', k2(pl.atkFor({ cat: 'special' }))],
+      ['rockyhelmet', 'Defensa', mon.df + ' <small>' + guard(fis) + ' físico</small>'],
+      ['assaultvest', 'Def. Esp.', mon.sd + ' <small>' + guard(esp) + ' especial</small>'],
+      ['boot', 'Velocidad', n(pl.spd)],
+      ['scope-lens', 'Crítico', pct(pl.critChance || 0)],
+      ['shield', 'Reducción de daño', pct(pl.reduction)],
+      ['clock', 'Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
+      ['sprout', 'Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],
       // Pasivos de la run (Amplitud, Persistencia, Réplica, Propulsión).
-      ['Área', '+' + pct(P.area - 1)],
-      ['Duración', '+' + pct(P.dur - 1)],
-      ['Cantidad', '+' + (P.amt | 0)],
-      ['Vel. de proyectiles', '+' + pct(P.pspd - 1)]
-    ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
+      ['area', 'Área', '+' + pct(P.area - 1)],
+      ['duration', 'Duración', '+' + pct(P.dur - 1)],
+      ['loaded-dice', 'Cantidad', '+' + (P.amt | 0)],
+      ['zoom-lens', 'Vel. de proyectiles', '+' + pct(P.pspd - 1)]
+    ].map(([ico, a, b]) => `<div class="st-tile"><span class="ico-tile s">${G.Icons.html(ico, 30)}</span><div><span>${a}</span><b>${b}</b></div></div>`).join('');
     const it = pl.item && G.Items.BY[pl.item];
     const cards = Object.entries(pl.statsTaken || {}).map(([id, c]) => {
       const s = G.LevelUp.STATS.find(x => x.id === id);
-      return s ? `<span class="chip">${G.Icons.html(s.icon, 12)} ${s.title} ×${c}</span>` : '';
+      return s ? `<div class="own-card"><span class="ico-tile s${PASSIVE.has(id) ? ' t-purple' : ''}">${G.Icons.html(s.icon, 30)}</span><b>${s.title}</b><span class="badge ghost">×${c}</span></div>` : '';
     }).join('');
-    return `<h3>Tus ataques</h3>
-      ${movesTable(pl.moves, t)}
-      <h3>Tus estadísticas</h3><div class="sum-stats">${st}</div>
-      <h3>Objeto y cartas</h3>
-      <p class="sub">${it ? G.Icons.html(pl.item, 18) + ' <b>' + it.name + '</b>: ' + it.desc : 'Sin objeto.'}</p>
-      <div class="chips">${cards || '<span class="sub">Aún no has cogido cartas de mejora.</span>'}</div>`;
+    return `<section class="ps-card ps-moves"><h3>Tus ataques</h3>${movesTable(pl.moves, t)}</section>
+      <section class="ps-card ps-stats"><h3>Tus estadísticas</h3><div class="st-grid">${st}</div></section>
+      <section class="ps-card ps-gear"><h3>Objeto y cartas</h3>
+        ${it ? `<div class="ps-item"><span class="ico-tile t-blue">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div>`
+            : '<p class="muted ps-none">Sin objeto.</p>'}
+        ${cards ? `<div class="own-grid">${cards}</div>` : '<p class="muted ps-none">Aún no has cogido cartas de mejora.</p>'}
+      </section>`;
   }
 
   /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
@@ -348,8 +443,10 @@ G.RunUI = (() => {
     $('pause-sum').innerHTML = pauseSummary();
     G.UI.soundControls($('pause-sound'));
     $('pause-coop').classList.toggle('hidden', !coop);
-    $('btn-quit').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
+    $('btn-quit').querySelector('.quit-t').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
     G.UI.show('scr-pause');
+    const body = $('scr-pause').querySelector('.pause-body');
+    if (body) body.scrollTop = 0;
   }
 
   function wirePause(onResume, onQuit) {
@@ -357,5 +454,5 @@ G.RunUI = (() => {
     $('btn-quit').onclick = onQuit;
   }
 
-  return { showLevelUp, reroll, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause };
+  return { showLevelUp, reroll, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME };
 })();
