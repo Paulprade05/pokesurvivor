@@ -329,7 +329,8 @@ G.Events = (() => {
   function edgeArrow(ctx, w, h, cam, x, y, col, label, F) {
     const sx = (x - cam.left()) * cam.scale, sy = (y - cam.top()) * cam.scale;
     if (sx > 0 && sx < w && sy > 0 && sy < h) return;
-    const M = 44, ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 70, h - M - 80);
+    // (Lejos de la muesca y, en vertical, sin pisar el HUD: ver hud.js.)
+    const M = 44, ex = G.HUD.edgeX(sx, M, w), ey = G.HUD.edgeY(sy, M + 70, h - M - 80);
     const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sa = Math.sin(a);
     const pulse = 0.65 + Math.sin(performance.now() / 160) * 0.35;
     ctx.save();

@@ -18,7 +18,9 @@ G.Camera = {
 
   resize(cssW, cssH, dpr = 1) {
     this.dpr = dpr;
-    this.scale = Math.min(cssW / this.VIEW_W, cssH / this.MIN_VIEW_H);
+    // Con el lado largo y el corto: en vertical (móvil de pie) se ve lo mismo
+    // que en horizontal, girado, y los Pokémon salen del mismo tamaño.
+    this.scale = Math.min(Math.max(cssW, cssH) / this.VIEW_W, Math.min(cssW, cssH) / this.MIN_VIEW_H);
     this.w = cssW / this.scale;
     this.h = cssH / this.scale;
   },
@@ -57,6 +59,12 @@ G.Camera = {
            y > this.top() - pad && y < this.top() + this.h + pad;
   },
 
-  /** Radio del círculo que envuelve la vista: usado para spawnear fuera. */
-  outerRadius() { return Math.hypot(this.w, this.h) / 2 + 40; }
+  /**
+   * Radio del círculo que envuelve la vista: usado para spawnear fuera.
+   * Los enemigos salen en un anillo aplastado (alto × 0,9, spawner.js): en
+   * vertical, con la vista alta, se alarga para que no aparezcan a la vista
+   * por arriba o por abajo. En horizontal sale siempre lo de antes.
+   */
+  /** Radio que cubre la vista (la de este aparato, o la de un compañero si se pasa su ancho y alto). */
+  outerRadius(w = this.w, h = this.h) { return Math.max(Math.hypot(w, h) / 2 + 40, h / 1.8 + 90); }
 };

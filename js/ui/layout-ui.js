@@ -2,7 +2,8 @@
  * Ajustes > Controles > Colocar los botones: se ven los ataques (con el
  * objeto), la pausa y, si es fijo, el joystick, y se arrastran a donde se
  * quiera. Se guarda el centro de cada cosa en proporción a la pantalla
- * (G.Settings 'pad'); lo que no se mueve se queda en su sitio de siempre.
+ * (G.Settings 'pad' en horizontal y 'padP' en vertical: cada orientación la
+ * suya); lo que no se mueve se queda en su sitio de siempre.
  * El HUD (hud.js) y el joystick (touch.js) leen esas posiciones.
  * Las medidas copian las del HUD: si cambian allí, cambiarlas aquí.
  */
@@ -10,26 +11,25 @@ G.LayoutUI = (() => {
   const S = 54, GAP = 9, ITEM_GAP = 18, N = 4;          // como en hud.js
   const BAR_W = S + ITEM_GAP + N * S + (N - 1) * GAP;
   let el = null, pos = null, moved = null, mode = 'float';
+  // Lo movido y aún sin guardar de cada orientación: al girar el móvil con el editor abierto
+  // no se pierde, y «Guardar» guarda las dos. (pad en horizontal, padP en vertical)
+  let draft = {}, dirty = false, lastW = 0, lastH = 0;
+  const keyOf = (w, h) => h > w ? 'padP' : 'pad';
+  /** Lo movido, en proporción a la pantalla (como se guarda en G.Settings). */
+  function toPad(w, h) { const pad = {}; for (const k in pos) if (moved[k]) pad[k] = [+(pos[k][0] / w).toFixed(4), +(pos[k][1] / h).toFixed(4)]; return pad; }
 
-  /** Dónde está cada cosa ahora mismo (centro en px), con lo guardado o lo de siempre. */
+  /** Dónde está cada cosa ahora mismo (centro en px), con lo guardado o lo de siempre (hud.js). */
   function current(k, w, h) {
-    const p = G.Touch.spot(k);
     if (k === 'stick') { const b = G.Touch.stickBase(w, h); return [b.x, b.y]; }
-    const sa = G.Touch.safeArea();
-    if (k === 'bar') {
-      if (p) return [p[0] * w, p[1] * h];
-      const totalW = N * S + (N - 1) * GAP;
-      const left = (w - totalW) / 2 - S - ITEM_GAP;
-      return [left + BAR_W / 2, h - S - 18 - Math.min(28, sa.bottom) + S / 2];
-    }
-    if (p) return [p[0] * w, p[1] * h];
-    return [w - 52 - Math.min(44, sa.right) + 20, 12 + Math.min(20, sa.top) + 20];
+    const p = G.Touch.spot(k, w, h);
+    return p ? [p[0] * w, p[1] * h] : G.HUD.padDefault(k, w, h);
   }
 
-  /** Lo mismo que hace el HUD para que no se salga de la pantalla. */
+  /** Lo mismo que hace el HUD para que no se salga de la pantalla (ni se meta bajo la barra de estado). */
   function fit(k, x, y, w, h) {
-    if (k === 'bar') return [G.U.clamp(x, 6 + BAR_W / 2, Math.max(6 + BAR_W / 2, w - BAR_W / 2 - 6)), G.U.clamp(y, 24 + S / 2, h - S / 2 - 6)];
-    if (k === 'pause') return [G.U.clamp(x, 24, w - 24), G.U.clamp(y, 30, h - 24)];
+    const top = G.Touch.safeArea().top;
+    if (k === 'bar') return [G.U.clamp(x, 6 + BAR_W / 2, Math.max(6 + BAR_W / 2, w - BAR_W / 2 - 6)), G.U.clamp(y, Math.max(24, top + 6) + S / 2, h - S / 2 - 6)];
+    if (k === 'pause') return [G.U.clamp(x, 24, w - 24), G.U.clamp(y, Math.max(10, top + 4) + 20, h - 24)];
     const r = G.Touch.R();
     return [G.U.clamp(x, r + 4, w - r - 4), G.U.clamp(y, r + 4, h - r - 4)];
   }
@@ -45,7 +45,7 @@ G.LayoutUI = (() => {
       <div class="lay-thing lay-stick" data-k="stick"><div class="knob"></div><span class="lay-tag">Joystick</span></div>
       <div class="box lay-panel">
         <h3>Arrastra los botones a donde quieras</h3>
-        <p class="lay-turn">Gira el móvil: se juega en horizontal.</p>
+        <p class="lay-turn"><span class="lay-h">Esta colocación es para jugar en horizontal; la de vertical va aparte.</span><span class="lay-v">Esta colocación es para jugar en vertical; la de horizontal va aparte.</span></p>
         <div class="chips set-chips" id="lay-mode"><b>Joystick</b>
           <button class="chip" data-m="float">Flotante</button><button class="chip" data-m="fixed">Fijo</button>
         </div>
@@ -62,16 +62,18 @@ G.LayoutUI = (() => {
     el.querySelector('#lay-cancel').onclick = close;
     el.querySelector('#lay-reset').onclick = () => {
       moved = {}; mode = 'float';
-      const w = innerWidth, h = innerHeight, sa = G.Touch.safeArea();
-      const totalW = N * S + (N - 1) * GAP;
-      pos = { bar: [(w - totalW) / 2 - S - ITEM_GAP + BAR_W / 2, h - S - 18 - Math.min(28, sa.bottom) + S / 2],
-              pause: [w - 52 - Math.min(44, sa.right) + 20, 12 + Math.min(20, sa.top) + 20],
-              stick: [G.Touch.STICK_DEF[0] * w, G.Touch.STICK_DEF[1] * h] };
+      const w = innerWidth, h = innerHeight, d = G.Touch.stickDef(w, h);
+      pos = { bar: G.HUD.padDefault('bar', w, h), pause: G.HUD.padDefault('pause', w, h), stick: [d[0] * w, d[1] * h] };
       for (const k in pos) pos[k] = fit(k, pos[k][0], pos[k][1], w, h);
+      dirty = true;
       paint();
     };
     el.querySelector('#lay-save').onclick = save;
-    addEventListener('resize', () => { if (isOpen()) { load(); paint(); } });
+    addEventListener('resize', () => {
+      if (!isOpen()) return;
+      if (dirty) draft[keyOf(lastW, lastH)] = toPad(lastW, lastH);   // lo de la orientación que se deja
+      load(); paint();
+    });
   }
 
   function drag(node) {
@@ -86,7 +88,7 @@ G.LayoutUI = (() => {
     node.addEventListener('pointermove', e => {
       if (!off) return;
       pos[k] = fit(k, e.clientX - off[0], e.clientY - off[1], innerWidth, innerHeight);
-      moved[k] = true;
+      moved[k] = true; dirty = true;
       paint();
     });
     const up = () => { off = null; node.classList.remove('held'); };
@@ -100,7 +102,21 @@ G.LayoutUI = (() => {
     for (const k of ['bar', 'pause', 'stick']) {
       const c = current(k, w, h);
       pos[k] = fit(k, c[0], c[1], w, h);
-      moved[k] = !!G.Touch.spot(k);
+      moved[k] = !!G.Touch.spot(k, w, h);
+    }
+    lastW = w; lastH = h; dirty = false;
+    // Si en esta orientación ya se había movido algo sin guardar, se recupera.
+    const d = draft[keyOf(w, h)];
+    if (d) {
+      for (const k of ['bar', 'pause', 'stick']) {
+        moved[k] = !!d[k];
+        let c;
+        if (d[k]) c = [d[k][0] * w, d[k][1] * h];
+        else if (k === 'stick') { const s = G.Touch.stickDef(w, h); c = [s[0] * w, s[1] * h]; }
+        else c = G.HUD.padDefault(k, w, h);
+        pos[k] = fit(k, c[0], c[1], w, h);
+      }
+      dirty = true;
     }
   }
 
@@ -116,13 +132,16 @@ G.LayoutUI = (() => {
     place('pause', 40, 40);
     place('stick', r * 2, r * 2).classList.toggle('hidden', mode !== 'fixed');
     el.querySelectorAll('#lay-mode .chip').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
-    el.querySelector('.lay-turn').classList.toggle('hidden', innerWidth >= innerHeight);
+    // Se juega de pie y tumbado: cada orientación tiene su colocación.
+    const tall = innerHeight > innerWidth;
+    el.querySelector('.lay-h').classList.toggle('hidden', tall);
+    el.querySelector('.lay-v').classList.toggle('hidden', !tall);
   }
 
   function save() {
-    const w = innerWidth, h = innerHeight, pad = {};
-    for (const k in pos) if (moved[k]) pad[k] = [+(pos[k][0] / w).toFixed(4), +(pos[k][1] / h).toFixed(4)];
-    G.Settings.set('pad', Object.keys(pad).length ? pad : null);
+    const w = innerWidth, h = innerHeight;
+    draft[keyOf(w, h)] = toPad(w, h);
+    for (const key in draft) G.Settings.set(key, Object.keys(draft[key]).length ? draft[key] : null);
     G.Settings.set('stickMode', mode);
     G.UI.toast('Botones colocados');
     close();
@@ -131,6 +150,7 @@ G.LayoutUI = (() => {
   function open() {
     if (!el) build();
     mode = G.Settings.get('stickMode') === 'fixed' ? 'fixed' : 'float';
+    draft = {};
     load();
     el.classList.remove('hidden');
     paint();

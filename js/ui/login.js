@@ -137,7 +137,7 @@ G.LoginUI = (() => {
     if (!G.DB.storageOk) $('login-err').textContent = 'Este navegador no deja guardar datos: juega como invitado.';
     $('btn-google').classList.toggle('hidden', G.DB.mode !== 'cloud');
     $('login-mode').textContent = modeNote();
-    setTimeout(() => $('f-user').focus(), 50);
+    if (!G.Touch.active) setTimeout(() => $('f-user').focus(), 50);   // en el móvil, sin abrir el teclado solo
   }
 
   return { init, open, offerRecovery, updateNotices };

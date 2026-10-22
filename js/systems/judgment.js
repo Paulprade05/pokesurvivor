@@ -530,10 +530,11 @@ G.Judgment = (() => {
       title(ctx, 'LA SENTENCIA', cx, ty, size, T_TITLE, a);
       title(ctx, 'DE ARCEUS', cx, ty + size * 0.95, Math.round(size * 0.8), T_TITLE + 0.75, a);
       ctx.globalAlpha = a * G.U.clamp((t - T_TITLE - 1.6) / 0.6, 0, 1);
-      ctx.font = F(700, Math.round(size * 0.32));
+      // (Con el móvil de pie, size es pequeño: la letra no baja de 11 px y no se sale.)
+      ctx.font = F(700, Math.max(11, Math.round(size * 0.32)));
       ctx.textAlign = 'center';
       ctx.fillStyle = '#f3e2b0';
-      ctx.fillText('El tiempo se ha agotado…', cx, ty + size * 1.7);
+      ctx.fillText('El tiempo se ha agotado…', cx, ty + size * 1.7, w - 24);
     }
     // Franjas negras de cine durante la bajada.
     if (t > T_PORT) {
@@ -546,7 +547,11 @@ G.Judgment = (() => {
     // ¡Ha descendido!
     const b = G.U.clamp((t - T_LAND - 0.15) / 0.3, 0, 1) * G.U.clamp((T_END - t) / 0.5, 0, 1);
     if (b > 0) {
-      const size = Math.round(G.U.clamp(w / 20, 20, 40));
+      let size = Math.round(G.U.clamp(w / 20, 20, 40));
+      // Que quepa a lo ancho (móvil de pie, otros idiomas).
+      ctx.font = F(800, size);
+      const tw = ctx.measureText('¡ARCEUS HA DESCENDIDO!').width;
+      if (tw > w - 32) size = Math.max(14, Math.floor(size * (w - 32) / tw));
       const pop = 1 + (1 - G.U.clamp((t - T_LAND - 0.15) / 0.25, 0, 1)) * 0.6;
       ctx.save();
       ctx.globalAlpha = b;
@@ -555,20 +560,22 @@ G.Judgment = (() => {
       goldText(ctx, '¡ARCEUS HA DESCENDIDO!', 0, 0, size);
       ctx.restore();
       ctx.globalAlpha = b;
-      ctx.font = F(700, Math.round(size * 0.45));
+      ctx.font = F(700, Math.max(11, Math.round(size * 0.45)));
       ctx.textAlign = 'center';
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)';
       const sub = 'Es invencible: huye y aguanta todo lo que puedas';
-      ctx.strokeText(sub, w / 2, h * 0.24 + size * 1.1);
+      ctx.strokeText(sub, w / 2, h * 0.24 + size * 1.1, w - 24);
       ctx.fillStyle = '#ffe9b0';
-      ctx.fillText(sub, w / 2, h * 0.24 + size * 1.1);
+      ctx.fillText(sub, w / 2, h * 0.24 + size * 1.1, w - 24);
     }
     if (canSkip && t < T_BACK) {
+      const sa = G.Touch.safeArea();
       ctx.globalAlpha = 0.55 + Math.sin(t * 4) * 0.2;
       ctx.font = F(700, 11);
       ctx.textAlign = 'right';
       ctx.fillStyle = '#f3e2b0';
-      ctx.fillText(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar', w - 16, h - 14);
+      // (Lejos de la muesca y de la barra de inicio del iPhone.)
+      ctx.fillText(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar', w - 16 - sa.right, h - 14 - Math.min(28, sa.bottom));
       // Toda la pantalla es un botón (móvil y ratón).
       G.Touch.addButton(0, 0, w, h, skip, 0);
     }
@@ -631,20 +638,21 @@ G.Judgment = (() => {
       ctx.fillRect(Math.round(e.x), Math.round(e.y), e.s, e.s);
     }
     ctx.globalAlpha = 1;
-    // Contador bajo el reloj.
-    const boss = G.EnemyMgr.all().some(e => e.boss && !e.dead);
+    // Contador bajo el reloj (en vertical, debajo de todo lo de arriba: ver hud.js).
+    const boss = G.EnemyMgr.all().some(e => e.boss && !e.dead), hl = G.HUD.lay;
+    const cy = hl.tall ? hl.below + 14 : boss ? 98 : 76;
     ctx.textAlign = 'center';
     ctx.font = F(800, 12);
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)';
     const txt = 'SENTENCIA · ' + G.U.mmss(arenaT) + ' · JEFES ' + downs;
-    ctx.strokeText(txt, w / 2, boss ? 98 : 76);
+    ctx.strokeText(txt, w / 2, cy);
     ctx.fillStyle = GOLD;
-    ctx.fillText(txt, w / 2, boss ? 98 : 76);
+    ctx.fillText(txt, w / 2, cy);
     // Flecha hacia Arceus si no se ve.
     const cam = G.Camera;
     const sx = (A.x - cam.left()) * cam.scale, sy = (A.y - A.bodyH * 0.5 - cam.top()) * cam.scale;
     if (sx < 0 || sx > w || sy < 0 || sy > h) {
-      const M = 46, ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 70, h - M - 80);
+      const M = 46, ex = G.HUD.edgeX(sx, M, w), ey = G.HUD.edgeY(sy, M + 70, h - M - 80);
       const an = Math.atan2(sy - ey, sx - ex);
       const pl = G.Game.player;
       const beat = 0.5 + Math.sin(performance.now() / 120) * 0.5;

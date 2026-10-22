@@ -23,13 +23,20 @@ G.Touch = (() => {
   const R = () => 56 * (G.Settings.get('stick') || 1);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  /** Dónde ha colocado el jugador una cosa ('bar', 'pause', 'stick'): [x, y] en 0..1, o null. */
-  function spot(k) { const p = G.Settings.get('pad'); return p && Array.isArray(p[k]) ? p[k] : null; }
-  const STICK_DEF = [0.14, 0.72];
+  /** ¿Pantalla en vertical? Con el tamaño que se pase (w × h) o, si no, el del lienzo. */
+  function tall(w, h) { return w === undefined ? (cv ? cv.clientHeight > cv.clientWidth : innerHeight > innerWidth) : h > w; }
+  /**
+   * Dónde ha colocado el jugador una cosa ('bar', 'pause', 'stick'): [x, y] en 0..1, o null.
+   * Cada orientación tiene la suya: 'pad' en horizontal y 'padP' en vertical.
+   */
+  function spot(k, w, h) { const p = G.Settings.get(tall(w, h) ? 'padP' : 'pad'); return p && Array.isArray(p[k]) ? p[k] : null; }
+  // Joystick fijo de serie: en horizontal a la izquierda; en vertical, en medio, a mano del pulgar.
+  const STICK_DEF = [0.14, 0.72], STICK_DEF_P = [0.5, 0.72];
+  const stickDef = (w, h) => tall(w, h) ? STICK_DEF_P : STICK_DEF;
   const fixed = () => G.Settings.get('stickMode') === 'fixed';
   /** Centro del joystick fijo, en px de pantalla. */
   function stickBase(w = cv.clientWidth, h = cv.clientHeight) {
-    const p = spot('stick') || STICK_DEF, r = R();
+    const p = spot('stick', w, h) || stickDef(w, h), r = R();
     return { x: clamp(p[0] * w, r + 4, w - r - 4), y: clamp(p[1] * h, r + 4, h - r - 4) };
   }
 
@@ -147,9 +154,6 @@ G.Touch = (() => {
   function toPc(e) {
     if (!active || stick || !e.isTrusted || performance.now() - touchAt < 1000) return;
     setActive(false);
-    // El aviso de girar el móvil es sólo para el táctil.
-    const r = document.getElementById('rotate');
-    if (r) r.classList.add('hidden');
   }
 
   /** Dirección del joystick (con fuerza 0..1), o null si no se usa. */
@@ -209,6 +213,6 @@ G.Touch = (() => {
     ctx.restore();
   }
 
-  return { init, vector, draw, drawStick, clearButtons, addButton, reset, safeArea, resetSafe, spot, stickBase, R, STICK_DEF,
+  return { init, vector, draw, drawStick, clearButtons, addButton, reset, safeArea, resetSafe, spot, stickBase, stickDef, R, STICK_DEF,
            get active() { return active; }, get stick() { return stick; } };
 })();

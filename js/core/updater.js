@@ -42,7 +42,7 @@ G.Updater = (() => {
   function safe() {
     if (G.DB.leaving) return false;                                       // cerrando sesión: que acabe antes
     if (!G.Game || G.Game.state !== 'ui') return false;                   // en partida o en el resumen
-    if (['scr-gacha', 'scr-upgrades', 'scr-settings'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
+    if (['scr-gacha', 'scr-upgrades', 'scr-settings', 'scr-install'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
     const fx = document.getElementById('pull-fx');
     if (fx && !fx.classList.contains('hidden')) return false;             // tirada del gacha en marcha
     const a = document.activeElement;

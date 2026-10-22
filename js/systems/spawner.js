@@ -38,17 +38,23 @@ G.Spawner = (() => {
     return (1.6 + t * 0.028 + Math.pow(t / 60, 1.6) * 0.5) * DENSITY;
   }
 
+  // Vista de cada jugador: la que manda (invitados de esta versión); la del anfitrión para él;
+  // y para un invitado viejo, el lado largo de la del anfitrión en los dos ejes (por si juega de pie).
+  const viewW = o => o.net && o.net.vw ? o.net.vw : !o.remote ? G.Camera.w : Math.max(G.Camera.w, G.Camera.h);
+  const viewH = o => o.net && o.net.vh ? o.net.vh : !o.remote ? G.Camera.h : Math.max(G.Camera.w, G.Camera.h);
+
   function ringPoint(pl, angle) {
-    const d = G.Camera.outerRadius() + G.U.rand(10, 70);
+    const d = G.Camera.outerRadius(viewW(pl), viewH(pl)) + G.U.rand(10, 70);
     return [pl.x + Math.cos(angle) * d, pl.y + Math.sin(angle) * d * 0.9];
   }
 
   let players = [];
 
-  /** ¿Lo vería algún jugador? (para no aparecer delante de nadie) */
+  /** ¿Lo vería algún jugador? (para no aparecer delante de nadie): el rectángulo de su vista, con
+   *  margen, y más por abajo porque el cuerpo se pinta hacia arriba de los pies. */
   function seenByAnyone(x, y) {
-    const r = G.Camera.outerRadius() - 30;
-    return players.some(o => G.U.dist2(o.x, o.y, x, y) < r * r);
+    return players.some(o => { const w = viewW(o), h = viewH(o);
+      return Math.abs(x - o.x) < w / 2 + 40 && y > o.y - h / 2 - 40 && y < o.y + h / 2 + 90; });
   }
 
   /** Punto del anillo donde quepa: no dentro de paredes ni en el agua. */

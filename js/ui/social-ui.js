@@ -38,7 +38,7 @@
       G.UI.show('scr-nick');
       $('nick-err').textContent = '';
       $('nick-in').value = '';
-      setTimeout(() => $('nick-in').focus(), 50);
+      if (!G.Touch.active) setTimeout(() => $('nick-in').focus(), 50);   // en el móvil, sin abrir el teclado solo
     }
 
     return { init, open, get skipped() { return skipped; } };

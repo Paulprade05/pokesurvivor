@@ -20,6 +20,8 @@
  *   ownFx       1 | 0.6 | 0.35                    opacidad de tus propios ataques
  *   hazardHi    true/false                        avisos enemigos en blanco y negro con rayas (daltónicos)
  *   keys        null | { acción: código }         teclas cambiadas en Ajustes > Controles (input.js)
+ *   padP        { bar, pause, stick } | null      como pad, pero en vertical (cada orientación guarda la suya)
+ *   tipVert     true/false                        ya se ha enseñado el consejo de jugar en horizontal
  *
  *   G.Settings.get('quality')  ·  G.Settings.set('fps', true)  ·  G.Settings.on(fn)
  *   G.Settings.fx   nivel efectivo 0 (bajo) .. 2 (alto), ya resuelto el 'auto'
@@ -27,7 +29,8 @@
 G.Settings = (() => {
   const KEY = 'ps.settings';
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'float', pad: null, gamepad: true, padRumble: true, aimManual: false,
-    hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null };
+    hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
+    padP: null, tipVert: false };
   let s = Object.assign({}, DEF);
   try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* nada */ }
   const fns = new Set();

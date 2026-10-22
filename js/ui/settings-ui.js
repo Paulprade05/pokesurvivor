@@ -46,13 +46,14 @@ G.SettingsUI = (() => {
   function iosTip() { return IOS && !canFull() && !standalone(); }
   const IOS_TIP = 'En iPhone, Safari no deja poner las webs a pantalla completa. Pulsa Compartir y luego "Añadir a pantalla de inicio": abriendo el juego desde ese icono se juega a pantalla completa.';
   function toggleFull() {
-    if (!canFull()) { if (iosTip()) G.UI.toast(IOS_TIP, 9000); return; }
+    // iPhone: la pantalla completa se consigue instalando el juego: se enseña cómo.
+    if (!canFull()) { if (iosTip()) { if (G.InstallUI && G.InstallUI.can()) G.InstallUI.open(); else G.UI.toast(IOS_TIP, 9000); } return; }
     if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     else {
       const el = document.documentElement;
       const p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-      // En móvil, además se intenta fijar la pantalla en horizontal.
-      if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* nada */ } }).catch(() => {});
+      // Ya no se fija en horizontal: el juego se puede jugar también en vertical.
+      if (p && p.catch) p.catch(() => {});
     }
     setTimeout(() => { if (isOpen()) render(); }, 300);
   }
@@ -134,7 +135,7 @@ G.SettingsUI = (() => {
            : iosTip() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>${esc(IOS_TIP)}</small></div></div>` : '');
     } else if (tab === 'ctl') {
       const pn = G.Pad.name;
-      box.innerHTML = section('Con mando', pn
+      const pad = section('Con mando', pn
           ? 'Mando conectado: <b translate="no">' + esc(pn.replace(/\s*\(.*$/, '')) + '</b>'
           : 'Xbox, PlayStation, Switch y la mayoría de mandos USB o Bluetooth. Conéctalo y pulsa cualquier botón.')
         + toggle('gamepad', 'Usar mando', 'Moverte, cambiar de ataque y manejar los menús con el mando.')
@@ -147,15 +148,16 @@ G.SettingsUI = (() => {
              <div><span class="padkey">B</span></div><span>atrás / cerrar</span>
              <div><span class="padkey">Y</span></div><span>cambiar las cartas al subir de nivel</span>
              <div><span class="padkey">Stick der.</span></div><span>desplazar las listas · apuntar (si activas Apuntar a mano en Accesibilidad)</span>
-           </div>`
-        + section('En móvil o tablet')
-        + `<p class="sub">Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.</p>`
+           </div>`;
+      const mobile = section('En móvil o tablet')
+        + `<p class="sub">Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar.</p>`
         + `<div class="set-row"><div class="grow"><b>Tamaño del joystick</b><small>Cuánto hay que arrastrar el dedo.</small></div></div>`
         + choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']])
         + `<div class="set-row"><div class="grow"><b>Colocar los botones</b><small>Pon los ataques, la pausa y el joystick (fijo, si quieres) donde quieras de la pantalla.</small></div>
-             <button class="btn small" id="set-layout">Colocar</button></div>`
-        + section('En PC', 'Haz clic en una tecla y pulsa la nueva. Si ya la usaba otra acción, se intercambian.')
-        + pcKeys();
+             <button class="btn small" id="set-layout">Colocar</button></div>`;
+      // Con el dedo: primero lo del móvil y sin las teclas de PC (vuelven al usar ratón o teclado).
+      box.innerHTML = G.Touch.active ? mobile + pad
+        : pad + mobile + section('En PC', 'Haz clic en una tecla y pulsa la nueva. Si ya la usaba otra acción, se intercambian.') + pcKeys();
     } else if (tab === 'a11y') {
       // En el móvil no hay apuntado a mano (siempre apunta solo).
       box.innerHTML = (G.Settings.touch ? '' : section('Apuntado')
@@ -169,6 +171,9 @@ G.SettingsUI = (() => {
     } else {
       box.innerHTML = `<div class="about-logo">PokéSurvivor</div><p class="sub center">Versión ${esc(VERSION)}</p>`
         + `<p class="sub">Juego de fans <b>gratuito y sin ánimo de lucro</b>: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures y GAME FREAK; este proyecto no está afiliado a ellos.</p>`
+        // Instalar como app (install-ui.js abre los pasos; abierto ya como app no sale).
+        + (G.InstallUI && G.InstallUI.can() ? `<div class="set-row"><div class="grow"><b>Instalar como app</b><small>Pantalla completa y sin las barras del navegador, abriéndolo desde su icono.</small></div>
+             <button class="btn small" type="button" data-install>Instalar</button></div>` : '')
         + section('Créditos')
         + `<ul class="credits">
              <li><b>Sprites:</b> PMD SpriteCollab y sus artistas (CC BY-NC 4.0).</li>

@@ -1,8 +1,36 @@
 /* ============ hud.js — interfaz dentro del canvas ============
  * Se dibuja en coordenadas de PANTALLA (sin la transformación de cámara).
+ *
+ * En vertical (móvil de pie) va en filas: tarjeta a la izquierda y pausa y
+ * reloj a la derecha; debajo, la línea del bioma, el clima, los compañeros y
+ * las barras de los jefes; los ataques abajo, en su sitio de siempre.
  */
 G.HUD = (() => {
   const F = (w, s) => `${w} ${s}px Pixelify,"Segoe UI",system-ui,sans-serif`;
+  const noop = () => {};
+  const NONE = [];                   // hueco sin movimiento (sin crear una lista en cada fotograma)
+
+  /**
+   * Lo que deja libre el HUD en este fotograma, para las flechas del borde y las
+   * cuentas atrás (también events.js y judgment.js). tall: en vertical; below:
+   * dónde acaba lo de arriba (con los jefes); lo / hi: franja de alto para las
+   * flechas en vertical; l / r: márgenes de los lados (la muesca del iPhone).
+   */
+  const lay = { tall: false, below: 0, lo: 0, hi: 0, l: 0, r: 0 };
+  /** Alto de una flecha del borde: en vertical, sin pisar lo de arriba ni la barra de ataques. */
+  function edgeY(sy, lo, hi) { return lay.tall ? G.U.clamp(sy, Math.max(lo, lay.lo), Math.min(hi, lay.hi)) : G.U.clamp(sy, lo, hi); }
+  /** Ancho de una flecha del borde: lejos de la muesca. */
+  function edgeX(sx, M, w) { return G.U.clamp(sx, M + lay.l, w - M - lay.r); }
+
+  /**
+   * Pone la letra más grande (hasta size) con la que s cabe en maxW; si ni con
+   * min cabe, al pintarla con maxW el navegador la estrecha. raw: s ya traducido.
+   */
+  function fitFont(ctx, s, wt, size, maxW, min = 11, raw = false) {
+    ctx.font = F(wt, size);
+    const tw = raw ? G.I18n.rawCanvas(ctx, 'measureText', s).width : ctx.measureText(s).width;
+    if (tw > maxW) ctx.font = F(wt, Math.max(min, Math.floor(size * maxW / tw)));
+  }
 
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
@@ -72,6 +100,9 @@ G.HUD = (() => {
     return out;
   }
 
+  // Aviso grande partido en líneas (se rehace sólo si cambia el texto o el ancho).
+  let banSrc = '', banMw = 0, banLines = NONE;
+
   // Ficha del objeto: al pasar el ratón por encima (PC) o 3 s al tocarlo.
   let tipUntil = 0, tipIt = null, tipName = '', tipLines = [], tipW = 0;
   function itemTip(ctx, it, ix, iy, S, W, a) {
@@ -110,23 +141,26 @@ G.HUD = (() => {
     const now = performance.now(), calm = G.Settings.get('calm');
     const k = scaleFor(w, h);
     const hpF = G.U.clamp(pl.hp / pl.maxHp, 0, 1);
+    const tall = h > w;                            // vertical (móvil de pie)
+    const sa = G.Touch.safeArea();
+    lay.tall = tall; lay.l = sa.left; lay.r = sa.right;
 
     if (hpF < 0.3 && !pl.dead && G.Settings.get('lowHpWarn') !== false) lowHp(ctx, w, h, hpF, calm, now);
 
     // ---------- barra de experiencia (borde superior) ----------
-    const xpF = G.U.clamp(pl.xp / pl.xpNext, 0, 1);
+    // (En vertical, debajo de la barra de estado del iPhone.)
+    const xpF = G.U.clamp(pl.xp / pl.xpNext, 0, 1), xy = tall ? sa.top : 0;
     ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.fillRect(0, 0, w, 7);
+    ctx.fillRect(0, xy, w, 7);
     if (!xpTop || xpTopW !== w) {
       xpTop = ctx.createLinearGradient(0, 0, w, 0);
       xpTop.addColorStop(0, '#4fd1ff'); xpTop.addColorStop(1, '#a98bff');
       xpTopW = w;
     }
     ctx.fillStyle = xpTop;
-    ctx.fillRect(0, 0, w * xpF, 7);
+    ctx.fillRect(0, xy, w * xpF, 7);
 
     // ---------- tarjeta: nivel, nombre, vida y experiencia (crece con k) ----------
-    const sa = G.Touch.safeArea();
     const px = 16 + sa.left, py = 14 + sa.top;     // lejos de la muesca del iPhone
     const CW = 228, CH = 64;
     ctx.save();
@@ -212,35 +246,59 @@ G.HUD = (() => {
     const cardR = px + CW * k, cardB = py + (bx > 0 ? by + 15 : CH) * k;
 
     // ---------- reloj / bioma / kills ----------
-    const clockY = 16 + 26 * k, infoY = clockY + 17 * k;
-    ctx.textAlign = 'center';
-    ctx.font = F(800, 26 * k);
+    // En vertical: el reloj a la derecha, debajo de la pausa, y la línea del
+    // bioma de lado a lado, bajo la tarjeta (con sitio para los potenciadores).
+    const clockY = tall ? py + (touch ? 44 : 0) + 19 * k : 16 + 26 * k;
+    const infoY = tall ? py + (CH + 33) * k : clockY + 17 * k;
+    ctx.textAlign = tall ? 'right' : 'center';
+    ctx.font = F(800, (tall ? 24 : 26) * k);
     ctx.fillStyle = 'rgba(255,255,255,.95)';
-    ctx.fillText(G.U.mmss(st.time), w / 2, clockY);
+    ctx.fillText(G.U.mmss(st.time), tall ? w - 12 - sa.right : w / 2, clockY);
+    ctx.textAlign = 'center';
     ctx.font = F(600, 11 * k);
     const info = G.World.biomeName().toUpperCase() + '  ·  ' + pl.kills + ' DERROTADOS  ·  ' + pl.coins + ' MONEDAS';
     // En pantallas estrechas se aparta de la tarjeta en vez de pisarla.
-    const ix0 = Math.max(w / 2, cardR + 10 + ctx.measureText(info).width / 2);
+    const ix0 = tall ? w / 2 : Math.max(w / 2, cardR + 10 + ctx.measureText(info).width / 2);
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.5)';
-    ctx.strokeText(info, ix0, infoY);
-    ctx.fillStyle = '#a9bad6';
-    ctx.fillText(info, ix0, infoY);
+    if (tall) {
+      // (Si no cabe, se estrecha un poco: la letra no baja de 11 px.)
+      const mw = w - 24 - sa.left - sa.right;
+      ctx.strokeText(info, ix0, infoY, mw);
+      ctx.fillStyle = '#a9bad6';
+      ctx.fillText(info, ix0, infoY, mw);
+    } else {
+      ctx.strokeText(info, ix0, infoY);
+      ctx.fillStyle = '#a9bad6';
+      ctx.fillText(info, ix0, infoY);
+    }
+    let ty = infoY + 9 * k;          // vertical: dónde sigue lo de arriba
 
-    // ---------- clima (arriba a la derecha) ----------
+    // ---------- clima (arriba a la derecha; en vertical, centrado bajo el bioma) ----------
     const wx = G.Weather.current;
     if (wx) {
       ctx.save();
-      ctx.translate(w - 16 - sa.right - (touch ? 56 : 0), 14 + sa.top); ctx.scale(k, k);
+      if (tall) ctx.translate(w / 2, ty - 2 * k);
+      else ctx.translate(w - 16 - sa.right - (touch ? 56 : 0), 14 + sa.top);
+      ctx.scale(k, k);
       ctx.font = F(800, 11);
       ctx.textAlign = 'left';
       const txt = wx.name.toUpperCase() + ' · ' + Math.ceil(wx.left) + 's';
-      const tw = ctx.measureText(txt).width + 40;
-      roundRect(ctx, -tw, 0, tw, 26, 9);
+      const tw = ctx.measureText(txt).width + 40, x0 = tall ? -tw / 2 : -tw;
+      roundRect(ctx, x0, 0, tw, 26, 9);
       ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
-      G.Icons.draw(ctx, wx.icon, -tw + 6, 3, 20);
+      G.Icons.draw(ctx, wx.icon, x0 + 6, 3, 20);
       ctx.fillStyle = wx.color;
-      ctx.fillText(txt, -tw + 32, 17);
+      ctx.fillText(txt, x0 + 32, 17);
       ctx.restore();
+      if (tall) ty += 30 * k;
+    }
+
+    // Vertical: sitio para la lista de compañeros (se pinta en drawCoop).
+    const coopTop = tall ? ty : cardB + 6 * k;
+    if (tall && G.Coop.active) {
+      let mates = 0;
+      for (const m of G.Coop.mates) if (m.connected) mates++;
+      if (mates) ty += (mates * 15 + 4) * k;
     }
 
     // ---------- barras de los jefes (una por jefe vivo, apiladas) ----------
@@ -250,8 +308,10 @@ G.HUD = (() => {
     if (bosses.length) {
       const nb = Math.min(3, bosses.length), bh = 13 * k, left = cardR + 12;
       let bw = Math.min(420 * k, w - 80), bx0 = (w - bw) / 2;
-      if (bx0 < left) { bx0 = left; bw = Math.min(bw, w - 16 - sa.right - left); }
-      let y = infoY + 11 * k;
+      // Vertical: de lado a lado (con sitio para el «+N»), debajo de todo lo de arriba.
+      if (tall) { bw = Math.min(420 * k, w - 64 - sa.left - sa.right); bx0 = (w - bw) / 2; }
+      else if (bx0 < left) { bx0 = left; bw = Math.min(bw, w - 16 - sa.right - left); }
+      let y = tall ? ty : infoY + 11 * k;
       ctx.textAlign = 'center';
       ctx.font = F(800, 10 * k);
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)';
@@ -270,6 +330,38 @@ G.HUD = (() => {
       }
       bossB = y;
     }
+    lay.below = bossB || ty;
+
+    // ---------- dónde va la ranura de movimientos (se pinta más abajo) ----------
+    // En PC crece con el HUD (kb); en móvil no, para que case con «Colocar los
+    // botones» (layout-ui.js). Se dibuja en una pantalla de W×H y los botones
+    // táctiles se registran en píxeles de verdad (× kb).
+    const kb = touch ? 1 : k, W = w / kb, H = h / kb;
+    const S = 54, GAP = 9;
+    const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.maxMoves);
+    const totalW = n * S + (n - 1) * GAP;
+    let sx = (W - totalW) / 2;
+    // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
+    let sy = H - S - 18 - (touch ? Math.min(28, sa.bottom) : 0);
+    // En móvil, donde la haya puesto el jugador: el bloque objeto + todos los
+    // huecos (aunque aún no estén llenos), por su centro, como en el editor
+    // (layout-ui.js); los ataques nuevos van saliendo hacia la derecha.
+    // En vertical, igual pero centrado abajo (y se ven los huecos vacíos).
+    const pb = touch && G.Touch.spot('bar', w, h);
+    if (pb || tall) {
+      const bw = S + 18 + nAll * S + (nAll - 1) * GAP;
+      sx = G.U.clamp((pb ? pb[0] * W : W / 2) - bw / 2, 6, Math.max(6, W - bw - 6)) + S + 18;
+      sy = G.U.clamp(pb ? pb[1] * H - S / 2 : sy, Math.max(24, sa.top + 6), H - S - 6);   // (no bajo la barra de estado)
+    }
+    // Vínculo guardado: a la derecha de los huecos o, en vertical si no cabe, encima del último.
+    const nDraw = tall ? nAll : n, barEnd = sx + nDraw * (S + GAP) - GAP, bondW = pl.bonds > 1 ? 47 : 24;   // (icono y «×N»)
+    const bondUp = tall && pl.bonds > 0 && barEnd + 12 + bondW > W - 4;
+    // Vertical: las flechas del borde, entre lo de arriba (y su cuenta atrás) y
+    // la barra con el nombre del ataque (si está abajo).
+    if (tall) {
+      lay.lo = lay.below + 14 * k + 36;
+      lay.hi = sy * kb > h / 2 ? (sy - (bondUp ? 62 : 31)) * kb - 36 : h - 60 - sa.bottom;
+    }
 
     // ---------- aviso ----------
     // ---------- shinies fuera de pantalla: destello en el borde ----------
@@ -278,7 +370,7 @@ G.HUD = (() => {
       const sx = (e.x - cam.left()) * cam.scale, sy = (e.y - cam.top()) * cam.scale;
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
       const M = 34;
-      const ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 60, h - M - 70);
+      const ex = edgeX(sx, M, w), ey = edgeY(sy, M + 60, h - M - 70);
       const a = Math.atan2(sy - ey, sx - ex);
       ctx.save();
       ctx.globalAlpha = pulse;
@@ -301,7 +393,7 @@ G.HUD = (() => {
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
       const M = 40;
       // (Por debajo de las barras de los jefes, que con el HUD grande bajan más.)
-      const ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, Math.max(M + 70, bossB + 34), h - M - 80);
+      const ex = edgeX(sx, M, w), ey = edgeY(sy, Math.max(M + 70, bossB + 34), h - M - 80);
       const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sn = Math.sin(a);
       ctx.save();
       ctx.translate(ex, ey);
@@ -327,7 +419,7 @@ G.HUD = (() => {
       ctx.restore();
     }
 
-    if (G.Coop.active) drawCoop(ctx, w, h, pl, px, cardB + 6 * k, k);
+    if (G.Coop.active) drawCoop(ctx, w, h, pl, px, coopTop, k);
 
     // Grieta: flecha grande que late en el borde si no se ve, y si se ve, una
     // flecha que bota encima; en la arena, cuenta atrás.
@@ -339,7 +431,7 @@ G.HUD = (() => {
       const off = sx < 0 || sx > w || sy < 0 || sy > h;
       ctx.save();
       if (off) {
-        const M = 52, ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 70, h - M - 80);
+        const M = 52, ex = edgeX(sx, M, w), ey = edgeY(sy, M + 70, h - M - 80);
         const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sa = Math.sin(a);
         ctx.translate(ex, ey);
         // Halo que late.
@@ -381,18 +473,21 @@ G.HUD = (() => {
       ctx.textAlign = 'center';
       ctx.font = F(800, 12 * k);
       ctx.fillStyle = '#d9c2ff';
-      ctx.fillText('GRIETA · ' + G.U.mmss(G.Rift.timeLeft), w / 2, bossB ? bossB + 12 * k : infoY + 18 * k);
+      ctx.fillText('GRIETA · ' + G.U.mmss(G.Rift.timeLeft), w / 2, tall ? lay.below + 14 * k : bossB ? bossB + 12 * k : infoY + 18 * k);
     }
 
     // Eventos: cuenta atrás, flecha al Pokémon perdido / a la marca y a los duendes.
     // La cuenta atrás va en y = 112 (events.js): si las barras de los jefes llegan ahí, se baja.
-    const evDy = G.Events.current && G.Events.current !== 'lost' ? Math.max(0, bossB - 98) : 0;
+    // (En vertical, debajo de todo lo de arriba.)
+    const evDy = tall ? lay.below + 14 * k - 112 : G.Events.current && G.Events.current !== 'lost' ? Math.max(0, bossB - 98) : 0;
     G.Events.drawHud(ctx, w, h, pl, F, evDy);   // sólo baja la cuenta atrás, no las flechas del borde
 
     // Aviso propio al abrirse una grieta (no lo tapan los otros avisos).
+    let popB = 0;                    // dónde acaba (en vertical, el aviso grande va debajo)
     if (rift && rift.t < 4.5) {
       const a = Math.min(1, rift.t * 4, (4.5 - rift.t) * 2), pop = 1 + Math.max(0, 0.25 - rift.t) * 1.6;
-      const y0 = h * 0.2;
+      const y0 = tall ? Math.max(h * 0.2, lay.below + 50) : h * 0.2;
+      popB = y0 + 26;
       ctx.save();
       ctx.globalAlpha = a;
       ctx.translate(w / 2, y0); ctx.scale(pop, pop);
@@ -403,8 +498,9 @@ G.HUD = (() => {
       ctx.fillStyle = 'rgba(26,11,51,.88)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = '#b48aff'; ctx.stroke();
       ctx.textAlign = 'center';
-      ctx.font = F(800, 20); ctx.fillStyle = '#e2d0ff'; ctx.fillText(t1, 0, -2);
-      ctx.font = F(700, 11); ctx.fillStyle = '#c9b0ff'; ctx.fillText(t2, 0, 16);
+      // (Si la caja no da para más, el texto se estrecha en vez de salirse.)
+      ctx.font = F(800, 20); ctx.fillStyle = '#e2d0ff'; ctx.fillText(t1, 0, -2, bw - 16);
+      ctx.font = F(700, 11); ctx.fillStyle = '#c9b0ff'; ctx.fillText(t2, 0, 16, bw - 16);
       ctx.restore();
     }
 
@@ -416,45 +512,48 @@ G.HUD = (() => {
       // Siempre centrado (antes heredaba la alineación de lo último dibujado, p.
       // ej. la flecha de un duende del tesoro, y salía descolocado).
       ctx.textAlign = 'center';
-      ctx.font = F(800, 22);
+      // Que quepa a lo ancho (móvil de pie, frases largas): la letra baja hasta 16 px
+      // y, si ni así, va en varias líneas. En vertical, debajo de lo de arriba y
+      // del aviso de la grieta.
+      const mw = w - 24 - sa.left - sa.right, by = tall ? Math.max(h * 0.3, lay.below + 14 * k + 22, popB + 26) : h * 0.3;
+      fitFont(ctx, ban.text, 800, 22, mw, 16);
       ctx.fillStyle = '#ffcb3d';
       ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 4;
-      ctx.strokeText(ban.text, w / 2, h * 0.3);
-      ctx.fillText(ban.text, w / 2, h * 0.3);
+      if (ctx.measureText(ban.text).width <= mw) {
+        ctx.strokeText(ban.text, w / 2, by, mw);
+        ctx.fillText(ban.text, w / 2, by, mw);
+      } else {
+        if (banSrc !== ban.text || banMw !== mw) { banSrc = ban.text; banMw = mw; banLines = wrap(ctx, G.T(ban.text), mw); }
+        for (let i = 0; i < banLines.length; i++) {
+          G.I18n.rawCanvas(ctx, 'strokeText', banLines[i], w / 2, by + i * 20, mw);
+          G.I18n.rawCanvas(ctx, 'fillText', banLines[i], w / 2, by + i * 20, mw);
+        }
+      }
       ctx.restore();
     }
 
-    // ---------- ranura de movimientos ----------
-    // En PC crece con el HUD (kb); en móvil no, para que case con «Colocar los
-    // botones» (layout-ui.js). Se dibuja en una pantalla de W×H y los botones
-    // táctiles se registran en píxeles de verdad (× kb).
-    const kb = touch ? 1 : k, W = w / kb, H = h / kb;
+    // ---------- ranura de movimientos (dónde va: más arriba) ----------
     ctx.save();
     ctx.scale(kb, kb);
-    const S = 54, GAP = 9;
-    const n = Math.max(1, pl.slots.length);
-    const totalW = n * S + (n - 1) * GAP;
-    let sx = (W - totalW) / 2;
-    // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
-    let sy = H - S - 18 - (touch ? Math.min(28, G.Touch.safeArea().bottom) : 0);
-    // En móvil, donde la haya puesto el jugador: el bloque objeto + todos los
-    // huecos (aunque aún no estén llenos), por su centro, como en el editor
-    // (layout-ui.js); los ataques nuevos van saliendo hacia la derecha.
-    const pb = touch && G.Touch.spot('bar');
-    if (pb) {
-      const nAll = Math.max(n, pl.maxMoves), bw = S + 18 + nAll * S + (nAll - 1) * GAP;
-      sx = G.U.clamp(pb[0] * W - bw / 2, 6, Math.max(6, W - bw - 6)) + S + 18;
-      sy = G.U.clamp(pb[1] * H - S / 2, 24, H - S - 6);
-    }
     const BOND = '#ff8ad8';
     const cdOf = m => m.kind === 'orbit' ? 0 : G.U.clamp(m.t / (m.cd * pl.cdMul), 0, 1);
+    // Toda la barra (también entre los huecos y en los vacíos) es zona de botones:
+    // ahí no sale el joystick flotante. Los huecos, registrados después, mandan.
+    G.Touch.addButton((sx - S - 18) * kb, (sy - 6) * kb, (S + 18 + nDraw * (S + GAP) - GAP) * kb, (S + 6) * kb, noop, 4);
 
-    for (let i = 0; i < n; i++) {
-      const g = pl.slots[i] || [];
+    for (let i = 0; i < nDraw; i++) {
+      const x = sx + i * (S + GAP);
+      if (i >= n) {
+        // Vertical: hueco aún vacío (los ataques nuevos los van llenando).
+        roundRect(ctx, x, sy, S, S, 12);
+        ctx.fillStyle = 'rgba(10,16,28,.45)'; ctx.fill();
+        ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(140,170,210,.18)'; ctx.stroke();
+        continue;
+      }
+      const g = pl.slots[i] || NONE;
       const m = g[0];
       const fused = g.length > 1;
       const on = i === pl.active;
-      const x = sx + i * (S + GAP);
       const y = on ? sy - 6 : sy;
       // Tocar (o hacer clic en) un icono activa ese movimiento.
       if (m) G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing' && pl.active !== i) { pl.setActive(i); G.Audio.sfx('click'); } }, (GAP / 2 + 3) * kb);
@@ -553,16 +652,18 @@ G.HUD = (() => {
         const nm = fused ? G.T(m.name, 'move') + ' +' + (g.length - 1) : G.T(m.name, 'move');
         ctx.font = F(700, 11);
         ctx.textAlign = 'center';
+        // (Sin salirse por los lados: con el móvil de pie, el del último hueco se cortaba.)
+        const nw = ctx.measureText(nm).width / 2, nx = G.U.clamp(x + S / 2, nw + 4, Math.max(nw + 4, W - nw - 4));
         ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)';
-        ctx.strokeText(nm, x + S / 2, y - 8);
+        ctx.strokeText(nm, nx, y - 8);
         ctx.fillStyle = fused ? BOND : col;
-        ctx.fillText(nm, x + S / 2, y - 8);
+        ctx.fillText(nm, nx, y - 8);
       }
     }
 
     // ---------- vínculo guardado (aún no hay dos movimientos sueltos) ----------
     if (pl.bonds > 0) {
-      const bx = sx + totalW + 12, by = sy + S / 2 - 12;
+      const bx = bondUp ? barEnd - bondW : barEnd + 12, by = bondUp ? sy - 62 : sy + S / 2 - 12;
       G.Icons.draw(ctx, 'bond', bx, by, 24);
       if (pl.bonds > 1) {
         ctx.font = F(800, 10);
@@ -600,10 +701,10 @@ G.HUD = (() => {
 
     // ---------- botón de pausa (táctil) ----------
     if (touch) {
-      const sa = G.Touch.safeArea();
-      const pp = G.Touch.spot('pause');
-      const bx = pp ? G.U.clamp(pp[0] * w - 20, 4, w - 44) : w - 52 - Math.min(44, sa.right);
-      const by = pp ? G.U.clamp(pp[1] * h - 20, 10, h - 44) : 12 + Math.min(20, sa.top), bs = 40;
+      // (De serie arriba a la derecha; en vertical, justo debajo de la barra de estado.)
+      const pp = G.Touch.spot('pause', w, h);
+      const bx = pp ? G.U.clamp(pp[0] * w - 20, 4, w - 44) : w - 52 - (tall ? sa.right : Math.min(44, sa.right));
+      const by = pp ? G.U.clamp(pp[1] * h - 20, Math.max(10, sa.top + 4), h - 44) : tall ? py : 12 + Math.min(20, sa.top), bs = 40;
       roundRect(ctx, bx, by, bs, bs, 10);
       ctx.fillStyle = 'rgba(10,16,28,.7)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(244,248,255,.8)'; ctx.stroke();
@@ -614,11 +715,13 @@ G.HUD = (() => {
 
     // pista de controles
     if (st.time < 14) {
-      ctx.font = F(600, 10);
+      ctx.font = F(600, tall ? 11 : 10);
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(180,200,230,.55)';
-      ctx.fillText(touch ? 'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo'
-                         : G.Input.hint(), w / 2, h - 4);
+      const hint = touch ? 'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo' : G.Input.hint();
+      // (En vertical, encima de la barra de inicio del iPhone y estrechada si no cabe.)
+      if (tall) ctx.fillText(hint, w / 2, h - 4 - (touch ? Math.min(28, sa.bottom) : 0), w - 16);
+      else ctx.fillText(hint, w / 2, h - 4);
     }
 
     ctx.restore();
@@ -664,7 +767,7 @@ G.HUD = (() => {
       const sx = (o.x - cam.left()) * cam.scale, sy = (o.y - o.bodyH * 0.5 - cam.top()) * cam.scale;
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
       const M = 42;
-      const ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 70, h - M - 80);
+      const ex = edgeX(sx, M, w), ey = edgeY(sy, M + 70, h - M - 80);
       const a = Math.atan2(sy - ey, sx - ex);
       const metres = Math.round(G.U.dist(pl.x, pl.y, o.x, o.y) / 32);
       const col = o.dead ? (Math.sin(t * 8) > 0 ? '#ff5f6d' : '#ffd0d5') : m.color;
@@ -700,12 +803,14 @@ G.HUD = (() => {
     if (pl.dead) {
       ctx.save();
       ctx.textAlign = 'center';
-      ctx.font = F(800, 20);
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)';
       const msg = G.Coop.players().every(p => p.dead) ? 'Habéis caído todos…' : 'Has caído: un compañero puede levantarte';
-      ctx.strokeText(msg, w / 2, h * 0.62);
+      // (En el móvil de pie no cabía: la letra baja lo que haga falta.)
+      const mw = w - 24 - lay.l - lay.r;
+      fitFont(ctx, msg, 800, 20, mw, 13);
+      ctx.strokeText(msg, w / 2, h * 0.62, mw);
       ctx.fillStyle = '#ffb0b8';
-      ctx.fillText(msg, w / 2, h * 0.62);
+      ctx.fillText(msg, w / 2, h * 0.62, mw);
       const f = (pl.reviveT || 0) / G.Player.REVIVE_TIME;
       if (f > 0) bar(ctx, w / 2 - 110, h * 0.62 + 12, 220, 10, f, '#5fe08a');
       // Mirar a un compañero vivo mientras tanto (botón, Q / E o LB / RB).
@@ -714,18 +819,30 @@ G.HUD = (() => {
         const m = w0 && G.Coop.mates.find(x => x.pl === w0);
         const label = (m ? G.I18n.f('Viendo a {x}', m.name) + ' · ' + G.I18n.t('cambiar') : G.I18n.t('Ver a un compañero'))
           + (G.Touch.active ? '' : '  (' + G.T(G.Input.keyLabel('next')) + ')');
-        ctx.font = F(800, 13);
-        const bw = ctx.measureText(label).width + 28, bh = 28, bx = w / 2 - bw / 2, by = h * 0.62 + 32;
+        // (Ya va traducido: se mide tal cual, y si no cabe, la letra baja hasta 11 px.)
+        fitFont(ctx, label, 800, 13, mw - 28, 11, true);
+        const bw = Math.min(mw, G.I18n.rawCanvas(ctx, 'measureText', label).width + 28), bh = 28, bx = w / 2 - bw / 2, by = h * 0.62 + 32;
         roundRect(ctx, bx, by, bw, bh, 8);
         ctx.fillStyle = 'rgba(10,16,28,.75)'; ctx.fill();
         ctx.lineWidth = 2; ctx.strokeStyle = m ? m.color : 'rgba(244,248,255,.8)'; ctx.stroke();
         ctx.fillStyle = '#f4f8ff';
-        G.I18n.rawCanvas(ctx, 'fillText', label, w / 2, by + 19);
+        G.I18n.rawCanvas(ctx, 'fillText', label, w / 2, by + 19, bw - 20);
         G.Touch.addButton(bx, by, bw, bh, () => G.Game.cycleWatch(1), 8);
       }
       ctx.restore();
     }
   }
 
-  return { draw, roundRect, bar, hpColor, scale: scaleFor };
+  /**
+   * Dónde van de serie (sin colocarlos el jugador) la barra de ataques, por el
+   * centro del bloque objeto + 4 huecos, y la pausa, por su centro; en px de
+   * pantalla. Para «Colocar los botones» (layout-ui.js): lo mismo que hace draw.
+   */
+  function padDefault(k, w, h) {
+    const sa = G.Touch.safeArea(), tall = h > w;
+    if (k === 'bar') return [tall ? w / 2 : w / 2 - 36, h - 54 / 2 - 18 - Math.min(28, sa.bottom)];
+    return tall ? [w - 32 - sa.right, 34 + sa.top] : [w - 32 - Math.min(44, sa.right), 32 + Math.min(20, sa.top)];
+  }
+
+  return { draw, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault };
 })();

@@ -141,10 +141,12 @@ G.Weather = (() => {
     ctx.fillStyle = `rgba(${r},${g},${b},${a * k})`;
     ctx.fillRect(0, 0, w, h);
 
-    const want = { rain: 70, snow: 45, sand: 40, sun: 14, fog: 0 }[cur.kind] * k * (w / 1280);
+    // Con el lado largo: en vertical (móvil de pie), tanta lluvia como en horizontal.
+    const L = Math.max(w, h);
+    const want = { rain: 70, snow: 45, sand: 40, sun: 14, fog: 0 }[cur.kind] * k * (L / 1280);
     while (parts.length < want) parts.push(spawn(w, h, true));
     if (parts.length > want + 4) parts.length = Math.ceil(want);
-    const s = Math.max(2, Math.round(w / 640));          // un "píxel" del juego
+    const s = Math.max(2, Math.round(L / 640));          // un "píxel" del juego
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
       p.x += p.vx * dt; p.y += p.vy * dt; p.t += dt;

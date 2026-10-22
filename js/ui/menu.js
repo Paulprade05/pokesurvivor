@@ -29,6 +29,10 @@ G.MenuUI = (() => {
       };
     });
     document.querySelectorAll('[data-back]').forEach(b => { b.onclick = open; });
+    // Colección en el móvil en vertical: con la ficha abierta, «Volver» la cierra primero.
+    $('scr-dex').querySelector('[data-back]').onclick = () => {
+      if (sheetOn()) sheet(false); else { $('scr-dex').classList.remove('sheet'); open(); }
+    };
     G.Social.on(() => { if (G.UI.isOpen('scr-menu')) socialLine(); });
     $('btn-logout').onclick = () => {
       if (G.DB.guest && !confirm('Eres invitado: se perderá todo el progreso. ¿Salir?')) return;
@@ -114,7 +118,22 @@ G.MenuUI = (() => {
 
   // ---------------- colección ----------------
 
+  // Pantalla estrecha y alta (móvil en vertical): la ficha ocupa toda la caja en
+  // vez de quedar debajo de la lista (style.css, bloque «tactil»).
+  const NARROW = window.matchMedia ? matchMedia('(max-width: 760px) and (min-height: 521px)') : { matches: false };
+  let gridTop = 0;
+  const sheetOn = () => NARROW.matches && $('scr-dex').classList.contains('sheet');
+  /** Abre o cierra la ficha a pantalla completa; al cerrarla, la lista sigue donde estaba. */
+  function sheet(on) {
+    const scr = $('scr-dex'), grid = $('dex-grid');
+    if ((on && !NARROW.matches) || on === scr.classList.contains('sheet')) return;
+    if (on) gridTop = grid.scrollTop;
+    scr.classList.toggle('sheet', on);
+    if (on) $('dex-detail').scrollTop = 0; else grid.scrollTop = gridTop;
+  }
+
   function openDex() {
+    if (!G.UI.isOpen('scr-dex')) $('scr-dex').classList.remove('sheet');   // se entra siempre a la lista
     G.UI.show('scr-dex', true);
     const s = G.DB.save;
     if (dexSel == null) { dexSel = s.partner; dexGen = G.DEX_BY[s.partner].gen; }
@@ -274,6 +293,7 @@ G.MenuUI = (() => {
       $('dex-grid').querySelectorAll('.cell').forEach(c => c.classList.remove('on'));
       cell.classList.add('on');
       showDetail(p.dex);
+      sheet(true);
     };
     return cell;
   }
@@ -345,6 +365,8 @@ G.MenuUI = (() => {
     box.querySelectorAll('.seg button').forEach(b => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
+    // En el móvil no se ve el «title» de los iconos: al tocar uno sale el nombre del movimiento.
+    box.querySelectorAll('.move-icons [title]').forEach(el => { el.onclick = () => G.UI.toast(el.title); });
     const fav = $('dex-fav');
     if (fav) fav.onclick = () => { G.DB.setFav(dex, !G.DB.isFav(dex)); renderGrid(true); showDetail(dex); };
     const pick = $('dex-pick');

@@ -6,6 +6,56 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-22', title: ['PWA para iPhone y partida en vertical', 'iPhone app and portrait play'], new: [
+    ["Instala PokéSurvivor como app en el móvil: se abre desde su icono, a pantalla completa y sin las barras del navegador. En el menú sale un aviso con los pasos (en el iPhone: Compartir › «Añadir a pantalla de inicio»; en Android, el botón Instalar) y también están en Ajustes › Acerca de › Instalar como app.",
+     "Install PokéSurvivor as an app on your phone: it opens from its own icon, full screen and without the browser bars. The menu shows a tip with the steps (on iPhone: Share › “Add to Home Screen”; on Android, the Install button), and they're also in Settings › About › Install as an app."],
+    ["Al abrir la app en el iPhone o el iPad sale una pantalla de carga con el icono del juego (antes salía en blanco).",
+     "Opening the app on iPhone or iPad now shows a loading screen with the game's icon (it used to be blank)."],
+    ["Móvil: la pantalla ya no se apaga sola durante la partida (en los menús y en la pausa sí, como siempre).",
+     "Mobile: the screen no longer turns off by itself during a run (in menus and while paused it still does, as usual)."],
+    ["Ya se puede jugar con el móvil de pie: no sale el aviso de girarlo y la partida se ve entera en vertical, con los Pokémon del mismo tamaño que en horizontal. Tu tarjeta va arriba a la izquierda, la pausa y el reloj a la derecha, el bioma, el clima y los jefes debajo, y los cuatro huecos de ataque abajo, lejos de la isla y de la barra de inicio del iPhone.",
+     "You can now play with your phone upright: the “rotate your phone” notice is gone and the whole run fits in portrait, with Pokémon the same size as in landscape. Your card sits top left, pause and timer top right, biome, weather and bosses below, and the four move slots at the bottom, clear of the iPhone's Dynamic Island and home bar."],
+    ["«Colocar los botones» guarda una colocación para jugar en horizontal y otra para jugar en vertical; con el móvil de pie, el joystick fijo sale de serie en el centro, a mano del pulgar.",
+     "“Place the buttons” now keeps one layout for landscape and another for portrait; with the phone upright, the fixed joystick starts in the middle, within thumb reach."],
+    ["Colección en el móvil en vertical: al tocar un Pokémon, su ficha ocupa la pantalla con «Elegir de compañero» siempre a la vista, y «Volver» te devuelve a la lista donde estabas.",
+     "Collection on mobile in portrait: tapping a Pokémon opens its card full screen with “Choose as partner” always in view, and “Back” returns you to the list where you were."],
+    ["Ficha de un Pokémon: toca el icono de un movimiento para ver su nombre.",
+     "Pokémon card: tap a move icon to see its name."]
+  ], chg: [
+    ["En la app instalada del iPhone, «Entrar con Google» ya no se queda esperando para siempre: avisa de que hay que abrir el juego en Safari (iOS no deja terminar ese inicio de sesión dentro de la app). Las cuentas de nombre y contraseña funcionan igual.",
+     "In the installed iPhone app, «Sign in with Google» no longer waits forever: it tells you to open the game in Safari (iOS does not let that sign-in finish inside the app). Name-and-password accounts work as usual."],
+    ["Con el móvil de pie, las cartas de subir de nivel, del vínculo y del objeto se ven enteras («Cambiar opciones» también, incluso en un iPhone SE); en la pausa los botones están siempre a la vista y tus estadísticas se desplazan dentro, y en el resumen «Volver al menú» se queda abajo.",
+     "With the phone upright, the level-up, bond and item cards fit on screen (“Change options” too, even on an iPhone SE); on the pause screen the buttons always stay visible and your stats scroll inside, and on the results screen “Back to menu” stays at the bottom."],
+    ["Si giras el móvil en plena partida, se pausa (en solitario) y se suelta el joystick; en grupo sólo se suelta el joystick.",
+     "Turning your phone mid-run pauses the game (solo) and releases the joystick; in co-op it only releases the joystick."],
+    ["Tocar entre los ataques o en un hueco vacío de la barra ya no saca el joystick.",
+     "Tapping between moves or on an empty slot of the move bar no longer brings up the joystick."],
+    ["Móvil: los botones, pestañas, filtros y campos de los menús son más grandes y fáciles de tocar, en vertical y en horizontal.",
+     "Mobile: menu buttons, tabs, filters and text fields are bigger and easier to tap, in portrait and in landscape."],
+    ["Móvil en vertical: el menú principal cabe entero, con la lista en dos columnas abajo, y la barra de arriba va en dos líneas sin tapar nada.",
+     "Mobile in portrait: the main menu fits on screen, with the list in two columns at the bottom, and the top bar takes two rows without covering anything."],
+    ["Móvil en horizontal: en la colección, el gacha, el ranking, las misiones y Ajustes, el título, las pestañas y «Volver» van en una sola línea y las listas tienen más sitio; en el gacha, los botones de tirar se ven sin bajar.",
+     "Mobile in landscape: in the collection, gacha, ranking, missions and Settings, the title, tabs and “Back” share one row so lists get more room; in the gacha, the pull buttons are visible without scrolling."],
+    ["Ajustes › Controles: con pantalla táctil salen primero las opciones del móvil y ya no salen las teclas de PC.",
+     "Settings › Controls: on a touch screen, the mobile options come first and the PC keys are no longer shown."]
+  ], fix: [
+    ["El juego ya no ocupa más espacio en el aparato con cada actualización (se guardaba una copia de cada versión), y los iconos y la letra se actualizan solos.",
+     "The game no longer takes up more space on your device with every update (a copy of each version was being kept), and icons and the font now update by themselves."],
+    ["Móvil: pellizcar o tocar dos veces ya no amplía la pantalla sin querer, la página no rebota al arrastrar y mantener el dedo sobre un icono ya no abre el menú de «Descargar imagen».",
+     "Mobile: pinching or double-tapping no longer zooms the screen by accident, the page no longer bounces when you drag, and holding your finger on an icon no longer opens the \"Download image\" menu."],
+    ["iPhone: al girar el móvil o volver a la app, la pantalla ya no se queda descolocada ni ampliada, y al cerrar el teclado todo vuelve a su sitio.",
+     "iPhone: after rotating the phone or coming back to the app, the screen no longer stays out of place or zoomed in, and closing the keyboard puts everything back where it was."],
+    ["Los avisos grandes con frases largas y los textos de la Sentencia de Arceus ya no se salen por los lados de la pantalla: la letra se ajusta o el aviso pasa a dos líneas.",
+     "Big announcements with long sentences and the Arceus's Judgment texts no longer run off the sides of the screen: the text shrinks to fit or the announcement wraps onto two lines."],
+    ["En el iPhone en horizontal, las flechas del borde (jefes, shinies, grieta, compañeros) y «Toca la pantalla para saltar» se apartan de la muesca y de la barra de inicio.",
+     "On iPhone in landscape, the edge arrows (bosses, shinies, rift, teammates) and “Tap the screen to skip” now keep clear of the notch and the home bar."],
+    ["Si colocas la barra de ataques pegada a un lado, el nombre del ataque elegido ya no se corta.",
+     "If you place the move bar against a side of the screen, the selected move's name is no longer cut off."],
+    ["Móvil: Ajustes, Novedades y los perfiles ya no quedan por debajo de la barra de arriba; Mejoras, el gacha y Ajustes ya no se desplazan de lado; y en la sala, «Empezar partida» y «¡Estoy listo!» se ven siempre.",
+     "Mobile: Settings, What's new and profiles no longer sit under the top bar; Upgrades, the gacha and Settings no longer scroll sideways; and in the room, “Start game” and “I'm ready!” are always visible."],
+    ["«Ver mi perfil público» ya no queda pegado al desplegable de Título, y ningún texto de los menús es ya más pequeño de 11 px.",
+     "“View my public profile” no longer sticks to the Title dropdown, and no menu text is smaller than 11 px anymore."]
+  ] },
   { d: '2026-10-21', title: ['Arreglos y mejoras de la comunidad', 'Community fixes and improvements'], new: [
     ["Si recargas o cierras la pestaña en plena partida, el navegador te pregunta antes, para no perderla sin querer.",
      "If you reload or close the tab in the middle of a run, the browser asks you first, so you don't lose it by accident."],

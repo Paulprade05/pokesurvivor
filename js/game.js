@@ -42,7 +42,7 @@ G.Game = (() => {
     if (window.visualViewport) visualViewport.addEventListener('resize', resizeSoon);
     if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(cv);
     G.Touch.init(cv);
-    // En móvil: al cambiar de app o girarlo en vertical, la partida se pausa.
+    // En móvil: al cambiar de app o al girarlo, la partida se pausa (ver checkOrientation).
     document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
     // Continuar: en grupo la pausa no para nada, sólo se cierra (sin saltarse
     // la espera si otro está eligiendo o el anfitrión no responde).
@@ -74,6 +74,7 @@ G.Game = (() => {
     Backdrop.stale();                // el lienzo se ha borrado: el fondo del menú se repinta
     checkOrientation();
   }
+  let seenW = 0, seenH = 0;   // tamaño de la ventana visto en el último fotograma (el primero lo apunta)
   let resizeTs = [];
   function resizeSoon() {
     resize();
@@ -81,14 +82,15 @@ G.Game = (() => {
     resizeTs = [100, 350, 800].map(ms => setTimeout(resize, ms));
   }
 
-  /** Móvil en vertical: aviso de girarlo (y pausa). */
+  /**
+   * Se juega de pie y tumbado. Si el móvil se gira en plena partida, el jugador
+   * está recolocando las manos: se suelta el joystick y, en solitario, se pausa.
+   */
+  let tall = null;                   // ¿en vertical? (null: aún sin medir)
   function checkOrientation() {
-    const portrait = G.Touch.active && innerHeight > innerWidth;
-    const el = document.getElementById('rotate');
-    if (!el) return;
-    if (portrait && !document.getElementById('rotate-ico').innerHTML) document.getElementById('rotate-ico').innerHTML = G.Icons.html('phone', 48);
-    el.classList.toggle('hidden', !portrait);
-    if (portrait) autoPause();
+    const now = h > w;
+    if (tall !== null && now !== tall && G.Touch.active) autoPause();
+    tall = now;
   }
 
   /** Pausa sola (sólo en solitario: en grupo los demás siguen). */
@@ -175,6 +177,11 @@ G.Game = (() => {
     deathT = 0;
 
     state = 'playing';
+    // Primera partida con el móvil de pie: un consejo, sin parar nada (sólo aquí, no se manda).
+    if (G.Touch.active && h > w && !G.Settings.get('tipVert')) {
+      G.Settings.set('tipVert', true);
+      G.Spawner.say('Consejo: también puedes jugar con el móvil en horizontal', 4, true);
+    }
   }
 
   function quitRun() {
@@ -643,7 +650,11 @@ G.Game = (() => {
     if (state === 'ui') {
       // Esc en una subpantalla del menú vuelve al menú.
       if (G.Input.tap('escape') && !G.UI.isOpen('scr-profile') && ['scr-dex', 'scr-upgrades', 'scr-shop', 'scr-bag', 'scr-gacha', 'scr-friends', 'scr-rank', 'scr-goals'].some(G.UI.isOpen)
-          && document.getElementById('pull-fx').classList.contains('hidden')) G.MenuUI.open();
+          && document.getElementById('pull-fx').classList.contains('hidden')) {
+        // En la colección, Esc hace lo mismo que «Volver»: con la ficha abierta, la cierra.
+        const back = G.UI.isOpen('scr-dex') && document.querySelector('#scr-dex [data-back]');
+        if (back) back.click(); else G.MenuUI.open();
+      }
       return;
     }
     // Teclas de Ajustes > Controles (de serie: P, 1-4, Q y E o Tab). Esc pausa siempre.
@@ -716,6 +727,9 @@ G.Game = (() => {
     // de una grieta con el vínculo abierto, la pantalla se quedaba morada (#114).
     if (flashT > 0) flashT -= dt;
     watchdog(real);
+    // Red de seguridad: si la ventana ha cambiado de tamaño (girar el móvil) y no ha
+    // llegado el aviso de resize (pasa en algunos iPhone), se reajusta igual.
+    if (innerWidth !== seenW || innerHeight !== seenH) { seenW = innerWidth; seenH = innerHeight; resizeSoon(); }
 
     G.Pad.poll(real);
     handleKeys();

@@ -135,3 +135,13 @@ Lobby readiness (#97) is a new peer-to-peer control message, guest to host:
 clients ignore it; a guest that never sends it is not counted as "not ready".
 The `start` message is accepted only from the room's host (`from === room.host
 === cfg.host`) by a member listed in `cfg.members`, also from the results screen.
+
+# Player view size (2026-10-22)
+
+The player state array (`myState`, sent by every player 15 times per second)
+gains two trailing numbers: index 16 and 17 are the width and height, in world
+units, of what that player's camera shows (the game can now be played in
+portrait, so views differ). `readState` clamps them to 0..5000 and older clients
+simply do not send them (0). The host uses them in `spawner.js` to place
+spawns outside every player's own view (`ringPoint`, `seenByAnyone`); for a
+player without them it assumes the long side of its own view in both axes.

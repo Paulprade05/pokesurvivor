@@ -960,8 +960,14 @@ G.DB = (() => {
     } catch (e) { return { ok: false, error: authError(e) }; }
   }
 
+  // App instalada en el iPhone: la ventana de Google se abre en Safari y el resultado no vuelve
+  // a la app (fallo conocido de Firebase en iOS), así que el botón se quedaba esperando para siempre.
+  const iosApp = () => !!(G.Mobile && G.Mobile.ios && G.Mobile.standalone());
+  const NO_GOOGLE = 'En la app instalada del iPhone no se puede entrar con Google: abre el juego en Safari o entra con nombre y contraseña.';
+
   async function loginWithGoogle() {
     if (mode !== 'cloud') return { ok: false, error: 'Entrar con Google necesita la versión publicada del juego.' };
+    if (iosApp()) return { ok: false, error: NO_GOOGLE };
     try {
       const cred = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
       await openCloud(cred.user, { name: displayNameOf(cred.user) });
@@ -1055,6 +1061,7 @@ G.DB = (() => {
   }
   async function linkGoogle() {
     if (!auth || !auth.currentUser) return { ok: false, error: 'Inicia sesión primero.' };
+    if (iosApp()) return { ok: false, error: NO_GOOGLE };
     try {
       await auth.currentUser.linkWithPopup(new firebase.auth.GoogleAuthProvider());
       return { ok: true };
@@ -1092,6 +1099,7 @@ G.DB = (() => {
         if (!pass) return { ok: false, error: 'Escribe tu contraseña.' };
         await cu.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(cu.email, pass));
       } else {
+        if (iosApp()) return { ok: false, error: 'Para borrar una cuenta de Google desde el iPhone, abre el juego en Safari.' };
         await cu.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
       }
       clearTimeout(pushT); clearTimeout(retryT); pending = false;

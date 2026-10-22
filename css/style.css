@@ -78,7 +78,12 @@
 * { box-sizing: border-box; }
 .hidden { display: none !important; }
 html, body { height: 100%; margin: 0; }
+/* iPhone: sin esto, al girarlo en horizontal agrandaba la letra por su cuenta. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
+  /* Fija: en el móvil la página no se desplaza ni rebota al arrastrar (las
+     listas se siguen desplazando por dentro). */
+  position: fixed; top: 0; left: 0; width: 100%;
   background: #050914;
   color: var(--ink);
   font: 16px/1.35 var(--font);
@@ -159,6 +164,8 @@ input { font: inherit; }
 .btn:active { transform: translateY(2px); box-shadow: 0 0 0 2px var(--edge-out), 0 2px 0 var(--edge-out); }
 /* Desactivado: apagado pero con su color (antes el dorado quedaba de un beige sucio). */
 .btn:disabled { filter: saturate(.35); opacity: .55; cursor: not-allowed; transform: none; }
+/* En la ficha de la colección el botón va fijo abajo: desactivado, opaco (si no, se transparentaba el texto de debajo). */
+#dex-detail .btn:disabled { opacity: 1; filter: none; background: linear-gradient(#2a3b6b, #1f2d55); color: var(--muted); }
 .btn.gold {
   background: linear-gradient(180deg, #ffe37a, #f0a31e);
   color: #3a2300; text-shadow: 1px 1px 0 rgba(255,255,255,.4);
@@ -457,7 +464,7 @@ body.touch input:not([type=range]):not([type=checkbox]), body.touch select, body
   .save-btn span { display: none; }
   #user-pill > span { max-width: 8em; }
 }
-/* Ventana estrecha (sólo en PC: en el móvil en vertical sale «Gira el móvil»):
+/* Ventana estrecha (móvil en vertical o ventana estrecha de PC):
    la barra puede ocupar dos líneas, así que se deja más hueco. */
 @media (max-width: 760px) and (min-height: 521px) { :root { --bar-h: 112px; } }
 @media (max-width: 480px) and (min-height: 521px) { :root { --bar-h: 154px; } }
@@ -865,7 +872,7 @@ select.field { font-family: var(--font); }
 }
 .fav-slots.view .fav-slot { cursor: default; border-style: solid; border-color: rgba(255,210,63,.55); }
 .fav-slot b { font-size: 14px; }
-.profile-box { width: min(640px, 100%); max-height: 90vh; overflow-y: auto; }
+.profile-box { width: min(640px, 100%); overflow-y: auto; }   /* el alto lo limita .box (100 % del hueco de .scr, ya sin las zonas seguras) */
 .prof-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: -10px; }
 .prof-head h2 { margin: 0; }
 .prof-title { color: var(--gold); font-size: 15px; border: 2px solid var(--gold); border-radius: 8px; padding: 1px 8px; }
@@ -902,23 +909,17 @@ a.plink:hover { color: var(--gold); }
 
 /* ================= móvil y táctil ================= */
 html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
-body { touch-action: manipulation; }
+/* Sin zoom con doble toque en ningún sitio: touch-action no se hereda y cada caja
+   que se desplaza volvía a dejarlo. El lienzo y lo que se arrastra siguen en none. */
+html, body, body * { touch-action: manipulation; }
 /* iPhone: sin esto, mantener el dedo en el joystick sacaba "Copiar / Seleccionar
    todo" (Safari sólo hace caso a la versión -webkit- y no lo hereda bien). */
 body, body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* Lo seleccionado en un campo, en dorado: el azul del sistema casi no se veía sobre la caja. */
+::selection { background: rgba(255,210,63,.45); color: #fff; }
 /* Con táctil no tienen sentido las pistas de teclas. */
 body.touch kbd, body.touch .card .key, body.touch .kbd-hint { display: none !important; }
-#rotate {
-  position: fixed; inset: 0; z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-  padding: max(16px, var(--sa-t)) max(16px, var(--sa-r)) max(16px, var(--sa-b)) max(16px, var(--sa-l));
-  background: rgba(5, 10, 30, .94);
-}
-#rotate.hidden { display: none; }
-#rotate .box { max-width: 320px; }
-#rotate-ico { animation: rot-hint 1.6s steps(4) infinite; display: inline-block; }
-@keyframes rot-hint { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(90deg); } }
 
 /* ---------- ajustes ---------- */
 #scr-settings { z-index: 60; }
@@ -1119,7 +1120,7 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
 .news-btn { position: relative; }
 .news-btn .dot { display: none; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; background: #ff5f6d; box-shadow: 0 0 0 2px var(--shadow); }
 .news-btn.new .dot { display: block; }
-.box.news-box { width: min(640px, 100%); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; }
+.box.news-box { width: min(640px, 100%); max-height: 100%; display: flex; flex-direction: column; }
 .news-body { overflow-y: auto; padding-right: 4px; }
 .news-day { padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.1); }
 .news-day:last-child { border-bottom: 0; }
@@ -1215,3 +1216,359 @@ html:lang(zh) .btn, html:lang(zh) .chip { letter-spacing: 0; }
 #pull-all { flex-basis: 100%; }
 .pull-ctl { display: flex; gap: 8px; align-items: center; justify-content: center; flex-shrink: 0; }
 .pull-sum { margin: 0; text-align: center; font-size: 15px; flex-shrink: 0; }
+
+/* ==== pwa ==== */
+/* Instalar como app (install-ui.js): tarjeta encima de la lista del menú y ventana con los pasos. */
+.install-card {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  padding: 4px 4px 4px 10px; border-radius: var(--rad-l);
+  background: rgba(10,20,50,.92); border: 2px solid rgba(255,210,63,.55); box-shadow: var(--sh-ring);
+  text-shadow: var(--ts-s); animation: pop .22s ease-out;
+}
+.install-card > img { flex: 0 0 auto; width: 32px; height: 32px; image-rendering: pixelated; }
+/* Tarjeta estrecha (móvil en vertical, o la columna del menú en horizontal): sin el icono, así el texto cabe en dos líneas. */
+@media (max-width: 400px), (max-height: 520px) { .install-card > img { display: none; } }
+.install-card > .grow { min-width: 0; line-height: 1.2; }
+.install-card b { display: block; font-size: var(--fs-m); color: var(--gold); }
+.install-card small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+/* Botones de 44 px de alto (lo que pide el iPhone para acertar con el dedo); la × se ve
+   estrecha pero se puede tocar un poco por fuera (::after). */
+.install-card .btn { flex: 0 0 auto; min-height: 44px; }
+.install-card .install-go { border-color: var(--gold); }
+.install-card .install-x { position: relative; width: 32px; padding: 0; font-size: 22px; line-height: 1; border-color: transparent; }
+.install-card .install-x::after { content: ''; position: absolute; inset: -6px -4px; }
+/* Por delante de Ajustes (60) y del aviso legal (65): también se abre desde Ajustes › Acerca de. */
+#scr-install { z-index: 66; }
+.install-box { width: min(480px, 100%); }
+.install-box > .sub { margin-bottom: 10px; }
+#install-close { min-height: 44px; flex: 0 0 auto; }
+/* Título y «Cerrar» en la misma línea también en el móvil (el título encoge un poco). */
+.install-box > .row.between { flex-wrap: nowrap; }
+.install-box > .row.between > h2 { min-width: 0; font-size: clamp(19px, 6vw, 26px); }
+.install-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: paso; }
+.install-steps li {
+  counter-increment: paso; display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 8px 10px; border-radius: var(--rad-m); background: var(--surf-1); border: 2px solid var(--line-1);
+}
+.install-steps li > div { min-width: 0; line-height: 1.3; }
+.install-steps b { display: block; font-size: var(--fs-m); }
+.install-steps b::before { content: counter(paso) '. '; color: var(--gold); }
+.install-steps small { display: block; margin-top: 2px; font-size: var(--fs-s); color: var(--muted); }
+/* Los dibujos, como los botones del iPhone: azul sobre gris oscuro. */
+.install-pic {
+  flex: 0 0 auto; min-width: 48px; height: 48px; padding: 0 8px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: #1c1c1e; color: #0a84ff; border: 1px solid rgba(255,255,255,.12);
+}
+.install-pic svg { width: 28px; height: 28px; }
+.install-mock { font: 600 15px/1 -apple-system, 'Segoe UI', system-ui, sans-serif; color: #0a84ff; text-shadow: none; white-space: nowrap; }
+.install-warn { margin: 0 0 10px; padding: 8px 10px; border-radius: var(--rad-m); background: rgba(255,95,109,.12); border: 2px solid rgba(255,95,109,.5); }
+.install-warn b { display: block; font-size: var(--fs-m); }
+.install-warn small { display: block; margin-top: 2px; font-size: var(--fs-s); color: var(--err); }
+.install-box .note { margin-top: 10px; }
+.install-now { display: block; width: 100%; min-height: 48px; }
+@media (max-height: 520px) {
+  /* Tapa la barra de arriba: no hace falta dejarle hueco. */
+  #scr-install { padding: max(6px, var(--sa-t)) max(10px, var(--sa-r)) max(6px, var(--sa-b)) max(10px, var(--sa-l)); }
+  /* En horizontal, los tres pasos uno al lado del otro. */
+  .install-box { width: min(760px, 100%); }
+  .install-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .install-steps li { flex-direction: column; justify-content: flex-start; text-align: center; gap: 6px; }
+  .install-pic { height: 40px; }
+  .install-box .note { margin-top: 6px; }
+}
+/* Móviles muy bajos en horizontal: sin la frase de arriba (lo mismo dice la tarjeta), para que quepa sin desplazarse. */
+@media (max-height: 400px) { .install-box > .sub { display: none; } }
+
+/* ==== vertical ==== */
+/* Partida con el móvil de pie: cartas, vínculo, objeto, pausa y resumen más
+   compactos, para que se vea todo (en un iPhone SE, las tres cartas y
+   «Cambiar opciones»). En horizontal no cambia nada. */
+@media (orientation: portrait) and (max-width: 600px) {
+  #scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over {
+    padding: max(12px, var(--sa-t)) max(10px, var(--sa-r)) max(12px, var(--sa-b)) max(10px, var(--sa-l)); }
+  #scr-levelup .box, #scr-item .box, #scr-bond .box, #scr-pause .box, #scr-over .box { width: 100%; padding: 14px 12px; }
+  #scr-levelup .sub, #scr-item .sub, #scr-bond .sub { margin-bottom: 8px; }
+  #cards, #item-cards, #bond-cards { gap: 8px; width: 100%; }
+  #cards .card, #item-cards .card, #bond-cards .card { gap: 10px; padding: 10px 12px; }
+  #cards .card .ico, #item-cards .card .ico, #bond-cards .card .ico { flex: 0 0 40px; height: 40px; }
+  #cards .card .nm, #item-cards .card .nm, #bond-cards .card .nm { font-size: 16px; gap: 6px; }
+  #cards .card .ds, #item-cards .card .ds, #bond-cards .card .ds { font-size: 13px; line-height: 1.3; }
+  #lvl-reroll { min-height: 44px; margin-top: 8px !important; }
+  /* Pausa: los botones siempre a la vista; las estadísticas se desplazan dentro. */
+  #scr-pause .pause-box { max-height: 100%; display: flex; flex-direction: column; }
+  #scr-pause .pause-box > * { flex-shrink: 0; }
+  #scr-pause #pause-sum { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 6px; }
+  #scr-pause .sub { margin-bottom: 8px; }
+  #pause-sound { margin: 4px auto 0; }
+  /* Fin de la run: «Volver al menú» siempre a la vista, abajo (como en horizontal). */
+  #btn-again { position: sticky; bottom: 0; display: block; width: min(320px, 100%); margin: 0 auto;
+    box-shadow: 0 0 0 2px var(--edge-out), 0 4px 0 var(--edge-out), 0 -8px 16px rgba(10,20,50,.85); }
+  /* Colocar los botones: botones del panel que se aciertan con el dedo. */
+  #scr-layout .lay-btns .btn, #scr-layout #lay-mode .chip { min-height: 40px; }
+}
+
+/* ==== tactil ==== */
+/* Móvil y tableta (22-10-2026). En las pantallas del menú, todo lo que se toca mide
+   al menos 44 px de alto (lo que pide iPhone); con ratón, todo igual que antes. Las
+   pantallas de la partida (nivel, objeto, vínculo, pausa, fin, colocar) van aparte. */
+body.touch :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-menu, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag,
+  #scr-gacha, #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news,
+  #scr-support, #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #invite-pop, #pull-fx, #sound-panel)
+  :is(.btn, .chip, .gen-tab, .menu-item, .seg button, .field, .dex-tools input, .dex-tools select) { min-height: 44px; }
+body.touch :is(#scr-login, #scr-goals, #scr-mod) .tab { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+/* Los enlaces con forma de botón no centran solos el texto en alto: con relleno. */
+body.touch :is(#scr-settings, #scr-support, #scr-legal) a.btn { padding-top: 10px; padding-bottom: 10px; }
+body.touch .gen-tab { justify-content: center; }
+body.touch .gen-tabs { gap: 6px; }
+body.touch .menu-list { gap: 4px 6px; }
+/* Enlaces sueltos («¿Olvidaste tu contraseña?», Guía, Aviso legal...): más alto para el dedo. */
+body.touch :is(#scr-login, #scr-recover) .note a { display: inline-block; padding: 7px 2px; }
+/* Nombres de los amigos (abren su perfil): tan altos como la fila. */
+body.touch .fr-row .plink { display: inline-block; padding: 11px 0; }
+/* Barras de volumen: la zona que se toca era de 8 px de alto. */
+body.touch :is(#scr-settings, #sound-panel) input[type=range] { height: 44px;
+  background: linear-gradient(transparent 18px, rgba(0,0,0,.4) 18px 26px, transparent 26px); }
+body.touch :is(#scr-settings, #sound-panel) input[type=range]::-webkit-slider-thumb { width: 26px; height: 26px; border-radius: 6px; }
+body.touch :is(#scr-settings, #sound-panel) input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
+/* Iconos de movimiento de la ficha (se tocan para ver el nombre). */
+body.touch #dex-detail .move-icons > span { display: inline-block; padding: 4px; }
+/* Bandera de reportar del ranking: botón de 40×44. */
+body.touch .rk-rep { min-width: 40px; min-height: 44px; }
+body.touch #rk-list .rk-row { grid-template-columns: 54px auto minmax(0, 1fr) auto 40px; }
+@media (max-width: 760px) { body.touch #rk-list .rk-row { grid-template-columns: 40px auto minmax(0, 1fr) auto 40px; } }
+/* Botones de la barra de arriba: miden 34-36 px; con el dedo se aciertan en 44 (zona invisible). */
+body.touch .topbar > :is(.btn, #user-pill) { position: relative; }
+body.touch .topbar > :is(.btn, #user-pill)::after { content: ''; position: absolute; inset: -5px -2px; }
+/* Letra de al menos 11 px. */
+.splash { font-size: clamp(11px, 1.2vw, 15px); }
+.leg-cell small, .prof-medals small { font-size: var(--fs-xs); }
+#upg-mon { width: auto; min-width: 220px; max-width: 100%; }
+/* Misiones en pantalla estrecha: el texto arriba; el premio y el botón, debajo en una línea. */
+@media (max-width: 760px) {
+  .mission { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+  .mission .m-txt { grid-column: 1 / -1; }
+  /* Con el dedo, una fila que se desliza; con ratón, en varias líneas como siempre. */
+  body.touch #goals-body .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  body.touch #goals-body .filters::-webkit-scrollbar { display: none; }
+  #goals-body .filters > * { flex: 0 0 auto; }
+  #goals-body .grid { max-height: none; }
+}
+/* En el móvil, las ventanas que tapan la barra de arriba (Ajustes, Novedades, Perfil...)
+   la esconden: en horizontal se metía por encima de la caja. */
+@media (max-height: 520px), (max-width: 760px) {
+  body:has(:is(#scr-settings, #scr-news, #scr-support, #scr-legal, #scr-profile, #scr-recover, #scr-savenote, #scr-nick, #scr-install):not(.hidden))
+    :is(#topbar, #sound-panel) { visibility: hidden; }
+  /* Gacha: los botones de tirar, de dos en dos (de tres en fila no cabía el texto). */
+  #scr-gacha .split > div:first-child > .row > .btn { flex: 1 1 130px; }
+}
+/* Sala en el móvil: «Empezar partida» / «¡Estoy listo!» siempre a la vista, abajo de la caja. */
+@media (max-height: 520px), (max-width: 480px) and (min-height: 521px) {
+  #scr-lobby > .box > .row:has(#lobby-start) { position: sticky; bottom: -12px; z-index: 1; margin: 8px -12px -12px !important;
+    padding: 8px 12px 12px; background: var(--box2); box-shadow: 0 -8px 12px rgba(26,49,112,.9); }
+  /* Barra de arriba: si no cabe, el nombre y «Salir» se acortan (…) en vez de saltar de
+     línea (en francés o italiano, con 360-390 px): otra línea tapaba el «Volver». */
+  #user-pill, #btn-logout { flex: 1 1 0; max-width: max-content; }
+  #user-pill { min-width: 72px; }
+  #btn-logout { min-width: 44px; }
+  #btn-logout > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-height: 520px) {
+  #scr-lobby > .box > .row:has(#lobby-start) { bottom: -10px; margin: 8px -14px -10px !important; padding: 8px 14px 10px; }
+  /* Barra de arriba en una sola línea también con Guardar, Apoyar y Pantalla completa (iPhone SE). */
+  .topbar .btn.small, .topbar #btn-sound { padding-left: 5px; padding-right: 5px; }
+  .lobby-members { grid-template-columns: repeat(4, 1fr); }
+  .lob-card { min-height: 0; }
+}
+
+/* ---------- vertical (y ventanas estrechas) ---------- */
+@media (max-width: 760px) and (min-height: 521px) {
+  /* Colección: la lista llena la caja; al tocar un Pokémon, su ficha la ocupa entera
+     y «Volver» la cierra (menu.js, sheet). */
+  #scr-dex > .box { height: 100%; display: flex; flex-direction: column; }
+  #scr-dex > .box > * { flex: 0 0 auto; }
+  #scr-dex .split { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 2px !important; }
+  #scr-dex .split > div:first-child { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  #scr-dex .dex-tools, #scr-dex .filters { flex: 0 0 auto; }
+  #scr-dex .filters { margin: 0 0 6px; }
+  body.touch #scr-dex .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  body.touch #scr-dex .filters::-webkit-scrollbar { display: none; }
+  #scr-dex .filters > * { flex: 0 0 auto; }
+  #scr-dex .dex-tools input { flex: 1 1 120px; }
+  #scr-dex .dex-tools select { flex: 0 1 auto; min-width: 0; max-width: 46%; }
+  #scr-dex .grid { flex: 1 1 0; min-height: 0; max-height: none; }
+  #dex-detail { display: none; }
+  #scr-dex.sheet .gen-tabs, #scr-dex.sheet .split > div:first-child { display: none; }
+  #scr-dex.sheet #dex-detail { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px 12px; }
+  /* «Elegir de compañero», siempre a la vista abajo. */
+  #scr-dex.sheet #dex-detail > .btn { position: sticky; bottom: 0; z-index: 1;
+    box-shadow: 0 0 0 2px var(--edge-out), 0 -6px 12px rgba(5,10,25,.7); }
+  /* Gacha: los legendarios del banner ensanchaban la caja (se desplazaba de lado). */
+  #scr-gacha .split { grid-template-columns: minmax(0, 1fr); }
+  #scr-gacha .banner .feat { justify-content: center; }
+  /* Mejoras: el desplegable de Pokémon ya no se sale de la caja. */
+  .upg-head { align-items: flex-start; }
+  .upg-head > .grow { min-width: 0; }
+  .upg-head .row { flex-wrap: nowrap; }
+  #upg-mon { flex: 1 1 auto; min-width: 0; }
+}
+/* Pantallas bajas en vertical (iPhone SE, o Safari con sus barras): en la colección,
+   filtros y orden lado a lado, para que se vean más Pokémon. */
+@media (max-width: 760px) and (min-height: 521px) and (max-height: 700px) {
+  #scr-dex .split > div:first-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto minmax(0, 1fr); column-gap: 6px; }
+  #scr-dex .dex-tools, #scr-dex .grid { grid-column: 1 / -1; }
+}
+
+/* ---------- móvil en vertical (375-430 px de ancho) ---------- */
+@media (max-width: 480px) and (min-height: 521px) {
+  /* Barra de arriba en dos líneas fijas: monedas, tickets y usuario; debajo, los botones. */
+  /* (Cabe también en Android de 360 px con Guardar, Apoyar y Pantalla completa a la vez.) */
+  :root { --bar-h: 112px; }
+  .topbar { left: max(8px, var(--sa-l)); right: max(8px, var(--sa-r)); column-gap: 5px; row-gap: 0; }
+  .topbar::before { content: ''; order: 2; flex: 0 0 100%; height: 6px; }
+  .topbar > .pill { order: 1; min-height: 40px; padding: 2px 7px; gap: 4px; font-size: 14px; }
+  .topbar > .btn { order: 3; }
+  .topbar .btn.small, .topbar #btn-sound { min-height: 44px; padding: 4px 5px; }
+  #user-pill > span { max-width: 4.5em; }
+  /* (La zona de toque del usuario no se mete en la de los botones de debajo.) */
+  body.touch .topbar > #user-pill::after { inset: -4px -2px 0; }
+  /* El aviso de logro, debajo de la barra (tapaba sus botones). */
+  body:has(#topbar:not(.hidden)) .ach-pop { top: calc(var(--bar-h) + var(--sa-t)); }
+
+  /* Cajas con menos margen: más sitio para el contenido. */
+  :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha,
+    #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news, #scr-support,
+    #scr-legal, #scr-nick, #scr-recover, #scr-savenote) {
+    padding-left: max(8px, var(--sa-l)); padding-right: max(8px, var(--sa-r)); padding-bottom: max(10px, var(--sa-b)); }
+  :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha,
+    #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news, #scr-support,
+    #scr-legal, #scr-nick, #scr-recover, #scr-savenote) > .box { padding: 12px; }
+  :is(#scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-goals, #scr-friends, #scr-lobby, #scr-rank,
+    #scr-mod, #scr-settings, #scr-news, #scr-support, #scr-legal) .box h2 { font-size: var(--fs-xl); }
+  .gen-tabs { margin-top: 4px; padding: 2px 2px 6px; }
+  #dex-count { display: none; }
+  #scr-dex .dex-sort { margin-top: 0; }
+  #scr-rank h2 .sub { display: none; }
+  /* Ajustes: pestañas de dos en dos (de tres en fila, «Accesibilidad» no cabía). */
+  #set-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Menú principal: título y compañero arriba; la lista, en dos columnas y abajo (a mano del pulgar). */
+  #scr-menu { overflow-x: hidden; }
+  .menu-left { flex: 0 0 auto; padding: calc(var(--bar-h) + var(--sa-t)) max(10px, var(--sa-r)) 2px max(10px, var(--sa-l)); }
+  .menu-left .logo { margin-bottom: 4px; }
+  .menu-left .logo .t1 { font-size: 32px; }
+  .menu-left .logo .t2 { font-size: var(--fs-s); margin-top: 2px; letter-spacing: 2px; }
+  .splash { font-size: 11px; max-width: 9em; }
+  /* El compañero a ×0,5 o ×0,75 del lienzo: los píxeles salen iguales (+6 del borde). */
+  #menu-partner { height: 106px; width: auto; margin: 2px auto 0; }
+  .partner-card { margin-top: 2px; }
+  .partner-card .nm { font-size: 20px; }
+  .menu-right { flex: 0 0 auto; padding: 6px max(8px, var(--sa-r)) max(10px, var(--sa-b)) max(8px, var(--sa-l)); gap: 8px; }
+  .menu-right .box { padding: 8px; }
+  .menu-right .box:last-child { padding: 8px 12px !important; }
+  #menu-stats { font-size: var(--fs-s) !important; line-height: 1.35; }
+  .menu-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 6px; }
+  .menu-item { min-width: 0; min-height: 44px; font-size: var(--fs-m); padding: 4px 6px; grid-template-columns: 26px minmax(0, 1fr); column-gap: 6px; }
+  .menu-item::before { display: none; }
+  .menu-item small { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-item.play { grid-column: span 2; font-size: 24px; }
+
+  /* Mejoras, tienda y mochila: filas con aire entre el texto y el precio; con varios
+     botones (Elegir, Máx., precio), éstos van en una segunda línea. */
+  .upg-item.panel { padding: 10px; column-gap: 12px; }
+  .upg-item:has(.upg-btns > .btn + .btn) { grid-template-columns: 40px minmax(0, 1fr); }
+  .upg-item:has(.upg-btns > .btn + .btn) .upg-btns { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap;
+    justify-content: flex-end; align-items: center; }
+  .shop-stall { margin: -12px -12px 10px; height: 200px; }
+
+  /* Gacha: la tragaperras a ×2 justo y las cartas de la tirada de tres en tres. */
+  #slot { width: 352px; max-width: 100%; }
+  .banner { padding: 12px; }
+  .banner h3 { font-size: var(--fs-xl); }
+  .banner .feat { height: 170px; margin: 6px -6px -12px; }
+  #scr-gacha .split > div:first-child > .row { gap: 8px; }
+  #scr-gacha .split > div:first-child > .row > .btn { font-size: var(--fs-m); padding-left: 10px; padding-right: 10px; }
+  .pull-results { width: 100%; gap: 6px; }
+  .pcard { width: calc((100% - 12px) / 3); padding: 6px 3px; border-radius: 10px; }
+  .pcard canvas { width: 88px; height: auto; }
+  .pcard b { font-size: var(--fs-s); }
+  .pcard .tag, .pcard .pmon { font-size: var(--fs-xs); }
+
+  /* Amigos: el nombre arriba y los botones debajo, a la derecha. */
+  .fr-row { flex-wrap: wrap; row-gap: 0; }
+  .fr-row > .grow { flex: 1 0 100%; }
+  .fr-row > .btn { margin-top: 6px; }
+  .fr-row > .btn:first-of-type { margin-left: auto; }
+  #fr-add .field { min-width: 0; }
+
+  /* Ranking: cada fila en dos líneas (Pokémon y tiempo arriba; nombres debajo, enteros). */
+  #rk-list .rk-row { grid-template-columns: 34px minmax(0, 1fr) auto 26px; grid-template-areas: "pos mons time rep" "pos who who rep";
+    column-gap: 8px; row-gap: 0; padding: 4px 8px; }
+  body.touch #rk-list .rk-row { grid-template-columns: 34px minmax(0, 1fr) auto 40px; }
+  #rk-list .rk-row > .pos { grid-area: pos; }
+  #rk-list .rk-row > .mons { grid-area: mons; }
+  #rk-list .rk-row > .who { grid-area: who; }
+  #rk-list .rk-row > .time { grid-area: time; font-size: 20px; }
+  #rk-list .rk-row > :last-child { grid-area: rep; }
+  #rk-list .rk-row .mons canvas + canvas { margin-left: -12px; }
+  .rk-tools .field { flex: 1 1 110px; width: auto; min-width: 0; }
+  .rk-me { padding: 6px 10px; }
+}
+/* Móviles altos (Pro Max): el compañero más grande. */
+@media (max-width: 480px) and (min-height: 900px) { #menu-partner { height: 156px; } }
+/* Móviles bajos en vertical: el menú entero sin desplazarse. */
+@media (max-width: 480px) and (min-height: 521px) and (max-height: 700px) {
+  .menu-left .logo .t2 { display: none; }
+  .menu-right > .box:last-child { display: none; }
+  #menu-partner { margin: 2px auto 0; }
+  .menu-item.play { font-size: var(--fs-xl); padding-top: 2px; padding-bottom: 2px; }
+}
+
+/* ---------- móvil en horizontal ---------- */
+@media (max-height: 520px) {
+  .splash, .logo .t2, .pcard .tag { font-size: var(--fs-xs); }
+  /* Colección, gacha, misiones y Ajustes: título, pestañas (se deslizan) y Volver en una
+     sola línea; así queda más sitio para la lista. */
+  #scr-dex > .box, #scr-gacha > .box, #scr-goals > .box, .box.settings {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 10px; row-gap: 6px; align-items: center; }
+  #scr-dex > .box, #scr-goals > .box, .box.settings { grid-template-rows: auto minmax(0, 1fr); }
+  #scr-goals > .box { height: 100%; }
+  :is(#scr-dex, #scr-gacha, #scr-goals, #scr-settings) .box > .row.between { display: contents; }
+  :is(#scr-dex, #scr-gacha, #scr-goals, #scr-settings) .box > .row.between > h2 { grid-area: 1 / 1; margin: 0; white-space: nowrap; }
+  :is(#scr-dex, #scr-gacha, #scr-goals, #scr-settings) .box > .row.between > .btn { grid-area: 1 / 3; }
+  #scr-dex .gen-tabs, #gacha-gens, #goals-tabs, #set-tabs { grid-area: 1 / 2; min-width: 0; margin: 0 !important; padding: 0 2px; }
+  #scr-dex .split, #scr-gacha .split, #goals-body, .box.settings .set-body { grid-area: 2 / 1 / 3 / 4; align-self: stretch; }
+  #scr-goals .goals-body { min-height: 0; }
+  #scr-gacha .split { margin-top: 0 !important; grid-template-columns: minmax(0, 1fr); }
+  /* Gacha: el banner a la izquierda y los botones de tirar a la derecha, a la vista. */
+  #scr-gacha .split > div:first-child { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 12px; align-items: start; }
+  #scr-gacha .banner { grid-row: 1 / span 3; padding: 10px; }
+  #scr-gacha .banner h3 { font-size: var(--fs-l); }
+  #scr-gacha .banner .feat { height: 130px; margin: 4px -4px -10px; }
+  #scr-gacha .split > div:first-child > .row { margin-top: 0 !important; gap: 8px; }
+  #scr-gacha .split > div:first-child > .row > .btn { font-size: var(--fs-m); padding-left: 10px; padding-right: 10px; }
+  #scr-gacha .split > div:first-child > .note { margin-top: 8px; }
+  /* Ranking: título, Solo / Grupo, periodo y Volver arriba; la lista se lleva el resto. */
+  #scr-rank > .box { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr) auto;
+    column-gap: 8px; height: 100%; align-items: center; }
+  #scr-rank > .box > .row.between { display: contents; }
+  #scr-rank > .box > .row.between > h2 { grid-area: 1 / 1; margin: 0; white-space: nowrap; }
+  #scr-rank h2 .sub { display: none; }
+  #scr-rank > .box > .row.between > .row { grid-area: 1 / 4; flex-wrap: nowrap; }
+  #rk-mode { grid-area: 1 / 2; margin: 0; padding: 0; }
+  #rk-period { grid-area: 1 / 3; min-width: 0; margin: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  #rk-period::-webkit-scrollbar { display: none; }
+  #rk-period > * { flex: 0 0 auto; }
+  #scr-rank .rk-tools { grid-area: 2 / 1 / 3 / 5; margin: 6px 0; }
+  #scr-rank .rk-list { grid-area: 3 / 1 / 4 / 5; align-self: stretch; min-height: 0; }
+  #rk-me { grid-area: 4 / 1 / 5 / 5; margin-top: 6px; padding: 6px 10px; }
+  /* Colección: búsqueda, tipo y cuántos salen en una sola línea. */
+  #scr-dex .dex-tools input { flex: 1 1 110px; }
+  #scr-dex .dex-tools select { min-width: 0; max-width: 40%; }
+  /* Colección con el dedo: filtros y búsqueda de 40 px (con 44 sólo cabía una fila de Pokémon). */
+  body.touch #scr-dex :is(.filters .chip, .dex-tools input, .dex-tools select) { min-height: 40px; }
+  body.touch #scr-dex .gen-tab { align-items: center; }
+}
+/* Muy bajos (iPhone SE en horizontal): sin subtítulos en el menú, salvo los avisos en dorado. */
+@media (max-height: 400px) { .menu-item small.gold { display: block; } }

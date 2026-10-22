@@ -200,7 +200,8 @@
       if (!titles.length) box.insertAdjacentHTML('beforeend', '<p class="note">Consigue logros para desbloquear títulos.</p>');
 
       const prev = document.createElement('button');
-      prev.className = 'btn gold'; prev.style.marginTop = '16px';
+      // En su propia línea: detrás del desplegable de Título quedaba pegado a él.
+      prev.className = 'btn gold'; prev.style.cssText = 'display:block;margin-top:16px';
       prev.textContent = 'Ver mi perfil público';
       prev.onclick = () => G.ProfileUI.showData(G.Social.profileData());
       box.appendChild(prev);
