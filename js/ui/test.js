@@ -48,7 +48,8 @@ G.TestUI = (() => {
     $('res-trait').textContent = result.trait.charAt(0).toUpperCase() + result.trait.slice(1);
     $('res-text').textContent = G.TRAIT_TEXT[result.trait] || '';
     $('res-name').textContent = mon.name;
-    G.UI.sprite($('res-stage'), mon.dex, { lively: true, scale: 4, hero: true });
+    // Lienzo de 240×180 a tamaño real (style.css): el sprite a ×5, o menos si es muy grande.
+    G.UI.sprite($('res-stage'), mon.dex, { lively: true, scale: 5, hero: true });
     $('res-stage').style.setProperty('--stage-c', G.U.TYPE_COLOR[mon.types[0]]);
     G.UI.show('scr-result');
   }

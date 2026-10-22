@@ -68,11 +68,12 @@ G.AbilityFX = (() => {
     'serene-grace': { d: 'Las quemaduras, venenos y frenazos de sus movimientos son el doble de fuertes.', serene: true },
     'tough-claws': { d: '+25 % de daño con ataques cuerpo a cuerpo y embestidas.', out: (pl, m) => (m.kind === 'melee' || m.kind === 'dash' ? 1.25 : 1) },
     'reckless': { d: '+25 % de daño con las embestidas.', out: (pl, m) => (m.kind === 'dash' ? 1.25 : 1) },
-    'iron-fist': byName(/punch/, 'los puñetazos', 1.25),
+    // (Gancho Alto es un puñetazo en los juegos; Filo no lo cuenta como corte, pero sí Veneno X.)
+    'iron-fist': byName(/punch|uppercut/, 'los puñetazos', 1.25),
     'strong-jaw': byName(/bite|fang|crunch|jaw/, 'los mordiscos'),
     'mega-launcher': byName(/pulse|aura-sphere/, 'los pulsos y esferas'),
-    'sharpness': byName(/cut|slash|blade|razor|scissor|sword/, 'los cortes'),
-    'punk-rock': byName(/voice|buzz|boom|noise|sing|echo|uproar|snarl/, 'los sonidos'),
+    'sharpness': byName(/(^|-)cut|slash|blade|razor|scissor|sword|cross-poison/, 'los cortes'),
+    'punk-rock': byName(/voice|buzz|boom|noise|sing|song|echo|uproar|snarl/, 'los sonidos'),      // (song: Canto Mortal)
     'tinted-lens': { d: 'Sus movimientos poco eficaces hacen daño normal.',
       out: (pl, m, e) => { const k = e ? mult(m.type, e.types) : 1; return k < 1 && k > 0 ? 1 / k : 1; } },
     'scrappy': { d: 'Sus movimientos Normal y Lucha dañan del todo a los Fantasma.',

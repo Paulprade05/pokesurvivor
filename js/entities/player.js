@@ -60,6 +60,8 @@ G.Player = class Player {
     this.rerolls = 0;          // veces que ha cambiado las cartas de nivel en esta run
     this.rerollBonus = perks.rerolls || 0;   // cambios comprados en Mejoras (más el gratis)
     this.critChance = perks.crit || 0;       // probabilidad de golpe crítico (Mejoras)
+    // Pasivos de la run (cartas Amplitud, Persistencia, Réplica y Propulsión): ver G.Moves.applyPassives.
+    this.pass = { area: 1, dur: 1, amt: 0, pspd: 1 };
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
     this.bind = {};                          // movimiento -> hueco fijo (0-3), elegido en Mejoras
     this.coins = 0;            // monedas recogidas en esta run
@@ -181,7 +183,8 @@ G.Player = class Player {
     // Cinta Elección: no se puede cambiar de movimiento. Salvo si el que llevas no
     // hace daño (#92: con Agilidad activa al cogerla te quedabas sin atacar).
     const cur = this.activeGroup();
-    if (this.hasItem('choiceband') && cur.some(m => m.kind !== 'buff')) {
+    // (Ni si es un escudo o un barrido de pantalla: con Canto Mortal te quedabas sin atacar 45 s.)
+    if (this.hasItem('choiceband') && cur.some(m => !G.Moves.nonAttacking(m.kind))) {
       G.FX.dmgText(this.x, this.y - this.bodyH - 8, 'Cinta Elección', '#ff8ad8');
       return;
     }
@@ -251,15 +254,19 @@ G.Player = class Player {
    * acelera si la recarga es más corta que la animación, para que encadene.
    */
   cast(m) {
-    // Vidasfera: cada ataque cuesta un poco de vida (nunca te deja KO).
-    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && !this.remote) {
+    // Vidasfera: cada ataque cuesta un poco de vida (nunca te deja KO). Ganar un escudo no es un ataque.
+    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && m.kind !== 'ward' && !this.remote) {
       this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));
     }
     const anim = { melee: 'Attack', beam: 'Shoot', projectile: 'Shoot', nova: 'Attack',
                    aura: 'Charge', buff: 'Charge', orbit: 'Charge', boomerang: 'Shoot', chain: 'Shoot',
-                   mine: 'Charge', meteor: 'Charge', turret: 'Charge', dash: 'Attack', trail: 'Walk', cone: 'Shoot' }[m.kind] || 'Attack';
+                   mine: 'Charge', meteor: 'Charge', turret: 'Charge', dash: 'Attack', trail: 'Walk', cone: 'Shoot',
+                   lob: 'Shoot', knife: 'Shoot', cross: 'Attack', column: 'Charge', sweep: 'Shoot', ricochet: 'Shoot',
+                   wipe: 'Charge', ward: 'Charge', ally: 'Charge', wings: 'Charge', puddle: 'Shoot', dusting: 'Charge' }[m.kind] || 'Attack';
     // Las familias nuevas suenan como la parecida de las de siempre.
-    const SND = { boomerang: 'projectile', chain: 'beam', mine: 'nova', meteor: 'nova', turret: 'buff', dash: 'melee', trail: 'aura', cone: 'projectile' };
+    const SND = { boomerang: 'projectile', chain: 'beam', mine: 'nova', meteor: 'nova', turret: 'buff', dash: 'melee', trail: 'aura', cone: 'projectile',
+                  lob: 'projectile', knife: 'projectile', cross: 'nova', column: 'beam', sweep: 'beam', ricochet: 'projectile',
+                  wipe: 'buff', ward: 'buff', ally: 'buff', wings: 'orbit', puddle: 'nova', dusting: 'aura' };
     // El rastro no suena a cada charco (sería un zumbido constante).
     if (m.kind !== 'trail') G.Audio.sfx('shot', { kind: SND[m.kind] || m.kind, type: m.type });
     if (m.kind === 'trail') return;
@@ -296,6 +303,8 @@ G.Player = class Player {
       }
       if (ab.inMul) amount *= ab.inMul(this, type, cls);
     }
+    // Escudos (familia ward, combat.js): paran entero un golpe de un enemigo (no la lava, las trampas ni Arceus).
+    if (!pure && (type || cat) && G.Combat.wardBlock(this)) return;
     if (!pure) amount *= G.Stats.taken(this.mon, cat);
     let eff = null;
     if (type) {
@@ -498,7 +507,8 @@ G.Player = class Player {
     // Sin enemigos, apunta a la roca o cofre más cercano.
     const all = G.EnemyMgr.all();
     const m = this.activeMove();
-    const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam');
+    const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam' || m.kind === 'lob' || m.kind === 'cross' ||
+                           m.kind === 'ricochet' || (m.kind === 'column' && m.anchor === 'target'));
     const threat = G.Projectiles.nearest(all, this.x, this.y, this.r + 24);
     let bossR = m ? 0 : 330;
     for (const a of this.activeGroup()) bossR = Math.max(bossR, Math.min(330, G.Combat.reach(a)));
@@ -672,18 +682,29 @@ G.Player = class Player {
       ctx.restore();
     }
     if (this.tag) {
+      // Nombre (Fredoka) y aviso (Nunito) con al menos 12 y 11 px en pantalla
+      // (en el móvil, la cámara aleja); las letras se rehacen sólo si cambia el zoom.
+      const T = Player._tagF || (Player._tagF = { s: 0, a: '', b: '', pa: 7, pb: 6 });
+      if (T.s !== G.Camera.scale) {
+        T.s = G.Camera.scale;
+        T.pa = Math.max(7, 12 / (T.s || 1)); T.pb = Math.max(6, 11 / (T.s || 1));
+        T.a = '600 ' + T.pa.toFixed(2) + 'px Fredoka,"Segoe UI",system-ui,sans-serif';
+        T.b = '700 ' + T.pb.toFixed(2) + 'px Nunito,"Segoe UI",system-ui,sans-serif';
+      }
       ctx.save();
-      ctx.font = '700 7px Pixelify,"Segoe UI",sans-serif';
+      ctx.font = T.a;
       ctx.textAlign = 'center';
+      ctx.lineJoin = 'round';
       const y = this.y - this.bodyH - 8;
-      ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(0,0,0,.75)';
+      ctx.lineWidth = T.pa * 0.34; ctx.strokeStyle = 'rgba(6,12,30,.82)';
       G.I18n.rawCanvas(ctx, 'strokeText', this.tag, this.x, y);
       ctx.fillStyle = this.dead ? '#ff8a96' : this.tagColor || '#fff';
       G.I18n.rawCanvas(ctx, 'fillText', this.tag, this.x, y);
       if (this.dead) {
-        ctx.font = '700 6px Pixelify,"Segoe UI",sans-serif';
-        ctx.strokeText(this.revLabel || '', this.x, y - 8);
-        ctx.fillText(this.revLabel || '', this.x, y - 8);
+        ctx.font = T.b;
+        ctx.lineWidth = T.pb * 0.34;
+        ctx.strokeText(this.revLabel || '', this.x, y - T.pa * 1.1);
+        ctx.fillText(this.revLabel || '', this.x, y - T.pa * 1.1);
       }
       ctx.restore();
     }

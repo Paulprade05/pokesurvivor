@@ -303,6 +303,7 @@ G.RunUI = (() => {
     const pct = v => Math.round(v * 100) + ' %';
     const mon = pl.mon, fis = 1 - G.Stats.taken(mon, 'physical'), esp = 1 - G.Stats.taken(mon, 'special');
     const guard = v => (v >= 0 ? '−' : '+') + Math.round(Math.abs(v) * 100) + ' %';
+    const P = pl.pass || G.Moves.NO_PASS;
     const st = [
       ['Vida', n(pl.hp) + ' / ' + n(pl.maxHp)],
       ['Ataque', k2(pl.atkFor({ cat: 'physical' }))],
@@ -313,7 +314,12 @@ G.RunUI = (() => {
       ['Crítico', pct(pl.critChance || 0)],
       ['Reducción de daño', pct(pl.reduction)],
       ['Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
-      ['Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s']
+      ['Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],
+      // Pasivos de la run (Amplitud, Persistencia, Réplica, Propulsión).
+      ['Área', '+' + pct(P.area - 1)],
+      ['Duración', '+' + pct(P.dur - 1)],
+      ['Cantidad', '+' + (P.amt | 0)],
+      ['Vel. de proyectiles', '+' + pct(P.pspd - 1)]
     ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
     const it = pl.item && G.Items.BY[pl.item];
     const cards = Object.entries(pl.statsTaken || {}).map(([id, c]) => {

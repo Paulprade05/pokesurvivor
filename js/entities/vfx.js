@@ -252,6 +252,109 @@ G.VFX = (() => {
       ['.ll...ll.', 'lwll.llll', 'lllllllll', 'lllllllll', '.lllllll.', '..lllll..', '...lll...', '....l....']
         .forEach((row, y) => [...row].forEach((c, x) => { if (c !== '.') P.set(x, y, c === 'w' ? 'w' : 'l'); }));
       P.outline();
+    } },
+    // ---- formas del 22-10-2026 (familias de Vampire Survivors) ----
+    bone: { w: 13, h: 7, spin: true, gen(P) {
+      for (let x = 3; x <= 9; x++) { P.set(x, 3, 'm'); P.set(x, 2, 'l'); }          // caña
+      for (const cx of [2, 10]) for (const cy of [2, 4]) {                         // dos nudos en cada punta
+        P.fill((x, y) => Math.hypot(x - cx, y - cy) <= 1.5 ? (P.get(x, y) || 'l') : null);
+      }
+      P.set(1, 1, 'w'); P.set(9, 1, 'w');
+      P.outline();
+    } },
+    shuriken: { w: 11, h: 11, spin: true, gen(P) {
+      P.fill((x, y) => {
+        const ax = Math.abs(x - 5), ay = Math.abs(y - 5), lo = Math.min(ax, ay), hi = Math.max(ax, ay);
+        if (hi > 5 || lo > (5 - hi) * 0.45 + 0.3) return null;                     // estrella de 4 puntas
+        return hi >= 3 ? 'l' : 'm';
+      });
+      P.set(5, 5, 'd');
+      P.outline();
+    } },
+    wheel: { w: 13, h: 13, frames: 2, spin: true, gen(P, f) {
+      P.fill((x, y) => Math.abs(Math.hypot(x - 6, y - 6) - 5) < 0.7 ? 'm' : null); // aro
+      for (let k = 0; k < 4; k++) {                                                // radios
+        const a = f * Math.PI / 4 + k * Math.PI / 2;
+        P.line(6, 6, 6 + Math.cos(a) * 4.2, 6 + Math.sin(a) * 4.2, 'l');
+      }
+      P.fill((x, y) => Math.hypot(x - 6, y - 6) < 1.3 ? 'w' : null);              // buje
+      P.outline();
+    } },
+    seed: { w: 7, h: 5, dir: true, gen(P) {
+      P.fill((x, y) => ((x - 2.8) / 2.6) ** 2 + ((y - 2) / 1.7) ** 2 <= 1 ? (y < 2 ? 'l' : 'm') : null);
+      P.set(5, 2, 'd'); P.set(6, 2, 'd');                                          // punta delante
+      P.set(2, 1, 'w');
+      P.outline();
+    } },
+    petal: { w: 7, h: 6, spin: true, gen(P) {
+      P.fill((x, y) => {
+        const e = Math.hypot((x - 2.3) / 2.3, (y - 2.5) / 2.1);
+        const tail = x >= 4 && Math.abs(y - 2.5) <= (7 - x) * 0.5;                   // lágrima con la punta a la derecha
+        if (e > 1 && !tail) return null;
+        return e > 0.7 && !tail ? 'm' : 'l';
+      });
+      P.set(2, 1, 'w');
+      P.outline();
+    } },
+    flask: { w: 9, h: 11, spin: true, gen(P) {
+      for (let y = 1; y <= 3; y++) for (let x = 3; x <= 5; x++) P.set(x, y, x === 3 ? 'w' : 'l');   // cuello
+      P.fill((x, y) => (Math.hypot(x - 4, y - 6.6) <= 3.3 ? (y < 6 ? 'L' : 'm') : null));      // cuerpo: cristal y líquido
+      P.set(2, 6, 'w'); P.set(3, 5, 'w');                                                       // brillo del cristal
+      P.outline();
+    } },
+    feather: { w: 12, h: 5, dir: true, gen(P) {
+      for (let x = 2; x <= 9; x++) { P.set(x, 1, 'l'); if (x <= 8) P.set(x, 3, 'm'); }         // barbas
+      for (let x = 1; x <= 10; x++) P.set(x, 2, x > 8 ? 'w' : 'd');                            // cañón
+      P.outline();
+    } },
+    coin: { w: 9, h: 9, frames: 2, gen(P, f) {
+      const rx = f ? 1.6 : 3.4;                                                                  // f1: de canto
+      P.fill((x, y) => { const e = Math.hypot((x - 4) / rx, (y - 4) / 3.4); return e <= 1 ? (e > 0.7 || f ? 'm' : 'l') : null; });
+      if (f) P.set(4, 2, 'l');
+      else { P.set(4, 3, 'w'); P.set(4, 4, 'w'); P.set(4, 5, 'w'); P.set(3, 3, 'w'); }
+      P.outline();
+    } },
+    bee: { w: 9, h: 8, frames: 2, gen(P, f) {
+      const wing = f ? [[2, 3], [3, 3], [5, 3], [6, 3], [3, 2], [5, 2]] : [[3, 1], [4, 1], [5, 1], [3, 2], [4, 2], [5, 2]];
+      for (const [x, y] of wing) P.set(x, y, 'L');                                              // alas que baten
+      P.fill((x, y) => (((x - 4) / 3.4) ** 2 + ((y - 5) / 1.9) ** 2 <= 1 ? 'm' : null));         // cuerpo
+      P.set(7, 4, 'l'); P.set(7, 5, 'l');                                                       // cabeza
+      P.set(1, 5, 'd');                                                                         // aguijón
+      P.outline();
+      for (let y = 4; y <= 6; y++) for (const x of [3, 5]) if (P.get(x, y) === 'm') P.set(x, y, 'o');   // rayas (tras el contorno)
+    } },
+    wisp: { w: 9, h: 11, frames: 3, gen(P, f) {
+      P.fill((x, y) => {
+        // Lágrima hacia arriba: redonda abajo y en punta arriba, la punta tiembla.
+        const r = y >= 7 ? Math.sqrt(Math.max(0, 7.8 - (y - 7) ** 2)) : 2.8 * (y - 1) / 6;
+        const dx = x - 4 - (y < 6 ? Math.sin(f * 2.1 + y) * 0.8 : 0);
+        if (r <= 0 || Math.abs(dx) > r) return null;
+        return Math.abs(dx) < r * 0.45 && y > 3 ? 'l' : 'm';
+      });
+      P.set(3, 7, 'w'); P.set(5, 7, 'w');                                                       // ojos
+      P.outline();
+    } },
+    bird: { w: 15, h: 9, dir: true, frames: 2, gen(P, f) {
+      const wing = f ? [[4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [5, 7], [6, 7], [7, 7]]          // alas abajo
+                     : [[4, 2], [5, 2], [6, 2], [7, 2], [8, 2], [5, 1], [6, 1], [7, 1]];         // o arriba
+      for (const [x, y] of wing) P.set(x, y, 'l');
+      P.fill((x, y) => (((x - 6.5) / 4) ** 2 + ((y - 4) / 1.6) ** 2 <= 1 ? 'm' : null));        // cuerpo
+      P.fill((x, y) => (Math.hypot(x - 10.5, y - 3.5) <= 1.6 ? 'l' : null));                    // cabeza
+      P.set(12, 4, 'w'); P.set(13, 4, 'w');                                                     // pico
+      P.set(10, 3, 'o');                                                                        // ojo
+      P.set(1, 4, 'd'); P.set(2, 4, 'd'); P.set(2, 3, 'd');                                     // cola
+      P.outline();
+    } },
+    shield: { w: 9, h: 10, gen(P) {
+      P.fill((x, y) => {
+        if (y < 1 || y > 8) return null;
+        // Recto arriba y en punta abajo.
+        const half = y === 1 ? 2.5 : y <= 4 ? 3.5 : 3.5 - (y - 4) * 0.85, dx = Math.abs(x - 4);
+        if (dx > half) return null;
+        return dx > half - 1.2 || y === 1 ? 'm' : 'l';
+      });
+      P.set(3, 3, 'w'); P.set(3, 4, 'w'); P.set(2, 3, 'w');
+      P.outline();
     } }
   };
 
@@ -286,7 +389,7 @@ G.VFX = (() => {
     return cv;
   }
 
-  /** Dibuja centrado en (x, y). opts: angle, scale (1 = píxel de juego), frame, alpha. */
+  /** Dibuja centrado en (x, y). opts: angle, scale (1 = píxel de juego), frame, alpha, flip (mirando a la izquierda). */
   function draw(ctx, shape, pal, x, y, o = {}) {
     const S = SHAPES[shape] || SHAPES.ball;
     const cv = sprite(shape, pal, o.frame || 0);
@@ -300,6 +403,7 @@ G.VFX = (() => {
       a = Math.round(a / (Math.PI / 8)) * (Math.PI / 8);          // 16 direcciones: menos parpadeo
       ctx.rotate(a);
     }
+    if (o.flip) ctx.scale(-1, 1);
     ctx.drawImage(cv, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k);
     ctx.restore();
   }
@@ -418,7 +522,53 @@ G.VFX = (() => {
     'mirror-shot':   { proj: 'shard', trail: 'spark' },
     'gyro-ball':     { melee: 'impact' },
     'sucker-punch':  { proj: 'crescent' },
-    'night-slash':   { melee: 'claw' }
+    'night-slash':   { melee: 'claw' },
+    // nuevos del 22-10-2026 (familias de Vampire Survivors)
+    'bone-club':     { proj: 'bone' },
+    'rock-blast':    { proj: 'rock', trail: 'dirt' },
+    'water-shuriken': { proj: 'shuriken', trail: 'drip' },
+    'bullet-seed':   { proj: 'seed' },
+    'pin-missile':   { proj: 'needle' },
+    'scale-shot':    { proj: 'shard' },
+    'swift':         { proj: 'star', trail: 'spark' },
+    'cross-poison':  { proj: 'crescent' },
+    'cross-chop':    { proj: 'crescent' },
+    'twister':       { proj: 'wind' },
+    // columnas: lo de dentro cae (agua, carámbanos) o sube (rise: luz, el gancho)
+    'waterfall':     { proj: 'drop', trail: 'drip' },
+    'photon-geyser': { proj: 'star', trail: 'spark', rise: true },
+    'icicle-crash':  { proj: 'shard' },
+    'sky-uppercut':  { proj: 'impact', rise: true },
+    // agujas: beam = cómo se ve el rayo; proj = lo que suelta la punta
+    'charge-beam':   { beam: 'lightning', proj: 'bolt' },
+    'aurora-beam':   { beam: 'shard', proj: 'shard' },
+    'fleur-cannon':  { beam: 'star', proj: 'petal' },
+    'pyro-ball':     { proj: 'ball', pal: 'fire', trail: 'ember' },
+    'aura-wheel':    { proj: 'wheel', trail: 'spark' },
+    'rollout':       { proj: 'rock', trail: 'dirt' },
+    // barridos de pantalla: proj = lo que sale sobre cada enemigo alcanzado
+    'perish-song':   { proj: 'note', pal: 'ghost' },
+    'dark-void':     { proj: 'shadow' },
+    // escudos: proj = el escudo; aura = lo que suelta al parar un golpe
+    'spiky-shield':  { proj: 'shield', aura: 'leaf' },
+    'baneful-bunker': { proj: 'shield', aura: 'bubble' },
+    'kings-shield':  { proj: 'shield', aura: 'star' },
+    // aliados (Paliza: tu Pokémon en pequeño)
+    'attack-order':  { proj: 'bee', pal: 'electric' },
+    'last-respects': { proj: 'wisp' },
+    'beat-up':       { proj: 'impact' },
+    // aves: las bombas son bolas de su color
+    'dual-wingbeat': { proj: 'bird' },
+    'steel-wing':    { proj: 'bird', trail: 'spark' },
+    // charcos: proj = lo que se lanza; aura = lo que sale del charco
+    'fire-pledge':   { proj: 'flask', aura: 'fire' },
+    'psychic-terrain': { proj: 'ring', aura: 'ring' },
+    'mud-bomb':      { proj: 'blob', aura: 'rock' },
+    // lluvias
+    'feather-dance': { proj: 'feather' },
+    'astral-barrage': { proj: 'shadow', trail: 'wisp' },
+    'springtide-storm': { proj: 'petal' },
+    'make-it-rain':  { proj: 'coin', pal: 'electric' }
   };
 
   const TYPE_SHAPE = {

@@ -43,8 +43,13 @@
     if (maintenance()) return;
     if (broken()) return;
     G.I18n.startDom();
-    // Espera a la fuente pixel para que la UI no salte al cargarla.
-    const ready = document.fonts && document.fonts.load ? document.fonts.load('16px Pixelify') : Promise.resolve();
+    // Espera a las letras de la interfaz (Fredoka y Nunito) para que no salte al
+    // cargarlas; como mucho 4 s (si tardan más, se sigue con las del sistema y
+    // cambian solas al llegar).
+    const load = f => document.fonts.load(f).catch(() => {});
+    const ready = document.fonts && document.fonts.load
+      ? Promise.race([Promise.all([load('16px Fredoka'), load('16px Nunito')]), new Promise(r => setTimeout(r, 4000))])
+      : Promise.resolve();
     ready.catch(() => {}).then(() => G.Flow.boot()).catch(e => {
       // Antes el fallo se perdía y se quedaba «Cargando…» para siempre: botón de recargar (boot.js).
       console.error('[Arranque] ha fallado:', e);

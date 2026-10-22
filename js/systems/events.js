@@ -288,8 +288,9 @@ G.Events = (() => {
           // "!" que bota encima: está esperando a que lo toques.
           const by = L.y - h - 14 - Math.abs(Math.sin(now * 5)) * 6;
           ctx.save();
-          ctx.font = '700 16px Pixelify, monospace'; ctx.textAlign = 'center';
-          ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText('!', L.x, by);
+          ctx.font = '700 16px Fredoka,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(6,12,30,.9)'; ctx.strokeText('!', L.x, by);
           ctx.fillStyle = '#7dffb0'; ctx.fillText('!', L.x, by);
           ctx.restore();
         }
@@ -307,26 +308,24 @@ G.Events = (() => {
     const cam = G.Camera;
     if (lost) {
       const L = lost, to = L.state === 'wait' ? [L.x, L.y - 10] : [L.tx, L.ty];
-      edgeArrow(ctx, w, h, cam, to[0], to[1], '#7dffb0', (L.state === 'wait' ? L.name : 'Marca') + ' · ' +
-                Math.round(G.U.dist(pl.x, pl.y, to[0], to[1]) / 32) + ' m', F);
+      edgeArrow(ctx, w, h, cam, to[0], to[1], '#7DFFB0', (L.state === 'wait' ? L.name : 'Marca') + ' · ' +
+                Math.round(G.U.dist(pl.x, pl.y, to[0], to[1]) / 32) + ' m', F, 'heart');
     }
     for (const e of G.EnemyMgr.all()) {
-      if (e.behavior === 'thief' && !e.dead) edgeArrow(ctx, w, h, cam, e.x, e.y - 10, '#ffd23f', e.name, F);
+      if (e.behavior === 'thief' && !e.dead) edgeArrow(ctx, w, h, cam, e.x, e.y - 10, '#FFCB05', e.name, F, 'coin');
     }
     if (cur && cur.id !== 'lost') {
+      // Cuenta atrás en una chapa redonda del color del evento (estilo de hud.js).
       const left = Math.max(0, Math.ceil(cur.dur - cur.t));
       const txt = (cur.id === 'gold' ? 'HORA DORADA' : 'HORDA ' + G.U.TYPE_NAME[cur.type].toUpperCase()) + ' · ' + left + ' s';
       ctx.save();
-      ctx.font = F(800, 12); ctx.textAlign = 'center';
-      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)';
-      ctx.strokeText(txt, w / 2, 112 + dy);
-      ctx.fillStyle = cur.id === 'gold' ? '#ffd23f' : G.U.TYPE_COLOR[cur.type] || '#fff';
-      ctx.fillText(txt, w / 2, 112 + dy);
+      G.HUD.pill(ctx, txt, w, 112 + dy, cur.id === 'gold' ? '#FFCB05' : G.U.TYPE_COLOR[cur.type] || '#fff', 12);
       ctx.restore();
     }
   }
 
-  function edgeArrow(ctx, w, h, cam, x, y, col, label, F) {
+  /** Flecha del borde (chapa redonda con punta, como las de hud.js) con un icono y el nombre. */
+  function edgeArrow(ctx, w, h, cam, x, y, col, label, F, icon) {
     const sx = (x - cam.left()) * cam.scale, sy = (y - cam.top()) * cam.scale;
     if (sx > 0 && sx < w && sy > 0 && sy < h) return;
     // (Lejos de la muesca y, en vertical, sin pisar el HUD: ver hud.js.)
@@ -335,20 +334,11 @@ G.Events = (() => {
     const pulse = 0.65 + Math.sin(performance.now() / 160) * 0.35;
     ctx.save();
     ctx.translate(ex, ey);
-    ctx.globalAlpha = pulse;
-    ctx.beginPath();
-    ctx.moveTo(ca * 30, sa * 30);
-    ctx.lineTo(Math.cos(a + 2.45) * 15, Math.sin(a + 2.45) * 15);
-    ctx.lineTo(Math.cos(a - 2.45) * 15, Math.sin(a - 2.45) * 15);
-    ctx.closePath();
-    ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.stroke();
-    ctx.fillStyle = col; ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.font = F(800, 11);
+    G.HUD.arrow(ctx, a, col, 15, pulse);
+    G.Icons.draw(ctx, icon, -9, -9, 18);
+    ctx.font = F(600, 12);
     ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
-    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
-    ctx.strokeText(label, -ca * 26, -sa * 24 + 4);
-    ctx.fillStyle = col; ctx.fillText(label, -ca * 26, -sa * 24 + 4);
+    G.HUD.outlined(ctx, label, -ca * 28, -sa * 26 + 4, col, 3.5);
     ctx.restore();
   }
 

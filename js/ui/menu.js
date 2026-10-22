@@ -12,7 +12,8 @@ G.MenuUI = (() => {
   function init() {
     const ICON = { play: 'ball', dex: 'book', upgrades: 'up', shop: 'shop', bag: 'bag', gacha: 'ball4', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear' };
     document.querySelectorAll('#scr-menu [data-go]').forEach(b => {
-      b.insertAdjacentHTML('afterbegin', `<span class="mi-ico">${G.Icons.html(ICON[b.dataset.go], 26)}</span>`);
+      // Icono del objeto a 30 px (escala entera), dentro de su baldosa redonda (style.css).
+      b.insertAdjacentHTML('afterbegin', `<span class="mi-ico" aria-hidden="true">${G.Icons.html(ICON[b.dataset.go], 30)}</span>`);
       b.dataset.sfx = b.dataset.go === 'play' ? 'confirm' : 'click';
       b.onclick = () => {
         const go = b.dataset.go;
@@ -34,6 +35,12 @@ G.MenuUI = (() => {
       if (sheetOn()) sheet(false); else { $('scr-dex').classList.remove('sheet'); open(); }
     };
     G.Social.on(() => { if (G.UI.isOpen('scr-menu')) socialLine(); });
+    // Al girar el móvil o cambiar el tamaño de la ventana, el escenario del compañero cambia de tamaño.
+    let fitQ = 0;
+    addEventListener('resize', () => {
+      if (fitQ) return;
+      fitQ = requestAnimationFrame(() => { fitQ = 0; if (G.UI.isOpen('scr-menu')) fitPartner(false); });
+    });
     $('btn-logout').onclick = () => {
       if (G.DB.guest && !confirm('Eres invitado: se perderá todo el progreso. ¿Salir?')) return;
       G.Audio.music(null);
@@ -43,6 +50,22 @@ G.MenuUI = (() => {
 
   // ---------------- menú principal ----------------
 
+  let partner = null;            // compañero del menú: { dex, shiny }
+  /**
+   * El canvas del compañero mide lo mismo que su escenario (#menu-stage, que
+   * cambia de tamaño con la pantalla): así cada píxel del sprite son píxeles
+   * enteros de pantalla. force: volver a ponerlo aunque no haya cambiado.
+   */
+  function fitPartner(force) {
+    if (!partner) return;
+    const box = $('menu-stage'), cv = $('menu-partner');
+    const w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h) return;
+    if (!force && cv.width === w && cv.height === h) return;
+    cv.width = w; cv.height = h;
+    G.UI.sprite(cv, partner.dex, { lively: true, scale: Math.max(2, Math.floor(h / 34)), hero: true, shiny: partner.shiny });
+  }
+
   function open() {
     const s = G.DB.save;
     const mon = G.DEX_BY[s.partner];
@@ -50,9 +73,10 @@ G.MenuUI = (() => {
     G.UI.chrome(true);
     G.UI.show('scr-menu');
     bagLine();
-    G.UI.sprite($('menu-partner'), mon.dex, { lively: true, scale: 4, hero: true, shiny });
-    $('menu-partner').style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[mon.types[0]]);
-    $('menu-partner').classList.toggle('shiny', shiny);
+    partner = { dex: mon.dex, shiny };
+    fitPartner(true);
+    $('menu-stage').style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[mon.types[0]]);
+    $('menu-stage').classList.toggle('shiny', shiny);
     $('menu-partner-name').innerHTML = mon.name + (shiny ? ' ' + G.Icons.html('shiny', 24) : '');
     $('menu-partner-info').innerHTML = G.UI.typeChips(mon.types) + ' ' + G.UI.stars(mon.rarity);
     // Normal / shiny a mano, aquí mismo (en el móvil no se encontraba en la ficha).
@@ -74,11 +98,12 @@ G.MenuUI = (() => {
     const shinies = Object.keys(s.shiny || {}).length;
     $('menu-dex-count').textContent = `${owned} / ${G.DEX.length}` + (shinies ? ` · ${shinies} shiny` : '');
 
-    const st = s.stats;
+    // Estadísticas: cuatro cifras grandes con su nombre debajo.
+    const st = s.stats, cell = (v, label) => `<div class="ms"><b>${v}</b><span>${label}</span></div>`;
     $('menu-stats').innerHTML =
-      `Runs <b style="color:#fff">${st.runs}</b> · Mejor tiempo <b style="color:#fff">${G.U.mmss(st.bestTime)}</b><br>` +
-      `Mejor nivel <b style="color:#fff">${st.bestLevel}</b> · Derrotados <b style="color:#fff">${st.totalKills.toLocaleString(G.I18n.locale)}</b>` +
-      (G.DB.guest ? '<br><span style="color:#ffb0b8">Modo invitado: no se guarda</span>' : '');
+      cell(st.runs, 'Runs') + cell(G.U.mmss(st.bestTime), 'Mejor tiempo') + cell(st.bestLevel, 'Mejor nivel') +
+      cell(st.totalKills.toLocaleString(G.I18n.locale), 'Derrotados') +
+      (G.DB.guest ? '<p class="ms-guest">Modo invitado: no se guarda</p>' : '');
 
     socialLine();
     // Premios de misiones por recoger.

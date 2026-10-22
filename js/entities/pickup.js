@@ -13,8 +13,8 @@ G.Pickups = (() => {
   let nextId = 1;
 
   const KIND = {
-    xp:    { color: '#7fe0ff', glow: '#2a8fd0', r: 4.5 },
-    xpBig: { color: '#ffd95e', glow: '#c08a10', r: 7 },
+    xp:    { color: '#7fe0ff', glow: '#2a8fd0', r: 6 },        // (r: sólo el dibujo: sombra y brillo)
+    xpBig: { color: '#ffd95e', glow: '#c08a10', r: 8 },
     heal:  { color: '#5fe08a', glow: '#1f8f4d', r: 6.5 },
     magnet:{ color: '#ff9ed8', glow: '#b03d84', r: 6.5 },
     bomb:  { color: '#ff7b3d', glow: '#b03d10', r: 6.5 },
@@ -157,6 +157,12 @@ G.Pickups = (() => {
     }
   }
 
+  // Objeto de la Mochila que se pinta para cada cosa del suelo (G.Icons; los objetos equipables, su id).
+  const SPRITE = { heal: 'berry', magnet: 'magnet', bomb: 'bomb', coin: 'coin', ticket: 'ticket', ticket10: 'ticket10' };
+  // La experiencia, como Caramelos Exp.: más grandes cuanto más valen (los
+  // primeros enemigos dan 22-28, los del final 130-220; los fusionados, más).
+  const xpSprite = v => v < 30 ? 'xp1' : v < 60 ? 'xp2' : v < 120 ? 'xp3' : v < 300 ? 'xp4' : 'xp5';
+
   function draw(ctx) {
     for (const p of list) {
       if (!G.Camera.sees(p.x, p.y, 30)) continue;
@@ -164,6 +170,7 @@ G.Pickups = (() => {
       const bounce = Math.abs(Math.sin(p.t * 0.8)) * 3;
       const r = k.r;
       const y = p.y - 6 - bounce;
+      const xp = p.kind === 'xp' || p.kind === 'xpBig';
 
       ctx.globalAlpha = 0.28;
       ctx.fillStyle = '#000';
@@ -173,9 +180,20 @@ G.Pickups = (() => {
       ctx.fillStyle = k.glow;
       ctx.beginPath(); ctx.arc(p.x, y, r * 2, 0, 6.2832); ctx.fill();
 
+      if (p.kind === 'item') {
+        // Objeto: brillo dorado latiendo, para que se vea desde lejos.
+        ctx.globalAlpha = 0.35 + Math.sin(p.t * 1.5) * 0.15;
+        ctx.fillStyle = '#ffe14d';
+        ctx.beginPath(); ctx.arc(p.x, y, 18, 0, 6.2832); ctx.fill();
+      }
       ctx.globalAlpha = 1;
+
+      // El sprite del objeto, a 1 unidad por píxel (medio píxel de los Pokémon).
+      if (G.Icons.sprite(ctx, xp ? xpSprite(p.value) : p.kind === 'item' ? p.value : SPRITE[p.kind], p.x, y, 1)) continue;
+
+      // Sin cargar aún: el dibujo de antes.
       ctx.fillStyle = k.color;
-      if (p.kind === 'xp' || p.kind === 'xpBig') {
+      if (xp) {
         ctx.beginPath();
         ctx.moveTo(p.x, y - r); ctx.lineTo(p.x + r * 0.78, y);
         ctx.lineTo(p.x, y + r); ctx.lineTo(p.x - r * 0.78, y);
@@ -187,17 +205,8 @@ G.Pickups = (() => {
         ctx.fillStyle = '#b8860b';
         ctx.beginPath(); ctx.ellipse(p.x, y, r * sx * 0.5, r * 0.5, 0, 0, 6.2832); ctx.fill();
       } else {
-        // Baya, imán y bomba: su icono pixel art.
-        const ICON = { heal: 'berry', magnet: 'magnet', bomb: 'bomb', ticket: 'ticket', ticket10: 'ticket10' };
         const sz = p.kind === 'ticket10' || p.kind === 'item' ? 24 : 18;
-        if (p.kind === 'item') {
-          // Objeto: brillo dorado latiendo, para que se vea desde lejos.
-          ctx.globalAlpha = 0.35 + Math.sin(p.t * 1.5) * 0.15;
-          ctx.fillStyle = '#ffe14d';
-          ctx.beginPath(); ctx.arc(p.x, y, 18, 0, 6.2832); ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-        G.Icons.draw(ctx, p.kind === 'item' ? p.value : ICON[p.kind], p.x - sz / 2, y - sz / 2 - 1, sz);
+        G.Icons.draw(ctx, p.kind === 'item' ? p.value : SPRITE[p.kind], p.x - sz / 2, y - sz / 2 - 1, sz);
         continue;
       }
       ctx.fillStyle = 'rgba(255,255,255,.8)';

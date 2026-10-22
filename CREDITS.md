@@ -129,9 +129,20 @@ uso **no comercial** y con atribución a sus artistas.
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
 descargados una vez y guardados en `js/data/pokedex.js`.
 
-## Fuente
+## Iconos de objetos
 
-[Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font License 1.1,
+Iconos de objetos: Pokémon (Nintendo, Creatures, GAME FREAK), vía
+[PokeAPI/sprites](https://github.com/PokeAPI/sprites). Son los sprites de la
+Mochila de los juegos, guardados en `assets/items/` con
+`tools/fetch_items.js` (los que no miden 30×30 se ajustan a ese tamaño).
+
+## Fuentes
+
+Interfaz: [Fredoka](https://github.com/hafontia/Fredoka-One) (títulos, botones y números) y
+[Nunito](https://github.com/googlefonts/nunito) (texto), las dos con SIL Open Font
+License 1.1 (licencias en `assets/fonts/OFL-Fredoka.txt` y `assets/fonts/OFL-Nunito.txt`).
+
+Tragaperras del gacha y versiones anteriores: [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font License 1.1,
 licencia en `assets/fonts/OFL.txt`). El juego usa una versión modificada,
 "Pixelify PS", con los números redibujados para distinguirlos mejor
 (`tools/make_font.py`).

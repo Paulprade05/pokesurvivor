@@ -438,6 +438,8 @@ G.Audio = (() => {
     shiny:   () => [2093, 2637, 3136, 2349, 3520, 4186].forEach((f, i) => INST.bell(ctx.currentTime + i * 0.07, f, 0.3, 0.8, sfxBus)),
     shinyGet() { SFX.shiny(); arp('square', [784, 988, 1175, 1568], 0.1, 0.35, 0.05); },
     break:   () => { hiss(0.16, 0.12, 'lowpass', 1100, 200); tone('triangle', 140, 60, 0.12, 0.08); },
+    // Como break pero flojo: bombas de las aves y frascos de los charcos, que caen a menudo.
+    thud:    () => { hiss(0.1, 0.05, 'lowpass', 900, 200); tone('triangle', 120, 60, 0.08, 0.035); },
     chest:   () => { SFX.break(); arp('square', [1047, 1319, 1568, 2093], 0.06, 0.12, 0.04); },
     grass:   () => hiss(0.06, 0.03, 'highpass', 2600),
     ball:    () => { tone('triangle', 220, 70, 0.12, 0.12); hiss(0.08, 0.06, 'lowpass', 800); },
@@ -476,7 +478,8 @@ G.Audio = (() => {
   };
 
   // Separación mínima entre repeticiones del mismo efecto (ms).
-  const MIN_GAP = { hit: 45, faint: 60, xp: 35, coin: 50, grass: 70, shot: 70, hover: 40, break: 60, judge: 80 };
+  // (shake: también el rebote de las carambolas, que puede sonar muy seguido.)
+  const MIN_GAP = { hit: 45, faint: 60, xp: 35, coin: 50, grass: 70, shot: 70, hover: 40, break: 60, judge: 80, shake: 90, thud: 80 };
 
   function sfx(name, opts) {
     if (!ctx || settings.muted || settings.sfx <= 0 || ctx.state !== 'running') return;

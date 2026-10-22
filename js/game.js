@@ -158,7 +158,7 @@ G.Game = (() => {
     // "Segundo movimiento inicial" o, si no, al azar.
     if (perks.startMoves >= 2) {
       const pick2 = G.startMove2Of(mon.dex);
-      const pool = G.Moves.poolFor(mon).filter(id => !pl.hasMove(id) && !pl.banned.has(id) && G.Moves.BY_ID[id].kind !== 'buff');
+      const pool = G.Moves.poolFor(mon).filter(id => !pl.hasMove(id) && !pl.banned.has(id) && !G.Moves.nonAttacking(G.Moves.BY_ID[id].kind));
       if (pick2 && !pl.hasMove(pick2)) pl.addMove(pick2);
       else if (pool.length) pl.addMove(G.U.pick(pool));
       pl.setActive(0);
@@ -961,7 +961,7 @@ G.Game = (() => {
     drawAimMark();
     if (G.Settings.get('fps')) {
       ctx.save();
-      ctx.font = '700 11px Pixelify, monospace';
+      ctx.font = '600 12px Fredoka,"Segoe UI",system-ui,sans-serif';
       ctx.textAlign = 'right';
       ctx.fillStyle = fpsShown >= 50 ? '#5fe08a' : fpsShown >= 30 ? '#ffd23f' : '#ff5f6d';
       ctx.fillText(fpsShown + ' FPS', w - 10, h - 8);

@@ -476,7 +476,9 @@ G.Judgment = (() => {
     ctx.restore();
   }
 
-  const F = (wt, s) => `${wt} ${s}px Pixelify,"Segoe UI",system-ui,sans-serif`;
+  // Letra de la interfaz (hud.js): Fredoka (títulos, avisos) y Nunito (textos pequeños).
+  const F = (wt, s) => G.HUD.F(Math.min(700, wt), s);
+  const N = (wt, s) => G.HUD.N(wt, s);
 
   /** En pantalla: la animación, o el aviso de la pelea. */
   function drawOverlay(ctx, w, h) {
@@ -531,7 +533,7 @@ G.Judgment = (() => {
       title(ctx, 'DE ARCEUS', cx, ty + size * 0.95, Math.round(size * 0.8), T_TITLE + 0.75, a);
       ctx.globalAlpha = a * G.U.clamp((t - T_TITLE - 1.6) / 0.6, 0, 1);
       // (Con el móvil de pie, size es pequeño: la letra no baja de 11 px y no se sale.)
-      ctx.font = F(700, Math.max(11, Math.round(size * 0.32)));
+      ctx.font = N(800, Math.max(12, Math.round(size * 0.32)));
       ctx.textAlign = 'center';
       ctx.fillStyle = '#f3e2b0';
       ctx.fillText('El tiempo se ha agotado…', cx, ty + size * 1.7, w - 24);
@@ -549,7 +551,7 @@ G.Judgment = (() => {
     if (b > 0) {
       let size = Math.round(G.U.clamp(w / 20, 20, 40));
       // Que quepa a lo ancho (móvil de pie, otros idiomas).
-      ctx.font = F(800, size);
+      ctx.font = F(700, size);
       const tw = ctx.measureText('¡ARCEUS HA DESCENDIDO!').width;
       if (tw > w - 32) size = Math.max(14, Math.floor(size * (w - 32) / tw));
       const pop = 1 + (1 - G.U.clamp((t - T_LAND - 0.15) / 0.25, 0, 1)) * 0.6;
@@ -560,9 +562,10 @@ G.Judgment = (() => {
       goldText(ctx, '¡ARCEUS HA DESCENDIDO!', 0, 0, size);
       ctx.restore();
       ctx.globalAlpha = b;
-      ctx.font = F(700, Math.max(11, Math.round(size * 0.45)));
+      ctx.font = N(800, Math.max(12, Math.round(size * 0.45)));
       ctx.textAlign = 'center';
-      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(6,12,30,.85)';
       const sub = 'Es invencible: huye y aguanta todo lo que puedas';
       ctx.strokeText(sub, w / 2, h * 0.24 + size * 1.1, w - 24);
       ctx.fillStyle = '#ffe9b0';
@@ -571,7 +574,7 @@ G.Judgment = (() => {
     if (canSkip && t < T_BACK) {
       const sa = G.Touch.safeArea();
       ctx.globalAlpha = 0.55 + Math.sin(t * 4) * 0.2;
-      ctx.font = F(700, 11);
+      ctx.font = N(800, 12);
       ctx.textAlign = 'right';
       ctx.fillStyle = '#f3e2b0';
       // (Lejos de la muesca y de la barra de inicio del iPhone.)
@@ -584,7 +587,7 @@ G.Judgment = (() => {
 
   /** Texto dorado con borde y brillo. */
   function goldText(ctx, s, x, y, size) {
-    ctx.font = F(800, size);
+    ctx.font = F(700, size);
     ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
     ctx.lineWidth = Math.max(4, size * 0.16);
@@ -602,7 +605,7 @@ G.Judgment = (() => {
   function title(ctx, raw, cx, y, size, t0, alpha) {
     const s = G.I18n ? G.I18n.t(raw) : raw;
     ctx.save();
-    ctx.font = F(800, size);
+    ctx.font = F(700, size);
     const total = ctx.measureText(s).width;
     let x = cx - total / 2;
     for (let i = 0; i < s.length; i++) {
@@ -618,7 +621,7 @@ G.Judgment = (() => {
         goldText(ctx, ch, 0, 0, size);
         ctx.restore();
       }
-      ctx.font = F(800, size);
+      ctx.font = F(700, size);
       x += cw;
     }
     ctx.restore();
@@ -638,16 +641,11 @@ G.Judgment = (() => {
       ctx.fillRect(Math.round(e.x), Math.round(e.y), e.s, e.s);
     }
     ctx.globalAlpha = 1;
-    // Contador bajo el reloj (en vertical, debajo de todo lo de arriba: ver hud.js).
-    const boss = G.EnemyMgr.all().some(e => e.boss && !e.dead), hl = G.HUD.lay;
-    const cy = hl.tall ? hl.below + 14 : boss ? 98 : 76;
-    ctx.textAlign = 'center';
-    ctx.font = F(800, 12);
-    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)';
-    const txt = 'SENTENCIA · ' + G.U.mmss(arenaT) + ' · JEFES ' + downs;
-    ctx.strokeText(txt, w / 2, cy);
-    ctx.fillStyle = GOLD;
-    ctx.fillText(txt, w / 2, cy);
+    // Contador debajo de todo lo de arriba (reloj, bioma y barras de jefes: ver hud.js);
+    // antes, en horizontal y con el HUD grande, pisaba la línea del bioma.
+    const cy = G.HUD.lay.below + 14;
+    // (En una chapa redonda dorada, como las cuentas atrás de hud.js.)
+    G.HUD.pill(ctx, 'SENTENCIA · ' + G.U.mmss(arenaT) + ' · JEFES ' + downs, w, cy, GOLD, 12);
     // Flecha hacia Arceus si no se ve.
     const cam = G.Camera;
     const sx = (A.x - cam.left()) * cam.scale, sy = (A.y - A.bodyH * 0.5 - cam.top()) * cam.scale;
@@ -661,19 +659,13 @@ G.Judgment = (() => {
       ctx.fillStyle = '#ff6a3d';
       ctx.beginPath(); ctx.arc(0, 0, 26 + beat * 6, 0, 6.2832); ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.fillStyle = beat > 0.5 ? '#fff3c8' : GOLD;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(an) * 34, Math.sin(an) * 34);
-      ctx.lineTo(Math.cos(an + 2.45) * 17, Math.sin(an + 2.45) * 17);
-      ctx.lineTo(Math.cos(an - 2.45) * 17, Math.sin(an - 2.45) * 17);
-      ctx.closePath(); ctx.fill();
-      ctx.font = F(800, 11);
+      // Chapa redonda con punta (estilo de hud.js) y la corona dentro.
+      G.HUD.arrow(ctx, an, beat > 0.5 ? '#fff3c8' : GOLD, 17);
+      G.Icons.draw(ctx, 'crown', -10, -10, 20);
+      ctx.font = F(600, 12);
       ctx.textAlign = Math.cos(an) > 0.3 ? 'right' : Math.cos(an) < -0.3 ? 'left' : 'center';
       const lbl = 'ARCEUS · ' + Math.round(G.U.dist(pl.x, pl.y, A.x, A.y) / 32) + ' m';
-      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
-      ctx.strokeText(lbl, -Math.cos(an) * 30, -Math.sin(an) * 26 + 4);
-      ctx.fillStyle = GOLD;
-      ctx.fillText(lbl, -Math.cos(an) * 30, -Math.sin(an) * 26 + 4);
+      G.HUD.outlined(ctx, lbl, -Math.cos(an) * 30, -Math.sin(an) * 28 + 4, GOLD, 3.5);
     }
     ctx.restore();
   }

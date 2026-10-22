@@ -269,6 +269,7 @@ G.Coop = (() => {
     if (!m || !m.connected) return;
     m.connected = false;
     G.Projectiles.clearOrbs(m.pl);
+    m.pl.wardN = null;             // sus escudos (combat.js) no se quedan flotando donde estaba
     G.Spawner.say(m.name + ' ha dejado la partida', 2.6);
     if (waiting.has(u)) picked(u);
     if (holds.has(u)) holdOff(u);
@@ -326,10 +327,14 @@ G.Coop = (() => {
           else if (ev[2] === 't') e.applyStun(ev[3]);
           break;
         }
-        case 'c':
-          G.Combat.ghostCast(m.pl, ev[1], ev[2], ev[3], ev[4]);
-          emit(['c', from, ev[1], ev[2], ev[3], ev[4]], from);
+        case 'c': {
+          const pas = passIn(ev[5]), va = ev[6] === 1 ? 1 : 0;
+          G.Combat.ghostCast(m.pl, ev[1], ev[2], ev[3], ev[4], pas, va);
+          const out = ['c', from, ev[1], ev[2], ev[3], ev[4]];
+          if (pas || va) out.push(pas, va);
+          emit(out, from);
           break;
+        }
         case 'pb':
           G.World.breakAt(ev[1], ev[2]);
           emit(['pb', ev[1], ev[2]], from);
@@ -415,7 +420,7 @@ G.Coop = (() => {
         G.Projectiles.spawn({ x: ev[1], y: ev[2], vx: ev[3], vy: ev[4], dmg: ev[5], r: ev[6], life: ev[7],
                               friendly: false, color: '#ff7a9e', vis: G.VFX.forType(ev[8]), mtype: ev[8], cat: ev[9] });
         break;
-      case 'c': { const m = mates.get(ev[1]); if (m) G.Combat.ghostCast(m.pl, ev[2], ev[3], ev[4], ev[5]); break; }
+      case 'c': { const m = mates.get(ev[1]); if (m) G.Combat.ghostCast(m.pl, ev[2], ev[3], ev[4], ev[5], ev[6], ev[7]); break; }
       case 'item': api.item(ev[1]); break;
       case 'pk': G.Pickups.addRemote(ev[1], ev[2], ev[3], ev[4], ev[5]); break;
       case 'pc': G.Pickups.removeId(ev[1]); break;
@@ -448,12 +453,26 @@ G.Coop = (() => {
 
   // ---------------- ganchos que llaman los módulos del juego ----------------
 
-  /** Tu ataque: los demás lo repiten como fantasma. */
-  function cast(pl, m) {
+  /**
+   * Tu ataque: los demás lo repiten como fantasma. Con pasivos (Amplitud...) o
+   * una variante (1 = escudo que para un golpe) van dos campos más al final;
+   * una versión vieja los ignora.
+   */
+  function cast(pl, m, variant = 0) {
     if (!active || pl !== local) return;
-    if (host) emit(['c', me, m.id, m.lvl, r2(pl.aim), m.evolved ? 1 : 0]);
-    else outEv.push(['c', m.id, m.lvl, r2(pl.aim), m.evolved ? 1 : 0]);
+    const ev = host ? ['c', me, m.id, m.lvl, r2(pl.aim), m.evolved ? 1 : 0] : ['c', m.id, m.lvl, r2(pl.aim), m.evolved ? 1 : 0];
+    const pas = passOut(pl.pass);
+    if (pas || variant) ev.push(pas, variant ? 1 : 0);
+    if (host) emit(ev); else outEv.push(ev);
   }
+
+  /** Pasivos para la red: [área·100, duración·100, cantidad, propulsión·100], o 0 si no hay. */
+  function passOut(P) {
+    if (!P || (P.area === 1 && P.dur === 1 && !P.amt && P.pspd === 1)) return 0;
+    return [Math.round(P.area * 100), Math.round(P.dur * 100), P.amt | 0, Math.round(P.pspd * 100)];
+  }
+  /** Los de un invitado, antes de repetirlos a los demás: 4 números con tope (los valida ghostCast). */
+  const passIn = v => (Array.isArray(v) ? v.slice(0, 4).map(x => num(x, 0, 0, 1000)) : 0);
 
   // invitado
   function hit(e, d, color, dx, dy, knock) { outEv.push(['h', e.id, d, color, r1(dx), r1(dy), knock || 0]); }

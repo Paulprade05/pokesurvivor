@@ -247,7 +247,24 @@ G.FX = (() => {
     ctx.globalAlpha = 1;
   }
 
-  const FONT_N = '700 13px Pixelify,"Segoe UI",sans-serif', FONT_B = '700 20px Pixelify,"Segoe UI",sans-serif';
+  /*
+   * Letra de los números de daño: Fredoka gruesa con borde oscuro. En pantalla,
+   * nunca menos de 15 px los normales y 22 los grandes (× G.HUD.scale): en el
+   * móvil salían diminutos. En pantallas grandes siguen al mundo, como antes
+   * (13 y 20 del mundo). Las cadenas sólo se rehacen si cambia ese tamaño.
+   */
+  const NUM = { k: 0, n: '', b: '', lw: 3 };
+  function numFont() {
+    const cam = G.Camera, s = cam.scale || 1;
+    let k = G.HUD.scale(cam.w * s, cam.h * s) / s;   // px de pantalla → px del mundo
+    if (!(k > 0)) k = 1 / s;
+    if (k === NUM.k) return;
+    NUM.k = k;
+    const n = Math.max(15 * k, 13), b = Math.max(22 * k, 20);
+    NUM.n = '700 ' + n.toFixed(2) + 'px Fredoka,"Segoe UI",system-ui,sans-serif';
+    NUM.b = '700 ' + b.toFixed(2) + 'px Fredoka,"Segoe UI",system-ui,sans-serif';
+    NUM.lw = n * 0.227;
+  }
 
   function draw(ctx) {
     const own = ownAlpha();
@@ -274,15 +291,16 @@ G.FX = (() => {
     // Números de daño (siempre opacos). La fuente y el trazo se ponen una vez
     // por tanda, no por número: los normales y luego los grandes, encima.
     if (!texts.length) return;
+    numFont();
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(10,14,32,.88)';
     for (let big = 0; big < 2; big++) {
       let font = false;
       for (const t of texts) {
         if (!t.big === !!big) continue;
-        if (!font) { ctx.font = big ? FONT_B : FONT_N; font = true; }
+        if (!font) { ctx.font = big ? NUM.b : NUM.n; ctx.lineWidth = big ? NUM.lw * 1.3 : NUM.lw; font = true; }
         ctx.globalAlpha = Math.min(1, (1 - t.t / t.life) * 2.2);
         ctx.strokeText(t.s, t.x, t.y);
         ctx.fillStyle = t.color;

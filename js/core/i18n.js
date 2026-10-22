@@ -203,13 +203,15 @@ G.I18n = (() => {
       const orig = P[k];
       P[k] = function (s, ...a) { return orig.call(this, typeof s === 'string' ? t(s) : s, ...a); };
     }
-    // Chino: Pixelify no tiene sus letras; se añaden las del sistema al poner la fuente
-    // (una vez, no en cada texto que se dibuja, que frenaría el juego).
+    // Chino: Fredoka, Nunito (y Pixelify) no tienen sus letras; se añaden las del
+    // sistema detrás de la primera al poner la fuente (una vez, no en cada texto
+    // que se dibuja, que frenaría el juego).
     if (lang.startsWith('zh-')) {
       const cjk = lang === 'zh-Hant' ? '"PingFang TC","Microsoft JhengHei","Noto Sans CJK TC"' : '"PingFang SC","Microsoft YaHei","Noto Sans CJK SC"';
+      const FAM = /(Fredoka|Nunito|Pixelify)/, REP = '$1,' + cjk;
       const fd = Object.getOwnPropertyDescriptor(P, 'font');
       if (fd && fd.set) Object.defineProperty(P, 'font', { configurable: true, enumerable: fd.enumerable, get: fd.get,
-        set(v) { fd.set.call(this, typeof v === 'string' && v.includes('Pixelify') && !v.includes('PingFang') ? v.replace('Pixelify', 'Pixelify,' + cjk) : v); } });
+        set(v) { fd.set.call(this, typeof v === 'string' && !v.includes('PingFang') && FAM.test(v) ? v.replace(FAM, REP) : v); } });
     }
     const oc = window.confirm, oa = window.alert;
     window.confirm = s => oc.call(window, t(s));

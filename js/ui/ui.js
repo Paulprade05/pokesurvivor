@@ -19,34 +19,120 @@ G.UI = (() => {
   function hideAll() { for (const s of SCREENS) $(s).classList.add('hidden'); }
   function isOpen(id) { return !$(id).classList.contains('hidden'); }
 
+  // ---------------- iconos de interfaz (SVG) ----------------
+  // Para los controles puros (atrás, cerrar, más, ajustes, sonido...): vectoriales,
+  // con trazo redondeado y del color del texto. Lo que es una cosa del juego
+  // (monedas, objetos, movimientos, tipos) va con G.Icons (sprites de objetos).
+  const SVG = {
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    chevron: '<path d="M9 5l7 7-7 7"/>',
+    down: '<path d="M6 9l6 6 6-6"/>',
+    more: '<circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',
+    filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+    sort: '<path d="M8 5v14M5 16l3 3 3-3M16 19V5M13 8l3-3 3 3"/>',
+    refresh: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5V9H15"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 17v.1"/>',
+    lock: '<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+    external: '<path d="M14 5h5v5M19 5l-8 8M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>',
+    play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+    user: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+    // Engranaje: la corona dentada es un trazo grueso a trozos.
+    gear: '<circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.4"/><circle cx="12" cy="12" r="8.4" stroke-width="3.2" stroke-dasharray="3.3 3.3" stroke-dashoffset="1.65" stroke-linecap="butt"/>',
+    sound: '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6M18.3 6.6a7.8 7.8 0 0 1 0 10.8"/>',
+    mute: '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+    full: '<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
+    news: '<path d="M12 3l2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3z"/>',
+    heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/>',
+    logout: '<path d="M10 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H10"/><path d="M14.5 8l4 4-4 4M18.5 12h-9"/>',
+    save: '<path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6.2 6.2 0 0 0 6.3 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M12 16v-5.5M9.5 13l2.5-2.5 2.5 2.5"/>'
+  };
+  /** Icono SVG de interfaz como HTML: svg('back'), svg('close', 18). */
+  function svg(name, size = 22, cls = '') {
+    return `<svg class="ui-svg${cls ? ' ' + cls : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
+      `stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${SVG[name] || ''}</svg>`;
+  }
+  /** Pone su icono a los [data-ico="nombre"] de root que aún no lo tienen (data-ico-size: tamaño). */
+  function icons(root = document) {
+    root.querySelectorAll('[data-ico]').forEach(el => {
+      if (!el.querySelector(':scope > .ui-svg')) el.insertAdjacentHTML('afterbegin', svg(el.dataset.ico, +el.dataset.icoSize || 22));
+    });
+  }
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------------- barra de arriba ----------------
+  // Botones que inician otros módulos (news-ui, support-ui, settings-ui y menu.js
+  // les ponen su onclick): el icono y el texto (éste sólo se ve en el menú «Más»)
+  // los pone aquí la barra, una vez y con todos ya iniciados.
+  const BAR = [['btn-news', 'news', 'Novedades'], ['btn-support', 'heart', 'Apoyar'], ['btn-full', 'full', 'Pantalla completa'],
+               ['btn-settings', 'gear', 'Ajustes'], ['btn-logout', 'logout', 'Salir']];
+  let barDone = false;
+  function barIcons() {
+    if (barDone) return;
+    barDone = true;
+    for (const [id, ico, txt] of BAR) {
+      $(id).innerHTML = svg(ico) + `<span class="lbl">${txt}</span>` + (id === 'btn-news' ? '<i class="dot"></i>' : '');
+    }
+  }
+  /** Menú «Más» (pantallas de menos de 900 px): abre o cierra. */
+  function more(on) {
+    $('topbar').classList.toggle('more-open', on);
+    $('btn-more').setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  const moreOpen = () => $('topbar').classList.contains('more-open');
+
   /** Barra superior (monedas, usuario, sonido) sólo fuera de las runs. */
   function chrome(on) {
     $('topbar').classList.toggle('hidden', !on);
     $('credits-line').classList.toggle('hidden', !on);
+    more(false);
     if (!on) $('sound-panel').classList.add('hidden');
-    if (on) refreshCoins();
+    if (on) { barIcons(); refreshCoins(); }
   }
+
+  // Punto de sincronización: verde = guardado en la nube, amarillo = hay cambios
+  // sin subir (sólo se suben con Guardar, desde el 20-10-2026), rojo = sin conexión.
+  const TIP = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Sin guardar en la nube: pulsa Guardar',
+                offline: 'Sin conexión: pulsa Guardar cuando vuelva', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
 
   function refreshCoins() {
     const s = G.DB.save;
     $('coins').textContent = s ? s.coins.toLocaleString(G.I18n.locale) : '0';
+    const ci = $('coins-ico');
+    if (!ci.firstChild) ci.innerHTML = G.Icons.html('coin', 20);
     const t = (s && s.tickets) || { t1: 0, t10: 0 };
-    $('tickets-pill').innerHTML = `${G.Icons.html('ticket', 18)} ${t.t1} &nbsp;${G.Icons.html('ticket10', 18)} ${t.t10}`;
-    // Punto de sincronización: verde = guardado en la nube, amarillo = hay cambios
-    // sin subir (sólo se suben con Guardar, desde el 20-10-2026), rojo = sin conexión.
+    $('tickets-pill').innerHTML = `<span class="cur"><span class="cur-ico">${G.Icons.html('ticket', 20)}</span>${t.t1}</span>` +
+      `<span class="cur"><span class="cur-ico">${G.Icons.html('ticket10', 20)}</span>${t.t10}</span>`;
     const st = G.DB.guest ? 'guest' : G.DB.syncState;
-    const TIP = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Sin guardar en la nube: pulsa Guardar',
-                  offline: 'Sin conexión: pulsa Guardar cuando vuelva', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
-    $('user-pill').innerHTML = G.Icons.html(G.DB.guest ? 'user' : 'crown', 18) + ' <span translate="no">' + (G.DB.guest ? G.T('Invitado') : (G.DB.user || '')) + '</span>' +
+    const name = esc(G.DB.guest ? G.T('Invitado') : (G.DB.user || ''));
+    $('user-pill').innerHTML = G.Icons.html(G.DB.guest ? 'user' : 'crown', 20) + '<span translate="no">' + name + '</span>' +
       `<i class="sync ${st}" title="${TIP[st] || ''}"></i>`;
     $('user-pill').title = TIP[st] || '';
+    // En el móvil de pie, el perfil va dentro del menú «Más», con su estado escrito.
+    $('tb-profile').innerHTML = svg('user') + `<span class="tbp-txt"><b translate="no">${name}</b>` +
+      `<small><i class="sync ${st}"></i>${TIP[st] || ''}</small></span>`;
     // Botón Guardar: sólo con cuenta en la nube (en local ya se guarda al momento).
+    // Lleva un punto rojo si hay cambios sin subir (data-sync, style.css).
     const sb = $('btn-save');
-    sb.classList.toggle('hidden', G.DB.guest || G.DB.mode !== 'cloud');  }
+    sb.classList.toggle('hidden', G.DB.guest || G.DB.mode !== 'cloud');
+    sb.dataset.sync = st;
+  }
 
   let toastEl = null, toastT = 0;
   function toast(msg, ms = 2200) {
-    if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'toast'; document.body.appendChild(toastEl); }
+    if (!toastEl) {
+      toastEl = document.createElement('div');
+      toastEl.className = 'toast';
+      toastEl.setAttribute('role', 'status');
+      toastEl.setAttribute('aria-live', 'polite');
+      document.body.appendChild(toastEl);
+    }
     toastEl.textContent = msg;
     toastEl.style.display = 'block';
     clearTimeout(toastT);
@@ -62,7 +148,7 @@ G.UI = (() => {
 
   // ---------------- sonido de la interfaz ----------------
 
-  const CLICKABLE = '.btn, .menu-item, .tab, .chip, .card, .cell:not(.locked), .answer, .gen-tab';
+  const CLICKABLE = '.btn, .icon-btn, .tb-btn, .menu-item, .tab, .chip, .card, .cell:not(.locked), .answer, .gen-tab';
   let lastHover = null;
 
   function wireSounds() {
@@ -98,7 +184,7 @@ G.UI = (() => {
   }
 
   function refreshSoundIcon() {
-    $('btn-sound').innerHTML = G.Icons.html(G.Audio.settings.muted ? 'mute' : 'sound', 20);
+    $('btn-sound').innerHTML = svg(G.Audio.settings.muted ? 'mute' : 'sound') + '<span class="lbl">Sonido</span>';
   }
 
   // ---------------- aviso legal ----------------
@@ -172,9 +258,26 @@ G.UI = (() => {
   function initChrome() {
     G.Icons.installCss();
     wireLegal();
+    icons();
     G.DB.onSync(() => { if (!$('topbar').classList.contains('hidden')) refreshCoins(); });
+    // Menú «Más»: se abre con ⋯ y se cierra al elegir algo, al tocar fuera o con Esc.
+    $('btn-more').innerHTML = svg('more');
+    $('btn-more').onclick = () => more(!moreOpen());
+    $('tb-menu').addEventListener('click', e => { if (e.target.closest('button')) more(false); });
+    $('tb-profile').onclick = () => $('user-pill').click();
+    // Tocar fuera cierra el menú «Más» y el panel de sonido (en la captura: antes
+    // de que el panel se redibuje y el toque deje de estar «dentro»).
+    document.addEventListener('click', e => {
+      const t = e.target;
+      if (!t || !t.closest) return;
+      if (moreOpen() && !t.closest('#tb-menu, #btn-more')) more(false);
+      const p = $('sound-panel');
+      if (!p.classList.contains('hidden') && !t.closest('#sound-panel, #btn-sound')) p.classList.add('hidden');
+    }, true);
+    // Esc con el menú abierto sólo lo cierra (no vuelve atrás en la pantalla de debajo).
+    addEventListener('keydown', e => { if (e.key === 'Escape' && moreOpen()) { e.stopPropagation(); more(false); } }, true);
     const sb = $('btn-save');
-    sb.innerHTML = G.Icons.html('save', 18) + ' <span>Guardar</span>';
+    sb.innerHTML = svg('save') + '<span class="lbl">Guardar</span>';
     sb.onclick = async () => {
       sb.disabled = true;
       const r = await G.DB.saveNow();
@@ -346,7 +449,7 @@ G.UI = (() => {
   }
 
   return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, typeChips, stars, confirmDelete,
-           sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap, otherTab,
+           sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap, otherTab, svg, icons,
            /** ¿Está puesto el aviso de «abierto en otra pestaña»? (bloquea teclado y mando) */
            tabBlocked: () => !!tabEl && !tabEl.classList.contains('hidden') };
 })();

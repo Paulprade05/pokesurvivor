@@ -7,8 +7,9 @@
  *   nunca se guarda (lleva ?t= y cada consulta añadía una copia).
  * - Sprites de los Pokémon: no cambian nunca, se sirven de la caché (se van
  *   guardando según se usan: no se descarga todo de golpe).
- * - Iconos, fuente y pantallas de arranque: la copia guardada al momento y, por
- *   detrás, se pide la nueva para la próxima vez (si cambian, llegan solas).
+ * - Iconos (los de la app y los objetos de assets/items), fuente y pantallas de
+ *   arranque: la copia guardada al momento y, por detrás, se pide la nueva para
+ *   la próxima vez (si cambian, llegan solas).
  * - Firebase y demás servicios de fuera no se tocan.
  * Al cambiar los nombres de las cachés, las viejas se borran al activarse. La de
  * arte sigue siendo la v1 a propósito: así no se pierden los sprites ya guardados
@@ -41,7 +42,7 @@ self.addEventListener('fetch', e => {
   const p = url.pathname;
   if (p.endsWith('/version.json') || p.startsWith('/__/')) return;      // directo a la red
   if (p.includes('/assets/pokemon/')) { e.respondWith(sprite(e, req, url)); return; }
-  if (/\/assets\/(icons|fonts|splash)\//.test(p)) { fresh(e, req); return; }
+  if (/\/assets\/(icons|fonts|splash|items)\//.test(p)) { fresh(e, req); return; }
   e.respondWith(fetch(req).then(res => {
     if (res.ok) e.waitUntil(keep(req, url, res.clone()).catch(() => {}));
     return res;
@@ -58,7 +59,7 @@ async function sprite(e, req, url) {
   return res;
 }
 
-/** Iconos, fuente y pantallas de arranque: lo guardado al momento y la copia nueva para la próxima vez. */
+/** Iconos, objetos, fuente y pantallas de arranque: lo guardado al momento y la copia nueva para la próxima vez. */
 function fresh(e, req) {
   const net = fetch(req).then(res => res.ok
     ? caches.open(ART).then(c => c.put(req, res.clone())).then(() => res, () => res)

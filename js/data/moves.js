@@ -26,13 +26,31 @@
  *   vortex      un remolino atrae a los enemigos a su centro y les va dañando
  *   shove       onda alrededor que daña y aparta a los enemigos
  *   stun        zona con aviso que daña y deja aturdidos (quietos) `stun` s
+ *   ---- desde 2026-10-22 (inspiradas en Vampire Survivors) ----
+ *   lob         `count` proyectiles en parábola de pantalla: suben, caen sobre el enemigo y atraviesan
+ *   knife       ráfaga de `count` disparos rápidos hacia donde MIRAS (no al enemigo)
+ *   cross       `count` aspas repartidas a tu alrededor; con `curl` giran en espiral
+ *   column      columnas de arriba abajo (`anchor` self: sobre ti; target: en el enemigo)
+ *   sweep       rayo anclado en ti que gira como una aguja de reloj `dur` s
+ *   ricochet    bola que rebota en los bordes de una caja fija alrededor de ti `dur` s
+ *   wipe        barrido de pantalla: tras `delay` s alcanza a todos los de una caja fija
+ *               (`mode` exec: debilita a los muy tocados · cut: quita `pct` de su vida y duerme)
+ *   ward        escudos: gana uno cada `cd` s (hasta `count`); cada uno para un golpe y contraataca
+ *   ally        `count` aliados que persiguen y golpean a los enemigos cercanos `dur` s
+ *   wings       aves que vuelan en círculo lejos de ti y bombardean cada `rate` s
+ *   puddle      frascos sobre enemigos: dejan charcos que dañan `dur` s
+ *   dusting     lluvia de `count` caídas desde lo alto de la pantalla
+ *
+ * Pasivos de la run (cartas Amplitud, Persistencia, Réplica, Propulsión): ver
+ * PASSIVE_RULES y applyPassives; cada instancia se rehace con rebake().
  *
  * Sólo el movimiento ACTIVO se ejecuta. Se cambia con 1-4 / Q / E.
  *
  * El icono no se guarda aquí: G.Icons lo compone (emblema del tipo +
  * insignia de la familia), ver ui/icons.js.
  *
- * Las mejoras (lvl 1 -> 5) salen de una escalera común por `kind`:
+ * Las mejoras (lvl 1 -> 5) salen de una escalera común por `kind` (o de la
+ * propia del movimiento, LADDER_BY_ID: Canto Mortal y Brecha Negra):
  *   mods multiplicativos -> dmg, cd, speed, radius, dur, amount, arc
  *   mods aditivos        -> count, pierce, stacks
  */
@@ -175,6 +193,96 @@
       { t: '+40% potencia',                 m: { amount: 1.40 } },
       { t: '+50% duración',                 m: { dur: 1.50 } },
       { t: '+1 acumulación y +40% potencia', m: { stacks: 1, amount: 1.40 } }
+    ],
+    // ---- familias nuevas (22-10-2026) ----
+    lob: [
+      { t: '+1 proyectil',                  m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+1 perforación y más grandes',  m: { pierce: 1, size: 1.25 } },
+      { t: '+1 proyectil y -20% recarga',   m: { count: 1, cd: 0.80 } }
+    ],
+    knife: [
+      { t: '+1 disparo',                    m: { count: 1 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+1 disparo y +1 perforación',   m: { count: 1, pierce: 1 } },
+      { t: '-25% recarga y +30% daño',      m: { cd: 0.75, dmg: 1.30 } }
+    ],
+    cross: [
+      { t: '+2 aspas',                      m: { count: 2 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+1 perforación y +25% alcance', m: { pierce: 1, life: 1.25 } },
+      { t: '+2 aspas y -20% recarga',       m: { count: 2, cd: 0.80 } }
+    ],
+    column: [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+1 columna',                    m: { count: 1 } },
+      { t: '+25% de alto y de ancho',       m: { height: 1.25, width: 1.25 } },
+      { t: '+1 columna y -15% recarga',     m: { count: 1, cd: 0.85 } }
+    ],
+    sweep: [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+25% de largo',                 m: { radius: 1.25 } },
+      { t: '+1 rayo',                       m: { count: 1 } },
+      { t: 'Gira un 30% más rápido y +40% daño', m: { turn: 1.30, dmg: 1.40 } }
+    ],
+    ricochet: [
+      { t: '+1 proyectil',                  m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+40% duración y +20% velocidad', m: { dur: 1.40, speed: 1.20 } },
+      { t: '+1 proyectil y +40% daño',      m: { count: 1, dmg: 1.40 } }
+    ],
+    // (Los barridos llevan cada uno la suya: LADDER_BY_ID.)
+    wipe: [
+      { t: '+10% de efecto',                m: { pct: 0.10 } },
+      { t: '+50% daño',                     m: { dmg: 1.50 } },
+      { t: '-15% recarga',                  m: { cd: 0.85 } },
+      { t: '+10% de efecto y -15% recarga', m: { pct: 0.10, cd: 0.85 } }
+    ],
+    ward: [
+      { t: '+1 escudo',                     m: { count: 1 } },
+      { t: '+50% daño del contraataque',    m: { dmg: 1.50 } },
+      { t: '-20% recarga de los escudos',   m: { cd: 0.80 } },
+      { t: '+1 escudo y +30% radio del contraataque', m: { count: 1, radius: 1.30 } }
+    ],
+    ally: [
+      { t: '+1 aliado',                     m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+40% duración y +20% velocidad', m: { dur: 1.40, speed: 1.20 } },
+      { t: '+1 aliado y +40% daño',         m: { count: 1, dmg: 1.40 } }
+    ],
+    wings: [
+      { t: '+1 ave',                        m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+30% explosión y bombardean un 15% más a menudo', m: { radius: 1.30, rate: 0.85 } },
+      { t: '+1 ave y +40% daño',            m: { count: 1, dmg: 1.40 } }
+    ],
+    puddle: [
+      { t: '+1 charco',                     m: { count: 1 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+30% radio',                    m: { radius: 1.30 } },
+      { t: '+50% duración y +40% daño',     m: { dur: 1.50, dmg: 1.40 } }
+    ],
+    dusting: [
+      { t: '+4 caídas',                     m: { count: 4 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+30% tamaño y caen un 20% más rápido', m: { size: 1.30, speed: 1.20 } },
+      { t: '+4 caídas y -20% recarga',      m: { count: 4, cd: 0.80 } }
+    ]
+  };
+
+  // Escaleras propias de un movimiento (si no, la de su familia).
+  const LADDER_BY_ID = {
+    'perish-song': [
+      { t: '+10% al umbral de KO',          m: { pct: 0.10 } },
+      { t: '+50% daño',                     m: { dmg: 1.50 } },
+      { t: '-15% recarga',                  m: { cd: 0.85 } },
+      { t: '+10% al umbral de KO y -15% recarga', m: { pct: 0.10, cd: 0.85 } }
+    ],
+    'dark-void': [
+      { t: '+10% de vida quitada',          m: { pct: 0.10 } },
+      { t: '+40% de sueño',                 m: { stun: 1.40 } },
+      { t: '-15% recarga',                  m: { cd: 0.85 } },
+      { t: '+10% de vida quitada y +50% daño', m: { pct: 0.10, dmg: 1.50 } }
     ]
   };
 
@@ -594,7 +702,132 @@
       cd: 0.7, dmg: 22, speed: 330, life: 1.6, size: 7, homing: 6 },
     { id: 'night-slash', name: 'Tajo Umbrío', type: 'dark', kind: 'spin',
       desc: 'Cortes en giro que alcanzan a todo lo que te rodea.',
-      cd: 1.0, dmg: 11, count: 3, radius: 62 }
+      cd: 1.0, dmg: 11, count: 3, radius: 62 },
+
+    // ================= NUEVOS (22-10-2026): familias de Vampire Survivors =================
+    // Parábola (lob): spread en px/s entre proyectiles; grav en px/s².
+    { id: 'bone-club', name: 'Hueso Palo', type: 'ground', kind: 'lob',
+      desc: 'Lanza un hueso en parábola hacia el enemigo: sube, cae y atraviesa a varios.',
+      cd: 1.15, dmg: 26, count: 1, speed: 340, life: 1.6, size: 9, pierce: 2, spread: 70, grav: 720, knock: 60 },
+    { id: 'rock-blast', name: 'Pedrada', type: 'rock', kind: 'lob',
+      desc: 'Lanza rocas en parábola hacia el enemigo: suben, caen y atraviesan a varios.',
+      cd: 1.1, dmg: 16, count: 2, speed: 330, life: 1.6, size: 8, pierce: 1, spread: 70, grav: 700 },
+    // Ráfaga (knife): hacia donde miras; cdMin para que la ráfaga acabe antes de la siguiente.
+    { id: 'water-shuriken', name: 'Shuriken de Agua', type: 'water', kind: 'knife',
+      desc: 'Ráfaga de estrellas de agua hacia donde miras. Muy rápida, pero hay que encarar al enemigo.',
+      cd: 0.5, cdMin: 0.15, dmg: 10, count: 2, speed: 460, life: 0.75, size: 5, pierce: 0, spread: 0.08 },
+    { id: 'bullet-seed', name: 'Semilladora', type: 'grass', kind: 'knife',
+      desc: 'Una ametralladora de semillas hacia donde miras.',
+      cd: 0.55, cdMin: 0.15, dmg: 7, count: 3, speed: 420, life: 0.7, size: 5, pierce: 0, spread: 0.16 },
+    { id: 'pin-missile', name: 'Pin Misil', type: 'bug', kind: 'knife',
+      desc: 'Agujas en ráfaga hacia donde miras que atraviesan a uno.',
+      cd: 0.55, cdMin: 0.15, dmg: 8, count: 2, speed: 440, life: 0.75, size: 5, pierce: 1, spread: 0.1 },
+    { id: 'scale-shot', name: 'Ráfaga Escamas', type: 'dragon', kind: 'knife',
+      desc: 'Escamas afiladas en ráfaga hacia donde miras; empujan un poco.',
+      cd: 0.55, cdMin: 0.15, dmg: 11, count: 2, speed: 480, life: 0.7, size: 6, pierce: 0, spread: 0.06, knock: 30 },
+    // Aspas (cross): curl = giro de cada aspa en rad/s (espiral).
+    { id: 'swift', name: 'Meteoros', type: 'normal', kind: 'cross',
+      desc: 'Estrellas en todas direcciones que giran en espiral; una va siempre al enemigo.',
+      cd: 0.95, dmg: 10, count: 5, speed: 300, life: 1.1, size: 7, pierce: 1, curl: 1, homing: 1.5 },
+    { id: 'cross-poison', name: 'Veneno X', type: 'poison', kind: 'cross',
+      desc: 'Cuchillas venenosas en aspa, una hacia el enemigo; atraviesan y envenenan.',
+      cd: 0.85, dmg: 12, count: 4, speed: 340, life: 0.8, size: 8, pierce: 1, curl: 0, poison: 1 },
+    { id: 'cross-chop', name: 'Tajo Cruzado', type: 'fighting', kind: 'cross',
+      desc: 'Tajos en aspa a todos lados, uno hacia el enemigo; atraviesan y empujan.',
+      cd: 0.9, dmg: 15, count: 4, speed: 340, life: 0.85, size: 9, pierce: 1, curl: 0, knock: 50 },
+    { id: 'twister', name: 'Ciclón', type: 'dragon', kind: 'cross',
+      desc: 'Tornados que salen girando en espiral y arrastran a los enemigos.',
+      cd: 1.1, dmg: 12, count: 3, speed: 250, life: 1.3, size: 10, pierce: 3, curl: 2.6, knock: 30 },
+    // Columna (column): life = lo que dura (un golpe cada 0,25 s).
+    { id: 'waterfall', name: 'Cascada', type: 'water', kind: 'column',
+      desc: 'Una columna de agua cae de arriba abajo sobre ti y arrastra a todo lo que pilla.',
+      cd: 1.4, dmg: 12, count: 1, life: 0.45, width: 40, height: 240, anchor: 'self', knock: 40 },
+    { id: 'photon-geyser', name: 'Géiser Fotónico', type: 'psychic', kind: 'column',
+      desc: 'Un pilar de luz brota de arriba abajo en la columna del enemigo.',
+      cd: 1.5, dmg: 16, count: 1, life: 0.45, width: 36, height: 220, anchor: 'target' },
+    { id: 'icicle-crash', name: 'Chuzos', type: 'ice', kind: 'column',
+      desc: 'Caen carámbanos en la columna del enemigo, de arriba abajo, y frenan.',
+      cd: 1.5, dmg: 15, count: 1, life: 0.45, width: 34, height: 200, anchor: 'target', slow: 0.4 },
+    { id: 'sky-uppercut', name: 'Gancho Alto', type: 'fighting', kind: 'column',
+      desc: 'Un gancho al cielo: una columna de golpes sobre ti que lanza lejos a los enemigos.',
+      cd: 1.3, dmg: 13, count: 1, life: 0.45, width: 44, height: 200, anchor: 'self', knock: 90, knockUp: 1 },
+    // Aguja (sweep): turn en rad/s. (Cañón Floral lleva stun 0: la evolución lo multiplica.)
+    { id: 'charge-beam', name: 'Rayo Carga', type: 'electric', kind: 'sweep',
+      desc: 'Un rayo que gira a tu alrededor como una aguja de reloj y paraliza un instante.',
+      cd: 3, dmg: 12, count: 1, width: 16, radius: 150, dur: 2.4, turn: 4.2, stun: 0.3 },
+    { id: 'aurora-beam', name: 'Rayo Aurora', type: 'ice', kind: 'sweep',
+      desc: 'Un rayo helado que gira a tu alrededor como una aguja de reloj y congela un momento.',
+      cd: 3, dmg: 10, count: 1, width: 14, radius: 150, dur: 2.4, turn: 5.2, stun: 0.4 },
+    { id: 'fleur-cannon', name: 'Cañón Floral', type: 'fairy', kind: 'sweep',
+      desc: 'Un rayo floral ancho que gira a tu alrededor como una aguja de reloj.',
+      cd: 3.2, dmg: 15, count: 1, width: 20, radius: 165, dur: 2, turn: 6.3, stun: 0 },
+    // Carambola (ricochet): dur = lo que rebota.
+    { id: 'pyro-ball', name: 'Balón Ígneo', type: 'fire', kind: 'ricochet',
+      desc: 'Un balón en llamas que rebota por los bordes de la pantalla quemando a todo lo que toca.',
+      cd: 3, dmg: 18, count: 1, speed: 320, size: 8, homing: 1.2, dur: 3, burn: 1 },
+    { id: 'aura-wheel', name: 'Rueda Aural', type: 'electric', kind: 'ricochet',
+      desc: 'Una rueda eléctrica rapidísima que rebota por los bordes de la pantalla y frena.',
+      cd: 2.8, dmg: 14, count: 1, speed: 400, size: 8, homing: 1.2, dur: 3, slow: 0.3 },
+    { id: 'rollout', name: 'Rodar', type: 'rock', kind: 'ricochet',
+      desc: 'Una roca rodando que rebota por los bordes de la pantalla arrollando todo.',
+      cd: 3, dmg: 20, count: 1, speed: 280, size: 10, homing: 1, dur: 3, knock: 60 },
+    // Barrido (wipe): recarga larga con tope propio (cdMin); pct = umbral de KO (exec) o vida quitada (cut).
+    { id: 'perish-song', name: 'Canto Mortal', type: 'normal', kind: 'wipe',
+      desc: 'Un canto que oye toda la pantalla: a los 3 s debilita a los que estén muy tocados y daña al resto. Los jefes lo aguantan.',
+      cd: 45, cdMin: 20, dmg: 30, pct: 0.25, delay: 3, mode: 'exec' },
+    { id: 'dark-void', name: 'Brecha Negra', type: 'dark', kind: 'wipe',
+      desc: 'Una oscuridad cubre la pantalla: duerme a todos, les quita parte de la vida y daña. Los jefes duermen menos.',
+      cd: 30, cdMin: 15, dmg: 20, stun: 2, pct: 0.15, delay: 1.2, mode: 'cut' },
+    // Escudo (ward): cd = lo que tarda en ganar un escudo; count = escudos máximos; radius = contraataque.
+    { id: 'spiky-shield', name: 'Barrera Espinosa', type: 'grass', kind: 'ward',
+      desc: 'Un escudo de pinchos que para un golpe y castiga a los que tienes cerca.',
+      cd: 6, cdMin: 2.5, dmg: 45, count: 1, radius: 78, knock: 140 },
+    { id: 'baneful-bunker', name: 'Búnker', type: 'poison', kind: 'ward',
+      desc: 'Un búnker que para un golpe y envenena mucho a los que tienes cerca.',
+      cd: 6, cdMin: 2.5, dmg: 24, count: 1, radius: 80, poison: 2 },
+    { id: 'kings-shield', name: 'Escudo Real', type: 'steel', kind: 'ward',
+      desc: 'Un escudo regio que para un golpe y deja aturdidos a los que tienes cerca.',
+      cd: 6, cdMin: 2.5, dmg: 32, count: 1, radius: 76, stun: 0.8 },
+    // Aliados (ally): size = radio de golpe; phase = atraviesan paredes; sprite owner = copias de tu Pokémon.
+    { id: 'attack-order', name: 'Al Ataque', type: 'bug', kind: 'ally',
+      desc: 'Llamas a un enjambre: las abejas revolotean cerca y pican a los enemigos.',
+      cd: 6, dmg: 7, count: 3, speed: 160, size: 7, dur: 6 },
+    { id: 'last-respects', name: 'Homenaje Póstumo', type: 'ghost', kind: 'ally',
+      desc: 'Espíritus que atraviesan paredes, persiguen a los enemigos y los frenan.',
+      cd: 6, dmg: 7, count: 3, speed: 140, size: 7, dur: 6, slow: 0.3, phase: 1 },
+    { id: 'beat-up', name: 'Paliza', type: 'dark', kind: 'ally',
+      desc: 'Copias pequeñas de tu Pokémon corren a pegar a los enemigos cercanos.',
+      cd: 6, dmg: 12, count: 2, speed: 130, size: 9, dur: 6, knock: 40, sprite: 'owner' },
+    // Aves (wings): speed = giro en rad/s; ring = radio del círculo; radius = explosión de cada bomba.
+    { id: 'dual-wingbeat', name: 'Ala Bis', type: 'flying', kind: 'wings',
+      desc: 'Dos aves vuelan en círculo lejos de ti y bombardean a los enemigos de abajo.',
+      cd: 8, dmg: 13, count: 2, speed: 1.7, radius: 34, dur: 8, rate: 0.6, ring: 150 },
+    { id: 'steel-wing', name: 'Ala de Acero', type: 'steel', kind: 'wings',
+      desc: 'Un ave de acero vuela en círculo lejos de ti y suelta bombas pesadas.',
+      cd: 8, dmg: 22, count: 1, speed: 1.5, radius: 42, dur: 8, rate: 0.75, ring: 160 },
+    // Charcos (puddle): range = hasta dónde lanza los frascos.
+    { id: 'fire-pledge', name: 'Voto Fuego', type: 'fire', kind: 'puddle',
+      desc: 'Lanza frascos de fuego sobre los enemigos: dejan un mar de llamas que quema.',
+      cd: 2.2, dmg: 6, count: 2, radius: 36, dur: 3, burn: 1, range: 260 },
+    { id: 'psychic-terrain', name: 'Campo Psíquico', type: 'psychic', kind: 'puddle',
+      desc: 'Lanza un campo psíquico amplio sobre los enemigos que los daña y frena.',
+      cd: 2.6, dmg: 4, count: 1, radius: 54, dur: 4, slow: 0.25, range: 260 },
+    { id: 'mud-bomb', name: 'Bomba Fango', type: 'ground', kind: 'puddle',
+      desc: 'Bombas de barro sobre los enemigos: dejan charcos que dañan y frenan mucho.',
+      cd: 2.2, dmg: 5, count: 2, radius: 36, dur: 3, slow: 0.4, range: 260 },
+    // Lluvia (dusting): speed = lo rápido que caen.
+    { id: 'feather-dance', name: 'Danza Pluma', type: 'flying', kind: 'dusting',
+      desc: 'Caen plumas de lo alto de la pantalla que dañan y frenan a todos los que rozan.',
+      cd: 1.6, dmg: 7, count: 8, speed: 200, size: 7, slow: 0.35 },
+    { id: 'astral-barrage', name: 'Orbes Espectro', type: 'ghost', kind: 'dusting',
+      desc: 'Caen orbes fantasma de lo alto de la pantalla y se desvían hacia los enemigos.',
+      cd: 1.6, dmg: 8, count: 8, speed: 230, size: 7, homing: 0.6 },
+    { id: 'springtide-storm', name: 'Ciclón Primavera', type: 'fairy', kind: 'dusting',
+      desc: 'Caen pétalos de lo alto de la pantalla que dañan y apartan a los enemigos.',
+      cd: 1.6, dmg: 8, count: 8, speed: 210, size: 7, knock: 40 },
+    { id: 'make-it-rain', name: 'Fiebre Dorada', type: 'steel', kind: 'dusting',
+      desc: 'Llueven monedas de lo alto de la pantalla que golpean a todo lo que pillan.',
+      cd: 1.7, dmg: 10, count: 8, speed: 240, size: 6 }
   ];
 
   // Cuerpo a cuerpo (12-10-2026): +20 % de daño y +25 % de alcance y de arco
@@ -623,7 +856,11 @@
     // nuevos del 19-10-2026
     'rapid-spin', 'flame-charge', 'seed-bomb', 'sand-tomb', 'magnitude', 'u-turn', 'rock-tomb', 'ice-shard',
     'rolling-kick', 'dynamic-punch', 'shadow-sneak', 'dragon-claw', 'outrage', 'play-rough', 'gyro-ball',
-    'sucker-punch', 'night-slash']);
+    'sucker-punch', 'night-slash',
+    // nuevos del 22-10-2026
+    'bone-club', 'rock-blast', 'bullet-seed', 'pin-missile', 'scale-shot', 'cross-poison', 'cross-chop',
+    'waterfall', 'icicle-crash', 'sky-uppercut', 'pyro-ball', 'aura-wheel', 'rollout',
+    'spiky-shield', 'kings-shield', 'attack-order', 'last-respects', 'beat-up', 'dual-wingbeat', 'steel-wing']);
 
   // Los que disparan bolas necesitan count y spread de base: las mejoras los
   // multiplican y, sin ellos, "+1 proyectil" no sumaba ninguno y el abanico se
@@ -639,7 +876,7 @@
   const BY_ID = Object.create(null);
   for (const m of RAW) {
     m.cat = m.kind === 'buff' ? null : PHYSICAL.has(m.id) ? 'physical' : 'special';
-    m.ups = LADDERS[m.kind];
+    m.ups = LADDER_BY_ID[m.id] || LADDERS[m.kind];
     m.maxLvl = m.ups.length + 1;
     BY_ID[m.id] = m;
   }
@@ -671,8 +908,10 @@
   }
 
   const MULT = ['dmg', 'cd', 'speed', 'radius', 'dur', 'amount', 'arc', 'width', 'spread', 'life', 'size', 'rate',
-                'pull', 'knock', 'stun', 'charge'];
-  const ADD = ['count', 'pierce', 'stacks', 'bounce'];
+                'pull', 'knock', 'stun', 'charge',
+                // familias del 22-10-2026
+                'height', 'turn', 'ring', 'grav', 'curl', 'heal', 'blast'];
+  const ADD = ['count', 'pierce', 'stacks', 'bounce', 'pct'];
 
   function applyMods(s, m) {
     for (const k in m) {
@@ -716,7 +955,8 @@
    * carta dorada. Los potenciadores (buff) no evolucionan.
    */
   const NEED_NAME = { hp: 'Vigor', atk: 'Potencia', spd: 'Carrera', cd: 'Reflejos', def: 'Coraza',
-                      rgn: 'Síntesis', mag: 'Imán', xp: 'Aprendizaje' };
+                      rgn: 'Síntesis', mag: 'Imán', xp: 'Aprendizaje',
+                      area: 'Amplitud', dur: 'Persistencia', amt: 'Réplica', pspd: 'Propulsión', luck: 'Puntería' };
   const EVO = {
     'tackle': ['Derribo', 'hp'],             'quick-attack': ['Velocidad Extrema', 'spd'],
     'body-slam': ['Gigaimpacto', 'atk'],     'hyper-voice': ['Alboroto', 'cd'],
@@ -767,7 +1007,29 @@
     'outrage': ['Dracoflecha', 'hp'],        'draining-kiss': ['Luz Lunar', 'rgn'],
     'play-rough': ['Choque Anímico', 'atk'], 'disarming-voice': ['Encanto', 'def'],
     'mirror-shot': ['Metaláser', 'atk'],     'gyro-ball': ['Cuerpo Pesado', 'def'],
-    'sucker-punch': ['Juego Sucio', 'atk'],  'night-slash': ['Lariat Oscuro', 'spd']
+    'sucker-punch': ['Juego Sucio', 'atk'],  'night-slash': ['Lariat Oscuro', 'spd'],
+    // nuevos del 22-10-2026
+    'bone-club': ['Hueso Sombrío', 'hp'],    'rock-blast': ['Hachazo Pétreo', 'area'],
+    'water-shuriken': ['Azote Torrencial', 'pspd'], 'bullet-seed': ['Fulgor Semilla', 'amt'],
+    'pin-missile': ['Aguijón Letal', 'amt'], 'scale-shot': ['Fragor Escamas', 'luck'],
+    'swift': ['Teraclúster', 'luck'],        'cross-poison': ['Garra Nociva', 'luck'],
+    'cross-chop': ['Espada Santa', 'atk'],   'twister': ['Dracoenergía', 'area'],
+    'waterfall': ['Pulso Primigenio', 'area'], 'photon-geyser': ['Psicoataque', 'pspd'],
+    'icicle-crash': ['Lanza Glacial', 'dur'], 'sky-uppercut': ['Puño Certero', 'atk'],
+    'charge-beam': ['Rayo Fusión', 'cd'],    'aurora-beam': ['Mundo Gélido', 'dur'],
+    'fleur-cannon': ['Luz Aniquiladora', 'area'],
+    'pyro-ball': ['V de Fuego', 'pspd'],     'aura-wheel': ['Ataque Fulgor', 'spd'],
+    'rollout': ['Romperrocas', 'def'],
+    'perish-song': ['Estruendo', 'xp'],      'dark-void': ['Calamidad', 'cd'],
+    'spiky-shield': ['Cura Selvática', 'rgn'], 'baneful-bunker': ['Armadura Ácida', 'hp'],
+    'kings-shield': ['Embate Supremo', 'def'],
+    'attack-order': ['Escaramuza', 'amt'],   'last-respects': ['Marcha Espectral', 'dur'],
+    'beat-up': ['Cerco Dimensión', 'atk'],
+    'dual-wingbeat': ['Ala Mortífera', 'pspd'], 'steel-wing': ['Meteoimpacto', 'def'],
+    'fire-pledge': ['Lluvia Ígnea', 'mag'],  'psychic-terrain': ['Onda Mental', 'area'],
+    'mud-bomb': ['Arenas Ardientes', 'dur'],
+    'feather-dance': ['Aerochorro', 'spd'],  'astral-barrage': ['Rayo Umbrío', 'amt'],
+    'springtide-storm': ['Furia Natural', 'rgn'], 'make-it-rain': ['Deseo Oculto', 'luck']
   };
   // Lo que gana al evolucionar, según cómo funcione.
   const EVO_MODS = {
@@ -792,8 +1054,123 @@
     quake:      { t: '×1,8 daño, +3 ondas y ondas más grandes', m: { dmg: 1.8, count: 3, radius: 1.25 } },
     vortex:     { t: '×1,8 daño, más radio y atrae más fuerte', m: { dmg: 1.8, radius: 1.3, pull: 1.4 } },
     shove:      { t: '×1,8 daño, más radio y empuja más', m: { dmg: 1.8, radius: 1.25, knock: 1.4 } },
-    stun:       { t: '×1,8 daño, más radio y aturde más rato', m: { dmg: 1.8, radius: 1.3, stun: 1.4 } }
+    stun:       { t: '×1,8 daño, más radio y aturde más rato', m: { dmg: 1.8, radius: 1.3, stun: 1.4 } },
+    // familias del 22-10-2026
+    lob:        { t: '×1,8 daño, +2 proyectiles, +2 perforación y más grandes', m: { dmg: 1.8, count: 2, pierce: 2, size: 1.25 } },
+    knife:      { t: '×1,7 daño, +1 disparo y -25% recarga', m: { dmg: 1.7, count: 1, cd: 0.75 } },
+    cross:      { t: '×1,8 daño, +2 aspas, +2 perforación y más grandes', m: { dmg: 1.8, count: 2, pierce: 2, size: 1.25 } },
+    column:     { t: '×1,8 daño, +1 columna, más anchas y duran más', m: { dmg: 1.8, count: 1, width: 1.3, life: 1.4 } },
+    sweep:      { t: '×1,8 daño, +1 rayo, más largo y aturde más', m: { dmg: 1.8, count: 1, radius: 1.2, stun: 1.5 } },
+    ricochet:   { t: '×1,8 daño, +1 proyectil y estalla en cada rebote', m: { dmg: 1.8, count: 1, size: 1.2, blast: 44 } },
+    wipe:       { t: '×2 daño, +20% de efecto y -15% recarga', m: { dmg: 2, pct: 0.2, cd: 0.85 } },
+    ward:       { t: '+1 escudo, ×1,8 daño y curas un 4% de vida al bloquear', m: { count: 1, dmg: 1.8, heal: 0.04 } },
+    ally:       { t: '×1,8 daño, +2 aliados y más grandes', m: { dmg: 1.8, count: 2, size: 1.3 } },
+    wings:      { t: '×1,8 daño, bombas más grandes y más seguidas', m: { dmg: 1.8, radius: 1.25, rate: 0.75 } },
+    puddle:     { t: '×1,8 daño, +1 charco y los charcos te siguen y crecen', m: { dmg: 1.8, count: 1, radius: 1.2, follow: 1 } },
+    dusting:    { t: '×1,8 daño, +6 caídas y más grandes', m: { dmg: 1.8, count: 6, size: 1.2 } }
   };
+
+  // ---------------- pasivos de la run (22-10-2026) ----------------
+  /*
+   * Cartas al estilo de los pasivos de Vampire Survivors. Cada jugador lleva
+   * pl.pass = { area, dur, amt, pspd } (1, 1, 0, 1 al empezar) y aquí se dice
+   * qué número cambia cada uno en cada familia:
+   *   a   × área            ah  × (1 + (área − 1) / 2)  (largo de los rayos)
+   *   d   × duración        s   × propulsión     s2  × propulsión²     si  ÷ propulsión
+   *   n   + n por cada carta de Réplica (count)
+   *   code  el pasivo lo lee combat.js con m.pk (meteoros, terremoto, aturdir, charcos)
+   */
+  const PASSIVE_RULES = {
+    projectile: { a: ['size'], s: ['speed'], n: 1 },
+    homing:     { a: ['size'], s: ['speed'], n: 1 },
+    bounce:     { a: ['size'], s: ['speed'], n: 1 },
+    nova:       { a: ['size'], s: ['speed'], n: 2 },
+    cone:       { a: ['size'], s: ['speed'], n: 2 },
+    melee:      { a: ['radius'] },
+    beam:       { a: ['width'], ah: ['radius'] },
+    charge:     { a: ['width'], ah: ['radius'], si: ['charge'] },
+    orbit:      { a: ['radius', 'size'], s: ['speed'], n: 1 },
+    aura:       { a: ['radius'] },
+    buff:       { d: ['dur'] },
+    boomerang:  { a: ['size'], s: ['speed'], n: 1 },
+    chain:      { a: ['radius'], n: 1 },
+    mine:       { a: ['radius'], d: ['dur'], n: 1 },
+    meteor:     { a: ['radius'], n: 1, code: 'pspd' },               // caída en 0,5/S s
+    turret:     { a: ['range', 'size'], d: ['dur'], s: ['speed'], n: 1 },
+    dash:       { a: ['width'] },
+    trail:      { a: ['radius'], d: ['dur'] },
+    spin:       { a: ['radius'], n: 1 },
+    quake:      { a: ['radius'], n: 2, code: 'pspd' },               // una onda cada 0,07/S s
+    vortex:     { a: ['radius'], d: ['dur'] },
+    shove:      { a: ['radius'] },
+    stun:       { a: ['radius'], d: ['stun'], code: 'amt' },         // 1 + amt zonas
+    lob:        { a: ['size'], s: ['speed'], s2: ['grav'], n: 1 },  // misma curva, más rápida
+    knife:      { a: ['size'], s: ['speed'], n: 1 },
+    cross:      { a: ['size'], s: ['speed', 'curl'], n: 1 },        // misma espiral, más rápida
+    column:     { a: ['width', 'height'], d: ['life'], n: 1 },
+    sweep:      { a: ['radius', 'width'], d: ['dur', 'stun'], s: ['turn'], n: 1 },
+    ricochet:   { a: ['size', 'blast'], d: ['dur'], s: ['speed'], n: 1 },
+    wipe:       { d: ['stun'] },
+    ward:       { a: ['radius'], d: ['stun'], n: 1 },
+    ally:       { a: ['size'], d: ['dur'], s: ['speed'], n: 1 },
+    wings:      { a: ['ring', 'radius'], d: ['dur'], s: ['speed'], n: 1 },
+    puddle:     { a: ['radius'], d: ['dur'], n: 1, code: 'pspd' },   // vuelo del frasco 0,45/S s
+    dusting:    { a: ['size'], s: ['speed'], n: 3 }
+  };
+  const NO_PASS = Object.freeze({ area: 1, dur: 1, amt: 0, pspd: 1 });
+
+  function mulKeys(m, keys, k) {
+    if (!keys || k === 1) return;
+    for (const key of keys) if (typeof m[key] === 'number') m[key] *= k;
+  }
+
+  /** Aplica los pasivos P a una instancia (recién hecha: instance + evolve). */
+  function applyPassives(m, P) {
+    const r = P && PASSIVE_RULES[m.kind];
+    if (r) {
+      const A = P.area || 1, D = P.dur || 1, S = P.pspd || 1, n = P.amt | 0;
+      mulKeys(m, r.a, A); mulKeys(m, r.ah, 1 + (A - 1) / 2); mulKeys(m, r.d, D);
+      mulKeys(m, r.s, S); mulKeys(m, r.s2, S * S); mulKeys(m, r.si, 1 / S);
+      if (r.n && n > 0) m.count = (m.count || 0) + r.n * n;
+    }
+    m.pk = P || NO_PASS;
+    return m;
+  }
+
+  // Lo que se copia al rehacer: sólo números (no la recarga en curso, el daño
+  // hecho, los orbes ni los escudos guardados). (range: el de las torretas, con Amplitud.)
+  const BAKE = MULT.concat(ADD, ['follow', 'range']);
+
+  /** Rehace una instancia con su nivel, su evolución y los pasivos P. */
+  function rebake(m, P) {
+    const s = instance(m.id, m.lvl);
+    if (!s) return m;
+    if (m.evolved && EVO_MODS[s.kind]) applyMods(s, EVO_MODS[s.kind].m);
+    applyPassives(s, P);
+    for (const k of BAKE) if (s[k] !== undefined) m[k] = s[k];
+    m.pk = s.pk;
+    return m;
+  }
+
+  /** Todos los movimientos de un jugador (tras coger una carta). */
+  function rebakeAll(pl) {
+    if (!pl || !pl.moves) return;
+    for (const m of pl.moves) rebake(m, pl.pass);
+  }
+
+  /** ¿Le sirve el pasivo `id` (area, dur, amt, pspd) a un movimiento de esta familia? */
+  function passiveAffects(kind, id) {
+    const r = PASSIVE_RULES[kind];
+    if (!r) return false;
+    if (id === 'area') return !!(r.a || r.ah);
+    if (id === 'dur') return !!r.d;
+    if (id === 'amt') return !!r.n || r.code === 'amt';
+    if (id === 'pspd') return !!(r.s || r.s2 || r.si) || r.code === 'pspd';
+    return true;
+  }
+
+  /** Familias que no hacen (casi) daño: como mucho 2 entre todas (ver levelup.js). */
+  function nonAttacking(kind) { return kind === 'buff' || kind === 'ward' || kind === 'wipe'; }
 
   /** ¿Puede evolucionar ya? → { name, needs, needName, text, ready } o null */
   function evoInfo(m, statsTaken) {
@@ -816,5 +1193,6 @@
   }
 
   G.Moves = { ALL: RAW, BY_ID, POOL, poolFor, instance, levelUp, nextUpText, startFor,
-              EVO, NEED_NAME, evoInfo, evolve };
+              EVO, NEED_NAME, evoInfo, evolve,
+              PASSIVE_RULES, NO_PASS, applyPassives, rebake, rebakeAll, passiveAffects, nonAttacking };
 })();

@@ -50,7 +50,7 @@ G.baseStartOf = dex => {
  * y siempre el de serie (aunque no sea de su tipo, como Confusión en Psyduck), para poder volver a él.
  */
 G.startChoices = dex => {
-  const ids = G.Moves.poolFor(G.DEX_BY[dex]).filter(id => G.Moves.BY_ID[id].kind !== 'buff');
+  const ids = G.Moves.poolFor(G.DEX_BY[dex]).filter(id => !G.Moves.nonAttacking(G.Moves.BY_ID[id].kind));   // ni escudos ni barridos
   const base = G.baseStartOf(dex);
   if (!ids.includes(base)) ids.push(base);
   return ids;
