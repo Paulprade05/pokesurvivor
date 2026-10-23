@@ -1,7 +1,7 @@
 # Publicar el juego gratis en GitHub Pages
 
 El juego es una web estática: GitHub Pages la sirve gratis en
-`https://jpter78.github.io/pokesurvivor/`.
+`https://paulprade05.github.io/pokesurvivor/`.
 
 ## 1. Crear el repositorio (una vez)
 
@@ -28,11 +28,11 @@ Son unos 75 MB, puede tardar unos minutos.
 En el repositorio: **Settings → Pages** →
 *Source*: **Deploy from a branch** → *Branch*: **main**, carpeta **/ (root)** → **Save**.
 
-En uno o dos minutos estará en <https://jpter78.github.io/pokesurvivor/>.
+En uno o dos minutos estará en <https://paulprade05.github.io/pokesurvivor/>.
 
 ## 4. Conectar con Firebase
 
-Si ya seguiste [FIREBASE.md](FIREBASE.md), añade `jpter78.github.io` a los
+Si ya seguiste [FIREBASE.md](FIREBASE.md), añade `paulprade05.github.io` a los
 **dominios autorizados** de Authentication (paso 5) y sube el
 `firebase-config.js` rellenado:
 
@@ -45,7 +45,7 @@ git push
 ## 5. Que salga en Google
 
 1. <https://search.google.com/search-console> → **Añadir propiedad** →
-   *Prefijo de la URL* → `https://jpter78.github.io/pokesurvivor/`.
+   *Prefijo de la URL* → `https://paulprade05.github.io/pokesurvivor/`.
 2. Verificación: el método **Etiqueta HTML** te da una línea `<meta ...>`;
    pégala dentro de `<head>` en `index.html`, haz `git push`, y pulsa Verificar.
 3. **Inspección de URLs** → pega la dirección → **Solicitar indexación**.

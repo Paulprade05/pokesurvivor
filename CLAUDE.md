@@ -23,10 +23,15 @@ Cada cambio de juego o arreglo de fallos va también en `js/data/changelog.js`
 servidores, base de datos o costes NO van ahí.
 
 ## Servidores
-- Firebase: proyecto **pokesurvivor-free** (autenticación normal: cuentas gratis sin límite).
+Esta copia (repositorio Paulprade05/pokesurvivor) se publica en GitHub Pages:
+https://paulprade05.github.io/pokesurvivor/ (sin dominio propio).
+- Firebase: proyecto **pokesurvivor-paul** (desde el 23-10-2026, plan Spark gratis; autenticación
+  normal: cuentas gratis sin límite). Cuentas con correo/contraseña y Google, Firestore en eur3,
+  Realtime Database en europe-west1, reglas de `firestore.rules` y `database.rules.json`, clave de la
+  web limitada a paulprade05.github.io, el dominio firebaseapp.com, localhost y 127.0.0.1.
   **Nunca** activar "Identity Platform" ni nada que lo active (funciones de bloqueo, MFA,
-  "Actualizar para habilitar"): cobra por usuario. El proyecto viejo pokesurvivor-jpter se borró el 13-10-2026 (con su facturación).
-- Cloudflare: SÓLO el dominio pokesurvivor.com (comprado allí, DNS gratis). El Worker y el TURN
-  (Cloudflare Realtime) se quitaron el 15-10-2026: el cooperativo va sólo con conexión directa
-  (STUN gratis de Google). No volver a añadir nada de pago.
+  "Actualizar para habilitar"): cobra por usuario. Nunca pasar al plan Blaze.
+  (El juego original usa pokesurvivor-free, que sólo acepta su web.)
+- Sin TURN ni Worker: el cooperativo va sólo con conexión directa (STUN gratis de Google;
+  `G.TURN_API = ''` en `js/core/firebase-config.js`). No añadir nada de pago.
 - Mantenimiento: `MAINTENANCE` en `js/main.js` (con `?dev` se puede entrar para probar).

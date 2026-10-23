@@ -27,7 +27,8 @@
  */
 G.Net = (() => {
   const ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
-  const TURN_API = 'https://ice.pokesurvivor.com/v1/ice';
+  // G.TURN_API (firebase-config.js) lo cambia; '' = sin TURN (sólo STUN), como en esta copia.
+  const TURN_API = G.TURN_API === undefined ? 'https://ice.pokesurvivor.com/v1/ice' : G.TURN_API;
   // Primero se intenta sin TURN (lo normal es conectar directo) y sólo si falla se
   // reintenta al momento con él: el navegador reserva un hueco en el TURN por cada
   // conexión que lo lleve, aunque luego vaya directa, y así los huecos llegan para todos.
@@ -75,7 +76,7 @@ G.Net = (() => {
   }
 
   function turnUser() {
-    const fb = G.DB.fb, user = fb && !fb.emulator && fb.auth && fb.auth.currentUser;
+    const fb = TURN_API && G.DB.fb, user = fb && !fb.emulator && fb.auth && fb.auth.currentUser;
     return user && !user.isAnonymous ? user : null;
   }
 

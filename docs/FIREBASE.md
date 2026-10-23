@@ -75,7 +75,7 @@ npx firebase-tools deploy --only firestore,database --project TU-PROYECTO
 
 **Authentication → Configuración → Dominios autorizados → Agregar dominio**:
 
-- `jpter78.github.io` (si lo publicas en GitHub Pages)
+- `paulprade05.github.io` (si lo publicas en GitHub Pages)
 - `localhost`, para probar en tu ordenador (en proyectos nuevos ya no viene puesto).
 
 Sin esto, "Entrar con Google" da el error *dominio no autorizado*.
@@ -85,7 +85,7 @@ Sin esto, "Entrar con Google" da el error *dominio no autorizado*.
 En <https://console.cloud.google.com/apis/credentials> (mismo proyecto), abre la
 **Browser key** → *Restricciones de aplicaciones* → *Sitios web* y añade:
 
-- `https://jpter78.github.io/*`
+- `https://paulprade05.github.io/*`
 - `http://localhost:*`
 
 Así nadie puede usar tu clave desde otra web.
