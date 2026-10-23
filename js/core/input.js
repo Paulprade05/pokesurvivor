@@ -3,6 +3,7 @@
  * la tecla de la W es la Z, y ZQSD funciona sin tocar nada.
  * Teclas que se pueden cambiar (Ajustes > Controles, ajuste 'keys' = { acción: código }):
  *   m1-m4 ataque 1-4 · prev / next ataque anterior / siguiente · pause pausa ·
+ *   zmove movimiento Z (la Z, la tecla de abajo a la izquierda) ·
  *   up / down / left / right teclas de más para moverse.
  * Esc siempre pausa y cierra, WASD y las flechas siempre mueven y las cartas
  * de nivel siempre van con 1-4 (y el clic).
@@ -19,9 +20,9 @@ G.Input = (() => {
     left: ['keya', 'arrowleft'], right: ['keyd', 'arrowright']
   };
   const MOVE_SET = new Set([].concat(...Object.values(MOVE_KEYS)));
-  const ACTIONS = ['m1', 'm2', 'm3', 'm4', 'prev', 'next', 'pause', 'up', 'down', 'left', 'right'];
+  const ACTIONS = ['m1', 'm2', 'm3', 'm4', 'prev', 'next', 'pause', 'zmove', 'up', 'down', 'left', 'right'];
   const DEF_KEYS = { m1: ['digit1', 'numpad1'], m2: ['digit2', 'numpad2'], m3: ['digit3', 'numpad3'], m4: ['digit4', 'numpad4'],
-    prev: ['keyq'], next: ['keye', 'tab'], pause: ['keyp'], up: [], down: [], left: [], right: [] };
+    prev: ['keyq'], next: ['keye', 'tab'], pause: ['keyp'], zmove: ['keyz'], up: [], down: [], left: [], right: [] };
 
   // (El autorrelleno de Chrome manda keydown sin code ni key.)
   function code(e) { return (e.code || e.key || '').toLowerCase(); }
@@ -182,7 +183,7 @@ G.Input = (() => {
     held(c) { return down.has(c); },
     /** true sólo en el frame en que se pulsó. */
     tap(c) { return pressed.has(c) || vkeys.has(c); },
-    /** true en el frame en que se pulsó la tecla de una acción ('m1'..'m4', 'prev', 'next', 'pause'), o desde el mando. */
+    /** true en el frame en que se pulsó la tecla de una acción ('m1'..'m4', 'prev', 'next', 'pause', 'zmove'), o desde el mando. */
     act(a) { return vacts.has(a) || any(binds()[a] || [], pressed); },
     /** Una pulsación que no viene del teclado (el mando): cuenta como tecla en este fotograma. */
     virtual(c) { vkeys.add(c); },

@@ -4,6 +4,9 @@
  * En vertical (móvil de pie) va en filas: tarjeta a la izquierda y pausa y
  * reloj a la derecha; debajo, la línea del bioma, el clima, los compañeros y
  * las barras de los jefes; los ataques abajo, en su sitio de siempre.
+ * En el móvil (de pie y tumbado) todo va en su versión pequeña (ver hudK y
+ * PADS_S): tarjeta, reloj, jefes, avisos, flechas, ataques y pausa.
+ * Con un Cristal Z de su tipo, el botón Z va a la derecha de los ataques (drawZ).
  *
  * Estilo (lavado de imagen): paneles azul noche translúcidos con borde claro
  * de 1 px, esquinas redondeadas y sombra suave; letra Fredoka (números,
@@ -136,8 +139,10 @@ G.HUD = (() => {
    * En horizontal se aparta de la tarjeta. → ancho de la chapa.
    */
   function pill(ctx, s, w, y, col, size = 12) {
+    // (En el móvil, más baja y con la letra a 11.)
+    if (cmp) size = Math.max(11, size - 1);
     ctx.font = F(600, size);
-    const tw = Math.min(ctx.measureText(s).width, w - 56), ph = size + 10, pw = tw + size * 1.7 + 12;
+    const tw = Math.min(ctx.measureText(s).width, w - 56), ph = size + (cmp ? 7 : 10), pw = tw + size * 1.7 + (cmp ? 8 : 12);
     const top = y - size * 0.35 - ph / 2, cx = midX(w, pw, top);
     panel(ctx, cx - pw / 2, top, pw, ph, ph / 2, 1, C.panel2, col, 1.5);
     ctx.beginPath(); ctx.arc(cx - pw / 2 + size * 0.85 + 3, top + ph / 2, size * 0.28, 0, 6.2832);
@@ -154,11 +159,12 @@ G.HUD = (() => {
    * tipA: opacidad de la punta (late). Encima va el icono o la inicial.
    */
   function arrow(ctx, a, col, r = 15, tipA = 1) {
-    const ca = Math.cos(a), sa = Math.sin(a);
+    const ca = Math.cos(a), sa = Math.sin(a), tip = cmp ? 10 : 13;
+    if (cmp) r *= 0.8;               // (en el móvil, más pequeña: el icono de dentro sigue cabiendo)
     ctx.lineJoin = 'round';
     ctx.globalAlpha = tipA;
     ctx.beginPath();
-    ctx.moveTo(ca * (r + 13), sa * (r + 13));
+    ctx.moveTo(ca * (r + tip), sa * (r + tip));
     ctx.lineTo(Math.cos(a + 0.8) * r, Math.sin(a + 0.8) * r);
     ctx.lineTo(Math.cos(a - 0.8) * r, Math.sin(a - 0.8) * r);
     ctx.closePath();
@@ -171,9 +177,10 @@ G.HUD = (() => {
   }
 
   /**
-   * Tamaño del HUD. De base crece con la pantalla (en monitores grandes se veía
-   * diminuto) y se multiplica por el ajuste «Tamaño del HUD»; en pantallas
-   * pequeñas (móvil) no pasa de lo que cabe.
+   * Tamaño de base (tableta y ordenador). Crece con la pantalla (en monitores
+   * grandes se veía diminuto) y se multiplica por el ajuste «Tamaño del HUD»; en
+   * pantallas pequeñas no pasa de lo que cabe. (También lo usan los números de
+   * daño, fx.js: en el móvil se quedan como estaban.)
    */
   function scaleFor(w, h) {
     const base = G.Touch.active ? 1 : G.U.clamp(Math.min(w / 1280, h / 800), 1, 1.5);
@@ -181,8 +188,35 @@ G.HUD = (() => {
     return Math.min(base * (+G.Settings.get('hudScale') || 1), cap);
   }
 
+  /*
+   * Móvil (23-10-2026): el HUD de siempre, pensado para pantallas de 560 px o
+   * más, tapaba mucho el juego en un iPhone. En el móvil (como el modo compacto
+   * de style.css: de pie con menos de 600 px de ancho, o tumbado con 520 de alto
+   * o menos) va en su versión pequeña: tarjeta de 164 × 47 (antes 228 × 68),
+   * reloj de 20 px, barras de jefes más finas, huecos de ataque de 44 px y la
+   * pausa de 36 (lo que se toca sigue midiendo 40 o más), joystick de 46 de
+   * radio (touch.js). La letra no baja de 11 px. El ajuste «Tamaño del HUD» la
+   * agranda (×1,25 o ×1,5, lo que quepa). Tableta y ordenador, como antes.
+   */
+  const small = (w, h) => w < 600 || h <= 520;
+  /** Tamaño de lo de arriba (tarjeta, reloj, jefes...): en el móvil, la versión pequeña × el ajuste. */
+  function hudK(w, h) {
+    if (!small(w, h)) return scaleFor(w, h);
+    return Math.min(+G.Settings.get('hudScale') || 1, Math.max(1, Math.min(w / 300, h / 250)));
+  }
+  /*
+   * Medidas de lo que se toca (también para «Colocar los botones», layout-ui.js):
+   * S lado de un hueco de ataque, GAP entre huecos, IG entre el objeto y el
+   * primero, BOT margen de abajo; la pausa: P lado de lo que se toca, PR radio
+   * del círculo y PM margen del borde.
+   */
+  const PADS = { S: 54, GAP: 9, IG: 18, BOT: 18, P: 40, PR: 20, PM: 12 };
+  const PADS_S = { S: 44, GAP: 7, IG: 12, BOT: 10, P: 40, PR: 18, PM: 8 };
+  const pads = (w, h) => small(w, h) ? PADS_S : PADS;
+  let cmp = false;                   // este fotograma, ¿HUD de móvil? (lo miran también pill y arrow)
+
   // Degradados guardados (crearlos en cada fotograma cuesta); se rehacen si cambia el tamaño.
-  let xpTop = null, xpTopW = 0, xpCard = null, cardG = null, lowG = null, lowW = 0, lowH = 0;
+  let xpTop = null, xpTopW = 0, xpCard = null, cardG = null, lowG = null, lowW = 0, lowH = 0, xpCardS = null, cardGS = null;
   const bosses = [];                 // jefes vivos (la lista se reutiliza)
 
   /** Poca vida: los bordes de la pantalla laten en rojo (lento y suave con «Menos destellos»). */
@@ -245,44 +279,9 @@ G.HUD = (() => {
     ctx.restore();
   }
 
-  function draw(ctx, w, h, pl, st) {
-    ctx.save();
-    ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round';
-    G.Touch.clearButtons();
-    const touch = G.Touch.active;
-    const now = performance.now(), calm = G.Settings.get('calm');
-    const k = scaleFor(w, h);
-    const hpF = G.U.clamp(pl.hp / pl.maxHp, 0, 1);
-    const tall = h > w;                            // vertical (móvil de pie)
-    const sa = G.Touch.safeArea();
-    lay.tall = tall; lay.l = sa.left; lay.r = sa.right;
-
-    if (hpF < 0.3 && !pl.dead && G.Settings.get('lowHpWarn') !== false) lowHp(ctx, w, h, hpF, calm, now);
-
-    // ---------- barra de experiencia (borde superior) ----------
-    // (En vertical, debajo de la barra de estado del iPhone.)
-    const xpF = G.U.clamp(pl.xp / pl.xpNext, 0, 1), xy = tall ? sa.top : 0;
-    ctx.fillStyle = C.track;
-    ctx.fillRect(0, xy, w, 7);
-    if (!xpTop || xpTopW !== w) {
-      xpTop = ctx.createLinearGradient(0, 0, w, 0);
-      xpTop.addColorStop(0, '#4FA8FF'); xpTop.addColorStop(1, '#9B6BFF');
-      xpTopW = w;
-    }
-    if (xpF > 0) {
-      // (Empieza fuera de la pantalla: sólo se ve redondeada la punta.)
-      roundRect(ctx, -4, xy, w * xpF + 4, 7, 3.5);
-      ctx.fillStyle = xpTop; ctx.fill();
-      ctx.fillStyle = C.gloss;
-      ctx.fillRect(0, xy + 1, Math.max(0, w * xpF - 4), 2);
-    }
-
-    // ---------- tarjeta: nivel, nombre, vida y experiencia (crece con k) ----------
-    const px = 16 + sa.left, py = 14 + sa.top;     // lejos de la muesca del iPhone
-    const CW = 228, CH = 68, BX = 34, BW = 186, u = 1 / k;   // u: un píxel de pantalla
-    ctx.save();
-    ctx.translate(px, py); ctx.scale(k, k);
+  /** Tarjeta de siempre (tableta y ordenador), en sus coordenadas (ya escalada). */
+  function cardBig(ctx, pl, hpF, xpF, CW, CH, u, calm, now) {
+    const BX = 34, BW = 186;
     if (!cardG) {
       cardG = ctx.createLinearGradient(0, 0, 0, CH);
       cardG.addColorStop(0, 'rgba(26,44,92,.86)'); cardG.addColorStop(1, 'rgba(11,21,48,.86)');
@@ -332,10 +331,100 @@ G.HUD = (() => {
       xpCard.addColorStop(0, '#4FA8FF'); xpCard.addColorStop(1, '#9B6BFF');
     }
     bar(ctx, BX, 56, BW, 6, xpF, xpCard);
+  }
+
+  /**
+   * Tarjeta del móvil: más baja y estrecha. Arriba, el nivel y el nombre; debajo,
+   * la vida con los números dentro y una raya con la experiencia (sin las
+   * etiquetas PS / EXP: se entiende por los colores). Letra de 11 a 13 px.
+   */
+  function cardSmall(ctx, pl, hpF, xpF, CW, CH, u, calm, now) {
+    if (!cardGS) {
+      cardGS = ctx.createLinearGradient(0, 0, 0, CH);
+      cardGS.addColorStop(0, 'rgba(26,44,92,.86)'); cardGS.addColorStop(1, 'rgba(11,21,48,.86)');
+    }
+    panel(ctx, 0, 0, CW, CH, 12, u, cardGS);
+    ctx.textAlign = 'left';
+    ctx.font = N(900, 11);
+    const nvW = ctx.measureText('Nv.').width;
+    ctx.font = F(700, 12.5);
+    const lv = String(pl.level), lw = nvW + ctx.measureText(lv).width + 12;
+    roundRect(ctx, 5, 5, lw, 16, 8);
+    ctx.fillStyle = C.yellow; ctx.fill();
+    ctx.fillStyle = C.yellowInk;
+    ctx.fillText(lv, 12 + nvW, 17.5);
+    ctx.font = N(900, 11);
+    ctx.fillText('Nv.', 9.5, 17);
+    ctx.font = F(600, 13);
+    ctx.fillStyle = C.ink;
+    ctx.fillText(pl.mon.name, 11 + lw, 17.5, CW - 16 - lw);
+
+    const BX = 5, BW = CW - 10;
+    bar(ctx, BX, 24, BW, 13, hpF, hpColor(hpF));
+    if (hpF < 0.3 && !pl.dead) {
+      roundRect(ctx, BX - 1, 23, BW + 2, 15, 7.5);
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = calm ? 0.8 : 0.5 + 0.4 * Math.sin(now / 120);
+      ctx.strokeStyle = C.red; ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.font = F(700, 11);
+    ctx.textAlign = 'center';
+    outlined(ctx, Math.max(0, Math.ceil(pl.hp)) + ' / ' + Math.round(pl.maxHp), BX + BW / 2, 34.5, '#fff', 2.5);
+    if (!xpCardS) {
+      xpCardS = ctx.createLinearGradient(BX, 0, BX + BW, 0);
+      xpCardS.addColorStop(0, '#4FA8FF'); xpCardS.addColorStop(1, '#9B6BFF');
+    }
+    bar(ctx, BX, 40, BW, 3, xpF, xpCardS);
+    ctx.textAlign = 'left';
+  }
+
+  function draw(ctx, w, h, pl, st) {
+    ctx.save();
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    G.Touch.clearButtons();
+    const touch = G.Touch.active;
+    const now = performance.now(), calm = G.Settings.get('calm');
+    cmp = small(w, h);
+    const k = hudK(w, h), D = cmp ? PADS_S : PADS;
+    const hpF = G.U.clamp(pl.hp / pl.maxHp, 0, 1);
+    const tall = h > w;                            // vertical (móvil de pie)
+    const sa = G.Touch.safeArea();
+    lay.tall = tall; lay.l = sa.left; lay.r = sa.right;
+    const pp = touch ? G.Touch.spot('pause', w, h) : null;   // la pausa, si la ha movido el jugador
+
+    if (hpF < 0.3 && !pl.dead && G.Settings.get('lowHpWarn') !== false) lowHp(ctx, w, h, hpF, calm, now);
+
+    // ---------- barra de experiencia (borde superior) ----------
+    // (En vertical, debajo de la barra de estado del iPhone.)
+    const xpF = G.U.clamp(pl.xp / pl.xpNext, 0, 1), xy = tall ? sa.top : 0, xh = cmp ? 5 : 7;
+    ctx.fillStyle = C.track;
+    ctx.fillRect(0, xy, w, xh);
+    if (!xpTop || xpTopW !== w) {
+      xpTop = ctx.createLinearGradient(0, 0, w, 0);
+      xpTop.addColorStop(0, '#4FA8FF'); xpTop.addColorStop(1, '#9B6BFF');
+      xpTopW = w;
+    }
+    if (xpF > 0) {
+      // (Empieza fuera de la pantalla: sólo se ve redondeada la punta.)
+      roundRect(ctx, -4, xy, w * xpF + 4, xh, xh / 2);
+      ctx.fillStyle = xpTop; ctx.fill();
+      ctx.fillStyle = C.gloss;
+      ctx.fillRect(0, xy + 1, Math.max(0, w * xpF - 4), cmp ? 1.5 : 2);
+    }
+
+    // ---------- tarjeta: nivel, nombre, vida y experiencia (crece con k) ----------
+    const px = (cmp ? 10 : 16) + sa.left, py = (cmp ? 8 : 14) + sa.top;     // lejos de la muesca del iPhone
+    const CW = cmp ? 164 : 228, CH = cmp ? 47 : 68, u = 1 / k;   // u: un píxel de pantalla
+    ctx.save();
+    ctx.translate(px, py); ctx.scale(k, k);
+    if (cmp) cardSmall(ctx, pl, hpF, xpF, CW, CH, u, calm, now);
+    else cardBig(ctx, pl, hpF, xpF, CW, CH, u, calm, now);
 
     // buffs activos (y el poder de altar), debajo de la tarjeta
     let bx = 0;
-    const by = CH + 5;
+    const by = CH + (cmp ? 4 : 5);
     ctx.font = N(900, 11);
     for (const key in pl.buffs) {
       const b = pl.buffs[key];
@@ -363,13 +452,16 @@ G.HUD = (() => {
     // ---------- reloj / bioma / kills ----------
     // En vertical: el reloj a la derecha, debajo de la pausa, y la línea del
     // bioma de lado a lado, bajo la tarjeta (con sitio para los potenciadores).
-    const clockY = tall ? py + (touch ? 44 : 0) + 19 * k : 16 + 26 * k;
-    const infoY = tall ? py + (CH + 33) * k : clockY + 17 * k;
+    // Móvil: de pie, el reloj a la izquierda de la pausa (a su altura) y la línea
+    // del bioma justo bajo la tarjeta; tumbado, como siempre pero más pequeño.
+    const clockY = cmp ? (tall ? py + D.P / 2 + 7 * k : py + 18 * k) : tall ? py + (touch ? 44 : 0) + 19 * k : 16 + 26 * k;
+    const infoY = cmp ? (tall ? cardB + 14 * k : clockY + 15 * k) : tall ? py + (CH + 33) * k : clockY + 17 * k;
     ctx.textAlign = tall ? 'right' : 'center';
-    ctx.font = F(600, (tall ? 24 : 26) * k);
+    ctx.font = F(600, (cmp ? 20 : tall ? 24 : 26) * k);
     const clock = G.U.mmss(st.time);
     // (En horizontal, en medio; en un móvil estrecho con el HUD grande, a la derecha de la tarjeta.)
-    outlined(ctx, clock, tall ? w - 12 - sa.right : Math.max(w / 2, cardR + 12 + ctx.measureText(clock).width / 2), clockY, '#fff', 4.5 * k);
+    const clockR = w - (cmp ? 10 : 12) - sa.right - (cmp && touch && !pp ? D.P + D.PM - 4 : 0);
+    outlined(ctx, clock, tall ? clockR : Math.max(w / 2, cardR + 12 + ctx.measureText(clock).width / 2), clockY, '#fff', (cmp ? 4 : 4.5) * k);
     ctx.textAlign = 'center';
     ctx.font = N(800, 11 * k);
     const info = G.World.biomeName().toUpperCase() + '  ·  ' + pl.kills + ' DERROTADOS  ·  ' + pl.coins + ' MONEDAS';
@@ -387,20 +479,22 @@ G.HUD = (() => {
     // ---------- clima (arriba a la derecha; en vertical, centrado bajo el bioma) ----------
     const wx = G.Weather.current;
     if (wx) {
+      // (En el móvil, una chapa más baja: 22 px y el icono a 16.)
+      const ch = cmp ? 22 : 26, ic = cmp ? 16 : 20;
       ctx.save();
       if (tall) ctx.translate(w / 2, ty - 2 * k);
-      else ctx.translate(w - 16 - sa.right - (touch ? 56 : 0), 14 + sa.top);
+      else ctx.translate(w - (cmp ? 10 : 16) - sa.right - (touch ? (cmp ? 52 : 56) : 0), py);
       ctx.scale(k, k);
       ctx.font = N(800, 11);
       ctx.textAlign = 'left';
       const txt = wx.name.toUpperCase() + ' · ' + Math.ceil(wx.left) + 's';
-      const tw = ctx.measureText(txt).width + 42, x0 = tall ? -tw / 2 : -tw;
-      panel(ctx, x0, 0, tw, 26, 13, 1 / k);
-      G.Icons.draw(ctx, wx.icon, x0 + 6, 3, 20);
+      const tw = ctx.measureText(txt).width + ic + 22, x0 = tall ? -tw / 2 : -tw;
+      panel(ctx, x0, 0, tw, ch, ch / 2, 1 / k);
+      G.Icons.draw(ctx, wx.icon, x0 + (cmp ? 5 : 6), (ch - ic) / 2, ic);
       ctx.fillStyle = wx.color;
-      ctx.fillText(txt, x0 + 31, 17);
+      ctx.fillText(txt, x0 + ic + 11, ch / 2 + 4);
       ctx.restore();
-      if (tall) ty += 30 * k;
+      if (tall) ty += (ch + 4) * k;
     }
 
     // Sitio para la lista de compañeros (se pinta en drawCoop).
@@ -418,12 +512,13 @@ G.HUD = (() => {
     for (const e of G.EnemyMgr.all()) if (e.boss && !e.dead) bosses.push(e);
     let bossB = 0;                   // dónde acaban (lo de la grieta va debajo)
     if (bosses.length) {
-      const nb = Math.min(3, bosses.length), bh = 15 * k, left = cardR + 12;
-      let bw = Math.min(420 * k, w - 80), bx0 = (w - bw) / 2;
+      // (En el móvil, más finas y menos anchas: 13 px de alto y hasta 280.)
+      const nb = Math.min(3, bosses.length), bh = (cmp ? 13 : 15) * k, left = cardR + 12, bmax = (cmp ? 280 : 420) * k;
+      let bw = Math.min(bmax, w - 80), bx0 = (w - bw) / 2;
       // Vertical: de lado a lado (con sitio para el «+N»), debajo de todo lo de arriba.
-      if (tall) { bw = Math.min(420 * k, w - 64 - sa.left - sa.right); bx0 = (w - bw) / 2; }
+      if (tall) { bw = Math.min(bmax, w - 64 - sa.left - sa.right); bx0 = (w - bw) / 2; }
       else if (bx0 < left) { bx0 = left; bw = Math.min(bw, w - 16 - sa.right - left); }
-      let y = tall ? ty : infoY + 11 * k;
+      let y = tall ? ty : infoY + (cmp ? 8 : 11) * k;
       ctx.textAlign = 'center';
       ctx.font = F(600, 11 * k);
       for (let i = 0; i < nb; i++) {
@@ -433,7 +528,7 @@ G.HUD = (() => {
         roundRect(ctx, bx0, y, bw, bh, bh / 2);
         ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.stroke();
         // Nombre en claro con borde: se lee aunque la barra esté medio vacía.
-        outlined(ctx, name, bx0 + bw / 2, y + bh / 2 + 3.9 * k, '#FFF6E0', 2.5 * k, bw - 12);
+        outlined(ctx, name, bx0 + bw / 2, y + bh / 2 + 3.9 * k, '#FFF6E0', (cmp ? 2.2 : 2.5) * k, bw - 12);
         y += bh + 3 * k;
       }
       if (bosses.length > nb) {
@@ -448,32 +543,39 @@ G.HUD = (() => {
     // ---------- dónde va la ranura de movimientos (se pinta más abajo) ----------
     // En PC crece con el HUD (kb); en móvil no, para que case con «Colocar los
     // botones» (layout-ui.js). Se dibuja en una pantalla de W×H y los botones
-    // táctiles se registran en píxeles de verdad (× kb).
+    // táctiles se registran en píxeles de verdad (× kb). En el móvil, huecos de
+    // 44 px (antes 54; se siguen acertando con el dedo) y más juntos.
     const kb = touch ? 1 : k, W = w / kb, H = h / kb;
-    const S = 54, GAP = 9;
+    const S = D.S, GAP = D.GAP, IG = D.IG;
     const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.maxMoves);
+    // Movimiento Z (24-10-2026): su botón, del tamaño de un hueco, a la derecha de los huecos
+    // (separado como el objeto a la izquierda). Sólo con el Cristal Z de un tipo de tu compañero.
+    const z = G.Combat.zOf(pl), ZW = z ? IG + S : 0;
     const totalW = n * S + (n - 1) * GAP;
     let sx = (W - totalW) / 2;
     // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
-    let sy = H - S - 18 - (touch ? Math.min(28, sa.bottom) : 0);
+    let sy = H - S - D.BOT - (touch ? Math.min(28, sa.bottom) : 0);
     // En móvil, donde la haya puesto el jugador: el bloque objeto + todos los
     // huecos (aunque aún no estén llenos), por su centro, como en el editor
     // (layout-ui.js); los ataques nuevos van saliendo hacia la derecha.
     // En vertical, igual pero centrado abajo (y se ven los huecos vacíos).
     const pb = touch && G.Touch.spot('bar', w, h);
     if (pb || tall) {
-      const bw = S + 18 + nAll * S + (nAll - 1) * GAP;
-      sx = G.U.clamp((pb ? pb[0] * W : W / 2) - bw / 2, 6, Math.max(6, W - bw - 6)) + S + 18;
+      const bw = S + IG + nAll * S + (nAll - 1) * GAP + ZW;
+      sx = G.U.clamp((pb ? pb[0] * W : W / 2) - bw / 2, 6, Math.max(6, W - bw - 6)) + S + IG;
       sy = G.U.clamp(pb ? pb[1] * H - S / 2 : sy, Math.max(24, sa.top + 6), H - S - 6);   // (no bajo la barra de estado)
     }
     // Vínculo guardado: a la derecha de los huecos o, en vertical si no cabe, encima del último.
-    const nDraw = tall ? nAll : n, barEnd = sx + nDraw * (S + GAP) - GAP, bondW = pl.bonds > 1 ? 47 : 24;   // (icono y «×N»)
-    const bondUp = tall && pl.bonds > 0 && barEnd + 12 + bondW > W - 4;
+    // (Medidas del móvil: el activo sube 5 px y su nombre va en una chapa de 16; el vínculo, a 20.)
+    const RISE = cmp ? 5 : 6, NAME_H = cmp ? 16 : 18, BOND_S = cmp ? 20 : 24, BOND_UP = cmp ? 52 : 62;
+    const nDraw = tall ? nAll : n, barEnd = sx + nDraw * (S + GAP) - GAP, bondW = pl.bonds > 1 ? BOND_S + 23 : BOND_S;   // (icono y «×N»)
+    const zx = barEnd + IG, tailEnd = barEnd + ZW;   // (el botón Z y dónde acaba todo: el vínculo va detrás)
+    const bondUp = tall && pl.bonds > 0 && tailEnd + 12 + bondW > W - 4;
     // Vertical: las flechas del borde, entre lo de arriba (y su cuenta atrás) y
     // la barra con el nombre del ataque (si está abajo).
     if (tall) {
-      lay.lo = lay.below + 14 * k + 36;
-      lay.hi = sy * kb > h / 2 ? (sy - (bondUp ? 62 : 31)) * kb - 36 : h - 60 - sa.bottom;
+      lay.lo = lay.below + 14 * k + (cmp ? 30 : 36);
+      lay.hi = sy * kb > h / 2 ? (sy - (bondUp ? BOND_UP : RISE + NAME_H + 7)) * kb - (cmp ? 30 : 36) : h - 60 - sa.bottom;
     }
 
     // ---------- shinies fuera de pantalla: flecha en el borde ----------
@@ -487,7 +589,7 @@ G.HUD = (() => {
       ctx.save();
       ctx.translate(ex, ey);
       arrow(ctx, Math.atan2(sy - ey, sx - ex), '#9AE6FF', 15, pulse);
-      G.Icons.draw(ctx, 'shiny', -10, -10, 20);
+      if (cmp) G.Icons.draw(ctx, 'shiny', -8, -8, 16); else G.Icons.draw(ctx, 'shiny', -10, -10, 20);
       ctx.restore();
     }
 
@@ -503,7 +605,7 @@ G.HUD = (() => {
       ctx.save();
       ctx.translate(ex, ey);
       arrow(ctx, a, C.yellow, 16, pulse);
-      G.Icons.draw(ctx, 'crown', -10, -10, 20);
+      if (cmp) G.Icons.draw(ctx, 'crown', -8, -8, 16); else G.Icons.draw(ctx, 'crown', -10, -10, 20);
       const label = Math.round(G.U.dist(pl.x, pl.y, b.x, b.y) / 32) + ' m';
       ctx.font = F(600, 12);
       ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
@@ -530,12 +632,12 @@ G.HUD = (() => {
         // Halo que late.
         ctx.globalAlpha = 0.18 + beat * 0.22;
         ctx.fillStyle = '#B48AFF';
-        ctx.beginPath(); ctx.arc(0, 0, 30 + beat * 8, 0, 6.2832); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, (30 + beat * 8) * (cmp ? 0.8 : 1), 0, 6.2832); ctx.fill();
         ctx.globalAlpha = 1;
         arrow(ctx, a, col, 18);
         // Dentro, un remolino: dos aros morados.
-        ctx.beginPath(); ctx.arc(0, 0, 8, 0, 6.2832); ctx.lineWidth = 3; ctx.strokeStyle = '#A57BFF'; ctx.stroke();
-        ctx.beginPath(); ctx.arc(0, 0, 3, 0, 6.2832); ctx.fillStyle = '#E2D0FF'; ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, cmp ? 6.5 : 8, 0, 6.2832); ctx.lineWidth = cmp ? 2.5 : 3; ctx.strokeStyle = '#A57BFF'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, cmp ? 2.5 : 3, 0, 6.2832); ctx.fillStyle = '#E2D0FF'; ctx.fill();
         ctx.font = F(600, 12);
         ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
         outlined(ctx, label, -ca * 34, -sa * 30 + 4, '#E2D0FF', 3.5);
@@ -558,8 +660,9 @@ G.HUD = (() => {
 
     // Eventos: cuenta atrás, flecha al Pokémon perdido / a la marca y a los duendes.
     // La cuenta atrás va en y = 112 (events.js): si las barras de los jefes llegan ahí, se baja.
-    // (En vertical, debajo de todo lo de arriba.)
-    const evDy = tall ? lay.below + 14 * k - 112 : G.Events.current && G.Events.current !== 'lost' ? Math.max(0, bossB - 98) : 0;
+    // (En vertical, debajo de todo lo de arriba. En el móvil tumbado, también: en 112 caía
+    // justo sobre el aviso grande, que sale a la vez al empezar el evento.)
+    const evDy = tall || cmp ? lay.below + 14 * k - 112 : G.Events.current && G.Events.current !== 'lost' ? Math.max(0, bossB - 98) : 0;
     G.Events.drawHud(ctx, w, h, pl, F, evDy);   // sólo baja la cuenta atrás, no las flechas del borde
 
     // Aviso propio al abrirse una grieta (no lo tapan los otros avisos).
@@ -567,19 +670,21 @@ G.HUD = (() => {
     if (rift && rift.t < 4.5) {
       const a = Math.min(1, rift.t * 4, (4.5 - rift.t) * 2), pop = 1 + Math.max(0, 0.25 - rift.t) * 1.6;
       // (En vertical, con un respiro bajo la chapa de la cuenta atrás, que acaba unos 9 px bajo su línea.)
-      const y0 = tall ? Math.max(h * 0.2, lay.below + 14 * k + 44) : h * 0.2;
-      popB = y0 + 28;
+      // (En el móvil, más pequeño: 16 y 11 px en una caja de 46 de alto.)
+      const f1 = cmp ? 16 : 20, f2 = cmp ? 11 : 12, ph = cmp ? 46 : 56;
+      const y0 = tall ? Math.max(h * 0.2, lay.below + 14 * k + (cmp ? 37 : 44)) : h * 0.2;
+      popB = y0 + ph / 2;
       ctx.save();
       ctx.globalAlpha = a;
       ctx.translate(w / 2, y0); ctx.scale(pop, pop);
-      ctx.font = F(700, 20);
+      ctx.font = F(700, f1);
       const t1 = '¡SE HA ABIERTO UNA GRIETA!', t2 = 'Sigue la flecha morada: dentro te espera un legendario';
-      const bw = Math.min(w - 24, Math.max(ctx.measureText(t1).width, (ctx.font = N(700, 12), ctx.measureText(t2).width)) + 40);
-      panel(ctx, -bw / 2, -28, bw, 56, 18, 1, 'rgba(34,18,72,.92)', 'rgba(200,170,255,.6)', 1.5);
+      const bw = Math.min(w - 24, Math.max(ctx.measureText(t1).width, (ctx.font = N(700, f2), ctx.measureText(t2).width)) + (cmp ? 28 : 40));
+      panel(ctx, -bw / 2, -ph / 2, bw, ph, cmp ? 14 : 18, 1, 'rgba(34,18,72,.92)', 'rgba(200,170,255,.6)', 1.5);
       ctx.textAlign = 'center';
       // (Si la caja no da para más, el texto se estrecha en vez de salirse.)
-      ctx.font = F(700, 20); ctx.fillStyle = '#EFE4FF'; ctx.fillText(t1, 0, -3, bw - 20);
-      ctx.font = N(700, 12); ctx.fillStyle = '#CDB6FF'; ctx.fillText(t2, 0, 16, bw - 20);
+      ctx.font = F(700, f1); ctx.fillStyle = '#EFE4FF'; ctx.fillText(t1, 0, cmp ? -2 : -3, bw - 20);
+      ctx.font = N(700, f2); ctx.fillStyle = '#CDB6FF'; ctx.fillText(t2, 0, cmp ? 13 : 16, bw - 20);
       ctx.restore();
     }
 
@@ -594,18 +699,20 @@ G.HUD = (() => {
       // Que quepa a lo ancho (móvil de pie, frases largas): la letra baja hasta 16 px
       // y, si ni así, va en varias líneas. En vertical, debajo de lo de arriba y
       // del aviso de la grieta.
+      // (En el móvil, de 17 px, hasta 13.)
       const mw = w - 24 - sa.left - sa.right, by = tall ? Math.max(h * 0.3, lay.below + 14 * k + 30, popB + 26) : h * 0.3;
-      fitFont(ctx, ban.text, 700, 22, mw, 16);
+      fitFont(ctx, ban.text, 700, cmp ? 17 : 22, mw, cmp ? 13 : 16);
       ctx.fillStyle = C.yellow;
-      ctx.strokeStyle = C.line; ctx.lineWidth = 5;
+      ctx.strokeStyle = C.line; ctx.lineWidth = cmp ? 4 : 5;
       if (ctx.measureText(ban.text).width <= mw) {
         ctx.strokeText(ban.text, w / 2, by, mw);
         ctx.fillText(ban.text, w / 2, by, mw);
       } else {
         if (banSrc !== ban.text || banMw !== mw) { banSrc = ban.text; banMw = mw; banLines = wrap(ctx, G.T(ban.text), mw); }
+        const lh = cmp ? 17 : 21;
         for (let i = 0; i < banLines.length; i++) {
-          G.I18n.rawCanvas(ctx, 'strokeText', banLines[i], w / 2, by + i * 21, mw);
-          G.I18n.rawCanvas(ctx, 'fillText', banLines[i], w / 2, by + i * 21, mw);
+          G.I18n.rawCanvas(ctx, 'strokeText', banLines[i], w / 2, by + i * lh, mw);
+          G.I18n.rawCanvas(ctx, 'fillText', banLines[i], w / 2, by + i * lh, mw);
         }
       }
       ctx.restore();
@@ -619,13 +726,15 @@ G.HUD = (() => {
     const cdOf = m => m.kind === 'orbit' ? 0 : G.U.clamp(m.t / G.Combat.cooldown(pl, m), 0, 1);
     // Toda la barra (también entre los huecos y en los vacíos) es zona de botones:
     // ahí no sale el joystick flotante. Los huecos, registrados después, mandan.
-    G.Touch.addButton((sx - S - 18) * kb, (sy - 6) * kb, (S + 18 + nDraw * (S + GAP) - GAP) * kb, (S + 6) * kb, noop, 4);
+    G.Touch.addButton((sx - S - IG) * kb, (sy - RISE) * kb, (S + IG + nDraw * (S + GAP) - GAP + ZW) * kb, (S + RISE) * kb, noop, 4);
+    // (En el móvil: radio 12, icono a 28 y el halo del activo de 4 px.)
+    const TR = cmp ? 12 : 14, ICO = cmp ? 28 : 32, HALO = cmp ? 4 : 5;
 
     for (let i = 0; i < nDraw; i++) {
       const x = sx + i * (S + GAP);
       if (i >= n) {
         // Vertical: hueco aún vacío (los ataques nuevos los van llenando).
-        roundRect(ctx, x, sy, S, S, 14);
+        roundRect(ctx, x, sy, S, S, TR);
         ctx.fillStyle = 'rgba(11,21,48,.42)'; ctx.fill();
         ctx.lineWidth = ip; ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.stroke();
         continue;
@@ -634,20 +743,20 @@ G.HUD = (() => {
       const m = g[0];
       const fused = g.length > 1;
       const on = i === pl.active;
-      const y = on ? sy - 6 : sy;
+      const y = on ? sy - RISE : sy;
       // Tocar (o hacer clic en) un icono activa ese movimiento.
       if (m) G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing' && pl.active !== i) { pl.setActive(i); G.Audio.sfx('click'); } }, (GAP / 2 + 3) * kb);
       const col = m ? G.U.TYPE_COLOR[m.type] : '#4a5468';
 
       // Activo: halo amarillo alrededor (rosa con un vínculo), para ver de un vistazo cuál dispara.
       if (on && m) {
-        roundRect(ctx, x - 5, y - 5, S + 10, S + 10, 19);
+        roundRect(ctx, x - HALO, y - HALO, S + HALO * 2, S + HALO * 2, TR + HALO);
         ctx.fillStyle = fused ? 'rgba(255,138,216,.26)' : 'rgba(255,203,5,.26)'; ctx.fill();
       }
 
       // Fondo: baldosa redondeada.
-      panel(ctx, x, y, S, S, 14, ip, on ? C.panel2 : C.panel, null);
-      roundRect(ctx, x, y, S, S, 14);
+      panel(ctx, x, y, S, S, TR, ip, on ? C.panel2 : C.panel, null);
+      roundRect(ctx, x, y, S, S, TR);
       ctx.lineWidth = on ? 2.5 : fused || (m && m.evolved) ? 2 : ip;
       // Activo: amarillo. Vínculo: rosa. Evolucionado: dorado claro.
       ctx.strokeStyle = fused ? BOND : on ? C.yellow : m && m.evolved ? '#FFD86B' : C.edge;
@@ -657,7 +766,7 @@ G.HUD = (() => {
 
       if (fused) {
         // Vínculo: los movimientos en una cuadrícula de 2×2, cada uno con su recarga.
-        const CC = 22, P = (S - CC * 2) / 3;
+        const CC = cmp ? 18 : 22, P = (S - CC * 2) / 3;
         for (let j = 0; j < g.length; j++) {
           const gm = g[j];
           const cx = x + P + (j % 2) * (CC + P), cy = y + P + Math.floor(j / 2) * (CC + P);
@@ -674,7 +783,7 @@ G.HUD = (() => {
         const cdFrac = cdOf(m);
         if (cdFrac > 0) {
           ctx.save();
-          roundRect(ctx, x, y, S, S, 14); ctx.clip();
+          roundRect(ctx, x, y, S, S, TR); ctx.clip();
           ctx.fillStyle = 'rgba(4,9,24,.62)';
           ctx.beginPath();
           ctx.moveTo(x + S / 2, y + S / 2);
@@ -684,20 +793,20 @@ G.HUD = (() => {
         }
 
         // icono del movimiento
-        G.Icons.draw(ctx, 'move:' + m.id, x + (S - 32) / 2, y + (S - 32) / 2 - 3, 32);
+        G.Icons.draw(ctx, 'move:' + m.id, x + (S - ICO) / 2, y + (S - ICO) / 2 - (cmp ? 2 : 3), ICO);
 
         if (cdFrac > 0 && m.t > 1.5) {
-          ctx.font = F(700, 17);
+          ctx.font = F(700, cmp ? 15 : 17);
           ctx.textAlign = 'center';
-          outlined(ctx, String(Math.ceil(m.t)), x + S / 2, y + S / 2 + 4, '#fff', 3.5);
+          outlined(ctx, String(Math.ceil(m.t)), x + S / 2, y + S / 2 + 4, '#fff', cmp ? 3 : 3.5);
         }
 
         // nivel del movimiento (rayitas redondeadas del color del tipo)
-        const dots = m.def.maxLvl, dgap = 2.5;
-        const dw = Math.min(5, (S - 12 - (dots - 1) * dgap) / dots);
+        const dots = m.def.maxLvl, dgap = cmp ? 2 : 2.5;
+        const dw = Math.min(cmp ? 4 : 5, (S - (cmp ? 10 : 12) - (dots - 1) * dgap) / dots);
         const tw = dots * dw + (dots - 1) * dgap;
         for (let d = 0; d < dots; d++) {
-          roundRect(ctx, x + (S - tw) / 2 + d * (dw + dgap), y + S - 8, dw, 3, 1.5);
+          roundRect(ctx, x + (S - tw) / 2 + d * (dw + dgap), y + S - (cmp ? 7 : 8), dw, cmp ? 2.5 : 3, cmp ? 1.25 : 1.5);
           ctx.fillStyle = d < m.lvl ? col : 'rgba(255,255,255,.2)';
           ctx.fill();
         }
@@ -708,7 +817,7 @@ G.HUD = (() => {
       if (touch) {
         ctx.fillStyle = fused ? BOND : on ? C.yellow : C.ink2;
         ctx.textAlign = 'left';
-        ctx.fillText(String(i + 1), x + 5, y + 13);
+        ctx.fillText(String(i + 1), x + (cmp ? 4 : 5), y + (cmp ? 12 : 13));
       } else {
         const key = String((G.Input.keyLabel && G.Input.keyLabel('m' + (i + 1))) || i + 1);
         const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
@@ -721,41 +830,44 @@ G.HUD = (() => {
       // nombre encima del activo, en una chapa (con un vínculo: "Ascuas +2")
       if (on) {
         const nm = fused ? G.T(m.name, 'move') + ' +' + (g.length - 1) : G.T(m.name, 'move');
-        ctx.font = F(600, 12);
+        ctx.font = F(600, cmp ? 11 : 12);
         ctx.textAlign = 'center';
         // (Sin salirse por los lados: con el móvil de pie, el del último hueco se cortaba.
         // Con objeto, sin pisar su nombre: la chapa no pasa a la izquierda del primer hueco.)
-        const pw = Math.min(ctx.measureText(nm).width, W - 26) + 18;
+        const pw = Math.min(ctx.measureText(nm).width, W - 26) + (cmp ? 14 : 18);
         const nx = G.U.clamp(Math.max(x + S / 2, pl.item ? sx - 2 + pw / 2 : 0), pw / 2 + 4, Math.max(pw / 2 + 4, W - pw / 2 - 4));
         // (Encima de la chapita de la tecla, sin taparla.)
-        panel(ctx, nx - pw / 2, y - 23, pw, 18, 9, ip, C.panel2, fused ? BOND : col, 1.5 * ip);
+        panel(ctx, nx - pw / 2, y - NAME_H - 5, pw, NAME_H, NAME_H / 2, ip, C.panel2, fused ? BOND : col, 1.5 * ip);
         ctx.fillStyle = C.ink;
-        ctx.fillText(nm, nx, y - 9.8, W - 26);
+        ctx.fillText(nm, nx, y - (cmp ? 9 : 9.8), W - 26);
       }
     }
 
+    // ---------- movimiento Z: listo (late en su color), activo (cuenta atrás) o recargando ----------
+    if (z) drawZ(ctx, pl, z, zx, sy, S, TR, HALO, ip, kb, touch, now);
+
     // ---------- vínculo guardado (aún no hay dos movimientos sueltos) ----------
     if (pl.bonds > 0) {
-      const bx = bondUp ? barEnd - bondW : barEnd + 12, by = bondUp ? sy - 62 : sy + S / 2 - 12;
-      G.Icons.draw(ctx, 'bond', bx, by, 24);
+      const bx = bondUp ? tailEnd - bondW : tailEnd + (cmp ? 8 : 12), by = bondUp ? sy - BOND_UP : sy + S / 2 - BOND_S / 2;
+      G.Icons.draw(ctx, 'bond', bx, by, BOND_S);
       if (pl.bonds > 1) {
         ctx.font = F(700, 12);
         ctx.textAlign = 'left';
-        outlined(ctx, '×' + pl.bonds, bx + 25, by + 20, BOND, 3);
+        outlined(ctx, '×' + pl.bonds, bx + BOND_S + 1, by + BOND_S - 4, BOND, 3);
       }
     }
 
     // ---------- objeto equipado (a la izquierda de los movimientos) ----------
     {
-      const ix = sx - S - 18, iy = sy;
-      panel(ctx, ix, iy, S, S, 14, ip, pl.item ? 'rgba(46,38,12,.9)' : 'rgba(11,21,48,.5)',
+      const ix = sx - S - IG, iy = sy, IS = cmp ? 30 : 36;
+      panel(ctx, ix, iy, S, S, TR, ip, pl.item ? 'rgba(46,38,12,.9)' : 'rgba(11,21,48,.5)',
             pl.item ? 'rgba(255,203,5,.85)' : 'rgba(255,255,255,.1)', pl.item ? 1.5 : ip);
       if (pl.item) {
         const it = G.Items.BY[pl.item];
-        G.Icons.draw(ctx, pl.item, ix + (S - 36) / 2, iy + (S - 36) / 2, 36);
+        G.Icons.draw(ctx, pl.item, ix + (S - IS) / 2, iy + (S - IS) / 2, IS);
         ctx.font = N(800, 11);
         ctx.textAlign = 'center';
-        outlined(ctx, it.name, ix + S / 2, iy - 7, C.yellow, 3, S + 30);
+        outlined(ctx, it.name, ix + S / 2, iy - (cmp ? 5 : 7), C.yellow, 3, S + (cmp ? 20 : 30));
         // Qué hace: al pasar el ratón por encima o 3 s al tocarlo (o hacer clic).
         G.Touch.addButton(ix * kb, iy * kb, S * kb, S * kb, () => { tipUntil = performance.now() + 3000; }, 4);
         const ms = G.Input.mouse();
@@ -768,16 +880,18 @@ G.HUD = (() => {
 
     // ---------- botón de pausa (táctil): círculo azul noche con dos barras ----------
     if (touch) {
-      // (De serie arriba a la derecha; en vertical, justo debajo de la barra de estado.)
-      const pp = G.Touch.spot('pause', w, h);
-      const bx = pp ? G.U.clamp(pp[0] * w - 20, 4, w - 44) : w - 52 - (tall ? sa.right : Math.min(44, sa.right));
-      const by = pp ? G.U.clamp(pp[1] * h - 20, Math.max(10, sa.top + 4), h - 44) : tall ? py : 12 + Math.min(20, sa.top), bs = 40;
-      ctx.beginPath(); ctx.arc(bx + 20, by + 22, 20, 0, 6.2832); ctx.fillStyle = C.shadow; ctx.fill();
-      ctx.beginPath(); ctx.arc(bx + 20, by + 20, 20, 0, 6.2832); ctx.fillStyle = 'rgba(11,21,48,.78)'; ctx.fill();
+      // (De serie arriba a la derecha; en vertical, justo debajo de la barra de estado.
+      // En el móvil, el círculo mide 36 y lo que se toca sigue siendo de 40 + 8 alrededor.)
+      const bs = D.P, r = D.PR, h2 = cmp ? 14 : 16, bw2 = cmp ? 4 : 4.5;
+      const bx = pp ? G.U.clamp(pp[0] * w - bs / 2, 4, w - bs - 4) : w - bs - D.PM - (tall ? sa.right : Math.min(44, sa.right));
+      const by = pp ? G.U.clamp(pp[1] * h - bs / 2, Math.max(10, sa.top + 4), h - bs - 4) : tall ? py : (cmp ? 8 : 12) + Math.min(20, sa.top);
+      const cx = bx + bs / 2, cy = by + bs / 2;
+      ctx.beginPath(); ctx.arc(cx, cy + 2, r, 0, 6.2832); ctx.fillStyle = C.shadow; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fillStyle = 'rgba(11,21,48,.78)'; ctx.fill();
       ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.stroke();
       ctx.fillStyle = C.ink;
-      roundRect(ctx, bx + 13.5, by + 12, 4.5, 16, 2.25); ctx.fill();
-      roundRect(ctx, bx + 22, by + 12, 4.5, 16, 2.25); ctx.fill();
+      roundRect(ctx, cx - 2 - bw2, cy - h2 / 2, bw2, h2, bw2 / 2); ctx.fill();
+      roundRect(ctx, cx + 2, cy - h2 / 2, bw2, h2, bw2 / 2); ctx.fill();
       G.Touch.addButton(bx, by, bs, bs, () => G.Game.togglePause(), 8);
     }
 
@@ -787,14 +901,96 @@ G.HUD = (() => {
       ctx.textAlign = 'center';
       const hint = touch ? 'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo' : G.Input.hint();
       ctx.globalAlpha = 0.8;
-      // (Encima de la barra de inicio del iPhone; en vertical, estrechada si no cabe.)
-      const hy = h - 5 - (touch ? Math.min(28, sa.bottom) : 0);
-      if (tall) outlined(ctx, hint, w / 2, hy, C.ink2, 3, w - 16);
-      else outlined(ctx, hint, w / 2, hy, C.ink2, 3);
+      if (touch && cmp) {
+        // Móvil (24-10-2026): bajo lo de arriba (abajo pisaba la barra de ataques, que ahora va
+        // más baja). De pie, centrada; tumbado, a la derecha de la tarjeta, como la línea del bioma.
+        const hy = lay.below + 14 * k;
+        if (tall) outlined(ctx, hint, w / 2, hy, C.ink2, 3, w - 16);
+        else {
+          const room = w - 12 - sa.right - cardR - 10, tw = Math.min(ctx.measureText(hint).width, room);
+          outlined(ctx, hint, Math.max(w / 2, cardR + 10 + tw / 2), hy, C.ink2, 3, Math.max(60, room));
+        }
+      } else {
+        // (Encima de la barra de inicio del iPhone; en vertical, estrechada si no cabe.)
+        const hy = h - 5 - (touch ? Math.min(28, sa.bottom) : 0);
+        if (tall) outlined(ctx, hint, w / 2, hy, C.ink2, 3, w - 16);
+        else outlined(ctx, hint, w / 2, hy, C.ink2, 3);
+      }
       ctx.globalAlpha = 1;
     }
 
     ctx.restore();
+  }
+
+  // ---------------- movimiento Z (24-10-2026) ----------------
+
+  /** «3:59» (recarga) o «45» (activo): lo que falta, sin crear cadenas nuevas si no cambia. */
+  let zTxtV = -1, zTxt = '';
+  function zLeft(s) {
+    const v = Math.ceil(s);
+    if (v !== zTxtV) { zTxtV = v; zTxt = v >= 60 ? G.U.mmss(v) : String(v); }
+    return zTxt;
+  }
+
+  /**
+   * El botón Z, como un hueco de ataque (coordenadas de la barra: × kb en pantalla):
+   * el Cristal Z dentro y su color alrededor.
+   *   listo      halo que late y borde de su color (tócalo o pulsa su tecla)
+   *   activo     halo fijo, borde grueso y una barra abajo que se vacía con los segundos que le quedan
+   *   recarga    barrido de reloj oscuro, como los ataques, y lo que falta (m:ss)
+   * En PC lleva su tecla en la chapita de la esquina; en táctil, una «Z».
+   */
+  function drawZ(ctx, pl, z, x, y, S, TR, HALO, ip, kb, touch, now) {
+    const col = G.U.TYPE_COLOR[z.type], act = z.t > 0, cdF = !act && z.cd > 0 ? G.U.clamp(z.cd / G.Moves.Z_CD, 0, 1) : 0, ready = !act && !cdF;
+    const calm = G.Settings.get('calm');
+    if (ready || act) {
+      ctx.globalAlpha = act ? 0.42 : calm ? 0.28 : 0.2 + 0.16 * Math.sin(now / 200);
+      roundRect(ctx, x - HALO, y - HALO, S + HALO * 2, S + HALO * 2, TR + HALO);
+      ctx.fillStyle = col; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    panel(ctx, x, y, S, S, TR, ip, act ? C.panel2 : C.panel, null);
+    // (El cristal es ancho y bajo, 24 × 13: va más grande que el dibujo de un ataque.)
+    const zi = S - 10;
+    G.Icons.draw(ctx, 'z:' + z.type, x + 5, y + (S - zi) / 2 - (act ? 5 : cdF > 0 ? 7 : 3), zi);
+    if (cdF > 0) {
+      ctx.save();
+      roundRect(ctx, x, y, S, S, TR); ctx.clip();
+      ctx.fillStyle = 'rgba(4,9,24,.66)';
+      ctx.beginPath();
+      ctx.moveTo(x + S / 2, y + S / 2);
+      ctx.arc(x + S / 2, y + S / 2, S, -Math.PI / 2 + (1 - cdF) * 6.2832, Math.PI * 1.5);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    roundRect(ctx, x, y, S, S, TR);
+    ctx.lineWidth = act ? 3 : ready ? 2 : ip;
+    ctx.strokeStyle = act || ready ? col : C.edge;
+    ctx.stroke();
+    // Lo que le queda: activo, abajo con su barra; recargando, en medio.
+    ctx.textAlign = 'center';
+    if (act) {
+      bar(ctx, x + 6, y + S - (cmp ? 8 : 9), S - 12, cmp ? 4 : 5, z.t / G.Moves.Z_DUR, col);
+      ctx.font = F(700, cmp ? 13 : 14);
+      outlined(ctx, zLeft(z.t), x + S / 2, y + S - (cmp ? 12 : 13), '#fff', 3);
+    } else if (cdF > 0) {
+      ctx.font = F(700, cmp ? 13 : 15);
+      outlined(ctx, zLeft(z.cd), x + S / 2, y + S / 2 + 5, '#fff', cmp ? 3 : 3.5);
+    }
+    // La «Z» (táctil) o su tecla (PC), en la esquina como los ataques.
+    ctx.font = N(900, 11);
+    if (touch) {
+      ctx.textAlign = 'left';
+      outlined(ctx, 'Z', x + (cmp ? 4 : 5), y + (cmp ? 12 : 13), ready ? C.yellow : act ? '#fff' : C.ink2, 2.5);
+    } else {
+      const key = String(G.Input.keyLabel('zmove'));
+      const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
+      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, ready ? C.yellow : 'rgba(8,14,32,.94)', ready ? null : 'rgba(255,255,255,.3)');
+      ctx.fillStyle = ready ? C.yellowInk : C.ink;
+      ctx.textAlign = 'center';
+      ctx.fillText(key, x - 5 + kw / 2, y + 7, kw - 6);
+    }
+    G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing') G.Combat.zUse(pl); }, 4 * kb);
   }
 
   // ---------------- cooperativo ----------------
@@ -814,7 +1010,9 @@ G.HUD = (() => {
     if (rows) {
       ctx.save();
       ctx.translate(px, top); ctx.scale(k, k);
-      panel(ctx, 0, 0, 228, rows * 15 + 4, 9, 1 / k);
+      // (En el móvil, tan ancha como la tarjeta pequeña: 164.)
+      const pw = cmp ? 164 : 228, nw = cmp ? 56 : 68, lx = cmp ? 66 : 82, lw = cmp ? 58 : 100;
+      panel(ctx, 0, 0, pw, rows * 15 + 4, 9, 1 / k);
       let y = 2;
       ctx.textAlign = 'left';
       for (const m of G.Coop.mates) {
@@ -822,13 +1020,13 @@ G.HUD = (() => {
         const o = m.pl;
         ctx.font = N(800, 11);
         ctx.fillStyle = m.color;
-        G.I18n.rawCanvas(ctx, 'fillText', m.name, 8, y + 11, 68);
-        const lx = 82, f = o.dead ? 0 : G.U.clamp(o.hp / o.maxHp, 0, 1);
-        bar(ctx, lx, y + 3.5, 100, 8, f, o.dead ? C.red : hpColor(f));
+        G.I18n.rawCanvas(ctx, 'fillText', m.name, 8, y + 11, nw);
+        const f = o.dead ? 0 : G.U.clamp(o.hp / o.maxHp, 0, 1);
+        bar(ctx, lx, y + 3.5, lw, 8, f, o.dead ? C.red : hpColor(f));
         if (o.dead) {
           ctx.font = N(900, 11);
           ctx.fillStyle = Math.sin(t * 8) > 0 ? '#FF8A96' : '#FFD0D5';
-          ctx.fillText('CAÍDO', lx + 106, y + 11, 36);
+          ctx.fillText('CAÍDO', lx + lw + 6, y + 11, pw - lx - lw - 10);
         }
         y += 15;
       }
@@ -898,11 +1096,12 @@ G.HUD = (() => {
    * pantalla. Para «Colocar los botones» (layout-ui.js): lo mismo que hace draw.
    */
   function padDefault(k, w, h) {
-    const sa = G.Touch.safeArea(), tall = h > w;
-    if (k === 'bar') return [tall ? w / 2 : w / 2 - 36, h - 54 / 2 - 18 - Math.min(28, sa.bottom)];
-    return tall ? [w - 32 - sa.right, 34 + sa.top] : [w - 32 - Math.min(44, sa.right), 32 + Math.min(20, sa.top)];
+    const sa = G.Touch.safeArea(), tall = h > w, D = pads(w, h), top = small(w, h) ? 8 : tall ? 14 : 12;
+    if (k === 'bar') return [tall ? w / 2 : w / 2 - (D.S + D.IG) / 2, h - D.S / 2 - D.BOT - Math.min(28, sa.bottom)];
+    const x = w - D.P / 2 - D.PM;
+    return tall ? [x - sa.right, top + D.P / 2 + sa.top] : [x - Math.min(44, sa.right), top + D.P / 2 + Math.min(20, sa.top)];
   }
 
-  return { draw, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault,
+  return { draw, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault, pads,
            F, N, C, panel, pill, arrow, outlined, midX };
 })();

@@ -127,14 +127,17 @@ uso **no comercial** y con atribución a sus artistas.
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
-descargados una vez y guardados en `js/data/pokedex.js`.
+descargados una vez y guardados en `js/data/pokedex.js`. Los nombres de los
+Cristales Z y de los movimientos Z (Tienda Kecleon) son los oficiales de cada
+idioma: de PokeAPI y, en chino, los de los juegos.
 
 ## Iconos de objetos
 
 Iconos de objetos: Pokémon (Nintendo, Creatures, GAME FREAK), vía
 [PokeAPI/sprites](https://github.com/PokeAPI/sprites). Son los sprites de la
 Mochila de los juegos, guardados en `assets/items/` con
-`tools/fetch_items.js` (los que no miden 30×30 se ajustan a ese tamaño).
+`tools/fetch_items.js` (los que no miden 30×30 se ajustan a ese tamaño),
+también los de los Cristales Z y la Pulsera Z.
 
 ## Fuentes
 

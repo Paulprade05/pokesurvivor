@@ -1,7 +1,19 @@
 /* ============ spawner.js — oleadas, jefes y shinies ============
  * Los enemigos aparecen en un anillo justo fuera de la vista, así que nunca
- * se materializan en pantalla. Cada ~45 s hay una "marea": una avalancha
- * concentrada desde un lado concreto, para romper el ritmo.
+ * se materializan en pantalla. Cada ~45 s (desde el minuto 18, cada ~30 s)
+ * hay una oleada para romper el ritmo (como en Vampire Survivors):
+ *
+ *   marea      una avalancha concentrada desde un lado
+ *   cerco      un anillo de Pokémon todo alrededor que se va cerrando (desde el minuto 6)
+ *   estampida  una columna que cruza en línea recta a toda velocidad, con un hueco
+ *   enjambre   muchos voladores débiles y rápidos desde un lado
+ *
+ * Tramo final (23-10-2026, «más difícil sobre todo de los minutos 20 a 30»):
+ * del minuto 12 al 30 los enemigos ganan poco a poco hasta +45 % de vida y
+ * +30 % de daño, del 18 al 28 caben más a la vez (de 64 a 80), salen más
+ * campeones (élite grande y con aura, desde el minuto 8) y siguen llegando
+ * jefes del calendario (antes el último era el del minuto 15), dos a la vez
+ * en los minutos 24 y 27. Los primeros minutos no cambian.
  *
  * Cada enemigo tiene 1/4096 de salir shiny (como en los juegos clásicos).
  * Una run mata 1.500–4.000, así que sale uno cada 1–3 partidas.
@@ -13,22 +25,38 @@
 G.Spawner = (() => {
   // Tope de enemigos a la vez (antes 420: con tantos se ralentizaba). Cuando
   // se llega al tope, los que siguen saliendo son "élite" (más vida, daño y
-  // experiencia), así la dificultad no baja.
-  const CAP = 64, ELITE_FROM = 0.85;
+  // experiencia), así la dificultad no baja. Del minuto 18 al 28 el tope sube
+  // poco a poco hasta CAP_LATE. Las oleadas se pueden pasar del tope en OVER.
+  const CAP = 64, CAP_LATE = 78, OVER = 20, ELITE_FROM = 0.85;
+  const capAt = t => CAP + Math.round((CAP_LATE - CAP) * G.U.clamp((t - 1080) / 600, 0, 1));
   // Menos Pokémon pero más fuertes (la pantalla no se satura): salen ~24% de
   // los de antes, cada uno con más vida, daño y experiencia.
   const DENSITY = 0.24, DMG_K = 2.4, XP_K = 5.6;
   // La resistencia extra crece con la run: al principio ×3,3 y hasta ×5
   // hacia el minuto 6, cuando ya tienes ataques para tumbarlos.
   const hpK = t => 3.3 + Math.min(1.7, t / 210);
+  // Tramo final: de 0 en el minuto 12 a 1 en el 30, despacio al principio.
+  const lateR = t => Math.pow(G.U.clamp((t - 720) / 1080, 0, 1), 1.5);
+  const lateHp = t => 1 + 0.35 * lateR(t), lateDmg = t => 1 + 0.22 * lateR(t);
+  // Campeones: del 1 % en el minuto 8 al 6 % en el 28; como mucho 2 vivos (3 desde el 12, 4 desde el 18).
+  const CHAMP_FROM = 480;
+  const champChance = t => (t < CHAMP_FROM ? 0 : Math.min(0.065, 0.01 + (t - CHAMP_FROM) / 24000));
+  const champMax = t => (t < 720 ? 2 : t < 1080 ? 3 : 4);
   const SHINY_RATE = 1 / 4096;
   const BOSS_GAP = 45, BOSS_LATE = 60;
-  let acc = 0, bossIdx = 0, surgeT = 32, announce = null, announceT = 0, preloadT = 0;
+  // Oleadas: desde cuándo hay de las nuevas y cuánto pesa cada una (antes y después del minuto 18).
+  const WAVE_FROM = 360, LATE = 1080;
+  const WAVES = {
+    early: [['surge', 5.5], ['ring', 2], ['swarm', 1.5], ['stampede', 1]],
+    late:  [['surge', 3], ['ring', 2.5], ['swarm', 2], ['stampede', 2.5]]
+  };
+  const surgeGap = t => (t >= LATE ? G.U.rand(26, 38) : G.U.rand(38, 56));
+  let acc = 0, bossIdx = 0, surgeT = 32, announce = null, announceT = 0, preloadT = 0, lastWave = null;
   let lastBossT = -Infinity;    // cuándo salió el último jefe del calendario
   let forceShiny = 0;           // para pruebas: los N próximos salen shiny
 
   function reset() {
-    acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0; lastBossT = -Infinity;
+    acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0; lastBossT = -Infinity; lastWave = null;
     G.Enemies.rollRun();
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
   }
@@ -43,8 +71,9 @@ G.Spawner = (() => {
   const viewW = o => o.net && o.net.vw ? o.net.vw : !o.remote ? G.Camera.w : Math.max(G.Camera.w, G.Camera.h);
   const viewH = o => o.net && o.net.vh ? o.net.vh : !o.remote ? G.Camera.h : Math.max(G.Camera.w, G.Camera.h);
 
-  function ringPoint(pl, angle) {
-    const d = G.Camera.outerRadius(viewW(pl), viewH(pl)) + G.U.rand(10, 70);
+  /** @param extra  distancia de más fuera de la vista (al azar entre 10 y 70 si no se dice) */
+  function ringPoint(pl, angle, extra) {
+    const d = G.Camera.outerRadius(viewW(pl), viewH(pl)) + (extra == null ? G.U.rand(10, 70) : extra);
     return [pl.x + Math.cos(angle) * d, pl.y + Math.sin(angle) * d * 0.9];
   }
 
@@ -97,6 +126,30 @@ G.Spawner = (() => {
     return full;
   }
 
+  function champsAlive() { let n = 0; for (const e of G.EnemyMgr.all()) if (e.champ && !e.dead) n++; return n; }
+
+  /**
+   * Crea y añade un enemigo con la escala del minuto `t`.
+   * o: { hp, dmg, xp } multiplicadores · weak (sin élite ni campeón) · noChamp
+   */
+  function make(def, x, y, t, o = {}) {
+    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * (o.hp || 1)));
+    e.dmg *= DMG_K * lateDmg(t) * (o.dmg || 1); e.xp = Math.max(1, Math.round(e.xp * XP_K * (o.xp || 1)));
+    e.elite = !o.weak && G.EnemyMgr.count >= capAt(t) * ELITE_FROM;
+    if (e.elite) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
+    if (!o.weak && !o.noChamp && !SUPPORT.has(def.behavior) && def.behavior !== 'bomber' && def.behavior !== 'runner' &&
+        Math.random() < champChance(t) && champsAlive() < champMax(t)) e.makeChamp();
+    const shiny = rollShiny(def.dex);
+    if (shiny) e.makeShiny();
+    if (G.Events.golden) e.makeGolden();
+    G.EnemyMgr.add(e);
+    if (shiny) {
+      say('¡Un ' + e.name + ' shiny anda cerca!', 3.4);
+      G.Audio.sfx('shiny');
+    }
+    return e;
+  }
+
   function spawnOne(pl, t, angle) {
     const bag = G.Enemies.bagAt(t);
     let def = G.U.pick(bag);
@@ -110,30 +163,112 @@ G.Spawner = (() => {
     }
     const pt = freePoint(pl, angle == null ? Math.random() * 6.2832 : angle, isFlyer(def));
     if (!pt) return null;
-    const shiny = rollShiny(def.dex);
-    const e = new G.Enemy(def, pt[0], pt[1], scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t)));
-    e.dmg *= DMG_K; e.xp = Math.round(e.xp * XP_K);
-    if (G.EnemyMgr.count >= CAP * ELITE_FROM) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
-    if (shiny) e.makeShiny();
-    if (G.Events.golden) e.makeGolden();
-    G.EnemyMgr.add(e);
-    if (shiny) {
-      say('¡Un ' + e.name + ' shiny anda cerca!', 3.4);
-      G.Audio.sfx('shiny');
-    }
-    return e;
+    return make(def, pt[0], pt[1], t);
   }
 
-  function spawnBoss(pl, t, b) {
-    const [x, y] = ringPoint(pl, Math.random() * 6.2832);
+  /** @param angle  por dónde sale (los de un mismo grupo, repartidos alrededor) */
+  function spawnBoss(pl, t, b, angle = Math.random() * 6.2832) {
+    const [x, y] = ringPoint(pl, angle);
     const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);
-    say('¡' + e.name + (e.shiny ? ' shiny' : '') + ' salvaje apareció!', 3.2);
     G.Camera.kick(1.1);
     G.Audio.sfx('boss');
     return e;
   }
+
+  // ---------------- oleadas ----------------
+
+  /** Qué oleada toca (nunca dos iguales seguidas de las nuevas). */
+  function pickWave(t) {
+    if (t < WAVE_FROM) return 'surge';
+    const opts = (t >= LATE ? WAVES.late : WAVES.early).filter(([k]) => k === 'surge' || k !== lastWave);
+    let r = Math.random() * opts.reduce((a, o) => a + o[1], 0);
+    for (const [k, w] of opts) if ((r -= w) <= 0) return k;
+    return 'surge';
+  }
+
+  /** Un Pokémon del elenco de ahora que vaya a por ti (para el cerco y la estampida). */
+  function plainPick(t, fast) {
+    const NO = new Set(['healer', 'shielder', 'summoner', 'bomber', 'ranged', 'fan', 'beamer', 'zoner']);
+    const bag = G.Enemies.bagAt(t), ok = bag.filter(d => !NO.has(d.behavior));
+    const pool = ok.length ? ok : bag;
+    if (!fast) return G.U.pick(pool);
+    // Para la estampida, de los más rápidos.
+    return pool.slice().sort((a, b) => b.spd - a.spd)[Math.floor(Math.random() * Math.min(3, pool.length))];
+  }
+
+  /** Cuántos caben aún en una oleada. */
+  const room = t => Math.max(0, capAt(t) + OVER - G.EnemyMgr.count);
+  /** Más gente en las oleadas en grupo (sin pasar del doble). */
+  const groupK = () => Math.min(2, 0.55 + 0.45 * G.Coop.scaleRate(players.length));
+
+  function surge(pl, t) {
+    const base = Math.random() * 6.2832;
+    const n = Math.min(room(t), Math.round((14 + Math.floor(t / 22)) * G.Coop.scaleRate(players.length) * 0.4));
+    for (let i = 0; i < n; i++) spawnOne(pl, t, base + G.U.rand(-0.55, 0.55));
+    say('¡Marea de Pokémon!', 2.2);
+  }
+
+  /** Cerco: un anillo entero alrededor, todos a la misma distancia, que se va cerrando. */
+  function ring(pl, t) {
+    const n = Math.min(room(t), Math.round(Math.min(28, 10 + t / 90) * groupK()));
+    if (n < 6) return surge(pl, t);
+    const def = plainPick(t), fly = isFlyer(def), a0 = Math.random() * 6.2832;
+    for (let i = 0; i < n; i++) {
+      const [x, y] = ringPoint(pl, a0 + i / n * 6.2832, 30);
+      if (players.length > 1 && seenByAnyone(x, y)) continue;
+      if (!fly && !G.World.isFree(x, y, 14)) continue;
+      make(def, x, y, t, { noChamp: true });
+    }
+    say('¡Te están rodeando!', 2.4);
+  }
+
+  /** Estampida: una columna que cruza por donde estás en línea recta, con un hueco para colarse. */
+  function stampede(pl, t) {
+    const n = Math.min(room(t), Math.round(Math.min(20, 9 + t / 150) * Math.min(1.5, groupK())));
+    if (n < 6) return surge(pl, t);
+    const base = plainPick(t, true);
+    const def = Object.assign({}, base, { behavior: 'stampede' });
+    const a = Math.random() * 6.2832, ca = Math.cos(a), sa = Math.sin(a);
+    const D = G.Camera.outerRadius(viewW(pl), viewH(pl)) + 40;
+    const sx = pl.x - ca * D, sy = pl.y - sa * D * 0.9;
+    const spd = G.U.clamp(base.spd * 2.4, 150, 200);
+    const gap = G.U.randInt(1, n - 3);            // dos plazas libres seguidas
+    for (let i = 0; i < n + 2; i++) {
+      if (i === gap || i === gap + 1) continue;
+      const off = (i - (n + 1) / 2) * 32 + G.U.rand(-5, 5), back = G.U.rand(0, 40) + (i % 2) * 20;
+      const x = sx - sa * off - ca * back, y = sy + ca * off - sa * back;
+      if (players.length > 1 && seenByAnyone(x, y)) continue;
+      const e = make(def, x, y, t, { noChamp: true });
+      e.runA = a; e.runSpd = spd; e.life = (2 * D + 260) / spd;
+    }
+    say('¡Estampida!', 2.4);
+  }
+
+  /** Enjambre: muchos voladores débiles y rápidos desde un lado (dan poca experiencia cada uno). */
+  function swarm(pl, t) {
+    const n = Math.min(room(t), Math.round(Math.min(30, 14 + t / 80) * groupK()));
+    const def = G.Enemies.swarmDef(t);
+    if (n < 8 || !def) return surge(pl, t);
+    const base = Math.random() * 6.2832;
+    for (let i = 0; i < n; i++) {
+      const pt = freePoint(pl, base + G.U.rand(-0.5, 0.5), true);
+      if (pt) make(def, pt[0], pt[1], t, { weak: true, hp: 0.3, dmg: 0.6, xp: 0.35 });
+    }
+    say('¡Enjambre!', 2.4);
+  }
+
+  function wave(kind, t, pl = anchor()) {
+    lastWave = kind;
+    if (kind === 'ring') ring(pl, t);
+    else if (kind === 'stampede') stampede(pl, t);
+    else if (kind === 'swarm') swarm(pl, t);
+    else surge(pl, t);
+    G.Audio.sfx('surge');
+  }
+
+  // ---------------- cada fotograma ----------------
 
   /** @param who  el jugador o la lista de jugadores (cooperativo) */
   function update(dt, who, t) {
@@ -150,10 +285,18 @@ G.Spawner = (() => {
     // --- jefes ---
     // Uno a la vez (#255): si sigue vivo el anterior, el siguiente espera, salvo
     // que ya lleve BOSS_LATE s de retraso; y nunca dos con menos de BOSS_GAP s
-    // (al volver de una grieta larga salían dos en fotogramas seguidos).
+    // (al volver de una grieta larga salían dos en fotogramas seguidos). Los de
+    // un mismo minuto (los dúos del final) salen juntos, por lados opuestos.
     const b = G.Enemies.BOSSES[bossIdx];
     if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > BOSS_LATE || !G.EnemyMgr.bossAlive())) {
-      spawnBoss(anchor(), t, b); bossIdx++; lastBossT = t;
+      const group = [b];
+      while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
+      const pl = anchor(), a0 = Math.random() * 6.2832;
+      const es = group.map((d, i) => spawnBoss(pl, t, d, a0 + i * 6.2832 / group.length));
+      const nm = e => e.name + (e.shiny ? ' shiny' : '');
+      if (es.length > 1) say('¡' + nm(es[0]) + ' y ' + nm(es[1]) + ' salvajes aparecieron!', 3.4);
+      else say('¡' + nm(es[0]) + ' salvaje apareció!', 3.2);
+      bossIdx += group.length; lastBossT = t;
     }
 
     // Combate de jefe: las oleadas bajan al 25% y no hay mareas, para que el
@@ -161,30 +304,40 @@ G.Spawner = (() => {
     const bossFight = G.EnemyMgr.bossAlive();
 
     // --- goteo normal ---
-    if (G.EnemyMgr.count < CAP) {
+    const cap = capAt(t);
+    if (G.EnemyMgr.count < cap) {
       acc += rate(t) * G.Coop.scaleRate(players.length) * (bossFight ? 0.25 : 1) * dt;
       let n = Math.floor(acc);
       acc -= n;
-      while (n-- > 0 && G.EnemyMgr.count < CAP) spawnOne(anchor(), t);
+      while (n-- > 0 && G.EnemyMgr.count < cap) spawnOne(anchor(), t);
     }
 
-    // --- marea ---
+    // --- oleada ---
     if (!bossFight) surgeT -= dt;
     if (surgeT <= 0) {
-      surgeT = G.U.rand(38, 56);
-      const base = Math.random() * 6.2832;
-      const target = anchor();
-      const n = Math.min(CAP - G.EnemyMgr.count, Math.round((14 + Math.floor(t / 22)) * G.Coop.scaleRate(players.length) * 0.4));
-      for (let i = 0; i < n; i++) spawnOne(target, t, base + G.U.rand(-0.55, 0.55));
-      say('¡Marea de Pokémon!', 2.2);
-      G.Audio.sfx('surge');
+      surgeT = surgeGap(t);
+      wave(pickWave(t), t);
     }
   }
 
   /** Unos cuantos de golpe desde un lado (al empezar una horda). */
   function burst(n) {
     const base = Math.random() * 6.2832, target = anchor() || G.Game.player, t = G.Game.st.time;
-    for (let i = 0; i < n && G.EnemyMgr.count < CAP + 10; i++) spawnOne(target, t, base + G.U.rand(-0.6, 0.6));
+    for (let i = 0; i < n && G.EnemyMgr.count < capAt(t) + 10; i++) spawnOne(target, t, base + G.U.rand(-0.6, 0.6));
+  }
+
+  /** Esbirros que llama un jefe (enemy.js): del elenco de ahora, alrededor de (x, y). */
+  function minions(x, y, n, t = G.Game.st.time) {
+    const out = [];
+    if (G.EnemyMgr.count >= capAt(t) + OVER) return out;
+    const def = plainPick(t), fly = isFlyer(def);
+    for (let i = 0; i < n; i++) {
+      const a = i / n * 6.2832 + G.U.rand(-0.3, 0.3), d = G.U.rand(60, 90);
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 0.8;
+      if (!fly && !G.World.isFree(px, py, 14)) continue;
+      out.push(make(def, px, py, t, { weak: true, hp: 0.6, xp: 0.5 }));
+    }
+    return out;
   }
 
   /**
@@ -214,6 +367,10 @@ G.Spawner = (() => {
   /** Invitado en cooperativo: sólo corre el reloj del aviso. */
   function tickBanner(dt) { if (announceT > 0) announceT -= dt; }
 
-  return { reset, update, ahead, burst, tickBanner, banner, say, rate, SHINY_RATE, CAP,
-           debugForceShiny(n = 1) { forceShiny = n; } };
+  return { reset, update, ahead, burst, minions, tickBanner, banner, say, rate, capAt, SHINY_RATE, CAP,
+           debugForceShiny(n = 1) { forceShiny = n; },
+           /** Para pruebas: una oleada ya ('surge' | 'ring' | 'stampede' | 'swarm'). */
+           debugWave(kind) { players = G.Game.everyone(); wave(kind || pickWave(G.Game.st.time), G.Game.st.time); },
+           /** Para pruebas: el calendario de jefes salta al minuto `t` (los anteriores ya no salen). */
+           debugBossesFrom(t) { bossIdx = 0; while (G.Enemies.BOSSES[bossIdx] && G.Enemies.BOSSES[bossIdx].at < t) bossIdx++; lastBossT = -Infinity; } };
 })();

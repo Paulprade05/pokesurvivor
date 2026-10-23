@@ -57,13 +57,51 @@ G.RunUI = (() => {
       + (KIND_NAME[m.kind] ? `<span class="fam-chip">${KIND_NAME[m.kind]}</span>` : '');
   }
 
+  // ---------------- evoluciones a la vista (23-10-2026) ----------------
+
+  /**
+   * «Evoluciona con [icono] Potencia · Nv. 5»: lo que pide un ataque para
+   * evolucionar (ev: G.LevelUp.evoNeed). Con esa carta ya cogida, su nombre
+   * lleva ✓; con el ataque al nivel máximo, el nivel también; con las dos, la
+   * línea es dorada: lista para evolucionar (sale su carta dorada al subir; en
+   * la píldora de la pausa y el resumen lo dice, más corto para que quepa).
+   * m.evolved: nada. Sin evolución (potenciadores): «No evoluciona».
+   */
+  function evoHtml(m, ev, cls) {
+    if (!m || m.evolved) return '';
+    if (!ev) return `<span class="${cls} evo-none"><span class="evo-k">No evoluciona</span></span>`;
+    const ok = `<span class="evo-ok">${G.UI.svg('check', 12)}</span>`;
+    if (ev.ready && cls === 'mv-evo') {
+      return `<span class="${cls} ready"><span class="evo-k">¡Lista para evolucionar!</span><span class="evo-need">${G.Icons.html(ev.icon, 18)}${ok}</span></span>`;
+    }
+    return `<span class="${cls}${ev.ready ? ' ready' : ev.has ? ' has' : ''}">`
+      + `<span class="evo-k">Evoluciona con</span>`
+      + `<span class="evo-need">${G.Icons.html(ev.icon, 18)}<b>${ev.title}</b>${ev.has ? ok : ''}</span>`
+      + `<span class="evo-lv">· <span>Nv.</span> ${ev.lvl}${ev.max ? ok : ''}</span></span>`;
+  }
+
+  /**
+   * Carta de mejora o pasivo: los ataques que hace evolucionar (e: G.LevelUp.evolvesWith).
+   * Los tuyos, con su nombre y destacados (dorados si ya están al máximo: la
+   * evolución sale al cogerla); los que aún puedes aprender, sólo el icono.
+   */
+  const MORE = 5;
+  function evolvesHtml(e) {
+    if (!e || (!e.mine.length && !e.more.length)) return '';
+    const mine = e.mine.map(m => `<span class="evo-mv mine${m.ready ? ' ready' : ''}">${G.Icons.html('move:' + m.id, 24)}<b>${G.T(m.name, 'move')}</b></span>`).join('');
+    const more = e.more.slice(0, MORE).map(id => `<span class="evo-mv">${G.Icons.html('move:' + id, 24)}</span>`).join('')
+      + (e.more.length > MORE ? `<span class="evo-more">+${e.more.length - MORE}</span>` : '');
+    return `<span class="pc-evo evo-for${e.mine.some(m => m.ready) ? ' ready' : e.mine.length ? ' has' : ''}">`
+      + `<span class="evo-k">Hace evolucionar</span>${mine}${more}</span>`;
+  }
+
   const badge = (txt, cls = '') => `<span class="badge pc-badge${cls ? ' ' + cls : ''}">${txt}</span>`;
   /** «Nv. 2 → 3» (o «Nv. 2»): «Nv.» en su propio nodo para que se traduzca. */
   const lvBadge = (lvl, up, cls = 'blue') => badge(`<span>Nv.</span> ${lvl}${up ? ' → ' + (lvl + 1) : ''}`, cls);
 
   /**
    * Una carta. o: { cls, icon, tile (clase de la baldosa), tileC (color para .tint),
-   * badge, eyebrow, title, chips, desc }. i: su número (tecla 1-4).
+   * badge, eyebrow, title, chips, desc, evo (línea de evolución, abajo) }. i: su número (tecla 1-4).
    */
   function cardEl(o, i, onPick, ownSfx = true) {
     const el = document.createElement('div');
@@ -73,7 +111,7 @@ G.RunUI = (() => {
     el.innerHTML = `<span class="key">${i + 1}</span>
       <span class="pc-art"><span class="ico-tile pc-ico${o.tile ? ' ' + o.tile : ''}"${o.tileC ? ` style="--tile-c:${o.tileC}"` : ''}>${G.Icons.html(o.icon, 60)}</span>${o.badge || ''}</span>
       <span class="pc-txt">${o.eyebrow ? `<span class="pc-eyebrow">${o.eyebrow}</span>` : ''}<span class="nm">${o.title}</span>`
-      + `${o.chips ? `<span class="pc-chips">${o.chips}</span>` : ''}<span class="ds">${o.desc || ''}</span></span>`;
+      + `${o.chips ? `<span class="pc-chips">${o.chips}</span>` : ''}<span class="ds">${o.desc || ''}</span>${o.evo || ''}</span>`;
     if (ownSfx) el.dataset.sfx = 'none';             // el juego pone su propio sonido al elegir
     el.onclick = onPick;
     return el;
@@ -131,15 +169,22 @@ G.RunUI = (() => {
   function levelCard(c) {
     const m = moveOf(c);
     const chips = m ? moveChips(m) : '';
-    if (c.type === 'evo') return { cls: 'evo', icon: c.icon, tile: 't-gold', badge: badge('EVOLUCIÓN', 'gold'), title: c.title, chips, desc: c.desc };
-    if (c.type === 'new') return { cls: 'is-new', icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips, desc: c.desc };
-    if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc };
-    // Mejora de la run (stat o pasivo). Si desbloquea una evolución, dorada y con el aviso.
+    // Con qué evoluciona (las cartas de antes de esta versión no lo traen: se calcula aquí).
+    let ev = m && (c.evo !== undefined ? c.evo : G.LevelUp.evoNeed(m, G.Game.player));
+    // La mejora que lo deja al máximo con la carta ya cogida: al elegirla, queda listo.
+    if (ev && c.type === 'up' && ev.has && m.lvl + 1 >= ev.lvl) ev = Object.assign({}, ev, { max: true, ready: true });
+    const evo = m ? evoHtml(m, ev, 'pc-evo') : '';
+    if (c.type === 'evo') return { cls: 'evo', icon: c.icon, tile: 't-gold', badge: badge('EVOLUCIÓN', 'gold'), title: c.title, chips, desc: c.desc, evo };
+    if (c.type === 'new') return { cls: 'is-new', icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips, desc: c.desc, evo };
+    if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc, evo };
+    // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
+    // desbloquea ya una evolución (el ataque está al máximo), dorada.
     const id = String(c.key || '').slice(5), unlocks = !!c.tag && c.tag !== 'Mejora', passive = PASSIVE.has(id);
     return {
       cls: 'is-stat' + (unlocks ? ' unlocks' : ''), icon: c.icon, tile: unlocks ? 't-gold' : passive ? 't-purple' : 't-blue',
       badge: passive ? badge('Pasivo', 'purple') : badge('Mejora', 'ghost'),
-      title: c.title, chips: unlocks ? `<span class="evo-hint">${c.tag}</span>` : '', desc: c.desc
+      title: c.title, chips: '', desc: c.desc,
+      evo: c.evolves ? evolvesHtml(c.evolves) : unlocks ? `<span class="evo-hint">${c.tag}</span>` : ''
     };
   }
 
@@ -332,7 +377,8 @@ G.RunUI = (() => {
         : step2 ? 'Se lanzará a la vez que ' + G.T(first.name, 'move') + '. Queda un hueco libre.'
         : m.desc || '';
       box.appendChild(cardEl({ cls: opt.mode === 'add' || step2 ? 'bond' : '', icon: 'move:' + m.id, tile: 'tint', tileC: typeCol(m),
-        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name, 'move'), chips: moveChips(m, false), desc }, i, () => pickBond(i)));
+        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name, 'move'), chips: moveChips(m, false), desc,
+        evo: evoHtml(m, G.LevelUp.evoNeed(m, G.Game.player), 'pc-evo') }, i, () => pickBond(i)));
     });
   }
 
@@ -367,7 +413,7 @@ G.RunUI = (() => {
    * categoría (físico o especial). Los que no hacen daño (potenciadores...), al final.
    */
   function movesTable(moves, t, withCat = true) {
-    const n = v => Math.round(v).toLocaleString(G.I18n.locale);
+    const n = v => Math.round(v).toLocaleString(G.I18n.locale), pl = G.Game.player;
     const dealt = m => (m.cat ? m.dealt || 0 : -1);
     const total = moves.reduce((a, m) => a + Math.max(0, dealt(m)), 0);
     const rows = moves.slice().sort((a, b) => dealt(b) - dealt(a)).map(m => {
@@ -377,11 +423,33 @@ G.RunUI = (() => {
       return `<div class="mv-row${m.evolved ? ' evolved' : ''}">
         <span class="ico-tile s tint" style="--tile-c:${col}">${G.Icons.html('move:' + m.id, 30)}</span>
         <div class="mv-main"><div class="mv-name"><b>${G.T(m.name, 'move')}</b><span class="badge ghost"><span>Nv.</span> ${m.lvl}</span></div>
-          <div class="mv-tags">${moveChips(m, withCat)}</div></div>
+          <div class="mv-tags">${moveChips(m, withCat)}${evoHtml(m, G.LevelUp.evoNeed(m, pl), 'mv-evo')}</div></div>
         <div class="mv-num">${nums}</div>
         ${m.cat ? `<i class="mv-bar"><i style="width:${pct}%;background:${col}"></i></i>` : ''}</div>`;
     }).join('');
     return `<div class="mv-legend"><span>Daño</span><small><span>%</span> · <span>Por segundo</span></small></div><div class="mv-list">${rows}</div>`;
+  }
+
+  /**
+   * El movimiento Z en la pausa (24-10-2026; sólo con el Cristal Z de un tipo de
+   * tu compañero): el cristal, su nombre, cómo está (activo, recargando o listo),
+   * tipo, categoría y familia, qué hace y el daño que lleva hecho (× las veces usado).
+   */
+  function zCard(pl) {
+    const z = G.Combat.zOf(pl);
+    if (!z) return '';
+    const d = z.def, n = v => Math.round(v).toLocaleString(G.I18n.locale);
+    const m = z.m || Object.assign({}, d, { cat: G.Stats.sideOf(pl.mon) });
+    const state = z.t > 0 ? `<span class="z-state on">${G.I18n.f('Activo: {x}', G.U.mmss(z.t))}</span>`
+      : z.cd > 0 ? `<span class="z-state">${G.I18n.f('Se recarga: {x}', G.U.mmss(z.cd))}</span>`
+      : `<span class="z-state ready">${G.Touch.active ? G.T('Listo: toca el botón Z') : G.I18n.f('Listo: pulsa {x}', G.Input.keyLabel('zmove'))}</span>`;
+    return `<section class="ps-card ps-z"><h3>Movimiento Z</h3>
+      <div class="mv-row z-mv${z.t > 0 ? ' on' : ''}" style="--z-c:${typeCol(d)}">
+        <span class="ico-tile s tint" style="--tile-c:${typeCol(d)}">${G.Icons.html('z:' + z.type, 30)}</span>
+        <div class="mv-main"><div class="mv-name"><b>${G.T(d.name)}</b>${state}</div>
+          <div class="mv-tags">${moveChips(m)}</div><small class="z-desc">${G.T(d.desc)}</small></div>
+        <div class="mv-num"><b>${n(z.dealt + (z.m ? z.m.dealt || 0 : 0))}</b><small>×${z.uses}</small></div>
+      </div></section>`;
   }
 
   /*
@@ -402,8 +470,9 @@ G.RunUI = (() => {
       ['hpup', 'Vida', n(pl.hp) + ' / ' + n(pl.maxHp)],
       ['fist', 'Ataque', k2(pl.atkFor({ cat: 'physical' }))],
       ['lifeorb', 'At. Esp.', k2(pl.atkFor({ cat: 'special' }))],
-      ['rockyhelmet', 'Defensa', mon.df + ' <small>' + guard(fis) + ' físico</small>'],
-      ['assaultvest', 'Def. Esp.', mon.sd + ' <small>' + guard(esp) + ' especial</small>'],
+      // (Redondeadas: con la naturaleza salía «85.80000000000001».)
+      ['rockyhelmet', 'Defensa', n(mon.df) + ' <small>' + guard(fis) + ' físico</small>'],
+      ['assaultvest', 'Def. Esp.', n(mon.sd) + ' <small>' + guard(esp) + ' especial</small>'],
       ['boot', 'Velocidad', n(pl.spd)],
       ['scope-lens', 'Crítico', pct(pl.critChance || 0)],
       ['shield', 'Reducción de daño', pct(pl.reduction)],
@@ -420,7 +489,7 @@ G.RunUI = (() => {
       const s = G.LevelUp.STATS.find(x => x.id === id);
       return s ? `<div class="own-card"><span class="ico-tile s${PASSIVE.has(id) ? ' t-purple' : ''}">${G.Icons.html(s.icon, 30)}</span><b>${s.title}</b><span class="badge ghost">×${c}</span></div>` : '';
     }).join('');
-    return `<section class="ps-card ps-moves"><h3>Tus ataques</h3>${movesTable(pl.moves, t)}</section>
+    return `<section class="ps-card ps-moves"><h3>Tus ataques</h3>${movesTable(pl.moves, t)}</section>${zCard(pl)}
       <section class="ps-card ps-stats"><h3>Tus estadísticas</h3><div class="st-grid">${st}</div></section>
       <section class="ps-card ps-gear"><h3>Objeto y cartas</h3>
         ${it ? `<div class="ps-item"><span class="ico-tile t-blue">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div>`
@@ -433,8 +502,10 @@ G.RunUI = (() => {
   function keyHint() {
     const I = G.Input, k = s => '<kbd>' + String(s).replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';') + '</kbd>';
     const sl = ['m1', 'm2', 'm3', 'm4'].map(a => I.keyLabel(a));
+    const pl = G.Game.player, z = pl && G.Combat.zOf(pl);
     return k(I.moveLabel()) + ' moverse · ' + (sl.join() === '1,2,3,4' ? k(1) + '–' + k(4) : sl.map(k).join(' '))
-      + ' movimiento · ' + k(I.keyLabel('prev')) + '/' + k(I.keyLabel('next')) + ' ciclar · ' + k('Esc') + ' pausa';
+      + ' movimiento · ' + k(I.keyLabel('prev')) + '/' + k(I.keyLabel('next')) + ' ciclar · '
+      + (z ? k(I.keyLabel('zmove')) + ' movimiento Z · ' : '') + k('Esc') + ' pausa';
   }
 
   function showPause(coop = false) {

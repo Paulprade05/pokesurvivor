@@ -26,6 +26,7 @@ G.Combat = (() => {
   // ---------------- ejecutar el movimiento activo ----------------
 
   function tick(dt, pl, now) {
+    zTick(dt, pl, now);
     if (pl.dead) return;
     const act = pl.activeGroup();
     // Las recargas de los otros huecos también corren (#174: antes se congelaban y
@@ -46,6 +47,67 @@ G.Combat = (() => {
 
   /** Pasivos con los que se hizo la instancia (Amplitud, Persistencia...): ver G.Moves.applyPassives. */
   const pkOf = m => m.pk || G.Moves.NO_PASS;
+
+  // ---------------- movimiento Z (24-10-2026, ver data/moves.js y data/shop.js) ----------------
+  /*
+   * pl.z = { type, def, t: lo que le queda activo, cd: lo que le queda de recarga,
+   * m: el movimiento mientras dura, dealt: su daño de las veces anteriores, uses }
+   * o null si no tienes el Cristal Z de un tipo de tu compañero. Lo pone zOf la
+   * primera vez (sólo a tu jugador). Activo, se lanza con tickMove como los
+   * demás, a la vez que tu hueco: en grupo va por la red como un ataque más ('c',
+   * coop.js) y los compañeros lo ven con ghostCast (una versión anterior del
+   * juego no lo conoce y no lo pinta; el daño le llega igual al anfitrión).
+   * Los relojes corren con la partida: se paran en la pausa y con las cartas.
+   */
+  function zOf(pl) {
+    if (!pl || pl.remote) return null;
+    if (pl.z !== undefined) return pl.z;
+    const type = G.Shop && G.Shop.zFor ? G.Shop.zFor(pl.mon) : null;
+    return (pl.z = type && G.Moves.Z[type] ? { type, def: G.Moves.Z[type], t: 0, cd: 0, m: null, dealt: 0, uses: 0 } : null);
+  }
+
+  /** Pulsar el Z (tecla, botón del HUD o del mando). → true si se ha activado. */
+  function zUse(pl) {
+    const z = zOf(pl);
+    if (!z || pl.dead) return false;
+    if (z.t > 0 || z.cd > 0) { G.Audio.sfx('error'); return false; }
+    const m = G.Moves.zInstance(z.type, pl.level, pl.pass, G.Stats.sideOf(pl.mon));
+    if (!m) return false;
+    m.since = G.Game.st.time;
+    z.m = m; z.t = G.Moves.Z_DUR; z.uses++;
+    // ¡Movimiento Z!: destello de su color, dos ondas, el nombre en grande y su fanfarria.
+    const col = G.U.TYPE_COLOR[z.type];
+    G.FX.ring(pl.x, pl.y, pl.r, 260, col, 0.7, 7);
+    G.FX.ring(pl.x, pl.y - G.LIFT * 0.5, pl.r * 5, 4, '#ffffff', 0.45, 4);
+    G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, col, 24, 220);
+    if (G.Game.flash) G.Game.flash(col, 0.35);
+    G.Camera.kick(0.45);
+    G.Spawner.say(z.def.name, 2.4, true);
+    G.Audio.sfx('legend');
+    G.Pad.rumble(0.6, 260);
+    return true;
+  }
+
+  /** Cada fotograma: lo lanza mientras dura y luego corre su recarga. */
+  function zTick(dt, pl, now) {
+    const z = zOf(pl);
+    if (!z) return;
+    if (z.t > 0) {
+      z.t -= dt;
+      if (z.m && !pl.dead) tickMove(dt, pl, z.m, now);
+      if (z.t <= 0) {
+        z.t = 0; z.cd = G.Moves.Z_CD;
+        if (z.m) z.dealt += z.m.dealt || 0;
+        z.m = null;
+        G.FX.ring(pl.x, pl.y, pl.r * 4, pl.r, G.U.TYPE_COLOR[z.type], 0.4, 3);
+      }
+    } else if (z.cd > 0 && (z.cd -= dt) <= 0) {
+      z.cd = 0;
+      // Otra vez listo: un aviso suave (el botón también late).
+      G.FX.ring(pl.x, pl.y, pl.r, pl.r * 4, G.U.TYPE_COLOR[z.type], 0.4, 3);
+      G.Audio.sfx('confirm');
+    }
+  }
 
   function tickMove(dt, pl, m, now) {
     if (m.kind === 'orbit') { orbit(pl, m, dt, now); return; }
@@ -522,8 +584,9 @@ G.Combat = (() => {
     if (!tg) return;
     const dmg = m.dmg * pl.atkFor(m);
     fields.push({ kind: 'stunzone', owner: pl, ghost, m, col, vis, x: tg.x, y: tg.y, t: 0, delay: 0.45, r: m.radius, dmg });
-    // Réplica: una zona más por carta, sobre otros enemigos distintos.
-    let extra = pkOf(m).amt | 0;
+    // Réplica: una zona más por carta, sobre otros enemigos distintos (con el tope de cantidad).
+    // (Y las que traiga de serie: zones, la Presa Espectral.)
+    let extra = Math.min(G.Moves.EXTRA_MAX, pkOf(m).amt | 0) + (m.zones | 0);
     if (extra <= 0) return;
     const near = G.EnemyMgr.queryCircle(pl.x, pl.y, reach(m));
     for (let k = 0, i = Math.floor(Math.random() * near.length); k < near.length && extra > 0; k++, i = (i + 1) % near.length) {
@@ -1670,14 +1733,16 @@ G.Combat = (() => {
 
   /**
    * Pasivos que llegan por la red ([área·100, duración·100, cantidad, propulsión·100]):
-   * sólo si están dentro de lo que dan las cartas; si no, ninguno.
+   * sólo si están dentro de lo que dan las cartas; si no, ninguno. La cantidad, con
+   * su tope (G.Moves.EXTRA_MAX: hasta 3 cartas de Réplica desde el 23-10-2026; las
+   * versiones de antes mandan como mucho 2): una mayor se queda en el tope.
    */
   function netPass(a) {
     if (!Array.isArray(a) || a.length < 4) return null;
     for (let i = 0; i < 4; i++) if (!Number.isFinite(a[i])) return null;
-    const area = a[0] / 100, dur = a[1] / 100, amt = a[2], pspd = a[3] / 100;
-    if (area < 1 || area > 1.5 || dur < 1 || dur > 1.6 || !Number.isInteger(amt) || amt < 0 || amt > 2 || pspd < 1 || pspd > 1.5) return null;
-    return { area, dur, amt, pspd };
+    const area = a[0] / 100, dur = a[1] / 100, pspd = a[3] / 100;
+    if (area < 1 || area > 1.5 || dur < 1 || dur > 1.6 || !Number.isInteger(a[2]) || a[2] < 0 || pspd < 1 || pspd > 1.5) return null;
+    return { area, dur, amt: Math.min(G.Moves.EXTRA_MAX, a[2]), pspd };
   }
 
   /**
@@ -1686,7 +1751,8 @@ G.Combat = (() => {
    */
   function ghostCast(pl, id, lvl, aim, evolved, pas, variant) {
     // Viene de la red: no se cree a ciegas (un id o un nivel raros colgaban a los demás).
-    const def = typeof id === 'string' ? G.Moves.BY_ID[id] : null;
+    // (También los movimientos Z: G.Moves.get.)
+    const def = G.Moves.get(id);
     if (!def || def.kind === 'orbit') return;
     const m = G.Moves.instance(id, lvl);
     if (evolved) G.Moves.evolve(m);
@@ -1721,7 +1787,8 @@ G.Combat = (() => {
   // Habilidad de quien pega (data/ability-fx.js): × al daño, crítico, estados y
   // lo que hace al golpear. (Los compañeros no la llevan aquí: pegan en su ordenador.)
   const abilOut = (pl, m, e) => (pl.abil && pl.abil.out && m ? pl.abil.out(pl, m, e) : 1);
-  const critMul = pl => (pl.abil && pl.abil.critMul) || CRIT_MUL;
+  // (+ lo que suman las cartas de Puntería, pl.critDmg: +0,1 cada una.)
+  const critMul = pl => ((pl.abil && pl.abil.critMul) || CRIT_MUL) + (pl.critDmg || 0);
   /** × a quemaduras, venenos, frenazos y empujones: Potencia Bruta los quita, Dicha los dobla. */
   const statusK = pl => (!pl.abil ? 1 : pl.abil.sheer ? 0 : pl.abil.serene ? 2 : 1);
   function afterHit(pl, e, m) {
@@ -1889,6 +1956,6 @@ G.Combat = (() => {
   }
 
   return { tick, resolve, ghostCast, ghostOrbit, updateFields, drawGroundFields, drawAirFields, clearFields,
-           reach, cooldown, wardBlock,
+           reach, cooldown, wardBlock, zOf, zUse,
            get fieldCount() { return fields.length; } };
 })();

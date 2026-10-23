@@ -3,8 +3,12 @@
  * De vez en cuando (pocas veces por partida) se abre una GRIETA cerca de un
  * jugador. Dura GRIETA_TTL segundos; si entras, te lleva (con todo el grupo)
  * a una arena cerrada en el Mundo Distorsión, contra un Pokémon LEGENDARIO.
+ * Desde el 23-10-2026, contra varios a la vez: 2 desde el minuto 10 y 3 desde
+ * el 20 (uno más con 3 o 4 jugadores, sin pasar de 3). Cada uno algo menos
+ * duro que si fuera solo, la arena dura más y cada uno suelta su premio; se
+ * gana al vencerlos a todos.
  *
- *   ganas    el legendario suelta tickets (el ×10, la mitad de las veces) y monedas, y cada uno se lleva un
+ *   ganas    cada legendario suelta tickets (el ×10, la mitad de las veces) y monedas, y cada uno se lleva un
  *            VÍNCULO (fusiona movimientos, ver Player.fuse); a los pocos
  *            segundos volvéis al mapa donde estabais y se elige la fusión
  *   pierdes  (caéis todos o se acaba el tiempo) volvéis sin premio, con algo
@@ -24,9 +28,15 @@ G.Rift = (() => {
   // Desde 2 min antes de la Sentencia de Arceus (minuto 30) ya no se abren.
   const CHECK = 30, CHANCE = 0.2, TTL = 45;
   const ARENA_R = 11, ARENA_TIME = 120, FROM = 75;
+  // Cuántos legendarios según el minuto y los jugadores; vida de cada uno (respecto a
+  // uno solo) y segundos de arena según cuántos son.
+  const legendsFor = (t, np) => G.U.clamp((t >= 1200 ? 3 : t >= 600 ? 2 : 1) + (np >= 3 ? 1 : 0), 1, 3);
+  const HP_EACH = [1, 1, 0.8, 0.7], TIME_FOR = [ARENA_TIME, ARENA_TIME, 170, 215];
+  // Dónde salen (en baldosas desde el centro; vosotros, 3 al sur).
+  const SPOTS = [[], [[0, -3.5]], [[-2.6, -3.6], [2.6, -3.6]], [[-3.4, -2.6], [0, -4.6], [3.4, -2.6]]];
   const EXIT_GRACE = 2.5, EXIT_R = 140;     // al volver: segundos de gracia y hueco sin enemigos
   let rift = null;          // { x, y, ttl, t }
-  let arena = null;         // { tx, ty, r, dex, shiny, x, y, back, biome, t, phase, endT, bossId }
+  let arena = null;         // { tx, ty, r, dex, dexes, shiny, shinies, time, x, y, back, biome, t, phase, endT, bossIds }
   let zone = null;          // dónde estaba la última arena { x, y, r } (ver leftBehind)
   let checkT = CHECK, asked = false, downT = 0, misses = 0;
   const authority = () => !G.Coop.active || G.Coop.isHost;
@@ -100,36 +110,58 @@ G.Rift = (() => {
 
   /** Quien manda: elige legendario y lugar, y avisa a todos. */
   let nextType = null;          // pruebas/vídeos: tipo de la próxima arena
+  let nextN = 0;                // pruebas: cuántos legendarios en la próxima arena
 
-  function start(forceType) {
-    if (arena) return;
-    forceType = forceType || nextType; nextType = null;
-    let pool = G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex]);
-    if (forceType && pool.some(p => p.types.includes(forceType))) pool = pool.filter(p => p.types.includes(forceType));
-    // Los legendarios que aún no has vencido salen 4 veces más (menos repetidos).
+  /** Legendario al azar de `pool` (los que aún no has vencido salen 4 veces más: menos repetidos). */
+  function pickLegend(pool) {
     const beaten = (G.DB.save && G.DB.save.legends) || {};
     const ws = pool.map(p => (beaten[p.dex] ? 1 : 4));
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), mi = 0;
     while (mi < pool.length - 1 && (r -= ws[mi]) > 0) mi++;
-    const mon = pool[mi];
+    return pool[mi];
+  }
+
+  function start(forceType, forceN) {
+    if (arena) return;
+    forceType = forceType || nextType; nextType = null;
+    forceN = forceN || nextN; nextN = 0;
+    const all = G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex]);
+    let pool = all;
+    if (forceType && pool.some(p => p.types.includes(forceType))) pool = pool.filter(p => p.types.includes(forceType));
+    const mon = pickLegend(pool);
+    // La arena es la de uno de sus tipos, al azar.
+    const type = forceType || G.U.pick(mon.types);
+    // Los demás, si puede, del tipo de la arena (y nunca repetidos).
+    const n = G.U.clamp(forceN || legendsFor(G.Game.st.time, G.Game.everyone().length), 1, 3);
+    const mons = [mon];
+    while (mons.length < n) {
+      const rest = all.filter(p => !mons.includes(p));
+      const same = rest.filter(p => p.types.includes(type));
+      if (!rest.length) break;
+      mons.push(pickLegend(same.length ? same : rest));
+    }
+    const shinies = mons.map(p => G.Sprites.hasShiny(p.dex) && Math.random() < 1 / 512);
     const cfg = {
       tx: 5000 + Math.floor(Math.random() * 3000), ty: 5000 + Math.floor(Math.random() * 3000), r: ARENA_R,
-      dex: mon.dex, shiny: G.Sprites.hasShiny(mon.dex) && Math.random() < 1 / 512,
-      // La arena es la de uno de sus tipos, al azar.
-      type: forceType || G.U.pick(mon.types)
+      // (dex y shiny: el primero, para los invitados de antes del 23-10-2026.)
+      dex: mon.dex, shiny: shinies[0], type,
+      dexes: mons.map(p => p.dex), shinies, time: TIME_FOR[mons.length]
     };
     if (G.Coop.isHost) G.Coop.broadcast(['arena', cfg]);
     begin(cfg);
-    spawnLegend();
+    spawnLegends();
   }
 
   /** En cada ordenador: viaje a la arena. */
   function begin(cfg) {
     const pl = G.Game.player;
     const ts = TS();
+    // (Lo que manda el anfitrión, con sus límites; uno de antes no manda dexes ni time.)
+    const dexes = Array.isArray(cfg.dexes) ? cfg.dexes.filter(d => G.DEX_BY[d]).slice(0, 3) : [];
+    const time = typeof cfg.time === 'number' && cfg.time >= 30 && cfg.time <= 400 ? cfg.time : ARENA_TIME;
     arena = Object.assign({}, cfg, {
-      x: cfg.tx * ts + ts / 2, y: cfg.ty * ts + ts / 2,
-      back: { x: pl.x, y: pl.y }, biome: G.World.biome, t: 0, phase: 'fight', endT: 0, bossId: 0
+      x: cfg.tx * ts + ts / 2, y: cfg.ty * ts + ts / 2, dexes: dexes.length ? dexes : [cfg.dex], time,
+      back: { x: pl.x, y: pl.y }, biome: G.World.biome, t: 0, phase: 'fight', endT: 0, bossIds: []
     });
     zone = { x: arena.x, y: arena.y, r: (cfg.r + 10) * ts };
     rift = null; asked = false; downT = 0;
@@ -141,7 +173,7 @@ G.Rift = (() => {
     G.World.setBiome(G.Tiles.arenaBiome(cfg.type), true);
     // Cada arena trae su clima (el volcán, sol; el glaciar, nieve...).
     const th = G.Tiles.ARENA_THEMES[cfg.type];
-    if (th && th.weather) G.Weather.force(th.weather, ARENA_TIME + 15);
+    if (th && th.weather) G.Weather.force(th.weather, time + 15);
     // Todos al sur de la arena, en fila; el legendario aparece al norte.
     const ps = G.Game.everyone();
     // Quien manda apunta de dónde sale cada uno para hacerle hueco al volver: cada
@@ -154,30 +186,56 @@ G.Rift = (() => {
     G.Spawner.say('Has entrado en la grieta…', 2.4, true);
   }
 
-  function spawnLegend() {
-    const mon = G.DEX_BY[arena.dex];
+  function spawnLegends() {
     const t = G.Game.st.time;
     const n = G.Game.everyone().length;
     const ts = TS();
-    const def = {
-      dex: mon.dex, name: mon.name,
-      hp: Math.round((3200 + t * 9) * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1)),
-      spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
-      dmg: Math.round(36 + t / 20), xp: Math.round(500 + t * 1.2),
-      behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',
-      shotDmg: Math.round(18 + t / 40), shotCd: 0.9, range: 300
-    };
-    const e = new G.Enemy(def, arena.x, arena.y - ts * 3.5, { hp: 1, spd: 1, dmg: 1 }, true);
-    e.legend = true;
-    // Choca con las paredes y columnas como tú: si volara por encima de las
-    // rocas, tus disparos no podrían alcanzarle (bug de Celebi).
-    e.flying = false;
-    if (arena.shiny) e.makeShiny();
-    G.EnemyMgr.add(e);
-    arena.bossId = e.id;
-    G.Spawner.say('¡' + e.name + (e.shiny ? ' shiny' : '') + ' te esperaba en la grieta!', 3.2);
+    const k = arena.dexes.length, spots = SPOTS[k] || SPOTS[1];
+    const placed = [];
+    arena.dexes.forEach((dex, i) => {
+      const mon = G.DEX_BY[dex];
+      const def = {
+        dex: mon.dex, name: mon.name,
+        hp: Math.round((3200 + t * 9) * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1) * HP_EACH[k]),
+        spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
+        dmg: Math.round(36 + t / 20), xp: Math.round(500 + t * 1.2),
+        behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',
+        shotDmg: Math.round(18 + t / 40), shotCd: 0.9, range: 300
+      };
+      const [sx, sy] = spots[i] || [0, -3.5];
+      const e = new G.Enemy(def, arena.x + sx * ts, arena.y + sy * ts, { hp: 1, spd: 1, dmg: 1 }, true);
+      e.legend = true;
+      // Choca con las paredes y columnas como tú: si volara por encima de las
+      // rocas, tus disparos no podrían alcanzarle (bug de Celebi).
+      e.flying = false;
+      place(e, placed);
+      if ((arena.shinies || [arena.shiny])[i]) e.makeShiny();
+      // Que no ataquen todos a la vez nada más empezar.
+      e.bossInit(); e.ai.cd = 1.6 + i * 1.1;
+      G.EnemyMgr.add(e);
+      arena.bossIds.push(e.id);
+      placed.push(e);
+    });
+    const nm = e => e.name + (e.shiny ? ' shiny' : '');
+    if (placed.length === 3) G.Spawner.say('¡' + nm(placed[0]) + ', ' + nm(placed[1]) + ' y ' + nm(placed[2]) + ' te esperaban en la grieta!', 3.6);
+    else if (placed.length === 2) G.Spawner.say('¡' + nm(placed[0]) + ' y ' + nm(placed[1]) + ' te esperaban en la grieta!', 3.4);
+    else G.Spawner.say('¡' + nm(placed[0]) + ' te esperaba en la grieta!', 3.2);
     G.Camera.kick(1.1);
     G.Audio.sfx('boss');
+  }
+
+  /** Lo más cerca de su sitio donde quepa: sin columnas, charcos ni otro legendario encima. */
+  function place(e, others) {
+    const x0 = e.x, y0 = e.y, r = Math.min(e.r, 26);
+    const ok = (x, y) => G.World.isFree(x, y, r) && others.every(o => G.U.dist2(x, y, o.x, o.y) > (o.r + e.r + 8) ** 2);
+    for (let d = 0; d <= 96; d += 16) {
+      for (let j = 0, m = d ? 10 : 1; j < m; j++) {
+        const a = j / m * 6.2832, x = x0 + Math.cos(a) * d, y = y0 + Math.sin(a) * d * 0.8;
+        if (ok(x, y)) { e.x = x; e.y = y; return; }
+      }
+    }
+    // (Si no hay sitio, al pasillo del centro, que siempre está libre.)
+    e.x = arena.x; e.y = arena.y - TS() * (2 + others.length * 1.6);
   }
 
   /** Nadie sale del círculo de la arena (por si algo empuja demasiado). */
@@ -195,11 +253,11 @@ G.Rift = (() => {
     if (arena.phase === 'fight') {
       if (!authority()) return;
       keepInside();
-      const boss = G.EnemyMgr.get(arena.bossId);
-      if (!boss || boss.dead) { G.Coop.isHost && G.Coop.broadcast(['aw']); won(); return; }
+      const left = arena.bossIds.some(id => { const b = G.EnemyMgr.get(id); return b && !b.dead; });
+      if (!left) { G.Coop.isHost && G.Coop.broadcast(['aw']); won(); return; }
       const allDown = G.Game.everyone().every(p => p.dead);
       downT = allDown ? downT + dt : 0;
-      if (downT > 1.4 || arena.t > ARENA_TIME) { G.Coop.isHost && G.Coop.broadcast(['al']); lost(); }
+      if (downT > 1.4 || arena.t > arena.time) { G.Coop.isHost && G.Coop.broadcast(['al']); lost(); }
       return;
     }
     arena.endT -= dt;
@@ -211,7 +269,8 @@ G.Rift = (() => {
     arena.phase = 'won'; arena.endT = 5;
     G.Progress.event('rift', { type: arena.type });
     G.Pickups.pullAll();
-    G.Spawner.say('¡Has vencido a ' + G.DEX_BY[arena.dex].name + '! Recoge el premio…', 3.4, true);
+    G.Spawner.say(arena.dexes.length > 1 ? '¡Has vencido a los legendarios! Recoge el premio…'
+                                         : '¡Has vencido a ' + G.DEX_BY[arena.dex].name + '! Recoge el premio…', 3.4, true);
     G.Audio.sfx('legend');
     const pl = G.Game.player;
     if (pl) {
@@ -316,10 +375,12 @@ G.Rift = (() => {
     reset, update, drawable, onEvent, leftBehind, enterRequest() { if (!arena) start(); },
     get rift() { return rift; }, get arena() { return arena; },
     get inArena() { return !!arena; },
-    get timeLeft() { return arena ? Math.max(0, ARENA_TIME - arena.t) : 0; },
+    get timeLeft() { return arena ? Math.max(0, arena.time - arena.t) : 0; },
     debugOpen() { open(); },
-    /** Para pruebas: arena de un tipo ya. */
-    debugArena(type) { start(type); },
+    /** Para pruebas: arena de un tipo ya (y, si se dice, con `n` legendarios). */
+    debugArena(type, n) { start(type, n); },
+    /** Para pruebas: la próxima grieta, con `n` legendarios. */
+    debugNextCount(n) { nextN = n; },
     /** Para vídeos: la próxima grieta en la que entres será de este tipo. */
     debugNextType(type) { nextType = type; }
   };

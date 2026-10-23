@@ -28,7 +28,11 @@
  *
  * Jefes: Pokémon fuertes NO legendarios (pseudolegendarios, Slaking...), al
  * azar por franjas de poder. Los legendarios sólo salen en las grietas
- * (systems/rift.js).
+ * (systems/rift.js). Desde el 23-10-2026 siguen saliendo hasta el final (antes
+ * el último era el del minuto 15) y en los minutos 24 y 27 vienen dos a la vez.
+ *
+ * Enjambres (oleada de spawner.js): un Pokémon volador pequeño (Zubat, Combee...)
+ * elegido al empezar la run.
  */
 G.Enemies = (() => {
   const TIERS = [
@@ -46,8 +50,15 @@ G.Enemies = (() => {
     { at: 360, hp: 3200,  dmg: 42, xp: 420,  bst: [520, 580] },
     { at: 540, hp: 5600,  dmg: 48, xp: 680,  bst: [540, 600] },
     { at: 720, hp: 9000,  dmg: 56, xp: 1000, bst: [580, 700] },
-    { at: 900, hp: 16000, dmg: 68, xp: 1800, bst: [600, 700] }
+    { at: 900, hp: 16000, dmg: 68, xp: 1800, bst: [600, 700] },
+    // Tramo final (23-10-2026): n = cuántos salen a la vez (cada uno con esta vida).
+    { at: 1080, hp: 22000, dmg: 76, xp: 2400, bst: [580, 720] },
+    { at: 1260, hp: 27000, dmg: 84, xp: 2900, bst: [580, 720] },
+    { at: 1440, hp: 20000, dmg: 86, xp: 2400, bst: [560, 720], n: 2 },
+    { at: 1620, hp: 25000, dmg: 94, xp: 2900, bst: [560, 720], n: 2 }
   ];
+  // Voladores pequeños para los enjambres (los que tengan sprite y floten).
+  const SWARM = [41, 415, 165, 193, 12, 15, 527, 278, 333, 425, 267, 742, 92, 81];
 
   // Stats base aproximados a partir de los de juego (inverso de fetch_pokedex).
   const baseHp = p => (p.hp - 70) / 0.45;
@@ -139,7 +150,8 @@ G.Enemies = (() => {
   }
 
   let cast = null;      // [{ from, list: [def] }]
-  let bosses = null;    // [def de jefe]
+  let bosses = null;    // [def de jefe] (los de un mismo minuto salen juntos)
+  let swarmDex = [];    // [dex del enjambre de antes del minuto 18, dex del de después]
 
   /** Sortea el elenco de una run nueva. */
   function rollRun() {
@@ -153,22 +165,38 @@ G.Enemies = (() => {
       if (r) { r.behavior = 'runner'; r.spd = Math.round(r.spd * 1.6); r.hp = Math.round(r.hp * 0.7); }
     }
     const used = new Set();
-    bosses = BOSS_SLOTS.map(slot => {
-      const ok = p => !p.leg && G.SPRITE_META[p.dex] && !used.has(p.dex);
-      let pool = G.DEX.filter(p => ok(p) && p.bst >= slot.bst[0] && p.bst <= slot.bst[1]);
-      if (!pool.length) pool = G.DEX.filter(p => ok(p) && p.bst >= 580);
-      const p = G.U.pick(pool);
-      used.add(p.dex);
-      return {
-        at: slot.at, dex: p.dex, name: p.name,
-        // (Desde 2026-10-10 más duros: ×1,35 de vida y ×1,2 de daño.)
-        hp: Math.round(slot.hp * 1.35), spd: Math.round(G.U.clamp(40 + baseSpd(p) * 0.5, 40, 100)),
-        dmg: Math.round(slot.dmg * 1.2), xp: slot.xp,
-        behavior: behaviorOf(p) === 'ranged' ? 'ranged' : (baseSpd(p) > 90 ? 'charger' : 'chase'),
-        shotDmg: Math.round(slot.dmg * 0.55), shotCd: 1.1, range: 260
-      };
-    });
+    bosses = [];
+    for (const slot of BOSS_SLOTS) for (let k = 0; k < (slot.n || 1); k++) bosses.push(bossDef(slot, used));
+    const sw = SWARM.filter(d => G.SPRITE_META[d] && G.SPRITE_META[d].hv && G.DEX_BY[d]);
+    swarmDex = G.U.pickN(sw.length ? sw : [41], 2);
     return { cast, bosses };
+  }
+
+  /** Jefe de una franja (sin repetir Pokémon en la run). */
+  function bossDef(slot, used) {
+    const ok = p => !p.leg && G.SPRITE_META[p.dex] && !used.has(p.dex);
+    let pool = G.DEX.filter(p => ok(p) && p.bst >= slot.bst[0] && p.bst <= slot.bst[1]);
+    if (!pool.length) pool = G.DEX.filter(p => ok(p) && p.bst >= 580);
+    if (!pool.length) pool = G.DEX.filter(p => ok(p) && p.bst >= 500);
+    const p = G.U.pick(pool);
+    used.add(p.dex);
+    return {
+      at: slot.at, dex: p.dex, name: p.name,
+      // (Desde 2026-10-10 más duros: ×1,35 de vida y ×1,2 de daño.)
+      hp: Math.round(slot.hp * 1.35), spd: Math.round(G.U.clamp(40 + baseSpd(p) * 0.5, 40, 100)),
+      dmg: Math.round(slot.dmg * 1.2), xp: slot.xp,
+      behavior: behaviorOf(p) === 'ranged' ? 'ranged' : (baseSpd(p) > 90 ? 'charger' : 'chase'),
+      shotDmg: Math.round(slot.dmg * 0.55), shotCd: 1.1, range: 260
+    };
+  }
+
+  /** Definición del volador del enjambre en el segundo `t` (con los stats del tramo). */
+  function swarmDef(t) {
+    if (!cast) rollRun();
+    const dex = swarmDex[t < 1080 ? 0 : swarmDex.length - 1], p = G.DEX_BY[dex];
+    if (!p) return null;
+    const ti = tierAt(t), d = defFor(p, TIERS[ti], ti);
+    return Object.assign(d, { behavior: 'chase', spd: Math.min(150, Math.round(d.spd * 1.35)) });
   }
 
   // (El "tiempo extra" del minuto 60 se quitó al llegar la Sentencia de Arceus,
@@ -220,11 +248,12 @@ G.Enemies = (() => {
     const out = [];
     for (const tier of cast) if (tier.from <= t + ahead) for (const e of tier.list) out.push(e.dex);
     for (const b of bosses) if (b.at <= t + ahead) out.push(b.dex);
+    if (t + ahead >= 360) out.push(...swarmDex);
     return out;
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs,
+    TIERS, BOSS_SLOTS, rollRun, scale, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

@@ -60,6 +60,7 @@ G.Player = class Player {
     this.rerolls = 0;          // veces que ha cambiado las cartas de nivel en esta run
     this.rerollBonus = perks.rerolls || 0;   // cambios comprados en Mejoras (más el gratis)
     this.critChance = perks.crit || 0;       // probabilidad de golpe crítico (Mejoras)
+    this.critDmg = 0;                        // + al daño de los críticos (cartas de Puntería; combat.js critMul)
     // Pasivos de la run (cartas Amplitud, Persistencia, Réplica y Propulsión): ver G.Moves.applyPassives.
     this.pass = { area: 1, dur: 1, amt: 0, pspd: 1 };
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
@@ -90,6 +91,7 @@ G.Player = class Player {
     this.statsTaken = {};      // mejoras de stat cogidas (condición de evolución)
     this.abil = null;          // efecto de su habilidad (data/ability-fx.js), lo pone game.js
     this.sturdyAt = -Infinity; // última vez que le salvó Robustez (tiempo de partida)
+    // (Movimiento Z, this.z: lo pone combat.js, zOf, la primera vez que se mira.)
   }
 
   /** Pone la habilidad (G.AbilityFX.of) y aplica lo que hace al empezar. */
@@ -255,7 +257,8 @@ G.Player = class Player {
    */
   cast(m) {
     // Vidasfera: cada ataque cuesta un poco de vida (nunca te deja KO). Ganar un escudo no es un ataque.
-    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && m.kind !== 'ward' && !this.remote) {
+    // (El movimiento Z, tampoco: se lanza solo y muy seguido.)
+    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && m.kind !== 'ward' && !m.z && !this.remote) {
       this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));
     }
     const anim = { melee: 'Attack', beam: 'Shoot', projectile: 'Shoot', nova: 'Attack',
@@ -458,6 +461,9 @@ G.Player = class Player {
       if (!G.Weather.current) G.Weather.debugStart(this.abil.summon, 60);
     }
 
+    // Movimiento Z: su tecla (Ajustes > Controles, Z de serie) o el botón X del mando; el del HUD llama a zUse.
+    if (!this.frozen && !this.remote && G.Input.act('zmove')) G.Combat.zUse(this);
+
     // --- movimiento con colisiones ---
     // (En cooperativo la pausa no para el juego: sólo te quedas quieto.)
     const [ax, ay] = this.frozen ? [0, 0] : G.Input.axis();
@@ -632,6 +638,18 @@ G.Player = class Player {
       ctx.restore();
     }
     G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
+    // Movimiento Z activo: dos aros de su color que giran bajo los pies.
+    if (this.z && this.z.t > 0 && !this.dead) {
+      const t = performance.now() / 1000, rr = this.r * 2.3;
+      ctx.save();
+      ctx.strokeStyle = G.U.TYPE_COLOR[this.z.type];
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.55 + Math.sin(t * 6) * 0.2;
+      ctx.beginPath(); ctx.ellipse(this.x, this.y, rr, rr * 0.42, 0, t * 3, t * 3 + 4.4); ctx.stroke();
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath(); ctx.ellipse(this.x, this.y, rr * 1.25, rr * 0.52, 0, -t * 2, -t * 2 + 3.6); ctx.stroke();
+      ctx.restore();
+    }
     // Poder de altar: aro de su color latiendo bajo los pies.
     if (this.power && !this.dead) {
       ctx.save();

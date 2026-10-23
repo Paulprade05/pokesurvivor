@@ -5,11 +5,17 @@
  * (G.Settings 'pad' en horizontal y 'padP' en vertical: cada orientación la
  * suya); lo que no se mueve se queda en su sitio de siempre.
  * El HUD (hud.js) y el joystick (touch.js) leen esas posiciones.
- * Las medidas copian las del HUD: si cambian allí, cambiarlas aquí.
+ * Las medidas salen del HUD (G.HUD.pads: huecos de 54 px, 44 en el móvil) y
+ * del joystick (G.Touch.R); el dibujo de cada cosa, de «pantallas: partida»
+ * en style.css (con las mismas medidas del móvil en su @media).
  */
 G.LayoutUI = (() => {
-  const S = 54, GAP = 9, ITEM_GAP = 18, N = 4;          // como en hud.js
-  const BAR_W = S + ITEM_GAP + N * S + (N - 1) * GAP;
+  const N = 4;
+  /** Medidas de la barra (objeto + 4 huecos) y de la pausa en esta pantalla, como en hud.js. */
+  function dims(w, h) {
+    const D = G.HUD.pads(w, h);
+    return { S: D.S, BAR_W: D.S + D.IG + N * D.S + (N - 1) * D.GAP, P: D.P, PR: D.PR };
+  }
   let el = null, pos = null, moved = null, mode = 'float';
   // Lo movido y aún sin guardar de cada orientación: al girar el móvil con el editor abierto
   // no se pierde, y «Guardar» guarda las dos. (pad en horizontal, padP en vertical)
@@ -27,10 +33,10 @@ G.LayoutUI = (() => {
 
   /** Lo mismo que hace el HUD para que no se salga de la pantalla (ni se meta bajo la barra de estado). */
   function fit(k, x, y, w, h) {
-    const top = G.Touch.safeArea().top;
+    const top = G.Touch.safeArea().top, { S, BAR_W, P } = dims(w, h);
     if (k === 'bar') return [G.U.clamp(x, 6 + BAR_W / 2, Math.max(6 + BAR_W / 2, w - BAR_W / 2 - 6)), G.U.clamp(y, Math.max(24, top + 6) + S / 2, h - S / 2 - 6)];
-    if (k === 'pause') return [G.U.clamp(x, 24, w - 24), G.U.clamp(y, Math.max(10, top + 4) + 20, h - 24)];
-    const r = G.Touch.R();
+    if (k === 'pause') return [G.U.clamp(x, 4 + P / 2, w - 4 - P / 2), G.U.clamp(y, Math.max(10, top + 4) + P / 2, h - 4 - P / 2)];
+    const r = G.Touch.R(w, h);
     return [G.U.clamp(x, r + 4, w - r - 4), G.U.clamp(y, r + 4, h - r - 4)];
   }
 
@@ -132,7 +138,7 @@ G.LayoutUI = (() => {
   }
 
   function paint() {
-    const r = G.Touch.R();
+    const w = innerWidth, h = innerHeight, r = G.Touch.R(w, h), { S, BAR_W, PR } = dims(w, h);
     const place = (k, ww, hh) => {
       const n = el.querySelector(`[data-k="${k}"]`);
       n.style.left = (pos[k][0] - ww / 2) + 'px'; n.style.top = (pos[k][1] - hh / 2) + 'px';
@@ -140,7 +146,7 @@ G.LayoutUI = (() => {
       return n;
     };
     place('bar', BAR_W, S);
-    place('pause', 40, 40);
+    place('pause', PR * 2, PR * 2);              // (el círculo; lo que se toca en la partida, 40 px)
     place('stick', r * 2, r * 2).classList.toggle('hidden', mode !== 'fixed');
     el.querySelectorAll('#lay-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
     // Se juega de pie y tumbado: cada orientación tiene su colocación.

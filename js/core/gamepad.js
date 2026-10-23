@@ -6,6 +6,7 @@
  *                   LB / RB (o LT / RT)         ataque anterior / siguiente
  *                   Start                       pausa
  *                   A                           saltar la animación de Arceus
+ *                   X                           movimiento Z (con su Cristal Z)
  *                   stick derecho               apuntar (con "Apuntar a mano" en Accesibilidad)
  *   En menús, cartas y pausa:
  *                   stick o cruceta             mover la selección (recuadro dorado);
@@ -330,6 +331,7 @@ G.Pad = (() => {
       if (hit(BT.RB) || hit(BT.RT)) G.Input.virtualAct('next');
       if (hit(BT.START) || hit(BT.BACK)) G.Input.virtual('escape');
       if (hit(BT.A)) G.Input.virtual('space');
+      if (hit(BT.X)) G.Input.virtualAct('zmove');
     }
   }
   function step(dir) { if (!slide(dir)) move(...{ r: [1, 0], l: [-1, 0], d: [0, 1], u: [0, -1] }[dir]); }

@@ -578,7 +578,8 @@ G.VFX = (() => {
   };
 
   function forMove(m) {
-    const v = MOVE[m.id] || {};
+    // (Los movimientos Z traen la suya en m.vfx: data/moves.js.)
+    const v = MOVE[m.id] || m.vfx || {};
     return Object.assign({ pal: m.type, proj: TYPE_SHAPE[m.type] || 'ball' }, v, { pal: v.pal || m.type });
   }
   function forType(type) { return { proj: TYPE_SHAPE[type] || 'ball', pal: PAL[type] ? type : 'normal' }; }

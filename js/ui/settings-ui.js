@@ -141,6 +141,7 @@ G.SettingsUI = (() => {
       + keyRow(`${['m1', 'm2', 'm3', 'm4'].map(a => keyBtn(a)).join('')} o clic en el icono`, 'elegir ataque')
       + keyRow(`${keyBtn('prev')} / ${keyBtn('next')}`, 'ataque anterior / siguiente')
       + keyRow(`<kbd>Esc</kbd> / ${keyBtn('pause')}`, 'pausa')
+      + keyRow(keyBtn('zmove'), 'movimiento Z')
       + keyRow('<kbd>1</kbd>–<kbd>3</kbd>', 'elegir carta al subir de nivel')
       + keyRow(['up', 'down', 'left', 'right'].map(a => keyBtn(a)).join(''), 'teclas de más para moverte (las de siempre siguen valiendo)')
       + '</div>'
@@ -175,6 +176,7 @@ G.SettingsUI = (() => {
       + keyRow(`${PAD('LB')} / ${PAD('RB')}`, 'ataque anterior / siguiente')
       + keyRow(PAD('Start'), 'pausa')
       + keyRow(PAD('A'), 'pulsar (en los menús) · saltar la animación de Arceus')
+      + keyRow(PAD('X'), 'movimiento Z')
       + keyRow(PAD('B'), 'atrás / cerrar')
       + keyRow(PAD('Y'), 'cambiar las cartas al subir de nivel')
       + keyRow(PAD('Stick der.'), 'desplazar las listas · apuntar (si activas Apuntar a mano en Accesibilidad)')

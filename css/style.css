@@ -2140,6 +2140,8 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 /* Lo que se vende: secciones con su título y filas (baldosa, nombre, texto y precio). */
 .shop-inner { display: flex; flex-direction: column; gap: 18px; padding: 16px 20px 20px; }
 .box .shop-hello { margin: 0; font-size: var(--fs-s); }
+/* (Las secciones, separadas como el saludo: Objetos, Cristales Z y MT de hoy iban pegadas.) */
+#shop-body { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .shop-sec { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .box .shop-h { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 var(--fs-l)/1.2 var(--font-display); }
 .box .shop-note { margin: -4px 0 0; font-size: var(--fs-s); }
@@ -2156,6 +2158,7 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
    pequeños; el contenido deja las zonas seguras (la hoja no tiene relleno aquí). */
 @media (max-width: 599px), (max-height: 520px) {
   .shop-inner { gap: 14px; padding: 12px max(12px, var(--sa-r)) max(14px, var(--sa-b)) max(12px, var(--sa-l)); }
+  #shop-body { gap: 14px; }
   .shop-sec { gap: 8px; }
   .shop-grid { gap: 6px; }
   .shop-row { min-height: 56px; padding: 8px 10px; border-radius: 14px; }
@@ -2210,6 +2213,18 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   .bag-n { right: -5px; bottom: -5px; min-width: 24px; padding: 1px 6px; }
   .bag-empty { padding: 28px 12px; }
 }
+
+/* ---- Cristales Z (24-10-2026, shop-ui.js): baldosa del color de su tipo, su movimiento Z y «Comprado» ---- */
+.box .z-sec .shop-h > img { margin: -6px 0; }
+.z-move { display: inline-flex; align-items: center; gap: 3px; min-width: 0; font: 700 var(--fs-xs)/1.3 var(--font); color: var(--ink); }
+.z-move > img { flex: none; width: 18px; height: 18px; margin: -3px 0; }
+.z-move > b { font-weight: 700; overflow-wrap: anywhere; }
+.shop-got {
+  flex: none; gap: 4px; background: rgba(110, 231, 160, .12); color: var(--ok);
+  box-shadow: inset 0 0 0 1px rgba(110, 231, 160, .45); letter-spacing: 0;
+}
+.shop-got > svg { width: 14px; height: 14px; stroke-width: 3; }
+.z-all { align-self: flex-start; }
 /* ==== pantallas: gacha ====
  * Gacha (#scr-gacha) y su tirada (#pull-fx), Misiones · Logros · Perfil
  * (#scr-goals) y el perfil público de un jugador (#scr-profile). Son hojas de
@@ -3967,37 +3982,72 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 .own-card .badge { flex: none; }
 #pause-sound { max-width: none; margin: 0; }
 #pause-sound .snd-row { grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr); }
-/* Móvil (de pie y tumbado): tarjetas, filas y cifras de la pausa y del resumen más compactas. */
+/* Móvil (de pie y tumbado), 23-10-2026: la pausa y el resumen se veían enormes.
+   Tarjetas, filas y cifras mucho más compactas (letra de 11 px como poco y
+   baldosas de icono de 28, el dibujo a 26): de un vistazo se ven tus ataques y
+   tus estadísticas (en tres columnas de pie). */
 @media (max-width: 599px), (max-height: 520px) {
-  .mv-legend { margin-bottom: 4px; }
-  .mv-list { gap: 5px; }
-  .mv-row { gap: 4px 8px; padding: 6px 8px 6px 6px; }
-  .mv-name > b { font-size: 14px; }
-  .mv-num b { font-size: 15px; }
-  #scr-pause .pause-body { padding-top: 12px; }
-  .pause-cols { column-gap: 12px; }
-  .ps-card { margin-bottom: 10px; padding: 12px; border-radius: 14px; }
-  .box .ps-card h3 { margin-bottom: 8px; }
-  .st-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 5px; }
-  .st-tile { gap: 6px; padding: 4px 6px 4px 4px; }
-  .st-tile b { font-size: 14px; }
-  .ps-item { gap: 10px; margin-bottom: 8px; }
-  .ps-item b { font-size: 15px; }
-  .own-grid { gap: 5px; }
-  .own-card b { font-size: 13px; }
+  .mv-legend { margin: -2px 2px 3px; }
+  .mv-list { gap: 4px; }
+  .mv-row { gap: 2px 8px; padding: 4px 8px 4px 4px; border-radius: 10px; }
+  .mv-row > .ico-tile { --tile: 28px; border-radius: 9px; }
+  :is(.mv-row, .st-tile, .own-card, .ov-tile, .ov-tk) > .ico-tile > img { width: 26px; height: 26px; }
+  .mv-name { gap: 0 5px; }
+  .mv-name > b { font-size: 13.5px; line-height: 1.2; }
+  .mv-name > .badge { min-height: 16px; padding: 0 6px; line-height: 16px; }
+  .mv-tags { gap: 3px; margin-top: 2px; }
+  .mv-tags > :is(.tag-chip, .fam-chip) { padding-top: 0; padding-bottom: 0; line-height: 15px; }
+  .mv-tags > .tag-chip { padding-left: 6px; padding-right: 6px; }
+  .mv-num b { font-size: 14px; }
+  .mv-bar { height: 3px; }
+  #scr-pause .pause-body { padding-top: 8px; }
+  .pause-cols { column-gap: 8px; }
+  .ps-card { margin-bottom: 8px; padding: 8px 10px 10px; border-radius: 12px; }
+  .box .ps-card h3 { margin-bottom: 6px; font-size: var(--fs-m); }
+  .st-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px; }
+  .st-tile { gap: 5px; padding: 3px 5px 3px 3px; border-radius: 9px; }
+  .st-tile > .ico-tile { --tile: 28px; border-radius: 8px; }
+  .st-tile > div > span { line-height: 1.2; }
+  .st-tile b { font-size: 13px; line-height: 1.2; }
+  .ps-item { gap: 8px; margin-bottom: 6px; }
+  .ps-item > .ico-tile { --tile: 32px; border-radius: 10px; }
+  .ps-item b { font-size: 14px; }
+  .ps-item small { line-height: 1.3; }
+  .ps-none { margin-bottom: 6px; }
+  .own-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px; }
+  .own-card { gap: 5px; padding: 2px 5px 2px 2px; border-radius: 9px; }
+  .own-card > .ico-tile { --tile: 28px; border-radius: 8px; }
+  .own-card b { font-size: 12.5px; }
+  .own-card .badge { min-height: 16px; padding: 0 6px; }
+  #pause-sound .snd-row { row-gap: 0; }
+}
+/* De pie: las estadísticas en tres columnas (en 375 caben 3 de unos 105 px): el
+   icono, a 20, junto a su nombre y la cifra debajo, a todo el ancho. */
+@media (max-width: 599px) and (min-height: 521px) {
+  .st-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .st-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico lbl" "val val";
+    align-items: center; align-content: start; gap: 1px 4px; padding: 4px 6px 5px 4px; }
+  .st-tile b small { display: block; }
+  .st-tile > div { display: contents; }
+  .st-tile > .ico-tile { grid-area: ico; --tile: 20px; border-radius: 6px; }
+  .st-tile > .ico-tile > img { width: 20px; height: 20px; }
+  .st-tile > div > span { grid-area: lbl; min-width: 0; }
+  .st-tile b { grid-area: val; font-size: 14px; }
 }
 /* Móvil de pie: hoja a pantalla completa; título y pistas arriba, botones abajo (a mano del pulgar). */
 @media (max-width: 599px) and (min-height: 521px) {
   #scr-pause .pause-head { display: contents; }
   #scr-pause .pause-head > h2 {
-    order: 0; flex: none; margin: 0; font-size: var(--fs-2xl);
-    padding: max(10px, var(--sa-t)) max(12px, var(--sa-r)) 2px max(12px, var(--sa-l));
+    order: 0; flex: none; margin: 0; font-size: var(--fs-xl);
+    padding: max(8px, var(--sa-t)) max(12px, var(--sa-r)) 0 max(12px, var(--sa-l));
   }
-  #scr-pause .pause-hint { order: 1; flex: none; padding: 0 max(12px, var(--sa-r)) 8px max(12px, var(--sa-l)); border-bottom: 1px solid var(--line-1); }
-  #scr-pause .pause-body { order: 2; padding-bottom: 12px; }   /* (la zona segura de abajo la salvan los botones) */
+  #scr-pause .pause-hint { order: 1; flex: none; padding: 0 max(12px, var(--sa-r)) 6px max(12px, var(--sa-l)); border-bottom: 1px solid var(--line-1); }
+  #scr-pause .pause-body { order: 2; padding-bottom: 10px; }   /* (la zona segura de abajo la salvan los botones) */
+  /* Los tres botones en una fila (antes, dos): Abandonar a la izquierda y Continuar a
+     la derecha, con Ajustes (sólo la rueda; el nombre sigue ahí para el lector de pantalla) en medio. */
   #scr-pause .pause-acts {
     order: 3; flex: none; margin: 0;
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "quit set" "go go"; gap: 8px;
+    display: grid; grid-template-columns: auto auto minmax(96px, 1fr); grid-template-areas: "quit set go"; gap: 8px;
     padding: 8px max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l));
     border-top: 1px solid var(--line-1); background: rgba(6, 12, 30, .45);
   }
@@ -4005,11 +4055,20 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   #btn-pause-settings { grid-area: set; }
   #btn-resume { grid-area: go; }
   #scr-pause .pause-acts .btn { min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; }
+  #scr-pause #btn-pause-settings { width: var(--tap); padding-left: 0; padding-right: 0; justify-content: center; }
+  #btn-pause-settings > span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @media (max-height: 520px) {
   .pause-hint p { font-size: var(--fs-s); }   /* es una frase: 12 px en el móvil */
-  #scr-pause .pause-body { padding-top: 10px; }
-  .ps-card { padding: 10px 12px; }
+  /* Tumbado no sobra alto: la pista de controles (ya sale al empezar la partida) se
+     quita; el aviso de partida en grupo, no. */
+  #scr-pause .pause-hint :is(.kbd-hint, .touch-hint) { display: none; }
+  #scr-pause .pause-hint:not(:has(> .pause-coop:not(.hidden))) { display: none; }
+  #scr-pause .pause-body { padding-top: 8px; }
+  .ps-card { padding: 8px 10px; }
+  /* Los ataques (pausa y resumen), en dos columnas: tumbado sobra ancho y falta alto. */
+  .mv-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 }
 
 /* ---- Resumen final ---- */
@@ -4084,62 +4143,67 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 .over-foot { justify-content: center; }
 .over-foot > #btn-again { min-width: min(340px, 100%); }
 /* Móvil (de pie y tumbado): a pantalla completa y opaco (4b), con el mismo halo
-   arriba; baldosas, monedas y bloques más compactos. */
+   arriba. Desde el 23-10-2026, mucho más compacto (se veía enorme): el título en
+   una línea con su icono, las cifras con el icono al lado del número y la etiqueta
+   debajo, las monedas con un icono de 44 y «Volver al menú» de 40 px de alto. */
 @media (max-width: 599px), (max-height: 520px) {
-  #scr-over > .over-box { background: radial-gradient(90% 260px at 50% 0%, rgba(255, 203, 5, .16), transparent 70%), var(--surface-solid); }
-  #scr-over.is-dead > .over-box { background: radial-gradient(90% 260px at 50% 0%, rgba(238, 59, 59, .2), transparent 70%), var(--surface-solid); }
-  .over-stats { column-gap: 12px; }
-  .over-stats > * { margin-bottom: 10px; }
-  .ov-tiles { gap: 6px; }
-  .ov-tile { padding: 8px 2px 7px; border-radius: 14px; }
-  .ov-tile > .ico-tile { margin-bottom: 2px; }
-  .ov-judge { gap: 10px; padding: 8px 12px; border-radius: 14px; }
-  .ov-judge b { font-size: 16px; }
-  .ov-coins { gap: 8px 12px; padding: 12px; border-radius: 14px; }
-  .ov-tk b { font-size: 16px; }
-  .ov-sec { padding: 12px; border-radius: 14px; }
-  .box .ov-sec h3 { margin-bottom: 8px; }
-  .caught-row { gap: 8px; }
-  .over-save { padding: 8px 10px; border-radius: 14px; }
-  #scr-over .support-ask { gap: 8px 10px; padding: 10px 50px 10px 10px; border-radius: 14px; }
-}
-@media (max-width: 599px) and (min-height: 521px) {
-  .over-hero { padding: max(12px, calc(var(--sa-t) + 4px)) 4px 12px; }
-  .ico-tile.over-ico { --tile: 64px; margin-bottom: 6px; }
-  .box #over-title { font-size: 28px; }
-  .over-record { margin-top: 6px; padding: 3px 12px; }
-  .ov-tile > b { font-size: 17px; }
-  .ov-dmg .ov-tile > b { font-size: 15px; }
-  .ov-big { font-size: 26px; }
-}
-/* Móviles altos de pie: el título respira un poco más. */
-@media (max-width: 599px) and (min-height: 760px) {
-  .over-hero { padding-top: max(20px, calc(var(--sa-t) + 8px)); padding-bottom: 16px; }
-  .ico-tile.over-ico { --tile: 72px; margin-bottom: 8px; }
-  .box #over-title { font-size: 30px; }
-}
-/* Móvil tumbado: título en una línea con su icono y «Volver al menú» sin el tamaño grande. */
-@media (max-height: 520px) {
+  #scr-over > .over-box { background: radial-gradient(90% 200px at 50% 0%, rgba(255, 203, 5, .16), transparent 70%), var(--surface-solid); }
+  #scr-over.is-dead > .over-box { background: radial-gradient(90% 200px at 50% 0%, rgba(238, 59, 59, .2), transparent 70%), var(--surface-solid); }
   .over-hero {
     display: grid; grid-template-columns: auto auto; grid-template-areas: "ico eye" "ico title" "ico rec";
-    justify-content: center; align-items: center; column-gap: 12px; row-gap: 0; padding: max(6px, var(--sa-t)) 4px 8px; text-align: left;
+    justify-content: center; align-items: center; column-gap: 10px; row-gap: 0;
+    padding: max(8px, var(--sa-t)) 4px 8px; text-align: left;
   }
-  .ico-tile.over-ico { grid-area: ico; --tile: 56px; margin: 0; }
-  .over-hero .eyebrow { grid-area: eye; }
+  .ico-tile.over-ico { grid-area: ico; --tile: 48px; margin: 0; }
+  .ico-tile.over-ico > img { width: 40px; height: 40px; }
+  .over-hero .eyebrow { grid-area: eye; margin: 0; }
   .box #over-title { grid-area: title; font-size: 22px; }
-  .over-record { grid-area: rec; justify-self: start; margin: 4px 0 0; padding: 2px 10px; font-size: var(--fs-s); }
-  /* En 667×375 cada baldosa mide unos 69 px: la etiqueta a 11 px para que «Derrotados» no se parta. */
-  .ov-tile > span:last-child { font-size: 11px; }
-  .ov-tile > b { font-size: 16px; }
+  .over-record { grid-area: rec; justify-self: start; margin: 3px 0 0; padding: 1px 10px; font-size: var(--fs-s); box-shadow: none; }
+  .over-stats { column-gap: 8px; }
+  .over-stats > * { margin-bottom: 8px; }
+  .ov-tiles { gap: 4px; }
+  /* Baldosa: icono y cifra en una línea, la etiqueta debajo. */
+  .ov-tile {
+    display: grid; grid-template-columns: auto auto; grid-template-areas: "ico num" "lbl lbl";
+    justify-content: center; align-items: center; gap: 1px 5px; padding: 5px 3px 5px; border-radius: 10px;
+  }
+  .ov-tile > .ico-tile { grid-area: ico; --tile: 26px; border-radius: 8px; margin: 0; }
+  .ov-tile > .ico-tile > img { width: 22px; height: 22px; }
+  .ov-tile > b { grid-area: num; font-size: 15px; }
   .ov-dmg .ov-tile > b { font-size: 14px; }
-  .ov-big { font-size: 24px; }
+  .ov-tile > span:last-child { grid-area: lbl; font-size: 11px; line-height: 1.2; }
+  .ov-judge { gap: 8px; padding: 5px 10px; border-radius: 10px; }
+  .ov-judge > .ico-tile { --tile: 28px; border-radius: 8px; }
+  .ov-judge b { font-size: 15px; }
+  .ov-coins { gap: 4px 10px; padding: 6px 10px; border-radius: 10px; }
+  .ov-coins > .ico-tile.l { --tile: 44px; }
+  .ov-coins > .ico-tile.l > img { width: 36px; height: 36px; }
+  .ov-big { font-size: 22px; }
+  .ov-coins small { margin-top: 0; }
+  .ov-tickets { gap: 4px 10px; padding-top: 4px; }
+  .ov-tk { gap: 4px; }
+  .ov-tk > .ico-tile { --tile: 28px; border-radius: 8px; }
+  .ov-tk b { font-size: 15px; }
+  .ov-sec { padding: 8px 10px 10px; border-radius: 12px; }
+  .box .ov-sec h3 { margin-bottom: 6px; font-size: var(--fs-m); }
+  .caught-row { gap: 6px; }
+  .over-save { padding: 6px 8px; border-radius: 10px; }
+  #scr-over .support-ask { gap: 6px 10px; padding: 8px 48px 8px 8px; border-radius: 10px; }
   /* 40 px de alto (9 + 20 + 9 + borde), lo que pide el dedo en el móvil (--tap). */
   .btn.big#btn-again { padding: 9px 22px; font-size: 17px; line-height: 20px; border-radius: var(--rad-m); }
+}
+/* Tumbado: el título, aún más bajo. */
+@media (max-height: 520px) {
+  .over-hero { padding-top: max(6px, var(--sa-t)); padding-bottom: 6px; }
+  .ico-tile.over-ico { --tile: 44px; }
+  .ico-tile.over-ico > img { width: 36px; height: 36px; }
+  .box #over-title { font-size: 20px; }
 }
 
 /* ---- Colocar los botones (layout-ui.js): por delante de Ajustes ----
    Las medidas de lo que se arrastra copian las del HUD (hud.js): huecos de
-   54 px con radio 14, separados 9 (18 hasta el del objeto), y la pausa redonda de 40. */
+   54 px con radio 14, separados 9 (18 hasta el del objeto), y la pausa redonda de 40;
+   en el móvil, 44 con radio 12, a 7 (12 hasta el objeto) y la pausa de 36 (abajo). */
 #scr-layout {
   z-index: var(--z-editor); display: block; padding: 0; overflow: hidden; touch-action: none;
   background:
@@ -4167,9 +4231,20 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   font: 600 12px/1.4 var(--font-display); color: var(--c-yellow);
 }
 .lay-pause { border-radius: 50%; background: rgba(11, 21, 48, .78); border: 1.5px solid rgba(255, 255, 255, .4); box-shadow: 0 2px 0 rgba(0, 0, 0, .24); }
-.lay-pause b { position: absolute; top: 10.5px; width: 4.5px; height: 16px; border-radius: 2.25px; background: var(--ink); }
-.lay-pause b:first-child { left: 12px; }
-.lay-pause b:last-child { left: 20.5px; }
+.lay-pause b { position: absolute; top: calc(50% - 8px); width: 4.5px; height: 16px; border-radius: 2.25px; background: var(--ink); }
+.lay-pause b:first-child { left: calc(50% - 6.5px); }
+.lay-pause b:last-child { left: calc(50% + 2px); }
+/* Móvil: con las medidas del HUD pequeño (hud.js, PADS_S). */
+@media (max-width: 599px), (max-height: 520px) {
+  .lay-bar { gap: 7px; }
+  .lay-slot { width: 44px; height: 44px; border-radius: 12px; }
+  .lay-slot.on { box-shadow: 0 0 0 4px rgba(255, 203, 5, .24), 0 4px 10px rgba(0, 0, 0, .25); transform: translateY(-5px); }
+  .lay-slot.item { margin-right: 5px; }
+  .lay-slot i { left: 4px; top: 2px; }
+  .lay-tag { bottom: calc(100% + 10px); }
+  .lay-pause b { top: calc(50% - 7px); width: 4px; height: 14px; border-radius: 2px; }
+  .lay-pause b:first-child { left: calc(50% - 6px); }
+}
 .lay-stick { border-radius: 50%; background: rgba(11, 21, 48, .32); border: 3px solid rgba(244, 247, 255, .55); }
 .lay-stick .knob {
   position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; transform: translate(-50%, -50%); border-radius: 50%;
@@ -4229,3 +4304,93 @@ body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-l
 body.touch #pause-sound input[type=range] { height: 44px; background: linear-gradient(transparent 18px, var(--sunk) 18px 26px, transparent 26px); }
 body.touch #pause-sound input[type=range]::-webkit-slider-thumb { width: 26px; height: 26px; }
 body.touch #pause-sound input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
+
+/* -- iconos y evoluciones (23-10-2026) --
+ * Con qué evoluciona cada ataque, siempre a la vista (run-ui.js): en las cartas
+ * de ataque, «Evoluciona con [icono] Potencia · Nv. 5» (.pc-evo); en las de mejora,
+ * los ataques que hace evolucionar (.evo-for); en la pausa y el resumen, la misma
+ * línea en una píldora (.mv-evo). ✓ = esa parte ya la tienes; dorado = lista para
+ * evolucionar. En Logros › Combate (goals-ui.js), ataque + carta = evolución (.evo-eqs).
+ * Los dibujos de los ataques (G.Icons, 30×30) se ven nítidos a 30 y 60 px. */
+img.ico-mv { image-rendering: pixelated; }
+.pc-evo, .mv-evo {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-width: 0;
+  font: 600 12px/1.35 var(--font-display); color: var(--muted);
+}
+.pick-card .pc-evo { justify-content: center; margin-top: 2px; }
+.pc-evo .evo-k, .mv-evo .evo-k { white-space: nowrap; }
+:is(.pc-evo, .mv-evo) .evo-need { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+:is(.pc-evo, .mv-evo) .evo-need > img { margin: -3px 0; }
+:is(.pc-evo, .mv-evo) .evo-need > b { color: var(--ink); font-weight: 600; }
+:is(.pc-evo, .mv-evo) .evo-lv { white-space: nowrap; }
+.evo-ok { display: inline-grid; place-items: center; margin-left: 2px; color: var(--ok); }
+.evo-ok > svg { width: 12px; height: 12px; stroke-width: 3; }
+:is(.pc-evo, .mv-evo).has .evo-need > b { color: var(--ok); }
+:is(.pc-evo, .mv-evo).ready { color: var(--c-yellow); }
+:is(.pc-evo, .mv-evo).ready :is(.evo-need > b, .evo-ok) { color: var(--c-yellow); }
+.pc-evo.ready:not(.evo-for) { padding: 1px 10px; border-radius: var(--rad-pill); background: rgba(255, 203, 5, .12); box-shadow: inset 0 0 0 1px rgba(255, 203, 5, .45); }
+.pc-evo.evo-none, .mv-evo.evo-none { opacity: .75; font-weight: 500; }
+/* Carta de mejora: los ataques que hace evolucionar (los tuyos con nombre; los que aún puedes aprender, sólo el icono). */
+.pc-evo.evo-for { gap: 2px 4px; }
+.evo-for .evo-k { margin-right: 2px; }
+.evo-mv { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.evo-mv > img { margin: -3px 0; }
+.evo-mv:not(.mine) > img { opacity: .55; filter: saturate(.6); }
+.evo-mv.mine { padding: 0 8px 0 3px; border-radius: var(--rad-pill); background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px var(--line-3); }
+.evo-mv.mine > b { color: var(--ink); font-weight: 600; }
+.evo-mv.mine.ready { background: rgba(255, 203, 5, .16); box-shadow: inset 0 0 0 1px rgba(255, 203, 5, .6); }
+.evo-mv.mine.ready > b { color: var(--c-yellow); }
+.evo-more { font-weight: 700; color: var(--muted); }
+/* Pausa y resumen: píldora al lado de las etiquetas del ataque (salta a otra línea si no cabe). */
+.mv-evo { min-height: 20px; padding: 0 8px; border-radius: var(--rad-pill); background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 11px; }
+.mv-evo.ready { background: rgba(255, 203, 5, .14); box-shadow: inset 0 0 0 1px rgba(255, 203, 5, .55); }
+.mv-evo .evo-need > img { margin: -4px 0; }
+/* Móvil: un poco más pequeño (las cartas no crecen casi nada por esta línea). */
+@media (max-width: 599px), (max-height: 520px) {
+  .pc-evo { font-size: 11.5px; line-height: 1.3; }
+  .pick-card .pc-evo { justify-content: flex-start; }
+  .pc-evo.ready:not(.evo-for) { padding: 0 8px; }
+  .evo-mv > img { width: 20px; height: 20px; margin: -2px 0; }
+}
+/* Móvil de pie (y tumbado estrecho, con los ataques en dos columnas): en la píldora de la
+   pausa y el resumen, «Evoluciona con» pasa a ser una flecha dorada hacia arriba (con el
+   texto no cabía al lado de su carta y su nivel). */
+@media (max-width: 599px), (max-height: 520px) and (max-width: 760px) {
+  .mv-evo:not(.ready):not(.evo-none) .evo-k {
+    flex: none; width: 11px; height: 12px; overflow: hidden; color: transparent; font-size: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 12'%3E%3Cpath d='M5.5 0.5 10.5 6H7.5v5.5h-4V6H.5z' fill='%23ffcb05' stroke='%231b1528' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+}
+@media (max-height: 520px) {
+  .pick-card .pc-evo { justify-content: center; }
+}
+/* Logros › Combate: ataque + carta = evolución. */
+#goals-body .evo-grid.evo-eqs { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.evo-eqs .evo-tile { gap: 10px; }
+.evo-eq { flex: none; display: flex; align-items: center; gap: 3px; }
+.evo-eq > i { font: 700 14px/1 var(--font-display); font-style: normal; color: var(--muted); }
+.evo-eq .evo-to { position: relative; }
+.evo-eqs .evo-tile:not(.ok) .evo-to > img { filter: grayscale(.85) brightness(.75); }
+.evo-got {
+  position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 16px; height: 16px;
+  border-radius: 50%; background: #1f9d5c; color: #fff; box-shadow: 0 0 0 2px var(--card);
+}
+.evo-got > svg { width: 11px; height: 11px; stroke-width: 3.4; }
+.evo-eqs .evo-txt small > span { white-space: nowrap; }
+@media (max-width: 599px) {
+  #goals-body .evo-grid.evo-eqs { grid-template-columns: minmax(0, 1fr); }
+}
+/* Pausa: el movimiento Z (24-10-2026, run-ui.js zCard): su fila, con cómo está al lado del nombre. */
+.ps-z .z-mv > .ico-tile { box-shadow: inset 0 0 0 2px var(--z-c), 0 0 10px rgba(255, 255, 255, .12); }
+.z-state {
+  display: inline-flex; align-items: center; min-height: 18px; padding: 0 8px; border-radius: var(--rad-pill);
+  background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px var(--line-2);
+  font: 700 11px/1.3 var(--font); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.z-state.on { color: var(--ink); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1.5px var(--z-c); }
+.z-state.ready { color: var(--c-yellow); background: rgba(255, 203, 5, .12); box-shadow: inset 0 0 0 1px rgba(255, 203, 5, .5); }
+.z-desc { display: block; margin-top: 4px; font-size: var(--fs-s); line-height: 1.35; color: var(--muted); }
+@media (max-width: 599px), (max-height: 520px) {
+  .z-desc { margin-top: 2px; font-size: 11.5px; line-height: 1.3; }
+  .z-state { min-height: 16px; padding: 0 6px; }
+}

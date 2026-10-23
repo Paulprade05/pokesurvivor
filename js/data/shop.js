@@ -9,6 +9,14 @@
  *
  * MT a la venta: 8 cada día, iguales para todos (semilla: la fecha en España).
  * Si ninguna sirve a tu compañero, la última se cambia por una que sí aprenda.
+ *
+ * Cristales Z (24-10-2026): uno por tipo, se compra una vez y es para siempre:
+ *   save.zc[tipo] = fecha de compra
+ * Con el de un tipo de tu compañero, en la partida tienes su movimiento Z
+ * (data/moves.js; se usa en combat.js, zUse). No van en la libreta como la
+ * Mochila: no se gastan, así que al fusionar dos aparatos se juntan (unión,
+ * core/db.js) y nunca se pierden ni salen dos veces. Las monedas, sí, como
+ * cualquier compra.
  */
 G.Shop = (() => {
   const ITEMS = {
@@ -79,12 +87,44 @@ G.Shop = (() => {
   }
   const tmPrice = id => G.TM_PRICE[id] || 400;
 
+  // ---------------- Cristales Z ----------------
+
+  /** Nombre oficial de cada cristal (el icono: 'z:<tipo>', ui/icons.js). Sin prototipo: 'z:constructor' no es un cristal. */
+  const Z_NAME = Object.assign(Object.create(null), {
+    normal: 'Normastal Z', fighting: 'Lizastal Z', flying: 'Aerostal Z', poison: 'Toxistal Z', ground: 'Geostal Z',
+    rock: 'Litostal Z', bug: 'Insectostal Z', ghost: 'Espectrostal Z', steel: 'Metalostal Z', fire: 'Pirostal Z',
+    water: 'Hidrostal Z', grass: 'Fitostal Z', electric: 'Electrostal Z', psychic: 'Psicostal Z', ice: 'Criostal Z',
+    dragon: 'Dracostal Z', dark: 'Nictostal Z', fairy: 'Feeristal Z'
+  });
+  // En el orden de los tipos de siempre (G.U.TYPE_NAME).
+  const Z_TYPES = Object.keys(G.U.TYPE_NAME).filter(t => Z_NAME[t]);
+  const Z_PRICE = 6000;
+
+  /** ¿Tienes el Cristal Z de este tipo? */
+  const zHas = type => { const s = save(); return !!(s && s.zc && Z_NAME[type] && s.zc[type]); };
+  /** El tipo del movimiento Z de un Pokémon (mon con types): su primer tipo con cristal, o null. */
+  function zFor(mon) {
+    for (const t of (mon && mon.types) || []) if (zHas(t)) return t;
+    return null;
+  }
+
   // ---------------- comprar ----------------
 
-  /** Compra un objeto ('mint'...) o una MT ('tm:flamethrower'). → { ok, error? } */
+  /** Compra un objeto ('mint'...), una MT ('tm:flamethrower') o un Cristal Z ('z:fire'). → { ok, error? } */
   function buy(key) {
     const s = save();
     if (!s) return { ok: false };
+    if (key.startsWith('z:')) {
+      const type = key.slice(2);
+      if (!Z_NAME[type]) return { ok: false };
+      if (zHas(type)) return { ok: false, error: 'Ya tienes ese Cristal Z.' };
+      if (s.coins < Z_PRICE) return { ok: false, error: 'No tienes Pokémonedas suficientes.' };
+      s.coins -= Z_PRICE;
+      s.zc = s.zc || {};
+      s.zc[type] = Date.now();
+      G.DB.commit(true);
+      return { ok: true };
+    }
     const tm = key.startsWith('tm:') ? key.slice(3) : null;
     if (tm && !dailyTms().includes(tm)) return { ok: false, error: 'Esa MT ya no está a la venta.' };
     if (!tm && !ITEMS[key]) return { ok: false };
@@ -97,5 +137,6 @@ G.Shop = (() => {
     return { ok: true };
   }
 
-  return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today };
+  return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today,
+           Z_NAME, Z_TYPES, Z_PRICE, zHas, zFor };
 })();

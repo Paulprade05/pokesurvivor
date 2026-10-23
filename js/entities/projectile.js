@@ -192,8 +192,9 @@ G.Projectiles = (() => {
       let angle = 0;
       if (G.VFX.isDir(shape)) angle = p.orb ? p.oa + Math.PI / 2 : Math.atan2(p.vy, p.vx);
       else if (G.VFX.spins(shape)) angle = p.t * 9;
+      // (Los de un movimiento Z, del tamaño de lo que golpean: las bolas de fuego gigantes se ven gigantes.)
       G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, {
-        angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.r >= 8 ? 1.5 : 1,
+        angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1,
         frame: Math.floor(p.t * 12)
       });
     }

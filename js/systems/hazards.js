@@ -10,23 +10,41 @@
  *
  * Los de Arceus (systems/judgment.js) quitan un % de la vida (pct) sin mirar
  * tipos ni defensa (pure), y la Sentencia cae como un pilar de luz (vis).
+ *
+ * grp (23-10-2026): las marcas de un mismo ataque de jefe (meteoros, rayo que
+ * barre, cruz...) son un grupo y te golpean como mucho una vez cada GRP_GAP s,
+ * aunque estés donde se solapan varias (un peligro se salta la invulnerabilidad
+ * de después de un golpe). Una versión vieja no lo lee y cuenta cada una.
  */
 G.Hazards = (() => {
+  const GRP_GAP = 0.45;
   let list = [];
+  const grpHit = new Map();       // grupo -> cuándo te golpeó (reloj de los peligros)
+  let clock = 0;
 
-  /** h: { kind, x, y, r | angle, len, w, delay, dmg, type, color, pct?, pure?, vis? } */
+  /** h: { kind, x, y, r | angle, len, w, delay, dmg, type, color, pct?, pure?, vis?, grp? } */
   function add(h, fromNet = false) {
     const o = Object.assign({ t: 0, hit: false, end: 0.3 }, h);
+    if (fromNet && typeof o.grp !== 'number') o.grp = 0;
     list.push(o);
     if (!fromNet && G.Coop.isHost) {
       G.Coop.broadcast(['hz', { kind: o.kind, x: Math.round(o.x), y: Math.round(o.y), r: o.r, angle: o.angle, len: o.len, w: o.w,
                                 delay: o.delay, dmg: Math.round(o.dmg), type: o.type, color: o.color, pct: o.pct, pure: o.pure, vis: o.vis, cat: o.cat,
-                                boom: o.boom ? 1 : 0 }]);
+                                boom: o.boom ? 1 : 0, grp: o.grp || undefined }]);
     }
     return o;
   }
 
-  function clear() { list = []; }
+  function clear() { list = []; grpHit.clear(); }
+
+  /** ¿Te puede golpear ya esta marca? (las de un grupo, una vez cada GRP_GAP s) */
+  function grpReady(h) {
+    if (!h.grp) return true;
+    const at = grpHit.get(h.grp);
+    if (at != null && clock - at < GRP_GAP) return false;
+    grpHit.set(h.grp, clock);
+    return true;
+  }
 
   function inside(h, x, y, r) {
     if (h.kind === 'zone') return G.U.dist2(x, y, h.x, h.y) < (h.r + r * 0.6) ** 2;
@@ -39,20 +57,27 @@ G.Hazards = (() => {
 
   function update(dt) {
     const pl = G.Game.player;
-    for (let i = list.length - 1; i >= 0; i--) {
+    clock += dt;
+    // (Hacia delante en orden: en un grupo, la primera marca que cae es la que cuenta.)
+    for (let i = 0; i < list.length; i++) {
       const h = list[i];
       h.t += dt;
       if (!h.hit && h.t >= h.delay) {
         h.hit = true;
         detonate(h);
         // (Humedad: la explosión de un kamikaze no le daña, ver data/ability-fx.js.)
-        if (pl && !pl.dead && inside(h, pl.x, pl.y, pl.r) && !(h.boom && pl.abil && pl.abil.damp)) {
+        if (pl && !pl.dead && inside(h, pl.x, pl.y, pl.r) && !(h.boom && pl.abil && pl.abil.damp) && grpReady(h)) {
           pl.invuln = 0;
           pl.hurt(h.pct ? Math.max(h.dmg, pl.maxHp * h.pct) : h.dmg, h.type, !!h.pure, h.cat);
         }
       }
+    }
+    for (let i = list.length - 1; i >= 0; i--) {
+      const h = list[i];
       if (h.hit && h.t >= h.delay + h.end) list.splice(i, 1);
     }
+    if (!list.length && grpHit.size) grpHit.clear();
+    else if (grpHit.size > 32) for (const [g, at] of grpHit) if (clock - at > GRP_GAP) grpHit.delete(g);
   }
 
   // Efecto de un enemigo: no se atenúa con «Transparencia de tus ataques» (ver fx.js).

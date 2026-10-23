@@ -9,7 +9,7 @@
  *   G.Icons.draw(ctx, 'coin', x, y, 18)    en el canvas: el dibujo llena la caja
  *   G.Icons.sprite(ctx, 'coin', cx, cy, k) en el mundo: centrado, k unidades por píxel
  *   G.Icons.url('star')                    ruta del png (para CSS)
- *   'move:<id>'                            disco MT de su tipo + insignia de la familia
+ *   'move:<id>'                            dibujo del ataque: la forma de su familia con los colores y la munición de su tipo
  *   'type:<tipo>'                          emblema del tipo
  */
 G.Icons = (() => {
@@ -49,14 +49,23 @@ G.Icons = (() => {
     'protective-pads': 'protective-pads', 'poke-doll': 'poke-doll', 'pretty-wing': 'pretty-wing',
     'fresh-water': 'fresh-water', stardust: 'stardust'
   };
-  // Disco MT de cada tipo (iconos 'move:<id>').
+  // Disco MT de cada tipo (desde el 23-10-2026 los ataques llevan su propio dibujo, moveArt: quedan como objetos).
   const TM = {
     normal: 'tm-normal', fire: 'tm-fire', water: 'tm-water', grass: 'tm-grass', electric: 'tm-electric',
     ice: 'tm-ice', fighting: 'tm-fighting', poison: 'tm-poison', ground: 'tm-ground', flying: 'tm-flying',
     psychic: 'tm-psychic', bug: 'tm-bug', rock: 'tm-rock', ghost: 'tm-ghost', dragon: 'tm-dragon',
     dark: 'tm-dark', steel: 'tm-steel', fairy: 'tm-fairy'
   };
+  // Cristales Z de cada tipo (Tienda Kecleon, 24-10-2026): el icono 'z:<tipo>'; la Pulsera Z, 'zring'.
+  const ZC = {
+    normal: 'normalium-z--bag', fire: 'firium-z--bag', water: 'waterium-z--bag', grass: 'grassium-z--bag',
+    electric: 'electrium-z--bag', ice: 'icium-z--bag', fighting: 'fightinium-z--bag', poison: 'poisonium-z--bag',
+    ground: 'groundium-z--bag', flying: 'flyinium-z--bag', psychic: 'psychium-z--bag', bug: 'buginium-z--bag',
+    rock: 'rockium-z--bag', ghost: 'ghostium-z--bag', dragon: 'dragonium-z--bag', dark: 'darkinium-z--bag',
+    steel: 'steelium-z--bag', fairy: 'fairium-z--bag', ring: 'z-ring'
+  };
   /* objetos:end */
+  for (const t in ZC) ITEM[t === 'ring' ? 'zring' : 'z:' + t] = ZC[t];
 
   const FALLBACK = 'poke-ball';                                           // nombre desconocido
   const FILES = new Set([...Object.values(ITEM), ...Object.values(TM)]);  // también valen como nombre
@@ -201,62 +210,576 @@ G.Icons = (() => {
     fairy:    ['...#....', '...#....', '..###...', '#######.', '..###...', '..#.#...', '.#...#..', '........']
   };
 
-  // Insignia de la familia de movimiento (5×5).
-  const KIND_GLYPH = {
-    projectile: ['..#..', '...#.', '#####', '...#.', '..#..'],
-    melee:      ['....#', '...#.', '..#..', '.#...', '#....'],
-    beam:       ['.....', '#####', '.....', '#####', '.....'],
-    orbit:      ['.###.', '#...#', '#...#', '#...#', '.###.'],
-    nova:       ['#.#.#', '.###.', '#####', '.###.', '#.#.#'],
-    aura:       ['.###.', '#...#', '#.#.#', '#...#', '.###.'],
-    buff:       ['..#..', '.###.', '#####', '..#..', '..#..'],
-    boomerang:  ['####.', '#....', '#....', '#....', '#....'],
-    chain:      ['##...', '..#..', '...##', '..#..', '##...'],
-    mine:       ['..#..', '.###.', '##.##', '.###.', '..#..'],
-    meteor:     ['....#', '...#.', '.##..', '####.', '.##..'],
-    turret:     ['.###.', '.#.#.', '.###.', '..#..', '#####'],
-    dash:       ['#.#..', '.#.#.', '..#.#', '.#.#.', '#.#..'],
-    trail:      ['#....', '.....', '..#..', '.....', '....#'],
-    cone:       ['....#', '..###', '#####', '..###', '....#'],
-    // nuevas (19-10-2026)
-    homing:     ['.#...', '..#..', '#..#.', '.#..#', '..###'],
-    bounce:     ['#...#', '.#.#.', '..#..', '.....', '#####'],
-    charge:     ['.###.', '#####', '##.##', '#####', '.###.'],
-    spin:       ['.###.', '#....', '#.#.#', '....#', '.###.'],
-    quake:      ['.....', '#...#', '##.##', '#####', '#.#.#'],
-    vortex:     ['####.', '#....', '#.##.', '#..#.', '####.'],
-    shove:      ['#...#', '.#.#.', '.....', '.#.#.', '#...#'],
-    stun:       ['#.#.#', '.....', '..#..', '.....', '#.#.#'],
-    // familias al estilo de Vampire Survivors (22-10-2026)
-    lob:        ['.###.', '#...#', '....#', '....#', '...##'],
-    knife:      ['.....', '##.##', '.....', '####.', '.....'],
-    cross:      ['..#..', '..#..', '#####', '..#..', '..#..'],
-    column:     ['#.#.#', '#.#.#', '#.#.#', '#.#.#', '#.#.#'],
-    sweep:      ['.###.', '#.#.#', '#.##.', '#...#', '.###.'],
-    ricochet:   ['#...#', '##..#', '#.#.#', '#..##', '#...#'],
-    wipe:       ['#####', '#...#', '#.#.#', '#...#', '#####'],
-    ward:       ['#####', '#...#', '#...#', '.#.#.', '..#..'],
-    ally:       ['.#.#.', '#####', '.....', '.#.#.', '#####'],
-    wings:      ['#...#', '##.##', '#####', '.###.', '..#..'],
-    puddle:     ['.....', '..#..', '.###.', '#####', '.###.'],
-    dusting:    ['#..#.', '.....', '.#..#', '.....', '#..#.']
+  // ---------------- dibujos de los ataques (23-10-2026) ----------------
+  /*
+   * Al estilo de Vampire Survivors, cada ataque tiene su propio dibujo de 30×30
+   * en pixel art (antes, todos los de un tipo eran el mismo disco MT con una
+   * insignia diminuta). Manda la FORMA DE SU FAMILIA, grande: proyectil, órbita,
+   * rayo, parábola, aspas, columnas... Con los COLORES de su tipo y, casi siempre,
+   * su MUNICIÓN: la llama del fuego, la gota del agua, la hoja de planta, el rayo
+   * eléctrico, el cristal de hielo... Si dos ataques comparten tipo y familia,
+   * VARIANT (o el stat de los potenciadores) les da otra forma.
+   * Se pinta por capas con figuras sencillas; cada capa se sombrea sola (luz
+   * arriba a la izquierda, sombra abajo a la derecha) y se perfila con el
+   * contorno, que la separa de lo que tiene debajo.
+   */
+  // Colores de cada tipo: sombra, base, luz, brillo, acento y acento oscuro.
+  const ART_PAL = {
+    normal:   ['#8f8574', '#cfc6b4', '#f1ebdd', '#ffffff', '#ffe9a8', '#a8916a'],
+    fire:     ['#c2401b', '#ff7b3d', '#ffb070', '#fff6d0', '#ffd23f', '#ff4a1c'],
+    water:    ['#2a5cc4', '#4b9bff', '#9cd0ff', '#f0faff', '#d6f0ff', '#1d3b8a'],
+    grass:    ['#2f8a3a', '#5fcb6a', '#a8eea0', '#f0ffe8', '#9a6a34', '#1d5a26'],
+    electric: ['#c49a10', '#ffd33d', '#fff3a0', '#ffffff', '#fffbe0', '#ff9a1c'],
+    ice:      ['#3a9cb8', '#7fe0e0', '#d2fbff', '#ffffff', '#ffffff', '#4b9bff'],
+    fighting: ['#9a2a1d', '#e0533d', '#ff9a80', '#fff0e8', '#ffd2a0', '#7a3a1a'],
+    poison:   ['#6e2a86', '#b45ec4', '#e0a6ec', '#fff0ff', '#e8b0ff', '#4a1a5a'],
+    ground:   ['#8f6a2a', '#d6b25c', '#f0dca0', '#fff8e0', '#8a5a2a', '#5a3a1a'],
+    flying:   ['#5a74c4', '#9bb8ff', '#dce8ff', '#ffffff', '#ffffff', '#3a4f9a'],
+    psychic:  ['#b82a66', '#ff5f9e', '#ffb0d0', '#ffffff', '#c47bff', '#6a1a4a'],
+    bug:      ['#64801a', '#a3c43d', '#d8ef8a', '#fbffe0', '#5a3a1a', '#3a5a10'],
+    rock:     ['#7a6a3a', '#bfa96b', '#e4d6a6', '#fff8e0', '#8a7a5a', '#4a3e22'],
+    ghost:    ['#463a86', '#7a6bc4', '#b8acf0', '#f4f0ff', '#ff8ad8', '#2a2050'],
+    dragon:   ['#3a2ab8', '#6b58ff', '#b0a6ff', '#f0eeff', '#ffb03d', '#24186e'],
+    dark:     ['#3e342e', '#7d6c60', '#b4a294', '#f0e6dc', '#ff5f6d', '#241e1a'],
+    steel:    ['#66788a', '#a8b8c4', '#e4eef4', '#ffffff', '#ffffff', '#3e4a58'],
+    fairy:    ['#c45a9a', '#ff9ed8', '#ffd8f0', '#ffffff', '#ffe14d', '#8a2a6a']
   };
+  // Índices de color: vacío, contorno, los seis del tipo y cuatro comunes (gris claro, gris oscuro, amarillo, rojo).
+  const O = 1, D = 2, M = 3, L = 4, W = 5, A = 6, B = 7, N = 8, S = 9, Y = 10, R = 11;
+  const ART_SHARED = ['#e4ecf6', '#7d8899', '#ffe14d', '#ff5f6d'];
+  // Mismo tipo y misma familia: el segundo lleva otra forma.
+  const VARIANT = { 'body-slam': 1, 'poison-sting': 1 };
+  const DEG = Math.PI / 180;
+  const pol = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const starPts = (cx, cy, ro, ri, n, a0 = -90 * DEG) => {
+    const p = [];
+    for (let i = 0; i < n * 2; i++) p.push(pol(cx, cy, i % 2 ? ri : ro, a0 + i * Math.PI / n));
+    return p;
+  };
+
+  /** Lápiz sobre una cuadrícula de 30×30 (índices de color); x, y: centros de píxel. */
+  function artPen(type) {
+    let cur = new Uint8Array(900);
+    const base = cur;
+    const put = (x, y, c) => { if (x >= 0 && y >= 0 && x < 30 && y < 30) cur[y * 30 + x] = c; };
+    const each = (x0, y0, x1, y1, f) => {
+      for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(29, Math.ceil(y1)); y++)
+        for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(29, Math.ceil(x1)); x++) f(x, y);
+    };
+    const P = {
+      set: (x, y, c) => put(Math.round(x), Math.round(y), c),
+      rect: (x0, y0, x1, y1, c) => each(x0, y0, x1, y1, (x, y) => { cur[y * 30 + x] = c; }),
+      disc: (cx, cy, r, c) => {
+        const r2 = r * r + r * 0.6, y1 = Math.min(29, Math.ceil(cy + r + 1)), x1 = Math.min(29, Math.ceil(cx + r + 1));
+        for (let y = Math.max(0, Math.floor(cy - r - 1)); y <= y1; y++) {
+          const dy = (y - cy) * (y - cy);
+          for (let x = Math.max(0, Math.floor(cx - r - 1)); x <= x1; x++) if ((x - cx) * (x - cx) + dy <= r2) cur[y * 30 + x] = c;
+        }
+      },
+      ell: (cx, cy, rx, ry, c, rot = 0) => {
+        const co = Math.cos(rot), si = Math.sin(rot), m = Math.max(rx, ry) + 1;
+        each(cx - m, cy - m, cx + m, cy + m, (x, y) => {
+          const dx = x - cx, dy = y - cy, u = dx * co + dy * si, v = -dx * si + dy * co;
+          if ((u / (rx + 0.4)) ** 2 + (v / (ry + 0.4)) ** 2 <= 1) cur[y * 30 + x] = c;
+        });
+      },
+      /** Anillo de r0 a r1; con a0, a1 (radianes, 0 = derecha, en el sentido del reloj), sólo ese arco. */
+      ring: (cx, cy, r0, r1, c, a0, a1) => each(cx - r1 - 1, cy - r1 - 1, cx + r1 + 1, cy + r1 + 1, (x, y) => {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d < r0 || d > r1 + 0.3) return;
+        if (a0 !== undefined) { let a = Math.atan2(y - cy, x - cx); while (a < a0) a += Math.PI * 2; if (a > a1) return; }
+        cur[y * 30 + x] = c;
+      }),
+      line: (x0, y0, x1, y1, c, w = 1) => {
+        const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * (w >= 3 ? 1.5 : 3)));
+        for (let i = 0; i <= n; i++) {
+          const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+          if (w >= 3) P.disc(x, y, w / 2 - 0.5, c);
+          else for (let a = 0; a < w; a++) for (let b = 0; b < w; b++) put(Math.round(x - (w - 1) / 2) + a, Math.round(y - (w - 1) / 2) + b, c);
+        }
+      },
+      path: (pts, c, w = 1) => { for (let i = 1; i < pts.length; i++) P.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], c, w); },
+      poly: (pts, c) => {
+        let x0 = 30, y0 = 30, x1 = 0, y1 = 0;
+        for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+        each(x0, y0, x1, y1, (x, y) => {
+          let inside = false;
+          for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+            const [xi, yi] = pts[i], [xj, yj] = pts[j];
+            if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+          }
+          if (inside) cur[y * 30 + x] = c;
+        });
+      },
+      star: (cx, cy, ro, ri, n, c, a0) => P.poly(starPts(cx, cy, ro, ri, n, a0), c),
+      /** Flecha hacia arriba (potenciadores): punta en (cx, top). */
+      arrow: (cx, top, bot, w, c) => {
+        P.poly([[cx, top - 0.5], [cx + w + 2.5, top + w + 2], [cx - w - 2.5, top + w + 2]], c);
+        P.rect(cx - w / 2 + 0.5, top + w + 1, cx + w / 2 - 0.5, bot, c);
+      },
+      /** Puntos (rastro) a lo largo de una curva cuadrática, de t0 a t1. */
+      dots: (p0, p1, p2, t0, t1, n, r, c) => {
+        for (let i = 0; i < n; i++) {
+          const t = t0 + (t1 - t0) * i / Math.max(1, n - 1), u = 1 - t;
+          P.disc(u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1], r, c);
+        }
+      },
+      /** Una capa aparte: se sombrea, se perfila y tapa lo de debajo. */
+      lay: fn => {
+        const under = cur;
+        cur = new Uint8Array(900);
+        fn();
+        const top = cur;
+        cur = under;
+        finish(top);
+        for (let i = 0; i < 900; i++) if (top[i]) cur[i] = top[i];
+      },
+      /** La munición del tipo, en su capa, centrada en (x, y) con radio r. */
+      el: (x, y, r) => P.lay(() => (ELEM[type] || ELEM.normal)(P, x, y, r)),
+      done: () => { finish(base); return base; }
+    };
+    return P;
+  }
+
+  /** Sombrea (la base de color, M) y perfila una capa. */
+  const finOut = new Uint8Array(900);
+  function finish(b) {
+    const out = finOut;
+    out.set(b);
+    for (let y = 0, i = 0; y < 30; y++) for (let x = 0; x < 30; x++, i++) {
+      const c = b[i];
+      if (c > O && c !== M) continue;
+      const up = y ? b[i - 30] : 0, lf = x ? b[i - 1] : 0, dn = y < 29 ? b[i + 30] : 0, rt = x < 29 ? b[i + 1] : 0;
+      if (c === M) {
+        const lit = !up || !lf, dim = !dn || !rt;
+        if (dim && !lit) out[i] = D;
+        else if (lit && !dim) out[i] = L;
+      } else if (!c && ((up > O) || (lf > O) || (dn > O) || (rt > O))) out[i] = O;
+    }
+    b.set(out);
+  }
+
+  /** La munición de cada tipo (lo que lanza): llama, gota, hoja, rayo, cristal... */
+  const ELEM = {
+    normal(P, x, y, r) {          // estrella
+      P.star(x, y + r * 0.08, r * 1.12, r * 0.5, 5, M);
+      if (r >= 4) P.set(x - 1, y - 1, W);
+    },
+    fire(P, x, y, r) {            // llama
+      P.disc(x, y + r * 0.3, r * 0.72, M);
+      P.poly([[x - r * 0.66, y + r * 0.15], [x + r * 0.15, y - r * 1.1], [x + r * 0.7, y + r * 0.1]], M);
+      if (r >= 3.5) {
+        P.disc(x, y + r * 0.45, r * 0.4, A);
+        P.poly([[x - r * 0.38, y + r * 0.4], [x + r * 0.08, y - r * 0.4], [x + r * 0.4, y + r * 0.4]], A);
+      } else P.set(x, y + r * 0.4, A);
+    },
+    water(P, x, y, r) {           // gota
+      P.disc(x, y + r * 0.32, r * 0.7, M);
+      P.poly([[x - r * 0.64, y + r * 0.12], [x, y - r * 1.1], [x + r * 0.64, y + r * 0.12]], M);
+      if (r >= 3.5) { P.set(x - r * 0.35, y + r * 0.15, W); P.set(x - r * 0.35, y + r * 0.45, W); }
+    },
+    grass(P, x, y, r) {           // hoja
+      P.ell(x + r * 0.1, y - r * 0.1, r * 1.05, r * 0.52, M, -45 * DEG);
+      P.line(x - r * 0.95, y + r * 0.95, x - r * 0.55, y + r * 0.55, A, 1);
+      if (r >= 3.5) P.line(x - r * 0.5, y + r * 0.5, x + r * 0.55, y - r * 0.55, D, 1);
+    },
+    electric(P, x, y, r) {        // rayo
+      const q = [[0.32, -1.1], [-0.6, 0.14], [-0.04, 0.14], [-0.34, 1.1], [0.62, -0.2], [0.06, -0.2]];
+      P.poly(q.map(([a, b]) => [x + a * r, y + b * r]), M);
+    },
+    ice(P, x, y, r) {             // cristal
+      const q = [[0, -1.12], [0.64, -0.38], [0.64, 0.38], [0, 1.12], [-0.64, 0.38], [-0.64, -0.38]];
+      P.poly(q.map(([a, b]) => [x + a * r, y + b * r]), M);
+      P.poly([[x, y - r * 1.12], [x - r * 0.64, y - r * 0.38], [x - r * 0.64, y + r * 0.38], [x, y + r * 1.12]], L);
+      if (r >= 4) P.line(x, y - r * 0.6, x, y + r * 0.6, W, 1);
+    },
+    fighting(P, x, y, r) {        // puño (de frente: cuatro nudillos y el pulgar)
+      P.rect(x - r * 0.85, y - r * 0.45, x + r * 0.85, y + r * 0.8, M);
+      for (const f of [-0.62, -0.2, 0.22, 0.64]) P.disc(x + f * r, y - r * 0.5, r * 0.27, M);
+      if (r >= 4) {
+        for (const f of [-0.41, 0.01, 0.43]) P.line(x + f * r, y - r * 0.55, x + f * r, y - r * 0.05, D, 1);
+        P.line(x - r * 0.75, y + r * 0.22, x + r * 0.2, y + r * 0.22, L, 2);
+        P.rect(x - r * 0.6, y + r * 0.85, x + r * 0.6, y + r * 1.15, A);
+      }
+    },
+    poison(P, x, y, r) {          // burbuja de lodo
+      P.disc(x - r * 0.1, y + r * 0.18, r * 0.78, M);
+      P.disc(x + r * 0.62, y - r * 0.62, r * 0.32, M);
+      if (r >= 4) { P.disc(x - r * 0.42, y - r * 0.82, r * 0.2, L); P.set(x - r * 0.4, y - r * 0.05, W); }
+    },
+    ground(P, x, y, r) {          // hueso
+      const a = r * 0.62;
+      P.line(x - a, y + a, x + a, y - a, M, r >= 4 ? 3 : 2);
+      for (const [px, py] of [[x - a, y + a], [x + a, y - a]]) {
+        P.disc(px - r * 0.32, py - r * 0.32, r * 0.3, M);
+        P.disc(px + r * 0.32, py + r * 0.32, r * 0.3, M);
+      }
+    },
+    flying(P, x, y, r) {          // pluma
+      P.ell(x + r * 0.1, y - r * 0.1, r * 1.05, r * 0.45, M, -50 * DEG);
+      P.line(x - r * 1.0, y + r * 1.0, x + r * 0.4, y - r * 0.55, r >= 4 ? D : B, 1);
+    },
+    psychic(P, x, y, r) {         // onda psíquica
+      P.disc(x, y, r * 0.95, M);
+      if (r >= 3.5) { P.ring(x, y, r * 0.38, r * 0.62, W); P.set(x, y, A); } else P.set(x, y, W);
+    },
+    bug(P, x, y, r) {             // escarabajo
+      P.ell(x, y + r * 0.2, r * 0.72, r * 0.82, M);
+      P.disc(x, y - r * 0.7, r * 0.36, B);
+      if (r >= 3.5) {
+        P.line(x, y - r * 0.35, x, y + r * 0.95, D, 1);
+        P.line(x - r * 0.25, y - r * 0.9, x - r * 0.7, y - r * 1.2, B, 1);
+        P.line(x + r * 0.25, y - r * 0.9, x + r * 0.7, y - r * 1.2, B, 1);
+      }
+    },
+    rock(P, x, y, r) {            // roca
+      const q = [[-0.98, 0.15], [-0.55, -0.78], [0.28, -0.98], [0.98, -0.25], [0.78, 0.78], [-0.25, 0.98]];
+      P.poly(q.map(([a, b]) => [x + a * r, y + b * r]), M);
+      if (r >= 4) P.line(x - r * 0.1, y - r * 0.2, x + r * 0.35, y + r * 0.35, D, 1);
+    },
+    ghost(P, x, y, r) {           // fantasmita
+      P.disc(x, y - r * 0.15, r * 0.8, M);
+      P.rect(x - r * 0.8, y - r * 0.15, x + r * 0.8, y + r * 0.85, M);
+      for (let i = -1; i <= 1; i += 2) P.set(x + i * r * 0.4, y + r * 0.95, 0);
+      P.set(x - r * 0.32, y - r * 0.15, O); P.set(x + r * 0.32, y - r * 0.15, O);
+      if (r >= 4.5) { P.set(x - r * 0.32, y + r * 0.05, O); P.set(x + r * 0.32, y + r * 0.05, O); }
+    },
+    dragon(P, x, y, r) {          // ojo de dragón
+      P.ell(x, y, r * 1.08, r * 0.64, M);
+      P.disc(x, y, r * 0.46, A);
+      P.line(x, y - r * 0.5, x, y + r * 0.5, O, 1);
+    },
+    dark(P, x, y, r) {            // luna menguante
+      P.disc(x, y, r * 0.98, M);
+      P.disc(x + r * 0.5, y - r * 0.38, r * 0.72, 0);
+      if (r >= 4) P.set(x + r * 0.55, y + r * 0.55, A);
+    },
+    steel(P, x, y, r) {           // tuerca
+      P.poly([0, 1, 2, 3, 4, 5].map(i => pol(x, y, r * 1.02, (i * 60) * DEG)), M);
+      P.disc(x, y, r * 0.34, r >= 4 ? N : S);
+    },
+    fairy(P, x, y, r) {           // destello
+      P.star(x, y, r * 1.18, r * 0.34, 4, M);
+      P.set(x, y, W);
+      if (r >= 4) P.star(x + r * 0.95, y - r * 0.95, r * 0.42, r * 0.14, 4, A);
+    }
+  };
+
+  /** Dibujo de cada familia. v: variante (VARIANT) o el stat del potenciador. */
+  const KIND_ART = {
+    projectile(P, v) {
+      if (v === 1) {                                       // aguijón
+        P.lay(() => { P.line(2, 22, 8, 16, L, 1); P.line(9, 28, 15, 22, L, 1); });
+        P.lay(() => {
+          P.poly([[28, 1], [22, 11], [8, 25], [5, 22], [19, 8]], M);
+          P.poly([[9, 18], [12, 21], [5, 27], [3, 25]], D);
+          P.line(26, 3, 19, 10, W, 1);
+        });
+        P.el(23, 22, 4.5);
+        return;
+      }
+      P.lay(() => { P.line(2, 20, 9, 13, L, 2); P.line(5, 27, 13, 19, M, 3); P.line(11, 28, 16, 23, L, 2); });
+      P.el(19, 11, 7.6);
+    },
+    homing(P) {
+      P.lay(() => P.dots([3, 27], [3, 8], [16, 11], 0, 0.82, 6, 1.3, L));
+      P.lay(() => { P.ring(23, 23, 4, 5.4, N); P.line(23, 16, 23, 18, N, 1); P.line(23, 28, 23, 29, N, 1); P.line(16, 23, 18, 23, N, 1); P.line(28, 23, 29, 23, N, 1); });
+      P.el(20, 10, 6.4);
+    },
+    bounce(P) {
+      P.lay(() => { P.path([[2, 9], [8, 26], [14, 12], [20, 26]], L, 2); P.line(4, 28, 12, 28, N, 1); P.line(16, 28, 24, 28, N, 1); });
+      P.el(22, 12, 6.2);
+    },
+    lob(P) {
+      P.lay(() => P.dots([3, 27], [12, -6], [21, 16], 0, 0.78, 7, 1.25, L));
+      P.lay(() => { P.line(15, 28, 28, 28, N, 1); });
+      P.el(22, 21, 6.3);
+    },
+    knife(P) {
+      const dart = (tx, ty) => P.lay(() => {
+        P.poly([[tx + 0.5, ty], [tx - 6, ty - 2.6], [tx - 15, ty - 1], [tx - 15, ty + 1], [tx - 6, ty + 2.6]], M);
+        P.line(tx - 13, ty, tx - 2, ty, L, 1);
+        P.rect(tx - 18, ty - 1, tx - 16, ty + 1, B);
+      });
+      dart(27, 5); dart(20, 15); dart(27, 25);
+    },
+    cross(P) {
+      P.lay(() => {
+        for (let k = 0; k < 4; k++) {
+          const a = (k * 90 - 70) * DEG;
+          P.poly([[15, 15], pol(15, 15, 14, a), pol(15, 15, 7.5, a + 62 * DEG)], M);
+        }
+      });
+      P.el(15, 15, 4.2);
+    },
+    nova(P) {
+      P.lay(() => { for (let k = 0; k < 8; k++) { const a = k * 45 * DEG; P.line(...pol(15, 15, 9.5, a), ...pol(15, 15, 13.6, a), M, 3); } });
+      P.el(15, 15, 6.4);
+    },
+    cone(P) {
+      P.lay(() => {
+        const pts = [[4, 26]];
+        for (let a = -88; a <= -2; a += 6) pts.push(pol(4, 26, 25, a * DEG));
+        P.poly(pts, M);
+        const ins = [[4, 26]];
+        for (let a = -72; a <= -18; a += 6) ins.push(pol(4, 26, 18, a * DEG));
+        P.poly(ins, L);
+      });
+      P.el(6, 24, 4.6);
+    },
+    ricochet(P) {
+      P.lay(() => {
+        for (const [x, y, dx, dy] of [[1, 1, 1, 1], [28, 1, -1, 1], [1, 28, 1, -1], [28, 28, -1, -1]]) {
+          P.line(x, y, x + dx * 6, y, N, 2); P.line(x, y, x, y + dy * 6, N, 2);
+        }
+      });
+      P.lay(() => P.path([[5, 13], [11, 25], [25, 17], [19, 8]], L, 1));
+      P.el(16, 10, 5.4);
+    },
+    dusting(P) {
+      for (const [x, y] of [[7, 8], [18, 5], [25, 15], [11, 19], [20, 25]]) {
+        P.lay(() => P.line(x - 5, y - 5, x - 2, y - 2, L, 1));
+        P.el(x, y, 3.8);
+      }
+    },
+    meteor(P) {
+      P.lay(() => P.ell(18, 26.5, 9, 2.2, S));
+      P.lay(() => { P.poly([[1, 3], [4, 1], [20, 11], [13, 18]], M); P.line(3, 3, 14, 12, W, 1); });
+      P.el(17, 15, 7.4);
+    },
+    orbit(P) {
+      P.lay(() => P.ring(15, 15, 10.3, 11.3, L));
+      P.lay(() => { P.disc(15, 15, 3.4, N); P.set(14, 14, W); });
+      for (const a of [-90, 30, 150]) P.el(...pol(15, 15, 10.8, a * DEG), 4.4);
+    },
+    beam(P) {
+      P.lay(() => { P.line(6, 24, 31, -1, M, 9); P.line(6, 24, 31, -1, L, 5); P.line(6, 24, 31, -1, W, 2); });
+      P.el(6, 24, 5.4);
+    },
+    charge(P) {
+      P.lay(() => { for (let k = 0; k < 8; k++) { const a = (k * 45 + 22.5) * DEG; P.line(...pol(15, 15, 14.2, a), ...pol(15, 15, 11.2, a), L, 2); } });
+      P.lay(() => { P.disc(15, 15, 9, M); P.disc(15, 15, 6.2, L); });
+      P.el(15, 15, 4.6);
+    },
+    sweep(P) {
+      P.lay(() => {
+        const pts = [[15, 16]];
+        for (let a = -120; a <= -36; a += 6) pts.push(pol(15, 16, 13.5, a * DEG));
+        P.poly(pts, L);
+      });
+      P.lay(() => { P.line(15, 16, ...pol(15, 16, 15.5, -32 * DEG), M, 4); P.line(15, 16, ...pol(15, 16, 15, -32 * DEG), W, 1); });
+      P.el(15, 17, 4.8);
+    },
+    column(P) {
+      for (const [x, top] of [[6, 7], [15, 2], [24, 9]]) {
+        P.lay(() => { P.rect(x - 2.5, top, x + 2.5, 26, M); P.line(x, top + 1, x, 25, W, 1); P.ell(x, 27, 4, 1.4, A); });
+      }
+    },
+    melee(P, v) {
+      if (v === 1) {                                       // aplastar (Golpe Cuerpo): una mole cae sobre el suelo, que se agrieta
+        P.lay(() => { P.rect(0, 23, 29, 29, S); P.path([[9, 29], [12, 25], [15, 27], [18, 24], [21, 29]], O, 1); });
+        P.lay(() => { P.line(5, 1, 5, 6, L, 2); P.line(15, 0, 15, 3, L, 2); P.line(25, 1, 25, 6, L, 2); });
+        P.lay(() => { P.disc(15, 15, 9.5, M); P.rect(5.5, 15, 24.5, 22, M); P.disc(11, 11, 2, W); });
+        for (const s of [-1, 1]) P.lay(() => { P.disc(15 + s * 12, 20, 2.4, N); P.disc(15 + s * 10.5, 16.5, 1.4, N); });
+        return;
+      }
+      for (const o of [-7, 0, 7]) {                        // zarpazo
+        P.lay(() => {
+          P.path([[22 + o, 1], [19 + o, 9], [13 + o, 19], [5 + o, 28]], M, 2);
+          P.path([[21 + o, 4], [17 + o, 12], [12 + o, 19]], M, 3);
+          P.line(19 + o, 8, 13 + o, 17, W, 1);
+        });
+      }
+    },
+    spin(P) {
+      P.lay(() => {
+        P.ring(15, 15, 9.5, 12.8, M, 200 * DEG, 330 * DEG);
+        P.ring(15, 15, 9.5, 12.8, M, 20 * DEG, 150 * DEG);
+        P.poly([pol(15, 15, 7.6, 330 * DEG), pol(15, 15, 14.8, 330 * DEG), pol(15, 15, 11.2, 358 * DEG)], M);
+        P.poly([pol(15, 15, 7.6, 150 * DEG), pol(15, 15, 14.8, 150 * DEG), pol(15, 15, 11.2, 178 * DEG)], M);
+      });
+      P.el(15, 15, 5);
+    },
+    dash(P) {
+      P.lay(() => { P.line(1, 8, 6, 8, L, 2); P.line(0, 15, 4, 15, L, 2); P.line(1, 22, 6, 22, L, 2); });
+      P.lay(() => P.path([[9, 4], [18, 15], [9, 26]], M, 4));
+      P.lay(() => P.path([[17, 4], [26, 15], [17, 26]], M, 4));
+    },
+    shove(P) {
+      P.lay(() => {
+        for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+          P.line(15 + sx * 6.5, 15 + sy * 6.5, 15 + sx * 10.5, 15 + sy * 10.5, M, 3);
+          P.poly([[15 + sx * 14.5, 15 + sy * 14.5], [15 + sx * 8, 15 + sy * 14.5], [15 + sx * 14.5, 15 + sy * 8]], M);
+        }
+      });
+      P.el(15, 15, 5.2);
+    },
+    stun(P) {
+      P.lay(() => { P.ell(15, 23, 12.5, 4.8, N); P.ell(15, 23, 10.5, 3, 0); });
+      P.el(15, 15, 6.5);
+      for (const [x, y] of [[5, 5], [15, 2], [25, 5]]) P.lay(() => P.star(x, y, 2.6, 0.9, 4, Y));
+    },
+    quake(P) {
+      P.lay(() => { P.rect(0, 20, 29, 29, M); P.path([[4, 29], [8, 25], [13, 26], [16, 21]], O, 1); P.path([[16, 21], [21, 24], [25, 20]], O, 1); });
+      for (const [x, y, r] of [[8, 12, 3], [16, 6, 3.6], [23, 13, 2.6]]) P.lay(() => P.poly([[x - r, y], [x - r * 0.3, y - r], [x + r, y - r * 0.4], [x + r * 0.6, y + r], [x - r * 0.5, y + r * 0.8]], M));
+    },
+    vortex(P) {
+      P.lay(() => {
+        let last = null;
+        for (let t = 0; t <= 3.6 * Math.PI; t += 0.08) {
+          const r = 1.2 + t * 1.12, p = pol(15, 15, r, t - Math.PI / 2);
+          if (last) P.line(last[0], last[1], p[0], p[1], M, t > 6 ? 3 : 2);
+          last = p;
+        }
+      });
+      P.el(15, 15, 3.6);
+    },
+    aura(P) {
+      P.lay(() => P.ring(15, 15, 12.6, 14.2, L));
+      P.lay(() => P.ring(15, 15, 8.6, 10.8, M));
+      P.el(15, 15, 5.8);
+    },
+    chain(P) {
+      P.lay(() => {
+        P.path([[5, 23], [9, 15], [11, 16], [15, 7]], W, 2);
+        P.path([[15, 7], [18, 14], [21, 13], [25, 21]], W, 2);
+      });
+      for (const [x, y] of [[5, 23], [15, 7], [25, 21]]) P.el(x, y, 4.4);
+    },
+    mine(P) {
+      P.lay(() => P.ell(15, 26.5, 9, 2, S));
+      P.lay(() => { for (let k = 0; k < 8; k++) { const a = k * 45 * DEG; P.line(...pol(15, 16, 6, a), ...pol(15, 16, 10.6, a), D, 2); } });
+      P.lay(() => { P.disc(15, 16, 7.2, M); P.set(12, 13, W); P.set(13, 13, W); P.set(12, 14, W); });
+      P.lay(() => P.disc(15, 7.5, 1.4, R));
+    },
+    trail(P) {
+      P.lay(() => { P.ell(7, 25, 6, 2.6, M); P.ell(15, 18, 4.6, 2, M); P.ell(20.5, 12.5, 3.2, 1.5, M); });
+      P.el(24.5, 6, 4.4);
+    },
+    puddle(P) {
+      P.lay(() => { P.ell(21, 26, 8, 2.6, M); P.disc(27, 19, 1.2, M); P.disc(23, 17, 1, M); });
+      P.lay(() => {
+        P.disc(12, 17, 7.6, N);
+        P.rect(9.5, 5, 14.5, 10, N);
+        P.disc(12, 18.5, 6, M);
+        P.rect(6, 13, 18, 16, N);
+        P.rect(9.5, 2, 14.5, 4.5, S);
+      });
+    },
+    turret(P) {
+      P.lay(() => P.poly([[5, 28], [25, 28], [21, 20], [9, 20]], S));
+      P.lay(() => P.line(15, 15, 26, 5, N, 4));
+      P.lay(() => P.disc(15, 15, 6.3, M));
+      P.el(15, 15, 3.4);
+    },
+    boomerang(P) {
+      P.lay(() => P.dots([26, 23], [30, 30], [20, 28], 0, 1, 3, 1, L));
+      P.lay(() => {
+        P.path([[4, 5], [7, 14], [12, 23]], M, 5);
+        P.path([[12, 23], [19, 19], [27, 16]], M, 5);
+        P.path([[5, 7], [8, 14], [12, 20]], L, 1);
+      });
+    },
+    wipe(P) {
+      P.lay(() => { P.rect(2, 3, 27, 26, N); P.rect(4, 5, 25, 24, 0); });
+      P.lay(() => { P.line(1, 29, 29, 1, M, 8); P.line(2, 28, 28, 2, W, 2); });
+      P.el(22, 22, 4.6);
+    },
+    ward(P) {
+      P.lay(() => {
+        P.poly([[3, 3], [27, 3], [27, 14], [15, 28], [3, 14]], M);
+        P.poly([[6, 6], [24, 6], [24, 13.5], [15, 24.5], [6, 13.5]], D);
+      });
+      P.el(15, 13, 5.6);
+    },
+    ally(P) {
+      const mon = (x, y, rx, ry) => P.lay(() => {
+        P.ell(x, y, rx, ry, M);
+        P.rect(x - rx * 0.6, y + ry * 0.6, x - rx * 0.2, y + ry + 1, M); P.rect(x + rx * 0.2, y + ry * 0.6, x + rx * 0.6, y + ry + 1, M);
+        for (const s of [-1, 1]) { P.disc(x + s * rx * 0.38, y - ry * 0.15, Math.max(1, rx * 0.2), W); P.set(x + s * rx * 0.38 + s * 0.4, y - ry * 0.1, O); }
+      });
+      mon(8, 12, 5, 4.5);
+      mon(18, 19, 8, 7);
+      P.el(24, 6, 3.8);
+    },
+    wings(P) {
+      P.lay(() => {
+        P.poly([[15, 12], [1, 4], [3, 11], [12, 18]], M);
+        P.poly([[15, 12], [29, 4], [27, 11], [18, 18]], M);
+        P.ell(15, 14, 3, 5, M); P.disc(15, 8.5, 2.6, M);
+        P.set(14, 8, O);
+      });
+      P.el(15, 24.5, 3.8);
+    },
+    buff(P, v) {
+      if (v === 'patk') {                                  // espada
+        P.lay(() => { P.poly([[13, 1], [16, 4], [16, 19], [12, 19], [12, 4]], N); P.line(13, 3, 13, 18, W, 1); });
+        P.lay(() => { P.rect(7, 19, 21, 21, B); P.rect(12.5, 22, 15.5, 26, S); P.disc(14, 27.5, 1.5, B); });
+        P.lay(() => P.arrow(24, 4, 15, 2, M));
+        return;
+      }
+      if (v === 'satk') {                                  // destello (ataque especial)
+        P.lay(() => { P.star(12, 17, 12, 3.6, 4, M); P.star(12, 17, 6, 1.8, 4, L); P.set(12, 17, W); });
+        P.lay(() => P.star(5, 5, 3.4, 1.1, 4, A));
+        P.lay(() => P.arrow(25, 2, 14, 2, M));
+        return;
+      }
+      if (v === 'spd') {                                   // galones hacia arriba
+        P.lay(() => P.path([[4, 15], [15, 4], [26, 15]], M, 4));
+        P.lay(() => P.path([[4, 26], [15, 15], [26, 26]], M, 4));
+        return;
+      }
+      if (v === 'def') {                                   // placa
+        P.lay(() => { P.poly([0, 1, 2, 3, 4, 5].map(i => pol(12, 17, 10, (i * 60 + 30) * DEG)), M); P.poly([0, 1, 2, 3, 4, 5].map(i => pol(12, 17, 5.6, (i * 60 + 30) * DEG)), L); });
+        P.lay(() => P.arrow(25, 2, 14, 2, M));
+        return;
+      }
+      if (v === 'regen') {                                 // aro y corazón
+        P.lay(() => P.ring(15, 15, 10.5, 13.5, M));
+        P.lay(() => {
+          P.disc(12, 13, 3.2, R); P.disc(18, 13, 3.2, R);
+          P.poly([[8.6, 14], [21.4, 14], [15, 21.5]], R);
+          P.set(11, 12, W);
+        });
+        return;
+      }
+      P.lay(() => P.arrow(15, 3, 27, 5, M));
+    }
+  };
+  const ART_FALLBACK = 'projectile';
+  const ART_BLANK = { px: new Uint8Array(900), pal: [] };   // sin datos de movimientos aún: nada
+
+  const arts = new Map();       // id -> { px: índices 30×30, pal: colores (null si vacío) }
+
+  /** Dibujo de un ataque: { px, pal } (null si no existe). */
+  function moveArt(id) {
+    let a = arts.get(id);
+    if (a) return a;
+    const m = G.Moves && G.Moves.BY_ID[id];
+    if (!m) return null;
+    const type = own(ART_PAL, m.type) ? m.type : 'normal';
+    const P = artPen(type);
+    const v = m.kind === 'buff' ? m.stat : VARIANT[id] || 0;
+    (KIND_ART[m.kind] || KIND_ART[ART_FALLBACK])(P, v);
+    a = { px: P.done(), pal: [null, K, ...ART_PAL[type], ...ART_SHARED] };
+    arts.set(id, a);
+    return a;
+  }
 
   // ---------------- qué es cada nombre ----------------
 
-  const infos = new Map();      // nombre -> { t: 'item'|'move'|'type'|'vec', name, file, kind, tint, pic }
+  const infos = new Map();      // nombre -> { t: 'item'|'move'|'type'|'vec', name, file, id, tint, pic }
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
   function info(name) {
     name = String(name);
     let r = infos.get(name);
     if (r) return r;
-    r = { t: 'item', name, file: '', kind: null, tint: '', pic: null };
+    r = { t: 'item', name, file: '', id: '', tint: '', pic: null };
     if (name.startsWith('move:')) {
-      const m = G.Moves && G.Moves.BY_ID[name.slice(5)];
+      // Su dibujo (moveArt); uno que no existe, el de Placaje.
       r.t = 'move';
-      r.file = DIR + TM[m && own(TM, m.type) ? m.type : 'normal'] + '.png';
-      r.kind = m && own(KIND_GLYPH, m.kind) ? m.kind : null;     // familia nueva sin insignia: el disco solo
+      r.id = G.Moves && G.Moves.BY_ID[name.slice(5)] ? name.slice(5) : 'tackle';
       if (!G.Moves) return r;                     // (sin datos aún: no se guarda)
     } else if (name.startsWith('type:')) {
       r.t = 'type';
@@ -318,21 +841,44 @@ G.Icons = (() => {
   /** La imagen de un nombre ya resuelto (se guarda en él: nada que buscar en cada fotograma). */
   function picOf(r) { return r.pic || (r.pic = pic(r.t === 'vec' ? vecUrl(r.name) : r.file)); }
 
-  /** Insignia de la familia (14×14 con el dibujo al doble, abajo a la derecha del disco: x, y 16..29):
-   *  a 9×9 no se distinguían los ataques del mismo tipo en el HUD. */
-  const badges = new Map();
-  function badge(kind) {
-    let cv = badges.get(kind);
+  /** El dibujo de un ataque en un canvas de 30×30 (para el HUD y el mundo). */
+  const artCanvases = new Map();
+  function artCanvas(id) {
+    let cv = artCanvases.get(id);
     if (cv) return cv;
+    const a = moveArt(id) || ART_BLANK;
     cv = document.createElement('canvas');
-    cv.width = cv.height = 14;
+    cv.width = cv.height = 30;
     const c = cv.getContext('2d');
-    c.fillStyle = K; c.fillRect(1, 0, 12, 14); c.fillRect(0, 1, 14, 12);
-    c.fillStyle = '#1d3b78'; c.fillRect(1, 1, 12, 12);
-    c.fillStyle = '#ffcb05';
-    KIND_GLYPH[kind].forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === '#') c.fillRect(x * 2 + 2, y * 2 + 2, 2, 2); });
-    badges.set(kind, cv);
+    for (let y = 0; y < 30; y++) for (let x = 0; x < 30;) {
+      const v = a.px[y * 30 + x];
+      let n = 1;
+      while (x + n < 30 && a.px[y * 30 + x + n] === v) n++;
+      if (v) { c.fillStyle = a.pal[v]; c.fillRect(x, y, n, 1); }
+      x += n;
+    }
+    if (a !== ART_BLANK) artCanvases.set(id, cv);       // (sin datos aún: no se guarda)
     return cv;
+  }
+
+  /** El dibujo de un ataque como SVG (un trazado por color, un tramo por fila): para el DOM. */
+  function artUrl(id) {
+    const key = 'move:' + id;
+    let u = urls.get(key);
+    if (u) return u;
+    const a = moveArt(id) || ART_BLANK, d = {};
+    for (let y = 0; y < 30; y++) for (let x = 0; x < 30;) {
+      const v = a.px[y * 30 + x];
+      let n = 1;
+      while (x + n < 30 && a.px[y * 30 + x + n] === v) n++;
+      if (v) d[v] = (d[v] || '') + `M${x} ${y}h${n}v1h-${n}z`;
+      x += n;
+    }
+    const body = Object.keys(d).map(v => `<path fill='${a.pal[v]}' d='${d[v]}'/>`).join('');
+    u = 'data:image/svg+xml,' + `<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30' shape-rendering='crispEdges'>${body}</svg>`
+      .replace(/%/g, '%25').replace(/#/g, '%23').replace(/</g, '%3C').replace(/>/g, '%3E').replace(/"/g, '%22');
+    if (a !== ART_BLANK) urls.set(key, u);
+    return u;
   }
 
   // ---------------- dibujos de antes y emblemas de tipo ----------------
@@ -359,8 +905,8 @@ G.Icons = (() => {
     return cv;
   }
 
-  /** Emblema circular de un tipo (16×16), con insignia de familia opcional. */
-  function emblem(type, kind) {
+  /** Emblema circular de un tipo (16×16). */
+  function emblem(type) {
     const S = 16;
     const cv = document.createElement('canvas');
     cv.width = cv.height = S;
@@ -383,13 +929,6 @@ G.Icons = (() => {
     g.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') c.fillRect(x + 5, y + 5, 1, 1); }));
     c.fillStyle = '#ffffff';
     g.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') c.fillRect(x + 4, y + 4, 1, 1); }));
-
-    if (kind && KIND_GLYPH[kind]) {
-      c.fillStyle = K; c.fillRect(9, 9, 7, 7);
-      c.fillStyle = '#2b3454'; c.fillRect(10, 10, 5, 5);
-      c.fillStyle = '#ffd23f';
-      KIND_GLYPH[kind].forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') c.fillRect(x + 10, y + 10, 1, 1); }));
-    }
     return cv;
   }
 
@@ -398,8 +937,7 @@ G.Icons = (() => {
     let cv = cache.get(name);
     if (cv !== undefined) return cv;
     if (name.startsWith('move:')) {
-      const m = G.Moves.BY_ID[name.slice(5)];
-      cv = emblem(m ? m.type : 'normal', m ? m.kind : null);
+      cv = artCanvas(info(name).id);
     } else if (name.startsWith('type:')) {
       cv = emblem(name.slice(5));
     } else {
@@ -440,19 +978,6 @@ G.Icons = (() => {
     return svgDoc(W, H, out);
   }
 
-  /** Insignia de la familia como SVG de 30×30 (lo demás transparente): va encima del disco. */
-  function badgeUrl(kind) {
-    const key = 'badge:' + kind;
-    let u = urls.get(key);
-    if (!u) {
-      let r = `<rect x="17" y="16" width="12" height="14" fill="${K}"/><rect x="16" y="17" width="14" height="12" fill="${K}"/><rect x="17" y="17" width="12" height="12" fill="#1d3b78"/>`;
-      KIND_GLYPH[kind].forEach((row, y) => { for (let x = 0; x < 5; x++) if (row[x] === '#') r += `<rect x="${x * 2 + 18}" y="${y * 2 + 18}" width="2" height="2" fill="#ffcb05"/>`; });
-      u = svgDoc(30, 30, r);
-      urls.set(key, u);
-    }
-    return u;
-  }
-
   /** Icono SVG como imagen (para el canvas y para CSS): los de un color, en claro con borde oscuro. */
   function vecUrl(name) {
     const key = 'vec:' + name;
@@ -468,10 +993,11 @@ G.Icons = (() => {
     return u;
   }
 
-  /** Ruta de la imagen del icono (png del objeto; los emblemas y los SVG, como data URL). */
+  /** Ruta de la imagen del icono (png del objeto; los ataques, los emblemas y los SVG, como data URL). */
   function url(name) {
     const r = info(name);
     if (r.t === 'vec') return vecUrl(r.name);
+    if (r.t === 'move') return artUrl(r.id);
     if (r.t === 'type') {
       let u = urls.get(r.name);
       if (!u) { u = svgOf(canvas(r.name)); urls.set(r.name, u); }
@@ -514,10 +1040,10 @@ G.Icons = (() => {
       return `<img class="pix ico-type${extra}" src="${url(name)}" width="${w}" height="${w}" alt="" draggable="false">`;
     }
     const d = fit(size);
-    const c = 'pix' + (d < 27 ? ' ico-sm' : '') + (r.tint ? ' ico-' + r.tint : '') + extra;
     const tail = `width="${d}" height="${d}" alt="" draggable="false" decoding="async">`;
-    // Movimiento: el disco de fondo y la insignia encima (un solo <img>).
-    if (r.kind) return `<img class="${c} ico-mv" src="${badgeUrl(r.kind)}" style="background:url(${r.file}) center/100% 100% no-repeat" ${tail}`;
+    // Ataque: su dibujo, que llena la caja (sin el aumento de ico-sm de los objetos pequeños).
+    if (r.t === 'move') return `<img class="pix ico-mv${extra}" src="${artUrl(r.id)}" ${tail}`;
+    const c = 'pix' + (d < 27 ? ' ico-sm' : '') + (r.tint ? ' ico-' + r.tint : '') + extra;
     return `<img class="${c}" src="${r.file}" ${tail}`;
   }
 
@@ -540,15 +1066,14 @@ G.Icons = (() => {
   function draw(ctx, name, x, y, size) {
     const r = info(name);
     if (r.t === 'type') { drawOld(ctx, canvas(r.name), x, y, size); return; }
+    if (r.t === 'move') { drawArt(ctx, artCanvas(r.id), x, y, size); return; }
     const s = picOf(r);
     if (!s.ok) {
-      const old = r.t === 'move' || own(LEGACY, r.name) ? canvas(r.name) : null;
+      const old = own(LEGACY, r.name) ? canvas(r.name) : null;
       if (old) drawOld(ctx, old, x, y, size);
       return;
     }
-    // Caja del dibujo (con la insignia, si es un movimiento).
-    let bx = s.x, by = s.y, bw = s.w, bh = s.h;
-    if (r.kind) { bw = Math.max(bx + bw, 30) - bx; bh = Math.max(by + bh, 30) - by; }
+    const bx = s.x, by = s.y, bw = s.w, bh = s.h;
     let k = size / Math.max(bw, bh);
     // Cerca de un múltiplo entero (±12 %), a ese múltiplo: píxeles iguales y nítidos
     // (p. ej. una roca de 22 px en una caja de 20 sale a 22, no reducida y borrosa).
@@ -558,7 +1083,17 @@ G.Icons = (() => {
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = r.t === 'vec' || k < 1;
     ctx.drawImage(s.img, s.x, s.y, s.w, s.h, ox + (s.x - bx) * k, oy + (s.y - by) * k, s.w * k, s.h * k);
-    if (r.kind) ctx.drawImage(badge(r.kind), ox + (16 - bx) * k, oy + (16 - by) * k, 14 * k, 14 * k);
+    ctx.imageSmoothingEnabled = prev;
+  }
+
+  /** Dibujo de un ataque (30×30) en la caja size×size: cerca de un múltiplo entero (±12 %), a ese múltiplo. */
+  function drawArt(ctx, cv, x, y, size) {
+    let k = size / 30;
+    const kr = Math.round(k);
+    if (kr >= 1 && Math.abs(k - kr) <= kr * 0.12) k = kr;
+    const prev = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = k < 1;
+    ctx.drawImage(cv, Math.round(x + (size - 30 * k) / 2), Math.round(y + (size - 30 * k) / 2), 30 * k, 30 * k);
     ctx.imageSmoothingEnabled = prev;
   }
 
@@ -569,7 +1104,14 @@ G.Icons = (() => {
    */
   function sprite(ctx, name, cx, cy, k = 1) {
     const r = info(name);
-    if (r.t !== 'item' && r.t !== 'move') return false;
+    if (r.t === 'move') {
+      const cv = artCanvas(r.id), w = 30 * k, prev = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(cv, Math.round(cx - w / 2), Math.round(cy - w / 2), w, w);
+      ctx.imageSmoothingEnabled = prev;
+      return true;
+    }
+    if (r.t !== 'item') return false;
     const s = picOf(r);
     if (!s.ok) return false;
     const w = s.w * k, h = s.h * k;
@@ -583,7 +1125,6 @@ G.Icons = (() => {
   /** Pide ya todos los sprites (los usa el canvas: HUD, objetos del suelo, tienda...). */
   function preload() {
     for (const k in ITEM) pic(DIR + ITEM[k] + '.png');
-    for (const k in TM) pic(DIR + TM[k] + '.png');
     for (const k in VEC_COLOR) pic(vecUrl(k));
   }
   // Después de cargar la página, sin prisa.
@@ -631,5 +1172,5 @@ G.Icons = (() => {
   }
 
   return { canvas, url, html, draw, sprite, preload, has, twinkle, rarity, RARITY_BALL, installCss,
-           ITEM, TM, UI: LEGACY, TYPE_GLYPH, KIND_GLYPH };
+           moveArt, ITEM, TM, UI: LEGACY, TYPE_GLYPH };
 })();

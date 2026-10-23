@@ -21,7 +21,18 @@ G.Touch = (() => {
   let touchAt = 0;                    // último toque (lo que simula el navegador después no es el ratón)
   let missed = null;                  // el último dedo que no cogió el joystick (estaba ocupado)
 
-  const R = () => 56 * (G.Settings.get('stick') || 1);
+  // Tamaño de la pantalla de juego (el del lienzo; si aún no lo hay, el de la ventana).
+  const cw = () => (cv && cv.clientWidth) || innerWidth, ch = () => (cv && cv.clientHeight) || innerHeight;
+  /** Móvil (como el modo compacto de style.css y el HUD): de pie con menos de 600 de ancho o tumbado con 520 de alto o menos. */
+  const small = (w, h) => w < 600 || h <= 520;
+  /**
+   * Radio del joystick: 56 px (46 en el móvil, para que tape menos), por el
+   * ajuste «Tamaño del joystick». Con el tamaño que se pase o el del lienzo.
+   */
+  function R(w, h) {
+    if (w === undefined) { w = cw(); h = ch(); }
+    return (small(w, h) ? 46 : 56) * (G.Settings.get('stick') || 1);
+  }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   /** ¿Pantalla en vertical? Con el tamaño que se pase (w × h) o, si no, el del lienzo. */
@@ -31,13 +42,27 @@ G.Touch = (() => {
    * Cada orientación tiene la suya: 'pad' en horizontal y 'padP' en vertical.
    */
   function spot(k, w, h) { const p = G.Settings.get(tall(w, h) ? 'padP' : 'pad'); return p && Array.isArray(p[k]) ? p[k] : null; }
-  // Joystick fijo de serie: en horizontal a la izquierda; en vertical, en medio, a mano del pulgar.
+  /*
+   * Joystick fijo de serie: en horizontal a la izquierda; en vertical, en medio,
+   * a mano del pulgar. En el móvil, más abajo para tapar menos el centro (donde
+   * va tu Pokémon): de pie, justo encima de la barra de ataques (hud.js: huecos
+   * de 44 y el activo, que sube 5, con su nombre de 16 encima); tumbado, abajo a
+   * la izquierda, lejos de la muesca. → [x, y] en proporción a la pantalla.
+   */
   const STICK_DEF = [0.14, 0.72], STICK_DEF_P = [0.5, 0.72];
-  const stickDef = (w, h) => tall(w, h) ? STICK_DEF_P : STICK_DEF;
+  function stickDef(w, h) {
+    if (w === undefined) { w = cw(); h = ch(); }
+    const t = h > w;
+    if (!small(w, h)) return t ? STICK_DEF_P : STICK_DEF;
+    const sa = safeArea(), r = R(w, h);
+    const D = G.HUD && G.HUD.pads ? G.HUD.pads(w, h) : { S: 44, BOT: 10 };
+    if (t) return [0.5, (h - Math.min(28, sa.bottom) - D.BOT - D.S - 26 - 12 - r) / h];
+    return [(Math.max(0, sa.left) + r + 34) / w, (h - Math.min(21, sa.bottom) - 30 - r) / h];
+  }
   const fixed = () => G.Settings.get('stickMode') === 'fixed';
   /** Centro del joystick fijo, en px de pantalla. */
-  function stickBase(w = cv.clientWidth, h = cv.clientHeight) {
-    const p = spot('stick', w, h) || stickDef(w, h), r = R();
+  function stickBase(w = cw(), h = ch()) {
+    const p = spot('stick', w, h) || stickDef(w, h), r = R(w, h);
     return { x: clamp(p[0] * w, r + 4, w - r - 4), y: clamp(p[1] * h, r + 4, h - r - 4) };
   }
 

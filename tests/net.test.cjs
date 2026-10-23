@@ -680,3 +680,47 @@ test('co-op cut mid-run: the host keeps the guest while it reconnects and remove
   assert.deepEqual(d.dropped, []);
   assert.equal(d.G.Coop.puppets().length, 0);
 });
+
+/** coop.js de verdad en los dos lados: lo que manda el anfitrión y lo que hace con ello el invitado. */
+function coopPair() {
+  const make = uid => {
+    const G = {}, got = { added: [], shots: [], hz: [] };
+    G.Net = { uid, on(fn) { G.recv = fn; }, onPeer() {}, slow: () => false, send: (u, f) => { got.sent = f; }, toHost() {} };
+    G.Player = class { constructor() { this.maxHp = 300; } };
+    G.DEX_BY = { 25: { dex: 25 } }; G.baseStartOf = () => 'thundershock';
+    G.Sprites = { preload() {} }; G.U = { dist2: () => 0 };
+    G.EnemyMgr = { all: () => G.enemies || [], get: () => null, addRemote: o => got.added.push(o) };
+    G.Judgment = { netState: () => null, netApply() {} };
+    G.Projectiles = { clearOrbs() {}, spawn: o => got.shots.push(o) };
+    G.Hazards = { add: (h, net) => got.hz.push([h, net]) };
+    G.VFX = { forType: t => ({ t }) };
+    G.Spawner = { say() {} }; G.Social = { me: { name: uid } };
+    new Function('G', 'document', source('js/net/coop.js'))(G, { addEventListener() {} });
+    const local = { x: 0, y: 0, moveAngle: 0, walking: false, hp: 1, maxHp: 1, magnet: 1, aim: 0, xpMul: 1, reviveT: 0, activeGroup: () => [] };
+    G.Coop.begin({ host: 'host', members: [{ uid: 'host', name: 'Ana', dex: 25 }, { uid: 'guest', name: 'Bea', dex: 25 }] }, local,
+      { team: () => ({ time: 1, level: 1, xp: 0, xpNext: 10, kills: 0, bosses: 0, coins: 0, t1: 0, t10: 0 }), choosing: () => false, syncTeam() {} });
+    return { G, got };
+  };
+  const host = make('host'), guest = make('guest');
+  // Lo que sale del anfitrión pasa por el codificador binario, como en una partida.
+  const deliver = () => { host.G.Coop.tick(1); guest.G.recv('host', C.decode(C.encode(host.got.sent))); };
+  return { host, guest, deliver };
+}
+
+test('23-10-2026: champions, enraged bosses and grouped boss hazards reach new guests; old-format events still work', () => {
+  const { host, guest, deliver } = coopPair();
+  const anim = { cur: 'Walk', dir: 2 };
+  host.G.enemies = [{ id: 7, x: 10, y: 20, hp: 900, anim, boss: true, ai: { fury: true } }, { id: 8, x: 0, y: 0, hp: 50, anim, burn: 1 }];
+  host.G.Coop.enemyAdded({ id: 7, dex: 25, x: 10, y: 20, boss: true, maxHp: 900, dmg: 40, behavior: 'chase' });
+  host.G.Coop.enemyAdded({ id: 8, dex: 25, x: 0, y: 0, champ: true, maxHp: 50, dmg: 4, behavior: 'chase' });
+  host.G.Coop.broadcast(['hz', { kind: 'beam', x: 1, y: 2, angle: 0.5, len: 400, w: 28, delay: 0.85, dmg: 30, type: 'electric', grp: 12 }]);
+  deliver();
+  const f = host.got.sent;
+  assert.deepEqual(f.e.map(a => a[6]), [16, 1], 'bit 16 = enfurecido; los de antes (1, 2, 4, 8) no cambian');
+  assert.deepEqual(f.ev.filter(e => e[0] === 'ne').map(e => e.length), [11, 11]);
+  assert.deepEqual(guest.got.added.map(o => [o.id, o.boss, o.champ]), [[7, true, false], [8, false, true]]);
+  assert.equal(guest.got.hz[0][0].grp, 12); assert.equal(guest.got.hz[0][1], true);
+  // Un anfitrión de antes manda 'ne' con 10 campos: nadie es campeón.
+  guest.G.recv('host', { k: 'f', ev: [['ne', 9, 25, 0, 0, 0, 0, 100, 5, 'chase']] });
+  assert.equal(guest.got.added.at(-1).champ, false);
+});

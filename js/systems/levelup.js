@@ -37,12 +37,17 @@ G.LevelUp = (() => {
       apply: pl => { pl.pass.area = r2(pl.pass.area + 0.10); }, max: 5 },
     { id: 'dur', icon: 'duration', title: 'Persistencia', desc: '+12% de duración: charcos, aliados, aves, rayos que giran, minas, torretas, potenciadores y aturdir.',
       apply: pl => { pl.pass.dur = r2(pl.pass.dur + 0.12); }, max: 5 },
-    { id: 'amt', icon: 'loaded-dice', title: 'Réplica', desc: '+1 a la cantidad de todos los ataques: proyectiles, orbes, minas, aliados, columnas...',
-      apply: pl => { pl.pass.amt += 1; }, max: 2 },
+    // Réplica (23-10-2026): +1 en todas las familias (antes +2 en las ráfagas radiales y
+    // los abanicos y +3 en las lluvias) y hasta 3 cartas: como mucho 3 más de lo normal
+    // de cada ataque, contando lo que suma su evolución (el tope, G.Moves.EXTRA_MAX).
+    { id: 'amt', icon: 'loaded-dice', title: 'Réplica', desc: '+1 a la cantidad de todos los ataques: proyectiles, orbes, minas, aliados... Hasta +3 por ataque, con la evolución.',
+      apply: pl => { pl.pass.amt += 1; }, max: 3 },
     { id: 'pspd', icon: 'zoom-lens', title: 'Propulsión', desc: '+10% de velocidad de los proyectiles y de todo lo que gira.',
       apply: pl => { pl.pass.pspd = r2(pl.pass.pspd + 0.10); }, max: 5 },
-    { id: 'luck', icon: 'scope-lens', title: 'Puntería', desc: '+4% de probabilidad de golpe crítico.',
-      apply: pl => { pl.critChance += 0.04; }, max: 5 }
+    // Puntería (23-10-2026): con +4 % de críticos daba un +2 % de daño por carta (Potencia, +10 %);
+    // ahora +5 % de críticos y +10 % al daño de cada crítico (pl.critDmg): un +5 % por carta.
+    { id: 'luck', icon: 'scope-lens', title: 'Puntería', desc: '+5% de probabilidad de golpe crítico y +10% de daño de los críticos.',
+      apply: pl => { pl.critChance += 0.05; pl.critDmg = r2((pl.critDmg || 0) + 0.10); }, max: 5 }
   ];
   STATS.push(...PASSIVES);
 
@@ -55,6 +60,42 @@ G.LevelUp = (() => {
       out.push(rest.splice(i, 1)[0][0]);
     }
     return out;
+  }
+
+  // ---- con qué evoluciona cada ataque (23-10-2026): lo enseñan las cartas, la pausa y el resumen ----
+
+  /**
+   * Lo que pide un ataque (definición o el tuyo) para evolucionar:
+   * { name, needs, icon, title, lvl (su nivel máximo), has (ya cogiste esa carta en
+   * esta partida), max (el tuyo ya está al máximo), ready (las dos cosas) }, o null
+   * si no evoluciona (potenciadores) o ya ha evolucionado.
+   */
+  function evoNeed(m, pl) {
+    const def = m && (m.def || m);
+    if (!def || m.evolved) return null;
+    const taken = (pl && pl.statsTaken) || {};
+    const ev = G.Moves.evoInfo({ id: def.id, def, kind: def.kind, lvl: def.maxLvl }, taken);
+    if (!ev) return null;
+    const s = STATS.find(x => x.id === ev.needs);
+    const max = !!m.def && m.lvl >= def.maxLvl;
+    return { name: ev.name, needs: ev.needs, icon: s ? s.icon : 'tm', title: s ? s.title : ev.needName, lvl: def.maxLvl,
+             has: ev.ready, max, ready: ev.ready && max };
+  }
+
+  /**
+   * Ataques que evolucionan con la carta `id`: los tuyos (sin evolucionar; ready si
+   * ya están al máximo y esta carta es lo que les falta) y, si te quedan huecos,
+   * los que aún puedes aprender.
+   */
+  function evolvesWith(id, pl) {
+    const E = G.Moves.EVO, mine = [], more = [], first = !(pl.statsTaken && pl.statsTaken[id]);
+    for (const m of pl.moves) if (!m.evolved && E[m.id] && E[m.id][1] === id) mine.push({ id: m.id, name: m.name, ready: first && m.lvl >= m.def.maxLvl });
+    if (pl.slots.length < pl.maxMoves) {
+      for (const mid of G.Moves.poolFor(pl.mon)) {
+        if (E[mid] && E[mid][1] === id && !pl.hasMove(mid) && !(pl.banned && pl.banned.has(mid))) more.push(mid);
+      }
+    }
+    return { mine, more };
   }
 
   /** Construye el conjunto de cartas candidatas, con pesos. */
@@ -86,22 +127,22 @@ G.LevelUp = (() => {
           // ataque físico y Maquinación el especial: llevan la del lado que suben.)
           tag: G.U.TYPE_NAME[d.type],
           cat: G.Stats.NAME[d.cat || (d.stat === 'patk' ? 'physical' : d.stat === 'satk' ? 'special' : '')] || '',
-          title: G.T(d.name, 'move'), desc: d.desc + fitNote(pl.mon, d.cat),
+          title: G.T(d.name, 'move'), desc: d.desc + fitNote(pl.mon, d.cat), evo: evoNeed(d, pl),
           apply: p => p.addMove(id)
         });
       }
     }
 
     // --- evoluciones: movimiento al máximo + su condición cumplida ---
-    const waiting = {};                   // stat -> movimiento que la espera para evolucionar
+    const waiting = {};                   // stat -> movimientos que la esperan para evolucionar
     for (const m of pl.moves) {
       const ev = G.Moves.evoInfo(m, pl.statsTaken);
       if (!ev) continue;
-      if (!ev.ready) { waiting[ev.needs] = m; continue; }
+      if (!ev.ready) { (waiting[ev.needs] = waiting[ev.needs] || []).push(m); continue; }
       out.push({
         w: 40, type: 'evo', key: 'evo:' + m.id,
         icon: 'move:' + m.id, color: '#ffd23f', tag: 'EVOLUCIÓN',
-        title: G.T(m.name, 'move') + ' → ' + G.T(ev.name, 'move'), desc: ev.text,
+        title: G.T(m.name, 'move') + ' → ' + G.T(ev.name, 'move'), desc: ev.text, evo: evoNeed(m, pl),
         apply: p => {
           G.Moves.evolve(m);
           G.FX.ring(p.x, p.y, 8, 120, '#ffd23f', 0.8, 6);
@@ -120,7 +161,7 @@ G.LevelUp = (() => {
         w: 8, type: 'up', key: 'up:' + m.id,
         icon: 'move:' + m.id, color: G.U.TYPE_COLOR[m.type],
         tag: 'Nv.' + m.lvl + ' > ' + (m.lvl + 1),
-        title: G.T(m.name, 'move'), desc: txt,
+        title: G.T(m.name, 'move'), desc: txt, evo: evoNeed(m, pl),
         apply: () => G.Moves.levelUp(m)
       });
     }
@@ -141,8 +182,8 @@ G.LevelUp = (() => {
       out.push({
         w: evoFor ? 14 : (pl.slots.length < pl.maxMoves ? 4 : 7) * (idle ? 0.5 : 1),
         type: 'stat', key: 'stat:' + s.id,
-        icon: s.icon, color: evoFor ? '#ffd23f' : '#8fa3c4', tag: evoFor ? 'Evoluciona ' + G.T(evoFor.name, 'move') : 'Mejora',
-        title: s.title, desc: s.desc,
+        icon: s.icon, color: evoFor ? '#ffd23f' : '#8fa3c4', tag: evoFor ? 'Evoluciona ' + evoFor.map(m => G.T(m.name, 'move')).join(', ') : 'Mejora',
+        title: s.title, desc: s.desc, evolves: evolvesWith(s.id, pl),
         apply: p => { s.apply(p); p.statsTaken[s.id] = (p.statsTaken[s.id] || 0) + 1; }
       });
     }
@@ -174,5 +215,5 @@ G.LevelUp = (() => {
     return picked;
   }
 
-  return { offer, STATS };
+  return { offer, STATS, evoNeed, evolvesWith };
 })();

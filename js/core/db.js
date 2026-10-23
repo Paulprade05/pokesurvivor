@@ -91,6 +91,7 @@ G.DB = (() => {
       ptm: {},                // dex -> [movimientos aprendidos con MT] (para siempre)
       pnat: {},               // dex -> [naturaleza, fecha]: la cambiada con Menta (si no, la que le tocó)
       pabil: {},              // dex -> [0|1|2, fecha]: la habilidad cambiada con Cápsula (2 = oculta)
+      zc: {},                 // tipo -> fecha: Cristales Z comprados (24-10-2026; para siempre, se juntan al fusionar)
       tickets: { t1: 0, t10: 0 },   // tickets del gacha (x1 y x10)
       pity: {},               // generación del banner -> tiradas sin ★5
       legends: {},            // dex -> fecha: legendarios vencidos en grietas
@@ -166,6 +167,12 @@ G.DB = (() => {
         s[k][id] = Math.min(999, n(s[k][id]));
         if (!s[k][id] || !ok(id)) delete s[k][id];
       }
+    }
+    // Cristales Z: tipos que existen, con su fecha de compra.
+    if (!isObj(s.zc)) s.zc = {};
+    for (const t of Object.keys(s.zc)) {
+      if ((G.U && !Object.prototype.hasOwnProperty.call(G.U.TYPE_NAME, t)) || !n(s.zc[t])) delete s.zc[t];
+      else s.zc[t] = n(s.zc[t]);
     }
     // MT aprendidas: movimientos que existen, sin repetir.
     if (!isObj(s.ptm)) s.ptm = {};
@@ -347,7 +354,8 @@ G.DB = (() => {
       for (const d in older[k] || {}) if (!(d in r[k])) r[k][d] = older[k][d];
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
-    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg']) {
+    // (y Cristales Z: comprado en cualquier aparato, lo tienes en todos, una vez).
+    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }

@@ -1,6 +1,7 @@
 /* ============ shop-ui.js — Tienda Kecleon y Mochila ============
  * (20-10-2026, del PR #236 de TheAdro7, adaptado.)
- *   Tienda   Menta, Cápsulas y las 8 MT del día (data/shop.js); arriba, el puesto
+ *   Tienda   Menta, Cápsulas, los Cristales Z (24-10-2026: los de tu compañero y,
+ *            con «Ver los 18», todos) y las 8 MT del día (data/shop.js); arriba, el puesto
  *            de los dos Kecleon (Scene)
  *   Mochila  desde el menú principal (openBag)
  * Lo de la Mochila se usa desde la ficha de cada Pokémon en la colección.
@@ -497,7 +498,8 @@ G.ShopUI = (() => {
   /** El objeto comprado sale de la estantería (from) y vuela hasta su fila de la lista
    *  (key, donde pone cuántos tienes), que bota al recibirlo. */
   function flyToBag(iconHtml, from, key) {
-    const target = $('shop-body').querySelector(`[data-buy="${key}"]`)?.closest('.shop-row').querySelector('.ico-tile');
+    // (Un Cristal Z comprado ya no tiene botón: su fila lleva data-own.)
+    const target = $('shop-body').querySelector(`[data-buy="${key}"], [data-own="${key}"]`)?.closest('.shop-row').querySelector('.ico-tile');
     if (!target) return;
     const to = target.getBoundingClientRect();
     if (!from) { const r = $('shop-stall').getBoundingClientRect(); from = { x: r.left + r.width / 2, y: r.bottom - 50 }; }
@@ -550,6 +552,9 @@ G.ShopUI = (() => {
   function render() {
     const box = $('shop-body');
     box.innerHTML = buyHtml();
+    const more = box.querySelector('[data-zall]');
+    // (Al volver a «sólo los de tu compañero» la lista encoge: que no se pierda de vista.)
+    if (more) more.onclick = () => { zAll = !zAll; render(); if (!zAll) box.querySelector('.z-sec').scrollIntoView({ block: 'nearest' }); };
     box.querySelectorAll('[data-buy]').forEach(b => {
       b.onclick = () => {
         const key = b.dataset.buy, r = G.Shop.buy(key);
@@ -557,7 +562,7 @@ G.ShopUI = (() => {
         G.Audio.sfx('buy');
         G.UI.refreshCoins();
         const icon = b.closest('.shop-row').querySelector('.ico-tile').innerHTML;
-        const from = Scene.cheer(key.startsWith('tm:') ? 'tm' : SHELF_ICON[key]);
+        const from = Scene.cheer(key.startsWith('tm:') ? 'tm' : SHELF_ICON[key] || 'ball');
         say(G.U.pick(['¡Muchas gracias!', '¡Gracias, vuelve pronto!']));
         render();
         flyToBag(icon, from, key);
@@ -569,6 +574,32 @@ G.ShopUI = (() => {
     });
   }
 
+  // ---------------- Cristales Z (24-10-2026) ----------------
+  let zAll = false;                      // ¿los 18, o sólo los de tu compañero?
+  const zTile = (t, size, cls = '') =>
+    `<span class="ico-tile tint z-tile${cls}" style="--tile-c:${G.U.TYPE_COLOR[t]}">${G.Icons.html('z:' + t, size)}</span>`;
+  /** Tipo del cristal y su movimiento Z, en etiquetas. */
+  const zTags = t => `<span class="tag-chip" style="background:${G.U.TYPE_COLOR[t]}">${G.U.TYPE_NAME[t]}</span>`
+    + `<span class="z-move">${G.Icons.html('zring', 18)}<b>${G.T(G.Moves.Z[t].name)}</b></span>`;
+  /** Un Cristal Z en la tienda: el precio, o «Comprado» (es para siempre). */
+  function zRow(t, partner) {
+    const d = G.Moves.Z[t], fits = partner && G.DEX_BY[partner] && G.DEX_BY[partner].types.includes(t);
+    const note = (fits ? `<span class="gold">${G.I18n.f('{x} lo puede usar', G.DEX_BY[partner].name)}</span> · ` : '') + G.T(d.desc);
+    if (!G.Shop.zHas(t)) return row('z:' + t, zTile(t, 30), G.T(G.Shop.Z_NAME[t]), zTags(t), note, G.Shop.Z_PRICE).replace('shop-row', 'shop-row z-row');
+    return `<div class="list-row shop-row z-row got">${zTile(t, 30)}
+      <div class="grow shop-txt"><b>${G.T(G.Shop.Z_NAME[t])}</b><span class="shop-tags">${zTags(t)}</span><small>${note}</small></div>
+      <span class="badge shop-got" data-own="z:${t}">${G.UI.svg('check', 14)}<span>${G.T('Comprado')}</span></span></div>`;
+  }
+  /** La sección: los de tu compañero primero (y, con «Ver los 18», todos). */
+  function zHtml(partner) {
+    const types = (partner && G.DEX_BY[partner] ? G.DEX_BY[partner].types : []).filter(t => G.Shop.Z_NAME[t]);
+    const list = zAll || !types.length ? types.concat(G.Shop.Z_TYPES.filter(t => !types.includes(t))) : types;
+    return `<section class="shop-sec z-sec"><h3 class="shop-h">${G.Icons.html('zring', 30)}<span>${G.T('Cristales Z')}</span></h3>
+      <p class="sub shop-note">${G.T('Se compran una vez y son para siempre. En la partida, con un Pokémon de su tipo, pulsa Z (o su botón): su movimiento Z se lanza solo durante 1 minuto y luego se recarga 4 minutos.')}</p>
+      <div class="shop-grid">${list.map(t => zRow(t, partner)).join('')}</div>
+      ${types.length ? `<button class="btn small ghost z-all" type="button" data-zall>${G.T(zAll ? 'Ver sólo los de tu compañero' : 'Ver los 18 Cristales Z')}</button>` : ''}</section>`;
+  }
+
   function buyHtml() {
     const s = G.DB.save, partner = s.partner;
     const mine = n => (n ? `<span class="shop-own">${G.I18n.f('tienes {x}', n)}</span>` : '');
@@ -577,7 +608,8 @@ G.ShopUI = (() => {
       const it = G.Shop.ITEMS[id];
       h += row(id, `<span class="ico-tile ${TINT[id] || ''}">${G.Icons.html(it.icon, 30)}</span>`, G.T(it.name), mine(G.Shop.count(id)), G.T(it.desc), it.price);
     }
-    h += `</div></section><section class="shop-sec"><h3 class="shop-h">${G.T('MT de hoy')}</h3>
+    h += '</div></section>' + zHtml(partner);
+    h += `<section class="shop-sec"><h3 class="shop-h">${G.T('MT de hoy')}</h3>
       <p class="sub shop-note">${G.T('Cada día hay otras 8. Una MT enseña su ataque a un Pokémon que lo aprenda en los juegos, para siempre (se gasta al usarla).')}</p><div class="shop-grid">`;
     for (const id of G.Shop.dailyTms()) {
       const m = G.Moves.BY_ID[id];
@@ -594,7 +626,8 @@ G.ShopUI = (() => {
     const s = G.DB.save;
     const items = G.Shop.ORDER.filter(id => G.Shop.count(id) > 0);
     const tms = Object.keys(s.tms || {}).filter(id => G.Moves.BY_ID[id] && s.tms[id] > 0).sort((a, b) => moveName(a).localeCompare(moveName(b)));
-    if (!items.length && !tms.length) {
+    const zs = G.Shop.Z_TYPES.filter(G.Shop.zHas);
+    if (!items.length && !tms.length && !zs.length) {
       return { empty: true, html: `<div class="empty-state bag-empty"><span class="ico-tile l t-gold">${G.Icons.html('bag', 60)}</span>
         <b>${G.T('Tu Mochila está vacía.')}</b><span>${G.T('Compra Mentas, Cápsulas y MT en la Tienda Kecleon.')}</span>
         <button class="btn gold ic" type="button" data-go-shop>${G.Icons.html('shop', 30)}<span>${G.T('Ir a la Tienda Kecleon')}</span></button></div>` };
@@ -603,7 +636,7 @@ G.ShopUI = (() => {
       <div class="grow"><b>${title}</b>${tags ? `<span class="shop-tags">${tags}</span>` : ''}<small>${desc}</small></div></div>`;
     const count = n => `<span class="bag-n">×${n}</span>`;
     const head = (title, n) => `<h3 class="shop-h">${title}<span class="badge ghost">${n}</span></h3>`;
-    let h = `<p class="sub bag-hint">${G.T('Para usarlo, abre la colección, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.')}</p>`;
+    let h = items.length || tms.length ? `<p class="sub bag-hint">${G.T('Para usarlo, abre la colección, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.')}</p>` : '';
     if (items.length) {
       h += `<section class="shop-sec">${head(G.T('Objetos'), items.reduce((a, id) => a + G.Shop.count(id), 0))}<div class="bag-grid">`;
       for (const id of items) {
@@ -620,6 +653,17 @@ G.ShopUI = (() => {
         const tile = tmTile(id, 60, ' bag-tile').replace(/<\/span>$/, count(s.tms[id]) + '</span>');
         h += card(tile, `${G.T('MT')} ${moveName(id)}`, tmTags(id),
           n ? G.I18n.f('La pueden aprender {x} de tus Pokémon', n) : G.T('Ninguno de tus Pokémon la puede aprender'));
+      }
+      h += '</div></section>';
+    }
+    // Cristales Z: no se gastan; se usan solos en la partida con un Pokémon de su tipo.
+    if (zs.length) {
+      h += `<section class="shop-sec">${head(G.T('Cristales Z'), zs.length)}
+        <p class="sub bag-hint">${G.T('Son para siempre y no hay que usarlos: en la partida, con un Pokémon de su tipo, pulsa Z o su botón.')}</p><div class="bag-grid">`;
+      for (const t of zs) {
+        const n = Object.keys(s.owned).filter(d => G.DEX_BY[d] && G.DEX_BY[d].types.includes(t)).length;
+        h += card(zTile(t, 60, ' bag-tile'), G.T(G.Shop.Z_NAME[t]), zTags(t),
+          n ? G.I18n.f('Lo pueden usar {x} de tus Pokémon', n) : G.T('Ninguno de tus Pokémon es de su tipo'));
       }
       h += '</div></section>';
     }

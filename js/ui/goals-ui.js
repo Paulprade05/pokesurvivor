@@ -219,16 +219,20 @@
         box.insertAdjacentHTML('beforeend', `<div class="goals-sec"><h3>Movimientos evolucionados ${nOk} / ${all.length}</h3></div>
           <p class="sub goals-hint">Un movimiento al nivel máximo evoluciona si en esa partida coges la carta que pide.</p>
           <div class="meter goals-meter"><i style="width:${all.length ? nOk / all.length * 100 : 0}%"></i></div>`);
+        // Cada una con sus iconos, como en Vampire Survivors: ataque + carta = evolución
+        // (la evolución, el mismo dibujo en baldosa dorada; con ✓ si ya la tienes).
         const eg = document.createElement('div');
-        eg.className = 'evo-grid';
+        eg.className = 'evo-grid evo-eqs';
         eg.innerHTML = ids.map(id => {
           const need = G.LevelUp.STATS.find(x => x.id === EVO[id][1]);
-          const needName = G.Moves.NEED_NAME[EVO[id][1]] || '';
-          return `<div class="evo-tile${ok(id) ? ' ok' : ''}"><span class="ico-tile">${ico('move:' + id)}</span>
+          const needName = need ? need.title : G.Moves.NEED_NAME[EVO[id][1]] || '';
+          const col = G.U.TYPE_COLOR[BY[id].type] || '#9fb1c9';
+          return `<div class="evo-tile${ok(id) ? ' ok' : ''}">
+            <div class="evo-eq"><span class="ico-tile s tint" style="--tile-c:${col}">${ico('move:' + id)}</span><i>+</i>`
+            + `<span class="ico-tile s" title="${esc(needName)}">${need ? ico(need.icon) : ''}</span><i>=</i>`
+            + `<span class="ico-tile s t-gold evo-to">${ico('move:' + id)}${ok(id) ? `<span class="evo-got" title="¡Conseguido!">${G.UI.svg('check', 12)}</span>` : ''}</span></div>
             <div class="evo-txt"><b>${G.T(BY[id].name, 'move')}</b><small class="gold">→ ${G.T(EVO[id][0], 'move')}</small>
-            <small>${needName}</small></div>
-            ${ok(id) ? `<span class="ico-tile s round t-gold" title="¡Conseguido!">${ico('medal3')}</span>`
-                     : need ? `<span class="ico-tile s" title="${esc(needName)}">${ico(need.icon)}</span>` : ''}</div>`;
+            <small><span>${needName}</span> · <span>Nv.</span> ${BY[id].maxLvl}</small></div></div>`;
         }).join('');
         box.appendChild(eg);
       }

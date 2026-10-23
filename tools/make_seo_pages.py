@@ -481,6 +481,9 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-24', ('Movimientos Z, jefes más duros y un HUD más pequeño', 'Z-Moves, tougher bosses and a smaller HUD'),
+  ('Cristales Z en la Tienda Kecleon: el movimiento Z de tu tipo se lanza solo durante un minuto y se recarga en cuatro. Grietas con varios legendarios, jefes con muchos más ataques, más dificultad de los minutos 20 a 30, un icono propio para cada ataque y siempre a la vista con qué evoluciona.',
+   'Z-Crystals in the Kecleon Shop: your type’s Z-Move fires on its own for a minute and recharges in four. Rifts with several legendaries, bosses with many more attacks, a harder minute 20 to 30, a unique icon for every move and its evolution always in sight.')),
  ('2026-10-23', ('Pantalla completa en el móvil y joystick fijo', 'Full-screen phone screens and a fixed joystick'),
   ('En el móvil cada pantalla ocupa ya toda la pantalla y todo es algo más pequeño; el joystick es fijo de serie (se puede volver a flotante en Ajustes › Controles) y el cooperativo aguanta mejor los cortes de conexión.',
    'On phones every screen now fills the whole display and everything is a bit smaller; the joystick is fixed by default (you can switch back to floating in Settings › Controls) and co-op copes better with connection drops.')),
