@@ -11,6 +11,14 @@ G.MenuUI = (() => {
 
   function init() {
     const ICON = { play: 'ball', dex: 'book', upgrades: 'up', shop: 'shop', bag: 'bag', gacha: 'ball4', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear' };
+    // Tocar el compañero (su escenario o su nombre) abre su ficha en la colección.
+    for (const id of ['menu-stage', 'menu-partner-name']) {
+      const el = $(id);
+      el.classList.add('to-dex'); el.setAttribute('role', 'button'); el.tabIndex = 0;
+      el.setAttribute('aria-label', G.T('Ver en la colección'));
+      el.onclick = () => { G.Audio.sfx('click'); openPartner(); };
+      el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } };
+    }
     document.querySelectorAll('#scr-menu [data-go]').forEach(b => {
       // Icono del objeto a 30 px (escala entera), dentro de su baldosa redonda (style.css).
       b.insertAdjacentHTML('afterbegin', `<span class="mi-ico" aria-hidden="true">${G.Icons.html(ICON[b.dataset.go], 30)}</span>`);
@@ -183,6 +191,16 @@ G.MenuUI = (() => {
     const r = el.getBoundingClientRect(), s = strip.getBoundingClientRect();
     if (r.left < s.left) strip.scrollLeft -= s.left - r.left + 16;
     else if (r.right > s.right) strip.scrollLeft += r.right - s.right + 16;
+  }
+
+  /** Ficha del compañero en la colección (tocarlo en el menú principal). */
+  function openPartner() {
+    const s = G.DB.save;
+    if (!s || !G.DEX_BY[s.partner]) return;
+    dexSel = s.partner; dexGen = G.DEX_BY[s.partner].gen; dexF = DEX0();
+    openDex();
+    sheet(true);            // en el móvil de pie, la ficha a pantalla completa
+    showDetail(dexSel);
   }
 
   function openDex() {

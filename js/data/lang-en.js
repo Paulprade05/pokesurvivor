@@ -1318,5 +1318,7 @@ G.I18n.add({
   "Chaparrón": "Shower",
   // ---------------- Joystick fijo (23-10-2026) ----------------
   "Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar.": "Drag the joystick to move. Tap an attack at the bottom to switch to it and the button at the top right to pause.",
-  "Fijo: siempre en el mismo sitio. Flotante: aparece donde pones el dedo.": "Fixed: always in the same place. Floating: appears where you put your finger."
+  "Fijo: siempre en el mismo sitio. Flotante: aparece donde pones el dedo.": "Fixed: always in the same place. Floating: appears where you put your finger.",
+  // ---------------- Menú: tocar el compañero (23-10-2026) ----------------
+  "Ver en la colección": "View in the collection"
 });

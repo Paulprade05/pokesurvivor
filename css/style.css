@@ -190,6 +190,10 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* position: fixed + inset: 0 en vez de 100vw / 100vh: en iPhone (sobre todo
    abierto desde la pantalla de inicio) los vh no cuadraban con la ventana. */
 #game { display: block; position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+/* iPhone como app (mobile.js, html.ios-app): tras girarlo, iOS a veces deja la ventana con el
+   alto de antes y salía una franja abajo. Se mide con la pantalla (--app-w / --app-h). */
+html.ios-app, html.ios-app body { width: var(--app-w, 100%); height: var(--app-h, 100%); }
+html.ios-app :is(#game, .scr) { inset: 0 auto auto 0; width: var(--app-w, 100%); height: var(--app-h, 100%); }
 button { font: inherit; color: inherit; }
 input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--link); }
@@ -1121,6 +1125,9 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   to { transform: translateX(var(--sx)) rotate(-14deg) scale(1.06); }
 }
 .partner-card { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0; }
+/* Se puede tocar: abre la ficha del compañero en la colección (menu.js). */
+.to-dex { cursor: pointer; }
+.to-dex:focus-visible { outline: var(--focus); outline-offset: 3px; }
 .partner-stage {
   position: relative; flex: none; width: 340px; height: 260px; border-radius: 28px; overflow: hidden;
   background: radial-gradient(ellipse at 50% 88%, rgba(61, 125, 202, .45), transparent 60%), linear-gradient(180deg, rgba(29, 59, 120, .9), rgba(8, 15, 38, .96));

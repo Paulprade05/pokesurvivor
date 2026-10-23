@@ -32,6 +32,25 @@ G.Mobile = (() => {
   marks();
   onMedia(appMode, marks);
 
+  // ---------------- iPhone como app: tamaño de la ventana ----------------
+  // Abierto desde la pantalla de inicio, al girarlo a horizontal iOS a veces deja la
+  // página con el alto de antes (una franja abajo hasta volver a girarlo dos veces).
+  // En la app la ventana es siempre la pantalla entera: se fija con sus medidas
+  // (--app-w / --app-h, ver style.css) y el juego mide su lienzo con ellas.
+  const IPHONE = /iPhone|iPod/.test(navigator.userAgent);
+  function appSize() {
+    const on = IPHONE && standalone() && screen.width > 0;
+    root.classList.toggle('ios-app', on);
+    if (!on) return;
+    const a = Math.min(screen.width, screen.height), b = Math.max(screen.width, screen.height);
+    const o = typeof window.orientation === 'number' ? window.orientation : null;
+    const land = o !== null ? Math.abs(o) === 90 : innerWidth > innerHeight;
+    root.style.setProperty('--app-w', (land ? b : a) + 'px');
+    root.style.setProperty('--app-h', (land ? a : b) + 'px');
+  }
+  appSize();
+  onMedia(appMode, appSize);
+
   // ---------------- zoom, rebote y pulsación larga ----------------
   let touchAt = -1e9, lastInput = 0;
   addEventListener('pointerdown', e => { lastInput = now(); if (e.pointerType !== 'mouse') touchAt = lastInput; }, { capture: true, passive: true });
@@ -125,6 +144,7 @@ G.Mobile = (() => {
   // con ella en segundo plano): se avisa al juego (game.js, touch.js) como si
   // hubiera llegado. Sólo si cambió: el editor de botones recarga lo colocado con cada aviso.
   function remeasure() {
+    appSize();
     settle();
     if (innerWidth !== seenW || innerHeight !== seenH) dispatchEvent(new Event('resize'));
   }
