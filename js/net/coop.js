@@ -94,6 +94,7 @@ G.Coop = (() => {
   }
 
   function end() {
+    for (const u of [...graceT.keys()]) stopGrace(u);
     active = false; host = false; local = null;
     mates.clear(); outEv = []; waiting = new Set(); holds = new Set();
   }
@@ -258,11 +259,51 @@ G.Coop = (() => {
     if (host) onClientFrame(from, msg); else if (from === hostUid) onHostFrame(msg);
   });
 
+  /*
+   * Cortes de la conexión directa en plena partida (22-10-2026). Antes, al
+   * primer fallo del canal (un bache de la wifi o de los datos), al invitado se
+   * le acababa la partida al momento, aunque el anfitrión ya lo estuviera
+   * reintentando. Ahora se espera GRACE_MS a que vuelva: el invitado se queda
+   * en pausa («esperando al anfitrión») y el anfitrión sigue jugando.
+   */
+  const GRACE_MS = 45000;
+  const graceT = new Map();             // uid -> temporizador de la espera
+
+  function stopGrace(u) { clearTimeout(graceT.get(u)); graceT.delete(u); }
+
   G.Net.onPeer((u, mode) => {
-    if (!active || (mode !== 'closed' && mode !== 'failed')) return;
+    if (!active) return;
+    if (mode === 'direct') {
+      if (!graceT.has(u)) return;
+      stopGrace(u);
+      const m = mates.get(u);
+      if (host && m && m.connected) G.Spawner.say(m.name + ' ha vuelto', 2);
+      return;
+    }
+    if (mode !== 'closed' && mode !== 'failed') return;
+    const ours = host ? !!(mates.get(u) && mates.get(u).connected) : u === hostUid;
+    if (mode === 'failed' && ours) {
+      if (graceT.has(u)) return;                  // ya se le está esperando
+      if (host) G.Spawner.say(nameOf(u) + ': reconectando…', 3);
+      graceT.set(u, setTimeout(() => {
+        graceT.delete(u);
+        if (!active || G.Net.mode(u) === 'direct' || (host && !keeps(u))) return;   // volvió, o se fue ('bye')
+        if (host) G.Social.dropMember(u);         // no volvió: fuera de la sala
+        gone(u);
+      }, GRACE_MS));
+      return;
+    }
+    gone(u);
+  });
+
+  function gone(u) {
+    stopGrace(u);
     if (host) mateGone(u);
     else if (u === hostUid) { const cb = api.lost; end(); if (cb) cb('Se ha perdido la conexión con el anfitrión.'); }
-  });
+  }
+
+  /** Anfitrión: ¿`u` sigue en esta partida (aunque se esté reconectando)? */
+  function keeps(u) { const m = active && host && mates.get(u); return !!(m && m.connected); }
 
   function mateGone(u) {
     const m = mates.get(u);
@@ -575,7 +616,7 @@ G.Coop = (() => {
   }
 
   return {
-    ANIMS, COLORS, begin, end, leave, tick, players, puppets, xpFactor, scaleRate, scaleHp,
+    ANIMS, COLORS, begin, end, leave, keeps, tick, players, puppets, xpFactor, scaleRate, scaleHp,
     cast, hit, status, hurtShown, enemyAdded, enemyGone, enemyShot, pickupAdded, pickupGone, say,
     propBroken, collected, shinyCaught, levelStart, localPicked, over, holdStart, holdEnd,
     /** Anfitrión: evento para todos. Invitado: evento para el anfitrión. */

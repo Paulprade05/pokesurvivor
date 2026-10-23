@@ -362,59 +362,63 @@ function social({ me = 'guest', nick = 'Guesty' } = {}) {
     ownsShiny: () => false, setName() {}, onLeave() {} } };
   const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
   const firebase = { database: { ServerValue: { TIMESTAMP: 1 } }, firestore: { FieldValue: { serverTimestamp: () => 'now' } } };
-  new Function('G', 'firebase', 'localStorage', 'fetch', source('js/net/social.js'))(G, firebase, ls, () => Promise.reject(Error('offline')));
+  // Temporizadores de juguete: run(ms) ejecuta los que estén puestos a esa espera (los reintentos).
+  const timers = [];
+  const setT = (fn, ms) => { const t = { fn, ms }; timers.push(t); return t; };
+  const run = ms => { for (const t of timers.splice(0).filter(t => t.ms === ms || (timers.push(t), false))) t.fn(); };
+  new Function('G', 'firebase', 'localStorage', 'fetch', 'setTimeout', source('js/net/social.js'))(G, firebase, ls, () => Promise.reject(Error('offline')), setT);
   G.Social.on(w => events.push(w));
-  return { S: G.Social, G, rtdb, fs, events };
+  return { S: G.Social, G, rtdb, fs, events, run };
 }
 const hostRoom = (open = true) => ({ host: 'host', open, at: 1, m: { host: { name: 'Hosty', dex: 1, at: 1 } } });
 
-test('#253: a guest whose seat the database dropped writes it again in the room, and waits until the game ends', async () => {
-  const { S, G, rtdb, events } = social();
+test('#253: a guest whose seat a cut dropped gets it back; in a game it waits, and a room that is really gone closes', async () => {
+  const { S, rtdb, events, run } = social();
   await S.start();
   rtdb.server('rooms/r1', hostRoom());
   assert.deepEqual(await S.joinRoom('r1'), { ok: true });
-  assert.deepEqual(rtdb.od, ['rooms/r1/m/guest']);
-  // Corte breve fuera de partida: al cortarse se ejecuta el onDisconnect y la plaza
-  // se va; se vuelve a escribir en cuanto hay conexión y el onDisconnect se arma otra vez.
+  assert.ok(rtdb.od.includes('rooms/r1/m/guest'));
+  // Corte breve fuera de partida: el servidor hace el onDisconnect y la plaza se va.
   rtdb.setConnected(false); await settle();
-  assert.equal(rtdb.read('rooms/r1/m/guest'), undefined); assert.deepEqual(rtdb.od, []);
+  assert.equal(rtdb.read('rooms/r1/m/guest'), undefined);
+  assert.equal(S.room.id, 'r1'); assert.equal(S.room.lost, true); assert.ok(!events.includes('room-closed'));
   rtdb.setConnected(true); await settle();
   assert.ok(rtdb.read('rooms/r1/m/guest'), 'seat written again');
-  assert.equal(S.room.id, 'r1'); assert.ok(!S.room.lost); assert.ok(!events.includes('room-closed'));
-  assert.deepEqual(rtdb.od, ['rooms/r1/m/guest'], 'onDisconnect armed again');
+  assert.equal(S.room.lost, false); assert.ok(!events.includes('room-closed'));
+  assert.ok(rtdb.od.includes('rooms/r1/m/guest'), 'onDisconnect armed again');
   assert.deepEqual(S.room.members.map(m => m.uid), ['host', 'guest']);
-  // El servidor se da cuenta tarde del corte (ya con otra conexión): igual.
-  rtdb.server('rooms/r1/m/guest', null); await settle();
-  assert.ok(rtdb.read('rooms/r1/m/guest')); assert.ok(!S.room.lost);
-  // En partida (la sala está cerrada a nuevos): no se toca nada hasta que se reabre.
-  rtdb.server('rooms/r1/open', false); G.Coop.active = true;
+  // En partida (la sala está cerrada a nuevos): no puede volver a entrar, pero la sala no se cierra.
+  S.setPlaying(true); rtdb.server('rooms/r1/open', false);
   rtdb.setConnected(false); rtdb.setConnected(true); await settle();
   assert.equal(rtdb.read('rooms/r1/m/guest'), undefined);
   assert.equal(S.room.id, 'r1'); assert.equal(S.room.lost, true); assert.ok(!events.includes('room-closed'));
-  G.Coop.active = false; rtdb.server('rooms/r1/open', true); await settle();
-  assert.ok(rtdb.read('rooms/r1/m/guest'), 'back in the room after the game'); assert.ok(!S.room.lost);
-  // Se reabre antes de que acabe tu partida: vuelves al abrir la sala (refreshMember).
-  rtdb.server('rooms/r1/open', false); G.Coop.active = true;
-  rtdb.server('rooms/r1/m/guest', null); rtdb.server('rooms/r1/open', true); await settle();
-  assert.equal(S.room.lost, true); assert.equal(rtdb.read('rooms/r1/m/guest'), undefined);
-  G.Coop.active = false; S.refreshMember(); await settle();
-  assert.ok(rtdb.read('rooms/r1/m/guest')); assert.ok(!S.room.lost);
-  // Si la sala desaparece de verdad, se cierra como siempre.
+  run(8000); await settle();
+  assert.equal(S.room.lost, true, 'still waiting while the others play');
+  // Acaba la partida y el anfitrión reabre la sala: vuelve a por su plaza.
+  S.setPlaying(false); rtdb.server('rooms/r1/open', true);
+  run(8000); await settle();
+  assert.ok(rtdb.read('rooms/r1/m/guest'), 'back in the room after the game'); assert.equal(S.room.lost, false);
+  // Si la sala desaparece de verdad, tras unos intentos se cierra.
   rtdb.server('rooms/r1', null); await settle();
+  assert.equal(S.room.lost, true); assert.ok(!events.includes('room-closed'));
+  run(4000); await settle(); run(4000); await settle();
   assert.equal(S.room, null); assert.ok(events.includes('room-closed'));
 });
-test('#253: the host arms its room\'s onDisconnect again if a cut found it unarmed; a cut with it armed closes the room', async () => {
+test('#253: the host whose room a cut deleted writes it again, same id and members', async () => {
   const { S, rtdb, events } = social({ me: 'host', nick: 'Hosty' });
   await S.start();
   await S.createRoom();
   const id = S.room.id;
-  assert.deepEqual(rtdb.od, ['rooms/' + id]);
-  rtdb.od.length = 0;                                       // (no se llegó a armar)
-  rtdb.setConnected(false); rtdb.setConnected(true); await settle();
-  assert.equal(S.room.id, id); assert.deepEqual(rtdb.od, ['rooms/' + id]);
-  // Armado, un corte borra la sala (en partida la red sigue: ver la prueba de la sala).
+  assert.ok(rtdb.od.includes('rooms/' + id));
+  rtdb.server('rooms/' + id + '/m/guest', { name: 'Guesty', dex: 4, at: 2 }); await settle();
   rtdb.setConnected(false); await settle();
-  assert.equal(S.room, null); assert.ok(events.includes('room-closed'));
+  assert.equal(rtdb.read('rooms/' + id), undefined, 'the server ran the onDisconnect');
+  assert.equal(S.room.id, id); assert.ok(!events.includes('room-closed'));
+  rtdb.setConnected(true); await settle();
+  assert.equal(rtdb.read('rooms/' + id + '/host'), 'host');
+  assert.deepEqual(Object.keys(rtdb.read('rooms/' + id + '/m')).sort(), ['guest', 'host']);
+  assert.equal(S.room.lost, false); assert.ok(rtdb.od.includes('rooms/' + id), 'onDisconnect armed again');
+  assert.ok(!events.includes('room-closed'));
 });
 test('invitations are listened to from the start, also on a new device (one query)', async () => {
   const { S, fs } = social();
@@ -536,12 +540,16 @@ test('#253: the room UI keeps the network during a game and closes it after', ()
   const { G, els, calls, handlers } = socialUi();
   assert.equal(els['fr-name'].maxLength, 40);
   handlers.forEach(fn => fn('room-closed'));
-  assert.deepEqual(calls, [['sync', [], true]], 'no close and no toast: keep who is connected, retry nobody');
-  calls.length = 0;
+  assert.deepEqual(calls, [], 'in a game: no close, no toast and nobody dropped (the direct channel rules)');
   G.Social.room = { id: 'r', isHost: true, host: 'me', members: [{ uid: 'me' }] };
   handlers.forEach(fn => fn('room'));
-  assert.deepEqual(calls, [['sync', ['me'], true]]);
-  G.Coop.active = false; G.Social.room = null; calls.length = 0;
+  assert.deepEqual(calls, [], 'in a game the room list drops nobody');
+  G.Coop.active = false;
+  G.Social.room.lost = true; handlers.forEach(fn => fn('room'));
+  assert.deepEqual(calls, [], 'not while the seat is being recovered either');
+  G.Social.room.lost = false; handlers.forEach(fn => fn('room'));
+  assert.deepEqual(calls, [['sync', ['me'], undefined]]);
+  G.Social.room = null; calls.length = 0;
   handlers.forEach(fn => fn('room-closed'));
   assert.deepEqual(calls, [['close'], ['toast', 'La sala se ha cerrado']]);
 });
@@ -611,4 +619,64 @@ test('ranking: a transaction clash is retried once; a mark that still cannot be 
   r = ranking(); r.G.Social.me = null;
   await r.R.submitSolo(run); await r.R.submitSolo(run);
   assert.deepEqual(r.toasts, ['Elige un apodo (en Amigos) para salir en el ranking.']);
+});
+
+function coopWithCuts(host) {
+  let peerFn = null, msgFn = null;
+  const timers = new Map(), lost = [], said = [], dropped = [];
+  let mode = 'direct', nextT = 0;
+  const G = {};
+  G.Net = { uid: host ? 'host' : 'guest', on(fn) { msgFn = fn; }, onPeer(fn) { peerFn = fn; }, slow: () => false,
+    send() {}, toHost() {}, mode: () => mode };
+  G.Player = class { constructor() { this.maxHp = 300; } };
+  G.DEX_BY = { 25: { dex: 25 } }; G.baseStartOf = () => 'thundershock';
+  G.Sprites = { preload() {} }; G.U = { dist2: () => 0 };
+  G.Projectiles = { clearOrbs() {} }; G.Spawner = { say: s => said.push(s) };
+  G.Social = { me: { name: 'yo' }, dropMember: u => dropped.push(u) };
+  const setT = fn => { timers.set(++nextT, fn); return nextT; };
+  new Function('G', 'document', 'setTimeout', 'clearTimeout', source('js/net/coop.js'))(G, { addEventListener() {} }, setT, id => timers.delete(id));
+  G.Coop.begin({ host: 'host', members: [{ uid: 'host', name: 'Ana', dex: 25 }, { uid: 'guest', name: 'Bea', dex: 25 }] }, { x: 0, y: 0 },
+    { lost: m => lost.push(m), mateLeft() {}, waiting() {} });
+  const other = host ? 'guest' : 'host';
+  return {
+    G, lost, said, dropped, timers,
+    cut() { mode = 'failed'; peerFn(other, 'failed'); },
+    back() { mode = 'direct'; peerFn(other, 'direct'); },
+    expire() { for (const [id, fn] of [...timers]) { timers.delete(id); fn(); } },
+    bye() { msgFn(other, { k: 'f', ev: [['bye']] }); }
+  };
+}
+
+test('co-op cut mid-run: the guest waits for the host to reconnect instead of losing the run', () => {
+  const c = coopWithCuts(false);
+  c.cut();
+  assert.equal(c.lost.length, 0);
+  assert.ok(c.G.Coop.active);
+  c.back();
+  assert.equal(c.timers.size, 0);
+  c.expire();
+  assert.equal(c.lost.length, 0);
+  // a second cut that never comes back does end it, after the wait
+  c.cut(); c.cut();
+  assert.equal(c.timers.size, 1);
+  c.expire();
+  assert.equal(c.lost.length, 1);
+  assert.ok(!c.G.Coop.active);
+});
+
+test('co-op cut mid-run: the host keeps the guest while it reconnects and removes it only if it never does', () => {
+  const c = coopWithCuts(true);
+  c.cut();
+  assert.equal(c.G.Coop.puppets().length, 1);
+  assert.ok(c.G.Coop.keeps('guest'));
+  c.back();
+  assert.ok(c.said.some(s => s.includes('ha vuelto')));
+  c.cut(); c.expire();
+  assert.equal(c.G.Coop.puppets().length, 0);
+  assert.deepEqual(c.dropped, ['guest']);
+  // leaving on purpose during the wait never removes them from the room
+  const d = coopWithCuts(true);
+  d.cut(); d.bye(); d.expire();
+  assert.deepEqual(d.dropped, []);
+  assert.equal(d.G.Coop.puppets().length, 0);
 });

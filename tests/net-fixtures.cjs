@@ -83,6 +83,7 @@ function fakeRtdb(me) {
         },
         remove() { return this.set(null); },
         get() { return canRead(p) ? Promise.resolve(snap(p, read(p))) : denied(); },
+        child(c) { return db.ref(p + '/' + c); },
         push(v) { const key = 'k' + (++n); if (v !== undefined) write(p + '/' + key, v); return Object.assign(Promise.resolve(), { key }); },
         onDisconnect() {
           return { remove: () => { od.push(p); return Promise.resolve(); },

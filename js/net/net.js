@@ -56,10 +56,13 @@ G.Net = (() => {
     sentBytes: 0, jsonBytes: 0, recvBytes: 0, binarySent: 0, binaryRecv: 0, invalidBinary: 0 };
 
   // ---------------- TURN propio ----------------
-  // Credenciales temporales (2 h) por cuenta. Se guardan hasta 10 min antes de
-  // caducar; si el servidor no las da (cuenta no autorizada, caído, sin red), no
-  // se vuelve a preguntar en un rato y se juega sólo con STUN.
+  // Credenciales temporales (2 h) por cuenta. Una conexión por el TURN deja de
+  // funcionar cuando caducan las suyas (el servidor ya no le renueva el hueco), así
+  // que sólo se reutilizan si les queda más que una partida larga (TURN_KEEP); si
+  // el servidor no las da (cuenta no autorizada, caído, sin red), no se vuelve a
+  // preguntar en un rato y se juega sólo con STUN.
   let turn = null, turnUid = null, turnAsk = null, turnRetry = 0;
+  const TURN_KEEP = 80 * 60000;
 
   function cleanIce(list) {
     if (!Array.isArray(list)) return [];
@@ -80,7 +83,7 @@ G.Net = (() => {
   function turnNow() {
     const user = turnUser();
     if (!user) return [];
-    if (turn && turnUid === user.uid && turn.expiresAt * 1000 - Date.now() > 600000) return turn.iceServers;
+    if (turn && turnUid === user.uid && turn.expiresAt * 1000 - Date.now() > TURN_KEEP) return turn.iceServers;
     return Date.now() < turnRetry ? [] : null;
   }
 

@@ -276,11 +276,12 @@
         const playing = G.Coop.active;
         if (room) {
           G.Net.open(room.id, room.isHost, room.host);
-          G.Net.syncMembers(room.members.map(m => m.uid), playing);
-        } else if (G.Net.open_) {
-          // (Sin sala no hay señalización: se sigue con los que están conectados y no
-          // se reintenta a nadie, que sólo gastaría huecos del TURN.)
-          if (playing) G.Net.syncMembers([], true); else G.Net.close();
+          // En partida la lista de la sala no echa a nadie (puede faltar alguien un
+          // momento por un corte con la base de datos): manda el canal directo. Mientras
+          // se recupera la plaza tras un corte (room.lost), tampoco.
+          if (!playing && !room.lost) G.Net.syncMembers(room.members.map(m => m.uid));
+        } else if (G.Net.open_ && !playing) {
+          G.Net.close();         // (en partida se sigue con los que están conectados)
         }
         if (what === 'room-closed' && !playing) {
           G.UI.toast('La sala se ha cerrado', 2600);
