@@ -7,7 +7,8 @@
  *   calm        true/false                        menos sacudidas y destellos
  *   fps         true/false                        contador de FPS
  *   stick       0.8 | 1 | 1.25                    tamaño del joystick táctil
- *   stickMode   'float' | 'fixed'                 joystick donde pones el dedo, o siempre en su sitio
+ *   stickMode   'fixed' | 'float'                 joystick siempre en su sitio (de serie desde el 23-10-2026),
+ *                                                 o donde pones el dedo
  *   pad         { bar, pause, stick } | null      dónde van los botones en móvil (centro, en
  *                                                 proporción a la pantalla); lo pone layout-ui.js
  *   gamepad     true/false                        jugar con mando (gamepad.js)
@@ -28,11 +29,17 @@
  */
 G.Settings = (() => {
   const KEY = 'ps.settings';
-  const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'float', pad: null, gamepad: true, padRumble: true, aimManual: false,
+  const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
     padP: null, tipVert: false };
   let s = Object.assign({}, DEF);
-  try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* nada */ }
+  try {
+    const old = JSON.parse(localStorage.getItem(KEY) || '{}');
+    // Hasta el 23-10-2026 el joystick era flotante de serie (y se guardaba con los demás
+    // ajustes aunque nadie lo eligiera): pasa a fijo una vez; quien quiera, vuelve a cambiarlo.
+    if (!old.stickV) { old.stickMode = 'fixed'; old.stickV = 2; }
+    Object.assign(s, old);
+  } catch (e) { /* nada */ }
   const fns = new Set();
 
   // Calidad automática: empieza alta (media en móvil) y baja si va a tirones.

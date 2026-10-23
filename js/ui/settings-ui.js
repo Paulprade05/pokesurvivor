@@ -179,8 +179,9 @@ G.SettingsUI = (() => {
       + keyRow(PAD('Y'), 'cambiar las cartas al subir de nivel')
       + keyRow(PAD('Stick der.'), 'desplazar las listas · apuntar (si activas Apuntar a mano en Accesibilidad)')
       + '</div>';
-    const mobile = section('En móvil o tablet', 'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar.')
-      + list(choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']], 'Tamaño del joystick', 'Cuánto hay que arrastrar el dedo.'),
+    const mobile = section('En móvil o tablet', 'Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar.')
+      + list(choice('stickMode', [['fixed', 'Fijo'], ['float', 'Flotante']], 'Joystick', 'Fijo: siempre en el mismo sitio. Flotante: aparece donde pones el dedo.'),
+        choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']], 'Tamaño del joystick', 'Cuánto hay que arrastrar el dedo.'),
         action('Colocar los botones', 'Pon los ataques, la pausa y el joystick (fijo, si quieres) donde quieras de la pantalla.',
           '<button type="button" class="btn small" id="set-layout">Colocar</button>'));
     // Con el dedo: primero lo del móvil y sin las teclas de PC (vuelven al usar ratón o teclado).

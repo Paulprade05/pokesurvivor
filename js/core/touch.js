@@ -1,14 +1,15 @@
 /* ============ touch.js — controles táctiles ============
- * Joystick flotante: pones el dedo en cualquier sitio de la pantalla de juego
- * y ahí aparece; arrastras para moverte y al soltar desaparece. Si el dedo se
- * aleja más que el radio, la base le sigue (nunca se queda "atascado").
+ * Joystick fijo (de serie desde el 23-10-2026): siempre en el mismo sitio y no
+ * sigue al dedo; sólo se coge tocando cerca de él. Se mueve en Ajustes >
+ * Controles > Colocar los botones.
+ *
+ * Joystick flotante (a elegir): pones el dedo en cualquier sitio de la pantalla
+ * de juego y ahí aparece; arrastras para moverte y al soltar desaparece. Si el
+ * dedo se aleja más que el radio, la base le sigue (nunca se queda "atascado").
  *
  * Botones del HUD (iconos de ataque, pausa): el HUD los registra en cada
  * fotograma con addButton(); un toque (o un clic con el ratón) sobre uno lo
  * pulsa en vez de abrir el joystick. Varios dedos a la vez funcionan.
- *
- * Joystick fijo (Ajustes > Controles > Colocar los botones): siempre en el
- * mismo sitio; sólo se coge tocando cerca de él.
  *
  * Portátil con pantalla táctil: un toque pasa el HUD a modo móvil y volver a
  * usar el ratón o el teclado lo devuelve al modo PC.
