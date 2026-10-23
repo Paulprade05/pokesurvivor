@@ -481,6 +481,9 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-23', ('Pantalla completa en el móvil y joystick fijo', 'Full-screen phone screens and a fixed joystick'),
+  ('En el móvil cada pantalla ocupa ya toda la pantalla y todo es algo más pequeño; el joystick es fijo de serie (se puede volver a flotante en Ajustes › Controles) y el cooperativo aguanta mejor los cortes de conexión.',
+   'On phones every screen now fills the whole display and everything is a bit smaller; the joystick is fixed by default (you can switch back to floating in Settings › Controls) and co-op copes better with connection drops.')),
  ('2026-10-22', ('Lavado de imagen y ataques nuevos', 'A fresh new look and new moves'),
   ('Interfaz nueva pensada para el móvil (menús redondeados, letra moderna e iconos de objetos reales de Pokémon) y 37 ataques nuevos al estilo de Vampire Survivors: rocas en parábola, aspas, columnas, escudos, aliados, aves, charcos y más, con 5 mejoras pasivas nuevas.',
    'A new mobile-first interface (rounded menus, a modern font and real Pokémon item icons) and 37 new moves in the style of Vampire Survivors: lobbed rocks, spinning crosses, columns, shields, allies, birds, pools and more, plus 5 new passive upgrades.')),

@@ -110,7 +110,7 @@ G.InstallUI = (() => {
   }
 
   // Hoja estrecha (docs/DISENO.md §4): cabecera con «Cerrar», el icono del juego y el
-  // título; debajo, los pasos. En el móvil de pie ocupa toda la pantalla.
+  // título; debajo, los pasos. En el móvil (de pie y tumbado) ocupa toda la pantalla.
   function open() {
     if (!sheet) {
       const x = G.UI && G.UI.svg ? G.UI.svg('close') : '×';

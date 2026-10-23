@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-23', title: ["Pantalla completa en el móvil y joystick fijo", "Full-screen phone screens and a fixed joystick"], chg: [
+    ["En el móvil, de pie y tumbado, cada pantalla ocupa toda la pantalla (sin recuadros) y todo es algo más pequeño: letras, botones, filas y cabeceras.",
+     "On phones, upright and sideways, every screen now fills the whole display (no more boxed panels) and everything is a bit smaller: text, buttons, rows and headers."],
+    ["El joystick es fijo de serie: está siempre en el mismo sitio y no sigue al dedo. Si prefieres el de antes, elige «Flotante» en Ajustes › Controles.",
+     "The joystick is now fixed by default: it always stays in the same place and doesn't follow your finger. If you prefer the old one, choose “Floating” in Settings › Controls."]],
+  fix: [
+    ["Cooperativo: a los invitados ya no les sale «La sala se ha cerrado» a mitad de partida (a veces a los pocos minutos o al entrar en una grieta) mientras los demás seguían jugando. Pasaba cuando su conexión con el servidor de las salas se cortaba un momento; ahora la partida sigue y la sala se recupera sola.",
+     "Co-op: guests no longer get \"The room has been closed\" in the middle of a run (sometimes after a few minutes or when entering a rift) while the others kept playing. It happened when their connection to the rooms server dropped for a moment; now the run goes on and the room recovers on its own."],
+    ["Cooperativo: si se corta un momento la conexión con el anfitrión (un bache de la wifi o de los datos), el invitado ya no pierde la partida: se queda en pausa hasta 45 segundos mientras se vuelve a conectar y sigue jugando.",
+     "Co-op: if the connection with the host drops for a moment (a Wi-Fi or mobile data hiccup), the guest no longer loses the run: it pauses for up to 45 seconds while reconnecting and then keeps playing."],
+    ["Cooperativo: si te quedas fuera de una partida mientras los demás siguen, ya no te sale «La sala se ha cerrado»: esperas en la sala y, cuando acaben, seguís juntos.",
+     "Co-op: if you drop out of a run while the others keep playing, you no longer get \"The room has been closed\": you wait in the room and, when they finish, you play together again."]] },
   { d: '2026-10-22', title: ["Lavado de imagen y ataques nuevos", "A fresh new look and new moves"], new: [
     ["Nueva imagen del juego: menús redondeados con letra moderna, botones grandes y paneles de cristal; el mundo sigue en pixel art.",
      "A new look for the game: rounded menus with a modern font, big buttons and glass panels; the world is still pixel art."],

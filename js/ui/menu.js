@@ -160,8 +160,8 @@ G.MenuUI = (() => {
   const mq = q => (window.matchMedia ? matchMedia(q) : { matches: false });
   // Móvil de pie (estrecho y alto): la ficha ocupa toda la hoja en vez de ir al lado de la lista.
   const NARROW = mq('(max-width: 760px) and (min-height: 521px)');
-  // Móvil tumbado: casillas más pequeñas (su lienzo, no estirado con CSS).
-  const COMPACT = mq('(max-height: 520px)');
+  // Móvil (de pie y tumbado, modo compacto de style.css): casillas más pequeñas (su lienzo, no estirado con CSS).
+  const COMPACT = mq('(max-width: 599px), (max-height: 520px)');
   let listTop = 0;
   const sheetOn = () => NARROW.matches && $('scr-dex').classList.contains('detail-open');
   /** Lo que se desplaza en la lista: la rejilla sola (pantallas altas) o la columna entera (bajas). */
@@ -396,7 +396,7 @@ G.MenuUI = (() => {
     if (!force && cv.width === w && cv.height === h) return;
     cv.width = w; cv.height = h;
     G.UI.sprite(cv, big.dex, { lively: big.own, spin: big.own, silhouette: !big.own, hero: true, shiny: big.shiny,
-      scale: Math.max(2, Math.min(5, Math.floor(h / 40))) });   // (128 px tumbado → ×3; 188-208 → ×4-5; «hero» lo baja si no cabe)
+      scale: Math.max(2, Math.min(5, Math.floor(h / 40))) });   // (128 px tumbado → ×3; 176 en el móvil de pie y 188 → ×4; 208 → ×5; «hero» lo baja si no cabe)
   }
 
   function showDetail(dex) {

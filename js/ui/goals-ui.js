@@ -36,6 +36,8 @@
     const w = el.clientWidth;
     return w ? Math.max(56, Math.min(max, Math.floor((w - gap * (n - 1)) / n) - 16)) : max;
   }
+  /** Alto de esos lienzos: más bajo con el móvil tumbado (los Pokémon a ×2 caben igual). */
+  const slotHeight = w => matchMedia('(max-height: 520px)').matches ? 80 : w >= 112 ? 104 : 88;
 
   // ======================= PANTALLA =======================
 
@@ -261,7 +263,7 @@
       favs.className = 'fav-slots';
       box.appendChild(favs);
       favW = innerWidth;
-      const w = slotWidth(favs, 3, 128, 10), h = w >= 112 ? 104 : 88;
+      const w = slotWidth(favs, 3, 128, 10), h = slotHeight(w);
       for (let i = 0; i < 3; i++) {
         const f = P.favs[i];
         const slot = document.createElement('button');
@@ -408,7 +410,7 @@
         <div class="prof-medals" id="prof-medals"></div>`;
       const favs = $('prof-favs');
       const list = (d.favs || []).slice(0, 3).filter(f => G.DEX_BY[f.dex]);
-      const w = slotWidth(favs, 3, 128, 10), h = w >= 112 ? 104 : 88;
+      const w = slotWidth(favs, 3, 128, 10), h = slotHeight(w);
       for (const f of list) {
         const slot = document.createElement('div');
         slot.className = 'fav-slot has' + (f.shiny ? ' shiny' : '');

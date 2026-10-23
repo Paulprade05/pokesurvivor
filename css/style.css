@@ -9,7 +9,8 @@
  *    1. Base                           10. Tarjetas, listas, insignias, iconos
  *    2. Capas de pantalla (.scr)       11. Progreso, vacío, tooltip, aviso, kbd
  *    3. Panel (.box) y texto           12. Barra de arriba, sonido, créditos
- *    4. Hoja (.sheet-*)                13. Carga y «Pulsa para empezar»
+ *    4. Hoja (.sheet-*); 4b. móvil     13. Carga y «Pulsa para empezar»
+ *       a pantalla completa
  *    5. Botones                        14. Inicio de sesión
  *    6. Foco (teclado y mando)         15. Test, resultado e iniciales
  *    7. Maquetación (.row, .grow...)   16. Menú principal
@@ -112,7 +113,7 @@
   --sa-l: env(safe-area-inset-left, 0px);
   /* Táctil y barra de arriba: --ctl es el alto de sus botones; --bar-h, el hueco
      que le dejan las pantallas que la enseñan (se suma a --sa-t). */
-  --tap: 44px;
+  --tap: 44px;                /* 40 en el móvil (modo compacto, abajo) */
   --ctl: 40px;
   --bar-top: max(10px, var(--sa-t));
   --bar-h: 60px;
@@ -138,9 +139,19 @@
   --sh-ring: 0 0 0 1px rgba(3, 8, 24, .35);
 }
 body.touch { --ctl: 44px; --bar-h: 64px; }
-@media (max-height: 520px) {
-  :root { --bar-top: max(6px, var(--sa-t)); --bar-h: 52px; }
-  body.touch { --bar-h: 56px; }
+/* ---- Modo móvil compacto (23-10-2026) ----
+ * «Móvil» = de pie con menos de 600 px de ancho, o tumbado con 520 px de alto o
+ * menos. Ahí todo es un 10-15 % más pequeño (letra, barra de arriba de 52 px,
+ * botones de 40 px, cabeceras de hoja de 48 px...) y cada vista va a pantalla
+ * completa (secciones 2 y 4). Tableta (≥ 600 de ancho y > 520 de alto) y
+ * ordenador no cambian. Mínimos: lo que se toca, 40 px (--tap); letra, 11 px.
+ * Las pantallas usan los tokens (var(--fs-m)...), así que encogen solas. */
+@media (max-width: 599px), (max-height: 520px) {
+  :root, body.touch {
+    --fs-xs: 11px; --fs-s: 12px; --fs-m: 14px; --fs-l: 16px; --fs-xl: 19px; --fs-2xl: 22px; --fs-3xl: 28px;
+    --tap: 40px; --ctl: 40px;
+    --bar-top: max(6px, var(--sa-t)); --bar-h: 52px;
+  }
 }
 /* Chino: las letras del sistema detrás (Fredoka y Nunito no las tienen). */
 html:lang(zh-Hant) {
@@ -172,6 +183,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+@media (max-width: 599px), (max-height: 520px) { body { font-size: 15px; } }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; letter-spacing: .005em; }
 b, strong { font-weight: 800; }
 canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
@@ -200,7 +212,8 @@ a { color: var(--link); }
  * Cada pantalla es una <section class="scr"> fija a pantalla completa (z 20).
  * .dim pone el velo azul noche (el mundo sigue vivo detrás). .under-bar: deja
  * arriba el hueco de la barra (pantallas abiertas con G.UI.show(id, true)).
- * .modal: va por delante de la barra y la tapa. */
+ * .modal: va por delante de la barra y la tapa.
+ * En el móvil, el panel de cada pantalla la ocupa entera (sección 4b). */
 .scr {
   position: fixed; inset: 0; z-index: var(--z-screen);
   display: flex; align-items: center; justify-content: center;
@@ -208,7 +221,6 @@ a { color: var(--link); }
   animation: fade var(--t-med) ease-out;
   /* Para las hojas en el móvil (sección 4): sin barra encima, la cabecera baja hasta la zona segura. */
   --sheet-top: var(--sa-t);
-  --sheet-round: 0px;
 }
 .scr.hidden { display: none; }
 .scr.dim { background: radial-gradient(120% 100% at 50% 0%, rgba(20, 36, 82, .52), rgba(5, 10, 26, .84)); }
@@ -216,7 +228,6 @@ a { color: var(--link); }
 #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod {
   padding-top: calc(var(--bar-h) + var(--sa-t));
   --sheet-top: 0px;
-  --sheet-round: var(--rad-xl);
 }
 .scr.modal, #scr-news, #scr-recover, #scr-savenote, #scr-profile, #scr-nick { z-index: var(--z-modal); }
 
@@ -260,14 +271,19 @@ html.no-glass .box { background: var(--surface-solid); }
 .muted { color: var(--muted); }
 .eyebrow { margin: 0 0 4px; font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .divider { height: 1px; margin: var(--sp-4) 0; background: var(--line-1); border: 0; }
+@media (max-width: 599px), (max-height: 520px) {
+  .sub { margin-bottom: 12px; }
+  .divider { margin: var(--sp-3) 0; }
+}
 
 /* ---------- 4. Hoja (patrón de pantalla) ----------
  * <div class="box sheet-box [wide]">
  *   <header class="sheet-head"> atrás · <h2> · <div class="sheet-acts"> </header>
  *   <div class="sheet-body"> lo que se desplaza </div>
  *   <footer class="sheet-foot"> acción principal (opcional) </footer>
- * Escritorio: panel centrado. Móvil de pie: a pantalla completa (debajo de la
- * barra si la pantalla es .under-bar). Móvil tumbado: casi completa y compacta. */
+ * Escritorio y tableta: panel centrado. Móvil (de pie y tumbado): a pantalla
+ * completa, de borde a borde (debajo de la barra si la pantalla es .under-bar),
+ * con la cabecera de 48 px (sección 4b). */
 .box.sheet-box {
   display: flex; flex-direction: column;
   width: min(720px, 100%); max-height: min(880px, 100%);
@@ -300,33 +316,56 @@ html.no-glass .box { background: var(--surface-solid); }
   background: rgba(6, 12, 30, .35);
 }
 .sheet-foot > .btn { min-width: 120px; }
-@media (max-width: 599px) and (min-height: 521px) {
-  .scr:has(> .sheet-box) { padding: 0; align-items: stretch; }
-  .scr.under-bar:has(> .sheet-box) { padding-top: calc(var(--bar-h) + var(--sa-t)); }
-  .scr:has(> .sheet-box) > .sheet-box {
-    width: 100%; height: 100%; max-height: none;
-    border-width: 0; border-radius: var(--sheet-round) var(--sheet-round) 0 0;
-    animation: sheet-up var(--t-med) var(--ease);
-    /* Tapa toda la pantalla: el desenfoque no se ve y costaría en cada fotograma. */
-    -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface-float);
+
+/* ---------- 4b. Móvil: cada vista a pantalla completa ----------
+ * De pie (< 600 px de ancho) y tumbado (≤ 520 px de alto). El panel (.box) de
+ * cada pantalla la ocupa entera, de borde a borde: sin radio, borde ni sombra, opaco
+ * y sin desenfoque (no se vería y costaría en cada fotograma). Las zonas seguras
+ * (muesca, isla, barra de inicio) van por dentro, en su relleno.
+ *  - Pantallas que enseñan la barra de arriba (.under-bar y la lista por id): la
+ *    barra se queda y el panel empieza debajo; la pantalla entera es opaca, así
+ *    barra + hoja se leen como una sola página.
+ *  - Se quedan como tarjeta: los diálogos cortos (.box.mcard: confirmar, recuperar
+ *    la cuenta, avisos...) y el panel del editor de botones (.lay-panel). Los toasts
+ *    y el aviso de logro no son pantallas (.toast, .ach-pop).
+ *  - Panel normal (no hoja): relleno de 14 px y el contenido arriba; se desplaza
+ *    por dentro. Hoja: sin relleno; lo ponen su cabecera, cuerpo y pie.
+ *  - Una pantalla que quiera otra cosa en el móvil lo dice con su id en su sección
+ *    (pesa más que estas reglas); si es un diálogo corto, que use .mcard. */
+@media (max-width: 599px), (max-height: 520px) {
+  .scr:has(> .box:not(.mcard, .lay-panel)) { padding: 0; align-items: stretch; justify-content: flex-start; }
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):has(> .box) {
+    padding-top: calc(var(--bar-h) + var(--sa-t));
+    background: var(--surface-solid);
   }
-  .scr.under-bar > .sheet-box,
-  :is(#scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod) > .sheet-box { border-top-width: 1px; }
-  .sheet-head { min-height: 56px; padding: max(10px, var(--sheet-top)) max(12px, var(--sa-r)) 10px max(12px, var(--sa-l)); }
-  .sheet-body { padding: 14px max(14px, var(--sa-r)) 16px max(14px, var(--sa-l)); }
-  .sheet-body:last-child { padding-bottom: max(16px, var(--sa-b)); }
-  .sheet-foot { padding: 10px max(14px, var(--sa-r)) max(10px, var(--sa-b)) max(14px, var(--sa-l)); }
-  .sheet-foot > .btn { flex: 1 1 0; }
+  .scr > .box:not(.mcard, .lay-panel) {
+    width: 100%; max-width: none; height: 100%; max-height: none; margin: 0;
+    padding: max(14px, var(--sa-t)) max(14px, var(--sa-r)) max(14px, var(--sa-b)) max(14px, var(--sa-l));
+    border: 0; border-radius: 0; box-shadow: none;
+    background: var(--surface-solid);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    animation: sheet-up var(--t-med) var(--ease);
+  }
+  /* Debajo de la barra: la zona segura de arriba ya la salva la barra. */
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod) > .box:not(.sheet-box) { padding-top: 14px; }
+  .scr > .box.sheet-box { padding: 0; }
+  /* Hoja compacta: cabecera de 48 px (botón de 40 + 4 arriba y abajo), título de 19 px. */
+  .sheet-head { min-height: 48px; gap: 6px 10px;
+    padding: max(4px, var(--sheet-top)) max(12px, var(--sa-r)) 4px max(12px, var(--sa-l)); }
+  .sheet-head:has(> .icon-btn:first-child) { padding-left: max(6px, var(--sa-l)); }
+  .sheet-head h2 { font-size: var(--fs-xl); }
+  .sheet-head .sub { margin-top: 0; font-size: var(--fs-s); line-height: 1.35; }   /* es un párrafo: 12 px */
+  .sheet-acts { gap: 6px; }
+  .sheet-body { padding: 12px max(12px, var(--sa-r)) 12px max(12px, var(--sa-l)); }
+  .sheet-body:last-child { padding-bottom: max(12px, var(--sa-b)); }
+  .sheet-foot { gap: 8px; padding: 8px max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l)); }
+}
+@media (max-width: 599px) and (min-height: 521px) {
+  /* De pie: los botones del pie se reparten el ancho. */
+  .sheet-foot > .btn { flex: 1 1 0; min-width: 0; }
 }
 @media (max-height: 520px) {
-  /* Casi toda la pantalla: tampoco aquí se ve el desenfoque. */
-  .box.sheet-box { height: 100%; max-height: none; border-radius: var(--rad-l);
-    -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface-float); }
-  .sheet-head { min-height: 48px; padding: 6px 12px; }
-  .sheet-head h2 { font-size: var(--fs-l); }
   .sheet-head .sub { display: none; }
-  .sheet-body { padding: 10px 14px 12px; }
-  .sheet-foot { padding: 8px 14px; }
 }
 
 /* ---------- 5. Botones ----------
@@ -385,6 +424,15 @@ a.btn.google { color: #1f2a44; }
 .icon-btn.plain { border-color: transparent; background: transparent; }
 .ui-svg { display: inline-block; flex: none; vertical-align: middle; }
 .icon-btn .ui-svg { width: 22px; height: 22px; }
+/* Móvil: .btn de 40 px (9 + 20 + 9 + borde), .big de 48 y .small de 32 (40 con el
+   dedo, sección «tactil»). Con ratón y con dedo, igual. */
+@media (max-width: 599px), (max-height: 520px) {
+  .btn { padding: 9px 16px; font-size: 15px; line-height: 20px; }
+  .btn.small { padding: 6px 12px; font-size: 13px; line-height: 18px; }
+  .btn.big { padding: 12px 22px; font-size: 18px; line-height: 22px; border-radius: 14px; }
+  .btn.ic { gap: 6px; }
+  .icon-btn .ui-svg { width: 20px; height: 20px; }
+}
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .row.end { justify-content: flex-end; }
 .row.between { justify-content: space-between; }
@@ -455,6 +503,14 @@ a.btn.google { color: #1f2a44; }
 .seg button:active { transform: translateY(1px); }
 .seg button.on { background: var(--c-blue-btn); color: #fff; }
 .seg button.on[data-v="1"] { background: linear-gradient(135deg, rgba(154, 230, 255, .35), rgba(166, 107, 255, .35)); color: #e4f9ff; }
+@media (max-width: 599px), (max-height: 520px) {
+  .chip { min-height: 30px; padding: 3px 10px; gap: 5px; }
+  .tabs { margin-bottom: 10px; padding: 3px; border-radius: 12px; }
+  .tab { min-height: 34px; padding: 5px 10px; border-radius: 9px; }
+  .gen-tab { padding: 5px 12px; border-radius: 11px; }
+  .gen-tab b { font-size: 14px; }
+  .seg button { padding: 5px 12px; font-size: 13px; }
+}
 
 /* ---------- 9. Formularios ---------- */
 label { display: block; font: 700 14px/1.3 var(--font); color: var(--muted); margin: 12px 0 6px; }
@@ -487,6 +543,12 @@ input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; hei
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
   background: var(--c-yellow); border: 2px solid #fff; box-shadow: var(--sh-1); cursor: pointer; }
 input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--c-yellow); border: 2px solid #fff; }
+@media (max-width: 599px), (max-height: 520px) {
+  label { margin: 10px 0 5px; font-size: 13px; }
+  .field { min-height: 40px; padding: 8px 12px; }
+  .err { min-height: 18px; font-size: 13px; margin-top: 6px; }
+  .note { margin-top: 10px; }
+}
 
 /* ---------- 10. Tarjetas, listas, insignias e iconos ---------- */
 /* Tarjeta pulsable (cartas de nivel, objetos, opciones grandes). */
@@ -603,6 +665,22 @@ img.pix { image-rendering: pixelated; image-rendering: crisp-edges; vertical-ali
 .cell .stars-row { display: flex; justify-content: center; margin-top: 2px; }
 .badge-r { position: absolute; top: 3px; right: 4px; }
 .move-icons { display: flex; flex-wrap: wrap; gap: 3px; margin: 0 0 10px; }
+/* Móvil: tarjetas, filas y baldosas más bajas (las baldosas siguen cabiendo el icono de 30 px). */
+@media (max-width: 599px), (max-height: 520px) {
+  .card { gap: 12px; padding: 10px 12px; border-radius: 14px; }
+  .card .ico { flex-basis: 42px; height: 42px; }
+  .card .nm { font-size: 16px; }
+  .card .ds { font-size: 13px; }
+  .cell b { font-size: 12px; }
+  .panel { padding: 12px; border-radius: 14px; }
+  .list { gap: 5px; }
+  .list-row { min-height: 48px; gap: 10px; padding: 6px 10px; }
+  .list-row b { font-size: 15px; }
+  .ico-tile { --tile: 38px; border-radius: 12px; }
+  .ico-tile.s { --tile: 32px; border-radius: 10px; }
+  .ico-tile.l { --tile: 64px; border-radius: 19px; }
+  .ico-tile.round { border-radius: 50%; }   /* (las dos de arriba volvían cuadradas las redondas) */
+}
 
 /* ---------- 11. Progreso, vacío, tooltip, aviso, teclas y barras de desplazamiento ---------- */
 .progress, .meter { height: 10px; background: var(--sunk); border-radius: var(--rad-pill); overflow: hidden; }
@@ -632,6 +710,13 @@ img.pix { image-rendering: pixelated; image-rendering: crisp-edges; vertical-ali
   font: 700 15px/1.4 var(--font); color: var(--ink);
   animation: pop-x .22s var(--ease-pop);
   pointer-events: none;
+}
+/* Móvil: el aviso sigue siendo una tarjeta (no una pantalla), algo más pequeña; el
+   estado vacío, más bajo. */
+@media (max-width: 599px), (max-height: 520px) {
+  .toast { bottom: calc(16px + var(--sa-b)); padding: 10px 16px; border-radius: 14px; font-size: 14px; }
+  .empty-state { padding: 20px 12px; }
+  .empty-state b { font-size: 16px; }
 }
 kbd {
   display: inline-block; padding: 0 6px; border: 1px solid var(--line-3); border-bottom-width: 2px;
@@ -755,6 +840,22 @@ kbd {
   .topbar #btn-save { width: var(--ctl); padding: 0; border-radius: 50%; }
   .topbar #btn-save .lbl { display: none; }
 }
+/* Móvil (de pie y tumbado): barra de 52 px (botones y pastillas de 40, --ctl) y
+   menú «Más» con filas de 44 px. */
+@media (max-width: 599px), (max-height: 520px) {
+  .pill { padding: 0 10px 0 6px; font-size: 14px; gap: 4px; }
+  .cur-ico { width: 22px; height: 22px; }
+  .topbar .tb-btn .ui-svg { width: 20px; height: 20px; }
+  .topbar #btn-save { padding: 0 14px 0 10px; font-size: 14px; }
+  .tb-menu { min-width: 220px; padding: 5px; top: calc(100% + 6px); }
+  .tb-menu .tb-btn, .topbar .tb-menu .tb-btn { height: 44px; gap: 10px; padding: 0 12px 0 10px; font-size: 15px; }
+  .tb-menu .tb-profile { min-height: 50px; padding: 6px 10px; }
+  .tb-profile .tbp-txt b { font-size: 15px; }
+  .tb-profile .tbp-txt small { font-size: 11px; }
+}
+@media (max-width: 599px) {
+  .topbar #btn-save { padding: 0; }
+}
 /* Ventanas que tapan la barra (Ajustes, Novedades, Perfil...): la barra se esconde. */
 body:has(:is(.scr.modal, #scr-settings, #scr-news, #scr-support, #scr-legal, #scr-profile, #scr-recover, #scr-savenote, #scr-nick, #scr-install, #scr-layout):not(.hidden))
   :is(#topbar, #sound-panel) { visibility: hidden; }
@@ -851,9 +952,35 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
 .login-foot .note { margin-top: 12px; }
 .login-links { margin-top: 10px; font-size: 13px; text-align: center; }
 .login-links a { color: var(--link); }
+/* Móvil de pie: a pantalla completa (4b), en una columna; las notas y el aviso
+   legal, abajo del todo. Si no cabe, el panel se desplaza. */
 @media (max-width: 599px) and (min-height: 521px) {
-  #scr-login { align-items: flex-start; overflow-y: auto; }
-  .login-box { margin: auto 0; padding: 22px 18px 14px; overflow: visible; max-height: none; }
+  #scr-login > .login-box { display: flex; flex-direction: column;
+    padding: max(18px, var(--sa-t)) max(18px, var(--sa-r)) max(10px, var(--sa-b)) max(18px, var(--sa-l)); }
+  .login-box > * { flex: none; }
+  .login-box .logo { margin-bottom: 8px; }
+  .login-box .logo .t1 { font-size: clamp(32px, 9.5vw, 40px); }
+  .login-box .logo .t2 { margin-top: 8px; }
+  .login-tag { margin-bottom: 4px; font-size: 13px; line-height: 1.4; }
+  .login-official { margin-bottom: 12px; }
+  .login-main .row { margin-top: 12px; }
+  .login-main .note { margin-top: 8px; }
+  .login-alt { margin-top: 12px; padding-top: 12px; gap: 8px; }
+  .login-foot { margin-top: auto; }
+  .login-foot .note { margin-top: 10px; }
+}
+/* Móviles bajos de pie (iPhone SE): sin la etiqueta «Mundo Misterioso». En los
+   altos, con ella y algo más de aire (el sitio que sobra queda encima de las notas). */
+@media (max-width: 599px) and (min-height: 521px) and (max-height: 699px) {
+  .login-box .logo .t2 { display: none; }
+}
+@media (max-width: 599px) and (min-height: 760px) {
+  .login-box .logo { margin: 12px 0 12px; }
+  .login-box .logo .t1 { font-size: clamp(36px, 11vw, 46px); }
+  .login-box .logo .t2 { display: inline-block; margin-top: 12px; }
+  .login-official { margin-bottom: 18px; }
+  .login-main .row { margin-top: 16px; }
+  .login-alt { margin-top: 18px; padding-top: 18px; gap: 10px; }
 }
 /* Móvil tumbado y portátiles de poca altura: dos columnas (título, Google, invitado
    y notas a la izquierda; el formulario a la derecha). Así cabe sin desplazarse. */
@@ -867,10 +994,12 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   .login-foot { grid-area: foot; }
 }
 @media (max-height: 520px) {
-  .login-box { column-gap: 22px; padding: 14px 18px; }
+  /* A pantalla completa (4b): las dos columnas, de borde a borde. */
+  #scr-login > .login-box { column-gap: 24px;
+    padding: max(12px, var(--sa-t)) max(20px, var(--sa-r)) max(10px, var(--sa-b)) max(20px, var(--sa-l)); }
   .login-alt { margin-top: 8px; padding-top: 10px; gap: 8px; }
   .login-box .logo { margin-bottom: 6px; }
-  .login-box .logo .t1 { font-size: 34px; }
+  .login-box .logo .t1 { font-size: 32px; }
   .login-box .logo .t2 { margin-top: 8px; }
   .login-box .login-tag, .login-box .login-official { margin: 0 0 4px; }
   .login-box .tabs { margin-bottom: 4px; }
@@ -910,8 +1039,37 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
 .result h3 { margin: 6px 0 2px; font-size: var(--fs-xl); }
 .res-acts { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 16px; }
 .res-acts .btn { width: min(320px, 100%); }
+/* Móvil (de pie y tumbado): respuestas y letra algo más pequeñas. */
+@media (max-width: 599px), (max-height: 520px) {
+  .q { font-size: 21px; margin-bottom: 14px; }
+  .answers { gap: 8px; }
+  .answer { min-height: 50px; gap: 10px; padding: 8px 14px 8px 10px; border-radius: 14px; font-size: 15px; }
+  .answer::before { width: 30px; height: 30px; font-size: 14px; }
+  .progress { margin-bottom: 10px; height: 8px; }
+  .result .trait { font-size: 32px; margin-bottom: 8px; }
+  .result h3 { font-size: var(--fs-xl); }
+  .res-acts { gap: 8px; margin-top: 14px; }
+}
+/* Móvil de pie, a pantalla completa (4b). Test: todo arriba, en su orden.
+   Resultado: la personalidad arriba, el compañero en el centro del hueco que
+   sobra y los botones abajo, a mano del pulgar. */
+@media (max-width: 599px) and (min-height: 521px) {
+  #scr-result > .result { display: flex; flex-direction: column; align-items: center; }
+  .result > * { flex: none; }
+  #res-stage { margin: auto 0 6px; }
+  .result h3 { margin-bottom: auto; }
+  .res-acts { align-self: stretch; padding-top: 14px; }
+}
+/* Móviles altos de pie: el test respira (pregunta y respuestas más grandes). */
+@media (max-width: 599px) and (min-height: 760px) {
+  #test-count { margin-bottom: 10px; }
+  .q { font-size: 24px; margin: 6px 0 22px; }
+  .answers { gap: 10px; }
+  .answer { min-height: 60px; font-size: 16px; }
+  .answer::before { width: 34px; height: 34px; font-size: 15px; }
+}
 @media (max-height: 520px) {
-  .result { width: min(760px, 100%); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 20px; align-items: center; text-align: left;
+  .result { width: min(760px, 100%); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 20px; align-items: center; align-content: center; text-align: left;
     grid-template-areas: "stage sub" "stage trait" "stage text" "stage name" "stage acts"; }
   .result > .sub { grid-area: sub; }
   .result .trait { grid-area: trait; margin-bottom: 4px; font-size: 30px; }
@@ -1141,6 +1299,51 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   .partner-stage { width: 132px; height: 100px; }
   .menu-stats { display: none; }
 }
+/* ---- Móvil de pie (< 600 px de ancho), modo compacto ----
+ * Arriba el título y el compañero; abajo, a mano del pulgar, «Jugar», las nueve
+ * baldosas (con su subtítulo en una línea) y las estadísticas. En 375×667 cabe
+ * todo sin desplazarse. */
+@media (max-width: 599px) and (min-height: 521px) {
+  #scr-menu { row-gap: 8px;
+    padding: calc(var(--bar-h) + var(--sa-t) + 2px) max(12px, var(--sa-r)) max(10px, var(--sa-b)) max(12px, var(--sa-l)); }
+  .menu-left { gap: 6px; }
+  .menu-left .logo .t1 { font-size: clamp(32px, 9.5vw, 40px); }
+  .partner-card { gap: 12px; }
+  .partner-stage { width: 184px; height: 138px; border-radius: 20px; }
+  .partner-info { gap: 4px; padding: 6px 12px 8px; border-radius: 14px; }
+  .partner-card .nm { font-size: 20px; }
+  .menu-right { gap: 8px; }
+  .menu-item.play { min-height: 56px; padding: 7px 18px 7px 8px; border-radius: 18px; column-gap: 12px; }
+  .menu-item.play .mi-ico { width: 42px; height: 42px; }
+  .menu-item.play .mi-t { font-size: 24px; }
+  .menu-item.play small { font-size: 12px; }
+  .menu-list { gap: 6px; }
+  .menu-item.tile { min-height: 84px; padding: 8px 4px 7px; gap: 3px; border-radius: 14px; box-shadow: var(--sh-1); }
+  .menu-item.tile .mi-ico { width: 40px; height: 40px; border-radius: 13px; }
+  .menu-item.tile .mi-t { font-size: 14px; }
+  .menu-item.tile small { display: -webkit-box; font-size: 11px; -webkit-line-clamp: 1; }
+  .menu-stats { gap: 4px; padding: 6px 4px; border-radius: 14px; }
+  .menu-stats .ms b { font-size: 16px; }
+  .menu-stats .ms span { font-size: 11px; }
+  .menu-stats .ms-guest { margin-top: 2px; font-size: 12px; }
+}
+@media (max-width: 599px) and (min-height: 521px) and (max-height: 759px) {
+  .menu-left .logo .t1 { font-size: 30px; }
+  .partner-stage { width: 136px; height: 102px; border-radius: 16px; }
+  .partner-card .nm { font-size: 18px; }
+  .menu-item.play { min-height: 52px; }
+  .menu-item.play .mi-ico { width: 38px; height: 38px; }
+  .menu-item.play .mi-t { font-size: 22px; }
+  .menu-item.tile { min-height: 76px; padding-top: 6px; }
+  .menu-item.tile .mi-ico { width: 36px; height: 36px; border-radius: 12px; }
+  .menu-stats { display: grid; }
+}
+/* Muy bajos (menos de 620 px): sin estadísticas ni subtítulos, para que quepa. */
+@media (max-width: 599px) and (min-height: 521px) and (max-height: 619px) {
+  .menu-stats { display: none; }
+  .menu-item.tile small { display: none; }
+  .menu-item.tile { min-height: 64px; }
+}
 /* ---- Móvil tumbado (≤ 520 px de alto): dos columnas compactas ---- */
 @media (max-height: 520px) {
   #scr-menu {
@@ -1265,18 +1468,18 @@ body.touch .touch-hint { display: block; }
 
 /* ================= pantallas bajas (móvil en horizontal) =================
  * Todo más compacto. Las pantallas que enseñan la barra de arriba la tienen
- * en cuenta con --bar-h (sección 2); las que la tapan, casi sin margen. */
+ * en cuenta con --bar-h (sección 2). Los paneles van a pantalla completa (4b);
+ * esto queda para las tarjetas (.mcard) y lo de dentro. Botones: sección 5. */
 @media (max-height: 520px) {
   /* (Las .under-bar siguen con el hueco de la barra: su regla, por id, pesa más.) */
   .scr { padding: max(6px, var(--sa-t)) max(10px, var(--sa-r)) max(6px, var(--sa-b)) max(10px, var(--sa-l)); }
   .split { grid-template-columns: 1fr; }
   .box { padding: 10px 14px; border-radius: var(--rad-l); }
   .box h2 { font-size: 20px; }
+  .box .sheet-head h2 { font-size: var(--fs-xl); }   /* el título de las hojas, a 19 px también tumbado (4b) */
   .box h3 { font-size: 16px; }
   .sub { font-size: 13px; margin-bottom: 8px; }
   .note { margin-top: 8px; font-size: 12px; }
-  .btn { padding: 7px 14px; line-height: 20px; }
-  .btn.small { padding: 4px 10px; font-size: 13px; line-height: 18px; }
   .ach-pop { top: auto; bottom: max(8px, var(--sa-b)); }
 
   /* (Cartas de nivel, objeto, vínculo y resumen final: en «pantallas: partida», al final.) */
@@ -1284,24 +1487,19 @@ body.touch .touch-hint { display: block; }
 
 /* ==== tactil ==== */
 /* Móvil y tableta. En las pantallas del menú, todo lo que se toca mide al menos
-   44 px de alto (lo que pide iPhone); con ratón, todo igual. Las pantallas de la
-   partida (nivel, objeto, vínculo, pausa, fin, colocar) van aparte. */
+   --tap de alto (44 px, lo que pide iPhone; 40 en el móvil compacto); con ratón,
+   todo igual. Las pantallas de la partida (nivel, objeto, vínculo, pausa, fin,
+   colocar) van aparte. */
 body.touch :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-menu, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag,
   #scr-gacha, #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news,
   #scr-support, #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
-  :is(.chip, .gen-tab, .seg button, .field, .dex-tools input, .dex-tools select, .tab) { min-height: 44px; }
-/* .btn: el alto sale del relleno (con min-height el texto quedaba arriba): 11 + 20 + 11 + borde = 44 px. */
+  :is(.chip, .gen-tab, .seg button, .field, .dex-tools input, .dex-tools select, .tab) { min-height: var(--tap); }
+/* .btn: el alto sale del relleno (con min-height el texto quedaba arriba): 11 + 20 + 11 + borde = 44 px
+   (9 + 20 + 9 + borde = 40 en el móvil). El .btn normal ya mide 44 (40 en el móvil). */
 body.touch :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-menu, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag,
   #scr-gacha, #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news,
   #scr-support, #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
-  .btn.small { padding-top: 11px; padding-bottom: 11px; line-height: 20px; }
-/* Móvil tumbado: ahí .btn se encoge a 36 px (sección «pantallas bajas»); con el dedo, otra vez 44. */
-@media (max-height: 520px) {
-  body.touch :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-menu, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag,
-    #scr-gacha, #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news,
-    #scr-support, #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
-    .btn:not(.big):not(.small) { padding-top: 11px; padding-bottom: 11px; }
-}
+  .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padding-bottom: calc(var(--tap) / 2 - 11px); line-height: 20px; }
 body.touch .icon-btn { width: var(--tap); height: var(--tap); }
 body.touch .gen-tab { justify-content: center; }
 body.touch .gen-tabs { gap: 6px; }
@@ -1314,8 +1512,8 @@ body.touch :is(#scr-settings, #sound-panel) input[type=range] { height: 44px;
   background: linear-gradient(transparent 18px, var(--sunk) 18px 26px, transparent 26px); }
 body.touch :is(#scr-settings, #sound-panel) input[type=range]::-webkit-slider-thumb { width: 26px; height: 26px; }
 body.touch :is(#scr-settings, #sound-panel) input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
-/* Bandera de reportar del ranking: botón de 40×44. */
-body.touch .rk-rep { min-width: 40px; min-height: 44px; }
+/* Bandera de reportar del ranking: botón de 40×44 (40×40 en el móvil). */
+body.touch .rk-rep { min-width: 40px; min-height: var(--tap); }
 body.touch #rk-list .rk-row { grid-template-columns: 54px auto minmax(0, 1fr) auto 40px; }
 @media (max-width: 760px) { body.touch #rk-list .rk-row { grid-template-columns: 40px auto minmax(0, 1fr) auto 40px; } }
 /* Misiones en pantalla estrecha: el texto arriba; el premio y el botón, debajo en una línea. */
@@ -1352,14 +1550,9 @@ body.touch #rk-list .rk-row { grid-template-columns: 54px auto minmax(0, 1fr) au
 
 /* ---------- móvil en vertical (375-430 px de ancho) ---------- */
 @media (max-width: 480px) and (min-height: 521px) {
-  /* Cajas con menos margen: más sitio para el contenido (las hojas van a pantalla completa, sección 4). */
-  :is(#scr-login, #scr-test, #scr-result, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha,
-    #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news, #scr-support,
-    #scr-legal, #scr-nick, #scr-recover, #scr-savenote):not(:has(> .sheet-box)) {
+  /* Tarjetas (.mcard) con menos margen a los lados. (Los demás paneles van a pantalla completa, sección 4b.) */
+  .scr:has(> .box.mcard) {
     padding-left: max(8px, var(--sa-l)); padding-right: max(8px, var(--sa-r)); padding-bottom: max(10px, var(--sa-b)); }
-  :is(#scr-test, #scr-result, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha,
-    #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news, #scr-support,
-    #scr-legal, #scr-nick, #scr-recover, #scr-savenote) > .box:not(.sheet-box) { padding: 14px 12px; }
   :is(#scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-goals, #scr-friends, #scr-lobby, #scr-rank,
     #scr-mod, #scr-settings, #scr-news, #scr-support, #scr-legal) .box h2 { font-size: var(--fs-xl); }
   .gen-tabs { margin-top: 4px; padding: 2px 2px 6px; }
@@ -1455,13 +1648,20 @@ img.ico-sm { transform: scale(1.3); }
  * Mochila (#scr-bag), 22-10-2026. Las cuatro son hojas (docs/DISENO.md §4) que
  * se abren debajo de la barra de arriba; lo de dentro lo pintan js/ui/menu.js
  * (colección y mejoras) y js/ui/shop-ui.js (tienda y mochila). Los Pokémon van
- * en lienzos que mide el JS (escala entera) y los objetos, a 30 o 60 px. */
+ * en lienzos que mide el JS (escala entera) y los objetos, a 30 o 60 px.
+ * Móvil (23-10-2026): a pantalla completa (base, §4b) y en modo compacto (aquí,
+ * en cada pantalla: «móvil (de pie y tumbado)»); tableta y ordenador, igual. */
 
 /* ---- Comunes ---- */
 /* El sprite de un objeto (30 px) trae margen transparente: con márgenes negativos
    el dibujo (14-24 px) cabe en botones y chips sin hacerlos más altos. */
 :is(#scr-dex, #scr-upgrades, #scr-shop, #scr-bag) :is(.btn.ic, .chip) > img.pix { margin: -7px -3px -7px -7px; }
 :is(#scr-dex, #scr-upgrades, #scr-shop, #scr-bag) :is(.btn.ic, .chip) > :is(span, small) { min-width: 0; }
+/* Móvil: las cuatro van a pantalla completa (base, sección 4b); aquí sólo el
+   título de la hoja a 19 px también tumbado («.box h2» de «pantallas bajas» lo subía a 20). */
+@media (max-width: 599px), (max-height: 520px) {
+  :is(#scr-dex, #scr-upgrades, #scr-shop, #scr-bag) .sheet-head h2 { font-size: var(--fs-xl); }
+}
 /* Escenario de un Pokémon (ficha de la colección y Mejoras): fondo con el color
    de su tipo (--stage-c) y el lienzo, que el JS pone del tamaño del recuadro. */
 .dx-stage, .upg-stage {
@@ -1558,7 +1758,7 @@ img.ico-sm { transform: scale(1.3); }
 .dx-pick > select.pad-focus { outline: none !important; box-shadow: none !important; }
 .dx-pick:has(> select:focus-visible) { outline: var(--focus); outline-offset: 2px; }
 .dx-pick:has(> select.pad-focus) { outline: 3px solid var(--c-yellow); outline-offset: 3px; box-shadow: 0 0 0 7px rgba(255, 203, 5, .25); }
-body.touch .dx-pick { min-height: 44px; }
+body.touch .dx-pick { min-height: var(--tap); }
 /* Con el dedo: los filtros, en una fila que se desliza de lado, de borde a borde
    (con ratón siguen en varias líneas: una fila así no se desliza con la rueda). */
 body.touch .dx-filters {
@@ -1691,7 +1891,7 @@ body.touch :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
 .dx-mv:active { transform: scale(.94); }
 .dx-mv:focus-visible { outline: var(--focus); outline-offset: 2px; }
 .dx-mv > img.pix { display: block; }
-body.touch .dx-mv { width: 44px; height: 44px; }
+body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 /* «Elegir de compañero»: abajo, siempre a la vista (se pega al fondo al desplazar). */
 .dx-foot {
   position: sticky; bottom: 0; z-index: 2; margin: auto -16px 0; padding: 14px 16px;
@@ -1717,29 +1917,54 @@ body.touch .dx-mv { width: 44px; height: 44px; }
   .dx-foot { margin-inline: calc(-1 * var(--dx-pad)); padding: 12px var(--dx-pad) max(14px, var(--sa-b)); }
   .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(16px, var(--sa-b)); }
 }
-@media (max-width: 599px) and (min-height: 521px) {
-  .dex-box { --dx-pad: 14px; }
-  #scr-dex .sheet-row > .gen-tabs { margin-inline: -12px; padding-inline: 12px; }
-  /* Tres casillas por fila (como en las iniciales). */
-  .dx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-bottom: max(20px, var(--sa-b)); }
-}
-/* ---- Colección en el móvil tumbado: lista y ficha lado a lado, todo compacto ---- */
-@media (max-height: 520px) {
+/* ---- Colección en el móvil (de pie y tumbado), modo compacto (23-10-2026) ----
+ * Casillas más pequeñas (su lienzo también: 76×64 en vez de 92×80, menu.js,
+ * COMPACT) y la ficha con recuadros más apretados. */
+@media (max-width: 599px), (max-height: 520px) {
   .dex-box { --dx-pad: 12px; }
+  #scr-dex .gen-tab b { font-size: 14px; }
+  .dx-grid { gap: 6px; padding-top: 10px; }
+  .dx-cell { padding: 4px 3px 6px; border-radius: var(--rad-m); }
+  .dx-cell > b { font-size: 12px; }
+  .dx-cell .no { top: 4px; left: 6px; }
+  .dx-marks { top: 11px; }
+  .dx-sec { gap: 6px; padding: 10px; border-radius: 14px; }
+  .dx-extra { padding: 0 10px; }
+  .dx-row { padding: 8px 0; }
+  .dx-partner { min-height: 40px; font-size: 15px; }
+}
+/* ---- De pie: cabecera, buscador y filtros más bajos; cuatro casillas por fila ---- */
+@media (max-width: 599px) and (min-height: 521px) {
+  #scr-dex .sheet-row > .gen-tabs { margin: 0 -12px -4px; padding: 2px 12px 6px; }
+  /* Regiones: la cuenta al lado del nombre y la barrita debajo (una línea menos). */
+  #scr-dex .gen-tab { flex-flow: row wrap; align-items: baseline; column-gap: 5px; min-width: 0; padding: 5px 11px 6px; }
+  #scr-dex .dx-gbar { flex: 1 1 100%; margin-top: 4px; }
+  .dx-tools { gap: 6px; padding: 8px var(--dx-pad); }
+  body.touch .dx-filters { margin-block: -2px; padding-block: 2px; }
+  /* Cuatro casillas por fila (tres en los de 320 px de ancho). */
+  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); padding-bottom: max(16px, var(--sa-b)); }
+  /* Ficha (a pantalla completa): escenario más bajo (el Pokémon, a ×4). */
+  .dx-in { gap: 10px; padding-top: 12px; }
+  .dx-stage { height: 176px; border-radius: 18px; }
+  .dx-foot { padding-top: 8px; padding-bottom: max(10px, var(--sa-b)); }
+  .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(12px, var(--sa-b)); }
+}
+/* ---- Colección en el móvil tumbado: lista y ficha lado a lado, todo compacto ----
+ * La lista deja a la izquierda la zona segura (muesca) y la ficha, a la derecha. */
+@media (max-height: 520px) {
   .dex-main { grid-template-columns: minmax(0, 1fr) minmax(224px, 38%); }
-  /* Cabecera en una línea: volver, título y las regiones (se deslizan). */
-  #scr-dex .sheet-head { flex-wrap: nowrap; padding-top: 3px; padding-bottom: 3px; }
+  /* Cabecera en una línea (48 px): volver, título y las regiones (se deslizan). */
+  #scr-dex .sheet-head { flex-wrap: nowrap; padding-top: 2px; padding-bottom: 2px; }
   #scr-dex .sheet-head h2 { flex: none; }
   #scr-dex .sheet-head > .sheet-row { flex: 1 1 0; min-width: 0; }
   #scr-dex .sheet-acts { display: none; }
-  #scr-dex .sheet-row > .gen-tabs { padding: 4px; }
+  #scr-dex .sheet-row > .gen-tabs { padding: 2px 4px; }
   #scr-dex .gen-tab { flex-direction: row; align-items: baseline; gap: 5px; min-width: 0; padding: 5px 10px; }
-  #scr-dex .gen-tab b { font-size: 14px; }
   .dx-gbar { display: none; }
   /* Buscador, tipo, orden y chips en una sola fila que se desliza de lado. */
   .dx-tools {
     flex-direction: row; align-items: center; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-    padding: 8px 36px 8px var(--dx-pad);
+    padding: 6px 36px 6px max(var(--dx-pad), var(--sa-l));
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
     mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
   }
@@ -1748,20 +1973,15 @@ body.touch .dx-mv { width: 44px; height: 44px; }
   .dx-tools > *, .dx-search > *, .dx-filters > *, .dx-filters > .dx-chips > * { flex: none; }
   .dx-q { flex: 0 0 176px; }
   .dx-count { display: none; }
-  /* Casillas más pequeñas (su lienzo también: menu.js). */
-  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; padding-top: 10px; }
-  .dx-cell { padding: 4px 3px 6px; border-radius: var(--rad-m); }
-  .dx-cell > b { font-size: 12px; }
-  .dx-cell .no { top: 4px; left: 6px; }
-  .dx-marks { top: 11px; }
-  /* Ficha a la derecha. */
-  .dx-in { gap: 10px; padding: 10px 12px 0; }
+  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    padding-left: max(var(--dx-pad), var(--sa-l)); padding-bottom: max(16px, var(--sa-b)); }
+  /* Ficha a la derecha (el Pokémon, a ×3: con menos de 128 px «hero» lo bajaba a ×2). */
+  .dex-detail { --dx-pr: max(12px, var(--sa-r)); }
+  .dx-in { gap: 8px; padding: 10px var(--dx-pr) 0 12px; }
   .dx-stage { height: 128px; border-radius: var(--rad-l); }
   .dex-detail .dx-name { font-size: var(--fs-xl); }
-  .dx-sec { padding: 10px; }
-  .dx-extra { padding: 0 10px; }
-  .dx-foot { margin-inline: -12px; padding: 10px 12px; }
-  .dx-in > :last-child:not(.dx-foot) { margin-bottom: 12px; }
+  .dx-foot { margin-inline: -12px calc(-1 * var(--dx-pr)); padding: 8px var(--dx-pr) max(8px, var(--sa-b)) 12px; }
+  .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(12px, var(--sa-b)); }
 }
 
 /* ---- Mejoras: el Pokémon (escenario, selector y progreso) y las tarjetas ---- */
@@ -1838,15 +2058,35 @@ body.touch .dx-mv { width: 44px; height: 44px; }
   .upg-mon { position: sticky; top: 0; flex-direction: column; align-items: stretch; padding: 14px; }
   .upg-stage { width: 100%; height: 176px; }
 }
-@media (max-width: 599px) and (min-height: 521px) {
-  .upg-mon { gap: 12px; padding: 10px; }
-  .upg-stage { width: 112px; height: 96px; border-radius: 16px; }
-}
-@media (max-height: 520px) {
+/* ---- Mejoras en el móvil (de pie y tumbado), modo compacto (23-10-2026) ----
+ * Tarjetas más apretadas; si su tercera línea sólo lleva «Máx. +N», ese botón
+ * sube a la del nivel, al lado del precio (una línea menos por tarjeta). */
+@media (max-width: 599px), (max-height: 520px) {
   .upg-box .upg-body { gap: 10px; }
-  .upg-mon { padding: 8px 10px; }
-  .upg-stage { width: 112px; height: 84px; border-radius: var(--rad-m); }
-  .upg-card { padding: 10px; gap: 8px 10px; }
+  .upg-mon { gap: 10px; padding: 8px; border-radius: 14px; }
+  .upg-who { gap: 4px; }
+  .upg-grid { gap: 8px; }
+  .upg-card { gap: 8px 10px; padding: 10px; border-radius: 14px; }
+  .upg-card:has(> .upg-more > .upg-many:only-child) {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "ico info info info" "lv lv more buy";
+  }
+  .upg-info b { font-size: 15px; }
+  .upg-info small { margin-top: 1px; }
+  .upg-lv { gap: 8px; }
+  .upg-more { gap: 6px; }
+  .upg-panel { gap: 8px; padding: 10px; border-radius: 14px; }
+}
+@media (max-width: 599px) and (min-height: 521px) {
+  .upg-stage { width: 100px; height: 84px; border-radius: 14px; }
+}
+/* Tumbado: el selector y el progreso en una línea, al lado del Pokémon. */
+@media (max-height: 520px) {
+  .upg-stage { width: 96px; height: 72px; border-radius: var(--rad-m); }
+  .upg-who { flex-flow: row wrap; align-items: center; column-gap: 12px; }
+  .upg-who > .eyebrow { flex: 1 1 100%; }
+  #upg-mon { flex: 1 1 240px; width: auto; }
+  .upg-sum { flex: 1 1 200px; }
 }
 
 /* ---- Tienda Kecleon: el puesto en pixel art arriba y, debajo, lo que se vende en filas ----
@@ -1905,16 +2145,27 @@ body.touch .dx-mv { width: 44px; height: 44px; }
 .shop-own { font: 700 var(--fs-xs)/1.3 var(--font); color: var(--c-yellow); }
 .shop-buy { flex: none; }
 .shop-buy > span { font-variant-numeric: tabular-nums; }
+/* Móvil (de pie y tumbado), modo compacto (23-10-2026): filas y huecos más
+   pequeños; el contenido deja las zonas seguras (la hoja no tiene relleno aquí). */
+@media (max-width: 599px), (max-height: 520px) {
+  .shop-inner { gap: 14px; padding: 12px max(12px, var(--sa-r)) max(14px, var(--sa-b)) max(12px, var(--sa-l)); }
+  .shop-sec { gap: 8px; }
+  .shop-grid { gap: 6px; }
+  .shop-row { min-height: 56px; padding: 8px 10px; border-radius: 14px; }
+  .shop-tags { margin: 3px 0 1px; }
+}
 @media (max-width: 599px) and (min-height: 521px) {
   .shop-stall { height: 240px; }                       /* (con 240 caben las dos estanterías) */
   .shop-sign { font-size: 15px; }
   .shop-bubble { font-size: 11px; }
-  .shop-inner { padding: 14px max(14px, var(--sa-r)) max(18px, var(--sa-b)) max(14px, var(--sa-l)); }
+}
+/* Móviles de pie más bajos (iPhone SE...): el puesto con una estantería, como tumbado. */
+@media (max-width: 599px) and (min-height: 521px) and (max-height: 759px) {
+  .shop-stall { height: 200px; }
 }
 @media (max-height: 520px) {
-  .shop-stall { height: 200px; }
+  .shop-stall { height: 200px; }                       /* (con menos de 196 no cabe ninguna estantería) */
   .shop-sign { font-size: 14px; top: 3px; }
-  .shop-inner { gap: 14px; padding: 12px 14px 14px; }
 }
 
 /* ---- Mochila: tarjetas con el objeto grande y cuántos tienes ---- */
@@ -1940,6 +2191,18 @@ body.touch .dx-mv { width: 44px; height: 44px; }
 .bag-empty > span:not(.ico-tile) { max-width: 34ch; }
 .bag-empty > .btn { margin-top: 10px; }
 #bag-foot { justify-content: flex-end; }
+/* Móvil (de pie y tumbado), modo compacto (23-10-2026): baldosa de 60 (el dibujo
+   mide 60) y tarjetas más bajas. */
+@media (max-width: 599px), (max-height: 520px) {
+  .bag-box .sheet-body { gap: 12px; }
+  .bag-grid { gap: 6px; }
+  .bag-item { gap: 12px; padding: 8px 12px 8px 8px; border-radius: 14px; }
+  .bag-item b { font-size: 15px; }
+  .bag-item small { margin-top: 1px; }
+  .bag-tile { --tile: 60px; border-radius: 18px; }
+  .bag-n { right: -5px; bottom: -5px; min-width: 24px; padding: 1px 6px; }
+  .bag-empty { padding: 28px 12px; }
+}
 /* ==== pantallas: gacha ====
  * Gacha (#scr-gacha) y su tirada (#pull-fx), Misiones · Logros · Perfil
  * (#scr-goals) y el perfil público de un jugador (#scr-profile). Son hojas de
@@ -2161,7 +2424,11 @@ body.touch .dx-mv { width: 44px; height: 44px; }
 }
 
 /* ---- Misiones · Logros · Perfil ---- */
-.goals-sheet.sheet-box { width: min(860px, 100%); }
+/* Ancho de la hoja en tableta y ordenador (en el móvil, a pantalla completa: sección 4b). */
+@media (min-width: 600px) and (min-height: 521px) {
+  .goals-sheet.sheet-box { width: min(860px, 100%); }
+  .box.sheet-box.profile-sheet { width: min(620px, 100%); }
+}
 #goals-tabs { margin: 0; }
 :where(#goals-tabs) > button.tab { appearance: none; border: 0; background: transparent; }
 /* (La regla vieja #scr-goals > .box > * no dejaba encoger el cuerpo.) */
@@ -2309,7 +2576,7 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
 .fav-grid .cell.shiny { border-color: rgba(154, 230, 255, .45); }
 
 /* ---- Perfil público (#scr-profile): tarjeta del jugador, marcas y medallas ---- */
-.box.sheet-box.profile-sheet { width: min(620px, 100%); }
+/* (Ancho de la hoja: arriba, con el de Misiones.) */
 .prof-hero {
   position: relative; isolation: isolate; overflow: hidden; padding: 16px; border-radius: var(--rad-xl);
   background: radial-gradient(circle at 86% 14%, rgba(255, 203, 5, .22), transparent 45%), linear-gradient(135deg, #2a1d6e, var(--c-blue-deep) 60%, #0f4d6e);
@@ -2367,28 +2634,109 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .gh-feat { height: 230px; }
   .gacha-hero h3 { font-size: var(--fs-3xl); }
 }
-/* Móvil de pie: todo en una columna, botones de tres en tres («Tirar todos» debajo, entero). */
-@media (max-width: 599px) {
-  .gh-text { padding: 14px 14px 4px; }
-  .gacha-hero h3 { font-size: var(--fs-xl); }
-  .gacha-foot { gap: 8px; }
-  .gacha-foot > .pull-all { grid-column: 1 / -1; flex-direction: row; gap: 10px; padding-top: 6px; padding-bottom: 6px; }
-  .pull-btn .pb-t { font-size: 16px; }
-  /* Misiones: el premio y el botón, debajo del texto. */
-  .mission-row { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "ico txt txt" ". rw btn"; padding: 10px; column-gap: 10px; }
-  .mission-row .m-ico { align-self: start; }
-  /* Categorías de logros: una fila que se desliza de lado. */
-  .goals-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -2px 12px; padding: 2px 2px 4px; }
+/* Móvil (de pie y tumbado): todo un 10-15 % más pequeño. Las hojas ya van a
+   pantalla completa (sección 4b de la base); aquí sólo lo de dentro: rellenos,
+   huecos, casillas y tarjetas más bajos. Lo que se toca sigue midiendo 40 px. */
+@media (max-width: 599px), (max-height: 520px) {
+  /* Gacha: regiones, cartel e información. */
+  #scr-gacha #gacha-gens { margin-top: 0; padding: 2px 0 4px; }
+  #gacha-gens .gen-tab { min-width: 70px; border-radius: 14px; }
+  .gacha-body, .gacha-info { gap: 10px; }
+  .gacha-hero { border-radius: var(--rad-l); }
+  .gacha-hero::before { right: -60px; top: -70px; width: 240px; height: 240px; border-width: 16px; box-shadow: inset 0 0 0 40px rgba(255, 255, 255, .03); }
+  .gh-text { padding: 12px 12px 4px; }
+  .gacha-hero .gh-desc { margin: 4px 0 8px; }
+  .gh-owned .meter { height: 7px; }
+  .gacha-pity { gap: 10px; }
+  .gacha-pity small { margin: 2px 0 6px; }
+  .gacha-wallet .eyebrow { margin-bottom: 6px; }
+  .gw-row { gap: 6px; }
+  .gw-chip { gap: 6px; padding: 2px 12px 2px 2px; }
+  .gacha-rates h3 { margin-bottom: 6px; }
+  .rate-row { gap: 8px; padding: 3px 2px; }
+  .gacha-rules { margin-top: 8px; line-height: 1.45; }
+  .pull-btn { border-radius: 14px; }
+  /* Tirada: menos aire alrededor de la máquina y de las cartas. */
+  #pull-fx { gap: 12px; }
+  .pfx-spin { gap: 12px; }
+  .pfx-ctl { gap: 8px; }
+  .pfx-ctl .chip { padding-right: 14px; }
+  .pfx-ctl .btn { min-width: 100px; }
+  .pfx-sum { gap: 6px; }
+  .ps-chip { min-height: 32px; padding: 2px 12px; }
+  .pfx-grid, .pfx-grid.xl { gap: 8px; }
+  .pull-card { padding: 6px 6px 8px; border-radius: 14px; }
+  .pfx-grid.one .pull-card { gap: 4px; padding: 10px 10px 12px; }
+  #pull-fx #pull-close { min-width: min(240px, 100%); }
+  /* Misiones. */
+  #scr-goals #goals-tabs { padding: 2px; }
+  .goals-sec { gap: 6px 10px; margin: 16px 0 8px; }
+  .goals-left { gap: 5px; padding: 3px 9px; }
+  .goals-hint { margin-bottom: 8px; }
+  .goals-meter { margin-bottom: 10px; }
+  .rw-chips { gap: 4px; }
+  .rw-chip { height: 28px; padding-right: 8px; }
+  .rw-chip img { margin: -1px 0; }
+  .mission-list { gap: 6px; }
+  .mission-row { grid-template-columns: 38px minmax(0, 1fr) auto auto; gap: 6px 10px; padding: 8px 10px; border-radius: 14px; }
+  .mission-row .m-btn { min-width: 92px; }
+  .m-prog { margin-top: 4px; }
+  .m-prog .meter { height: 7px; }
+  /* Logros. */
+  .ach-sum { gap: 12px; margin-bottom: 10px; }
+  .ach-sum .sub { margin: 2px 0 6px; }
+  /* Categorías: una fila que se desliza de lado (de pie y tumbado). */
+  .goals-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -2px 10px; padding: 2px 2px 4px; }
   .goals-cats::-webkit-scrollbar { display: none; }
   .goals-cats .chip { flex: none; }
-  .ach-grid { gap: 8px; }
-  .ach-tile { padding: 12px 8px 10px; }
-  .prof-preview { display: flex; width: 100%; }
-  #goals-body .fav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ach-grid { grid-template-columns: repeat(auto-fill, minmax(144px, 1fr)); gap: 8px; }
+  .ach-tile { gap: 4px; padding: 10px 8px; border-radius: 14px; }
+  .ico-tile.ach-medal { --tile: 64px; }
+  .ach-lock { width: 22px; height: 22px; }
+  .leg-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+  .evo-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+  .evo-tile { gap: 8px; padding: 6px 8px; }
+  /* Perfil (pestaña). */
   .fav-slots { gap: 8px; }
-  .prof-hero { padding: 14px 12px; }
+  .fav-slot { min-height: 116px; padding: 6px 6px 8px; border-radius: 14px; }
+  .fav-plus { width: 44px; height: 44px; }
+  .prof-title-row { gap: 10px; padding: 8px 10px; }
+  .prof-preview { margin-top: 14px; }
+  .fav-pick-head { gap: 8px; margin-bottom: 8px; }
+  .fav-q.field { margin-bottom: 10px; }
+  /* Perfil público. */
+  .prof-hero { padding: 12px; border-radius: var(--rad-l); }
+  .prof-id { gap: 12px; margin-bottom: 12px; }
   .prof-hero .prof-name { font-size: var(--fs-xl); }
+  .prof-stats { gap: 6px; margin: 12px 0 4px; }
+  .pmk { gap: 2px; padding: 8px 4px; border-radius: 14px; }
   .pmk b { font-size: var(--fs-l); }
+  #scr-profile .goals-sec { margin-top: 16px; }
+  .prof-medals { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+  .prof-medals .pm { padding: 6px 4px; }
+}
+/* Móvil de pie: todo en una columna, botones de tres en tres («Tirar todos» debajo, entero). */
+@media (max-width: 599px) {
+  .gacha-hero h3 { font-size: var(--fs-xl); }
+  .gh-feat { height: 112px; }
+  /* Botones de tirar más bajos (59 px; «Tirar todos», 40): el ticket de 30 px en una píldora de 26. */
+  .gacha-foot { gap: 8px; }
+  .pull-btn { gap: 2px; padding: 4px 8px 5px; }
+  .pull-btn .pb-t { font-size: 15px; line-height: 20px; }
+  .pull-btn .pb-cost { min-height: 26px; padding-right: 10px; }
+  .pull-btn .pb-ico { width: 26px; height: 26px; }
+  .pull-btn .pb-ico img { margin: -2px; }
+  .gacha-foot > .pull-all { grid-column: 1 / -1; flex-direction: row; gap: 10px; padding-top: 6px; padding-bottom: 6px; }
+  /* Tirada: las cartas tumbadas, con más sitio para el texto. */
+  #pull-fx { padding: max(12px, var(--sa-t)) max(10px, var(--sa-r)) max(12px, var(--sa-b)) max(10px, var(--sa-l)); }
+  .pfx-grid.row { gap: 6px; }
+  .pfx-grid.row .pull-card { gap: 6px; padding: 5px 6px 5px 4px; }
+  .pfx-grid.row .pc-txt { gap: 2px; }
+  /* Misiones: el premio y el botón, debajo del texto. */
+  .mission-row { grid-template-columns: 38px minmax(0, 1fr) auto; grid-template-areas: "ico txt txt" ". rw btn"; }
+  .mission-row .m-ico { align-self: start; }
+  .prof-preview { display: flex; width: 100%; }
+  #goals-body .fav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 }
 /* Móvil tumbado (≤ 520 px de alto). */
 @media (max-height: 520px) {
@@ -2398,53 +2746,67 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   :is(#scr-gacha, #scr-goals) .sheet-head { flex-wrap: nowrap; }
   :is(#scr-gacha, #scr-goals) .sheet-head h2 { flex: none; }
   :is(#scr-gacha, #scr-goals) .sheet-head > .sheet-row { flex: 1 1 auto; }
-  #scr-gacha #gacha-gens { padding: 4px 2px; }
-  #gacha-gens .gen-tab { flex-direction: row; align-items: center; gap: 6px; min-width: 0; padding: 5px 14px; border-radius: var(--rad-pill); }
+  /* Cabecera de 48 px: las pestañas, de 40 (lo que se toca), sin más relleno. */
+  #scr-gacha #gacha-gens { padding: 0 2px; }
+  #gacha-gens .gen-tab { flex-direction: row; align-items: center; gap: 6px; min-width: 0; padding: 4px 12px; border-radius: var(--rad-pill); }
   #scr-goals .sheet-head > .sheet-row { display: flex; justify-content: flex-end; }
-  #scr-goals #goals-tabs { flex: 1 1 auto; max-width: 440px; padding: 3px; }
+  #scr-goals #goals-tabs { flex: 1 1 auto; max-width: 420px; padding: 2px; }
   #goals-tabs .tab { min-height: 34px; padding: 4px 10px; }
   /* Cartel más bajo. */
-  .gh-text { padding: 10px 4px 10px 14px; }
+  .gh-text { padding: 8px 4px 8px 12px; }
   .gacha-hero h3 { font-size: var(--fs-xl); }
-  .gacha-hero .gh-desc { margin: 4px 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .gh-feat { height: 140px; }
-  /* Botones de tirar: el ticket a la izquierda y el texto en dos líneas, más bajos. */
+  .gacha-hero .gh-desc { margin: 2px 0 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .gh-feat { height: 120px; }
+  /* Botones de tirar: el ticket a la izquierda y el texto en dos líneas, más bajos (41 px). */
   .gacha-foot { gap: 8px; }
   .pull-btn {
     display: grid; grid-template-columns: 30px minmax(0, auto); grid-template-areas: "ico t" "ico n";
     justify-content: center; align-items: center; column-gap: 8px; row-gap: 0;
-    padding: 5px 10px; text-align: left;
+    padding: 3px 10px; text-align: left;
   }
   .pull-btn .pb-cost { display: contents; }
   .pull-btn .pb-ico { grid-area: ico; }
-  .pull-btn .pb-t { grid-area: t; font-size: var(--fs-m); line-height: 20px; }
-  .pull-btn .pb-cost b { grid-area: n; font-size: var(--fs-s); line-height: 16px; }
-  body.touch #scr-gacha .gacha-foot .btn.pull-btn { padding-top: 5px; padding-bottom: 5px; }
+  .pull-btn .pb-t { grid-area: t; font-size: var(--fs-m); line-height: 18px; }
+  .pull-btn .pb-cost b { grid-area: n; font-size: var(--fs-s); line-height: 15px; }
+  body.touch #scr-gacha .gacha-foot .btn.pull-btn { padding-top: 3px; padding-bottom: 3px; }
   /* Tirada: los botones a la derecha de la máquina (×2 cabe justo en 375 px de alto)
      y «Continuar» más bajo, para que se vean más cartas. */
-  #pull-fx { gap: 8px; padding: max(6px, var(--sa-t)) max(12px, var(--sa-r)) max(6px, var(--sa-b)) max(12px, var(--sa-l)); }
-  #pull-fx #pull-close { padding-top: 9px; padding-bottom: 9px; }
+  #pull-fx { gap: 4px; padding: max(6px, var(--sa-t)) max(12px, var(--sa-r)) max(6px, var(--sa-b)) max(12px, var(--sa-l)); }
+  #pull-fx #pull-close { padding-top: 8px; padding-bottom: 8px; }
+  /* Los dos rellenos que centran en alto (::before y ::after) no suman hueco, el resumen
+     es más bajo (30 px) y «Continuar» se pega hasta 2 px del relleno de abajo: si no, en
+     667×375 tapaba el pie de la segunda fila de cartas. */
+  #pull-fx::before { margin-bottom: -4px; }
+  #pull-fx::after { margin-top: -4px; }
+  #pull-fx .ps-chip { min-height: 30px; }
+  #pull-fx .ps-chip img { margin: -3px 0; }
+  .pfx-foot { bottom: max(2px, var(--sa-b)); }
   .pfx-spin { flex-direction: row; gap: 16px; }
-  .pfx-ctl { flex-direction: column; width: 140px; }
+  .pfx-ctl { flex-direction: column; width: 132px; }
   .pfx-ctl > * { width: 100%; }
   .pfx-ctl .btn { min-width: 0; }
-  .pfx-sum .ps-chip { min-height: 32px; }
+  /* Cartas bajitas: las dos filas de una ×10 y «Continuar» caben en 375 px de alto. */
+  .pfx-grid.low { gap: 6px; }
+  .pfx-grid.low .pull-card { padding: 4px 4px 6px; }
+  .pfx-grid.low .pc-txt { gap: 1px; }
+  .pfx-grid.low .pull-card .pc-flag { margin-top: 0; }
+  .pfx-grid.low .pc-refund img { margin: -4px 0; }
   /* Perfil público: marcas en una fila. */
-  .prof-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-  .pmk { padding: 8px 4px; }
-  .pmk b { font-size: var(--fs-l); }
+  .prof-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .prof-id { margin-bottom: 10px; }
 }
 @media (max-height: 400px) {
-  .gh-feat { height: 128px; }
+  .gh-feat { height: 108px; }
   .gacha-hero .gh-desc { display: none; }
 }
 /* ==== pantallas: social ==== */
 /* Apodo, Amigos, Sala, Ranking, Moderación y la invitación (social-ui.js,
  * ranking-ui.js y mod-ui.js). Amigos, Sala, Ranking y Moderación son hojas de la
  * base (docs/DISENO.md §4); aquí va sólo lo propio de estas pantallas.
- * Medidas de referencia: el cuerpo de la hoja mide 347 px de ancho en un móvil de
- * 375 (14 px de margen a cada lado) y unos 620 en un móvil tumbado de 667. */
+ * En el móvil (de pie y tumbado) todas van a pantalla completa (base, §4b) y más
+ * compactas (DISENO.md §16): lo de cada una, en su bloque «móvil».
+ * Medidas de referencia: el cuerpo de la hoja mide 351 px de ancho en un móvil de
+ * 375 (12 px de margen a cada lado) y unos 640 en un móvil tumbado de 667. */
 
 /* -- Reglas viejas (mezcladas con otras pantallas) que aún las tocan: el cuerpo de
       la hoja tiene que poder encogerse para desplazarse, y en el móvil tumbado el
@@ -2557,6 +2919,25 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
   /* Sin fijar: con el teclado abierto la columna no cabe y tapaba el campo de añadir. */
   .fr-side { gap: 10px; position: static; }
 }
+/* Móvil (de pie y tumbado), compacto: tu tarjeta con el compañero de 52 px (el
+   lienzo de 64 sigue a ×2, centrado y recortado por el círculo) y filas de 50 px
+   (avatar de 34; los botones siguen de 40, --tap). */
+@media (max-width: 599px), (max-height: 520px) {
+  .fr-body { gap: 16px; }
+  .fr-side { gap: 10px; }
+  .fr-me { column-gap: 10px; padding: 10px 10px 10px 12px; border-radius: 14px; }
+  .fr-me-av { width: 52px; height: 52px; }
+  .fr-me-av canvas { margin: -6px; }
+  .fr-me .btn, .fr-me small { margin-top: 8px; }
+  .fr-add label { margin-bottom: 5px; }
+  .fr-msg { margin-top: -2px; }
+  .fr-lists { gap: 14px; }
+  .fr-lists .fr-h { margin-bottom: 6px; }
+  .fr-item { gap: 6px; padding: 4px 6px 4px 8px; }
+  .fr-who { gap: 10px; }
+  .fr-av { width: 34px; height: 34px; font-size: 16px; }
+  .fr-acts { gap: 4px; }
+}
 
 /* ---------- Sala ---------- */
 .lobby-body { display: flex; flex-direction: column; gap: 14px; }
@@ -2612,20 +2993,30 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
 @media (max-width: 699px) and (min-height: 521px) {
   .lob-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 599px) and (min-height: 521px) {
+/* Móvil (de pie y tumbado), compacto: tarjetas con menos relleno (el sprite sigue
+   a 112×84, sin escalar) y chips y filas de invitar más bajos. */
+@media (max-width: 599px), (max-height: 520px) {
+  .lobby-body { gap: 12px; }
   .lob-grid { gap: 8px; }
-  .lob-slot { min-height: 168px; }
-  .lobby-foot { flex-wrap: wrap; row-gap: 8px; }
+  .lob-slot { padding: 8px 6px; border-radius: 14px; }
+  .lob-crown { top: 6px; left: 6px; }
+  .lob-chips { padding-top: 4px; }
+  .lob-chips .conn { min-height: 20px; padding: 2px 8px; }
+  .lob-inv { gap: 6px; }
+  .lob-invite { gap: 6px; }
+  .lobby-foot { gap: 10px; }
+}
+@media (max-width: 599px) and (min-height: 521px) {
+  .lob-slot { min-height: 150px; }
+  .lobby-foot { flex-wrap: wrap; row-gap: 6px; }
   #lobby-note { flex: 1 1 100%; text-align: center; }
   .lobby-foot > .btn { flex: 1 1 0; min-width: 0; }
 }
 @media (max-height: 520px) {
   .lobby-body { gap: 10px; }
-  .lob-grid { gap: 8px; }
-  .lob-slot { min-height: 0; padding: 8px 6px; }
+  .lob-slot { min-height: 0; }
   .lob-mon { display: none; }
-  .lob-crown { top: 6px; left: 6px; }
-  #lobby-note { font-size: var(--fs-xs); }
+  #lobby-note { font-size: var(--fs-s); }      /* 12 px: es un párrafo */
   .lobby-foot > .btn { min-width: 180px; }
 }
 
@@ -2691,11 +3082,21 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .rk-bar > .rk-period::-webkit-scrollbar { display: none; }
   .rk-period > .chip { flex: 0 0 auto; }
 }
+/* Móvil (de pie y tumbado), compacto: filas de 50 px (el equipo, de 44×40, y la
+   bandera, de 40, --tap), filtros más juntos. */
+@media (max-width: 599px), (max-height: 520px) {
+  .rk-bar { gap: 6px; }
+  #scr-rank .seg { padding: 2px; }
+  .rk-rows { gap: 5px; }
+  .rk-msg { margin: 16px 0; }
+  .rk-item { grid-template-columns: 40px auto minmax(0, 1fr) auto 40px; column-gap: 8px; min-height: 48px; padding: 4px 4px 4px 8px; }
+  .rk-foot { gap: 10px; }
+}
 /* Pantalla estrecha: fila más justa; en grupo, en dos líneas (equipo y tiempo arriba, nombres debajo, enteros). */
 @media (max-width: 599px) {
-  .rk-item { grid-template-columns: 36px auto minmax(0, 1fr) auto 44px; column-gap: 8px; padding: 6px 4px 6px 8px; }
+  .rk-item { grid-template-columns: 36px auto minmax(0, 1fr) auto 40px; padding-left: 6px; }
   .rk-time { font-size: var(--fs-l); }
-  .rk-rows.grp .rk-item { grid-template-columns: 36px minmax(0, 1fr) auto 44px; grid-template-areas: "pos mons time flag" "pos who who flag"; row-gap: 2px; }
+  .rk-rows.grp .rk-item { grid-template-columns: 36px minmax(0, 1fr) auto 40px; grid-template-areas: "pos mons time flag" "pos who who flag"; row-gap: 2px; }
   .rk-rows.grp .rk-who b { white-space: normal; overflow-wrap: anywhere; }
 }
 /* Móvil tumbado: título, filtros (se deslizan de lado) y la lupa en una sola línea. */
@@ -2707,7 +3108,6 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
   #scr-rank #rk-period { overflow: visible; }
   .rk-head > .sheet-acts { order: 2; margin-left: 0; }
   .rk-head > .rk-search { order: 3; }
-  .rk-item { min-height: 52px; padding-top: 4px; padding-bottom: 4px; }
   .rk-foot .ico-tile { display: none; }
   #scr-rank #rk-me { font-size: var(--fs-s); }
 }
@@ -2728,6 +3128,22 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
 .mod-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; flex: 1 1 100%; }
 .mod-foot { justify-content: flex-end; }
 @media (min-width: 900px) and (min-height: 521px) { .mod-acts { flex: 0 0 auto; } }
+/* Móvil, compacto: menos relleno; los nombres dejan sitio al tiempo en la primera
+   línea (y, si no caben, pasan a la siguiente: enteros). */
+@media (max-width: 599px), (max-height: 520px) {
+  .mod-list { gap: 6px; }
+  .mod-item { gap: 6px 10px; padding: 8px 10px; }
+  .mod-item .rk-who { flex-basis: 150px; }
+  .mod-item .rk-who b { white-space: normal; overflow-wrap: anywhere; }
+  .mod-item .rk-who small { font-size: var(--fs-s); }      /* 12 px: va en varias líneas */
+}
+/* Tumbado: título y pestañas en una sola línea (la lista se queda con el alto). */
+@media (max-height: 520px) {
+  #scr-mod .sheet-head { flex-wrap: nowrap; }
+  #scr-mod .sheet-head h2 { flex: none; }
+  #scr-mod .sheet-head > .sheet-row { flex: 1 1 0; display: flex; justify-content: flex-end; }
+  #scr-mod #mod-tabs { flex: 0 1 360px; min-width: 0; }
+}
 
 /* ---------- Invitación: aviso arriba, por delante de todo (capa de la carga) ---------- */
 .invite-pop {
@@ -2746,35 +3162,70 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
 #inv-text b { font: 600 var(--fs-m)/1.35 var(--font-display); color: var(--c-yellow); }
 .inv-acts { display: flex; align-items: center; gap: 6px; }
 @keyframes inv-in { from { opacity: 0; transform: translateY(-24px) scale(.97); } to { opacity: 1; transform: none; } }
+/* Móvil: sigue siendo un aviso (una tarjeta arriba, no una pantalla), algo más pequeño. */
+@media (max-width: 599px), (max-height: 520px) {
+  .invite-pop { column-gap: 10px; padding: 8px 8px 8px 10px; border-radius: 14px; }
+}
 /* Móvil de pie: icono y texto arriba; «Unirme» y la ×, debajo. */
 @media (max-width: 479px) {
-  .invite-pop { grid-template-columns: auto minmax(0, 1fr); row-gap: 10px; }
+  .invite-pop { grid-template-columns: auto minmax(0, 1fr); row-gap: 8px; }
   .inv-acts { grid-column: 1 / -1; }
   .inv-acts > .btn { flex: 1 1 auto; }
 }
 
-/* ---------- Apodo: móvil de pie y móvil tumbado ---------- */
-@media (max-width: 599px) and (min-height: 521px) {
-  #scr-nick > .box.nick-box { padding: 22px 18px 16px; }
+/* ---------- Apodo en el móvil: a pantalla completa (DISENO.md §16) ----------
+ * Sin el ancho de tarjeta (420 / 760): el panel ocupa toda la pantalla, de borde a
+ * borde, con las zonas seguras en su relleno. De pie: una columna con el contenido
+ * arriba (en los móviles altos, con más aire). Tumbado: la explicación a la
+ * izquierda y el campo y los botones a la derecha, centrado en el alto. */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-nick > .box.nick-box { width: 100%;
+    padding: max(18px, var(--sa-t)) max(16px, var(--sa-r)) max(14px, var(--sa-b)) max(16px, var(--sa-l)); }
+  .nick-head .ico-tile { margin-bottom: 10px; }
+  .nick-head .sub { margin: 4px 0 14px; }
+  .nick-rules { margin-top: 8px; gap: 2px; }
+  .nick-rules li { gap: 7px; }
+  .nr-ico { width: 18px; height: 18px; }
+  #nick-ok { margin-top: 14px; }
+  .nick-later { margin-top: 6px; }
 }
-/* Tumbado: la explicación a la izquierda y el campo y los botones a la derecha. */
+/* Móviles altos de pie: el sitio que sobra, para que respire (como en la tarjeta
+   del ordenador: baldosa de 76, título y campo más grandes, normas más separadas). */
+@media (max-width: 599px) and (min-height: 760px) {
+  #scr-nick > .box.nick-box { padding-top: max(40px, calc(var(--sa-t) + 12px)); }
+  .nick-head .ico-tile { --tile: 76px; border-radius: 22px; margin-bottom: 16px; }
+  .nick-head h2 { font-size: 26px; }
+  .nick-head .sub { margin: 6px 0 24px; font-size: var(--fs-l); }
+  #scr-nick #nick-in { min-height: 48px; font-size: 18px; }      /* (por id: pesa más que el mínimo táctil) */
+  .nick-rules { margin-top: 12px; gap: 8px; }
+  .nick-rules li { font-size: var(--fs-m); }
+  .nr-ico { width: 22px; height: 22px; }
+  #nick-ok { margin-top: 24px; }
+  .nick-later { margin-top: 10px; }
+}
 @media (max-height: 520px) {
   #scr-nick > .box.nick-box {
-    width: min(760px, 100%); padding: 14px 18px; text-align: left;
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); column-gap: 24px; align-items: center;
+    padding: max(12px, var(--sa-t)) max(20px, var(--sa-r)) max(12px, var(--sa-b)) max(20px, var(--sa-l)); text-align: left;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); column-gap: 28px; align-items: center; align-content: center;
   }
   .nick-head { grid-column: 1; grid-row: 1 / span 2; align-items: flex-start; }
   .nick-head .ico-tile { display: none; }
   .nick-head .sub { margin: 4px 0 0; }
   .nick-form, .nick-later { grid-column: 2; }
-  #nick-ok { margin-top: 10px; padding-top: 11px; padding-bottom: 11px; font-size: 17px; }
-  .nick-later { margin-top: 6px; }
+  #nick-ok { margin-top: 10px; }
+}
+/* Título de la cabecera de las hojas, también tumbado: 19 px (la regla vieja de
+   «pantallas bajas», .box h2, lo subía a 20). */
+@media (max-width: 599px), (max-height: 520px) {
+  :is(#scr-friends, #scr-lobby, #scr-rank, #scr-mod) .sheet-head h2 { font-size: var(--fs-xl); }
 }
 /* ==== pantallas: ventanas ==== */
 /* Ajustes, Novedades, Apoyar, Aviso legal e Instalar como app (hojas, sección 4 de
  * la base) y las ventanas pequeñas: recuperar la cuenta, avisos de una actualización,
  * borrar la cuenta y «abierto en otra pestaña» (.mcard). Todo va por id de pantalla
- * para no tocar otras. Guía: docs/DISENO.md. */
+ * para no tocar otras. Guía: docs/DISENO.md.
+ * En el móvil (de pie y tumbado) las hojas van a pantalla completa (sección 4b) y
+ * aquí sólo se compacta lo de dentro; las .mcard siguen siendo tarjetas. */
 
 /* ---- capas (gamepad.js decide qué ventana manda por su z-index) ---- */
 #scr-settings, #scr-support { z-index: var(--z-sheet); }
@@ -2792,6 +3243,17 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
   text-transform: uppercase; color: var(--muted);
 }
 :is(#scr-settings, #scr-support) :is(.set-h, .sup-h):first-child { margin-top: 0; }
+/* ---- móvil (de pie y tumbado): a pantalla completa y compacto ----
+ * Las hojas ya ocupan toda la pantalla (sección 4b de la base): aquí no se les pone
+ * ancho, alto, margen ni radio en el móvil (las volvería a hacer recuadro); sólo se
+ * aprieta lo de dentro. Título de 19 px también tumbado (la regla de «pantallas
+ * bajas» lo dejaba en 20) y las baldosas redondas (.round) siguen redondas. */
+@media (max-width: 599px), (max-height: 520px) {
+  :is(#scr-settings, #scr-news, #scr-support, #scr-legal, #scr-install) .sheet-head h2 { font-size: var(--fs-xl); }
+  :is(#scr-settings, #scr-news, #scr-legal) .sheet-head > .ico-tile .ui-svg { width: 20px; height: 20px; }
+  :is(#scr-settings, #scr-support, #scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) .ico-tile.round { border-radius: 50%; }
+  :is(#scr-settings, #scr-support) :is(.set-h, .sup-h) { margin: 16px 2px 6px; }
+}
 
 /* ======================= Ventana pequeña (.mcard) =======================
  * Icono en una baldosa grande, título, texto y los botones en columna (el
@@ -2812,29 +3274,43 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
 .mcard-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 .mcard-foot { margin: 14px 0 0; }
 #scr-delacc > .box.mcard { border-color: rgba(238, 59, 59, .45); }
+/* Móvil de pie: la misma tarjeta, con menos relleno y aire (el icono sigue a 64 px:
+   los de objeto se piden a 60 y no se pueden encoger sin perder los píxeles). */
+@media (max-width: 599px) and (min-height: 521px) {
+  :is(#scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) > .box.mcard { padding: 22px 18px 18px; }
+  .mcard .mcard-ico { margin-bottom: 10px; }
+  .mcard-app { width: 56px; height: 56px; margin-bottom: 10px; border-radius: 14px; }
+  .box.mcard h2 { margin-bottom: 6px; }
+  .mcard .field { margin-top: 12px; }
+  .mcard-acts { gap: 8px; margin-top: 16px; }
+  .mcard-foot { margin-top: 10px; }
+}
 @media (max-height: 520px) {
   :is(#scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) > .box.mcard {
-    width: min(620px, 100%); padding: 16px 20px; text-align: left;
-    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 18px; align-items: start;
+    width: min(600px, 100%); padding: 14px 18px; text-align: left;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; align-items: start;
   }
   .mcard > * { grid-column: 2; }
   .mcard > :is(.mcard-ico, .mcard-app) { grid-column: 1; grid-row: 1 / span 6; margin: 2px 0 0; }
   .mcard .mcard-ico.l { --tile: 64px; border-radius: 50%; }
+  .mcard-app { width: 56px; height: 56px; border-radius: 14px; }
   .box.mcard h2 { font-size: var(--fs-l); margin-bottom: 4px; }
   .mcard .mcard-txt { font-size: var(--fs-s); }
-  .mcard-acts { flex-direction: row; flex-wrap: wrap; margin-top: 12px; }
-  /* En fila, todos del mismo alto (46 px, también con el dedo): si no, el más bajo se
+  .mcard .mcard-txt p { margin-bottom: 8px; }
+  .mcard .field { margin-top: 10px; }
+  .mcard-acts { flex-direction: row; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  /* En fila, todos del mismo alto (40 px, también con el dedo): si no, el más bajo se
      estiraba al del grande y su texto se quedaba arriba. */
-  .mcard-acts > .btn { width: auto; flex: 1 1 150px; padding-top: 11px; padding-bottom: 11px; line-height: 22px; }
-  .mcard .btn.big { padding: 11px 20px; font-size: 17px; line-height: 22px; }
-  .mcard-foot { margin-top: 8px; text-align: left; }
+  .mcard-acts > .btn { width: auto; flex: 1 1 150px; padding-top: 9px; padding-bottom: 9px; line-height: 20px; }
+  .mcard .btn.big { padding: 9px 18px; font-size: 16px; line-height: 20px; }
+  .mcard-foot { margin-top: 6px; text-align: left; }
 }
 
 /* ============================ Ajustes ============================
  * Escritorio y tableta: las pestañas en una columna a la izquierda y el contenido a
- * la derecha (alto fijo: no salta al cambiar de pestaña). Móvil de pie: hoja a
- * pantalla completa con las pestañas arriba, en píldoras que se deslizan de lado.
- * Móvil tumbado: la columna de pestañas, más estrecha. */
+ * la derecha (alto fijo: no salta al cambiar de pestaña). Móvil: hoja a pantalla
+ * completa; de pie, las pestañas arriba, en píldoras que se deslizan de lado;
+ * tumbado, la columna de pestañas, más estrecha. */
 .box.set-sheet { width: min(900px, 100%); height: min(700px, 100%); }
 #scr-settings .set-main {
   flex: 1 1 auto; min-height: 0;
@@ -2976,41 +3452,74 @@ body.touch #scr-settings .set-vol input[type=range] {
 #scr-settings .about-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
 #scr-settings .about-links .btn { justify-content: space-between; text-align: left; }
 #scr-settings .about-links .btn .ui-svg { width: 18px; height: 18px; opacity: .8; }
-/* Móvil de pie: pestañas arriba, en píldoras que se deslizan de lado. */
+/* Móvil (de pie y tumbado): filas, interruptores, segmentos y tarjetas más bajos.
+   Lo que se toca sigue midiendo 40 px o más (--tap). */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-settings .set-sub { margin: -2px 2px 8px; }
+  #scr-settings .set-list { gap: 5px; }
+  #scr-settings .set-row { min-height: 52px; padding: 8px 12px; column-gap: 12px; }
+  #scr-settings .set-kv { row-gap: 4px; }
+  #scr-settings .set-col { gap: 8px; }
+  #scr-settings .sw { width: 46px; height: 28px; }
+  #scr-settings .sw::after { width: 22px; height: 22px; }
+  #scr-settings [aria-checked="true"] > .sw::after { transform: translateX(18px); }
+  #scr-settings .set-seg { gap: 2px; padding: 2px; border-radius: 12px; }
+  #scr-settings .set-seg > button { min-height: 34px; padding: 5px 6px; border-radius: 10px; }
+  #scr-settings .set-vol { column-gap: 12px; padding: 8px 12px 4px 10px; }
+  #scr-settings .set-vol > input { margin: 10px 0 8px; }
+  /* Con el dedo, la barra de volumen mide --tap (40) de alto con la raya en medio. */
+  body.touch #scr-settings .set-vol input[type=range] { height: var(--tap); margin: 0;
+    background: linear-gradient(90deg, var(--c-yellow) var(--v, 0%), transparent var(--v, 0%)) 0 16px / 100% 8px no-repeat,
+      linear-gradient(transparent 16px, var(--sunk) 16px 24px, transparent 24px); }
+  #scr-settings .set-card { padding: 2px 12px; }
+  #scr-settings .key-row { padding: 7px 0; gap: 6px 12px; }
+  #scr-settings .set-acts { margin-top: 12px; }
+  #scr-settings .acc-hero { gap: 12px; padding: 12px; border-radius: var(--rad-m); }
+  #scr-settings .acc-danger { margin-top: 14px; padding-top: 12px; }
+  #scr-settings .about-hero { gap: 6px; padding: 14px 12px 12px; border-radius: var(--rad-m); }
+  #scr-settings .about-hero > img { width: 52px; height: 52px; border-radius: 13px; }
+  #scr-settings .about-hero .wordmark { font-size: 28px; }
+  #scr-settings .about-hero + .set-list { margin-top: 10px; }
+  #scr-settings .credits { padding: 0 12px; }
+  #scr-settings .credits li { padding: 7px 0; }
+  #scr-settings .about-links { gap: 6px; }
+}
+/* Móvil de pie: pestañas arriba, en píldoras de 40 px que se deslizan de lado. */
 @media (max-width: 599px) and (min-height: 521px) {
   #scr-settings .set-main { display: flex; flex-direction: column; }
   #scr-settings .set-nav {
     flex: none; flex-direction: row; gap: 6px; overflow-x: auto; overflow-y: hidden;
-    padding: 10px max(12px, var(--sa-r)) 10px max(12px, var(--sa-l));
+    padding: 8px max(12px, var(--sa-r)) 8px max(12px, var(--sa-l));
     border-right: 0; border-bottom: 1px solid var(--line-1); scroll-padding: 0 24px;
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
     mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
   }
-  #scr-settings .set-tab { flex: 0 0 auto; width: auto; min-height: 44px; gap: 8px; padding: 4px 16px 4px 4px;
+  #scr-settings .set-tab { flex: 0 0 auto; width: auto; min-height: var(--tap); gap: 8px; padding: 3px 14px 3px 3px;
     border-radius: var(--rad-pill); background: var(--card); border-color: var(--line-1); }
   #scr-settings .set-tab:last-child { margin-right: 24px; }
-  #scr-settings .set-tab .ico-tile { --tile: 34px; border-radius: 50%; }
-  #scr-settings .set-body { flex: 1 1 auto; padding: 14px max(14px, var(--sa-r)) max(20px, var(--sa-b)) max(14px, var(--sa-l)); }
+  #scr-settings .set-tab .ico-tile { --tile: 32px; border-radius: 50%; }
+  #scr-settings .set-body { flex: 1 1 auto; padding: 12px max(12px, var(--sa-r)) max(16px, var(--sa-b)) max(12px, var(--sa-l)); }
   #scr-settings .set-acts > .btn { flex: 1 1 auto; }
   #scr-settings .about-links { grid-template-columns: minmax(0, 1fr); }
 }
-/* Móvil tumbado: columna de pestañas más estrecha y filas más bajas. */
+/* Móvil tumbado: columna de pestañas más estrecha (con la zona segura de la
+   izquierda por dentro) y filas más bajas. */
 @media (max-height: 520px) {
-  #scr-settings .set-main { grid-template-columns: 178px minmax(0, 1fr); }
-  #scr-settings .set-nav { gap: 2px; padding: 6px; }
-  #scr-settings .set-tab { min-height: 40px; gap: 8px; padding: 2px 8px 2px 2px; font-size: var(--fs-s); }
-  #scr-settings .set-tab .ico-tile { --tile: 34px; }
-  #scr-settings .set-body { padding: 10px 16px 14px; }
-  #scr-settings .set-h { margin-top: 14px; }
-  #scr-settings .set-row { min-height: 52px; padding: 8px 12px; }
-  #scr-settings .acc-hero, #scr-settings .about-hero { padding: 12px 14px; }
-  #scr-settings .about-hero { flex-direction: row; flex-wrap: wrap; justify-content: center; column-gap: 14px; }
-  #scr-settings .about-hero > img { width: 48px; height: 48px; border-radius: 12px; }
-  #scr-settings .about-hero .wordmark { font-size: 28px; }
+  #scr-settings .set-main { grid-template-columns: calc(168px + var(--sa-l)) minmax(0, 1fr); }
+  #scr-settings .set-nav { gap: 2px; padding: 6px 6px max(6px, var(--sa-b)) max(6px, var(--sa-l)); }
+  #scr-settings .set-tab { min-height: var(--tap); gap: 8px; padding: 2px 8px 2px 3px; font-size: var(--fs-s); }
+  #scr-settings .set-tab .ico-tile { --tile: 32px; }
+  #scr-settings .set-body { padding: 10px max(14px, var(--sa-r)) max(12px, var(--sa-b)) 14px; }
+  #scr-settings .set-h { margin-top: 12px; }
+  #scr-settings .set-row { min-height: 48px; padding: 6px 12px; }
+  #scr-settings .acc-hero, #scr-settings .about-hero { padding: 10px 12px; }
+  #scr-settings .about-hero { flex-direction: row; flex-wrap: wrap; justify-content: center; column-gap: 12px; }
+  #scr-settings .about-hero > img { width: 44px; height: 44px; border-radius: 11px; }
+  #scr-settings .about-hero .wordmark { font-size: 26px; }
   #scr-settings .about-hero p { flex: 1 1 100%; max-width: none; }
 }
-@media (max-height: 400px) { #scr-settings .set-main { grid-template-columns: 158px minmax(0, 1fr); } }
-body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { min-height: 44px; }
+@media (max-height: 400px) { #scr-settings .set-main { grid-template-columns: calc(152px + var(--sa-l)) minmax(0, 1fr); } }
+body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { min-height: var(--tap); }
 
 /* ============================ Novedades ============================
  * Una tarjeta por fecha (la más nueva arriba y resaltada; un punto rojo en las que
@@ -3038,16 +3547,19 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 #scr-news .news-part ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 #scr-news .news-part li { position: relative; max-width: 72ch; padding-left: 18px; font-size: var(--fs-m); line-height: 1.55; color: var(--ink); }
 #scr-news .news-part li::before { content: ''; position: absolute; left: 3px; top: .62em; width: 7px; height: 7px; border-radius: 50%; background: var(--tag-c); }
-@media (max-width: 599px) and (min-height: 521px) {
-  #scr-news .news-body { gap: 12px; }
-  #scr-news .news-card { padding: 14px; }
-  #scr-news .news-part li { font-size: var(--fs-m); line-height: 1.5; }
+/* Móvil (de pie y tumbado): tarjetas y apartados más juntos. */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-news .news-body { gap: 10px; }
+  #scr-news .news-card { padding: 12px; border-radius: var(--rad-m); }
+  #scr-news .news-card h3 { margin-bottom: 8px; }
+  #scr-news .news-part + .news-part { margin-top: 10px; padding-top: 10px; }
+  #scr-news .news-tag { padding: 1px 8px; }
+  #scr-news .news-part ul { margin-top: 8px; gap: 6px; }
+  #scr-news .news-part li { padding-left: 16px; font-size: var(--fs-m); line-height: 1.45; }
+  #scr-news .news-part li::before { left: 2px; top: .58em; width: 6px; height: 6px; }
 }
 @media (max-height: 520px) {
-  .box.news-sheet { width: min(860px, 100%); }
-  #scr-news .news-body { gap: 10px; }
-  #scr-news .news-card { padding: 12px 14px; }
-  #scr-news .news-card h3 { margin-bottom: 8px; }
+  #scr-news .news-card { padding: 10px 14px; }
   #scr-news .news-part li { font-size: var(--fs-s); }
 }
 
@@ -3064,11 +3576,21 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 #scr-support .note { margin-top: 12px; }
 #scr-support .sheet-foot { justify-content: flex-end; }
 #scr-support .sheet-foot .btn .pix { width: 20px; height: 20px; }
-@media (max-width: 599px) and (min-height: 521px) { #scr-support .sup-hero .ico-tile { --tile: 60px; } }
-@media (max-height: 520px) {
-  .box.sheet-box.sup-sheet { width: min(640px, 100%); }
+/* Móvil (de pie y tumbado): a pantalla completa (sin el ancho de 640 que tenía
+   tumbado) y más junto. */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-support .sup-hero { gap: 12px; }
   #scr-support .sup-hero .ico-tile { --tile: 52px; }
+  #scr-support .sup-hero > p { line-height: 1.5; }
+  #scr-support .sup-free { gap: 8px; margin-top: 12px; padding: 8px 10px; }
+  #scr-support .sup-h { margin-top: 16px; }
+  #scr-support .sup-costs .list-row { min-height: 44px; padding: 6px 12px; }
+  #scr-support .note { margin-top: 10px; }
+}
+@media (max-height: 520px) {
+  #scr-support .sup-hero .ico-tile { --tile: 48px; }
   #scr-support .sup-hero > p { font-size: var(--fs-s); }
+  #scr-support .sup-h { margin-top: 12px; }
 }
 
 /* ============================ Aviso legal ============================
@@ -3084,19 +3606,28 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 #scr-legal .legal-danger > p:first-child { color: var(--ink); }
 #scr-legal #legal-del-msg { margin: 8px 0 0; }
 #scr-legal #legal-del-msg:empty { display: none; }
+/* Móvil (de pie y tumbado): tarjetas más juntas y con menos relleno. */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-legal .legal { gap: 10px; }
+  #scr-legal .legal-sec { padding: 12px 12px 4px; border-radius: var(--rad-m); }
+  #scr-legal .legal-sec h3 { margin-bottom: 4px; }
+  #scr-legal .legal-sec p { margin-bottom: 8px; line-height: 1.5; }
+  #scr-legal .legal-danger { padding-bottom: 12px; }
+}
 @media (max-width: 599px) and (min-height: 521px) {
-  #scr-legal .legal-sec { padding: 12px 14px 2px; }
-  #scr-legal .legal-danger { padding-bottom: 14px; }
   #scr-legal .legal-danger .btn { width: 100%; }
 }
 @media (max-height: 520px) {
-  #scr-legal .legal { gap: 10px; }
-  #scr-legal .legal-sec p { font-size: var(--fs-s); line-height: 1.5; }
+  #scr-legal .legal { gap: 8px; }
+  #scr-legal .legal-sec { padding: 10px 14px 2px; }
+  #scr-legal .legal-danger { padding-bottom: 12px; }
+  #scr-legal .legal-sec p { font-size: var(--fs-s); }
 }
 
 /* ======================= Instalar como app (install-ui.js) =======================
  * Hoja estrecha con los pasos en tarjetas: el dibujo (como los botones del iPhone:
- * azul sobre gris oscuro) con su número en la esquina. Tumbado, los tres en fila. */
+ * azul sobre gris oscuro) con su número en la esquina. En el móvil, a pantalla
+ * completa; tumbado, los tres en fila. */
 #scr-install .install-app { flex: none; width: 48px; height: 48px; border-radius: 12px; image-rendering: auto; box-shadow: var(--sh-2); }
 /* El título puede ir en dos líneas (en francés no cabía en una a 375 px y se cortaba con «…»). */
 #scr-install .sheet-head h2 { white-space: normal; text-wrap: balance; }
@@ -3126,12 +3657,29 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 #scr-install .install-warn small { display: block; margin-top: 4px; font-size: var(--fs-s); line-height: 1.4; color: var(--err); }
 #scr-install .install-body > .sub { margin: 0 0 14px; }
 #scr-install .note { margin-top: 12px; }
+/* Móvil (de pie y tumbado): a pantalla completa (sin el ancho de 780 que tenía
+   tumbado), icono del juego de 40 y pasos más bajos. */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-install .install-app { width: 40px; height: 40px; border-radius: 10px; }
+  /* La frase de debajo del título es un párrafo: 12 px (la base pone 11 a las .sub de la cabecera). */
+  #scr-install .sheet-head .sub { font-size: var(--fs-s); line-height: 1.35; }
+  #scr-install .install-steps { gap: 8px; }
+  #scr-install .install-steps li { gap: 12px; padding: 10px 12px 10px 10px; border-radius: var(--rad-m); }
+  #scr-install .install-steps li::before { top: 4px; left: 4px; width: 20px; height: 20px; font-size: 12px; }
+  #scr-install .install-pic { min-width: 48px; height: 48px; padding: 0 7px; border-radius: 12px; }
+  #scr-install .install-pic svg { width: 24px; height: 24px; }
+  #scr-install .install-mock { font-size: 15px; }
+  #scr-install .install-warn { margin-bottom: 10px; padding: 10px 12px; border-radius: var(--rad-m); }
+  #scr-install .install-body > .sub { margin-bottom: 12px; }
+  #scr-install .note { margin-top: 10px; }
+}
 @media (max-height: 520px) {
-  .box.sheet-box.install-box { width: min(780px, 100%); }
-  #scr-install .install-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  #scr-install .install-steps li { flex-direction: column; justify-content: flex-start; text-align: center; gap: 8px; padding: 10px; }
-  #scr-install .install-pic { height: 44px; min-width: 48px; }
+  #scr-install .install-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #scr-install .install-steps li { flex-direction: column; justify-content: flex-start; text-align: center; gap: 8px; padding: 8px 10px 10px; }
+  #scr-install .install-pic { height: 40px; min-width: 44px; }
   #scr-install .note { margin-top: 8px; }
+  /* «Instalar» a su ancho (como «Crear cuenta o entrar» en Ajustes), no de borde a borde. */
+  #scr-install .install-now { width: auto; min-width: 240px; }
 }
 /* ==== pantallas: partida ====
  * Ventanas de la partida (run-ui.js) y «Colocar los botones» (layout-ui.js).
@@ -3139,11 +3687,14 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
  *    + pie. Escritorio, tableta y móvil tumbado: las cartas en fila; móvil de
  *    pie: en columna, con el icono a la izquierda. El icono es el sprite a 60 px
  *    (escala entera) en su baldosa; la insignia (¡Nuevo!, Nv., EVOLUCIÓN...) cuelga debajo.
- *  - Pausa y resumen: hojas (.sheet-box). Móvil de pie: a pantalla completa, con
- *    los botones de la pausa abajo y «Volver al menú» siempre a la vista.
+ *  - Pausa y resumen: hojas (.sheet-box). Móvil de pie: los botones de la pausa
+ *    abajo y «Volver al menú» siempre a la vista.
+ *  - Móvil (de pie y tumbado): cartas, pausa y resumen a pantalla completa, opacos
+ *    y más compactos (sección 4b de la base); el panel de «Colocar los botones»
+ *    sigue siendo una tarjeta, arriba en vertical para no tapar el joystick fijo.
  *  - Sin desenfoque: en cooperativo el mundo sigue moviéndose detrás.
- *  - Lo táctil de 44 px de estas pantallas va al final de este bloque (no en la
- *    lista común de «tactil»).
+ *  - Lo táctil (--tap: 44 px, 40 en el móvil) de estas pantallas va al final de
+ *    este bloque (no en la lista común de «tactil»).
  */
 
 /* ---- Subir de nivel, objeto y vínculo ---- */
@@ -3265,43 +3816,59 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 }
 .pick-wait:empty { display: none; }
 
-/* Móvil de pie: una columna, icono a la izquierda; todo cabe en 375×667. */
+/* Móvil (de pie y tumbado): la hoja ocupa toda la pantalla (sección 4b), opaca
+   (la regla de la sección 3 la dejaba casi transparente) y con el relleno de las
+   zonas seguras; las cartas, más compactas. */
+@media (max-width: 599px), (max-height: 520px) {
+  :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause) > .box { background: var(--surface-solid); }
+  .pick-card .pc-badge { min-height: 18px; padding: 1px 7px; font-size: 11px; }
+}
+/* Móvil de pie: una columna, icono a la izquierda, arriba; «Cambiar opciones»
+   abajo, a mano del pulgar. La baldosa del icono no baja de 64 (el dibujo mide 60). */
 @media (max-width: 599px) and (min-height: 521px) {
-  :is(#scr-levelup, #scr-item, #scr-bond) {
-    padding: max(12px, var(--sa-t)) max(10px, var(--sa-r)) max(12px, var(--sa-b)) max(10px, var(--sa-l)); }
-  .box.pick-box { width: 100%; gap: 12px; padding: 16px 12px 12px; }
-  .pick-title { gap: 10px; }
-  .ico-tile.pick-ico { --tile: 40px; border-radius: 13px; }
-  .box.pick-box .pick-head h2 { font-size: 28px; }
-  .pick-cards { grid-auto-flow: row; grid-auto-columns: auto; grid-auto-rows: max-content; grid-template-columns: minmax(0, 1fr); gap: 10px;
-    margin: -8px -10px -10px; padding: 10px 10px 12px; }
+  .box.pick-box { gap: 10px; }
+  .pick-title { gap: 8px; }
+  .ico-tile.pick-ico { --tile: 36px; border-radius: 11px; }
+  .box.pick-box .pick-head h2 { font-size: 24px; }
+  .pick-cards { grid-auto-flow: row; grid-auto-columns: auto; grid-auto-rows: max-content; grid-template-columns: minmax(0, 1fr); gap: 8px;
+    margin: -8px -10px -10px; padding: 8px 10px 10px; }
   .card.pick-card {
-    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 14px;
-    padding: 12px 14px 12px 12px; text-align: left; border-radius: 18px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 12px;
+    padding: 10px 12px 10px 10px; text-align: left; border-radius: 16px;
     background-image: linear-gradient(90deg, rgba(61, 125, 202, .2), transparent 55%);
     background-image: linear-gradient(90deg, color-mix(in srgb, var(--pc) 22%, transparent), transparent 55%);
   }
-  .pick-card .ico-tile.pc-ico { --tile: 68px; border-radius: 20px; }
-  .pick-card .pc-badge { min-height: 20px; padding: 1px 8px; font-size: 11px; }
-  .pick-card .pc-txt { align-items: flex-start; gap: 4px; }
-  .card.pick-card .nm { font-size: 18px; }
+  .pick-card .ico-tile.pc-ico { --tile: 64px; border-radius: 19px; }
+  .pick-card .pc-txt { align-items: flex-start; gap: 3px; }
+  .card.pick-card .nm { font-size: 16px; }
   .pick-card .pc-chips { justify-content: flex-start; }
-  .card.pick-card .ds { line-height: 1.38; }
+  .card.pick-card .ds { font-size: 13px; line-height: 1.36; }
   .card.pick-card .key { left: auto; right: 10px; }
   .pick-foot > .btn { flex: 1 1 100%; }
 }
+/* Móviles altos de pie: sobra sitio, así que las cartas respiran un poco más. */
+@media (max-width: 599px) and (min-height: 760px) {
+  .box.pick-box { gap: 14px; }
+  :is(#scr-levelup, #scr-item, #scr-bond) > .box.pick-box { padding-top: max(20px, var(--sa-t)); }
+  .box.pick-box .pick-head h2 { font-size: 26px; }
+  .pick-cards { gap: 10px; }
+  .card.pick-card { padding: 12px 14px 12px 12px; }
+  .card.pick-card .nm { font-size: 17px; }
+  .card.pick-card .ds { font-size: 14px; }
+}
 /* Móvil tumbado: cabecera en una línea y el pie arriba a la derecha; las cartas, con todo el alto. */
 @media (max-height: 520px) {
-  .box.pick-box { gap: 8px; padding: 10px 14px 12px; text-align: left; }
-  .pick-head { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-height: 44px; }
+  :is(#scr-levelup, #scr-item, #scr-bond) > .box.pick-box { gap: 8px; text-align: left;
+    padding: max(8px, var(--sa-t)) max(14px, var(--sa-r)) max(10px, var(--sa-b)) max(14px, var(--sa-l)); }
+  .pick-head { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-height: 40px; }
   .pick-box:has(> .pick-foot > :not(.hidden)) > .pick-head { padding-right: min(46%, 320px); }
   .pick-title { gap: 8px; }
-  .ico-tile.pick-ico { --tile: 36px; border-radius: 11px; }
-  .box.pick-box .pick-head h2 { font-size: 22px; }
+  .ico-tile.pick-ico { --tile: 32px; border-radius: 10px; }
+  .box.pick-box .pick-head h2 { font-size: 20px; }
   .pick-head .sub { font-size: var(--fs-s); }
   #scr-bond .bond-hint { display: none; }
   .bond-step { font-size: var(--fs-s); }
-  .pick-foot { position: absolute; z-index: 2; top: 10px; right: 14px; max-width: 46%; justify-content: flex-end; }
+  .pick-foot { position: absolute; z-index: 2; top: max(8px, var(--sa-t)); right: max(14px, var(--sa-r)); max-width: 46%; justify-content: flex-end; }
   .pick-wait { padding: 4px 12px; font-size: var(--fs-s); }
   /* En grupo, «Cambiar opciones» y la espera juntos no caben arriba (se montaban
      sobre las cartas): mientras estén los dos, el pie vuelve abajo, en su sitio. */
@@ -3309,12 +3876,11 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
     position: static; max-width: none; justify-content: center; }
   .pick-box:has(#lvl-reroll:not(.hidden)):has(#lvl-wait:not(.hidden):not(:empty)) > .pick-head { padding-right: 0; }
   .pick-cards { gap: 8px; margin: -6px -12px -10px; padding: 8px 12px 12px; }
-  .card.pick-card { gap: 8px; padding: 12px 10px; border-radius: 16px; }
+  .card.pick-card { gap: 6px; padding: 10px 8px; border-radius: 14px; }
   .pick-card .ico-tile.pc-ico { --tile: 64px; border-radius: 19px; }
-  .pick-card .pc-badge { min-height: 20px; padding: 1px 8px; font-size: 11px; }
-  .pick-card .pc-txt { gap: 4px; }
-  .card.pick-card .nm { font-size: 16px; }
-  .card.pick-card .ds { font-size: 13px; line-height: 1.32; }
+  .pick-card .pc-txt { gap: 3px; }
+  .card.pick-card .nm { font-size: 15px; }
+  .card.pick-card .ds { font-size: 12.5px; line-height: 1.32; }
 }
 
 /* ---- Lista de ataques (pausa y resumen, movesTable en run-ui.js) ---- */
@@ -3394,19 +3960,38 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 .own-card .badge { flex: none; }
 #pause-sound { max-width: none; margin: 0; }
 #pause-sound .snd-row { grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr); }
+/* Móvil (de pie y tumbado): tarjetas, filas y cifras de la pausa y del resumen más compactas. */
+@media (max-width: 599px), (max-height: 520px) {
+  .mv-legend { margin-bottom: 4px; }
+  .mv-list { gap: 5px; }
+  .mv-row { gap: 4px 8px; padding: 6px 8px 6px 6px; }
+  .mv-name > b { font-size: 14px; }
+  .mv-num b { font-size: 15px; }
+  #scr-pause .pause-body { padding-top: 12px; }
+  .pause-cols { column-gap: 12px; }
+  .ps-card { margin-bottom: 10px; padding: 12px; border-radius: 14px; }
+  .box .ps-card h3 { margin-bottom: 8px; }
+  .st-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 5px; }
+  .st-tile { gap: 6px; padding: 4px 6px 4px 4px; }
+  .st-tile b { font-size: 14px; }
+  .ps-item { gap: 10px; margin-bottom: 8px; }
+  .ps-item b { font-size: 15px; }
+  .own-grid { gap: 5px; }
+  .own-card b { font-size: 13px; }
+}
 /* Móvil de pie: hoja a pantalla completa; título y pistas arriba, botones abajo (a mano del pulgar). */
 @media (max-width: 599px) and (min-height: 521px) {
   #scr-pause .pause-head { display: contents; }
   #scr-pause .pause-head > h2 {
     order: 0; flex: none; margin: 0; font-size: var(--fs-2xl);
-    padding: max(14px, var(--sa-t)) max(16px, var(--sa-r)) 4px max(16px, var(--sa-l));
+    padding: max(10px, var(--sa-t)) max(12px, var(--sa-r)) 2px max(12px, var(--sa-l));
   }
-  #scr-pause .pause-hint { order: 1; flex: none; padding: 0 max(16px, var(--sa-r)) 10px max(16px, var(--sa-l)); border-bottom: 1px solid var(--line-1); }
-  #scr-pause .pause-body { order: 2; padding-bottom: 14px; }
+  #scr-pause .pause-hint { order: 1; flex: none; padding: 0 max(12px, var(--sa-r)) 8px max(12px, var(--sa-l)); border-bottom: 1px solid var(--line-1); }
+  #scr-pause .pause-body { order: 2; padding-bottom: 12px; }   /* (la zona segura de abajo la salvan los botones) */
   #scr-pause .pause-acts {
     order: 3; flex: none; margin: 0;
     display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "quit set" "go go"; gap: 8px;
-    padding: 10px max(14px, var(--sa-r)) max(10px, var(--sa-b)) max(14px, var(--sa-l));
+    padding: 8px max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l));
     border-top: 1px solid var(--line-1); background: rgba(6, 12, 30, .45);
   }
   #btn-quit { grid-area: quit; }
@@ -3415,9 +4000,9 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   #scr-pause .pause-acts .btn { min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; }
 }
 @media (max-height: 520px) {
-  .pause-hint p { font-size: var(--fs-xs); }
+  .pause-hint p { font-size: var(--fs-s); }   /* es una frase: 12 px en el móvil */
   #scr-pause .pause-body { padding-top: 10px; }
-  .ps-card { padding: 10px 12px; margin-bottom: 10px; }
+  .ps-card { padding: 10px 12px; }
 }
 
 /* ---- Resumen final ---- */
@@ -3491,32 +4076,58 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 #scr-over .support-ask .x { position: absolute; top: 6px; right: 6px; }
 .over-foot { justify-content: center; }
 .over-foot > #btn-again { min-width: min(340px, 100%); }
+/* Móvil (de pie y tumbado): a pantalla completa y opaco (4b), con el mismo halo
+   arriba; baldosas, monedas y bloques más compactos. */
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-over > .over-box { background: radial-gradient(90% 260px at 50% 0%, rgba(255, 203, 5, .16), transparent 70%), var(--surface-solid); }
+  #scr-over.is-dead > .over-box { background: radial-gradient(90% 260px at 50% 0%, rgba(238, 59, 59, .2), transparent 70%), var(--surface-solid); }
+  .over-stats { column-gap: 12px; }
+  .over-stats > * { margin-bottom: 10px; }
+  .ov-tiles { gap: 6px; }
+  .ov-tile { padding: 8px 2px 7px; border-radius: 14px; }
+  .ov-tile > .ico-tile { margin-bottom: 2px; }
+  .ov-judge { gap: 10px; padding: 8px 12px; border-radius: 14px; }
+  .ov-judge b { font-size: 16px; }
+  .ov-coins { gap: 8px 12px; padding: 12px; border-radius: 14px; }
+  .ov-tk b { font-size: 16px; }
+  .ov-sec { padding: 12px; border-radius: 14px; }
+  .box .ov-sec h3 { margin-bottom: 8px; }
+  .caught-row { gap: 8px; }
+  .over-save { padding: 8px 10px; border-radius: 14px; }
+  #scr-over .support-ask { gap: 8px 10px; padding: 10px 50px 10px 10px; border-radius: 14px; }
+}
 @media (max-width: 599px) and (min-height: 521px) {
-  .over-hero { padding: max(18px, calc(var(--sa-t) + 6px)) 4px 14px; }
-  .ico-tile.over-ico { --tile: 76px; }
-  .box #over-title { font-size: 32px; }
-  .ov-tile > b { font-size: 18px; }
-  .ov-dmg .ov-tile > b { font-size: 16px; }
-  .ov-big { font-size: 30px; }
+  .over-hero { padding: max(12px, calc(var(--sa-t) + 4px)) 4px 12px; }
+  .ico-tile.over-ico { --tile: 64px; margin-bottom: 6px; }
+  .box #over-title { font-size: 28px; }
+  .over-record { margin-top: 6px; padding: 3px 12px; }
+  .ov-tile > b { font-size: 17px; }
+  .ov-dmg .ov-tile > b { font-size: 15px; }
+  .ov-big { font-size: 26px; }
+}
+/* Móviles altos de pie: el título respira un poco más. */
+@media (max-width: 599px) and (min-height: 760px) {
+  .over-hero { padding-top: max(20px, calc(var(--sa-t) + 8px)); padding-bottom: 16px; }
+  .ico-tile.over-ico { --tile: 72px; margin-bottom: 8px; }
+  .box #over-title { font-size: 30px; }
 }
 /* Móvil tumbado: título en una línea con su icono y «Volver al menú» sin el tamaño grande. */
 @media (max-height: 520px) {
   .over-hero {
     display: grid; grid-template-columns: auto auto; grid-template-areas: "ico eye" "ico title" "ico rec";
-    justify-content: center; align-items: center; column-gap: 14px; row-gap: 0; padding: 10px 4px; text-align: left;
+    justify-content: center; align-items: center; column-gap: 12px; row-gap: 0; padding: max(6px, var(--sa-t)) 4px 8px; text-align: left;
   }
-  .ico-tile.over-ico { grid-area: ico; --tile: 68px; margin: 0; }
+  .ico-tile.over-ico { grid-area: ico; --tile: 56px; margin: 0; }
   .over-hero .eyebrow { grid-area: eye; }
-  .box #over-title { grid-area: title; font-size: 26px; }
+  .box #over-title { grid-area: title; font-size: 22px; }
   .over-record { grid-area: rec; justify-self: start; margin: 4px 0 0; padding: 2px 10px; font-size: var(--fs-s); }
-  .over-stats > * { margin-bottom: 10px; }
   /* En 667×375 cada baldosa mide unos 69 px: la etiqueta a 11 px para que «Derrotados» no se parta. */
-  .ov-tile { padding: 8px 2px 7px; }
   .ov-tile > span:last-child { font-size: 11px; }
-  .ov-tile > b { font-size: 17px; }
-  .ov-dmg .ov-tile > b { font-size: 15px; }
-  .ov-big { font-size: 28px; }
-  .btn.big#btn-again { padding: 8px 22px; font-size: 17px; line-height: 22px; border-radius: var(--rad-m); }
+  .ov-tile > b { font-size: 16px; }
+  .ov-dmg .ov-tile > b { font-size: 14px; }
+  .ov-big { font-size: 24px; }
+  /* 40 px de alto (9 + 20 + 9 + borde), lo que pide el dedo en el móvil (--tap). */
+  .btn.big#btn-again { padding: 9px 22px; font-size: 17px; line-height: 20px; border-radius: var(--rad-m); }
 }
 
 /* ---- Colocar los botones (layout-ui.js): por delante de Ajustes ----
@@ -3574,20 +4185,40 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 .lay-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .lay-btns > .btn { flex: 1 1 auto; min-width: 0; padding-left: 12px; padding-right: 12px; white-space: nowrap; }
 .lay-btns .ui-svg { width: 18px; height: 18px; }
+/* Móvil: el panel sigue siendo una tarjeta (no tapa lo que se arrastra; sección 4b), algo más compacta. */
+@media (max-width: 599px), (max-height: 520px) {
+  .box.lay-panel { padding: 12px 14px; border-radius: var(--rad-l); }
+  .lay-sub { margin-bottom: 6px; }
+  .lay-turn { margin-bottom: 8px; padding: 5px 10px; font-size: var(--fs-s); }
+  .lay-row > b { font-size: 14px; }
+  .lay-btns { margin-top: 10px; }
+}
+/* Móvil de pie: arriba, debajo de la pausa (a 34 px del borde), y no en medio: con
+   el joystick fijo (en medio, al 72 % del alto) el panel tapaba su etiqueta y
+   la mitad de arriba del joystick. En los altos, algo más abajo. */
+@media (max-width: 599px) and (min-height: 521px) {
+  .box.lay-panel { top: max(calc(var(--sa-t) + 62px), calc(30% - 140px)); transform: translateX(-50%);
+    width: min(380px, calc(100% - 24px)); animation: pop-x var(--t-med) var(--ease); }
+}
+/* Móvil tumbado: arriba, entre el joystick fijo (a la izquierda, al 14 % del ancho y
+   56 px de radio) y la pausa (arriba a la derecha); centrado tapaba el borde del
+   joystick y la etiqueta «Ataques» se montaba sobre «Restablecer». */
 @media (max-height: 520px) {
-  /* Centrado del todo: con los botones en dos líneas (francés...), al 42 % tocaba el borde de arriba. */
-  .box.lay-panel { top: 50%; width: min(420px, calc(100% - 32px)); padding: 10px 14px 12px; }
-  .lay-turn { margin-bottom: 6px; padding: 4px 8px; font-size: var(--fs-xs); }
+  .box.lay-panel { top: max(8px, var(--sa-t)); left: calc(57% + 7px); transform: translateX(-50%);
+    width: min(440px, calc(86% - 126px)); padding: 10px 14px 12px; animation: pop-x var(--t-med) var(--ease); }
+  .lay-turn { margin-bottom: 6px; padding: 4px 8px; font-size: var(--fs-s); }
   .lay-btns { margin-top: 8px; }
 }
+/* Muy bajos (iPhone SE de 320 px de alto): sin la explicación de Flotante / Fijo, para no taparle la barra de ataques. */
+@media (max-height: 340px) {
+  .lay-help { display: none; }
+}
 
-/* ---- Táctil: lo que se toca en estas pantallas mide 44 px (como en las de menú) ---- */
-body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) :is(.chip, .seg button) { min-height: 44px; }
-body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) .btn.small { padding-top: 11px; padding-bottom: 11px; line-height: 20px; }
+/* ---- Táctil: lo que se toca en estas pantallas mide --tap (44 px; 40 en el móvil),
+   como en las de menú. El .btn normal ya lo mide (sección 5). ---- */
+body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) :is(.chip, .seg button) { min-height: var(--tap); }
+body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) .btn.small {
+  padding-top: calc(var(--tap) / 2 - 11px); padding-bottom: calc(var(--tap) / 2 - 11px); line-height: 20px; }
 body.touch #pause-sound input[type=range] { height: 44px; background: linear-gradient(transparent 18px, var(--sunk) 18px 26px, transparent 26px); }
 body.touch #pause-sound input[type=range]::-webkit-slider-thumb { width: 26px; height: 26px; }
 body.touch #pause-sound input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
-@media (max-height: 520px) {
-  body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) .btn:not(.big):not(.small),
-  body.touch .btn.big#btn-again { padding-top: 11px; padding-bottom: 11px; }
-}

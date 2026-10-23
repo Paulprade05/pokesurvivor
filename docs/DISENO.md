@@ -49,6 +49,7 @@ Usa siempre la variable, nunca el valor suelto.
 - `--font-display` = **Fredoka** (títulos, botones, números, nombres de Pokémon, pestañas).
 - En chino, ambas llevan detrás las fuentes del sistema (PingFang, Microsoft YaHei/JhengHei, Noto Sans CJK): no hay que hacer nada.
 - Escala: `--fs-xs` 12 · `--fs-s` 13 · `--fs-m` 15 · `--fs-l` 18 · `--fs-xl` 22 · `--fs-2xl` 26 · `--fs-3xl` 34 px. **Nunca menos de 11 px.**
+  En el móvil (modo compacto, §16) la base los baja solos: 11 · 12 · 14 · 16 · 19 · 22 · 28 px, y la letra del `body`, de 16 a 15.
 - Pesos: Fredoka 600 (títulos, botones) y 700 (logotipo, cifras gordas); Nunito 400 (texto), 600-700 (etiquetas), 800 (`<b>`).
 - Cifras que cambian (monedas, tiempos): `font-variant-numeric: tabular-nums`.
 
@@ -75,9 +76,9 @@ deba ir encima necesita un z-index mayor, no sólo ir después en el HTML.
 ### Zonas seguras y barra
 
 - `--sa-t`, `--sa-r`, `--sa-b`, `--sa-l`: `env(safe-area-inset-*)` (muesca, isla, barra de inicio). Úsalas con `max()`: `padding-bottom: max(12px, var(--sa-b))`.
-- `--tap` 44 px: tamaño mínimo de lo que se toca con el dedo.
-- `--ctl`: alto de los botones de la barra (40 con ratón, 44 táctil).
-- `--bar-h`: hueco que dejan las pantallas que enseñan la barra (se suma a `--sa-t`). Lo calcula la base; no lo cambies.
+- `--tap` 44 px (40 en el móvil): tamaño mínimo de lo que se toca con el dedo. Úsalo en vez de escribir 44.
+- `--ctl`: alto de los botones de la barra (40 con ratón, 44 táctil; 40 en el móvil).
+- `--bar-h`: hueco que dejan las pantallas que enseñan la barra (se suma a `--sa-t`; 52 en el móvil). Lo calcula la base; no lo cambies.
 
 ---
 
@@ -87,7 +88,7 @@ deba ir encima necesita un z-index mayor, no sólo ir después en el HTML.
 <section id="scr-x" class="scr dim under-bar hidden">  …  </section>
 ```
 
-- `.scr`: capa fija a pantalla completa, contenido centrado, relleno con las zonas seguras.
+- `.scr`: capa fija a pantalla completa, contenido centrado, relleno con las zonas seguras. En el móvil, su panel la ocupa entera (§16).
 - `.dim`: velo azul noche (el mundo se sigue viendo). Todas las pantallas de menú lo llevan; el menú principal no.
 - `.under-bar`: la pantalla deja ver la barra de arriba (monedas, tickets): se abre con `G.UI.show(id, true)` y empieza debajo de la barra. Hoy además van por id: `#scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod`.
 - `.modal`: ventana que va por delante de la barra y la **esconde** (`z 35`). Hoy por id: `#scr-news, #scr-recover, #scr-savenote, #scr-profile, #scr-nick` (y Ajustes, Apoyar, Aviso legal, Instalar, Colocar botones con su propio z-index). Una ventana nueva de este tipo: `class="scr dim modal"`.
@@ -148,8 +149,8 @@ Cómo se comporta (ya lo hace la base, no hay que añadir CSS):
 | Pantalla | Comportamiento |
 |---|---|
 | Escritorio / tableta | Panel centrado. Ancho: 720 px; `.wide` 1040; `.narrow` 480. Alto: lo que ocupe, como mucho 880 px (`.tall`: siempre 880). El cuerpo se desplaza. |
-| Móvil de pie (≤ 599 px de ancho) | A **pantalla completa**: sin bordes ni márgenes; si la pantalla es `.under-bar`, empieza debajo de la barra con las esquinas de arriba redondeadas; si no, la cabecera baja hasta la zona segura. El pie respeta la barra de inicio. Los botones del pie se reparten el ancho. Entra deslizándose desde abajo. |
-| Móvil tumbado (≤ 520 px de alto) | Ocupa todo el alto, cabecera compacta (48 px, título 18 px, sin `.sub`). |
+| Móvil de pie (≤ 599 px de ancho) | A **pantalla completa**, de borde a borde: sin radio, borde ni sombra y opaca. Si la pantalla es `.under-bar`, empieza debajo de la barra y la pantalla entera es opaca (barra + hoja = una página); si no, la cabecera baja hasta la zona segura. Cabecera de 48 px (título 19 px), relleno de 12 px. El pie respeta la barra de inicio y sus botones se reparten el ancho. Entra deslizándose desde abajo. |
+| Móvil tumbado (≤ 520 px de alto) | Igual, a pantalla completa y de borde a borde (las zonas seguras de los lados van por dentro); la cabecera, sin `.sub`. |
 
 Reglas:
 - El botón de volver va **el primero** de la cabecera, como `icon-btn` con `data-ico="back"` y `aria-label="Volver"` (el mando lo encuentra solo: `data-back` o un id que acabe en `-back` / `-close`). Para cerrar una ventana, `data-ico="close"` y `aria-label="Cerrar"`.
@@ -168,8 +169,10 @@ Reglas:
 | `.btn.ghost` | Transparente con borde | Terciaria: Volver, Cancelar, Ahora no. |
 | `.btn.danger` | Rojo | Borrar, abandonar. |
 | `.btn.google` | Blanco | Entrar con Google. |
-| `.small` | 34 px (44 en táctil) | Botones de fila (precio, «Usar»). |
-| `.big` | 58 px, 20 px de letra | Acción principal grande (login, resultado). |
+| `.small` | 34 px (44 en táctil; en el móvil 32, y 40 en táctil) | Botones de fila (precio, «Usar»). |
+| `.big` | 58 px, 20 px de letra (en el móvil 48 px y 18) | Acción principal grande (login, resultado). |
+
+El `.btn` normal mide 44 px (40 en el móvil, con ratón y con dedo).
 | `.block` | Todo el ancho | En columnas y pies. |
 | `.ic` | Icono + texto en fila, con hueco | Sólo si el texto va dentro de un `<span>` (con `.ic`, los espacios sueltos se pierden). |
 
@@ -308,9 +311,9 @@ sprites pixel art de objetos reales: pídelos a **30 o 60 px** (escala entera) y
 mételos en una baldosa:
 
 ```html
-<span class="ico-tile">${G.Icons.html('mint', 30)}</span>            <!-- 44 px, la normal -->
-<span class="ico-tile s">${G.Icons.html('coin', 30)}</span>          <!-- 36 px, en filas -->
-<span class="ico-tile l">${G.Icons.html('capsule', 60)}</span>       <!-- 76 px, fichas -->
+<span class="ico-tile">${G.Icons.html('mint', 30)}</span>            <!-- 44 px, la normal (38 en el móvil) -->
+<span class="ico-tile s">${G.Icons.html('coin', 30)}</span>          <!-- 36 px, en filas (32 en el móvil) -->
+<span class="ico-tile l">${G.Icons.html('capsule', 60)}</span>       <!-- 76 px, fichas (64 en el móvil) -->
 <span class="ico-tile round t-gold">…</span>                         <!-- redonda y teñida -->
 ```
 
@@ -353,13 +356,14 @@ en táctil.
 
 | Media query | Qué es |
 |---|---|
-| `(max-width: 599px) and (min-height: 521px)` | Móvil de pie: hojas a pantalla completa, rejillas de 3 columnas. |
+| `(max-width: 599px), (max-height: 520px)` | **Móvil** (de pie o tumbado): modo compacto y cada vista a pantalla completa (§16). |
+| `(max-width: 599px) and (min-height: 521px)` | Móvil de pie: rejillas de 3 columnas, botones del pie repartidos. |
 | `(orientation: portrait) and (min-height: 521px)` | Cualquier cosa de pie (móvil, tableta de pie, ventana estrecha): una columna. |
 | `(max-height: 520px)` | Móvil tumbado: todo compacto, cabeceras en una línea, dos columnas. |
 | `(max-height: 400px)` | Móviles muy bajos tumbados (iPhone SE). |
 | `(max-width: 899px), (max-height: 520px)` | Barra de arriba con menú «Más». |
 | `(min-width: 900px)` | Escritorio y tableta tumbada. |
-| `body.touch` | Se está usando el dedo (no depende del tamaño): 44 px mínimos. |
+| `body.touch` | Se está usando el dedo (no depende del tamaño): `--tap` mínimos (44 px; 40 en el móvil). |
 
 Reglas:
 - Móvil primero: escribe la versión de 375 px y amplía con `min-width`, o usa las de arriba.
@@ -407,3 +411,41 @@ Reglas:
 - **Resultado** (`#scr-result`): escenario 240×180 a tamaño real y `.res-acts`.
 - **Iniciales** (`#scr-starters`): la hoja completa.
 - **Menú principal** (`#scr-menu`): `.menu-item.play` (el botón «Jugar»), `.menu-list` de `.menu-item.tile` (baldosa: `.mi-ico` + `.mi-t` + `<small>`; con `small.gold` sale un punto rojo), `.menu-stats` (`.ms` con `<b>` y `<span>`), `.partner-stage` (canvas medido con `fitPartner`). `install-ui.js` pone su tarjeta la primera dentro de `.menu-right`.
+
+---
+
+## 16. Modo móvil: compacto y cada vista a pantalla completa (23-10-2026)
+
+**Qué es «móvil»**: `@media (max-width: 599px), (max-height: 520px)` (de pie con
+menos de 600 px de ancho, o tumbado con 520 px de alto o menos). Tableta (≥ 600 de
+ancho y > 520 de alto) y ordenador **no cambian**.
+
+**Compacto** (`style.css`, secciones 0, 5, 8, 9, 10, 12): la base baja un 10-15 %
+los tokens (`--fs-*`, ver §1), `--bar-h` a 52, `--ctl` y `--tap` a 40, `.btn` a 40 px
+(`.big` 48, `.small` 32), `.field` 40, `.list-row` 48, `.ico-tile` 38 (`.s` 32, `.l`
+64), `.card`, `.chip`, `.tab`, `.toast` y el menú «Más» algo más pequeños. Si tu
+pantalla usa los tokens, encoge sola. Mínimos que no se rompen: lo que se toca,
+40 px (`var(--tap)`); letra, 11 px (12 en párrafos).
+
+**Pantalla completa** (sección 4b): en el móvil, el panel de **toda** pantalla
+(`.scr > .box`, también las hojas `.sheet-box`) la ocupa entera, de borde a borde:
+`width/height: 100%`, sin `border-radius`, borde ni sombra, opaco
+(`--surface-solid`) y sin desenfoque. Las zonas seguras van por dentro: en el
+relleno del panel (14 px o la zona segura) o en la cabecera / cuerpo / pie de la
+hoja. Las pantallas que enseñan la barra (`.under-bar` y la lista por id de §2)
+empiezan debajo de ella, y la pantalla entera es opaca: barra + hoja se leen como
+una sola página.
+
+- **Se quedan como tarjeta**: los diálogos cortos `.box.mcard` (confirmar, recuperar
+  la cuenta, avisos, otra pestaña) y el panel del editor de botones (`.lay-panel`).
+  Los toasts y el aviso de logro no son pantallas. Un diálogo corto nuevo → `.mcard`.
+- **El contenido va arriba**, en su orden; si sobra sitio, que respire (más aire o
+  letra un poco mayor en los móviles altos), no centrado con huecos enormes. La
+  acción principal, abajo a mano del pulgar (pie de la hoja) si ya lo estaba.
+- **Tu sección no debe deshacerlo**: una regla por id que ponga `width: min(…)`,
+  `padding` a la `.scr` o `border-radius` al panel pesa más que la base y lo vuelve
+  a hacer recuadro. En el móvil, deja que mande la base (o pon tus medidas dentro
+  del panel, no en él).
+- Ejemplos: inicio de sesión (columna con las notas abajo), test, resultado (el
+  compañero en el centro y los botones abajo), iniciales (hoja) y el menú principal
+  (cabe entero en 375×667, estadísticas incluidas).
