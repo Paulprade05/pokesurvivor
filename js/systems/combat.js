@@ -38,11 +38,11 @@ G.Combat = (() => {
   }
 
   /**
-   * Recarga de m para este jugador (Bromista: los potenciadores se recargan antes, ver data/ability-fx.js).
+   * Recarga de m para este jugador (Bromista: los potenciadores y los escudos se recargan antes, ver data/ability-fx.js).
    * cdMin: tope propio de algunas familias (la ráfaga tiene que acabar antes de la siguiente).
    */
   function cooldown(pl, m) {
-    return Math.max(m.cdMin || 0.05, m.cd * pl.cdMul * (m.kind === 'buff' && pl.abil && pl.abil.statusCd || 1));
+    return Math.max(m.cdMin || 0.05, m.cd * pl.cdMul * ((m.kind === 'buff' || m.kind === 'ward') && pl.abil && pl.abil.statusCd || 1));
   }
 
   /** Pasivos con los que se hizo la instancia (Amplitud, Persistencia...): ver G.Moves.applyPassives. */
@@ -50,26 +50,55 @@ G.Combat = (() => {
 
   // ---------------- movimiento Z (24-10-2026, ver data/moves.js y data/shop.js) ----------------
   /*
-   * pl.z = { type, def, t: lo que le queda activo, cd: lo que le queda de recarga,
-   * m: el movimiento mientras dura, dealt: su daño de las veces anteriores, uses }
-   * o null si no tienes el Cristal Z de un tipo de tu compañero. Lo pone zOf la
-   * primera vez (sólo a tu jugador). Activo, se lanza con tickMove como los
-   * demás, a la vez que tu hueco: en grupo va por la red como un ataque más ('c',
-   * coop.js) y los compañeros lo ven con ghostCast (una versión anterior del
-   * juego no lo conoce y no lo pinta; el daño le llega igual al anfitrión).
+   * pl.z = { type: el cristal que va (o null: apagado), def, n: ataques de ese tipo,
+   * need / needN: el cristal más cercano y los que llevas de él (la pista del botón apagado),
+   * have: tus cristales con sus ataques, t: lo que le queda activo, cd: lo que le queda
+   * de recarga, m: el movimiento mientras dura, dealt: su daño de las veces anteriores,
+   * uses, hintAt: cuándo enseñar la pista } o null si tu Pokémon no lleva la Pulsera Z.
+   * Lo pone zOf la primera vez (sólo a tu jugador) y lo revisa cuando aprendes un
+   * ataque (data/shop.js, zState: Pulsera Z + Cristal Z del tipo T + 2 ataques de T).
+   * Mientras está activo no cambia de tipo; la recarga es una sola para todos.
+   * Activo, se lanza con tickMove como los demás, a la vez que tu hueco: en grupo va
+   * por la red como un ataque más ('c', coop.js) y los compañeros lo ven con
+   * ghostCast (una versión anterior del juego no lo conoce y no lo pinta; el daño
+   * le llega igual al anfitrión). Todo es local: la red no cambia.
    * Los relojes corren con la partida: se paran en la pausa y con las cartas.
    */
   function zOf(pl) {
     if (!pl || pl.remote) return null;
-    if (pl.z !== undefined) return pl.z;
-    const type = G.Shop && G.Shop.zFor ? G.Shop.zFor(pl.mon) : null;
-    return (pl.z = type && G.Moves.Z[type] ? { type, def: G.Moves.Z[type], t: 0, cd: 0, m: null, dealt: 0, uses: 0 } : null);
+    let z = pl.z;
+    if (z === undefined) {
+      z = pl.z = G.Shop && G.Shop.ringHas && G.Shop.ringHas(pl.mon && pl.mon.dex)
+        ? { type: null, def: null, n: 0, need: null, needN: 0, have: [], nm: -1, t: 0, cd: 0, m: null, dealt: 0, uses: 0, hintAt: 0 } : null;
+    }
+    // (Sólo cuando cambian tus ataques: aprender uno es lo único que lo mueve.)
+    if (z && z.nm !== pl.moves.length && !(z.t > 0)) zPick(pl, z);
+    return z;
+  }
+
+  /** Qué cristal va con los ataques que llevas (y, si ninguno, la pista). */
+  function zPick(pl, z) {
+    const first = z.nm < 0, was = z.type, wasN = z.needN, wasNeed = z.need, s = G.Shop.zState(pl.mon.dex, pl.moves, pl.mon.types);
+    z.nm = pl.moves.length;
+    z.type = s.type && G.Moves.Z[s.type] ? s.type : null;
+    z.def = z.type ? G.Moves.Z[z.type] : null;
+    z.n = s.n; z.need = s.need; z.needN = s.needN; z.have = s.have;
+    const now = performance.now();
+    if (z.type && z.type !== was) {
+      // ¡Listo! (al empezar ya listo, sin aviso: el botón late y basta)
+      if (!first) {
+        G.Spawner.say(G.I18n.f('¡Movimiento Z listo: {x}!', G.T(z.def.name)), 3, true, { prio: 2, col: G.U.TYPE_COLOR[z.type] });
+        G.Audio.sfx('confirm');
+      }
+    } else if (!z.type && (first || z.needN !== wasN || z.need !== wasNeed)) z.hintAt = now;   // la pista, un rato
   }
 
   /** Pulsar el Z (tecla, botón del HUD o del mando). → true si se ha activado. */
   function zUse(pl) {
     const z = zOf(pl);
     if (!z || pl.dead) return false;
+    // Apagado (falta el cristal o los 2 ataques de su tipo): la pista otra vez.
+    if (!z.type) { z.hintAt = performance.now(); G.Audio.sfx('error'); return false; }
     if (z.t > 0 || z.cd > 0) { G.Audio.sfx('error'); return false; }
     const m = G.Moves.zInstance(z.type, pl.level, pl.pass, G.Stats.sideOf(pl.mon));
     if (!m) return false;
@@ -91,7 +120,7 @@ G.Combat = (() => {
   /** Cada fotograma: lo lanza mientras dura y luego corre su recarga. */
   function zTick(dt, pl, now) {
     const z = zOf(pl);
-    if (!z) return;
+    if (!z || (!z.type && !(z.cd > 0))) return;
     if (z.t > 0) {
       z.t -= dt;
       if (z.m && !pl.dead) tickMove(dt, pl, z.m, now);
@@ -991,7 +1020,7 @@ G.Combat = (() => {
                     vx: Math.cos(a) * m.speed, vy: Math.sin(a) * m.speed, t: 0, life: m.dur || 6, r: m.size || 7,
                     tgt: null, look: 0, wa: a, hitLog: new Map(), ph: Math.random() * 6.2832, pad: 40, dmg,
                     // Paliza: copias pequeñas de tu Pokémon (su propia animación).
-                    anim: copy ? new G.Sprites.Animator(pl.dex, (pl.scale || 1) * 0.55, pl.shiny) : null });
+                    anim: copy ? new G.Sprites.Animator(pl.form || pl.dex, (pl.scale || 1) * 0.55, pl.shiny) : null });
     }
     trimOld('ally', pl, m.id, n);
     G.FX.ring(pl.x, pl.y, 4, pl.r * 3, col, 0.3, 2);
@@ -1947,7 +1976,9 @@ G.Combat = (() => {
       if (e.touchCd > 0 || e.behavior === 'thief' || e.stunT > 0) continue;
       e.touchCd = 0.55;
       e.strike(pl);
-      pl.hurt(e.dmg, e.atkType, false, e.cat);
+      // (touchHit: las habilidades saben que este golpe es cuerpo a cuerpo, ver data/ability-fx.js.)
+      pl.touchHit = true;
+      try { pl.hurt(e.dmg, e.atkType, false, e.cat); } finally { pl.touchHit = false; }
       if (pl.hasItem('rockyhelmet')) e.hurt(15 + pl.level * 4, '#9aa6b5', e.x - pl.x, e.y - pl.y, 80);
       if (pl.abil && pl.abil.contact && !pl.dead && !e.dead) pl.abil.contact(pl, e);     // Elec. Estática, Cuerpo Llama...
       const [nx, ny] = G.U.norm(e.x - pl.x, e.y - pl.y);

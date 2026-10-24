@@ -1,8 +1,9 @@
 /* ============ interact.js — altares, manantiales, cofres con candado y trampas ============
- * Los objetos los coloca world.js (raros, en el suelo libre); aquí está lo que
- * pasa al tocarlos. Todo se mira alrededor de TU Pokémon:
+ * Los objetos los coloca world.js (repartidos por bloques para que todas las
+ * partidas tengan parecidos, y uno de cada cerca del inicio; las trampas, sueltas);
+ * aquí está lo que pasa al tocarlos. Todo se mira alrededor de TU Pokémon:
  *
- *   altar     da un poder de 25 s (Furia, Rayo, Imán o Prisa) y se apaga
+ *   altar     torre de poder: da un poder de 25 s (Furia, Rayo, Imán o Prisa) y se apaga
  *   spring    cura mientras estás encima; se agota y se recarga sola
  *   bigchest  quédate a su lado CHEST_TIME segundos (mientras te atacan) y se
  *             abre: monedas, tickets y experiencia para subir un nivel

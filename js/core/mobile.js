@@ -11,6 +11,10 @@
  *     su sitio y, si el tamaño cambió sin avisar, se vuelve a medir (issue #91).
  *   - <html class="standalone"> si se abre desde la pantalla de inicio (o a
  *     pantalla completa) e "ios" en iPhone y iPad, por si el CSS lo necesita.
+ *   - Sólo horizontal en el móvil (24-10-2026): de pie, «Gira el móvil» a
+ *     pantalla completa (#rotate, html.need-rotate) y la partida en pausa; en la
+ *     app instalada o a pantalla completa, la orientación se bloquea en horizontal
+ *     donde el navegador lo deja. Tableta y ordenador, como siempre.
  * En PC sólo hace lo de la pantalla encendida (útil jugando con mando).
  */
 G.Mobile = (() => {
@@ -50,6 +54,53 @@ G.Mobile = (() => {
   }
   appSize();
   onMedia(appMode, appSize);
+
+  // ---------------- sólo horizontal en el móvil ----------------
+  // Móvil = táctil y con el lado corto de la pantalla de menos de 600 px (la
+  // pantalla, no la ventana: el iPad en Slide Over o en pantalla dividida no cuenta).
+  const shortSide = () => {
+    const a = Math.min(screen.width || 0, screen.height || 0);
+    return a > 0 ? a : Math.min(innerWidth, innerHeight);
+  };
+  const phone = () => TOUCH && shortSide() < 600;
+  const portraitMq = media('(orientation: portrait)');
+  const isPortrait = () => (portraitMq ? portraitMq.matches : innerHeight > innerWidth);
+  let rotOn = false;
+  /** De pie en el móvil: el aviso tapa todo y la partida se pausa (en grupo sigue: la llevan los demás). */
+  function rotateCheck() {
+    const on = phone() && isPortrait();
+    if (on === rotOn) return;
+    rotOn = on;
+    root.classList.toggle('need-rotate', on);
+    const el = document.getElementById('rotate');
+    if (el) el.setAttribute('aria-hidden', on ? 'false' : 'true');
+    if (!on) return;
+    const g = G.Game, run = !!g && g.state !== 'ui' && g.state !== 'over' && g.state !== undefined;
+    const coop = !!(G.Coop && G.Coop.active);
+    if (run && !coop && g.state === 'playing') g.togglePause();
+    root.classList.toggle('rotate-run', run && !coop);
+    root.classList.toggle('rotate-coop', run && coop);
+    // Fuera el teclado (si escribía algo) y el foco, que no se quede debajo del aviso.
+    const a = document.activeElement;
+    if (a && a !== document.body && a.blur) a.blur();
+  }
+  rotateCheck();
+  onMedia(portraitMq, rotateCheck);
+  addEventListener('resize', rotateCheck);
+  addEventListener('orientationchange', () => setTimeout(rotateCheck, 50));
+
+  // Bloquear en horizontal: sólo se puede con la app instalada o a pantalla completa
+  // (Android); en el resto (iPhone, Safari...) no existe o falla, y no pasa nada.
+  function lockLandscape() {
+    const so = screen.orientation;
+    if (!phone() || !so || typeof so.lock !== 'function') return;
+    if (!standalone() && !(document.fullscreenElement || document.webkitFullscreenElement)) return;
+    try { const p = so.lock('landscape'); if (p && p.catch) p.catch(() => {}); } catch (e) { /* nada */ }
+  }
+  lockLandscape();
+  onMedia(appMode, lockLandscape);
+  document.addEventListener('fullscreenchange', lockLandscape);
+  document.addEventListener('webkitfullscreenchange', lockLandscape);
 
   // ---------------- zoom, rebote y pulsación larga ----------------
   let touchAt = -1e9, lastInput = 0;
@@ -161,5 +212,5 @@ G.Mobile = (() => {
   // Al cerrar el teclado (salir del campo sin entrar en otro), la página a su sitio.
   document.addEventListener('focusout', e => { if (isField(e.target)) setTimeout(settle, 120); });
 
-  return { standalone, ios: IOS, get awake() { return !!lock; } };
+  return { standalone, ios: IOS, get awake() { return !!lock; }, /** ¿Está puesto «Gira el móvil»? */ get mustRotate() { return rotOn; } };
 })();

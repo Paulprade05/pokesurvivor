@@ -169,53 +169,147 @@ G.Tiles = (() => {
     };
   }
 
-  const H = (x, y, s) => G.U.hash(x, y, s);
+  /**
+   * El mismo hash que G.U.hash (mismos números), pero aquí dentro: es lo más
+   * llamado al hornear el mapa y así no busca G.U en cada píxel.
+   */
+  function H(x, y, s) {
+    let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 2246822519);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+
+  // Tramado ordenado (Bayer 4×4), en 0..1: pasa de un tono a otro sin manchas cuadradas.
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
+  const bay = (x, y) => BAYER[((y & 3) << 2) | (x & 3)];
+
+  /** Luminancia aproximada de un color hex (0..255). */
+  const lum = hex => { const [r, g, b] = rgb(hex); return r * 0.3 + g * 0.59 + b * 0.11; };
+  /** Colores ordenados de oscuro a claro (las paletas no siempre vienen en orden). */
+  const sortHex = list => list.slice().sort((a, b) => lum(a) - lum(b));
+  const ramp = list => sortHex(list).map(h => pack(h));
+
+  /**
+   * Campo suave (ruido de valor) con celdas de 2^bits px, continuo entre chunks:
+   * se evalúa en una rejilla que cubre el chunk (y un píxel de borde) y se
+   * interpola por píxel. f(gx, gy) en coordenadas globales de arte, 0..1.
+   */
+  function smoothField(gx0, gy0, W, bits, s) {
+    const cell = 1 << bits, m = cell - 1;
+    const cx0 = (gx0 - 1) >> bits, cy0 = (gy0 - 1) >> bits;
+    const gw = ((gx0 + W) >> bits) - cx0 + 2;
+    const grid = new Float32Array(gw * gw);
+    for (let j = 0; j < gw; j++) for (let i = 0; i < gw; i++) grid[j * gw + i] = H(cx0 + i, cy0 + j, s);
+    const sm = new Float32Array(cell);
+    for (let k = 0; k < cell; k++) { const u = k / cell; sm[k] = u * u * (3 - 2 * u); }
+    return (gx, gy) => {
+      const o = ((gy >> bits) - cy0) * gw + (gx >> bits) - cx0;
+      const u = sm[gx & m], v = sm[gy & m];
+      const a = grid[o], b = grid[o + 1], c = grid[o + gw], d = grid[o + gw + 1];
+      return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
+    };
+  }
+
+  /**
+   * Tono del suelo de todo el chunk (0..1, con el tramado ya puesto): manchas
+   * grandes (16 px) y medianas (8 px) del mismo ruido que smoothField, pero en
+   * un solo recorrido (el chunk empieza en múltiplo de 16: las celdas encajan).
+   */
+  function toneMap(gx0, gy0, W, s) {
+    // El campo es muy suave: se calcula cada 2 px (un cuarto del trabajo) y el
+    // tramado, que sí va píxel a píxel, se suma al leerlo (paintFloor).
+    const hw = W >> 1, out = new Float32Array(hw * hw);
+    addTone(out, hw, gx0, gy0, 3, 0.62, s + 41);    // celdas de 16 px (8 en la rejilla de 2 px)
+    addTone(out, hw, gx0, gy0, 2, 0.38, s + 42);    // celdas de 8 px
+    return out;
+  }
+  function addTone(out, hw, gx0, gy0, bits, k, s) {
+    const cell = 1 << bits, m = cell - 1, gw = (hw >> bits) + 1;
+    const cx0 = gx0 >> (bits + 1), cy0 = gy0 >> (bits + 1);
+    const grid = new Float32Array(gw * gw);
+    for (let j = 0; j < gw; j++) for (let i = 0; i < gw; i++) grid[j * gw + i] = H(cx0 + i, cy0 + j, s) * k;
+    const sm = new Float32Array(cell);
+    for (let q = 0; q < cell; q++) { const u = q / cell; sm[q] = u * u * (3 - 2 * u); }
+    for (let y = 0; y < hw; y++) {
+      const o = (y >> bits) * gw, v = sm[y & m], row = y * hw;
+      for (let x = 0; x < hw; x++) {
+        const p = o + (x >> bits), u = sm[x & m];
+        const a = grid[p], b = grid[p + 1], c = grid[p + gw], d = grid[p + gw + 1];
+        out[row + x] += (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
+      }
+    }
+  }
+
+  /** Colores empaquetados de un bioma (una vez por bioma). */
+  const palCache = new Map();
+  function palette(bi) {
+    let C = palCache.get(bi);
+    if (C) return C;
+    const B = BIOMES[bi];
+    const fl = sortHex(B.floor), dt = sortHex(B.dirt), wt = sortHex(B.wallTop);
+    C = {
+      floor: fl.map(h => pack(h)), dirt: dt.map(h => pack(h)), wallTop: wt.map(h => pack(h)),
+      wallFace: ramp(B.wallFace), flowers: B.flowers.map(h => pack(h)), rock: ramp(B.rock),
+      speck: pack(B.speck), light: pack(B.light), wallLight: pack(B.wallLight), wallEdge: pack(B.wallEdge),
+      wallFaceDark: pack(B.wallFaceDark), liq: pack(B.liq), liqDeep: pack(B.liqDeep), foam: pack(B.foam), shore: pack(B.shore),
+      liqLight: mixPack(B.liq, B.foam, 0.28),
+      // Sombra de contacto de las paredes sobre el suelo (fuerte y suave).
+      shade: mixPack(fl[0], B.wallFaceDark, 0.55), shade2: mixPack(fl[0], B.wallFaceDark, 0.22),
+      dirtEdge: mixPack(dt[0], B.speck, 0.55),
+      crack: mixPack(wt[0], B.wallEdge, 0.55), wallRim: mixPack(wt[2], B.wallLight, 0.6),
+      faceLight: mixPack(sortHex(B.wallFace)[1], B.wallTop[0], 0.45),
+      flowerMid: B.flowers.map(h => pack(lum(h) > 175 ? '#c8742c' : '#fff1a8'))
+    };
+    palCache.set(bi, C);
+    return C;
+  }
 
   // ---------------- chunk de suelo ----------------
 
   /**
-   * Pinta un chunk de n×n tiles. `at(tx,ty)` devuelve el tipo de terreno
-   * global ('floor' | 'wall' | 'liquid'), así el autotiling ve más allá del
-   * borde del chunk.
-   */
-  /**
-   * Máscara de tierra del chunk a resolución de píxel (más una fila por
-   * arriba para detectar bordes). El ruido se evalúa cada 4 px y se interpola:
-   * ~30 veces menos llamadas que evaluarlo píxel a píxel.
+   * Máscara de tierra del chunk a resolución de píxel (con una fila de más por
+   * arriba y por abajo para ver los bordes). El ruido se evalúa cada 4 px y se
+   * interpola: ~30 veces menos llamadas que evaluarlo píxel a píxel.
    */
   function dirtMask(gx0, gy0, W, field, seed) {
     const S = 4, gw = W / S + 3;
     const grid = new Float32Array(gw * gw);
     for (let j = 0; j < gw; j++) for (let i = 0; i < gw; i++)
       grid[j * gw + i] = field(gx0 + (i - 1) * S, gy0 + (j - 1) * S);
-    const mask = new Uint8Array(W * (W + 1));
-    for (let y = -1; y < W; y++) {
+    const mask = new Uint8Array(W * (W + 2));
+    // El temblor del borde va por bloques de 2×2 px: se calcula una vez por bloque
+    // (antes, una vez por píxel: 4 veces el mismo número).
+    const jit = new Float32Array(W >> 1);
+    for (let y = -1; y <= W; y++) {
+      if (y === -1 || !(y & 1)) for (let i = 0; i < W >> 1; i++) jit[i] = (H((gx0 >> 1) + i, (gy0 + y) >> 1, seed + 9) - 0.5) * 0.05;
       const fy = (y + S) / S, j = Math.floor(fy), v = fy - j;
       for (let x = 0; x < W; x++) {
         const fx = (x + S) / S, i = Math.floor(fx), u = fx - i;
         const a = grid[j * gw + i], b = grid[j * gw + i + 1];
         const c = grid[(j + 1) * gw + i], d = grid[(j + 1) * gw + i + 1];
-        let val = (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
-        val += (H((gx0 + x) >> 1, (gy0 + y) >> 1, seed + 9) - 0.5) * 0.05;
+        const val = (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v + jit[x >> 1];
         mask[(y + 1) * W + x] = val > 0.64 ? 1 : 0;
       }
     }
-    // dirtAt(x, y) en coordenadas locales del chunk (y puede ser -1).
-    return (x, y) => mask[(y + 1) * W + x] === 1;
+    // dirtAt(x, y) en coordenadas locales del chunk (y puede ser -1 o W); .mask: fila y en (y+1)·W.
+    const dirtAt = (x, y) => mask[(y + 1) * W + x] === 1;
+    dirtAt.mask = mask;
+    return dirtAt;
   }
 
+  /**
+   * Pinta un chunk de n×n tiles. `at(tx,ty)` devuelve el tipo de terreno
+   * global ('floor' | 'wall' | 'liquid'), así el autotiling ve más allá del
+   * borde del chunk. Se hornea una vez (y otra al cambiar de bioma): nada de esto
+   * cuesta por fotograma.
+   */
   function paintChunk(cx, cy, n, at, dirtField, bi, seed = 0) {
-    const B = BIOMES[bi];
     const P = Pix(n * T, n * T);
-    const C = {};
-    for (const k of ['floor', 'dirt', 'wallTop', 'wallFace', 'flowers', 'grass'])
-      C[k] = B[k].map(h => pack(h));
-    for (const k of ['speck', 'light', 'wallLight', 'wallEdge', 'wallFaceDark', 'liq', 'liqDeep', 'foam', 'shore'])
-      C[k] = pack(B[k]);
-    C.liqLight = mixPack(B.liq, B.foam, 0.28);
-
-    const tx0 = cx * n, ty0 = cy * n;
-    const dirtAt = dirtMask(tx0 * T, ty0 * T, n * T, dirtField, seed);
+    const C = palette(bi);
+    const tx0 = cx * n, ty0 = cy * n, gx0 = tx0 * T, gy0 = ty0 * T, W = n * T;
+    const dirtAt = dirtMask(gx0, gy0, W, dirtField, seed);
+    const F = { tone: toneMap(gx0, gy0, W, seed), W, rock: null, crack: null };
 
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
@@ -223,68 +317,117 @@ G.Tiles = (() => {
         const ox = i * T, oy = j * T;
         const kind = at(tx, ty);
 
-        // 1) Suelo bajo todo (las esquinas redondeadas de las paredes lo dejan ver).
-        paintFloor(P, C, ox, oy, tx, ty, dirtAt, at);
+        // 1) Suelo bajo todo (las esquinas redondeadas de paredes y agua lo dejan ver).
+        paintFloor(P, C, ox, oy, tx, ty, dirtAt, at, F, kind === 'floor');
 
-        if (kind === 'wall') paintWall(P, C, ox, oy, tx, ty, at);
-        else if (kind === 'liquid') paintLiquid(P, C, ox, oy, tx, ty, at);
+        if (kind === 'wall') {
+          if (!F.rock) { F.rock = smoothField(gx0, gy0, W, 2, seed + 43); F.crack = smoothField(gx0, gy0, W, 4, seed + 44); }
+          paintWall(P, C, ox, oy, tx, ty, at, F);
+        } else if (kind === 'liquid') paintLiquid(P, C, ox, oy, tx, ty, at);
       }
     }
     return P.canvas();
   }
 
-  function paintFloor(P, C, ox, oy, tx, ty, dirtAt, at) {
+  // Detalles del suelo: [dx, dy, color] (L luz, G hierba clara, D sombra, F flor,
+  // M centro de la flor, R0..R2 piedra de oscura a clara).
+  const TUFT = [[-1, -2, 'L'], [1, -2, 'L'], [0, -1, 'L'], [-1, -1, 'G'], [1, -1, 'G'], [-1, 0, 'D'], [0, 0, 'G'], [1, 0, 'D']];
+  const SPROUT = [[0, -1, 'L'], [1, -2, 'L'], [1, -1, 'G'], [0, 0, 'D']];
+  const FLOWER = [[0, -1, 'F'], [-1, 0, 'F'], [1, 0, 'F'], [0, 1, 'F'], [0, 0, 'M'], [1, 1, 'D'], [0, 2, 'D']];
+  const PEBBLE = [[0, 0, 'R2'], [1, 0, 'R1'], [0, 1, 'R1'], [1, 1, 'R0'], [2, 1, 'D'], [1, 2, 'D']];
+  const CRACK = [[0, 0, 'D'], [1, 1, 'D'], [2, 1, 'D'], [3, 2, 'D'], [1, 0, 'R1']];
+
+  function stamp(P, shape, x, y, cols) {
+    for (const [dx, dy, k] of shape) P.set(x + dx, y + dy, cols[k]);
+  }
+
+  function paintFloor(P, C, ox, oy, tx, ty, dirtAt, at, F, open) {
     let dirtCount = 0;
+    const mask = dirtAt.mask, W = F.W, tone = F.tone;
     for (let y = 0; y < T; y++) {
+      const gy = ty * T + y, ly = oy + y, mrow = (ly + 1) * W;
       for (let x = 0; x < T; x++) {
-        const gx = tx * T + x, gy = ty * T + y;
-        const lx = ox + x, ly = oy + y;           // coordenadas locales del chunk
-        const dirt = dirtAt(lx, ly);
-        if (dirt) dirtCount++;
+        const gx = tx * T + x, lx = ox + x;
+        const dirt = mask[mrow + lx] === 1;
         const pal = dirt ? C.dirt : C.floor;
-        // Tono por ruido suave + tramado por píxel.
-        const band = H(gx >> 3, gy >> 3, 11) * 0.7 + H(gx, gy, 12) * 0.5;
-        let col = pal[Math.min(pal.length - 1, Math.floor(band * pal.length / 1.2))];
+        // Tono suave con tramado: manchas grandes que se funden, sin cuadros ni ruido de sal y pimienta.
+        const v = tone[(ly >> 1) * (W >> 1) + (lx >> 1)] + (BAYER[((gy & 3) << 2) | (gx & 3)] - 0.5) * 0.16;
+        let col = v < 0.41 ? pal[0] : v > 0.6 ? pal[2] : pal[1];
         const r = H(gx, gy, 13);
-        if (r < 0.035) col = C.speck;
-        else if (r > 0.985) col = C.light;
-        // Borde de la tierra: labio oscuro arriba, hierba que la invade abajo.
-        if (dirt && !dirtAt(lx, ly - 1)) col = C.speck;
-        else if (!dirt && dirtAt(lx, ly - 1) && r < 0.5) col = C.light;
-        P.set(ox + x, oy + y, col);
+        if (dirt) {
+          dirtCount++;
+          if (r < 0.02) col = pal[0];
+          else if (r > 0.99) col = pal[2];
+          // Bordes de la tierra: labio en sombra arriba, borde iluminado abajo.
+          if (mask[mrow - W + lx] !== 1) col = C.dirtEdge;
+          else if (mask[mrow + W + lx] !== 1) col = pal[2];
+        } else {
+          if (r < 0.012) col = C.speck;
+          else if (r > 0.994) col = C.light;
+          else if (r < 0.6 && mask[mrow - W + lx] === 1) col = C.light;   // la hierba asoma sobre la tierra
+        }
+        P.set(lx, ly, col);
       }
     }
-    const dirt = dirtCount > T * T / 2;
-    // Sombra de contacto bajo las paredes que hay justo al norte.
-    if (at(tx, ty - 1) === 'wall') {
-      for (let x = 0; x < T; x++) { P.set(ox + x, oy, C.wallFaceDark); if ((x + ty) % 2) P.set(ox + x, oy + 1, C.speck); }
+    if (!open) return;
+
+    // Sombra de contacto de las paredes que hay al norte y al oeste (la luz viene de arriba a la izquierda).
+    const wn = at(tx, ty - 1) === 'wall', ww = at(tx - 1, ty) === 'wall';
+    if (wn) {
+      for (let x = 0; x < T; x++) {
+        const gx = tx * T + x;
+        P.set(ox + x, oy, C.shade);
+        P.set(ox + x, oy + 1, bay(gx, ty * T + 1) < 0.6 ? C.shade : C.shade2);
+        if (bay(gx, ty * T + 2) < 0.4) P.set(ox + x, oy + 2, C.shade2);
+      }
+    }
+    if (ww) {
+      for (let y = wn ? 2 : 0; y < T; y++) {
+        const gy = ty * T + y;
+        P.set(ox, oy + y, bay(tx * T, gy) < 0.7 ? C.shade2 : C.shade);
+        if (bay(tx * T + 1, gy) < 0.3) P.set(ox + 1, oy + y, C.shade2);
+      }
+    } else if (!wn && at(tx - 1, ty - 1) === 'wall') {
+      P.set(ox, oy, C.shade); P.set(ox + 1, oy, C.shade2); P.set(ox, oy + 1, C.shade2);
     }
 
-    // Detalles: matojo, piedrecita o flor.
+    // Detalles: matojo, flor, piedrecita (y algún brote suelto).
+    const cols = { L: C.light, G: C.floor[2], D: C.speck, F: 0, M: 0, R0: C.rock[0], R1: C.rock[1], R2: C.rock[2] };
     const d = H(tx, ty, 14);
     const dx = ox + 3 + Math.floor(H(tx, ty, 15) * 10), dy = oy + 4 + Math.floor(H(tx, ty, 16) * 9);
-    if (dirt) {
-      if (d < 0.22) { P.set(dx, dy, C.light); P.set(dx + 1, dy, C.light); P.set(dx, dy + 1, C.speck); P.set(dx + 1, dy + 1, C.speck); }
+    const lo = wn ? 3 : 0;                 // no pintar sobre la sombra de la pared
+    if (dirtCount > T * T / 2 || dirtAt(dx, dy)) {
+      cols.D = C.dirt[0];
+      if (dy - oy > lo + 1) {
+        if (d < 0.1) stamp(P, PEBBLE, dx, dy, cols);
+        else if (d < 0.17) { cols.R1 = C.dirt[2]; stamp(P, CRACK, dx - 1, dy, cols); }
+      }
       return;
     }
-    if (d < 0.18) {                         // matojo
-      P.set(dx, dy, C.light); P.set(dx - 1, dy - 1, C.light); P.set(dx + 1, dy - 1, C.light);
-      P.set(dx, dy - 2, C.light); P.set(dx, dy + 1, C.speck);
-    } else if (d < 0.26) {                  // flor
-      const fc = C.flowers[Math.floor(H(tx, ty, 17) * C.flowers.length)];
-      P.set(dx, dy - 1, fc); P.set(dx - 1, dy, fc); P.set(dx + 1, dy, fc); P.set(dx, dy + 1, fc);
-      P.set(dx, dy, C.light);
-    } else if (d < 0.32) {                  // piedrecita
-      P.set(dx, dy, C.light); P.set(dx + 1, dy, C.light); P.set(dx, dy + 1, C.speck); P.set(dx + 1, dy + 1, C.speck);
+    if (dy - oy > lo + 2) {
+      if (d < 0.16) stamp(P, TUFT, dx, dy, cols);
+      else if (d < 0.235) {
+        const f = Math.floor(H(tx, ty, 17) * C.flowers.length);
+        cols.F = C.flowers[f]; cols.M = C.flowerMid[f];
+        stamp(P, FLOWER, dx, dy - 1, cols);
+        if (H(tx, ty, 21) < 0.35) stamp(P, FLOWER, dx + 3, dy + 1, cols);   // a veces, dos juntas
+      } else if (d < 0.28) stamp(P, PEBBLE, dx, dy, cols);
+    }
+    const d2 = H(tx, ty, 18);
+    if (d2 < 0.22) {
+      const ex = ox + 2 + Math.floor(H(tx, ty, 19) * 12), ey = oy + 3 + lo + Math.floor(H(tx, ty, 20) * (11 - lo));
+      if (!dirtAt(ex, ey)) stamp(P, SPROUT, ex, ey, cols);
     }
   }
 
-  function paintWall(P, C, ox, oy, tx, ty, at) {
+  function paintWall(P, C, ox, oy, tx, ty, at, F) {
     const W = (x, y) => at(x, y) === 'wall';
     const n = W(tx, ty - 1), s = W(tx, ty + 1), w = W(tx - 1, ty), e = W(tx + 1, ty);
-    const FACE = s ? 0 : 6;                 // filas de cara frontal visibles
+    const FACE = s ? 0 : 8;                 // filas de cara frontal visibles (más alta: se ve el relieve)
+    const top = C.wallTop, face = C.wallFace;
 
     for (let y = 0; y < T; y++) {
+      const gy = ty * T + y;
       for (let x = 0; x < T; x++) {
         // Esquinas redondeadas exteriores: dejan ver el suelo.
         if (!n && !w && x + y < 3) continue;
@@ -292,24 +435,41 @@ G.Tiles = (() => {
         if (!s && !w && x + (T - 1 - y) < 2) continue;
         if (!s && !e && (T - 1 - x) + (T - 1 - y) < 2) continue;
 
-        const gx = tx * T + x, gy = ty * T + y;
+        const gx = tx * T + x;
         let col;
         if (y >= T - FACE) {
-          // Cara frontal: vetas verticales y base oscura.
+          // Cara frontal: borde en sombra, estratos verticales con luz a la izquierda y base oscura.
           const fy = y - (T - FACE);
-          col = C.wallFace[(x + (H(gx, 0, 21) < 0.5 ? 0 : 1)) % 3 === 0 ? 1 : 0];
+          const cut = H(gx, 0, 21) < 0.3, after = H(gx - 1, 0, 21) < 0.3;
+          col = cut ? face[0] : after ? C.faceLight : face[1];
           if (fy === 0) col = C.wallEdge;
+          else if (fy === 1) col = cut ? C.wallFaceDark : face[0];
           else if (y === T - 1) col = C.wallFaceDark;
-          else if (H(gx, gy, 22) < 0.08) col = C.wallFaceDark;
+          else if (fy === 3 && H(gx >> 2, ty, 26) < 0.35) col = face[0];          // grieta horizontal
+          else if (H(gx, gy, 22) < 0.06) col = C.wallFaceDark;
+          if (!w && x === 0 || !e && x === T - 1) col = C.wallFaceDark;
         } else {
-          // Cara superior con tramado.
-          col = C.wallTop[Math.floor(H(gx >> 1, gy >> 1, 23) * 2.2 + H(gx, gy, 24) * 0.8) % C.wallTop.length];
-          if (H(gx, gy, 25) < 0.05) col = C.wallLight;
-          // Bordes: luz al norte, contorno oscuro a los lados.
+          // Cara de arriba: losas de roca (separadas por la curva de nivel 0,5 de un
+          // ruido suave: grietas de 1 px), cada una con su tono y tramado.
+          const c = F.crack(gx, gy) - 0.5;
+          const v = F.rock(gx, gy) + (c > 0 ? 0.07 : -0.07) + (bay(gx, gy) - 0.5) * 0.22;
+          col = v < 0.38 ? top[0] : v > 0.64 ? top[2] : top[1];
+          if (c * (F.crack(gx - 1, gy) - 0.5) < 0 || c * (F.crack(gx, gy - 1) - 0.5) < 0) col = C.crack;
+          else {
+            const cu = F.crack(gx, gy - 1) - 0.5;
+            if (cu * (F.crack(gx, gy - 2) - 0.5) < 0) col = C.wallRim;    // canto iluminado bajo la grieta
+            else if (H(gx, gy, 25) < 0.012) col = C.wallLight;
+          }
+          // Bordes: contorno oscuro fuera, canto con luz dentro (más a la izquierda y arriba).
+          const edgeY = T - FACE - 1;
           if (!n && y === 0) col = C.wallEdge;
           else if (!n && y === 1) col = C.wallLight;
+          else if (!n && y === 2 && bay(gx, gy) < 0.5) col = C.wallRim;
+          if (!s && y === edgeY) col = C.wallRim;
           if (!w && x === 0) col = C.wallEdge;
+          else if (!w && x === 1 && y > 0) col = C.wallRim;
           if (!e && x === T - 1) col = C.wallEdge;
+          else if (!e && x === T - 2 && y > 1 && y < edgeY) col = top[0];
         }
         P.set(ox + x, oy + y, col);
       }
@@ -320,42 +480,58 @@ G.Tiles = (() => {
     const L = (x, y) => at(x, y) === 'liquid';
     const n = L(tx, ty - 1), s = L(tx, ty + 1), w = L(tx - 1, ty), e = L(tx + 1, ty);
     const nw = L(tx - 1, ty - 1), ne = L(tx + 1, ty - 1), sw = L(tx - 1, ty + 1), se = L(tx + 1, ty + 1);
-    const BIG = 99;
+    const BIG = 99, RC = 4.5;               // radio de las esquinas de fuera
 
     for (let y = 0; y < T; y++) {
+      const gy = ty * T + y;
       for (let x = 0; x < T; x++) {
-        // Esquinas exteriores redondeadas: dejan ver el suelo de debajo.
-        if (!n && !w && x + y < 3) continue;
-        if (!n && !e && (T - 1 - x) + y < 3) continue;
-        if (!s && !w && x + (T - 1 - y) < 3) continue;
-        if (!s && !e && (T - 1 - x) + (T - 1 - y) < 3) continue;
-
-        // Distancia a la orilla dentro del tile (incluye esquinas interiores).
+        // Distancia a la orilla dentro del tile (incluye esquinas interiores y exteriores redondeadas).
         let d = Math.min(n ? BIG : y, s ? BIG : T - 1 - y, w ? BIG : x, e ? BIG : T - 1 - x);
         if (n && w && !nw) d = Math.min(d, Math.hypot(x, y) - 0.5);
         if (n && e && !ne) d = Math.min(d, Math.hypot(T - 1 - x, y) - 0.5);
         if (s && w && !sw) d = Math.min(d, Math.hypot(x, T - 1 - y) - 0.5);
         if (s && e && !se) d = Math.min(d, Math.hypot(T - 1 - x, T - 1 - y) - 0.5);
+        const xr = T - 1 - x, yr = T - 1 - y;
+        if (!n && !w && x < RC && y < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - x, RC - 0.5 - y));
+        if (!n && !e && xr < RC && y < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - xr, RC - 0.5 - y));
+        if (!s && !w && x < RC && yr < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - x, RC - 0.5 - yr));
+        if (!s && !e && xr < RC && yr < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - xr, RC - 0.5 - yr));
 
-        const gx = tx * T + x, gy = ty * T + y;
-        const r = H(gx, gy, 31);
+        const gx = tx * T + x;
+        // Orilla irregular (sólo junto a tierra): se come un píxel aquí y allá.
+        if (d < 3) d += (H(gx >> 1, gy >> 1, 35) - 0.5) * 1.1;
+        if (d < 0) continue;                 // se ve el suelo de debajo
+
         let col;
-        if (d < 1) col = C.shore;                       // labio de tierra
-        else if (d < 2) col = C.foam;                   // espuma
-        else if (d < 4) col = C.liqLight;               // agua somera
-        else if (d < 6) col = r < 0.5 ? C.liq : C.liqLight;
-        else col = d < 8 && r < 0.5 ? C.liq : C.liqDeep;
-        if (d >= 6 && d < BIG && r < 0.08) col = C.liq;
-
-        // Olas sueltas: rayitas horizontales de 3 px, pocas.
-        if (d >= 3 && H(gx >> 2, gy, 33) < 0.045 && (gx & 3) !== 3) col = C.liqLight;
-        if (d >= 3 && H(gx, gy, 34) < 0.004) col = C.foam;
+        if (d < 1) col = C.shore;                                       // labio de tierra mojada
+        else if (d < 2) col = H(gx, gy, 36) < 0.2 ? C.liqLight : C.foam; // espuma, a trozos
+        else {
+          // De somero a hondo con tramado (sin el ruido de antes).
+          const k = (d - 2) / 5 + (bay(gx, gy) - 0.5) * 0.4;
+          col = k < 0.3 ? C.liqLight : k < 0.78 ? C.liq : C.liqDeep;
+        }
+        if (d >= 3.5) {
+          // Olas: arquitos de 4 px repartidos en celdas de 8×6.
+          const cw = gx >> 3, ch = Math.floor(gy / 6), wy = gy - ch * 6;
+          if ((wy === 2 || wy === 3) && H(cw, ch, 33) < 0.42) {
+            const wx = (gx & 7) - Math.floor(H(cw, ch, 37) * 4);
+            if (wy === 2 ? wx === 1 || wx === 2 : wx === 0 || wx === 3) col = C.liqLight;
+          }
+          if (H(gx, gy, 34) < 0.003) col = C.foam;
+        }
         P.set(ox + x, oy + y, col);
       }
     }
   }
 
   // ---------------- sprites de objetos del escenario ----------------
+  /*
+   * Se pintan una vez por bioma y variante y se guardan. Variantes (world.drawProp):
+   *   tree      aspecto 0..2 (crystal y deadtree, 0..1)
+   *   rock      aspecto*2 + (rota ? 1 : 0)
+   *   grass     aspecto*2 + (mecida por el viento ? 1 : 0)
+   *   altar     efecto*2 + (usado ? 1 : 0)      spring  1 = seco      trap  tipo
+   */
 
   const propCache = new Map();          // "bioma/tipo/variante" -> canvas
 
@@ -363,6 +539,29 @@ G.Tiles = (() => {
     const k = bi + '/' + type + '/' + variant;
     let cv = propCache.get(k);
     if (!cv) { cv = PAINT[type](BIOMES[bi], variant); propCache.set(k, cv); }
+    return cv;
+  }
+
+  /*
+   * Sombras de los objetos, en píxeles de arte (radio x, radio y) y guardadas:
+   * antes era una elipse suavizada pintada en cada fotograma; así es una imagen
+   * más (igual de barata o más) y con el mismo píxel que el resto.
+   */
+  const SHADOW = { tree: [11, 3.5], rock: [9, 3], chest: [7, 2.5], bigchest: [11, 3], altar: [8, 3] };
+  const shadowCache = new Map();
+  function shadow(type) {
+    let cv = shadowCache.get(type);
+    if (cv) return cv;
+    const [rx, ry] = SHADOW[type] || [7, 2.5];
+    const w = Math.ceil(rx) * 2 + 1, h = Math.ceil(ry) * 2 + 1, cx = (w - 1) / 2, cy = (h - 1) / 2;
+    const P = Pix(w, h);
+    const out = pack('#000000', 62), core = pack('#000000', 92);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const q = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
+      if (q <= 1) P.set(x, y, q < 0.45 ? core : out);
+    }
+    cv = P.canvas();
+    shadowCache.set(type, cv);
     return cv;
   }
 
@@ -388,99 +587,167 @@ G.Tiles = (() => {
     for (const [x, y] of marks) P.set(x, y, col);
   }
 
+  /** Línea de píxeles (Bresenham) con grosor 1 o 2. */
+  function line(P, x0, y0, x1, y1, col, thick = 1, col2 = col) {
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy, x = x0, y = y0;
+    for (;;) {
+      P.set(x, y, col);
+      if (thick > 1) P.set(x + 1, y, col2);
+      if (x === x1 && y === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x += sx; }
+      if (e2 <= dx) { err += dx; y += sy; }
+    }
+  }
+
+  const TREE_SHAPES = [
+    [[15, 20, 10], [9, 16, 7], [21, 16, 7], [15, 10, 8], [10, 23, 6], [20, 23, 6]],            // redondo
+    [[15, 23, 8], [10, 19, 6], [20, 19, 6], [15, 13, 7], [15, 6, 5], [11, 25, 5], [19, 25, 5]], // alto
+    [[15, 21, 9], [7, 19, 7], [23, 19, 7], [11, 13, 7], [19, 13, 7], [15, 24, 7]]              // ancho
+  ];
+
   const PAINT = {
-    tree(B) {
+    tree(B, variant = 0) {
+      if (B.prop === 'crystal') return PAINT.crystal(B, variant);
+      if (B.prop === 'dead') return PAINT.deadtree(B, variant);
+      const look = variant % TREE_SHAPES.length;
       const P = Pix(30, 40);
-      const L = B.leaf.map(h => pack(h)), Tr = B.trunk.map(h => pack(h));
-      const edge = pack('#14200f');
-      if (B.prop === 'crystal') return PAINT.crystal(B);
-      if (B.prop === 'dead') return PAINT.deadtree(B);
-      for (let y = 26; y < 38; y++) for (let x = 13; x < 18; x++) P.set(x, y, Tr[x === 13 || x === 17 ? 0 : 1]);
-      P.set(12, 37, Tr[0]); P.set(18, 37, Tr[0]); P.set(11, 38, Tr[0]); P.set(19, 38, Tr[0]);
-      const blobs = [[15, 20, 10], [9, 16, 7], [21, 16, 7], [15, 10, 8], [10, 23, 6], [20, 23, 6]];
-      for (const [bx, by, br] of blobs) {
+      const L = ramp(B.leaf), Tr = ramp(B.trunk);
+      const bark = mixPack(sortHex(B.trunk)[0], '#000000', 0.35);
+      // Tronco con raíces, corteza y la sombra de la copa encima.
+      const t0 = look === 1 ? 27 : 26;
+      for (let y = t0; y < 38; y++) for (let x = 13; x < 18; x++) {
+        let c = x === 13 ? Tr[0] : x === 17 ? bark : x === 14 ? Tr[1] : Tr[x === 16 ? 0 : 1];
+        if (x === 15 && H(x, y, 43 + look) < 0.3) c = Tr[0];
+        if (y < t0 + 3) c = bark;
+        P.set(x, y, c);
+      }
+      [[12, 37], [18, 37], [11, 38], [12, 38], [18, 38], [19, 38]].forEach(([x, y]) => P.set(x, y, x < 15 ? Tr[0] : bark));
+      // Copa: racimos con luz de arriba a la izquierda y textura de hojas.
+      for (const [bx, by, br] of TREE_SHAPES[look]) {
         disc(P, bx, by, br, (x, y, d) => {
-          // Luz desde arriba a la izquierda.
           const lit = ((x - bx) * -0.6 + (y - by) * -0.8) / br;
-          const idx = lit > 0.45 ? 3 : lit > 0.05 ? 2 : lit > -0.45 ? 1 : 0;
-          return (H(x, y, 41) < 0.12 && idx > 0) ? L[idx - 1] : L[idx];
+          let idx = lit > 0.5 ? 3 : lit > 0.05 ? 2 : lit > -0.45 ? 1 : 0;
+          const tex = H(x >> 1, (y + (x & 1)) >> 1, 41 + look);
+          if (tex > 0.82 && idx < 3 && lit > -0.3) idx++;
+          else if (tex < 0.16 && idx > 0) idx--;
+          if (d > 0.88 && lit < -0.2) idx = 0;
+          return L[idx];
         });
       }
-      outline(P, edge);
+      outline(P, pack(shade(sortHex(B.leaf)[0], -0.6)));
       return P.canvas();
     },
 
-    crystal(B) {
+    crystal(B, variant = 0) {
       const P = Pix(26, 40);
-      const L = B.leaf.map(h => pack(h)), D = B.trunk.map(h => pack(h));
-      const spires = [[13, 2, 5, 38], [7, 14, 4, 38], [19, 12, 4, 38]];
-      for (const [cx, top, half, bot] of spires) {
-        for (let y = top; y <= bot; y++) {
-          const t = Math.min(1, (y - top) / 8);
+      const L = ramp(B.leaf), D = ramp(B.trunk);
+      const deep = mixPack(sortHex(B.leaf)[0], sortHex(B.trunk)[1], 0.45);
+      const spires = variant % 2 ? [[11, 6, 5, 37], [18, 1, 4, 37], [5, 18, 3, 38], [21, 17, 3, 38]]
+                                 : [[13, 2, 5, 37], [7, 14, 4, 38], [19, 12, 4, 38]];
+      for (const [cx, topY, half, bot] of spires) {
+        for (let y = topY; y <= bot; y++) {
+          const t = Math.min(1, (y - topY) / 8);
           const hw = Math.round(half * t);
           for (let x = cx - hw; x <= cx + hw; x++) {
-            const side = x < cx ? (x === cx - hw ? 3 : 2) : x === cx ? 1 : 0;
-            P.set(x, y, side >= 2 ? L[side] : y > bot - 4 ? D[1] : L[side]);
+            let c;
+            if (x === cx) c = L[3];                                       // arista con luz
+            else if (x < cx) c = x === cx - hw ? L[2] : L[1];             // cara iluminada
+            else c = x === cx + hw ? deep : L[0];                         // cara en sombra
+            // Vetas en diagonal por la cara iluminada.
+            if (x < cx && (y - topY + (cx - x)) % 7 === 0) c = L[2];
+            if (y > bot - 3) c = x <= cx ? D[1] : D[0];                   // base en la roca
+            P.set(x, y, c);
           }
         }
+        P.set(cx, topY, pack('#ffffff'));
+        if (topY + 1 <= bot) P.set(cx, topY + 1, L[3]);
       }
-      outline(P, D[0]);
+      // Piedrecitas al pie.
+      [[3, 38], [4, 38], [22, 38], [23, 37], [12, 38]].forEach(([x, y]) => P.set(x, y, D[0]));
+      outline(P, pack(shade(sortHex(B.trunk)[0], -0.55)));
       return P.canvas();
     },
 
-    deadtree(B) {
+    deadtree(B, variant = 0) {
       const P = Pix(28, 40);
-      const Tr = B.trunk.map(h => pack(h)), L = B.leaf.map(h => pack(h));
-      for (let y = 12; y < 38; y++) for (let x = 12; x < 16; x++) P.set(x, y, Tr[x < 14 ? 0 : 1]);
-      const branch = (x0, y0, dx, len) => {
-        for (let i = 0; i < len; i++) { P.set(x0 + dx * i, y0 - i, L[1]); P.set(x0 + dx * i, y0 - i + 1, L[0]); }
+      const Tr = ramp(B.trunk), L = ramp(B.leaf);
+      // Tronco que se estrecha hacia arriba, con corteza.
+      for (let y = 10; y < 38; y++) {
+        const wdt = y > 30 ? 4 : y > 20 ? 3 : 2;
+        for (let x = 12; x < 12 + wdt; x++) {
+          let c = x === 12 ? Tr[0] : x === 11 + wdt ? Tr[0] : Tr[1];
+          if (x === 13 && H(x, y, 47 + variant) < 0.25) c = Tr[0];
+          P.set(x, y, c);
+        }
+      }
+      [[11, 37], [10, 38], [16, 37], [17, 38], [11, 38], [16, 38]].forEach(([x, y]) => P.set(x, y, Tr[0]));
+      // Ramas (con su horquilla al final).
+      const branch = (x0, y0, x1, y1, fx, fy) => {
+        line(P, x0, y0, x1, y1, L[1], 1);
+        line(P, x0, y0 + 1, x1, y1 + 1, L[0], 1);
+        line(P, x1, y1, x1 + fx, y1 + fy, L[2], 1);
       };
-      branch(12, 20, -1, 9); branch(15, 17, 1, 10); branch(13, 13, -1, 7); branch(14, 12, 1, 6);
+      if (variant % 2) {
+        branch(12, 22, 4, 13, -1, -3); branch(14, 18, 23, 10, 2, -2); branch(13, 14, 8, 6, 1, -3); branch(13, 11, 17, 3, -1, -2);
+      } else {
+        branch(12, 20, 3, 11, 0, -3); branch(15, 17, 25, 7, -1, -3); branch(12, 13, 6, 6, -2, -1); branch(14, 12, 20, 6, 2, -2);
+      }
+      P.set(13, 9, Tr[1]); P.set(13, 8, L[1]);
       outline(P, pack('#0f0b09'));
       return P.canvas();
     },
 
-    rock(B, variant) {
+    rock(B, variant = 0) {
       const P = Pix(22, 17);
-      const R = B.rock.map(h => pack(h));
-      const shine = pack('#ffffff');
-      // Peñasco achatado: elipse más ancha que alta, base plana.
-      for (let y = 2; y <= 15; y++) for (let x = 1; x <= 20; x++) {
-        const nx = (x - 10.5) / 9.5, ny = (y - 9.5) / 7;
-        const d = nx * nx + ny * ny + (H(x, y, 61) - 0.5) * 0.08;
-        if (d > 1) continue;
-        const lit = -nx * 0.55 - ny * 0.85 + (H(x, y, 62) - 0.5) * 0.25;
-        let c = R[lit > 0.4 ? 2 : lit > -0.15 ? 1 : 0];
-        if (y >= 14) c = R[0];
-        P.set(x, y, c);
+      const R = ramp(B.rock);
+      const look = variant >> 1, broken = variant & 1;
+      const mossy = B.prop === 'tree' && lum(B.leaf[1]) < 150;
+      const moss = ramp(B.leaf);
+      const shine = mixPack(sortHex(B.rock)[2], '#ffffff', 0.6);
+      // Peñasco (o un peñasco y una piedra al lado): base plana, luz arriba a la izquierda.
+      const blobs = look ? [[8.5, 9.5, 7.5, 6.5], [16.5, 11.5, 4.5, 4]] : [[10.5, 9.5, 9.5, 7]];
+      for (const [bx, by, rx, ry] of blobs) {
+        for (let y = 1; y <= 15; y++) for (let x = 0; x <= 21; x++) {
+          const nx = (x - bx) / rx, ny = (y - by) / ry;
+          const d = nx * nx + ny * ny + (H(x, y, 61 + look) - 0.5) * 0.08;
+          if (d > 1 || y > 15) continue;
+          const lit = -nx * 0.55 - ny * 0.85 + (H(x >> 1, y >> 1, 62 + look) - 0.5) * 0.3;
+          let c = R[lit > 0.45 ? 2 : lit > -0.15 ? 1 : 0];
+          if (y >= 14) c = R[0];
+          if (mossy && ny < -0.35 && H(x, y >> 1, 63) < 0.55) c = moss[lit > 0.3 ? 2 : 1];
+          P.set(x, y, c);
+        }
+        // Brillo y una arista (sólo sobre la piedra).
+        const on = (x, y, c) => { if (P.get(x, y) >>> 24) P.set(x, y, c); };
+        const hx = Math.round(bx - rx * 0.45), hy = Math.round(by - ry * 0.55);
+        on(hx, hy, shine); on(hx + 1, hy, shine); on(hx, hy + 1, R[2]);
+        for (let k = 0; k < Math.round(rx * 0.6); k++) on(Math.round(bx + 1 + k), Math.round(by + 1 - k * 0.4), R[0]);
       }
-      // Brillo y textura.
-      [[6, 5], [7, 5], [6, 6], [8, 4]].forEach(([x, y]) => P.set(x, y, shine));
-      [[13, 8], [14, 9], [9, 11], [16, 11], [11, 7]].forEach(([x, y]) => P.set(x, y, R[0]));
       // Grietas en la variante dañada.
-      if (variant === 1) {
+      if (broken) {
         const dark = pack('#1b1d22');
-        [[9, 4], [10, 5], [10, 6], [11, 7], [10, 8], [12, 8], [13, 9], [8, 9], [7, 10]].forEach(([x, y]) => P.set(x, y, dark));
+        [[9, 4], [10, 5], [10, 6], [11, 7], [10, 8], [12, 8], [13, 9], [8, 9], [7, 10], [11, 9], [6, 11]].forEach(([x, y]) => P.set(x, y, dark));
       }
-      outline(P, pack('#17191d'));
+      outline(P, pack(shade(sortHex(B.rock)[0], -0.7)));
       return P.canvas();
     },
 
-    grass(B, variant) {
-      // Matojo de hojas en abanico: cada hoja es una curva que se inclina
-      // hacia fuera, con la base oscura y la punta clara. La variante 1 es el
-      // fotograma "mecido por el viento".
+    grass(B, variant = 0) {
+      // Matojo de hojas en abanico: cada hoja es una curva que se inclina hacia
+      // fuera, con la base oscura y la punta clara. variante = aspecto*2 + viento.
       const P = Pix(20, 17);
-      const Gc = B.grass.map(h => pack(h));
+      const Gc = ramp(B.grass);
       const dark = pack(B.speck);
-      const sway = variant === 1 ? 1.2 : 0;
-      const blades = 11;
-      // Primero las de atrás (más oscuras), luego las de delante.
+      const look = variant >> 1, sway = variant & 1 ? 1.2 : 0;
+      const blades = [11, 9, 12][look % 3];
+      const tall = [0, 2, 1][look % 3];
       for (let pass = 0; pass < 2; pass++) {
         for (let b = pass; b < blades; b += 2) {
           const t = b / (blades - 1);                     // 0 izquierda .. 1 derecha
-          const x0 = 3 + t * 13 + (H(b, 7, 52) - 0.5) * 2;
-          const hgt = 8 + Math.floor(H(b, 3, 51) * 6) + (Math.abs(t - 0.5) < 0.25 ? 3 : 0);
+          const x0 = 3 + t * 13 + (H(b, 7 + look, 52) - 0.5) * 2;
+          const hgt = Math.min(15, 8 + tall + Math.floor(H(b, 3 + look, 51) * 6) + (Math.abs(t - 0.5) < 0.25 ? 3 : 0));
           const lean = (t - 0.5) * 7 + sway * (0.6 + H(b, 1, 53));
           for (let i = 0; i <= hgt; i++) {
             const k = i / hgt;
@@ -493,31 +760,47 @@ G.Tiles = (() => {
           }
         }
       }
-      outline(P, pack('#0e1d0c'));
+      outline(P, pack(shade(sortHex(B.grass)[0], -0.65)));
       return P.canvas();
     },
 
     // ---------- objetos interactivos ----------
 
-    /** Altar de poder. variante = efecto*2 + (usado ? 1 : 0). */
+    /** Torre de poder (altar). variante = efecto*2 + (usado ? 1 : 0). El orbe va centrado en (10, 5.5). */
     altar(B, variant) {
-      const P = Pix(18, 27);
-      const R = B.rock.map(h => pack(h));
+      const P = Pix(20, 32);
+      const R = ramp(B.rock);
+      const mortar = mixPack(sortHex(B.rock)[0], '#000000', 0.3);
       const eff = variant >> 1, used = variant & 1;
       const ORB = [['#ff5f6d', '#c23a4b', '#ffd3d8'], ['#5fd4ff', '#2a8fd0', '#d8f6ff'],
                    ['#ff8ad8', '#b03d84', '#ffe0f4'], ['#ffd23f', '#c08a10', '#fff3b0']][eff];
       const O = (used ? ['#6b7380', '#4a505c', '#9aa2ae'] : ORB).map(h => pack(h));
-      // Escalones, columna y losa.
-      for (let y = 21; y <= 25; y++) for (let x = 1; x <= 16; x++) P.set(x, y, R[y === 21 ? 2 : y >= 24 ? 0 : 1]);
-      for (let y = 12; y <= 20; y++) for (let x = 5; x <= 12; x++) P.set(x, y, R[x === 5 ? 2 : x >= 11 ? 0 : 1]);
-      for (let y = 10; y <= 11; y++) for (let x = 3; x <= 14; x++) P.set(x, y, R[y === 10 ? 2 : 1]);
-      // Runas de su color en la columna.
-      [[7, 14], [8, 15], [10, 14], [9, 17], [7, 18], [10, 18]].forEach(([x, y]) => P.set(x, y, O[1]));
+      const runeOff = mixPack(sortHex(B.rock)[0], '#000000', 0.15);
+      // Escalones.
+      for (let y = 27; y <= 31; y++) for (let x = 1; x <= 18; x++) {
+        if (y <= 28 && (x < 3 || x > 16)) continue;
+        P.set(x, y, R[y === 27 || y === 29 ? 2 : y === 31 || x === 18 || (y === 28 && x === 16) ? 0 : 1]);
+      }
+      // Columna de bloques de piedra (juntas cada 5 filas, alternadas), con luz a la izquierda.
+      for (let y = 11; y <= 26; y++) for (let x = 6; x <= 13; x++) {
+        let c = x === 6 ? R[2] : x >= 12 ? R[0] : R[1];
+        const row = Math.floor((y - 11) / 5);
+        if ((y - 11) % 5 === 4) c = mortar;
+        else if (x === (row % 2 ? 9 : 10) && x > 6) c = mortar;
+        P.set(x, y, c);
+      }
+      // Runas que brillan en el color de su poder.
+      for (const [x, y] of [[8, 13], [8, 14], [9, 15], [8, 16], [10, 18], [11, 19], [10, 20], [8, 22], [9, 23], [8, 24]])
+        P.set(x, y, used ? runeOff : (y % 3 ? O[0] : O[2]));
+      // Capitel y los dos cuernos que sujetan el orbe.
+      for (let y = 8; y <= 10; y++) for (let x = 4; x <= 15; x++) P.set(x, y, R[y === 8 ? 2 : y === 10 ? 0 : 1]);
+      for (let y = 6; y <= 7; y++) { P.set(5, y, R[2]); P.set(14, y, R[0]); }
       // Orbe.
-      disc(P, 8.5, 5.5, 4.2, (x, y, d) => {
-        const lit = (8.5 - x) * 0.5 + (5.5 - y) * 0.7;
+      disc(P, 9.5, 5.5, 4.2, (x, y, d) => {
+        const lit = (9.5 - x) * 0.5 + (5.5 - y) * 0.7;
         return lit > 1.6 ? O[2] : d > 0.75 ? O[1] : O[0];
       });
+      if (!used) P.set(8, 3, pack('#ffffff'));
       outline(P, pack('#120e1a'));
       return P.canvas();
     },
@@ -525,15 +808,26 @@ G.Tiles = (() => {
     /** Manantial curativo. variante 1 = agotado. */
     spring(B, variant) {
       const P = Pix(34, 16);
-      const R = B.rock.map(h => pack(h));
+      const R = ramp(B.rock);
       const W = (variant ? ['#2f5f68', '#3a6f7a', '#4f8a92'] : ['#2ba8b8', '#5fe8d8', '#b8fff4']).map(h => pack(h));
+      const deep = pack(variant ? '#244a52' : '#1f8a9c');
       for (let y = 0; y < 16; y++) for (let x = 0; x < 34; x++) {
         const nx = (x - 16.5) / 16.5, ny = (y - 8) / 7.5;
         const d = nx * nx + ny * ny;
         if (d > 1) continue;
-        if (d > 0.62) { P.set(x, y, R[(H(x, y, 71) < 0.5 ? 1 : 0) + (ny < -0.2 ? 1 : 0)]); continue; }
-        const wave = Math.sin(x * 0.7 + y * 1.3) > 0.6;
-        P.set(x, y, d < 0.18 ? W[2] : wave ? W[2] : d < 0.4 ? W[1] : W[0]);
+        if (d > 0.62) {
+          // Aro de piedras: una piedra cada pocos píxeles, con luz arriba.
+          const a = Math.atan2(ny, nx), stone = Math.floor((a + Math.PI) / (Math.PI * 2) * 14);
+          const seam = Math.abs(((a + Math.PI) / (Math.PI * 2) * 14) - stone - 0.5) > 0.42;
+          P.set(x, y, seam ? R[0] : R[ny < -0.2 ? 2 : H(stone, 1, 71) < 0.5 ? 1 : 0]);
+          continue;
+        }
+        // Agua: más honda en el centro y ondas en círculo.
+        const ring = Math.sin(Math.sqrt(d) * 15) > 0.75;
+        let c = d < 0.12 ? deep : d < 0.38 ? W[0] : W[1];
+        if (ring && d > 0.12) c = W[2];
+        if (d > 0.5 && ny < 0) c = W[0];                 // sombra del borde de arriba
+        P.set(x, y, c);
       }
       if (!variant) [[10, 6], [11, 5], [22, 9], [23, 8], [16, 11]].forEach(([x, y]) => P.set(x, y, pack('#ffffff')));
       outline(P, pack('#14161c'));
@@ -543,21 +837,27 @@ G.Tiles = (() => {
     /** Cofre grande con candado. */
     bigchest() {
       const P = Pix(24, 20);
-      const wood = pack('#6b3a1e'), woodL = pack('#8e5329'), woodD = pack('#432210');
-      const iron = pack('#9aa6b5'), ironD = pack('#5d6773'), gold = pack('#f2c443'), goldD = pack('#b5832a');
-      for (let y = 2; y < 19; y++) for (let x = 1; x < 23; x++) {
-        let c = y < 8 ? woodL : wood;
-        if (y === 8 || y === 9) c = ironD;
+      const wood = pack('#6b3a1e'), woodL = pack('#8e5329'), woodLL = pack('#a8673a'), woodD = pack('#432210');
+      const iron = pack('#9aa6b5'), ironL = pack('#d5dde6'), ironD = pack('#5d6773'), gold = pack('#f2c443'), goldL = pack('#fff0a0'), goldD = pack('#b5832a');
+      for (let y = 1; y < 19; y++) for (let x = 1; x < 23; x++) {
+        // Tapa abombada: las esquinas de arriba, redondeadas.
+        if (y === 1 && (x < 4 || x > 19)) continue;
+        if (y === 2 && (x < 2 || x > 21)) continue;
+        let c = y < 8 ? (y <= 3 ? woodLL : woodL) : wood;
+        if (y >= 10 && (x === 9 || x === 15)) c = woodD;                 // tablas
+        if (y === 8 || y === 9) c = y === 8 ? woodD : ironD;              // junta de la tapa
         if (x === 1 || x === 22 || y === 18) c = woodD;
-        if (x === 5 || x === 6 || x === 17 || x === 18) c = (x === 5 || x === 17) ? iron : ironD;
-        if (y === 2 && x > 1 && x < 22) c = iron;
+        if (x === 4 || x === 5 || x === 18 || x === 19) c = (x === 4 || x === 18) ? (y < 8 ? ironL : iron) : ironD;   // flejes
+        if ((y === 1 || y === 2) && c !== woodD) c = iron;
         P.set(x, y, c);
       }
-      // Candado.
-      for (let x = 10; x <= 13; x++) { P.set(x, 5, iron); }
-      P.set(9, 6, iron); P.set(14, 6, iron); P.set(9, 7, iron); P.set(14, 7, iron);
-      for (let y = 8; y <= 13; y++) for (let x = 8; x <= 15; x++) P.set(x, y, (x + y) % 4 ? gold : goldD);
-      P.set(11, 10, woodD); P.set(12, 10, woodD); P.set(11, 11, woodD); P.set(11, 12, woodD);
+      // Remaches.
+      [[4, 5], [18, 5], [4, 13], [18, 13], [4, 16], [18, 16]].forEach(([x, y]) => P.set(x, y, ironL));
+      // Candado: arco de hierro y cuerpo de oro con brillo y ojo de cerradura.
+      for (let x = 10; x <= 13; x++) P.set(x, 4, iron);
+      P.set(9, 5, iron); P.set(14, 5, iron); P.set(9, 6, iron); P.set(14, 6, ironD); P.set(9, 7, iron); P.set(14, 7, ironD);
+      for (let y = 8; y <= 14; y++) for (let x = 8; x <= 15; x++) P.set(x, y, x === 8 || y === 8 ? goldL : x === 15 || y === 14 ? goldD : gold);
+      P.set(11, 10, woodD); P.set(12, 10, woodD); P.set(11, 11, woodD); P.set(12, 11, woodD); P.set(11, 12, woodD);
       outline(P, pack('#1e0f06'));
       return P.canvas();
     },
@@ -570,7 +870,7 @@ G.Tiles = (() => {
       const base = pack('#2a2238'), baseL = pack('#3b3150');
       for (let y = 1; y < 13; y++) for (let x = 1; x < 13; x++) {
         const edge = x === 1 || y === 1 || x === 12 || y === 12;
-        P.set(x, y, edge ? c : (x + y) % 2 ? base : baseL);
+        P.set(x, y, edge ? (x === 1 || y === 1 ? l : c) : (x + y) % 2 ? base : baseL);
       }
       const sym = [
         // veneno: calavera de puntos
@@ -608,17 +908,21 @@ G.Tiles = (() => {
 
     chest() {
       const P = Pix(16, 14);
-      const gold = pack('#f2c443'), goldD = pack('#b5832a'), wood = pack('#8a4f2a'), woodD = pack('#5e3418');
-      const lid = pack('#c4662e');
+      const gold = pack('#f2c443'), goldL = pack('#fff0a0'), goldD = pack('#b5832a'), wood = pack('#8a4f2a'), woodD = pack('#5e3418');
+      const lid = pack('#c4662e'), lidL = pack('#e08a48');
       for (let y = 2; y < 13; y++) for (let x = 1; x < 15; x++) {
-        let c = y < 6 ? lid : wood;
+        if (y === 2 && (x < 3 || x > 12)) continue;                       // tapa redondeada
+        let c = y < 6 ? (y === 3 ? lidL : lid) : wood;
+        if (y === 2) c = lidL;
         if (y === 6) c = goldD;
+        if (y >= 8 && y <= 11 && x === 7) c = woodD;                      // tablas
         if (x === 1 || x === 14) c = woodD;
-        if ((x === 4 || x === 11) && y > 1) c = y < 6 ? gold : goldD;
+        if ((x === 3 || x === 12) && y > 2) c = y < 6 ? gold : goldD;     // esquinas de oro
         if (y === 12) c = woodD;
         P.set(x, y, c);
       }
-      for (let x = 6; x < 10; x++) for (let y = 5; y < 9; y++) P.set(x, y, (x + y) % 3 ? gold : goldD);
+      for (let x = 6; x < 10; x++) for (let y = 5; y < 9; y++) P.set(x, y, x === 6 || y === 5 ? goldL : x === 9 || y === 8 ? goldD : gold);
+      P.set(7, 7, woodD); P.set(8, 7, woodD);
       outline(P, pack('#2a160a'));
       return P.canvas();
     }
@@ -626,7 +930,7 @@ G.Tiles = (() => {
 
   function clearProps() { propCache.clear(); }
 
-  return { T, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, clearProps,
+  return { T, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, shadow, clearProps,
            /** Índice de bioma de la arena de un tipo. */
            arenaBiome: type => ARENA + Math.max(0, ARENA_TYPES.indexOf(type)) };
 })();

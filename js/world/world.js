@@ -10,12 +10,13 @@
  *   rock    bloquea, se rompe; puede soltar experiencia, monedas o bayas
  *   chest   bloquea, se rompe; suelta un buen botín
  *   grass   hierba alta, no bloquea; se corta con cualquier ataque
- *   altar   altar de poder: al tocarlo da un poder temporal (una vez)
+ *   altar   torre de poder: al tocarla da un poder temporal (una vez)
  *   spring  manantial: cura mientras estás encima; se agota y se recarga
  *   bigchest cofre con candado: se abre quedándote al lado unos segundos
  *   trap    trampa (veneno, pegajosa, explosiva): salta al pisarla, también
  *           con los enemigos
- *   (la lógica de los interactivos está en systems/interact.js)
+ *   (la lógica de los interactivos está en systems/interact.js; cómo se
+ *   reparten torres, manantiales y cofres, en blockSpecial)
  *
  * Grieta: setArena() convierte una zona lejana del mapa en una arena redonda
  * cerrada por paredes, donde se lucha contra un legendario (systems/rift.js).
@@ -47,7 +48,13 @@ G.World = (() => {
 
   // ---------------- ruido ----------------
 
-  const H = (x, y, s) => G.U.hash(x, y, s);
+  // El mismo hash que G.U.hash (mismos números), local: el ruido del terreno lo llama mucho.
+  function H(x, y, s) {
+    let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 2246822519);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
 
   function vnoise(x, y, s) {
     const xi = Math.floor(x), yi = Math.floor(y);
@@ -82,6 +89,11 @@ G.World = (() => {
       if (th.pools && ad < arena.r - 1.5 && fbm(tx / 3.2, ty / 3.2, seed + 37 + arena.tx) < th.pools) return LIQUID;
       return FLOOR;
     }
+    return terrainBase(tx, ty);
+  }
+
+  /** Terreno sin la arena de la grieta (sólo semilla y coordenadas). */
+  function terrainBase(tx, ty) {
     const d = Math.hypot(tx, ty);
     if (d < 9) return FLOOR;                          // claro inicial
     const ramp = G.U.clamp((d - 9) / 8, 0, 1);       // aparición suave
@@ -119,12 +131,150 @@ G.World = (() => {
 
   const arena_outer = () => (arena ? arena.r + 7 : 0);
 
+  // ---------------- interactivos: un reparto justo ----------------
+  /*
+   * Torres de poder (altares), manantiales, cofres con candado y cofres. Antes cada
+   * casilla tiraba su dado y salía muy desigual: a 2 pantallas del inicio, el 16 % de
+   * las partidas no tenía ninguna torre y el 27 % ningún cofre con candado, y otras
+   * tenían 7 u 8 (medido en 300 semillas).
+   *
+   * Ahora el mapa se parte en bloques de BLK×BLK casillas y los bloques se agrupan
+   * de LOT×LOT en «lotes». Cada lote reparte su baraja (RATES: cuántos de cada uno
+   * lleva, de media) en bloques distintos elegidos al azar, y cada uno cae en un
+   * sitio al azar de su bloque, lejos de sus bordes (MARGIN: dos nunca quedan a menos
+   * de 2·MARGIN casillas) y con suelo libre alrededor (sin agua ni muros: ROOM).
+   * La parte con decimales (0,8 cofres con candado por lote...) se reparte entre lotes
+   * vecinos con una secuencia de baja discrepancia: de cada 5 lotes, 4 lo llevan.
+   * El lote del inicio va centrado en el claro (con unas casillas de juego según la
+   * semilla) y lleva uno de cada, alrededor del claro: toda partida tiene una torre, un
+   * manantial, un cofre con candado y un cofre a menos de 2 pantallas del principio.
+   *
+   * Todo sale de la semilla y de las coordenadas (con el terreno SIN la arena de la
+   * grieta), nunca del orden en que se crean los chunks: en cooperativo todos ven lo
+   * mismo, y un chunk que se olvida y se vuelve a crear sale igual.
+   */
+  const BLK = 20, LOT = 3, MARGIN = 3, TRIES = 14, HOME_PICK = 8;
+  const RATES = [['altar', 1.2], ['spring', 1], ['bigchest', 0.8], ['chest', 1.3]];
+  const ROOM = { altar: 2, spring: 2, bigchest: 2, chest: 1 };    // suelo libre alrededor (casillas)
+  const CLEAR = { altar: 2, spring: 2, bigchest: 2, chest: 1 };   // sin árboles, rocas, hierba ni trampas alrededor
+  const START_CLEAR = 14;                                          // nada de esto en el claro del principio
+  const lots = new Map(), blocks = new Map();
+  let offX = 0, offY = 0;
+
+  /** Qué lleva cada bloque de un lote (9 casillas: tipo o null). */
+  function lotDeck(gx, gy) {
+    const k = gx + ',' + gy;
+    let deck = lots.get(k);
+    if (deck) return deck;
+    const n = LOT * LOT, start = gx === 0 && gy === 0, mid = (n - 1) / 2;
+    const cells = [];
+    // (El bloque del centro del lote del inicio es el claro: allí no va nada.)
+    for (let i = 0; i < n; i++) if (!start || i !== mid) cells.push(i);
+    for (let i = cells.length - 1; i > 0; i--) {  // barajar (Fisher-Yates con la semilla)
+      const j = Math.floor(H(gx, gy, seed + 960 + i) * (i + 1));
+      const t = cells[i]; cells[i] = cells[j]; cells[j] = t;
+    }
+    deck = new Array(n).fill(null);
+    const adj = (a, b) => Math.abs(a % LOT - b % LOT) <= 1 && Math.abs(Math.floor(a / LOT) - Math.floor(b / LOT)) <= 1;
+    RATES.forEach(([type, rate], r) => {
+      // Secuencia R2 (baja discrepancia) para la parte decimal.
+      const v = (gx * 0.7548776662 + gy * 0.5698402910 + H(r, 5, seed + 975)) % 1;
+      let count = start ? 1 : Math.floor(rate) + ((v + 1) % 1 < rate % 1 ? 1 : 0);
+      let first = -1;
+      while (count-- > 0 && cells.length) {
+        // El segundo del mismo tipo, en un bloque que no toque al primero (si se puede).
+        let pick = 0;
+        if (first >= 0) { const f = cells.findIndex(c => !adj(c, first)); if (f >= 0) pick = f; }
+        const cell = cells.splice(pick, 1)[0];
+        deck[cell] = type;
+        if (first < 0) first = cell;
+      }
+    });
+    // En el lote del inicio, si uno no cabe en su bloque (un lago entero), pasa a otro libre.
+    if (start) {
+      const at = c => [gx * LOT + c % LOT, gy * LOT + Math.floor(c / LOT)];
+      for (let c = 0; c < n; c++) {
+        if (!deck[c] || placeIn(...at(c), deck[c])) continue;
+        const f = cells.findIndex(e => placeIn(...at(e), deck[c]));
+        if (f >= 0) { deck[cells.splice(f, 1)[0]] = deck[c]; deck[c] = null; }
+      }
+    }
+    if (lots.size > 3000) lots.clear();
+    lots.set(k, deck);
+    return deck;
+  }
+
+  /** ¿Hay suelo (sin agua ni muros) en todo el cuadrado de radio r? */
+  function roomy(tx, ty, r) {
+    for (let b = -r; b <= r; b++) for (let a = -r; a <= r; a++) if (terrainBase(tx + a, ty + b) !== FLOOR) return false;
+    return true;
+  }
+
+  /** Dónde cae un `type` en el bloque (bx, by): { type, tx, ty, kind } o null si no cabe. */
+  function placeIn(bx, by, type) {
+    const x0 = bx * BLK - offX + MARGIN, y0 = by * BLK - offY + MARGIN, span = BLK - 2 * MARGIN;
+    const home = Math.floor(bx / LOT) === 0 && Math.floor(by / LOT) === 0;
+    const tries = home ? TRIES * 3 : TRIES;      // los del inicio, casi seguro
+    // Los del inicio, además, hacia el claro: de los HOME_PICK primeros sitios que valen,
+    // el más cercano (probado en partidas el 24-10-2026: antes, 7 de cada 20 no tenían
+    // ninguna torre a menos de 900 px del principio; con esto se ven en el primer paseo).
+    let best = null, bestD = Infinity, valid = 0;
+    for (let a = 0; a < tries; a++) {
+      const tx = x0 + Math.floor(H(bx, by, seed + 981 + a * 2) * span);
+      const ty = y0 + Math.floor(H(bx, by, seed + 982 + a * 2) * span);
+      const d = Math.hypot(tx, ty);
+      if (d < START_CLEAR || !roomy(tx, ty, ROOM[type])) continue;
+      if (d < bestD) { bestD = d; best = { tx, ty }; }
+      if (!home || ++valid >= HOME_PICK) break;
+    }
+    return best && { type, tx: best.tx, ty: best.ty, kind: Math.floor(H(best.tx, best.ty, seed + 910) * (type === 'altar' ? 4 : 1)) };
+  }
+
+  /** El interactivo del bloque (bx, by), o null. */
+  function blockSpecial(bx, by) {
+    const k = bx + ',' + by;
+    if (blocks.has(k)) return blocks.get(k);
+    const gx = Math.floor(bx / LOT), gy = Math.floor(by / LOT);
+    const type = lotDeck(gx, gy)[(bx - gx * LOT) + (by - gy * LOT) * LOT];
+    const out = type ? placeIn(bx, by, type) : null;
+    if (blocks.size > 6000) blocks.clear();
+    blocks.set(k, out);
+    return out;
+  }
+
+  /** Interactivos cuyas casillas caen en [x0..x1]×[y0..y1]. */
+  function specialsIn(x0, y0, x1, y1) {
+    const out = [];
+    const b0x = Math.floor((x0 + offX) / BLK), b1x = Math.floor((x1 + offX) / BLK);
+    const b0y = Math.floor((y0 + offY) / BLK), b1y = Math.floor((y1 + offY) / BLK);
+    for (let by = b0y; by <= b1y; by++) for (let bx = b0x; bx <= b1x; bx++) {
+      const s = blockSpecial(bx, by);
+      if (s && s.tx >= x0 && s.tx <= x1 && s.ty >= y0 && s.ty <= y1) out.push(s);
+    }
+    return out;
+  }
+
   function placeProps(c) {
+    const X0 = c.cx * N, Y0 = c.cy * N;
+    // Los interactivos de este chunk y de su borde (alrededor no crece nada).
+    // (Dentro de la arena de la grieta no hay: allí manda su decoración.)
+    const near = specialsIn(X0 - 2, Y0 - 2, X0 + N + 1, Y0 + N + 1).filter(s => arenaDist(s.tx, s.ty) >= arena_outer() + 2);
+    for (const s of near) {
+      if (s.tx < X0 || s.ty < Y0 || s.tx >= X0 + N || s.ty >= Y0 + N) continue;
+      if (broken.has(s.tx + ',' + s.ty)) continue;
+      if (c.terr[(s.ty - Y0) * N + (s.tx - X0)] !== FLOOR) continue;
+      const p = makeProp(s.type, s.tx, s.ty, s.kind);
+      c.props.push(p);
+      if (p.solid) c.propAt.set(s.tx + ',' + s.ty, p);
+    }
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       if (c.terr[j * N + i] !== FLOOR) continue;
       const tx = c.cx * N + i, ty = c.cy * N + j;
       if (Math.hypot(tx, ty) < 7) continue;
       if (broken.has(tx + ',' + ty)) continue;
+      let busy = false;
+      for (const s of near) if (Math.abs(s.tx - tx) <= CLEAR[s.type] && Math.abs(s.ty - ty) <= CLEAR[s.type]) { busy = true; break; }
+      if (busy) continue;
 
       // Necesita suelo alrededor para no pegarse a paredes / agua.
       let open = true;
@@ -147,16 +297,16 @@ G.World = (() => {
       const h = H(tx, ty, seed + 404);
       const grove = fbm(tx / 10, ty / 10, seed + 505) > 0.6;
       let type = null, kind = 0;
-      // Interactivos (raros), lejos del claro del principio.
+      // Trampas: sueltas, como siempre, lejos del claro del principio. (Los demás
+      // interactivos van repartidos por bloques: ver blockSpecial.)
       const hs = H(tx, ty, seed + 909);
-      if (open && Math.hypot(tx, ty) > 12 && hs < 0.0032) {
-        type = hs < 0.0004 ? 'altar' : hs < 0.0008 ? 'spring' : hs < 0.0011 ? 'bigchest' : 'trap';
-        kind = Math.floor(H(tx, ty, seed + 910) * (type === 'altar' ? 4 : 3));
+      if (open && Math.hypot(tx, ty) > 12 && hs >= 0.0011 && hs < 0.0032) {
+        type = 'trap';
+        kind = Math.floor(H(tx, ty, seed + 910) * 3);
       }
       if (type) { /* ya elegido */ }
       else if (open && h < (grove ? 0.07 : 0.006)) type = 'tree';
       else if (open && h > 0.992) type = 'rock';
-      else if (open && h > 0.985 && h <= 0.992 && H(tx, ty, seed + 606) < 0.07) type = 'chest';
       else if (fbm(tx / 5, ty / 5, seed + 707) > 0.66 && H(tx, ty, seed + 808) < 0.75) type = 'grass';
       if (!type) continue;
 
@@ -186,6 +336,7 @@ G.World = (() => {
       r: d.r, hp: d.hp, maxHp: d.hp, solid: d.solid, flat: !!d.flat,
       destructible: d.hp !== Infinity, flash: 0,
       wiggle: H(tx, ty, 9) * 6.28,
+      look: Math.floor(H(tx, ty, seed + 919) * 6),   // aspecto (árboles, rocas, hierba: ver drawProp)
       used: false, charge: 1, open: 0          // altar / manantial / cofre con candado
     };
   }
@@ -502,13 +653,26 @@ G.World = (() => {
     return out;
   }
 
+  /*
+   * Variante del sprite (tiles.js las pinta una vez y las guarda): aspecto (3 árboles,
+   * 2 rocas, 3 matas de hierba) y estado (mecida por el viento, rota, usada, seca...).
+   * Todo el dibujo de un objeto es drawImage de imágenes ya hechas: su sombra también.
+   */
+  function propVariant(p, t) {
+    switch (p.type) {
+      case 'grass': return (p.look % 3) * 2 + (Math.sin(t * 2.4 + p.wiggle) > 0.55 ? 1 : 0);
+      case 'rock': return (p.look % 2) * 2 + (p.hp < p.maxHp * 0.5 ? 1 : 0);
+      case 'tree': return p.look % 3;
+      case 'altar': return p.kind * 2 + (p.used ? 1 : 0);
+      case 'spring': return p.charge < 0.15 ? 1 : 0;
+      case 'trap': return p.kind;
+      default: return 0;
+    }
+  }
+
   function drawProp(ctx, p, t) {
     const P = G.Sprites.PX;
-    const variant = p.type === 'grass' ? (Math.sin(t * 2.4 + p.wiggle) > 0.55 ? 1 : 0)
-                  : p.type === 'rock' ? (p.hp < p.maxHp * 0.5 ? 1 : 0)
-                  : p.type === 'altar' ? p.kind * 2 + (p.used ? 1 : 0)
-                  : p.type === 'spring' ? (p.charge < 0.15 ? 1 : 0)
-                  : p.type === 'trap' ? p.kind : 0;
+    const variant = propVariant(p, t);
     const img = G.Tiles.propSprite(biome, p.type, variant);
     const w = img.width * P, h = img.height * P;
     if (p.flat) {
@@ -520,13 +684,12 @@ G.World = (() => {
       return;
     }
     if (p.type === 'altar' && !p.used) {
-      // Halo del orbe, latiendo.
+      // Halo del orbe, latiendo (el orbe va en (10, 5.5) del sprite).
       const col = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'][p.kind];
-      ctx.save();
       ctx.globalAlpha = 0.22 + Math.sin(t * 3 + p.wiggle) * 0.1;
       ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(p.x, p.y - h + 11 * P, 13, 0, 6.2832); ctx.fill();
-      ctx.restore();
+      ctx.beginPath(); ctx.arc(p.x, p.y - h + 2 + 5.5 * P, 13, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
     }
     if (p.type === 'bigchest' && p.open > 0) {
       ctx.save();
@@ -537,10 +700,10 @@ G.World = (() => {
       ctx.restore();
     }
     if (p.type !== 'grass') {
-      ctx.fillStyle = 'rgba(0,0,0,.3)';
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.1, p.r * 0.38, 0, 0, 6.2832); ctx.fill();
+      // Sombra: imagen guardada (antes, una elipse con su trazado en cada fotograma).
+      const sh = G.Tiles.shadow(p.type), sw = sh.width * P, shh = sh.height * P;
+      ctx.drawImage(sh, Math.round(p.x - sw / 2), Math.round(p.y - shh / 2), sw, shh);
     }
-    ctx.save();
     const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + (p.type === 'grass' ? 4 : 2));
     const k = fadeK();
     if (k != null) {
@@ -552,7 +715,8 @@ G.World = (() => {
     }
     ctx.drawImage(img, x, y, w, h);
     if (p.flash > 0) { ctx.globalAlpha = 0.6; ctx.drawImage(G.Sprites.white(img), x, y, w, h); }
-    ctx.restore();
+    // (Sin save/restore por objeto: sólo se toca la transparencia y aquí se deja como estaba.)
+    ctx.globalAlpha = 1;
   }
 
   function update(dt, cam) {
@@ -566,7 +730,10 @@ G.World = (() => {
 
   function reset(s) {
     seed = (s | 0) || 1;
-    data.clear(); images.clear(); broken.clear();
+    data.clear(); images.clear(); broken.clear(); lots.clear(); blocks.clear();
+    // La rejilla de los interactivos: el lote (0,0) centrado en el inicio, ±5 casillas (ver blockSpecial).
+    offX = BLK * LOT / 2 + Math.floor(H(3, 7, seed + 950) * 11) - 5;
+    offY = BLK * LOT / 2 + Math.floor(H(7, 3, seed + 951) * 11) - 5;
     fade = null; arena = null;
   }
 

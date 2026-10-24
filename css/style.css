@@ -153,6 +153,17 @@ body.touch { --ctl: 44px; --bar-h: 64px; }
     --bar-top: max(6px, var(--sa-t)); --bar-h: 52px;
   }
 }
+/* ---- Móvil tumbado, «como un juego nativo» (24-10-2026) ----
+ * En el móvil el juego es sólo horizontal (mobile.js), así que esto es lo que se ve
+ * en el móvil: lo que se toca mide 36 px, la barra de arriba y la cabecera de las
+ * hojas son UNA sola franja de 44 px (sección 4c) y los títulos, algo más bajos. */
+@media (max-height: 520px) {
+  :root, body.touch {
+    --fs-xl: 18px; --fs-2xl: 20px; --fs-3xl: 26px;
+    --tap: 36px; --ctl: 36px;
+    --bar-top: max(4px, var(--sa-t)); --bar-h: 44px;
+  }
+}
 /* Chino: las letras del sistema detrás (Fredoka y Nunito no las tienen). */
 html:lang(zh-Hant) {
   --font: 'Nunito', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC', system-ui, sans-serif;
@@ -370,6 +381,27 @@ html.no-glass .box { background: var(--surface-solid); }
 }
 @media (max-height: 520px) {
   .sheet-head .sub { display: none; }
+  /* Tumbado: cabecera de 44 px (botón de 36 + 4 arriba y abajo) y pie de 44. */
+  .sheet-head { min-height: 44px; gap: 4px 8px; padding-top: max(4px, var(--sheet-top)); padding-bottom: 4px; }
+  .sheet-head:has(> .icon-btn:first-child) { padding-left: max(4px, var(--sa-l)); }
+  .sheet-head h2 { font-size: var(--fs-xl); }
+  .sheet-body { padding: 10px max(12px, var(--sa-r)) 10px max(12px, var(--sa-l)); }
+  .sheet-foot { gap: 8px; padding: 4px max(12px, var(--sa-r)) max(4px, var(--sa-b)) max(12px, var(--sa-l)); }
+}
+
+/* ---------- 4c. Móvil tumbado: la barra de arriba DENTRO de la cabecera ----------
+ * Como en un juego de móvil: en las pantallas que la enseñan (.under-bar) no hay
+ * franja de la barra encima de la hoja. La cabecera de la hoja sube arriba del todo
+ * (volver · título · pestañas) y la barra se queda sólo con las monedas y los tickets,
+ * a la derecha de esa misma franja; la cabecera les deja su hueco (--tb-w, lo mide
+ * ui.js). Perfil, Guardar y «Más» sólo salen en el menú principal. */
+@media (max-height: 520px) {
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):has(> .box) {
+    padding-top: var(--sa-t);
+  }
+  body:has(.scr.under-bar:not(.hidden)) .topbar { left: auto; }
+  body:has(.scr.under-bar:not(.hidden)) .tb-acts { display: none; }
+  .scr.under-bar > .box > .sheet-head { padding-right: calc(var(--tb-w, 196px) + max(10px, var(--sa-r)) + 8px); }
 }
 
 /* ---------- 5. Botones ----------
@@ -436,6 +468,13 @@ a.btn.google { color: #1f2a44; }
   .btn.big { padding: 12px 22px; font-size: 18px; line-height: 22px; border-radius: 14px; }
   .btn.ic { gap: 6px; }
   .icon-btn .ui-svg { width: 20px; height: 20px; }
+}
+/* Tumbado: .btn de 36 px (7 + 20 + 7 + borde), .big de 44 y .small de 30 (36 con el dedo). */
+@media (max-height: 520px) {
+  .btn { padding: 7px 14px; font-size: 14px; border-radius: 11px; }
+  .btn.small { padding: 5px 10px; font-size: 13px; line-height: 18px; border-radius: 9px; }
+  .btn.big { padding: 10px 20px; font-size: 17px; line-height: 22px; border-radius: 13px; }
+  .icon-btn .ui-svg { width: 19px; height: 19px; }
 }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .row.end { justify-content: flex-end; }
@@ -515,6 +554,14 @@ a.btn.google { color: #1f2a44; }
   .gen-tab b { font-size: 14px; }
   .seg button { padding: 5px 12px; font-size: 13px; }
 }
+@media (max-height: 520px) {
+  .chip { min-height: 28px; padding: 2px 10px; }
+  .tabs { margin-bottom: 8px; padding: 2px; border-radius: 11px; }
+  .tab { min-height: 30px; padding: 4px 10px; border-radius: 9px; font-size: var(--fs-s); }
+  .gen-tab { padding: 4px 11px; border-radius: 10px; }
+  .gen-tab b { font-size: 13px; }
+  .seg button { padding: 4px 11px; }
+}
 
 /* ---------- 9. Formularios ---------- */
 label { display: block; font: 700 14px/1.3 var(--font); color: var(--muted); margin: 12px 0 6px; }
@@ -552,6 +599,11 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   .field { min-height: 40px; padding: 8px 12px; }
   .err { min-height: 18px; font-size: 13px; margin-top: 6px; }
   .note { margin-top: 10px; }
+}
+@media (max-height: 520px) {
+  label { margin: 8px 0 4px; font-size: 12px; }
+  .field { min-height: 36px; padding: 6px 12px; border-radius: 11px; }
+  select.field { padding-right: 34px; background-position: right 10px center; }
 }
 
 /* ---------- 10. Tarjetas, listas, insignias e iconos ---------- */
@@ -684,6 +736,17 @@ img.pix { image-rendering: pixelated; image-rendering: crisp-edges; vertical-ali
   .ico-tile.s { --tile: 32px; border-radius: 10px; }
   .ico-tile.l { --tile: 64px; border-radius: 19px; }
   .ico-tile.round { border-radius: 50%; }   /* (las dos de arriba volvían cuadradas las redondas) */
+}
+@media (max-height: 520px) {
+  .card { gap: 10px; padding: 8px 10px; border-radius: 12px; }
+  .panel { padding: 10px; border-radius: 12px; }
+  .list { gap: 4px; }
+  .list-row { min-height: 44px; gap: 8px; padding: 4px 10px; border-radius: 11px; }
+  .list-row b { font-size: 14px; }
+  .ico-tile { --tile: 34px; border-radius: 11px; }
+  .ico-tile.s { --tile: 30px; border-radius: 9px; }
+  .ico-tile.l { --tile: 60px; border-radius: 18px; }
+  .ico-tile.round { border-radius: 50%; }
 }
 
 /* ---------- 11. Progreso, vacío, tooltip, aviso, teclas y barras de desplazamiento ---------- */
@@ -860,6 +923,20 @@ kbd {
 @media (max-width: 599px) {
   .topbar #btn-save { padding: 0; }
 }
+/* Tumbado: barra de 44 px (pastillas y botones de 36) y menú «Más» con filas de 40. */
+@media (max-height: 520px) {
+  .topbar { gap: 6px; left: max(8px, var(--sa-l)); right: max(10px, var(--sa-r)); }
+  .tb-wallet, .tb-acts { gap: 5px; }
+  .pill { padding: 0 10px 0 5px; font-size: 13px; gap: 3px; }
+  .cur + .cur { margin-left: 5px; }
+  .cur-ico { width: 20px; height: 20px; }
+  .cur-ico img { width: 20px; height: 20px; }
+  #user-pill { padding: 0 12px 0 6px; max-width: 180px; }
+  .topbar .tb-btn .ui-svg { width: 19px; height: 19px; }
+  .topbar #btn-save { padding: 0 12px 0 9px; font-size: 13px; }
+  .tb-menu { min-width: 210px; padding: 4px; top: calc(100% + 4px); max-height: calc(100vh - var(--bar-h) - 8px); overflow-y: auto; }
+  .tb-menu .tb-btn, .topbar .tb-menu .tb-btn { height: 40px; font-size: 14px; }
+}
 /* Ventanas que tapan la barra (Ajustes, Novedades, Perfil...): la barra se esconde. */
 body:has(:is(.scr.modal, #scr-settings, #scr-news, #scr-support, #scr-legal, #scr-profile, #scr-recover, #scr-savenote, #scr-nick, #scr-install, #scr-layout):not(.hidden))
   :is(#topbar, #sound-panel) { visibility: hidden; }
@@ -936,6 +1013,33 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   font: 600 18px/1.2 var(--font-display); box-shadow: var(--sh-2);
   animation: breathe 1.6s ease-in-out infinite;
 }
+@media (max-height: 520px) {
+  .boot-in h1 { font-size: 44px; margin-bottom: 10px; }
+  .boot-ld, .tap-blink { margin-top: 18px !important; }
+}
+/* «Gira el móvil» (24-10-2026): en el móvil el juego es sólo horizontal. De pie,
+   mobile.js pone html.need-rotate y este aviso tapa todo (carga, menús y partida,
+   que queda en pausa). Tableta y ordenador no lo ven nunca. */
+.rotate { display: none; }
+html.need-rotate .rotate {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: max(24px, var(--sa-t)) max(24px, var(--sa-r)) max(24px, var(--sa-b)) max(24px, var(--sa-l));
+  background: radial-gradient(120% 80% at 50% 0%, #1d3b78 0%, #0b1530 55%, #050a1a 100%);
+  color: var(--ink); animation: fade .2s ease-out;
+}
+.rot-in { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 300px; }
+.rot-phone { width: 104px; height: 104px; margin-bottom: 18px; overflow: visible;
+  fill: none; stroke: var(--c-yellow); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.rot-phone .rot-dev { transform-box: view-box; transform-origin: 32px 30px; animation: rot-turn 2.6s var(--ease) infinite; }
+.rot-phone .rot-dev circle { fill: var(--c-yellow); stroke: none; }
+.rot-phone .rot-arrow { stroke: var(--faint); }
+@keyframes rot-turn { 0%, 18% { transform: none; } 50%, 82% { transform: rotate(90deg); } 100% { transform: none; } }
+.rot-t { margin: 0; font: 700 26px/1.2 var(--font-display); color: var(--c-yellow); }
+.rot-s { margin: 0; font: 600 15px/1.45 var(--font); color: var(--muted); }
+.rot-run, .rot-coop { display: none; margin-top: 10px; padding: 4px 14px; border-radius: var(--rad-pill);
+  background: var(--card-hi); color: var(--ink); font-size: 13px; }
+html.rotate-run .rot-run, html.rotate-coop .rot-coop { display: block; }
 
 /* ---------- 14. Inicio de sesión ---------- */
 .logo { position: relative; text-align: center; margin-bottom: 14px; }
@@ -999,17 +1103,20 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
 }
 @media (max-height: 520px) {
   /* A pantalla completa (4b): las dos columnas, de borde a borde. */
-  #scr-login > .login-box { column-gap: 24px;
-    padding: max(12px, var(--sa-t)) max(20px, var(--sa-r)) max(10px, var(--sa-b)) max(20px, var(--sa-l)); }
-  .login-alt { margin-top: 8px; padding-top: 10px; gap: 8px; }
-  .login-box .logo { margin-bottom: 6px; }
-  .login-box .logo .t1 { font-size: 32px; }
-  .login-box .logo .t2 { margin-top: 8px; }
-  .login-box .login-tag, .login-box .login-official { margin: 0 0 4px; }
-  .login-box .tabs { margin-bottom: 4px; }
-  .login-box label { margin: 6px 0 4px; }
-  .login-box .note { margin-top: 6px; }
+  #scr-login > .login-box { column-gap: 28px; align-content: center;
+    padding: max(10px, var(--sa-t)) max(24px, var(--sa-r)) max(8px, var(--sa-b)) max(24px, var(--sa-l)); }
+  .login-alt { margin-top: 8px; padding-top: 10px; gap: 6px; }
+  .login-box .logo { margin-bottom: 4px; }
+  .login-box .logo .t1 { font-size: 30px; }
+  .login-box .logo .t2 { margin-top: 6px; }
+  .login-box .login-tag { margin: 0 0 2px; font-size: 13px; line-height: 1.35; }
+  .login-box .login-official { margin: 0; font-size: 11px; }
+  .login-box .tabs { margin-bottom: 2px; }
+  .login-box label { margin: 6px 0 3px; }
+  .login-box .note { margin-top: 4px; font-size: 12px; }
   .login-main .row { margin-top: 8px; }
+  .login-main .btn.big { padding-top: 8px; padding-bottom: 8px; }
+  .login-foot .note { margin-top: 6px; }
 }
 
 /* ---------- 15. Test de personalidad, resultado e iniciales ---------- */
@@ -1082,6 +1189,17 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   .result h3 { grid-area: name; font-size: var(--fs-l); }
   .res-acts { grid-area: acts; flex-direction: row; flex-wrap: wrap; margin-top: 10px; }
   .res-acts .btn { width: auto; }
+  /* Test tumbado: la pregunta arriba y las cuatro respuestas en dos columnas (sin desplazar). */
+  #scr-test > .test-box { display: flex; flex-direction: column; justify-content: center;
+    padding: max(10px, var(--sa-t)) max(18px, var(--sa-r)) max(10px, var(--sa-b)) max(18px, var(--sa-l)); }
+  .test-box .progress { flex: none; height: 6px; margin-bottom: 8px; }
+  #test-count { margin-bottom: 2px; }
+  .q { flex: none; min-height: 0; margin-bottom: 12px; font-size: 19px; }
+  .answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .answer { min-height: 56px; padding: 6px 12px 6px 8px; font-size: 14px; line-height: 1.3; }
+  .answer::before { width: 28px; height: 28px; font-size: 13px; }
+  /* Resultado: el compañero a la izquierda, a ×4 o ×5 en su escenario de 240×180. */
+  #scr-result > .result { padding: max(10px, var(--sa-t)) max(20px, var(--sa-r)) max(10px, var(--sa-b)) max(20px, var(--sa-l)); }
 }
 /* Iniciales: hoja con la rejilla y, abajo, el elegido y «Elegir». */
 #starter-grid { max-height: none; overflow: visible; padding: 2px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
@@ -1093,6 +1211,13 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   #starter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   #scr-starters .starter-info { flex: 1 1 100%; }
   #scr-starters .sheet-foot > .btn { flex: 1 1 0; }
+}
+/* Tumbado: casillas más pequeñas (lienzo de 76×64, test.js) y el pie en una línea. */
+@media (max-height: 520px) {
+  #starter-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+  #starter-grid .cell { padding: 3px 3px 6px; border-radius: 12px; }
+  #scr-starters .starter-info { font-size: 13px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #scr-starters .sheet-foot > .btn { min-width: 132px; }
 }
 
 /* ---------- 16. Menú principal ----------
@@ -1351,38 +1476,53 @@ body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
   .menu-item.tile small { display: none; }
   .menu-item.tile { min-height: 64px; }
 }
-/* ---- Móvil tumbado (≤ 520 px de alto): dos columnas compactas ---- */
+/* ---- Móvil tumbado (≤ 520 px de alto), como un juego de móvil (24-10-2026) ----
+ * Izquierda: el título y el compañero, grande (su escenario crece con el alto de la
+ * pantalla; menu.js ajusta el lienzo). Derecha: las nueve secciones en baldosas que
+ * llenan el alto y, abajo, a mano del pulgar, «Jugar». Sin desplazar. */
 @media (max-height: 520px) {
   #scr-menu {
-    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); column-gap: 14px; align-items: center;
-    padding: calc(var(--bar-h) + var(--sa-t)) max(10px, var(--sa-r)) max(8px, var(--sa-b)) max(10px, var(--sa-l));
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-rows: minmax(0, 1fr);
+    column-gap: 14px; align-items: stretch; overflow: hidden;
+    padding: calc(var(--bar-h) + var(--sa-t) + 2px) max(10px, var(--sa-r)) max(8px, var(--sa-b)) max(10px, var(--sa-l));
   }
-  .menu-left { gap: 4px; }
+  .menu-left { justify-content: center; gap: 4px; min-height: 0; }
   .menu-left .logo { margin-bottom: 0; }
-  .menu-left .logo .t1 { font-size: 30px; }
+  .menu-left .logo .t1 { font-size: 28px; }
   .logo .t2 { display: none; }
   .splash { --sx: 45%; top: 75%; font-size: 11px; max-width: 9em; }
-  .partner-stage { width: 180px; height: 136px; border-radius: 18px; }
-  .partner-info { padding: 4px 12px 6px; gap: 4px; }
-  .partner-card { gap: 4px; }
-  .partner-card .nm { font-size: 19px; }
-  .partner-card .seg { margin-top: 0; }
-  .menu-right { max-width: 500px; gap: 8px; }
-  .menu-item.play { min-height: 52px; padding: 6px 16px 6px 8px; border-radius: 16px; column-gap: 10px; }
+  .partner-card { gap: 4px; min-height: 0; }
+  .partner-stage { width: auto; height: clamp(110px, calc(100vh - 170px), 240px); aspect-ratio: 4 / 3; max-width: 100%; border-radius: 18px; }
+  .partner-info { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; padding: 3px 12px; gap: 2px 8px; border-radius: 14px; }
+  .partner-card .nm { font-size: 18px; }
+  .partner-card .seg { margin: 0; }
+  .partner-card .seg button { min-height: 28px; padding: 2px 10px; }
+  .menu-right { max-width: 520px; min-height: 0; gap: 6px; justify-content: center; }
+  .menu-right > .install-card { order: -1; }
+  .menu-list { order: 1; flex: 0 1 auto; min-height: 0; gap: 6px; grid-auto-rows: minmax(40px, 64px); }
+  .menu-item.play { order: 2; flex: none; min-height: 52px; padding: 5px 16px 5px 8px; border-radius: 16px; column-gap: 10px; }
   .menu-item.play .mi-ico { width: 40px; height: 40px; }
   .menu-item.play .mi-t { font-size: 22px; }
   .menu-item.play small { font-size: var(--fs-xs); }
-  .menu-list { gap: 6px; }
-  .menu-item.tile { flex-direction: row; justify-content: flex-start; min-height: 46px; padding: 4px 8px 4px 4px; gap: 6px; border-radius: 14px; text-align: left; }
-  .menu-item.tile .mi-ico { width: 38px; height: 38px; border-radius: 11px; }
-  .menu-item.tile .mi-t { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .menu-item.tile { flex-direction: row; justify-content: flex-start; min-height: 40px; height: 100%; padding: 3px 8px 3px 4px; gap: 6px; border-radius: 13px; text-align: left; box-shadow: var(--sh-1); }
+  .menu-item.tile .mi-ico { width: 36px; height: 36px; border-radius: 11px; }
+  .menu-item.tile .mi-t { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .menu-item.tile small { display: none; }
   .menu-stats { display: none; }
 }
 @media (max-height: 400px) {
-  .partner-stage { width: 152px; height: 112px; }
-  .menu-left .logo .t1 { font-size: 26px; }
+  .menu-left .logo .t1 { font-size: 24px; }
   .menu-item.play { min-height: 46px; }
+  .menu-item.play .mi-ico { width: 36px; height: 36px; }
+}
+/* Tumbado y con más alto (430 px y más): las baldosas, con su subtítulo. */
+@media (min-height: 420px) and (max-height: 520px) {
+  .menu-item.tile .mi-t { -webkit-line-clamp: 1; }
+  .menu-item.tile > .mi-t, .menu-item.tile > small { display: block; }
+  .menu-item.tile { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; align-content: center; }
+  .menu-item.tile .mi-ico { grid-row: span 2; }
+  .menu-item.tile .mi-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-item.tile small { display: block; font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
 }
 /* Instalar como app (install-ui.js la pone la primera en .menu-right). */
 .install-card {
@@ -1978,17 +2118,39 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   .dx-tools::-webkit-scrollbar { display: none; }
   .dx-search, .dx-filters { display: contents; }
   .dx-tools > *, .dx-search > *, .dx-filters > *, .dx-filters > .dx-chips > * { flex: none; }
-  .dx-q { flex: 0 0 176px; }
+  .dx-q { flex: 0 0 168px; }
   .dx-count { display: none; }
-  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     padding-left: max(var(--dx-pad), var(--sa-l)); padding-bottom: max(16px, var(--sa-b)); }
-  /* Ficha a la derecha (el Pokémon, a ×3: con menos de 128 px «hero» lo bajaba a ×2). */
+  /* Ficha a la derecha (el Pokémon, a ×3: con menos de 120 px «hero» lo bajaba a ×2). */
   .dex-detail { --dx-pr: max(12px, var(--sa-r)); }
   .dx-in { gap: 8px; padding: 10px var(--dx-pr) 0 12px; }
   .dx-stage { height: 128px; border-radius: var(--rad-l); }
   .dex-detail .dx-name { font-size: var(--fs-xl); }
   .dx-foot { margin-inline: -12px calc(-1 * var(--dx-pr)); padding: 8px var(--dx-pr) max(8px, var(--sa-b)) 12px; }
   .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(12px, var(--sa-b)); }
+  /* Más justo (24-10-2026): la fila de búsqueda y filtros, de 44 px (controles de 34-36),
+     y la ficha más estrecha, con el escenario más bajo y los recuadros apretados. */
+  .dex-main { grid-template-columns: minmax(0, 1fr) minmax(212px, 34%); }
+  #scr-dex .gen-tab small { font-size: 11px; }
+  .dx-tools { gap: 5px; padding-top: 4px; padding-bottom: 4px; }
+  .dx-q > .field { min-height: 34px; padding: 4px 12px 4px 34px; }
+  #scr-dex .dx-q > .field { min-height: 34px; }
+  .dx-q > .ui-svg { left: 11px; width: 16px; height: 16px; margin-top: -8px; }
+  body.touch .dx-pick, .dx-pick { min-height: 34px; }
+  body.touch #scr-dex .dx-tools .chip { min-height: 34px; }
+  .dx-grid { gap: 5px; padding-top: 6px; }
+  .dx-cell { padding: 3px 2px 5px; }
+  .dx-in { gap: 6px; padding-top: 8px; }
+  .dx-stage { height: 120px; }
+  .dx-sec { gap: 5px; padding: 8px 10px; border-radius: 12px; }
+  .dx-extra { padding: 0 10px; }
+  .dx-row { padding: 6px 0; }
+  .dx-stats { gap: 5px 8px; }
+  .dx-mv { width: 34px; height: 34px; border-radius: 10px; }
+  body.touch .dx-mv { width: 36px; height: 36px; }
+  .dx-foot { padding-top: 6px; padding-bottom: max(6px, var(--sa-b)); }
+  .dx-partner { min-height: 36px; padding: 4px 12px; font-size: 14px; }
 }
 
 /* ---- Mejoras: el Pokémon (escenario, selector y progreso) y las tarjetas ---- */
@@ -2087,13 +2249,68 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 @media (max-width: 599px) and (min-height: 521px) {
   .upg-stage { width: 100px; height: 84px; border-radius: 14px; }
 }
-/* Tumbado: el selector y el progreso en una línea, al lado del Pokémon. */
+/* Tumbado (24-10-2026), como un juego de móvil: el Pokémon en una columna fija a la
+   izquierda (escenario, selector y progreso) y las mejoras a la derecha, una por fila
+   (icono · nombre y efecto · nivel · precio), dos columnas si hay sitio. */
 @media (max-height: 520px) {
-  .upg-stage { width: 96px; height: 72px; border-radius: var(--rad-m); }
-  .upg-who { flex-flow: row wrap; align-items: center; column-gap: 12px; }
-  .upg-who > .eyebrow { flex: 1 1 100%; }
-  #upg-mon { flex: 1 1 240px; width: auto; }
-  .upg-sum { flex: 1 1 200px; }
+  .upg-box .upg-body { grid-template-columns: calc(176px + var(--sa-l)) minmax(0, 1fr); align-items: start; gap: 10px;
+    padding-left: max(10px, var(--sa-l)); }
+  .upg-mon { position: sticky; top: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px; border-radius: 12px; }
+  .upg-stage { width: 100%; height: 92px; border-radius: 10px; }
+  .upg-who { gap: 4px; }
+  .upg-who > .eyebrow { display: none; }
+  #upg-mon { width: 100%; padding-left: 10px; }
+  .upg-sum { flex-direction: column; align-items: stretch; gap: 4px; }
+  .upg-types { justify-content: center; }
+  .upg-prog { flex: none; }
+  .upg-grid { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .upg-card {
+    grid-template-columns: auto minmax(0, 1fr) minmax(56px, 112px) auto;
+    grid-template-areas: "ico info lv buy" "more more more more";
+    gap: 4px 10px; padding: 4px 6px 4px 4px; border-radius: 12px;
+  }
+  .upg-card:has(> .upg-more > .upg-many:only-child) {
+    grid-template-columns: auto minmax(0, 1fr) minmax(56px, 112px) auto auto;
+    grid-template-areas: "ico info lv more buy";
+  }
+  .upg-info b { font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .upg-info small { margin-top: 0; font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .upg-lv { gap: 6px; }
+  .upg-pips { gap: 2px; }
+  .upg-pips > i { height: 6px; border-radius: 3px; }
+  .upg-num b { font-size: 13px; }
+  .upg-more { gap: 5px; }
+  .upg-buy > img.pix { margin: -8px -4px -8px -8px !important; }
+  .upg-maxed { min-height: 24px; padding: 2px 10px; }
+  .upg-panel { gap: 6px; padding: 8px; border-radius: 12px; }
+  .upg-ph b { font-size: var(--fs-m); }
+  .upg-slots { gap: 6px; }
+  .upg-sn { width: 28px; height: 28px; border-radius: 8px; font-size: 13px; }
+}
+/* Con dos columnas, el nivel pasa debajo del nombre (si no, los nombres no cabían). */
+@media (max-height: 520px) and (min-width: 880px) {
+  .upg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .upg-card { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico info buy" "ico lv lv" "more more more"; row-gap: 2px; }
+  .upg-card:has(> .upg-more > .upg-many:only-child) { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "ico info more buy" "ico lv lv lv"; }
+  .upg-card > .ico-tile { align-self: center; }
+}
+/* Mochila tumbada (24-10-2026): filas bajas en dos o tres columnas, con el objeto a
+   30 px (el dibujo de 60 a la mitad: sigue nítido) en una baldosa de 46. Por id: pesa
+   más que las reglas de la Mochila de más abajo. */
+@media (max-height: 520px) {
+  #scr-bag .sheet-body { gap: 8px; }
+  #scr-bag .shop-sec { gap: 6px; }
+  #scr-bag .shop-h { font-size: var(--fs-m); }
+  #scr-bag .bag-hint { font-size: var(--fs-s); line-height: 1.35; }
+  #scr-bag .bag-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 5px; }
+  #scr-bag .bag-item { gap: 10px; padding: 4px 10px 4px 4px; border-radius: 12px; }
+  #scr-bag .bag-item b { font-size: 14px; line-height: 1.2; }
+  #scr-bag .bag-item small { margin-top: 1px; font-size: 11px; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #scr-bag .bag-tile { --tile: 46px; border-radius: 14px; }
+  #scr-bag .bag-tile > img.pix { width: 30px; height: 30px; }
+  #scr-bag .bag-n { right: -4px; bottom: -4px; min-width: 20px; padding: 0 5px; font-size: 10px; }
+  #scr-bag .bag-empty { padding: 16px 12px; }
 }
 
 /* ---- Tienda Kecleon: el puesto en pixel art arriba y, debajo, lo que se vende en filas ----
@@ -2178,6 +2395,129 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   .shop-sign { font-size: 14px; top: 3px; }
 }
 
+/* ---- Tienda en pestañas (24-10-2026, shop-ui.js render): Objetos · Pulsera Z · Cristales Z · MT de hoy ----
+ * Como la tienda de un juego: una pestaña cada vez (nada que desplazar en el móvil
+ * tumbado), el precio en el botón dorado de la derecha y lo que ya es tuyo con ✓.
+ * El saludo de dev.html (#shop-hello) se quita: cada pestaña lleva su nota. */
+#shop-hello { display: none; }
+#shop-body { gap: 12px; }
+/* (Un poco más bajo que antes, 264 en vez de 294: así la pestaña cabe sin desplazar en 1280×800; caben las dos estanterías.) */
+@media (min-height: 521px) and (min-width: 600px) { .shop-stall { height: 264px; } }
+.tabs.shop-tabs { margin: 0; }
+.shop-tab { appearance: none; border: 0; background: transparent; gap: 6px; min-width: 0; padding-left: 6px; padding-right: 6px; }
+.shop-tab > img { flex: none; width: 30px; height: 30px; margin: -6px -2px -6px -6px; }
+.shop-tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-tab-n { flex: none; padding: 1px 6px; border-radius: var(--rad-pill); background: rgba(255, 255, 255, .1);
+  font: 700 var(--fs-xs)/1.3 var(--font); font-style: normal; font-variant-numeric: tabular-nums; color: var(--muted); }
+.shop-tab.on .shop-tab-n { background: rgba(0, 0, 0, .25); color: #fff; }
+.shop-pane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box .shop-pane > .shop-note { margin: 0; }
+.shop-got { padding: 4px 10px; }
+/* Cristales Z: rejilla de los 18 (el tuyo, con ✓) y el elegido abajo, con el botón. */
+.z-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.z-cell {
+  appearance: none; cursor: pointer; position: relative; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 7px;
+  border-radius: 12px; background: var(--card); border: 1px solid var(--line-1); color: var(--ink);
+  font: 600 12px/1.2 var(--font); text-align: center;
+  transition: background-color var(--t-fast), border-color var(--t-fast);
+}
+.z-cell > b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.z-cell:hover { background: var(--card-hi); border-color: var(--line-2); }
+.z-cell:active { transform: translateY(1px); }
+.z-cell.on { background: var(--card-hi); border-color: var(--z-c); box-shadow: inset 0 0 0 1px var(--z-c), 0 0 12px color-mix(in srgb, var(--z-c) 30%, transparent); }
+.z-cell:not(.got) > .ico-tile > img { filter: saturate(.75); }
+.z-got { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 16px; height: 16px;
+  border-radius: 50%; background: #1f9d5c; color: #fff; box-shadow: 0 0 0 2px var(--card); }
+.z-got > svg { width: 11px; height: 11px; stroke-width: 3.4; }
+.z-detail { border-color: var(--z-c); box-shadow: inset 3px 0 0 var(--z-c); }
+.z-detail .shop-txt small .gold { font-weight: 700; }
+/* Pulsera Z: el Pokémon elegido (escenario con la pulsera), el selector y el botón. */
+.ring-card { gap: 12px; }
+.ring-stage { position: relative; flex: none; width: 88px; height: 80px; border-radius: 14px; border: 2px solid var(--stage-c, #3d7dca);
+  background: radial-gradient(ellipse at 50% 92%, color-mix(in srgb, var(--stage-c, #3d7dca) 45%, transparent), transparent 62%), linear-gradient(180deg, #1c2f66, #0b1533); }
+.ring-stage > canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.ring-badge { position: absolute; right: -8px; bottom: -8px; box-shadow: 0 0 0 2px var(--surface-solid); background-color: var(--surface-solid); }
+.ring-card:not(.got) .ring-badge > img { filter: grayscale(1); opacity: .6; }
+.ring-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ring-for { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ring-for > span { flex: none; font: 600 var(--fs-s)/1.2 var(--font); color: var(--muted); }
+.ring-for > select { flex: 1 1 auto; min-width: 0; max-width: 300px; }
+.ring-cr { display: inline-flex; align-items: center; gap: 1px; font: 700 var(--fs-xs)/1.3 var(--font); color: var(--muted); }
+.ring-cr > img { width: 30px; height: 30px; margin: -8px -6px; transform: scale(.6); }
+.ring-buy { flex: none; }
+/* La receta del movimiento Z: Pulsera Z + Cristal Z + 2 ataques = movimiento Z (lo que ya está, en verde). */
+.z-recipe { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 8px 10px; border-radius: var(--rad-l);
+  background: rgba(6, 12, 30, .35); border: 1px dashed var(--line-2); }
+.z-recipe > i { flex: none; font: 700 18px/1 var(--font-display); font-style: normal; color: var(--muted); }
+.zr-step { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.zr-txt { min-width: 0; display: flex; flex-direction: column; }
+.zr-txt b { font: 600 var(--fs-s)/1.2 var(--font-display); }
+.zr-txt small { font: 600 var(--fs-xs)/1.25 var(--font); color: var(--muted); }
+.zr-step.ok .zr-txt small { color: var(--ok); }
+.zr-step:not(.ok) > .ico-tile > img { filter: grayscale(.5); opacity: .8; }
+.zr-end b { color: var(--c-yellow); }
+.ring-worn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.ring-worn-k { font: 600 var(--fs-s)/1.3 var(--font); color: var(--muted); margin-right: 2px; }
+.ring-mon.chip { min-height: 26px; padding: 1px 10px; font-size: var(--fs-xs); }
+.ring-more { font: 700 var(--fs-xs)/1 var(--font); color: var(--muted); }
+/* Móvil tumbado: el puesto a la izquierda, de arriba abajo, y las pestañas a la derecha,
+   cada una en una pantalla (lo que no quepa se desplaza sólo en su columna). */
+@media (max-height: 520px) {
+  #scr-shop .shop-scroll { display: grid; grid-template-columns: clamp(200px, 32%, 290px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+  #scr-shop .shop-stall { height: auto; min-height: 0; border-bottom: 0; border-right: 1px solid var(--line-1); }
+  #scr-shop .shop-sign { font-size: 13px; padding: 2px 10px; }
+  #scr-shop .shop-bubble { max-width: 92%; font-size: 11px; padding: 4px 8px; white-space: normal; }
+  #scr-shop .shop-inner { min-height: 0; overflow-y: auto; overscroll-behavior: contain; gap: 8px;
+    padding: 6px max(10px, var(--sa-r)) max(8px, var(--sa-b)) 10px; }
+  #shop-body { gap: 6px; }
+  .tabs.shop-tabs { padding: 2px; gap: 2px; }
+  .shop-tab { padding: 2px 6px; gap: 3px; font-size: 13px; }
+  .shop-tab > img { margin: -8px -6px -8px -8px; transform: scale(.75); }
+  .shop-pane { gap: 6px; }
+  .box .shop-pane > .shop-note { font-size: 11.5px; line-height: 1.3; }
+  /* (Cristales y MT: lo de la nota ya lo dicen el elegido de abajo, las filas y el bocadillo.) */
+  .box :is(.pane-z, .pane-tm, .pane-ring) > .shop-note { display: none; }
+  .z-recipe { gap: 4px; padding: 5px 8px; border-radius: 11px; }
+  .z-recipe > i { font-size: 15px; }
+  .zr-step { gap: 4px; }
+  .zr-txt b { font-size: 12px; }
+  .zr-txt small { font-size: 10.5px; }
+  #scr-shop .tm-grid .shop-row small { -webkit-line-clamp: 1; }
+  #scr-shop .shop-grid { gap: 5px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+  #scr-shop .tm-grid { grid-template-columns: minmax(0, 1fr); }
+  #scr-shop .shop-row { min-height: 0; padding: 4px 6px 4px 4px; gap: 8px; border-radius: 11px; }
+  #scr-shop .shop-row b { font-size: 13.5px; line-height: 1.2; }
+  #scr-shop .shop-row small { font-size: 11px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #scr-shop .shop-tags { margin: 1px 0; gap: 2px 4px; }
+  #scr-shop .shop-tags .tag-chip { font-size: 10.5px; padding: 0 6px; }
+  #scr-shop .shop-buy { padding-left: 8px; padding-right: 10px; }
+  .z-grid { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 4px; }
+  .z-cell { padding: 2px 2px 3px; gap: 1px; border-radius: 10px; font-size: 10.5px; }
+  .z-cell > .ico-tile { --tile: 30px; border-radius: 9px; }
+  .z-got { top: 2px; right: 2px; width: 14px; height: 14px; }
+  .z-detail { position: sticky; bottom: 0; z-index: 1; background: var(--surface-solid); }
+  /* (El nombre y sus etiquetas en una línea; debajo, qué pide y qué hace.) */
+  #scr-shop .z-detail .shop-txt { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; }
+  #scr-shop .z-detail .shop-txt > small { flex-basis: 100%; }
+  .ring-stage { width: 80px; height: 72px; border-radius: 11px; }
+  .ring-badge { right: -6px; bottom: -6px; }
+  .ring-for > select { max-width: 220px; }
+  .ring-mon.chip { min-height: 26px; }
+}
+@media (max-height: 520px) and (min-width: 720px) {
+  #scr-shop .tm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Los más estrechos y bajos (667×375 a 812×375): sin la cuenta de la pestaña (el nombre
+   no cabía) y el texto del cristal elegido en una línea: así caben las 4 filas de cristales. */
+@media (max-height: 520px) and (max-width: 830px) {
+  .shop-tab-n { display: none; }
+  .zr-step > .ico-tile { display: none; }
+}
+@media (max-height: 380px) {
+  #scr-shop .z-detail small { -webkit-line-clamp: 1; }
+}
+
 /* ---- Mochila: tarjetas con el objeto grande y cuántos tienes ---- */
 .bag-box .sheet-body { display: flex; flex-direction: column; gap: 16px; }
 .box .bag-hint { margin: 0; font-size: var(--fs-s); }
@@ -2215,7 +2555,6 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 }
 
 /* ---- Cristales Z (24-10-2026, shop-ui.js): baldosa del color de su tipo, su movimiento Z y «Comprado» ---- */
-.box .z-sec .shop-h > img { margin: -6px 0; }
 .z-move { display: inline-flex; align-items: center; gap: 3px; min-width: 0; font: 700 var(--fs-xs)/1.3 var(--font); color: var(--ink); }
 .z-move > img { flex: none; width: 18px; height: 18px; margin: -3px 0; }
 .z-move > b { font-weight: 700; overflow-wrap: anywhere; }
@@ -2224,7 +2563,6 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   box-shadow: inset 0 0 0 1px rgba(110, 231, 160, .45); letter-spacing: 0;
 }
 .shop-got > svg { width: 14px; height: 14px; stroke-width: 3; }
-.z-all { align-self: flex-start; }
 /* ==== pantallas: gacha ====
  * Gacha (#scr-gacha) y su tirada (#pull-fx), Misiones · Logros · Perfil
  * (#scr-goals) y el perfil público de un jugador (#scr-profile). Son hojas de
@@ -2821,6 +3159,155 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .gh-feat { height: 108px; }
   .gacha-hero .gh-desc { display: none; }
 }
+/* ---- Gacha en el móvil tumbado (24-10-2026): todo en una pantalla, sin desplazar ----
+ * Cabecera (volver · Gacha · regiones) con las monedas y los tickets a la derecha
+ * (base, 4c). Debajo, a la izquierda el cartel de la región a todo el alto (nombre,
+ * cuántos tienes y sus legendarios grandes); a la derecha, el contador de legendaria,
+ * las probabilidades en fichas (la «i» enseña las reglas) y los botones de tirar, de
+ * dos en dos, abajo, a mano del pulgar. (La hoja pasa a ser una rejilla: el cuerpo
+ * se «deshace» y el cartel, la información y el pie se colocan en ella.) */
+@media (max-height: 520px) {
+  #scr-gacha > .box.gacha-sheet {
+    display: grid; gap: 0;
+    grid-template-columns: minmax(0, 1fr) clamp(256px, 40%, 360px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "head head" "hero info" "hero foot";
+  }
+  #scr-gacha .gacha-sheet > .sheet-head { grid-area: head; }
+  #scr-gacha .gacha-body { display: contents; }
+  #scr-gacha .gacha-hero { grid-area: hero; flex-direction: column; align-items: stretch; min-height: 0;
+    margin: 8px 0 max(8px, var(--sa-b)) max(10px, var(--sa-l)); border-radius: 16px; }
+  #scr-gacha .gh-text { flex: none; padding: 10px 14px 0; }
+  #scr-gacha .gacha-hero .gh-gen { font-size: 11px; }
+  #scr-gacha .gacha-hero h3 { font-size: var(--fs-2xl); }
+  #scr-gacha .gacha-hero .gh-desc { display: block; margin: 2px 0 6px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
+  #scr-gacha .gh-owned { max-width: 300px; gap: 4px; }
+  #scr-gacha #gacha-owned { font-size: 12px; }
+  #scr-gacha .gh-feat { flex: 1 1 0; height: auto; min-height: 0; align-self: stretch; }
+  #scr-gacha .gh-feat::before { bottom: 6px; height: 30%; }
+  /* Columna de la derecha: contador y probabilidades (los tickets ya salen arriba). */
+  #scr-gacha .gacha-info { grid-area: info; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto;
+    padding: 8px max(10px, var(--sa-r)) 0 10px; }
+  #scr-gacha .gacha-wallet { display: none; }
+  #scr-gacha .gacha-info > .panel { flex: none; padding: 8px 10px; border-radius: 12px; }
+  #scr-gacha .gacha-pity { gap: 8px; }
+  #scr-gacha .gacha-pity b { font-size: 13px; }
+  #scr-gacha .gacha-pity small { margin: 1px 0 5px; font-size: 11px; }
+  #scr-gacha .gacha-pity .meter { height: 6px; }
+  #scr-gacha .gacha-rates { position: relative; }
+  #scr-gacha .gacha-rates h3 { display: flex; align-items: center; justify-content: space-between; min-height: 24px; margin: -2px 0 4px; font-size: 13px; }
+  #scr-gacha .rate-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  /* Cada rareza, una ficha: arriba su Poké Ball y el %, debajo el nombre (a todo el ancho). */
+  #scr-gacha .rate-row { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico pct" "name name";
+    align-items: center; column-gap: 4px; row-gap: 0; padding: 3px 6px 3px 4px; border: 0; border-radius: 9px; background: var(--sunk); }
+  #scr-gacha .rate-row + .rate-row { border-top: 0; }
+  #scr-gacha .rate-row .ico-tile { grid-area: ico; --tile: 22px; background: none; box-shadow: none; overflow: visible; }
+  #scr-gacha .rate-row .ico-tile img { margin: -4px; }
+  #scr-gacha .rate-row > .grow { grid-area: name; min-width: 0; }
+  #scr-gacha .rate-row b { font-size: 10px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #scr-gacha .rate-row small { display: none; }
+  #scr-gacha .rate-row .rate-pct { grid-area: pct; justify-self: end; font-size: 14px; line-height: 1.1; }
+  /* Reglas: tras la «i», encima de las fichas. */
+  #scr-gacha .gacha-rules { display: none; margin: 0; font-size: 11px; line-height: 1.4; }
+  #scr-gacha .gacha-rates.rules-on .rate-list { display: none; }
+  #scr-gacha .gacha-rates.rules-on .gacha-rules { display: block; }
+  /* Botones de tirar: abajo a la derecha, de dos en dos (el tercero, si sólo hay tres, entero). */
+  #scr-gacha .gacha-foot { grid-area: foot; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
+    padding: 6px max(10px, var(--sa-r)) max(8px, var(--sa-b)) 10px; border-top: 0; background: none; }
+  #scr-gacha .gacha-foot:has(> .pull-all.hidden) > #pull-10b { grid-column: 1 / -1; }
+  #scr-gacha .gacha-foot > .btn.pull-btn { min-height: 44px; padding-left: 8px; padding-right: 8px; column-gap: 6px; grid-template-columns: 24px minmax(0, auto); }
+  #scr-gacha .pull-btn .pb-ico { width: 24px; }
+  #scr-gacha .pull-btn .pb-ico img { margin: -3px; }
+  #scr-gacha .pull-btn .pb-t { font-size: 14px; }
+  /* Tirada, ya con las cartas: el resumen arriba, las cartas (las dos filas de una ×10
+     caben en 360 de alto) y «Continuar» a su derecha, a mano del pulgar. */
+  #pull-fx.revealed { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto;
+    align-content: center; justify-content: center; column-gap: 12px; row-gap: 6px; }
+  #pull-fx.revealed::before, #pull-fx.revealed::after { display: none; }
+  #pull-fx.revealed .pfx-sum { grid-column: 1 / -1; }
+  #pull-fx.revealed .pfx-grid { grid-column: 1; justify-self: center; }
+  #pull-fx.revealed .pfx-foot { grid-column: 2; grid-row: 2; position: sticky; top: calc(50% - 22px); align-self: center; width: auto; }
+  #pull-fx.revealed:has(.pfx-sum.hidden) .pfx-foot { grid-row: 1; }
+  #pull-fx.revealed:has(.pfx-grid.one) { grid-template-columns: auto auto; column-gap: 24px; }
+  #pull-fx #pull-close { min-width: 0; padding: 10px 18px; font-size: 16px; line-height: 20px; }
+  .pfx-grid.low { gap: 5px; }
+  .pfx-grid.low .pull-card { padding: 3px 4px 5px; border-radius: 12px; }
+  .pfx-grid.low .pc-name { font-size: 12px; }
+  .pfx-grid.low .pull-card .pmon { font-size: 10px; line-height: 1.25; }
+  .pfx-grid.low .badge.pc-flag { min-height: 18px; padding: 0 7px; font-size: 10px; }
+  .pfx-grid.low .pc-dup { font-size: 10px; }
+  #pull-fx .pfx-sum { gap: 6px; }
+  #pull-fx .ps-chip { min-height: 28px; padding: 2px 12px; }
+  .pfx-grid.one .pull-card { padding: 8px 10px 10px; }
+}
+/* ---- Misiones · Logros · Perfil en el móvil tumbado (24-10-2026): filas bajas ----
+ * Misiones de 46 px (icono, texto y barra, premio y botón en una línea); logros en
+ * fichas tumbadas (la medalla a la izquierda, a 30 px: el dibujo de 60 a la mitad);
+ * perfil con los favoritos más bajos. */
+@media (max-height: 520px) {
+  #scr-goals .goals-sec { margin: 10px 0 5px; }
+  #scr-goals .goals-sec:first-child { margin-top: 0; }
+  #scr-goals .goals-sec h3 { font-size: var(--fs-m); }
+  #scr-goals .goals-left { padding: 2px 8px; font-size: 11px; }
+  #scr-goals .goals-left .ui-svg { width: 14px; height: 14px; }
+  #scr-goals .goals-hint { margin-bottom: 6px; font-size: var(--fs-s); }
+  #scr-goals .goals-meter { margin-bottom: 8px; }
+  .mission-list { gap: 4px; }
+  .mission-row { grid-template-columns: 34px minmax(0, 1fr) auto auto; gap: 4px 8px; padding: 4px 6px 4px 5px; border-radius: 12px; }
+  .mission-row .m-txt b { font-size: 13px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-prog { margin-top: 3px; gap: 6px; }
+  .m-prog .meter { height: 6px; }
+  .mission-row .m-btn { min-width: 84px; }
+  .rw-chip { height: 26px; padding-right: 7px; }
+  .rw-chip img { margin: -2px -1px; }
+  .rw-chip b { font-size: 12px; }
+  /* Logros: resumen en una línea y fichas tumbadas. */
+  #scr-goals .ach-sum { gap: 10px; margin-bottom: 8px; padding: 6px 10px; }
+  #scr-goals .ach-sum .ico-tile.l { --tile: 44px; }
+  #scr-goals .ach-sum .ico-tile.l img { width: 30px; height: 30px; }
+  #scr-goals .ach-count { font-size: var(--fs-l); }
+  #scr-goals .ach-sum .sub { margin: 0 0 4px; font-size: 11px; }
+  .goals-cats { margin-bottom: 8px; }
+  .ach-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 5px; }
+  .ach-tile { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 8px; row-gap: 2px; align-items: center; align-content: center;
+    padding: 6px 8px 6px 6px; text-align: left; border-radius: 12px; }
+  .ach-tile > * { grid-column: 2; }
+  .ach-tile > .ach-medal { grid-column: 1; grid-row: 1 / span 5; align-self: start; }
+  .ico-tile.ach-medal { --tile: 40px; }
+  .ach-medal img { width: 30px; height: 30px; }
+  .ach-lock { width: 18px; height: 18px; right: -4px; bottom: -4px; }
+  .ach-lock .ui-svg { width: 11px; height: 11px; }
+  .ach-name { font-size: 13px; }
+  .ach-desc { font-size: 11px; }
+  .ach-tile .rw-chips { justify-content: flex-start; }
+  .ach-prog, .ach-done { margin-top: 2px; }
+  .leg-grid { grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 5px; }
+  .evo-grid { gap: 5px; }
+  /* Perfil: favoritos más bajos (lienzo de 80), título y «Ver mi perfil público» a su ancho. */
+  .fav-slots { gap: 6px; }
+  .fav-slot { min-height: 0; padding: 4px 6px 6px; border-radius: 12px; }
+  .fav-slot:not(.has) { min-height: 104px; }
+  .fav-plus { width: 40px; height: 40px; }
+  .prof-title-row { padding: 6px 8px; }
+  .prof-preview { margin-top: 10px; }
+  #goals-body .fav-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 5px; }
+}
+/* La «i» de las reglas sólo hace falta tumbado (en el resto se ven siempre). */
+.gr-info { display: none; }
+@media (max-height: 520px) {
+  #scr-gacha .gr-info { display: inline-grid; width: 28px; height: 28px; margin: -4px -4px -4px 0; }
+  body.touch #scr-gacha .gr-info { width: 32px; height: 32px; }
+  #scr-gacha .gr-info .ui-svg { width: 18px; height: 18px; }
+  #scr-gacha .gacha-rates.rules-on .gr-info { color: var(--c-yellow); }
+}
+@media (max-height: 400px) {
+  #scr-gacha .gacha-hero .gh-desc { display: none; }
+  #scr-gacha .gacha-pity small { margin-bottom: 3px; }
+}
+/* Móviles tumbados estrechos (667-719): sin la Poké Ball del contador, así su frase cabe en una línea. */
+@media (max-height: 520px) and (max-width: 719px) {
+  #scr-gacha .gacha-pity > .ico-tile { display: none; }
+}
 /* ==== pantallas: social ==== */
 /* Apodo, Amigos, Sala, Ranking, Moderación y la invitación (social-ui.js,
  * ranking-ui.js y mod-ui.js). Amigos, Sala, Ranking y Moderación son hojas de la
@@ -3240,6 +3727,44 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
    «pantallas bajas», .box h2, lo subía a 20). */
 @media (max-width: 599px), (max-height: 520px) {
   :is(#scr-friends, #scr-lobby, #scr-rank, #scr-mod) .sheet-head h2 { font-size: var(--fs-xl); }
+}
+/* ---- Móvil tumbado, más justo (24-10-2026) ----
+ * Amigos: tu tarjeta y añadir en una columna de 220 a la izquierda; filas de 44.
+ * Sala: las cuatro plazas más bajas y el aviso de arriba en una línea.
+ * Ranking: filas de 44. Apodo: la explicación a un lado y el campo al otro (arriba). */
+@media (max-height: 520px) {
+  .fr-body { gap: 12px; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); }
+  .fr-side { gap: 8px; }
+  .fr-me { padding: 8px 8px 8px 10px; border-radius: 12px; }
+  .fr-me-av { width: 44px; height: 44px; }
+  .fr-me-av canvas { margin: -10px; }
+  .fr-me-name { font-size: var(--fs-l); }
+  .fr-me .btn, .fr-me small { margin-top: 6px; }
+  .fr-me small { font-size: 11px; }
+  .fr-add label { margin-bottom: 4px; }
+  .fr-lists { gap: 10px; }
+  .fr-lists .fr-h { margin-bottom: 4px; }
+  .fr-item { min-height: 44px; padding: 3px 4px 3px 6px; }
+  .fr-av { width: 30px; height: 30px; font-size: 14px; }
+  .fr-who b { font-size: 14px; }
+  .lobby-body { gap: 8px; }
+  .lobby-body > #lobby-sub { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lob-grid { gap: 6px; }
+  .lob-slot { padding: 6px 4px; border-radius: 12px; }
+  .lob-slot b { font-size: 13px; }
+  .lob-slot.empty { min-height: 120px; }
+  .lob-chips { padding-top: 2px; }
+  .rk-rows { gap: 4px; }
+  .rk-item { min-height: 44px; padding: 2px 2px 2px 6px; border-radius: 11px; }
+  .rk-pos { font-size: var(--fs-m); }
+  .rk-medal.ico-tile.s { --tile: 30px; }
+  .rk-who b { font-size: 13px; }
+  .rk-time { font-size: var(--fs-l); }
+  #scr-rank .seg button { min-height: 30px; }
+  /* Arriba (no centrado): con el teclado abierto, el campo sigue a la vista. */
+  #scr-nick > .box.nick-box { align-content: start; align-items: start; padding-top: max(16px, var(--sa-t)); }
+  .nick-head h2 { font-size: var(--fs-xl); }
+  .nick-head .sub { font-size: var(--fs-s); }
 }
 /* ==== pantallas: ventanas ==== */
 /* Ajustes, Novedades, Apoyar, Aviso legal e Instalar como app (hojas, sección 4 de
@@ -3703,6 +4228,47 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   /* «Instalar» a su ancho (como «Crear cuenta o entrar» en Ajustes), no de borde a borde. */
   #scr-install .install-now { width: auto; min-width: 240px; }
 }
+/* ---- Ventanas en el móvil tumbado, más justas (24-10-2026) ----
+ * Ajustes: la columna de pestañas, de 148 (sólo icono y nombre) y filas de 44.
+ * Novedades, Apoyar, Aviso legal e Instalar: tarjetas con menos aire y, con
+ * sitio, en dos columnas; la letra de los párrafos sigue en 12 px o más. */
+@media (max-height: 520px) {
+  #scr-settings .set-main { grid-template-columns: calc(148px + var(--sa-l)) minmax(0, 1fr); }
+  #scr-settings .set-nav { padding: 4px 4px max(4px, var(--sa-b)) max(4px, var(--sa-l)); }
+  #scr-settings .set-tab { min-height: 36px; gap: 6px; padding: 2px 6px 2px 2px; font-size: var(--fs-s); }
+  #scr-settings .set-tab .ico-tile { --tile: 30px; }
+  #scr-settings .set-body { padding: 8px max(12px, var(--sa-r)) max(10px, var(--sa-b)) 12px; }
+  #scr-settings :is(.set-h, .sup-h) { margin: 10px 2px 5px; font-size: var(--fs-xs); }
+  #scr-settings .set-sub { margin-bottom: 6px; font-size: var(--fs-s); }
+  #scr-settings .set-row { min-height: 44px; padding: 4px 10px; }
+  #scr-settings .set-row > .grow > b { font-size: var(--fs-s); }
+  #scr-settings .set-row small { font-size: 11px; }
+  #scr-settings .set-vol { padding: 4px 10px 2px 8px; column-gap: 10px; }
+  #scr-settings .set-vol > b, #scr-settings .set-vol > output { font-size: var(--fs-s); }
+  #scr-settings .set-seg > button { min-height: 32px; }
+  body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { min-height: 36px; }
+  #scr-settings .key-row { padding: 5px 0; }
+  #scr-settings .about-hero { padding: 8px 10px; }
+  #scr-news .news-body { gap: 8px; }
+  #scr-news .news-card { padding: 8px 12px; }
+  #scr-news .news-card h3 { margin-bottom: 6px; font-size: var(--fs-m); }
+  #scr-news .news-part + .news-part { margin-top: 8px; padding-top: 8px; }
+  #scr-news .news-part ul { margin-top: 6px; gap: 4px; }
+  #scr-news .news-part li { line-height: 1.4; }
+  #scr-support .sup-hero .ico-tile { --tile: 44px; }
+  #scr-support .sup-free { margin-top: 8px; padding: 6px 10px; }
+  #scr-support .sup-costs .list-row { min-height: 38px; padding: 4px 10px; }
+  #scr-legal .legal { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 6px; }
+  #scr-legal .legal-sec { padding: 8px 12px 2px; }
+  #scr-legal .legal-sec h3 { font-size: var(--fs-m); }
+  #scr-legal .legal-sec p { margin-bottom: 6px; line-height: 1.45; }
+  #scr-legal .legal-danger { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-bottom: 8px; }
+  #scr-legal .legal-danger > p:first-child { flex: 1 1 260px; margin: 0; }
+  #scr-install .install-steps li { padding: 6px 8px 8px; }
+  #scr-install .install-steps b { font-size: var(--fs-s); }
+  #scr-install .install-steps small { font-size: 11px; }
+  #scr-install .install-app { width: 36px; height: 36px; border-radius: 9px; }
+}
 /* ==== pantallas: partida ====
  * Ventanas de la partida (run-ui.js) y «Colocar los botones» (layout-ui.js).
  *  - Subir de nivel, objeto y vínculo: .pick-box = cabecera + cartas (.pick-card)
@@ -3904,6 +4470,14 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   .card.pick-card .nm { font-size: 15px; }
   .card.pick-card .ds { font-size: 12.5px; line-height: 1.32; }
 }
+/* Los móviles más bajos (iPhone SE tumbado, 375 px): icono algo menor y la nota de «rinde un
+   92 %» más pequeña; si no, en 667x375 la carta con más texto se cortaba abajo (probado
+   en partidas el 24-10-2026). */
+@media (max-height: 400px) {
+  .pick-card .ico-tile.pc-ico { --tile: 54px; border-radius: 16px; }
+  .pick-card .pc-art { padding-bottom: 6px; }
+  .card.pick-card .ds .fit-low { margin-top: 2px; font-size: 11px; line-height: 1.25; }
+}
 
 /* ---- Lista de ataques (pausa y resumen, movesTable en run-ui.js) ---- */
 .mv-legend { display: flex; justify-content: flex-end; align-items: baseline; gap: 4px; margin: -2px 2px 6px; font: 700 var(--fs-xs)/1.3 var(--font); color: var(--muted); }
@@ -3982,6 +4556,86 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 .own-card .badge { flex: none; }
 #pause-sound { max-width: none; margin: 0; }
 #pause-sound .snd-row { grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr); }
+
+/* ---- Huecos (24-10-2026, run-ui.js slotsHtml): como en Vampire Survivors ----
+   Arriba de la pausa, tus 4 huecos de ataque, tus 4 de pasiva y el objeto, cada uno
+   con su icono y su nivel (la chapita de la esquina); los libres, con borde de
+   puntos y «Libre». En pequeño y sin niveles, en la cabecera de las cartas de nivel. */
+.ps-card.ps-slots { -webkit-column-span: all; column-span: all; padding: 10px 14px 12px; }
+/* La leyenda de la lista de ataques («Daño · % · Por segundo»), en la línea del título. */
+.ps-card.ps-moves { position: relative; }
+.ps-moves > .mv-legend { position: absolute; top: 14px; right: 14px; margin: 0; line-height: 1.25; }
+.sl-wrap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 26px; }
+.sl-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sl-lbl { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.sl-lbl b { font: 600 var(--fs-m)/1.2 var(--font-display); color: var(--ink); }
+.sl-n { font: 600 var(--fs-m)/1.2 var(--font-display); color: var(--c-yellow); font-variant-numeric: tabular-nums; }
+.sl-group.full .sl-n { color: var(--muted); }
+.sl-row { display: flex; gap: 6px; }
+.sl-row > .sl { --tile: 48px; position: relative; flex: none; border-radius: 13px; }
+.sl-row > .sl.sl-free {
+  display: inline-grid; place-items: center; width: var(--tile); height: var(--tile);
+  border: 1.5px dashed var(--line-3); background: rgba(255, 255, 255, .025);
+}
+.sl.sl-free > span { max-width: 100%; overflow: hidden; font: 700 11px/1 var(--font); color: var(--muted); }
+.sl-row > .sl.evo { box-shadow: inset 0 0 0 2px #ffd86b, 0 0 10px rgba(255, 203, 5, .35); }
+.sl-row > .sl.bond { box-shadow: inset 0 0 0 2px var(--bond); }
+.sl-lv, .sl-plus {
+  position: absolute; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; text-align: center;
+  font: 600 11px/18px var(--font-display); font-style: normal; font-variant-numeric: tabular-nums;
+}
+.sl-lv { right: -4px; bottom: -4px; background: #0b1530; color: var(--ink); box-shadow: 0 0 0 1.5px var(--line-3); }
+.sl.evo > .sl-lv { color: var(--c-yellow); box-shadow: 0 0 0 1.5px rgba(255, 203, 5, .7); }
+.sl-plus { left: -4px; top: -4px; background: var(--bond); color: #2a0f24; }
+/* Cabecera de las cartas de nivel: «Ataques 3/4 ▣▣▣□ · Pasivas 2/4 ▣▣□□», en una línea. */
+.lvl-slots { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 4px; }
+.lvl-slots .sl-group { flex-direction: row; align-items: center; gap: 7px; }
+.lvl-slots .sl-lbl { gap: 4px; }
+.lvl-slots .sl-lbl b, .lvl-slots .sl-n { font-size: var(--fs-s); }
+.lvl-slots .sl-lbl b { color: var(--muted); }
+.lvl-slots .sl-row { gap: 3px; }
+.lvl-slots .sl-row > .sl { --tile: 28px; border-radius: 8px; }
+.lvl-slots .sl-row > .sl.sl-free { border-width: 1px; }
+.lvl-slots .sl-row > :is(.sl.evo, .sl.bond) { box-shadow: inset 0 0 0 1.5px #ffd86b; }
+/* Carta nueva: qué hueco ocupa (el último, en amarillo). */
+.pick-card .pc-slot { letter-spacing: .04em; }
+.pick-card .pc-slot.last { color: var(--c-yellow); }
+/* Evolución imposible: te falta esa pasiva y no te quedan huecos de pasiva. */
+:is(.pc-evo, .mv-evo).blocked .evo-need > b { color: #ff9aa5; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+:is(.pc-evo, .mv-evo) .evo-no { white-space: nowrap; color: #ff9aa5; font-weight: 700; }
+:is(.pc-evo, .mv-evo) .evo-no::before { content: '· '; color: var(--muted); }
+/* Móvil tumbado: la pausa, más baja; los huecos, de 42 px (lo que se ve de un vistazo
+   sin desplazar: los huecos y tus ataques). */
+@media (max-height: 520px) {
+  .ps-card.ps-slots { padding: 6px 10px 8px; }
+  .ps-moves > .mv-legend { top: 9px; right: 10px; }
+  .sl-wrap { gap: 6px 18px; }
+  .sl-group { gap: 4px; }
+  .sl-lbl b, .sl-n { font-size: var(--fs-s); }
+  .sl-row { gap: 5px; }
+  .sl-row > .sl { --tile: 42px; border-radius: 11px; }
+  .sl-row > .sl > img { width: 30px; height: 30px; }
+  /* (En su propia línea, a todo el ancho: «Cambiar opciones», arriba a la derecha, sólo
+     ocupa la primera; si no, con la cabecera estrecha, las dos tiras iban una debajo de otra.) */
+  .lvl-slots { flex: 0 0 calc(100% + min(40vw, 300px)); justify-content: flex-start; margin: 0 calc(-1 * min(40vw, 300px)) 0 0; gap: 2px 14px; }
+  .lvl-slots .sl-row > .sl { --tile: 24px; border-radius: 7px; }
+  .lvl-slots .sl-row > .sl > img { width: 20px; height: 20px; }
+}
+/* Durante la partida (sin la barra de arriba) y sin ninguna ventana abierta, el aviso de
+   logro va arriba a la derecha, bajo la pausa y el clima, y más pequeño: abajo tapaba
+   la barra de ataques y arriba en medio, el reloj y las barras de los jefes. Con la
+   pausa o las cartas abiertas, abajo (arriba tapaba sus botones). */
+body:has(> #topbar.hidden) .ach-pop { top: auto; bottom: max(12px, var(--sa-b)); pointer-events: none; }
+body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop {
+  top: calc(max(8px, var(--sa-t)) + 56px); bottom: auto; left: auto; right: max(10px, var(--sa-r));
+  transform: none; max-width: min(320px, 46vw); padding: 6px 12px; gap: 8px; pointer-events: none;
+  animation-name: drop-in;
+}
+body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop b { font-size: var(--fs-s); }
+body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-size: var(--fs-xs); }
+@media (min-height: 521px) and (min-width: 600px) {
+  body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop { top: 64px; right: 16px; }
+}
 /* Móvil (de pie y tumbado), 23-10-2026: la pausa y el resumen se veían enormes.
    Tarjetas, filas y cifras mucho más compactas (letra de 11 px como poco y
    baldosas de icono de 28, el dibujo a 26): de un vistazo se ven tus ataques y
@@ -4394,3 +5048,144 @@ img.ico-mv { image-rendering: pixelated; }
   .z-desc { margin-top: 2px; font-size: 11.5px; line-height: 1.3; }
   .z-state { min-height: 16px; padding: 0 6px; }
 }
+/* Movimientos Z por Pokémon (24-10-2026): apagado (qué falta) o sin Pulsera Z, y tus
+   cristales con los ataques que llevas de su tipo (el que va, con su color). */
+.z-off { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.z-off > div { min-width: 0; }
+.z-off b { display: block; font-size: var(--fs-s); line-height: 1.35; }
+.z-off small { display: block; margin-top: 2px; font-size: var(--fs-xs); line-height: 1.35; color: var(--muted); }
+.z-off > .ico-tile { flex: none; filter: grayscale(.6); opacity: .85; }
+.z-have { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.z-cr {
+  display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 7px 0 2px; border-radius: var(--rad-pill);
+  background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px var(--line-1);
+  font: 700 11px/1 var(--font); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.z-cr > img { width: 30px; height: 30px; margin: -3px -3px -3px -4px; transform: scale(.7); }
+.z-cr > b { display: inline-flex; align-items: center; gap: 1px; font-weight: 700; }
+.z-cr > b > svg { width: 12px; height: 12px; stroke-width: 3.2; }
+.z-cr.ok { color: var(--ink); }
+.z-cr.on { color: var(--ink); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1.5px var(--z-c); }
+.z-cr.near { color: var(--ink); box-shadow: inset 0 0 0 1px var(--z-c); }
+.z-cr:not(.on, .ok, .near) > img { filter: grayscale(.7); opacity: .7; }
+/* Carta de nivel de un ataque nuevo del tipo de un cristal: «Z 1/2» (dorada si con él se activa). */
+.z-chip {
+  display: inline-flex; align-items: center; gap: 1px; height: 20px; padding: 0 7px 0 1px; border-radius: var(--rad-pill);
+  background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px var(--z-c);
+  font: 700 11px/1 var(--font); color: var(--ink); white-space: nowrap;
+}
+.z-chip > img { width: 30px; height: 30px; margin: -5px -5px -5px -5px; transform: scale(.62); }
+.z-chip.go { color: var(--c-on-yellow); background: var(--c-yellow); box-shadow: none; }
+/* ==== evolución en partida (24-10-2026) ====
+ * ui/evo-ui.js: el cartel al evolucionar (.evo-toast), la carta para elegir rama
+ * (#scr-evo, con las mismas cartas .pick-card que las de nivel) y la línea de la
+ * ficha de la colección (.dx-evo: cómo empieza y cómo evoluciona en partida).
+ */
+/* Cartel: arriba, bajo el reloj; pequeño y breve (no se toca: no tapa nada que haga falta). */
+.evo-toast {
+  --evo-c: #ffcb05;
+  position: fixed; left: 50%; top: calc(var(--sa-t, 0px) + 118px); z-index: var(--z-toast);
+  display: flex; align-items: center; gap: 10px; width: max-content; max-width: min(460px, calc(100% - 32px));
+  padding: 6px 16px 6px 6px; border-radius: 18px;
+  background: var(--surface-float); border: 1px solid var(--line-2);
+  box-shadow: var(--sh-pop), inset 0 0 0 1px color-mix(in srgb, var(--evo-c) 55%, transparent), 0 0 22px color-mix(in srgb, var(--evo-c) 35%, transparent);
+  pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, -8px) scale(.96);
+  transition: opacity .3s, transform .3s var(--ease), visibility 0s .3s;
+}
+.evo-toast.on { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); transition: opacity .16s, transform .28s var(--ease-pop, var(--ease)), visibility 0s; }
+/* Con una pantalla encima (pausa, cartas, rama, resumen), escondido: su reloj va con la
+   partida (sale otra vez al seguir). Antes se quedaba encima de la pausa tapando los huecos. */
+body:has(> .scr:not(.hidden)) .evo-toast.on { opacity: 0; visibility: hidden; transition: none; }
+.evo-t-art {
+  flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--evo-c) 45%, transparent), transparent 72%), rgba(255, 255, 255, .05);
+}
+.evo-t-art > canvas { width: 48px; height: 48px; image-rendering: pixelated; }
+.evo-t-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
+.evo-t-k { font: 700 11px/1.2 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--c-yellow); }
+.evo-t-nm { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; font: 600 17px/1.2 var(--font-display); }
+.evo-t-nm > span { color: var(--muted); font-size: 14px; }
+.evo-t-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 5px; font: 700 12px/1.3 var(--font); color: var(--muted); }
+.evo-arr { font-style: normal; color: var(--muted); }
+.evo-dot { margin: 0 .3em; font-style: normal; color: var(--muted); opacity: .7; }
+.evo-it { color: var(--ink); }
+@media (max-width: 599px), (max-height: 520px) {
+  .evo-toast { top: calc(var(--sa-t, 0px) + 54px); gap: 8px; padding: 4px 12px 4px 4px; border-radius: 14px; }
+  .evo-t-art { width: 40px; height: 40px; border-radius: 11px; }
+  .evo-t-art > canvas { width: 40px; height: 40px; }
+  .evo-t-nm { font-size: 15px; }
+  .evo-t-nm > span { font-size: 12px; }
+  .evo-t-sub { font-size: 11px; }
+}
+
+/* Carta de rama: como las de nivel; con muchas (Eevee, 8), en rejilla de 4 y más compactas. */
+#scr-evo.scr.dim { background: radial-gradient(120% 90% at 50% 0%, rgba(29, 59, 120, .55), rgba(5, 10, 26, .88)); }
+#scr-evo .pick-ico { background: radial-gradient(circle at 50% 30%, rgba(255, 233, 150, .55), rgba(255, 203, 5, .16) 72%); }
+#scr-evo h2 { color: var(--ink); }
+.evo-cards .pc-ico > canvas { display: block; width: 80px; height: 80px; image-rendering: pixelated; }
+.evo-cards:not(.many) .card.pick-card { justify-content: center; }
+.evo-card .evo-how { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 5px; }
+.evo-card .evo-hint { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 4px; }
+.evo-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 10px; font: 700 12px/1.35 var(--font); color: var(--muted); }
+.evo-stats b { font: 600 13px/1.35 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.evo-card .evo-hint .evo-arr { color: var(--c-yellow); opacity: .8; }
+.evo-cards.many { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-columns: auto; }
+.evo-cards.many .card.pick-card { gap: 6px; padding: 12px 10px; }
+.evo-cards.many .ico-tile.pc-ico { --tile: 68px; border-radius: 20px; }
+.evo-cards.many .pc-ico > canvas { width: 64px; height: 64px; }
+.evo-cards.many .card.pick-card .nm { font-size: 17px; }
+.evo-cards.many .card.pick-card .ds { font-size: 12.5px; line-height: 1.3; }
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-evo > .box { background: var(--surface-solid); }
+}
+/* Móvil tumbado: cabecera en una línea y las cartas con todo el alto (como las de nivel);
+   con muchas, cada carta en horizontal: el sprite a la izquierda. */
+@media (max-height: 520px) {
+  #scr-evo > .box.pick-box { gap: 8px; text-align: left;
+    padding: max(8px, var(--sa-t, 0px)) max(14px, var(--sa-r, 0px)) max(10px, var(--sa-b, 0px)) max(14px, var(--sa-l, 0px)); }
+  #scr-evo .pick-head { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-height: 40px; }
+  #scr-evo .ico-tile.pick-ico { --tile: 32px; border-radius: 10px; }
+  #scr-evo .box.pick-box .pick-head h2, #scr-evo .pick-head h2 { font-size: 20px; }
+  #scr-evo .pick-head .sub { font-size: var(--fs-s); }
+  .evo-cards { gap: 8px; margin: -6px -12px -10px; padding: 8px 12px 12px; }
+  .evo-cards .card.pick-card { gap: 6px; padding: 10px 8px; border-radius: 14px; }
+  .evo-cards .ico-tile.pc-ico { --tile: 60px; border-radius: 18px; }
+  .evo-cards .pc-ico > canvas { width: 56px; height: 56px; }
+  .evo-cards .card.pick-card .nm { font-size: 15px; }
+  .evo-cards .card.pick-card .ds { font-size: 12px; line-height: 1.3; }
+  .evo-cards.many .card.pick-card {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px;
+    padding: 6px 8px 6px 6px; text-align: left;
+  }
+  .evo-cards.many .pick-card .pc-art { padding: 0; }
+  .evo-cards.many .ico-tile.pc-ico { --tile: 48px; border-radius: 14px; }
+  .evo-cards.many .pc-ico > canvas { width: 46px; height: 46px; }
+  .evo-cards.many .pick-card .pc-txt { align-items: flex-start; gap: 2px; }
+  .evo-cards.many .pick-card .pc-chips, .evo-cards.many .evo-how, .evo-cards.many .evo-hint { justify-content: flex-start; }
+  .evo-cards.many .card.pick-card .nm { font-size: 14px; }
+  .evo-cards.many .card.pick-card .ds { font-size: 11px; }
+  .evo-cards.many .pick-card .type { font-size: 11px; padding: 0 6px; }
+  .evo-cards.many .evo-stats { display: none; }
+  .evo-cards .evo-stats { justify-content: flex-start; font-size: 11px; gap: 0 8px; }
+  .evo-cards:not(.many) .evo-stats { justify-content: center; }
+  .evo-cards .evo-stats b { font-size: 12px; }
+}
+/* Móvil de pie (sin uso en el móvil, que va tumbado; tabletas estrechas): una columna. */
+@media (max-width: 599px) and (min-height: 521px) {
+  .evo-cards.many { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .evo-cards .evo-how, .evo-cards .evo-hint { justify-content: flex-start; }
+}
+
+/* Ficha de la colección: «En partida: Charmander → Charmeleon · Nv. 9 → Charizard · Nv. 18». */
+.dex-detail .dx-evo {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0; padding: 6px 10px;
+  border-radius: var(--rad-m); background: rgba(255, 255, 255, .04); border: 1px solid var(--line-1);
+  font: 600 var(--fs-s)/1.4 var(--font);
+}
+.dx-evo > .dx-lbl { flex: 0 0 auto; }
+.evo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; min-width: 0; }
+.evo-step { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 5px; }
+.evo-step > b { font: 600 var(--fs-m)/1.3 var(--font-display); }
+.evo-step .evo-how { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; font-size: var(--fs-xs); color: var(--muted); }
+.evo-step .evo-opts { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+.evo-step .evo-opts > b { padding: 0 7px; border-radius: var(--rad-pill); background: rgba(255, 255, 255, .07); font: 600 var(--fs-s)/1.45 var(--font-display); }

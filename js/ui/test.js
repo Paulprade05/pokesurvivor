@@ -61,11 +61,13 @@ G.TestUI = (() => {
     $('starter-info').textContent = 'Selecciona un Pokémon';
     const grid = $('starter-grid');
     grid.innerHTML = '';
+    // En el móvil (modo compacto de style.css), casillas más pequeñas: su lienzo también (no se estira con CSS).
+    const [cw, ch] = matchMedia('(max-width: 599px), (max-height: 520px)').matches ? [76, 64] : [92, 80];
     for (const s of G.STARTERS) {
       const mon = G.DEX_BY[s.dex];
       const cell = document.createElement('div');
       cell.className = 'cell' + (result && s.dex === result.dex ? ' on' : '');
-      cell.appendChild(G.UI.spriteCanvas(s.dex, 92, 80, { scale: 2 }));
+      cell.appendChild(G.UI.spriteCanvas(s.dex, cw, ch, { scale: 2 }));
       cell.insertAdjacentHTML('beforeend', `<b>${mon.name}</b>`);
       cell.onclick = () => {
         grid.querySelectorAll('.cell').forEach(c => c.classList.remove('on'));

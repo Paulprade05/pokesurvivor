@@ -457,6 +457,7 @@ G.MenuUI = (() => {
         <span class="dx-rar" style="color:${G.Gacha.RARITY_COLOR[p.rarity]}">${G.Icons.rarity(p.rarity, 30)}<span>${G.Gacha.RARITY_NAME[p.rarity]}</span></span>
       </div>
       ${own ? `<div class="dx-types">${G.UI.typeChips(p.types)}</div>` : ''}
+      ${own && G.EvoUI ? G.EvoUI.dexLine(dex) : ''}
       ${own && judged(dex) ? `<p class="dx-judged">${G.Icons.html('trophy', 30)}<span>Llegó a la Sentencia de Arceus</span>
         <small>${new Date(judged(dex)).toLocaleDateString(G.I18n.locale)}</small></p>` : ''}
       ${own ? `
@@ -684,7 +685,38 @@ G.MenuUI = (() => {
       if (u.id === 'start' && lvl > 0 && startOpen) box.appendChild(startPicker());
       if (u.id === 'start2' && lvl > 0 && start2Open) box.appendChild(start2Picker());
     }
+    box.appendChild(ringCard(mon));
     box.appendChild(bindPanel());
+  }
+
+  /**
+   * Pulsera Z (24-10-2026): los movimientos Z son de cada Pokémon. Como una mejora
+   * de un nivel (se compra una vez y es para siempre, data/shop.js); debajo, cuántos
+   * Cristales Z tienes y el botón para ir a por ellos a la Tienda Kecleon. No cuenta
+   * en el progreso de mejoras de arriba.
+   */
+  function ringCard(mon) {
+    const s = G.DB.save, has = G.Shop.ringHas(upgDex), price = G.Shop.RING_PRICE, n = G.Shop.zOwned().length;
+    const el = document.createElement('div');
+    el.className = 'upg-card upg-ring' + (has ? ' is-max' : '');
+    el.innerHTML = `
+      <span class="ico-tile${has ? ' t-gold' : ''}">${G.Icons.html('zring', 30)}</span>
+      <div class="upg-info"><b>${G.T('Pulsera Z')}</b><small>${G.T('Puede usar movimientos Z: con un Cristal Z y 2 ataques de su tipo en sus huecos')}</small></div>
+      <div class="upg-price">${has ? `<span class="badge gold upg-maxed">${G.T('Máx.')}</span>`
+        : `<button class="btn small gold ic upg-buy" type="button" data-buy data-sfx="none" ${s.coins < price ? 'disabled' : ''}>${G.Icons.html('coin', 30)}<span>${price.toLocaleString(G.I18n.locale)}</span></button>`}</div>
+      <div class="upg-lv"><span class="upg-pips"><i class="${has ? 'on' : ''}"></i></span><span class="upg-num"><b>${has ? 1 : 0}</b>/1</span></div>
+      <div class="upg-more"><button class="btn small ghost ic upg-pick" type="button" data-zshop>${G.Icons.html('z:' + mon.types[0], 30)}<span>${G.I18n.f('Cristales Z: {x}', n + '/' + G.Shop.Z_TYPES.length)}</span></button></div>`;
+    const b = el.querySelector('[data-buy]');
+    if (b) b.onclick = () => {
+      const r = G.Shop.buy('zr:' + upgDex);
+      if (!r.ok) { if (r.error) G.UI.toast(r.error); G.Audio.sfx('error'); renderUpgrades(); return; }
+      G.Audio.sfx('buy');
+      G.UI.refreshCoins();
+      G.UI.toast(`${mon.name} · ${G.T('Pulsera Z')}`);
+      renderUpgrades();
+    };
+    el.querySelector('[data-zshop]').onclick = () => G.ShopUI.open('z');
+    return el;
   }
 
   /** Compra un nivel de la mejora u del Pokémon que se ve (sin guardar). → nivel nuevo, o 0 si no se puede. */

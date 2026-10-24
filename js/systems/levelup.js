@@ -2,7 +2,7 @@
  * Tipos de carta:
  *   new   aprender un movimiento nuevo (sólo si quedan huecos de los 4; un vínculo libera huecos)
  *   up    mejorar un movimiento que ya tienes
- *   stat  mejora permanente de la run
+ *   stat  mejora permanente de la run (pasiva: como mucho 4 distintas, ver MAX_PASSIVES)
  */
 G.LevelUp = (() => {
 
@@ -51,6 +51,28 @@ G.LevelUp = (() => {
   ];
   STATS.push(...PASSIVES);
 
+  /*
+   * Huecos de pasiva (24-10-2026, como en Vampire Survivors): como mucho 4 pasivas
+   * distintas por partida. Cuenta como pasiva cada carta de mejora que se queda
+   * (todas las de STATS menos la Baya Zidra, que sólo cura); el objeto va aparte
+   * y los ataques siguen teniendo sus 4 huecos. Con las 4 cogidas sólo salen
+   * subidas de las que ya llevas (y la Baya Zidra).
+   */
+  const MAX_PASSIVES = 4;
+  const ONE_SHOT = new Set(['heal']);
+  const isPassive = id => !ONE_SHOT.has(id) && STATS.some(s => s.id === id);
+  /** Tus pasivas, en el orden en que las cogiste: [{ id, n (veces), def }]. */
+  function passivesOf(pl) {
+    const out = [];
+    for (const id in (pl && pl.statsTaken) || {}) {
+      if (!isPassive(id) || !(pl.statsTaken[id] > 0)) continue;
+      out.push({ id, n: pl.statsTaken[id], def: STATS.find(s => s.id === id) });
+    }
+    return out;
+  }
+  /** ¿Puede coger esta carta de mejora? (una pasiva nueva necesita un hueco libre) */
+  const canTake = (pl, id) => !isPassive(id) || (pl.statsTaken[id] || 0) > 0 || passivesOf(pl).length < MAX_PASSIVES;
+
   /** n elementos distintos de list, cada uno con probabilidad según weight(x). */
   function pickWeighted(list, n, weight) {
     const rest = list.map(x => [x, weight(x)]), out = [];
@@ -78,8 +100,9 @@ G.LevelUp = (() => {
     if (!ev) return null;
     const s = STATS.find(x => x.id === ev.needs);
     const max = !!m.def && m.lvl >= def.maxLvl;
+    // blocked: te falta esa pasiva y ya no te quedan huecos para cogerla.
     return { name: ev.name, needs: ev.needs, icon: s ? s.icon : 'tm', title: s ? s.title : ev.needName, lvl: def.maxLvl,
-             has: ev.ready, max, ready: ev.ready && max };
+             has: ev.ready, max, ready: ev.ready && max, blocked: !ev.ready && !!pl && !canTake(pl, ev.needs) };
   }
 
   /**
@@ -171,8 +194,9 @@ G.LevelUp = (() => {
     // Cada mejora tiene un tope de veces (`max`): en partidas muy largas se
     // acumulaban sin fin (velocidad, recarga y experiencia por las nubes) y el
     // juego acababa colgándose. Las que piden una evolución salen siempre.
-    const room = s => !s.max || (pl.statsTaken[s.id] || 0) < s.max;
-    const pickStats = G.U.pickN(STATS.filter(s => !waiting[s.id] && room(s)), 5).concat(STATS.filter(s => waiting[s.id]));
+    // Con los 4 huecos de pasiva llenos, sólo las que ya llevas (canTake).
+    const room = s => (!s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id);
+    const pickStats = G.U.pickN(STATS.filter(s => !waiting[s.id] && room(s)), 5).concat(STATS.filter(s => waiting[s.id] && room(s)));
     for (const s of pickStats) {
       const evoFor = waiting[s.id];
       // Un pasivo que no le sirve a ninguno de tus movimientos (Réplica con sólo
@@ -215,5 +239,5 @@ G.LevelUp = (() => {
     return picked;
   }
 
-  return { offer, STATS, evoNeed, evolvesWith };
+  return { offer, STATS, evoNeed, evolvesWith, MAX_PASSIVES, isPassive, passivesOf, canTake };
 })();

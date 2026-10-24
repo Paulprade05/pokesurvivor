@@ -10,17 +10,12 @@ G.Player = class Player {
    */
   constructor(mon, perks = {}, shiny = false) {
     this.mon = mon;
+    // dex: el Pokémon que elegiste (mejoras, MT, récords). form: la fase de su línea
+    // que eres ahora (sprite, stats y tipos; evoluciona en partida, ver G.Evo).
     this.dex = mon.dex;
-    this.shiny = shiny && G.Sprites.hasShiny(mon.dex);
-    // Los grandes, algo más pequeños y con el choque de uno normal (ver sprites.js).
-    this.scale = G.Sprites.playerScale(mon.dex);
-    this.anim = new G.Sprites.Animator(mon.dex, this.scale, this.shiny);
+    this.shinyWant = !!shiny;
     this.x = 0; this.y = 0;
-    this.r = G.Sprites.playerRadius(mon.dex);
-    // Radio contra paredes y objetos: menos de medio tile, para que todos quepan
-    // por un hueco de un tile (#265: Celesteela no pasaba). Los golpes siguen con r.
-    this.wr = Math.min(Player.WALL_R, this.r);
-    this.bodyH = G.Sprites.bodyHeight(mon.dex, this.scale);
+    this.body(mon.form || mon.dex);
 
     this.atkMul = perks.atkMul || 1;
     this.spdMul = perks.spdMul || 1;
@@ -91,8 +86,57 @@ G.Player = class Player {
     this.statsTaken = {};      // mejoras de stat cogidas (condición de evolución)
     this.abil = null;          // efecto de su habilidad (data/ability-fx.js), lo pone game.js
     this.sturdyAt = -Infinity; // última vez que le salvó Robustez (tiempo de partida)
-    // (Movimiento Z, this.z: lo pone combat.js, zOf, la primera vez que se mira.)
+    // (Movimiento Z, this.z: lo pone combat.js, zOf, la primera vez que se mira; null sin Pulsera Z.)
   }
+
+  /** Sprite, tamaño y choque de la fase `form` (al crearlo y al evolucionar). */
+  body(form) {
+    this.form = form;
+    this.shiny = this.shinyWant && G.Sprites.hasShiny(form);
+    // Los grandes, algo más pequeños y con el choque de uno normal (ver sprites.js).
+    this.scale = G.Sprites.playerScale(form);
+    const dir = this.anim ? this.anim.dir : 0;
+    this.anim = new G.Sprites.Animator(form, this.scale, this.shiny);
+    this.anim.dir = dir;
+    this.r = G.Sprites.playerRadius(form);
+    // Radio contra paredes y objetos: menos de medio tile, para que todos quepan
+    // por un hueco de un tile (#265: Celesteela no pasaba). Los golpes siguen con r.
+    this.wr = Math.min(Player.WALL_R, this.r);
+    this.bodyH = G.Sprites.bodyHeight(form, this.scale);
+  }
+
+  /**
+   * Evoluciona (24-10-2026): sprite, stats y tipos de `mon` (G.Mons.formFor: la
+   * nueva fase con la naturaleza del que elegiste). Se queda con todo lo de la
+   * partida (mejoras, cartas, objeto, habilidad): la vida máxima sube lo que
+   * sube la de la fase, cura un 25 % y es invulnerable mientras dura el destello.
+   * fx: con la animación (los compañeros en grupo la ven igual, ver netUpdate).
+   */
+  evolve(mon, fx = true) {
+    const old = this.mon, from = this.anim, fromForm = this.form;
+    this.mon = mon;
+    this.body(mon.form || mon.dex);
+    this.baseSpd = mon.spd;
+    if (!this.remote) {
+      const up = (mon.hp || 0) - (old.hp || 0);
+      this.maxHp = Math.max(1, this.maxHp + up);
+      this.hp = Math.min(this.maxHp, Math.max(1, this.hp + Math.max(0, up)));
+      if (fx) this.heal(this.maxHp * 0.25);
+      this.baseAtk = mon.atk;
+      // La habilidad es la misma; su pasiva de tipo (la genérica) va con el tipo de la fase nueva.
+      // (Lo que hace al empezar ya está puesto: no se repite.)
+      if (this.abil) this.abil = G.AbilityFX.of(this.abilId, this.mon);
+      // (El movimiento Z no cambia: va con la Pulsera Z del elegido y el tipo de tus
+      // ataques, no con los tipos de la fase; ver combat.js zOf.)
+    }
+    if (fx) {
+      this.evoFx = { t: 0, dur: Player.EVO_TIME, from, fromForm };
+      this.invuln = Math.max(this.invuln, Player.EVO_TIME + 0.3);
+      this.graceT = Math.max(this.graceT || 0, Player.EVO_TIME + 0.3);
+    }
+  }
+  /** Lo que dura el destello de la evolución (s). */
+  static get EVO_TIME() { return 1.25; }
 
   /** Pone la habilidad (G.AbilityFX.of) y aplica lo que hace al empezar. */
   setAbility(id) {
@@ -275,7 +319,7 @@ G.Player = class Player {
     if (m.kind === 'trail') return;
     // No reinicies una animación que va por la mitad: se vería a tirones.
     if (this.anim.busy() && this.anim.progress() < 0.65) return;
-    const meta = G.Sprites.animMeta(this.dex, anim);
+    const meta = G.Sprites.animMeta(this.form, anim);
     const len = meta ? meta.d.reduce((a, b) => a + b, 0) / 60 : 0.4;
     const cd = Math.max(0.12, m.cd * this.cdMul);
     this.anim.play(anim, { speed: Math.max(1, len / (cd * 0.9)) });
@@ -428,8 +472,17 @@ G.Player = class Player {
   }
 
   // ---------------- ciclo ----------------
+  /** El destello de la evolución avanza (también en los compañeros). */
+  evoTick(dt) {
+    const e = this.evoFx;
+    if (!e) return;
+    e.from.update(dt);
+    if ((e.t += dt) >= e.dur) this.evoFx = null;
+  }
+
   update(dt) {
     this.anim.update(dt);
+    this.evoTick(dt);
     if (this.dead) return;
     if (this.invuln > 0) this.invuln -= dt;
     // Mientras dura la gracia, invuln la acompaña (así parpadea aunque algo la ponga a 0).
@@ -594,8 +647,19 @@ G.Player = class Player {
    */
   netUpdate(dt) {
     this.anim.update(dt);
+    this.evoTick(dt);
     const n = this.net;
     if (!n) return;
+    // Su fase (evoluciones en partida): la manda su dueño en cada envío. Una versión
+    // anterior no la manda (fm 0): se le ve como el Pokémon que eligió.
+    const fm = n.fm || this.dex;
+    if (fm !== this.form && G.DEX_BY[fm]) {
+      const evo = !!n.fm && this.formSeen;           // la primera vez, sin destello
+      G.Sprites.preload([fm], 8000, this.shinyWant);
+      this.evolve(Object.assign({}, G.DEX_BY[fm], { dex: this.dex, form: fm }), evo);
+      if (evo && G.EvoUI) G.EvoUI.mateEvolved(this);
+    }
+    this.formSeen = true;
     if (this.flash > 0) this.flash -= dt;
     if (this.attackFace > 0) this.attackFace -= dt;
     if (G.U.dist2(this.x, this.y, n.x, n.y) > 300 * 300) { this.x = n.x; this.y = n.y; }
@@ -637,7 +701,7 @@ G.Player = class Player {
       ctx.beginPath(); ctx.ellipse(this.x, this.y, this.r * 1.5, this.r * 0.6, 0, 0, 6.2832); ctx.stroke();
       ctx.restore();
     }
-    G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
+    G.Sprites.drawShadow(ctx, this.form, this.x, this.y, this.scale);
     // Movimiento Z activo: dos aros de su color que giran bajo los pies.
     if (this.z && this.z.t > 0 && !this.dead) {
       const t = performance.now() / 1000, rr = this.r * 2.3;
@@ -659,8 +723,18 @@ G.Player = class Player {
       ctx.restore();
     }
 
-    const alpha = this.invuln > 0 && !this.dead ? (Math.floor(this.invuln * 18) % 2 ? 0.45 : 1) : 1;
-    this.anim.draw(ctx, this.x, this.y, { flash: this.flash > 0, softFlash: true, alpha, color: '#ffcb3d' });
+    const e = this.evoFx;
+    if (e) {
+      // Evolución: la silueta blanca pasa de la fase de antes a la nueva, cada vez
+      // más deprisa (como en los juegos); al final se ve la nueva con un destello.
+      const k = e.t / e.dur, f0 = 2.5, f1 = 16;
+      const n = Math.floor(f0 * e.t + (f1 - f0) * e.t * k / 2);
+      if (k > 0.88) this.anim.draw(ctx, this.x, this.y, { flash: true, softFlash: true, color: '#ffcb3d' });
+      else (n % 2 ? this.anim : e.from).draw(ctx, this.x, this.y, { flash: true, color: '#ffffff' });
+    } else {
+      const alpha = this.invuln > 0 && !this.dead ? (Math.floor(this.invuln * 18) % 2 ? 0.45 : 1) : 1;
+      this.anim.draw(ctx, this.x, this.y, { flash: this.flash > 0, softFlash: true, alpha, color: '#ffcb3d' });
+    }
 
     // Arcos de buff alrededor de los pies.
     const COL = { atk: '#ff6b4d', patk: '#ff6b4d', satk: '#c47bff', spd: '#7fe0ff', def: '#b0b8c8', regen: '#5fe08a' };

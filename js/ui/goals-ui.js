@@ -315,6 +315,8 @@
         <input class="field fav-q" id="fav-q" type="search" placeholder="Buscar por nombre" autocomplete="off" spellcheck="false">
         <div class="grid fav-grid" id="fav-grid"></div>`;
       $('fav-back').onclick = () => { tab = 'profile'; render(); };
+      // En el móvil (modo compacto de style.css), casillas más pequeñas: su lienzo también.
+      const [cw, ch] = matchMedia('(max-width: 599px), (max-height: 520px)').matches ? [76, 64] : [92, 80];
       const fill = q => {
         const g = $('fav-grid');
         g.innerHTML = '';
@@ -324,7 +326,7 @@
             const c = document.createElement('button');
             c.type = 'button';
             c.className = 'cell' + (shiny ? ' shiny' : '');
-            c.appendChild(G.UI.spriteCanvas(d, 92, 80, { scale: 2, shiny }));
+            c.appendChild(G.UI.spriteCanvas(d, cw, ch, { scale: 2, shiny }));
             c.insertAdjacentHTML('beforeend', `<b>${shiny ? G.Icons.html('shiny', 12) + ' ' : ''}${esc(G.DEX_BY[d].name)}</b>`);
             c.onclick = () => {
               s.profile.favs = (s.profile.favs || []).slice();

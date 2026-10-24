@@ -57,6 +57,7 @@ G.Spawner = (() => {
 
   function reset() {
     acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0; lastBossT = -Infinity; lastWave = null;
+    queue.length = 0; annPrio = 1; annAge = 0; annCol = null;
     G.Enemies.rollRun();
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
   }
@@ -144,7 +145,7 @@ G.Spawner = (() => {
     if (G.Events.golden) e.makeGolden();
     G.EnemyMgr.add(e);
     if (shiny) {
-      say('¡Un ' + e.name + ' shiny anda cerca!', 3.4);
+      say('¡Un ' + e.name + ' shiny anda cerca!', 3.2, false, SHINY);
       G.Audio.sfx('shiny');
     }
     return e;
@@ -207,7 +208,7 @@ G.Spawner = (() => {
     const base = Math.random() * 6.2832;
     const n = Math.min(room(t), Math.round((14 + Math.floor(t / 22)) * G.Coop.scaleRate(players.length) * 0.4));
     for (let i = 0; i < n; i++) spawnOne(pl, t, base + G.U.rand(-0.55, 0.55));
-    say('¡Marea de Pokémon!', 2.2);
+    say('¡Marea de Pokémon!', 2, false, LOW);
   }
 
   /** Cerco: un anillo entero alrededor, todos a la misma distancia, que se va cerrando. */
@@ -221,7 +222,7 @@ G.Spawner = (() => {
       if (!fly && !G.World.isFree(x, y, 14)) continue;
       make(def, x, y, t, { noChamp: true });
     }
-    say('¡Te están rodeando!', 2.4);
+    say('¡Te están rodeando!', 2.2, false, LOW);
   }
 
   /** Estampida: una columna que cruza por donde estás en línea recta, con un hueco para colarse. */
@@ -243,7 +244,7 @@ G.Spawner = (() => {
       const e = make(def, x, y, t, { noChamp: true });
       e.runA = a; e.runSpd = spd; e.life = (2 * D + 260) / spd;
     }
-    say('¡Estampida!', 2.4);
+    say('¡Estampida!', 2.2, false, LOW);
   }
 
   /** Enjambre: muchos voladores débiles y rápidos desde un lado (dan poca experiencia cada uno). */
@@ -256,7 +257,7 @@ G.Spawner = (() => {
       const pt = freePoint(pl, base + G.U.rand(-0.5, 0.5), true);
       if (pt) make(def, pt[0], pt[1], t, { weak: true, hp: 0.3, dmg: 0.6, xp: 0.35 });
     }
-    say('¡Enjambre!', 2.4);
+    say('¡Enjambre!', 2.2, false, LOW);
   }
 
   function wave(kind, t, pl = anchor()) {
@@ -273,7 +274,7 @@ G.Spawner = (() => {
   /** @param who  el jugador o la lista de jugadores (cooperativo) */
   function update(dt, who, t) {
     players = Array.isArray(who) ? who : [who];
-    if (announceT > 0) announceT -= dt;
+    tickBanner(dt);
     // En la arena de la grieta no sale nada más (y el reloj de jefes espera).
     // En la Sentencia de Arceus, sólo sus legendarios (systems/judgment.js).
     if (G.Rift.inArena || G.Judgment.active) return;
@@ -294,8 +295,8 @@ G.Spawner = (() => {
       const pl = anchor(), a0 = Math.random() * 6.2832;
       const es = group.map((d, i) => spawnBoss(pl, t, d, a0 + i * 6.2832 / group.length));
       const nm = e => e.name + (e.shiny ? ' shiny' : '');
-      if (es.length > 1) say('¡' + nm(es[0]) + ' y ' + nm(es[1]) + ' salvajes aparecieron!', 3.4);
-      else say('¡' + nm(es[0]) + ' salvaje apareció!', 3.2);
+      if (es.length > 1) say('¡' + nm(es[0]) + ' y ' + nm(es[1]) + ' salvajes aparecieron!', 3.2, false, BOSS);
+      else say('¡' + nm(es[0]) + ' salvaje apareció!', 3, false, BOSS);
       bossIdx += group.length; lastBossT = t;
     }
 
@@ -355,17 +356,61 @@ G.Spawner = (() => {
     return true;
   }
 
-  /** Aviso grande en pantalla (también lo usan el bioma y los shinies). */
-  /** @param local  sólo en este ordenador (no se manda a los compañeros) */
-  function say(text, secs = 2.6, local = false) {
-    announce = text; announceT = secs;
+  /*
+   * Avisos en cola (24-10-2026). Antes cada aviso pisaba al anterior (y en los
+   * momentos cargados, jefe + grieta + oleada + shiny, se perdían los importantes).
+   * Ahora sale uno cada vez, en la pila de arriba del HUD (hud.js):
+   *   - el que llega mientras se ve otro espera su turno; el de la pantalla se
+   *     acorta (se ve al menos MIN_SHOW s) y los de la cola duran como mucho BUSY_SHOW s;
+   *   - prio: 0 poco importante (el aviso de una oleada: la oleada ya se ve), que
+   *     se descarta si hay otro; 1 normal (lo de siempre); 2 importante (jefes,
+   *     shinies), que se adelanta en la cola. Como mucho QUEUE_MAX esperando;
+   *   - el mismo texto no se repite; un texto vacío quita el de la pantalla; y uno
+   *     de 999 s (la pausa del grupo) sale ya, hasta que se quite.
+   * col: color del borde (y del punto) de la chapa; si no, amarillo.
+   */
+  const MIN_SHOW = 1.3, BUSY_SHOW = 2.4, QUEUE_MAX = 3;
+  const LOW = { prio: 0 }, BOSS = { prio: 2, col: '#FF6B6B' }, SHINY = { prio: 2, col: '#9AE6FF' };
+  let annPrio = 1, annAge = 0, annCol = null;
+  const queue = [];
+
+  /**
+   * Aviso en pantalla (también lo usan el bioma y los shinies).
+   * @param local  sólo en este ordenador (no se manda a los compañeros)
+   * @param o      { prio: 0 | 1 | 2, col: color } (ver arriba)
+   */
+  function say(text, secs = 2.6, local = false, o = null) {
     if (G.Coop.isHost && !local) G.Coop.say(text, secs);
+    const prio = o && o.prio != null ? o.prio : 1, col = (o && o.col) || null;
+    if (!text) { announceT = 0; next(); return; }
+    if (secs >= 999) { put(text, secs, 3, col); return; }
+    if (announceT > 0 && announce === text) { announceT = Math.max(announceT, Math.min(secs, BUSY_SHOW)); return; }
+    if (queue.some(q => q.text === text)) return;
+    if (announceT <= 0) { put(text, secs, prio, col); return; }
+    if (prio < 1) return;                                 // (poco importante y ya hay otro: fuera)
+    queue.push({ text, secs, prio, col });
+    queue.sort((a, b) => b.prio - a.prio);
+    if (queue.length > QUEUE_MAX) queue.length = QUEUE_MAX;
+    // El de la pantalla deja sitio (salvo la pausa del grupo, que espera a que la quiten).
+    if (annPrio < 3) announceT = Math.min(announceT, Math.max(0.35, MIN_SHOW - annAge));
   }
 
-  function banner() { return announceT > 0 ? { text: announce, t: announceT } : null; }
+  function put(text, secs, prio, col) {
+    announce = text; announceT = secs; annPrio = prio; annCol = col; annAge = 0;
+  }
+  /** El siguiente de la cola (más corto si aún quedan más detrás). */
+  function next() {
+    const q = queue.shift();
+    if (q) put(q.text, queue.length ? Math.min(q.secs, BUSY_SHOW) : q.secs, q.prio, q.col);
+  }
 
-  /** Invitado en cooperativo: sólo corre el reloj del aviso. */
-  function tickBanner(dt) { if (announceT > 0) announceT -= dt; }
+  function banner() { return announceT > 0 ? { text: announce, t: announceT, age: annAge, col: annCol, prio: annPrio } : null; }
+
+  /** El reloj de los avisos (también en el invitado, que no corre el resto del spawner). */
+  function tickBanner(dt) {
+    if (announceT > 0) { announceT -= dt; annAge += dt; if (announceT <= 0) next(); }
+    else if (queue.length) next();
+  }
 
   return { reset, update, ahead, burst, minions, tickBanner, banner, say, rate, capAt, SHINY_RATE, CAP,
            debugForceShiny(n = 1) { forceShiny = n; },

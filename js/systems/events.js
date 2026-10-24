@@ -92,7 +92,8 @@ G.Events = (() => {
     G.Audio.sfx(cur.id === 'gold' ? 'shiny' : 'surge');
   }
 
-  function say(text, secs) { G.Spawner.say(text, secs, true); }
+  // (Con su color en el borde de la chapa del aviso: ver G.Spawner.say.)
+  function say(text, secs, col) { G.Spawner.say(text, secs, true, col ? { col } : null); }
 
   function end() {
     if (!cur) return;
@@ -104,6 +105,8 @@ G.Events = (() => {
   function bag() { return cur && cur.id === 'horde' && cur.defs.length ? cur.defs : null; }
 
   // ---------------- duende del tesoro ----------------
+
+  const THIEF = { col: '#FFCB05' };
 
   function spawnThief(players, time) {
     const gold = Math.random() < 0.25;
@@ -123,7 +126,7 @@ G.Events = (() => {
       G.EnemyMgr.add(e);
       G.FX.ring(x, y, 4, 40, '#ffd23f', 0.5, 3);
       G.Spawner.say(gold ? '¡Un ' + mon.name + ' con un ticket ×10! ¡Atrápalo antes de que huya!'
-                         : '¡Un ' + mon.name + ' cargado de monedas! ¡Atrápalo antes de que huya!', 3.2);
+                         : '¡Un ' + mon.name + ' cargado de monedas! ¡Atrápalo antes de que huya!', 3, false, THIEF);
       G.Audio.sfx('shiny');
       return;
     }
@@ -302,8 +305,15 @@ G.Events = (() => {
     return [goal, mon];
   }
 
-  /** Flecha en el borde hacia el Pokémon perdido (o hacia la marca, si ya te sigue). */
-  function drawHud(ctx, w, h, pl, F, dy = 0) {   // dy: cuánto bajar la cuenta atrás (barras de jefes)
+  /** ¿Hay cuenta atrás de un evento en pantalla? (hud.js le guarda su sitio en la pila de arriba) */
+  function hasPill() { return !!cur && cur.id !== 'lost' && !G.Rift.inArena && !G.Judgment.active; }
+
+  /**
+   * Flecha en el borde hacia el Pokémon perdido (o hacia la marca, si ya te sigue) y
+   * la cuenta atrás de la horda o la hora dorada. py: la línea de su chapa (la
+   * pone hud.js, en la pila de arriba, debajo del reloj y de los jefes).
+   */
+  function drawHud(ctx, w, h, pl, F, py = 112) {
     if (G.Rift.inArena || G.Judgment.active) return;     // en pausa (ver update)
     const cam = G.Camera;
     if (lost) {
@@ -314,12 +324,12 @@ G.Events = (() => {
     for (const e of G.EnemyMgr.all()) {
       if (e.behavior === 'thief' && !e.dead) edgeArrow(ctx, w, h, cam, e.x, e.y - 10, '#FFCB05', e.name, F, 'coin');
     }
-    if (cur && cur.id !== 'lost') {
+    if (hasPill()) {
       // Cuenta atrás en una chapa redonda del color del evento (estilo de hud.js).
       const left = Math.max(0, Math.ceil(cur.dur - cur.t));
       const txt = (cur.id === 'gold' ? 'HORA DORADA' : 'HORDA ' + G.U.TYPE_NAME[cur.type].toUpperCase()) + ' · ' + left + ' s';
       ctx.save();
-      G.HUD.pill(ctx, txt, w, 112 + dy, cur.id === 'gold' ? '#FFCB05' : G.U.TYPE_COLOR[cur.type] || '#fff', 12);
+      G.HUD.pill(ctx, txt, w, py, cur.id === 'gold' ? '#FFCB05' : G.U.TYPE_COLOR[cur.type] || '#fff', 12 * (G.HUD.lay.k || 1));
       ctx.restore();
     }
   }
@@ -328,22 +338,23 @@ G.Events = (() => {
   function edgeArrow(ctx, w, h, cam, x, y, col, label, F, icon) {
     const sx = (x - cam.left()) * cam.scale, sy = (y - cam.top()) * cam.scale;
     if (sx > 0 && sx < w && sy > 0 && sy < h) return;
-    // (Lejos de la muesca y, en vertical, sin pisar el HUD: ver hud.js.)
-    const M = 44, ex = G.HUD.edgeX(sx, M, w), ey = G.HUD.edgeY(sy, M + 70, h - M - 80);
+    // (Lejos de la muesca, sin pisar el HUD ni las otras flechas: ver G.HUD.place.)
+    const M = 44, p = G.HUD.place(G.HUD.edgeX(sx, M, w), G.HUD.edgeY(sy, M + 70, h - M - 80), w, h);
+    const ex = p.x, ey = p.y;
     const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sa = Math.sin(a);
     const pulse = 0.65 + Math.sin(performance.now() / 160) * 0.35;
     ctx.save();
     ctx.translate(ex, ey);
     G.HUD.arrow(ctx, a, col, 15, pulse);
-    G.Icons.draw(ctx, icon, -9, -9, 18);
-    ctx.font = F(600, 12);
+    if (G.HUD.lay.cmp) G.Icons.draw(ctx, icon, -8, -8, 16); else G.Icons.draw(ctx, icon, -9, -9, 18);
+    ctx.font = F(600, G.HUD.lay.cmp ? 11 : 12);
     ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
     G.HUD.outlined(ctx, label, -ca * 28, -sa * 26 + 4, col, 3.5);
     ctx.restore();
   }
 
   return {
-    reset, update, bag, onNet, drawables, drawHud,
+    reset, update, bag, onNet, drawables, drawHud, hasPill,
     get golden() { return !!cur && cur.id === 'gold'; },
     get current() { return cur ? cur.id : null; },
     /** Para pruebas. */

@@ -10,13 +10,20 @@
  * MT a la venta: 8 cada día, iguales para todos (semilla: la fecha en España).
  * Si ninguna sirve a tu compañero, la última se cambia por una que sí aprenda.
  *
- * Cristales Z (24-10-2026): uno por tipo, se compra una vez y es para siempre:
- *   save.zc[tipo] = fecha de compra
- * Con el de un tipo de tu compañero, en la partida tienes su movimiento Z
- * (data/moves.js; se usa en combat.js, zUse). No van en la libreta como la
- * Mochila: no se gastan, así que al fusionar dos aparatos se juntan (unión,
- * core/db.js) y nunca se pierden ni salen dos veces. Las monedas, sí, como
- * cualquier compra.
+ * Movimientos Z (24-10-2026; por Pokémon desde la segunda ronda del mismo día):
+ *   save.zc[tipo] = fecha   Cristales Z: uno por tipo, se compra una vez y es para siempre
+ *   save.pz[dex]  = fecha   Pulsera Z de ese Pokémon (el elegido, no su fase): para siempre
+ * En la partida el Z sólo se activa si tu Pokémon lleva la Pulsera Z, tienes el
+ * Cristal Z de un tipo y llevas al menos Z_NEED (2) ataques de ese tipo en tus
+ * huecos (zState). Si cumplen varios, el del tipo con más ataques; si empatan,
+ * el del ataque que aprendiste antes. El movimiento es el del cristal
+ * (data/moves.js; se lanza en combat.js, zUse), aunque no sea un tipo del Pokémon.
+ * Ni los cristales ni las pulseras van en la libreta como la Mochila: no se
+ * gastan, así que al fusionar dos aparatos se juntan (unión, core/db.js) y nunca
+ * se pierden ni salen dos veces. Las monedas, sí, como cualquier compra.
+ * Quien compró cristales con las reglas de antes (servían a todos tus Pokémon de
+ * su tipo) recibe gratis la Pulsera Z de esos Pokémon y la de su compañero
+ * (core/db.js, migrate: una vez).
  */
 G.Shop = (() => {
   const ITEMS = {
@@ -100,20 +107,62 @@ G.Shop = (() => {
   const Z_TYPES = Object.keys(G.U.TYPE_NAME).filter(t => Z_NAME[t]);
   const Z_PRICE = 6000;
 
+  const RING_PRICE = 3000;      // la Pulsera Z de un Pokémon
+  const Z_NEED = 2;             // ataques del tipo del cristal que hay que llevar en los huecos
+
   /** ¿Tienes el Cristal Z de este tipo? */
   const zHas = type => { const s = save(); return !!(s && s.zc && Z_NAME[type] && s.zc[type]); };
-  /** El tipo del movimiento Z de un Pokémon (mon con types): su primer tipo con cristal, o null. */
-  function zFor(mon) {
-    for (const t of (mon && mon.types) || []) if (zHas(t)) return t;
-    return null;
+  /** Tus Cristales Z (tipos), en el orden de siempre. */
+  const zOwned = () => Z_TYPES.filter(zHas);
+  /** ¿Lleva este Pokémon (el elegido) la Pulsera Z? */
+  const ringHas = dex => { const s = save(); return !!(s && s.pz && dex != null && s.pz[dex]); };
+
+  /**
+   * Cómo va el movimiento Z de una partida (lo usan combat.js, el HUD, la pausa y las cartas).
+   *   dex    el Pokémon elegido (el de la Pulsera Z)
+   *   moves  tus ataques en los huecos, en el orden en que los aprendiste (cada uno con .type)
+   *   types  los tipos de tu fase (sólo para la pista: a igualdad, el cristal de tu tipo)
+   * → { ring, type: el tipo listo (o null), n: ataques de ese tipo,
+   *     need: el cristal más cercano si no hay ninguno listo (o null: sin cristales), needN: los que llevas de él,
+   *     have: [{ t, n }] cada cristal tuyo con los ataques que llevas de su tipo }
+   * Regla: Pulsera Z + cristal del tipo T + al menos Z_NEED ataques de T. Si cumplen
+   * varios, el de más ataques; si empatan, el del ataque que aprendiste antes.
+   */
+  function zState(dex, moves, types) {
+    const own = zOwned(), have = own.map(t => ({ t, n: 0, first: Infinity }));
+    (moves || []).forEach((m, i) => {
+      const h = m && have.find(x => x.t === m.type);
+      if (h) { h.n++; if (h.first === Infinity) h.first = i; }
+    });
+    const best = have.filter(h => h.n >= Z_NEED).sort((a, b) => b.n - a.n || a.first - b.first)[0] || null;
+    const mine = types || [];
+    // La pista: el que tenga más ataques; a igualdad, uno de tu tipo y luego el orden de siempre.
+    const near = best ? null : have.slice().sort((a, b) => b.n - a.n || a.first - b.first
+      || (mine.includes(b.t) - mine.includes(a.t)) || own.indexOf(a.t) - own.indexOf(b.t))[0] || null;
+    return { ring: ringHas(dex), type: best ? best.t : null, n: best ? best.n : 0,
+             need: near ? near.t : null, needN: near ? near.n : 0, have: have.map(({ t, n }) => ({ t, n })) };
   }
 
   // ---------------- comprar ----------------
 
-  /** Compra un objeto ('mint'...), una MT ('tm:flamethrower') o un Cristal Z ('z:fire'). → { ok, error? } */
+  /**
+   * Compra un objeto ('mint'...), una MT ('tm:flamethrower'), un Cristal Z ('z:fire')
+   * o la Pulsera Z de uno de tus Pokémon ('zr:25'). → { ok, error? }
+   */
   function buy(key) {
     const s = save();
     if (!s) return { ok: false };
+    if (key.startsWith('zr:')) {
+      const dex = +key.slice(3);
+      if (!G.DEX_BY[dex] || !(s.owned && s.owned[dex])) return { ok: false };
+      if (ringHas(dex)) return { ok: false, error: 'Ese Pokémon ya lleva la Pulsera Z.' };
+      if (s.coins < RING_PRICE) return { ok: false, error: 'No tienes Pokémonedas suficientes.' };
+      s.coins -= RING_PRICE;
+      s.pz = s.pz || {};
+      s.pz[dex] = Date.now();
+      G.DB.commit(true);
+      return { ok: true };
+    }
     if (key.startsWith('z:')) {
       const type = key.slice(2);
       if (!Z_NAME[type]) return { ok: false };
@@ -138,5 +187,5 @@ G.Shop = (() => {
   }
 
   return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today,
-           Z_NAME, Z_TYPES, Z_PRICE, zHas, zFor };
+           Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zState };
 })();

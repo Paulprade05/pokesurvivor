@@ -12,6 +12,7 @@ G.GachaUI = (() => {
   let busy = false;
   let gen = 1;
   let skipCards = false;        // Saltar: las cartas que falten salen de golpe
+  let rulesOn = false;          // móvil tumbado: las reglas en vez de las fichas de probabilidad
   const ico = n => G.Icons.html(n, 30);
 
   function init() {
@@ -94,6 +95,7 @@ G.GachaUI = (() => {
     order.forEach((dex, i) => {
       const dir = order.length === 3 ? [1, 0, 7][i] : 0;
       const cv = G.UI.spriteCanvas(dex, 120, 150, { lively: true, scale: 2, dir });
+      cv.dataset.dex = dex; cv.dataset.dir = dir; cv.dataset.k = 2;
       if (order.length === 3 && i === 1) cv.className = 'gh-main';
       feat.appendChild(cv);
     });
@@ -109,8 +111,11 @@ G.GachaUI = (() => {
       <span class="gw-chip"><span class="ico-tile s">${ico('ticket')}</span><b>${t.t1.toLocaleString(G.I18n.locale)}</b></span>
       <span class="gw-chip"><span class="ico-tile s t-purple">${ico('ticket10')}</span><b>${t.t10.toLocaleString(G.I18n.locale)}</b><small>×10</small></span></div>`;
 
-    // Probabilidades: de la más rara a la más común, con su Poké Ball.
-    $('gacha-rates').innerHTML = '<h3>Probabilidades</h3><div class="rate-list">' + G.Gacha.RATES.slice().reverse().map(([r, w]) => `
+    // Probabilidades: de la más rara a la más común, con su Poké Ball. En el móvil
+    // tumbado van en fichas y las reglas salen con la «i» (en el resto, siempre a la vista).
+    const rates = $('gacha-rates');
+    rates.innerHTML = `<h3><span>Probabilidades</span><button type="button" class="icon-btn plain gr-info" aria-expanded="${rulesOn}" ` +
+      `aria-label="Reglas del gacha" title="Reglas del gacha">${G.UI.svg('info')}</button></h3><div class="rate-list">` + G.Gacha.RATES.slice().reverse().map(([r, w]) => `
       <div class="rate-row" style="--rc:${G.Gacha.RARITY_COLOR[r]}"><span class="ico-tile s round">${ico(G.Icons.RARITY_BALL[r])}</span>
         <span class="grow"><b>${G.Gacha.RARITY_NAME[r]}</b><small>${G.Gacha.pool(r, gen).length} Pokémon</small></span>
         <b class="rate-pct">${w}%</b></div>`).join('') +
@@ -121,6 +126,12 @@ G.GachaUI = (() => {
        · Los repetidos dan Pokémonedas. Los shiny no se repiten.<br>
        · Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y
          los jefes y los legendarios de las grietas, a veces, tickets ×10.</p>`;
+    rates.classList.toggle('rules-on', rulesOn);
+    rates.querySelector('.gr-info').onclick = () => {
+      rulesOn = !rulesOn;
+      rates.classList.toggle('rules-on', rulesOn);
+      rates.querySelector('.gr-info').setAttribute('aria-expanded', String(rulesOn));
+    };
 
     // Botones de tirar: lo que cuesta cada uno, con el ticket de verdad.
     $('cost-1').innerHTML = `<span class="pb-ico">${ico('ticket')}</span><b>1</b>`;
@@ -141,17 +152,25 @@ G.GachaUI = (() => {
    * Los legendarios del cartel, a la medida de su hueco (#gacha-feat, que cambia
    * con la pantalla): cada canvas mide su parte del ancho y todo el alto, y el
    * sprite va a ×2 (píxeles enteros). Si no caben, se solapan un poco en vez de cortarse.
+   * En el móvil tumbado el cartel ocupa todo el alto: con sitio, a ×3 (o a ×2 los
+   * que no quepan de pie, «hero»).
    */
+  const LAND = matchMedia('(max-height: 520px)');
   function fitFeat() {
     const feat = $('gacha-feat'), list = [...feat.children], n = list.length;
     const W = feat.clientWidth, H = feat.clientHeight;
     if (!n || !W || !H) return;
-    const cw = Math.min(Math.floor(W / n * 1.5), 200);
+    const k = LAND.matches && H >= 160 ? 3 : 2;
+    const cw = Math.min(Math.floor(W / n * 1.5), k === 3 ? 240 : 200);
     const over = n * cw > W ? Math.ceil((n * cw - W) / (2 * n)) : 0;
     for (const cv of list) {
       if (cv.width !== cw) cv.width = cw;
       if (cv.height !== H) cv.height = H;
       cv.style.margin = over ? `0 -${over}px` : '';
+      if (+cv.dataset.k !== k) {
+        cv.dataset.k = k;
+        G.UI.sprite(cv, +cv.dataset.dex, { lively: true, scale: k, dir: +cv.dataset.dir, hero: k === 3 });
+      }
     }
   }
 
@@ -228,7 +247,7 @@ G.GachaUI = (() => {
    *   std  tableta y ordenador: de pie, cinco por fila
    *   xl   pantalla grande: igual, con el Pokémon más holgado
    */
-  const CARD_CV = { one: [176, 160], row: [72, 80], low: [84, 68], std: [112, 96], xl: [136, 120] };
+  const CARD_CV = { one: [176, 160], row: [72, 80], low: [84, 72], std: [112, 96], xl: [136, 120] };
   function cardMode(n) {
     if (n === 1) return 'one';
     if (matchMedia('(max-width: 599px) and (min-height: 521px)').matches) return 'row';

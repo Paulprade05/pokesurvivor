@@ -92,6 +92,8 @@ G.DB = (() => {
       pnat: {},               // dex -> [naturaleza, fecha]: la cambiada con Menta (si no, la que le tocó)
       pabil: {},              // dex -> [0|1|2, fecha]: la habilidad cambiada con Cápsula (2 = oculta)
       zc: {},                 // tipo -> fecha: Cristales Z comprados (24-10-2026; para siempre, se juntan al fusionar)
+      pz: {},                 // dex -> fecha: Pulsera Z de ese Pokémon (movimientos Z por Pokémon; igual que zc)
+      pzDone: true,           // ya se regaló la Pulsera Z a quien tenía cristales de antes (migrate)
       tickets: { t1: 0, t10: 0 },   // tickets del gacha (x1 y x10)
       pity: {},               // generación del banner -> tiradas sin ★5
       legends: {},            // dex -> fecha: legendarios vencidos en grietas
@@ -109,6 +111,8 @@ G.DB = (() => {
   /** Rellena campos que falten en partidas de versiones anteriores. */
   function migrate(s, name) {
     const base = newSave(name || s.name);
+    // (Antes de rellenar lo que falta: una partida de antes no trae pzDone y la nueva sí.)
+    const zGift = s.pzDone == null;
     for (const k in base) if (s[k] == null) s[k] = base[k];
     for (const k in base.stats) if (s.stats[k] == null) s.stats[k] = base.stats[k];
     // v1 -> v2: había un único banner (Kanto) con el pity como número.
@@ -122,8 +126,27 @@ G.DB = (() => {
     }
     s.tickets = Object.assign({ t1: 0, t10: 0 }, s.tickets);
     sanitize(s);
+    if (zGift) giftRings(s);
     s.v = VERSION;
     return s;
+  }
+
+  /**
+   * Movimientos Z por Pokémon (24-10-2026). Con las reglas de antes un Cristal Z
+   * servía a todos tus Pokémon de su tipo; ahora cada Pokémon necesita su Pulsera Z.
+   * Para que nadie pierda lo que pagó, quien ya tenía cristales recibe gratis (una
+   * vez) la Pulsera Z de su compañero y la de cada Pokémon suyo de un tipo de esos
+   * cristales. El resto, a 3000 en la Tienda Kecleon o en Mejoras.
+   */
+  function giftRings(s) {
+    s.pzDone = true;
+    const types = Object.keys(s.zc || {});
+    if (!types.length || !G.DEX_BY) return;
+    s.pz = isObj(s.pz) ? s.pz : {};
+    const at = Math.max(...types.map(t => +s.zc[t] || 0)) || Date.now();
+    const give = d => { if (G.DEX_BY[d] && s.owned[d] && !s.pz[d]) s.pz[d] = at; };
+    if (s.partner != null) give(s.partner);
+    for (const d of Object.keys(s.owned || {})) if (G.DEX_BY[d] && G.DEX_BY[d].types.some(t => types.includes(t))) give(d);
   }
 
   /**
@@ -173,6 +196,12 @@ G.DB = (() => {
     for (const t of Object.keys(s.zc)) {
       if ((G.U && !Object.prototype.hasOwnProperty.call(G.U.TYPE_NAME, t)) || !n(s.zc[t])) delete s.zc[t];
       else s.zc[t] = n(s.zc[t]);
+    }
+    // Pulseras Z: Pokémon que existen, con su fecha de compra.
+    if (!isObj(s.pz)) s.pz = {};
+    for (const d of Object.keys(s.pz)) {
+      if ((G.DEX_BY && !G.DEX_BY[d]) || !n(s.pz[d])) delete s.pz[d];
+      else s.pz[d] = n(s.pz[d]);
     }
     // MT aprendidas: movimientos que existen, sin repetir.
     if (!isObj(s.ptm)) s.ptm = {};
@@ -354,11 +383,12 @@ G.DB = (() => {
       for (const d in older[k] || {}) if (!(d in r[k])) r[k][d] = older[k][d];
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
-    // (y Cristales Z: comprado en cualquier aparato, lo tienes en todos, una vez).
-    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc']) {
+    // (y Cristales Z y Pulseras Z: comprado en cualquier aparato, lo tienes en todos, una vez).
+    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }
+    r.pzDone = !!(r.pzDone || older.pzDone);
     // Misiones del mismo día/semana: el mayor progreso y lo ya recogido.
     const mo = older.missions || {}, mr = r.missions = r.missions || {};
     for (const [per, list] of [['day', 'daily'], ['week', 'weekly']]) {
@@ -1177,7 +1207,7 @@ G.DB = (() => {
     ready, register, login, loginWithGoogle, playAsGuest, logout, commit, deleteAccount, flush, saveNow,
     /** «Jugar aquí»: esta pestaña coge la partida y las demás se bloquean (ver VARIAS PESTAÑAS). */
     takeOver() { claim(true); },
-    owns, grant, ownsShiny, grantShiny, merge, setName, upgradesOf, isFav, setFav,
+    owns, grant, ownsShiny, grantShiny, merge, migrate, setName, upgradesOf, isFav, setFav,
     onSync(fn) { listeners.add(fn); },
     onLeave(fn) { leaveHooks.push(fn); },
     /** Acceso de bajo nivel para los módulos de red (sólo en modo nube). */

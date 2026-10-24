@@ -301,6 +301,12 @@ G.UI = (() => {
     }, true);
     // Esc con el menú abierto sólo lo cierra (no vuelve atrás en la pantalla de debajo).
     addEventListener('keydown', e => { if (e.key === 'Escape' && moreOpen()) { e.stopPropagation(); more(false); } }, true);
+    // Móvil tumbado: las monedas y los tickets van en la misma franja que la cabecera de
+    // cada hoja, a su derecha (style.css, 4c); la cabecera les deja su ancho (--tb-w).
+    const wal = document.querySelector('#topbar .tb-wallet');
+    if (wal && window.ResizeObserver) {
+      new ResizeObserver(() => document.documentElement.style.setProperty('--tb-w', Math.ceil(wal.getBoundingClientRect().width) + 'px')).observe(wal);
+    }
     const sb = $('btn-save');
     sb.innerHTML = svg('save') + '<span class="lbl">Guardar</span>';
     sb.onclick = async () => {

@@ -147,7 +147,7 @@ test('real Coop.tick frames pass through the codec without changing gameplay fie
     assert.equal(sent.length, 1);
     assert.deepEqual(C.decode(C.encode(sent[0])), sent[0]);
     if (host) { assert.deepEqual(sent[0].e, [[123, 50, -10, 126, 1, 3, 1]]); assert.ok('ho' in sent[0]); }
-    else { assert.equal(sent[0].p.length, 18); assert.equal(sent[0].p[15], ''); }   // 16.º: a quién mira estando caído; 17.º y 18.º: ancho y alto de su vista
+    else { assert.equal(sent[0].p.length, 19); assert.equal(sent[0].p[15], ''); assert.equal(sent[0].p[18], 0); }   // 16.º: a quién mira estando caído; 17.º y 18.º: ancho y alto de su vista; 19.º: su fase (0: sin evoluciones)
   }
 });
 
@@ -723,4 +723,66 @@ test('23-10-2026: champions, enraged bosses and grouped boss hazards reach new g
   // Un anfitrión de antes manda 'ne' con 10 campos: nadie es campeón.
   guest.G.recv('host', { k: 'f', ev: [['ne', 9, 25, 0, 0, 0, 0, 100, 5, 'chase']] });
   assert.equal(guest.got.added.at(-1).champ, false);
+});
+
+/*
+ * 24-10-2026, evoluciones en partida: cada uno manda su fase (el dex de su sprite)
+ * en el 19.º campo de su estado. Los demás empiezan viéndole con la primera fase
+ * de su línea y cambian al llegar su envío; de una versión anterior (sin ese campo)
+ * o con un número que no es un Pokémon, 0: se le ve como el que eligió.
+ */
+function coopForms(uid, localForm) {
+  const G = {}, made = [];
+  G.Net = { uid, on(fn) { G.recv = fn; }, onPeer() {}, slow: () => false, send: (u, f) => { G.sent = f; }, toHost(f) { G.sent = f; } };
+  G.Player = class { constructor(mon) { this.maxHp = 300; this.mon = mon; this.form = mon.form || mon.dex; made.push(this); } };
+  G.DEX_BY = { 4: { dex: 4 }, 5: { dex: 5 }, 6: { dex: 6 }, 25: { dex: 25 } };
+  G.Evo = { base: d => (d === 6 || d === 5 ? 4 : d), family: d => (d === 25 ? [25] : [4, 5, 6]) };
+  G.baseStartOf = () => 'ember';
+  G.Sprites = { preload(list) { G.preloaded = list; } }; G.U = { dist2: () => 0 };
+  G.EnemyMgr = { all: () => [], get: () => null }; G.Judgment = { netState: () => null, netApply() {} };
+  G.Projectiles = { clearOrbs() {} }; G.Spawner = { say() {} }; G.Social = { me: { name: uid } };
+  new Function('G', 'document', source('js/net/coop.js'))(G, { addEventListener() {} });
+  const local = { x: 0, y: 0, moveAngle: 0, walking: false, hp: 1, maxHp: 1, magnet: 1, aim: 0, xpMul: 1, reviveT: 0, activeGroup: () => [], form: localForm };
+  G.Coop.begin({ host: 'host', members: [{ uid: 'host', name: 'Ana', dex: 6 }, { uid: 'guest', name: 'Bea', dex: 6 }] }, local,
+    { team: () => ({ time: 1, level: 1, xp: 0, xpNext: 10, kills: 0, bosses: 0, coins: 0, t1: 0, t10: 0 }), choosing: () => false, syncTeam() {} });
+  return { G, made, local };
+}
+
+test('24-10-2026: each player sends its evolution form; mates start as the first stage and old or bad states fall back to 0', () => {
+  const host = coopForms('host', 5), guest = coopForms('guest', 4);
+  // El compañero empieza con la primera fase de su línea (Charizard → Charmander), con sus hojas precargadas.
+  const mate = guest.made[0];
+  assert.equal(mate.form, 4);
+  assert.equal(mate.net.fm, 4);
+  assert.deepEqual(guest.G.preloaded, [4]);
+  // Lo que manda el anfitrión (su fase, 5) llega por el codificador binario al invitado.
+  host.G.Coop.tick(1);
+  const f = C.decode(C.encode(host.G.sent));
+  assert.equal(f.p.host.length, 19);
+  assert.equal(f.p.host[18], 5);
+  guest.G.recv('host', f);
+  assert.equal(guest.G.Coop.mate('host').pl.net.fm, 5);
+  // Y lo del invitado al anfitrión.
+  guest.G.Coop.tick(1);
+  host.G.recv('guest', C.decode(C.encode(guest.G.sent)));
+  assert.equal(host.G.Coop.mate('guest').pl.net.fm, 4);
+  // Versión anterior (18 campos), un número que no es un Pokémon, un texto: 0 (se le ve como el que eligió).
+  const st = f.p.host.slice(0, 18);
+  for (const bad of [st, [...st, 99999], [...st, 'x'], [...st, 4.5], [...st, -6]]) {
+    guest.G.recv('host', { k: 'f', p: { host: bad } });
+    assert.equal(guest.G.Coop.mate('host').pl.net.fm, 0);
+  }
+});
+
+test('24-10-2026: without the evolution module (old data or tests) mates keep the chosen Pokémon', () => {
+  const G = {}, made = [];
+  G.Net = { uid: 'guest', on() {}, onPeer() {}, slow: () => false, send() {}, toHost() {} };
+  G.Player = class { constructor(mon) { this.maxHp = 300; this.form = mon.form || mon.dex; made.push(this); } };
+  G.DEX_BY = { 6: { dex: 6 } }; G.baseStartOf = () => 'ember';
+  G.Sprites = { preload(list) { G.preloaded = list; } }; G.U = { dist2: () => 0 };
+  new Function('G', 'document', source('js/net/coop.js'))(G, { addEventListener() {} });
+  G.Coop.begin({ host: 'host', members: [{ uid: 'host', name: 'Ana', dex: 6 }, { uid: 'guest', name: 'Bea', dex: 6 }] },
+    { x: 0, y: 0, activeGroup: () => [] }, { team: () => ({}), choosing: () => false });
+  assert.equal(made[0].form, 6);
+  assert.deepEqual(G.preloaded, [6]);
 });

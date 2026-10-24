@@ -20,6 +20,10 @@
  *                            e:[[id,x,y,vida,anim,dir,estados]], ev:[eventos],
  *                            ja:[x,y,anim,dir] (Arceus, sólo en la Sentencia) }
  *   anfitrión -> todos     { k:'start', seed, host, members:[{uid,name,dex,shiny}] }
+ *
+ * [estado] de un jugador (myState / readState): posición, vida, ataque activo...
+ * y en el 19.º (24-10-2026) su fase (dex del sprite: evoluciona en partida, ver
+ * G.Evo). Una versión anterior no lo manda: se le ve como el Pokémon que eligió.
  */
 G.Coop = (() => {
   const ANIMS = ['Idle', 'Walk', 'Attack', 'Shoot', 'Charge', 'Hurt', 'Faint'];
@@ -82,11 +86,13 @@ G.Coop = (() => {
       const x = (i - (cfg.members.length - 1) / 2) * 34, y = 0;
       if (m.uid === me) { pl.x = x; pl.y = y; pl.uid = me; pl.coopHost = host; pl.tagColor = COLORS[i]; return; }
       const mon = G.DEX_BY[m.dex] || G.DEX_BY[25];
-      const p = new G.Player(mon, {}, !!m.shiny);
+      // Empieza con la primera fase de su línea (si manda otra, se cambia al llegar su envío).
+      const first = G.Evo ? G.Evo.base(mon.dex) : mon.dex;
+      const p = new G.Player(Object.assign({}, mon, { form: G.DEX_BY[first] ? first : mon.dex }), {}, !!m.shiny);
       p.remote = true; p.uid = m.uid; p.tag = m.name; p.tagColor = COLORS[i]; p.revLabel = 'Quédate a su lado';
       p.x = x; p.y = y;
-      p.net = { x, y, ang: Math.PI / 2, walk: 0, hp: p.maxHp, maxHp: p.maxHp, dead: 0, mv: G.baseStartOf(mon.dex), ml: 1, mag: 78, aim: Math.PI / 2, rev: 0 };
-      G.Sprites.preload([mon.dex], 8000, p.shiny);
+      p.net = { x, y, ang: Math.PI / 2, walk: 0, hp: p.maxHp, maxHp: p.maxHp, dead: 0, mv: G.baseStartOf(mon.dex), ml: 1, mag: 78, aim: Math.PI / 2, rev: 0, fm: p.form };
+      G.Sprites.preload([p.form], 8000, !!m.shiny);       // (su siguiente fase, al llegar: player.js netUpdate)
       // seen: ya ha mandado algo · lastAt: cuándo · away: no responde y no se le espera
       mates.set(m.uid, { uid: m.uid, name: m.name, color: COLORS[i], pl: p, connected: true, q: [], flushT: 0, xpMul: 1,
                          seen: false, lastAt: 0, away: false });
@@ -144,7 +150,8 @@ G.Coop = (() => {
     return [r1(local.x), r1(local.y), r2(local.moveAngle), local.walking ? 1 : 0, r1(local.hp), r1(local.maxHp),
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
             r2(local.reviveT || 0), api.choosing && api.choosing() ? 1 : 0, doneSeq, api.watching ? api.watching() : '',
-            r1(G.Camera ? G.Camera.w : 0), r1(G.Camera ? G.Camera.h : 0)];   // lo que ve (de pie o tumbado): el anfitrión no saca enemigos dentro
+            r1(G.Camera ? G.Camera.w : 0), r1(G.Camera ? G.Camera.h : 0),   // lo que ve (de pie o tumbado): el anfitrión no saca enemigos dentro
+            local.form || 0];                                                   // su fase (evoluciones en partida)
   }
 
   /** Número que llega por la red: si no es un número de verdad vale `def`, y si se pasa se queda en el tope. */
@@ -159,7 +166,9 @@ G.Coop = (() => {
              mag: num(a[9], 0, 0, 5000), aim: num(a[10], 0, -10, 10), xpMul: num(a[11], 1, 0.1, 20),
              rev: num(a[12], 0, 0, 60), ch: a[13] === undefined ? undefined : a[13] ? 1 : 0, ld: num(a[14], 0, 0, 1e9),
              wa: typeof a[15] === 'string' ? a[15].slice(0, 64) : '',
-             vw: num(a[16], 0, 0, 5000), vh: num(a[17], 0, 0, 5000) };
+             vw: num(a[16], 0, 0, 5000), vh: num(a[17], 0, 0, 5000),
+             // Fase: sólo un Pokémon que exista (si no, o de una versión anterior, 0: el que eligió).
+             fm: Number.isInteger(a[18]) && G.DEX_BY[a[18]] ? a[18] : 0 };
   }
 
   /** Anfitrión: dónde mira un invitado (él mismo, o el compañero vivo que mira estando caído). */

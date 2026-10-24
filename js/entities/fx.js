@@ -88,13 +88,33 @@ G.FX = (() => {
     mine = false;
   }
 
+  /*
+   * Números de daño (24-10-2026: en los momentos cargados la pantalla se llenaba de cifras):
+   *  - Se agrupan: un golpe del mismo color al mismo sitio (el mismo enemigo) en menos
+   *    de MERGE s se suma al número que ya está saliendo, que da un saltito, en vez de
+   *    sacar otro encima.
+   *  - Tope según la calidad y, en el móvil (pantalla pequeña), más bajo (CAP_SMALL).
+   *    Los grandes (muy eficaz, críticos, jefes, avisos) siempre entran: echan al más viejo.
+   */
+  const CAP_SMALL = [12, 20, 28], MERGE = 0.32;
+  let smallScr = false;
   function dmgText(x, y, value, color = '#ffffff', big = false) {
-    // Con cientos de golpes por segundo no se leen igual: tope de 70 (los
-    // grandes, como "¡Muy eficaz!" o los de jefe, siempre entran).
     // Ajustes → "Números de daño": los números se ocultan; los avisos de texto no.
-    if ((typeof value === 'number' || /^-\d/.test(value)) && !G.Settings.get('dmgNumbers')) return;
-    if (texts.length >= CAP_TEXTS[q()]) { if (!big) return; texts.shift(); }
-    texts.push({ x: x + G.U.rand(-6, 6), y, vy: -46, t: 0, life: big ? 0.95 : 0.62, s: value, color, big });
+    const num = typeof value === 'number';
+    if ((num || /^-\d/.test(value)) && !G.Settings.get('dmgNumbers')) return;
+    if (num) {
+      for (let i = texts.length - 1; i >= 0; i--) {
+        const o = texts[i];
+        if (o.n === undefined || o.t > MERGE || o.color !== color || o.big !== big) continue;
+        if (Math.abs(o.x0 - x) > 26 || Math.abs(o.y0 - y) > 30) continue;
+        o.n += value; o.s = String(Math.round(o.n)); o.t = Math.min(o.t, 0.06); o.pop = 0.14;
+        return;
+      }
+    }
+    if (texts.length >= (smallScr ? CAP_SMALL : CAP_TEXTS)[q()]) { if (!big) return; texts.shift(); }
+    const o = { x: x + G.U.rand(-6, 6), y, vy: -46, t: 0, life: big ? 0.95 : 0.62, s: num ? String(Math.round(value)) : value, color, big, pop: 0 };
+    if (num) { o.n = value; o.x0 = x; o.y0 = y; }
+    texts.push(o);
   }
 
   /** Anillo de onda (puntos de píxel). */
@@ -156,7 +176,11 @@ G.FX = (() => {
       t.t += dt;
       if (t.t >= t.life) { texts.splice(i, 1); continue; }
       t.y += t.vy * dt; t.vy *= 0.94;
+      if (t.pop > 0) t.pop -= dt;
     }
+    // Pantalla pequeña (móvil): menos números a la vez (ver dmgText).
+    const cam = G.Camera, s = cam.scale || 1;
+    smallScr = cam.w * s < 600 || cam.h * s <= 520;
     for (const arr of [rings, slashes, beams]) {
       for (let i = arr.length - 1; i >= 0; i--) {
         arr[i].t += dt;
@@ -302,9 +326,10 @@ G.FX = (() => {
         if (!t.big === !!big) continue;
         if (!font) { ctx.font = big ? NUM.b : NUM.n; ctx.lineWidth = big ? NUM.lw * 1.3 : NUM.lw; font = true; }
         ctx.globalAlpha = Math.min(1, (1 - t.t / t.life) * 2.2);
-        ctx.strokeText(t.s, t.x, t.y);
+        const y = t.pop > 0 ? t.y - t.pop * 28 : t.y;      // (saltito al sumarle otro golpe)
+        ctx.strokeText(t.s, t.x, y);
         ctx.fillStyle = t.color;
-        ctx.fillText(t.s, t.x, t.y);
+        ctx.fillText(t.s, t.x, y);
       }
     }
     ctx.restore();

@@ -9,6 +9,11 @@
  * - Por cada tamaño de iPhone o iPad (DEVICES) escribe una imagen en vertical y otra en
  *   horizontal. El icono va escalado a un factor entero (×1 o ½, el vecino más
  *   cercano: nada borroso) y ocupa alrededor de un tercio del lado corto.
+ * - iPhone: el juego es sólo horizontal (24-10-2026). iOS no hace caso de la
+ *   orientación del manifest y, si la app se abre con el móvil de pie, enseña la
+ *   imagen «portrait»: ésa es la misma pantalla horizontal girada 90° (el icono de
+ *   lado), para que se vea bien al girarlo, que es lo que pide el juego al cargar
+ *   («Gira el móvil»). Los iPad siguen con las dos orientaciones normales.
  * - Rehace en dev.html el bloque entre <!-- splash:begin --> y <!-- splash:end -->
  *   con las etiquetas <link rel="apple-touch-startup-image"> (tamaño en px CSS =
  *   píxeles del aparato / su densidad). Para un aparato nuevo: añadirlo a DEVICES.
@@ -128,6 +133,9 @@ for (let i = 0; i < icon.w * icon.h; i++) {
   if (!key.has(k)) { if (pal.length >= 256) throw new Error('El icono tiene más de 256 colores'); key.set(k, pal.length); pal.push(c); }
   iconIdx[i] = key.get(k);
 }
+// El mismo icono girado 90° a la derecha (pantallas de pie del iPhone: la horizontal, girada).
+const S = icon.w, iconRot = new Uint8Array(S * S);
+for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) iconRot[y * S + x] = iconIdx[(S - 1 - x) * S + y];
 // Lo que se ve del icono: el borde de 1/32 por lado es del color del fondo.
 const VISIBLE = 30 / 32, SCALES = [2, 1, 1 / 2, 1 / 4];
 
@@ -136,16 +144,43 @@ function scaleFor(short) {
   return SCALES.reduce((a, b) => (Math.abs(icon.w * b * VISIBLE - short * 0.36) < Math.abs(icon.w * a * VISIBLE - short * 0.36) ? b : a));
 }
 
-function splash(w, h) {
-  const k = scaleFor(Math.min(w, h)), s = Math.round(icon.w * k);
+/** Índice de un color en la paleta (lo añade si no está). */
+function palIdx(rgb) {
+  const k = rgb.join();
+  if (!key.has(k)) { if (pal.length >= 256) throw new Error('Paleta llena'); key.set(k, pal.length); pal.push(rgb); }
+  return key.get(k);
+}
+// (Las demás imágenes se escriben con la paleta del icono sola: así no cambian.)
+const PAL_ICON = pal.length;
+const MUTED = palIdx([143, 163, 209]), YELLOW = palIdx([255, 203, 5]);   // --faint y --c-yellow de style.css
+
+/**
+ * Debajo del icono, en las de pie del iPhone: un móvil de pie, una flecha y el
+ * mismo móvil tumbado (en amarillo), en píxeles de c×c. Se lee con el móvil de pie.
+ */
+function rotateHint(idx, w, cx, top, c) {
+  const rect = (x, y, ww, hh, col) => {
+    for (let j = 0; j < hh * c; j++) idx.fill(col, (top + y * c + j) * w + x0 + x * c, (top + y * c + j) * w + x0 + (x + ww) * c);
+  };
+  const frame = (x, y, ww, hh, col) => { rect(x, y, ww, 1, col); rect(x, y + hh - 1, ww, 1, col); rect(x, y, 1, hh, col); rect(x + ww - 1, y, 1, hh, col); };
+  const W = 7 + 2 + 5 + 2 + 12, x0 = cx - (W * c >> 1);
+  frame(0, 0, 7, 12, MUTED); rect(3, 10, 1, 1, MUTED);                 // de pie, con su botón
+  rect(9, 6, 5, 1, MUTED); rect(11, 4, 1, 1, MUTED); rect(12, 5, 1, 1, MUTED); rect(12, 7, 1, 1, MUTED); rect(11, 8, 1, 1, MUTED);   // →
+  frame(16, 3, 12, 7, YELLOW); rect(26, 6, 1, 1, YELLOW);              // tumbado
+}
+
+/** @param turned  el icono girado y el dibujo de girar el móvil (pantalla de pie del iPhone, ver arriba) */
+function splash(w, h, turned) {
+  const k = scaleFor(Math.min(w, h)), s = Math.round(icon.w * k), src = turned ? iconRot : iconIdx;
   const ox = (w - s) >> 1, oy = (h - s) >> 1;
   const idx = new Uint8Array(w * h);                       // 0 = fondo
   // Vecino más cercano, mirando el centro de cada píxel: con ½ toma justo los bloques pares.
   const map = new Int32Array(s).map((_, i) => Math.min(icon.w - 1, Math.floor((i + 0.5) / k)));
   for (let y = 0; y < s; y++) {
     const sy = map[y] * icon.w, row = (oy + y) * w + ox;
-    for (let x = 0; x < s; x++) idx[row + x] = iconIdx[sy + map[x]];
+    for (let x = 0; x < s; x++) idx[row + x] = src[sy + map[x]];
   }
+  if (turned) { const c = Math.max(4, Math.round(Math.min(w, h) / 100)); rotateHint(idx, w, w >> 1, oy + s + Math.round(s * 0.3), c); }
   return { idx, s, k };
 }
 
@@ -153,12 +188,14 @@ fs.mkdirSync(OUT, { recursive: true });
 const links = [];
 let total = 0;
 for (const [pw, ph, dpr, who] of DEVICES) {
+  const iphone = /iPhone/.test(who);
   for (const land of [false, true]) {
     const w = land ? ph : pw, h = land ? pw : ph, name = `splash-${w}x${h}.png`;
-    const { idx, s, k } = splash(w, h);
-    const bytes = writePng(path.join(OUT, name), w, h, idx, pal);
+    const turned = iphone && !land;
+    const { idx, s, k } = splash(w, h, turned);
+    const bytes = writePng(path.join(OUT, name), w, h, idx, turned ? pal : pal.slice(0, PAL_ICON));
     total += bytes;
-    console.log(`${name.padEnd(24)} icono ${s}px (×${k}, ${Math.round(s * VISIBLE / Math.min(w, h) * 100)} %) · ${(bytes / 1024).toFixed(1)} KB · ${who}`);
+    console.log(`${name.padEnd(24)} icono ${s}px (×${k}, ${Math.round(s * VISIBLE / Math.min(w, h) * 100)} %)${turned ? ' girado' : ''} · ${(bytes / 1024).toFixed(1)} KB · ${who}`);
     links.push(`<link rel="apple-touch-startup-image" media="(device-width: ${pw / dpr}px) and (device-height: ${ph / dpr}px) and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: ${land ? 'landscape' : 'portrait'})" href="assets/splash/${name}">`);
   }
 }

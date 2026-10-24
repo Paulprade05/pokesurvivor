@@ -120,9 +120,12 @@ G.Game = (() => {
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
     const save = G.DB.save;
-    // Con su naturaleza aplicada (una copia: ver systems/mons.js).
-    const mon = G.Mons.monFor(save.partner);
-    const perks = G.Upgrades.perks(G.DB.upgradesOf(mon.dex));
+    // Se empieza con la primera fase de su línea (24-10-2026: evoluciona en la
+    // partida, ver G.Evo en systems/mons.js), con la naturaleza del que elegiste.
+    // mon.dex sigue siendo el elegido: sus mejoras, MT, atajos y récords.
+    const chosen = save.partner;
+    const mon = G.Mons.formFor(chosen, G.Evo.base(chosen));
+    const perks = G.Upgrades.perks(G.DB.upgradesOf(chosen));
 
     G.UI.hideAll();
     G.UI.chrome(false);
@@ -144,8 +147,10 @@ G.Game = (() => {
     time = 0; pendingLevels = 0;
     runReal = performance.now(); tampered = false;
 
-    pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(mon.dex));
-    pl.setAbility(G.Mons.abilityOf(mon.dex).id);
+    pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(chosen));
+    G.Evo.start(pl, chosen);
+    G.EvoUI.clear();
+    pl.setAbility(G.Mons.abilityOf(chosen).id);
     banked = { t1: 0, t10: 0 };
     caught = [];
     // Atajos: movimientos con hueco fijo (save.pbind[dex] = [id del 1, id del 2, ...]),
@@ -169,8 +174,9 @@ G.Game = (() => {
       G.Social.setPlaying(true);
     }
     G.Camera.x = pl.x; G.Camera.y = pl.y; G.Camera.shake = 0;
-    // Hojas de sprites locales: el compañero y los primeros enemigos.
-    G.Sprites.preload([mon.dex], 8000, pl.shiny);
+    // Hojas de sprites locales: el compañero (las de su siguiente fase, en evoTick).
+    G.Sprites.preload([pl.form], 8000, pl.shinyWant);
+    evoT = 0;
     G.Audio.music(G.BIOME_MUSIC[0]);
     // Para el ranking: el servidor apunta cuándo empieza la partida (anti-trampas).
     if (!coop || G.Coop.isHost) G.Ranking.runStarted(coop ? 'g' : 's');
@@ -182,6 +188,82 @@ G.Game = (() => {
       G.Settings.set('tipVert', true);
       G.Spawner.say('Consejo: también puedes jugar con el móvil en horizontal', 4, true);
     }
+    // «Empiezas como Charmander…» (los avisos van en cola: si hay consejo, sale después).
+    G.EvoUI.startHint(pl);
+  }
+
+  // ---------------- evoluciones en partida (24-10-2026) ----------------
+
+  /*
+   * G.Evo (systems/mons.js) dice qué toca: evolucionar ya, sacar su piedra al
+   * suelo (la coges y evoluciona) o elegir rama con una carta (la partida se
+   * para; en grupo, para todos, como con los vínculos). En grupo cada uno
+   * evoluciona el suyo y los demás lo ven por su envío (coop.js, la fase).
+   */
+  let evoT = 0;
+  function evoTick(dt) {
+    if (!pl || !pl.evo) return;
+    G.EvoUI.tick(dt);
+    const got = G.EvoUI.itemTick(dt, pl);
+    if (got) { evolveTo(got); return; }
+    // Las hojas de la siguiente fase, a mano (las que no se usan en un rato se sueltan).
+    // Con rama (Eevee: 8), sólo la de quieto (la carta); la que elijas, al evolucionar.
+    if ((evoT -= dt) <= 0) {
+      evoT = 10;
+      const o = G.Evo.options(pl);
+      if (o.length === 1) G.Sprites.preload(o, 8000, pl.shinyWant);
+      else for (const d of o) G.Sprites.sheet(d, 'Idle', pl.shinyWant);
+    }
+    const r = G.Evo.tick(pl, dt);
+    if (!r) return;
+    if (r.choose) offerEvo(r.choose);
+    else if (r.item) { G.Sprites.preload([r.item], 8000, pl.shinyWant); G.EvoUI.dropItem(pl, r.item, r.it); }
+    else if (r.dex) evolveTo(r.dex, r.via);
+  }
+
+  function evolveTo(dex, via = '') {
+    if (!pl || !G.DEX_BY[dex]) return;
+    const from = pl.form;
+    try {
+      G.Sprites.preload([dex], 8000, pl.shinyWant);
+      pl.evolve(G.Mons.formFor(pl.dex, dex));
+      G.Evo.advance(pl, dex);
+      G.EvoUI.evolved(pl, from, dex, via);
+    } catch (e) {
+      console.error('[Game] fallo al evolucionar:', e);
+      G.Evo.advance(pl, dex);          // que no lo intente en cada fotograma
+    }
+  }
+
+  /** Rama (Eevee...): se elige con una carta; mientras, todo parado. */
+  function offerEvo(opts) {
+    if (!pl || pl.dead || state !== 'playing') return;
+    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return;   // se vuelve a mirar en un momento
+    state = 'choice';
+    pl.evo.wait = opts;
+    if (G.Coop.active) G.Coop.holdStart();
+    const end = () => {
+      if (pl && pl.evo) pl.evo.wait = null;
+      if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
+      if (G.Coop.active) G.Coop.holdEnd();
+      afterLevelUp();
+    };
+    try {
+      G.Audio.sfx('levelup');
+      G.EvoUI.showChoice(pl, opts, dex => { try { evolveTo(dex); } finally { end(); } });
+    } catch (e) {
+      console.error('[Game] no se pudo abrir la elección de evolución:', e);
+      G.EvoUI.closeChoice();
+      evolveTo(opts[0]);
+      end();
+    }
+  }
+  /** Cierra la carta de rama sin elegir (vuelve a salir enseguida). */
+  function cancelEvo() {
+    if (!G.EvoUI.isOpen()) return;
+    G.EvoUI.closeChoice();
+    if (pl && pl.evo) pl.evo.wait = null;
+    if (G.Coop.active) G.Coop.holdEnd();
   }
 
   function quitRun() {
@@ -242,6 +324,7 @@ G.Game = (() => {
     levelStart(level) {
       // (Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.)
       if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
+      cancelEvo();                       // (la carta de rama vuelve a salir al terminar)
       state = 'levelup';
       G.UI.hide('scr-pause');
       // Pase lo que pase al aplicar la carta, se avisa de que has elegido: si
@@ -348,6 +431,7 @@ G.Game = (() => {
     if (G.Coop.active) guard('Coop', () => G.Coop.end());
     if (coop) guard('Social', () => G.Social.setPlaying(false));
     state = 'over';
+    guard('Evo', () => G.EvoUI.clear());       // cartel, carta de rama o piedra que quedaran
     guard('Audio', () => { G.Audio.music(null); G.Audio.sfx(dead ? 'gameover' : 'back'); });
     const save = G.DB.save;
     const mul = pl.coinMul;
@@ -387,7 +471,8 @@ G.Game = (() => {
       const mark = { t: Math.floor(time), lv: pl.level, kills: pl.kills };
       // Si la partida se ha tocado (ver clean()), no sube al ranking (sin avisar); lo demás, sí.
       const ok = clean();
-      const sent = ok && !coop ? G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: pl.shiny }))
+      // (El Pokémon que elegiste, no la fase a la que ha llegado: shinyWant es su shiny.)
+      const sent = ok && !coop ? G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: !!pl.shinyWant }))
                  : ok && wasHost ? G.Ranking.submitGroup(Object.assign(mark, { members: team })) : null;
       if (sent) sent.then(b => { if (b && b.some(p => p !== 'a')) G.DB.commit(true); }).catch(() => {});
     });
@@ -472,7 +557,7 @@ G.Game = (() => {
    */
   function offerBond(quiet = false) {
     if (!pl || pl.bonds <= 0 || pl.dead || (state !== 'playing' && state !== 'held') || G.Rift.inArena) return;
-    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return;
+    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen) || G.EvoUI.isOpen()) return;
     const opt = pl.bondOptions();
     if (!opt) {
       if (!quiet) G.Spawner.say('Guardas el vínculo: aprende otro movimiento para usarlo', 3, true);
@@ -532,7 +617,7 @@ G.Game = (() => {
   /** Has cogido un objeto: si no llevas ninguno te lo pones; si no, eliges. */
   function offerItem(id) {
     if (!pl || !G.Items.BY[id]) return;
-    if (state === 'levelup' || G.UI.isOpen('scr-levelup')) { laterItems.push(id); return; }
+    if (state === 'levelup' || G.UI.isOpen('scr-levelup') || G.EvoUI.isOpen()) { laterItems.push(id); return; }
     let mine = false;            // esta elección es la que ha parado el juego
     const take = got => {
       openItem = null;
@@ -638,6 +723,12 @@ G.Game = (() => {
     if (G.UI.isOpen('scr-bond')) {
       for (let i = 0; i < 4; i++) {
         if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) G.RunUI.pickBond(i);
+      }
+      return;
+    }
+    if (G.EvoUI.isOpen()) {
+      for (let i = 0; i < 9; i++) {
+        if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) G.EvoUI.pick(i);
       }
       return;
     }
@@ -763,7 +854,7 @@ G.Game = (() => {
     const lost = !pl ? false
       : s === 'over' ? !G.UI.isOpen('scr-over')
       : (s === 'levelup' || s === 'choice') && !G.Coop.active &&
-        !(s === 'levelup' ? G.UI.isOpen('scr-levelup') : G.UI.isOpen('scr-item') || G.UI.isOpen('scr-bond'));
+        !(s === 'levelup' ? G.UI.isOpen('scr-levelup') : G.UI.isOpen('scr-item') || G.UI.isOpen('scr-bond') || G.EvoUI.isOpen());
     if (!lost) { lostT = 0; return; }
     lostT += Math.min(Math.max(real, 0), 0.1);
     if (lostT < 1.5) return;
@@ -777,7 +868,7 @@ G.Game = (() => {
     }
     console.warn('[Game] estado ' + s + ' sin su pantalla: se sigue jugando');
     if (s === 'levelup') G.RunUI.closeLevelUp();
-    else { openItem = null; G.UI.hide('scr-item'); G.UI.hide('scr-bond'); }
+    else { openItem = null; G.UI.hide('scr-item'); G.UI.hide('scr-bond'); cancelEvo(); }
     state = 'playing';
   }
 
@@ -817,6 +908,7 @@ G.Game = (() => {
 
     pl.frozen = coop && (G.UI.isOpen('scr-pause') || G.UI.isOpen('scr-item'));
     pl.update(dt);
+    evoTick(dt);
     if (coop) {
       for (const p of G.Coop.puppets()) { p.netUpdate(dt); G.Combat.ghostOrbit(p, dt, time); }
       if (pl.dead) reviveTick(dt);
@@ -931,7 +1023,10 @@ G.Game = (() => {
     ctx.save();
     ctx.scale(G.Camera.scale, G.Camera.scale);
     G.Camera.apply(ctx);
-    drawScene(G.Camera, G.Coop.active ? [pl, ...G.Coop.puppets()] : [pl]);
+    const ents = G.Coop.active ? [pl, ...G.Coop.puppets()] : [pl];
+    const stone = G.EvoUI.drawable();     // la piedra de su evolución, en el suelo
+    if (stone) ents.push(stone);
+    drawScene(G.Camera, ents);
     G.Projectiles.draw(ctx);
     G.Combat.drawAirFields(ctx);
     G.FX.draw(ctx);

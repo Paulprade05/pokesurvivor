@@ -74,10 +74,53 @@ G.RunUI = (() => {
     if (ev.ready && cls === 'mv-evo') {
       return `<span class="${cls} ready"><span class="evo-k">¡Lista para evolucionar!</span><span class="evo-need">${G.Icons.html(ev.icon, 18)}${ok}</span></span>`;
     }
-    return `<span class="${cls}${ev.ready ? ' ready' : ev.has ? ' has' : ''}">`
+    // Te falta esa pasiva y tus 4 huecos de pasiva ya están llenos: así no evolucionará.
+    const blocked = ev.blocked && !ev.has;
+    return `<span class="${cls}${ev.ready ? ' ready' : ev.has ? ' has' : blocked ? ' blocked' : ''}">`
       + `<span class="evo-k">Evoluciona con</span>`
       + `<span class="evo-need">${G.Icons.html(ev.icon, 18)}<b>${ev.title}</b>${ev.has ? ok : ''}</span>`
-      + `<span class="evo-lv">· <span>Nv.</span> ${ev.lvl}${ev.max ? ok : ''}</span></span>`;
+      + (blocked ? '<span class="evo-no">Sin hueco de pasiva</span></span>'
+                 : `<span class="evo-lv">· <span>Nv.</span> ${ev.lvl}${ev.max ? ok : ''}</span></span>`);
+  }
+
+  // ---------------- huecos de ataque y de pasiva (24-10-2026) ----------------
+
+  /**
+   * Como en Vampire Survivors: tus 4 huecos de ataque y tus 4 de pasiva (G.LevelUp.MAX_PASSIVES),
+   * cada uno con su icono y su nivel (las pasivas, las veces que la has cogido); los
+   * vacíos, «Libre». Lo enseñan la pausa (arriba del todo) y, en pequeño y sin niveles
+   * (mini), la cabecera de las cartas de nivel.
+   */
+  function slotsHtml(pl, mini = false) {
+    const SZ = mini ? 20 : 30;
+    const free = mini ? '<span class="sl sl-free"></span>' : '<span class="sl sl-free"><span>Libre</span></span>';
+    const atk = [], pas = [];
+    for (let i = 0; i < Math.max(pl.maxMoves, pl.slots.length); i++) {
+      const g = pl.slots[i];
+      if (!g || !g[0]) { atk.push(free); continue; }
+      const m = g[0];
+      atk.push(`<span class="sl ico-tile tint${m.evolved ? ' evo' : ''}${g.length > 1 ? ' bond' : ''}" style="--tile-c:${typeCol(m)}" title="${g.map(x => G.T(x.name, 'move')).join(' + ')}">`
+        + G.Icons.html('move:' + m.id, SZ) + (mini ? '' : `<i class="sl-lv">${m.lvl}</i>`)
+        + (g.length > 1 ? `<i class="sl-plus">+${g.length - 1}</i>` : '') + '</span>');
+    }
+    const mine = G.LevelUp.passivesOf(pl), MAX = G.LevelUp.MAX_PASSIVES;
+    for (let i = 0; i < Math.max(MAX, mine.length); i++) {
+      const p = mine[i];
+      if (!p) { pas.push(free); continue; }
+      pas.push(`<span class="sl ico-tile ${PASSIVE.has(p.id) ? 't-purple' : 't-blue'}" title="${p.def.title}">`
+        + G.Icons.html(p.def.icon, SZ) + (mini ? '' : `<i class="sl-lv">${p.n}</i>`) + '</span>');
+    }
+    const group = (lbl, used, max, tiles, cls) => `<div class="sl-group ${cls}${used >= max ? ' full' : ''}">`
+      + `<span class="sl-lbl"><b>${lbl}</b><span class="sl-n">${used}/${max}</span></span><span class="sl-row">${tiles.join('')}</span></div>`;
+    return group('Ataques', pl.slots.length, pl.maxMoves, atk, 'sl-atk') + group('Pasivas', mine.length, MAX, pas, 'sl-pas');
+  }
+
+  /** Carta nueva (ataque o pasiva): qué hueco ocupa, «Hueco de ataque 3/4», o si es el último. */
+  function slotNote(kind, used, max) {
+    const last = used + 1 >= max, atk = kind === 'atk';
+    const txt = last ? (atk ? 'Último hueco de ataque' : 'Último hueco de pasiva')
+                     : (atk ? 'Hueco de ataque ' : 'Hueco de pasiva ') + (used + 1) + '/' + max;
+    return `<span class="pc-slot${last ? ' last' : ''}">${txt}</span>`;
   }
 
   /**
@@ -132,10 +175,20 @@ G.RunUI = (() => {
     $('lvl-wait').textContent = '';
     $('lvl-wait').classList.toggle('hidden', !coop);
     $('cards').classList.remove('done');
+    levelSlots();
     renderCards(list);
     $('lvl-reroll').onclick = reroll;
     G.UI.show('scr-levelup');
     guard($('cards'));
+  }
+
+  /** Cabecera de las cartas: cuántos huecos de ataque y de pasiva llevas (la tira la pone run-ui.js). */
+  function levelSlots() {
+    const pl = G.Game.player, head = document.querySelector('#scr-levelup .pick-head');
+    if (!head) return;
+    let el = $('lvl-slots');
+    if (!el) { el = document.createElement('div'); el.id = 'lvl-slots'; el.className = 'lvl-slots'; head.appendChild(el); }
+    el.innerHTML = pl ? slotsHtml(pl, true) : '';
   }
 
   /**
@@ -174,15 +227,20 @@ G.RunUI = (() => {
     // La mejora que lo deja al máximo con la carta ya cogida: al elegirla, queda listo.
     if (ev && c.type === 'up' && ev.has && m.lvl + 1 >= ev.lvl) ev = Object.assign({}, ev, { max: true, ready: true });
     const evo = m ? evoHtml(m, ev, 'pc-evo') : '';
+    const pl = G.Game.player;
     if (c.type === 'evo') return { cls: 'evo', icon: c.icon, tile: 't-gold', badge: badge('EVOLUCIÓN', 'gold'), title: c.title, chips, desc: c.desc, evo };
-    if (c.type === 'new') return { cls: 'is-new', icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips, desc: c.desc, evo };
+    if (c.type === 'new') return { cls: 'is-new', icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips: chips + zChip(m), desc: c.desc, evo,
+                                   eyebrow: pl ? slotNote('atk', pl.slots.length, pl.maxMoves) : '' };
     if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc, evo };
     // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
-    // desbloquea ya una evolución (el ataque está al máximo), dorada.
+    // desbloquea ya una evolución (el ataque está al máximo), dorada. Una pasiva que
+    // ya llevas sube de nivel («Nv. 2 → 3»); una nueva dice qué hueco de pasiva ocupa.
     const id = String(c.key || '').slice(5), unlocks = !!c.tag && c.tag !== 'Mejora', passive = PASSIVE.has(id);
+    const n = (pl && pl.statsTaken && pl.statsTaken[id]) || 0, slot = pl && G.LevelUp.isPassive(id);
     return {
       cls: 'is-stat' + (unlocks ? ' unlocks' : ''), icon: c.icon, tile: unlocks ? 't-gold' : passive ? 't-purple' : 't-blue',
-      badge: passive ? badge('Pasivo', 'purple') : badge('Mejora', 'ghost'),
+      badge: slot && n > 0 ? lvBadge(n, true, passive ? 'purple' : 'ghost') : passive ? badge('Pasivo', 'purple') : badge('Mejora', 'ghost'),
+      eyebrow: slot && !n ? slotNote('pas', G.LevelUp.passivesOf(pl).length, G.LevelUp.MAX_PASSIVES) : '',
       title: c.title, chips: '', desc: c.desc,
       evo: c.evolves ? evolvesHtml(c.evolves) : unlocks ? `<span class="evo-hint">${c.tag}</span>` : ''
     };
@@ -431,13 +489,35 @@ G.RunUI = (() => {
   }
 
   /**
-   * El movimiento Z en la pausa (24-10-2026; sólo con el Cristal Z de un tipo de
-   * tu compañero): el cristal, su nombre, cómo está (activo, recargando o listo),
-   * tipo, categoría y familia, qué hace y el daño que lleva hecho (× las veces usado).
+   * El movimiento Z en la pausa (24-10-2026). Se activa con la Pulsera Z de tu
+   * Pokémon, el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos
+   * (G.Shop.zState). Listo, activo o recargando: el cristal, su nombre, cómo está,
+   * tipo, categoría y familia, qué hace y el daño que lleva hecho (× las veces
+   * usado). Apagado: qué le falta. Debajo, tus cristales con los ataques que llevas
+   * de su tipo (el que va, resaltado). Sin Pulsera Z pero con cristales: dónde se
+   * compra. Sin nada de esto, no sale.
    */
   function zCard(pl) {
-    const z = G.Combat.zOf(pl);
-    if (!z) return '';
+    const z = G.Combat.zOf(pl), owned = G.Shop.zOwned(), NEED = G.Shop.Z_NEED;
+    const name = G.DEX_BY[pl.mon.dex] ? G.DEX_BY[pl.mon.dex].name : '';
+    const ring = `<span class="ico-tile s t-gold">${G.Icons.html('zring', 30)}</span>`;
+    if (!z) {
+      if (!owned.length) return '';
+      return `<section class="ps-card ps-z"><h3>Movimiento Z</h3>
+        <div class="z-off">${ring}<div><b>${G.I18n.f('{x} no lleva la Pulsera Z', name)}</b>
+          <small>Cómprala en la Tienda Kecleon o en sus Mejoras para usar tus Cristales Z.</small></div></div></section>`;
+    }
+    // Tus cristales: cuántos ataques de su tipo llevas (de los 2 que hacen falta).
+    const have = z.have.length ? `<div class="z-have">${z.have.map(h => `<span class="z-cr${h.t === z.type ? ' on' : h.n >= NEED ? ' ok' : !z.type && h.t === z.need ? ' near' : ''}" style="--z-c:${G.U.TYPE_COLOR[h.t]}" title="${G.T(G.Shop.Z_NAME[h.t])}">`
+      + `${G.Icons.html('z:' + h.t, 30)}<b>${h.n >= NEED ? h.n + G.UI.svg('check', 12) : h.n + '/' + NEED}</b></span>`).join('')}</div>` : '';
+    const rule = `<small class="z-rule">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques.')}</small>`;
+    if (!z.type) {
+      const what = !z.need ? G.T('Tienes la Pulsera Z, pero ningún Cristal Z: cómpralos en la Tienda Kecleon.')
+        : z.needN >= NEED - 1 ? G.I18n.f('Apagado: te falta 1 ataque {x}.', G.T(G.U.TYPE_NAME[z.need]))
+        : G.I18n.f('Apagado: te faltan 2 ataques {x}.', G.T(G.U.TYPE_NAME[z.need]));
+      return `<section class="ps-card ps-z"><h3>Movimiento Z</h3>
+        <div class="z-off">${ring}<div><b>${what}</b>${rule}</div></div>${have}</section>`;
+    }
     const d = z.def, n = v => Math.round(v).toLocaleString(G.I18n.locale);
     const m = z.m || Object.assign({}, d, { cat: G.Stats.sideOf(pl.mon) });
     const state = z.t > 0 ? `<span class="z-state on">${G.I18n.f('Activo: {x}', G.U.mmss(z.t))}</span>`
@@ -449,13 +529,24 @@ G.RunUI = (() => {
         <div class="mv-main"><div class="mv-name"><b>${G.T(d.name)}</b>${state}</div>
           <div class="mv-tags">${moveChips(m)}</div><small class="z-desc">${G.T(d.desc)}</small></div>
         <div class="mv-num"><b>${n(z.dealt + (z.m ? z.m.dealt || 0 : 0))}</b><small>×${z.uses}</small></div>
-      </div></section>`;
+      </div>${owned.length > 1 ? have : ''}</section>`;
+  }
+
+  /**
+   * Carta de un ataque nuevo de un tipo con Cristal Z (y tu Pokémon con la Pulsera Z,
+   * sin el Z de ese tipo ya listo): «Z 1/2» o, si con él llegas, «Z 2/2» en dorado.
+   */
+  function zChip(m) {
+    const pl = G.Game.player, z = pl && G.Combat.zOf(pl);
+    if (!z || !m || !G.Shop.zHas(m.type) || z.type === m.type) return '';
+    const h = z.have.find(x => x.t === m.type), k = Math.min(G.Shop.Z_NEED, (h ? h.n : 0) + 1);
+    return `<span class="z-chip${k >= G.Shop.Z_NEED && !z.type ? ' go' : ''}" style="--z-c:${G.U.TYPE_COLOR[m.type]}">${G.Icons.html('z:' + m.type, 30)}<b>Z ${k}/${G.Shop.Z_NEED}</b></span>`;
   }
 
   /*
-   * Resumen de la partida en la pausa, en tarjetas: tus ataques, tus
-   * estadísticas con todo lo subido (cada una con el objeto de su carta) y el
-   * objeto y las cartas de mejora que llevas.
+   * Resumen de la partida en la pausa, en tarjetas: arriba tus huecos de ataque y
+   * de pasiva y el objeto (slotsHtml); debajo tus ataques con su daño, el movimiento Z,
+   * tus estadísticas con todo lo subido (cada una con el objeto de su carta) y el objeto.
    */
   function pauseSummary() {
     const pl = G.Game.player;
@@ -485,17 +576,17 @@ G.RunUI = (() => {
       ['zoom-lens', 'Vel. de proyectiles', '+' + pct(P.pspd - 1)]
     ].map(([ico, a, b]) => `<div class="st-tile"><span class="ico-tile s">${G.Icons.html(ico, 30)}</span><div><span>${a}</span><b>${b}</b></div></div>`).join('');
     const it = pl.item && G.Items.BY[pl.item];
-    const cards = Object.entries(pl.statsTaken || {}).map(([id, c]) => {
-      const s = G.LevelUp.STATS.find(x => x.id === id);
-      return s ? `<div class="own-card"><span class="ico-tile s${PASSIVE.has(id) ? ' t-purple' : ''}">${G.Icons.html(s.icon, 30)}</span><b>${s.title}</b><span class="badge ghost">×${c}</span></div>` : '';
-    }).join('');
-    return `<section class="ps-card ps-moves"><h3>Tus ataques</h3>${movesTable(pl.moves, t)}</section>${zCard(pl)}
+    // Arriba, como en Vampire Survivors: tus huecos de ataque y de pasiva (y el objeto), con
+    // los libres a la vista. Las pasivas ya salen ahí con su nivel: sin la lista de cartas de antes.
+    const itemTile = it ? `<span class="sl ico-tile t-gold" title="${it.name}">${G.Icons.html(pl.item, 30)}</span>`
+                        : '<span class="sl sl-free"><span>Libre</span></span>';
+    return `<section class="ps-card ps-slots"><div class="sl-wrap">${slotsHtml(pl)}
+        <div class="sl-group sl-item"><span class="sl-lbl"><b>Objeto</b></span><span class="sl-row">${itemTile}</span></div></div></section>
+      <section class="ps-card ps-moves"><h3>Tus ataques</h3>${movesTable(pl.moves, t)}</section>${zCard(pl)}
       <section class="ps-card ps-stats"><h3>Tus estadísticas</h3><div class="st-grid">${st}</div></section>
-      <section class="ps-card ps-gear"><h3>Objeto y cartas</h3>
-        ${it ? `<div class="ps-item"><span class="ico-tile t-blue">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div>`
-            : '<p class="muted ps-none">Sin objeto.</p>'}
-        ${cards ? `<div class="own-grid">${cards}</div>` : '<p class="muted ps-none">Aún no has cogido cartas de mejora.</p>'}
-      </section>`;
+      ${it ? `<section class="ps-card ps-gear"><h3>Objeto</h3>
+        <div class="ps-item"><span class="ico-tile t-gold">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div>
+      </section>` : ''}`;
   }
 
   /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
