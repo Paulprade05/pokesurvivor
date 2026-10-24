@@ -129,8 +129,8 @@
 }
 </script>
 
-<link rel="stylesheet" href="css/style.css?v=b6fb37aa45">
-<script src="js/core/locales.js?v=6f60ab2fd9"></script>
+<link rel="stylesheet" href="css/style.css?v=5da4724bc0">
+<script src="js/core/locales.js?v=b1c5edc41f"></script>
 <script src="js/noframe.js"></script>
 </head>
 <body>
@@ -441,6 +441,20 @@
     <h1 class="wordmark">PokéSurvivor</h1>
     <p>Sobrevive a las hordas con tu compañero Pokémon</p>
     <p class="tap-blink">Pulsa para empezar</p>
+  </div>
+</div>
+<!-- «Gira el móvil»: en el móvil el juego es sólo horizontal. mobile.js pone html.need-rotate
+     al ponerlo de pie (y pausa la partida); este aviso tapa todo, también la carga. -->
+<div id="rotate" class="rotate" role="alertdialog" aria-modal="true" aria-hidden="true" aria-labelledby="rotate-t">
+  <div class="rot-in">
+    <svg class="rot-phone" viewBox="0 0 64 64" width="96" height="96" aria-hidden="true" focusable="false">
+      <g class="rot-dev"><rect x="20" y="8" width="24" height="44" rx="5"/><path d="M29 13h6"/><circle cx="32" cy="46" r="1.6"/></g>
+      <path class="rot-arrow" d="M50 20a22 22 0 0 1 4 18M54 38l-5-2M54 38l2-5"/>
+    </svg>
+    <p class="rot-t" id="rotate-t">Gira el móvil</p>
+    <p class="rot-s">PokéSurvivor se juega en horizontal.</p>
+    <p class="rot-s rot-run">La partida está en pausa.</p>
+    <p class="rot-s rot-coop">La partida en grupo sigue mientras tanto.</p>
   </div>
 </div>
 <noscript>
@@ -889,6 +903,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=df181d378a"></script>
+<script defer src="js/app.min.js?v=2bf2be5288"></script>
 </body>
 </html>

@@ -1638,8 +1638,14 @@ G.I18n.add({
   "del tipo del cristal": "of the crystal’s type",
   "1 min · recarga 4": "1 min · 4 to recharge",
   "Se activa con la Pulsera Z y 2 ataques {x}.": "Turns on with the Z-Ring and 2 {x} moves.",
-  "Uno por tipo y para siempre: {x} cada uno. En la partida, pulsa Z (o su botón) y su movimiento Z se lanza solo 1 minuto; luego se recarga 4.": "One per type and yours forever: {x} each. In a run, press Z (or its button) and its Z-Move fires on its own for 1 minute, then recharges for 4.",
+  "Uno por tipo y para siempre: {x} cada uno. En la partida, pulsa Z (o su botón) y su movimiento Z se lanza solo 1 minuto; luego se recarga 4 min.": "One per type and yours forever: {x} each. In a run, press Z (or its button) and its Z-Move fires on its own for 1 minute, then recharges for 4 min.",
   "Son para siempre y no se gastan. En la partida, con la Pulsera Z de tu Pokémon y 2 ataques del tipo de uno de tus Cristales Z, pulsa Z o su botón.": "They’re yours forever and never run out. In a run, with your Pokémon’s Z-Ring and 2 moves of the type of one of your Z-Crystals, press Z or its button.",
   "La llevan: {x}": "Worn by: {x}",
-  "Puede usar movimientos Z: con un Cristal Z y 2 ataques de su tipo en sus huecos": "Can use Z-Moves: with a Z-Crystal and 2 moves of its type in its slots"
+  "Puede usar movimientos Z: con un Cristal Z y 2 ataques de su tipo en sus huecos": "Can use Z-Moves: with a Z-Crystal and 2 moves of its type in its slots",
+  // ---------------- Arreglos de las pruebas de juego (24-10-2026) ----------------
+  "o min {x}": "or min {x}",
+  "¡Evoluciona a {x}!": "Evolves into {x}!",
+  "Te quedarás sin la evolución de {x}": "You'll lose the evolution of {x}",
+  "{x} min · recarga {x} min": "{x} min · {x} min to recharge",
+  "Sus golpes envenenan a menudo (3 de cada 10) y sus movimientos de tipo Veneno dañan del todo a los de tipo Acero y Veneno.": "Its hits often poison (3 in 10), and its Poison-type moves fully hit Steel and Poison types."
 });

@@ -10,7 +10,11 @@
  * 5 s) y las 106 «genéricas» (+8 % con su tipo).
  *
  * Ganchos (todos opcionales):
- *   start(pl)             al empezar la partida (stats fijos)
+ *   start(pl)             al empezar la partida (lo que NO depende de la fase: críticos, monedas, imán...)
+ *   mon(m)                cambia los stats de la fase (Potencia...): al empezar y otra vez en cada
+ *                         evolución, sobre la fase nueva (begin / stage, abajo; 24-10-2026)
+ *   regenK                regenera esa parte de la vida máxima por segundo (crece con ella: player.js regen)
+ *   hpMul                 × a la vida máxima (y a lo que sube al evolucionar)
  *   out(pl, m, e)         × al daño que hace el movimiento m al enemigo e (combat.js)
  *   hit(pl, e, m)         ha golpeado a e (después del daño)
  *   inMul(pl, type, cls)  × al daño que recibe (cls 'p' físico, 's' especial; pl.touchHit: cuerpo a cuerpo)
@@ -94,7 +98,7 @@ G.AbilityFX = (() => {
   const RANGED = 'Recibe un 22 % menos de daño a distancia (disparos y zonas).';
   const ranged = (k = 0.78, d = RANGED) => ({ d, inMul: pl => (touch(pl) ? 1 : k) });
   const magnet = (k, d) => ({ d, start: pl => { pl.magnet *= k; } });
-  const regen = (k, d) => ({ d, start: pl => { pl.regenFlat += pl.maxHp * k; } });
+  const regen = (k, d) => ({ d, regenK: k });
   /** Una baya cada `every` s que se come en cuanto le falta vida: cura k. */
   const berry = (every, k, d) => ({ d, tick: (pl, dt) => {
     pl.berryT = Math.min(every, (pl.berryT || 0) + dt);
@@ -124,7 +128,7 @@ G.AbilityFX = (() => {
     // Potencia y Energía Pura: en los juegos doblan el Ataque; aquí sus golpes físicos pegan con su
     // mejor ataque y un 20 % más (Azumarill tiene más Ataque Especial que Ataque).
     'huge-power': { d: 'Sus movimientos físicos pegan con su mejor ataque y un 20 % más.',
-      start: pl => { const m = pl.mon; m.pa = Math.max(m.pa, m.sa) * 1.2; m.atk = Math.max(m.pa, m.sa); pl.baseAtk = m.atk; } },
+      mon: m => { m.pa = Math.max(m.pa, m.sa) * 1.2; m.atk = Math.max(m.pa, m.sa); } },
     'hustle': { d: '+30 % de daño con movimientos físicos, pero 1 de cada 8 golpes físicos sale flojo.',
       out: (pl, m) => (cls(m) !== 'p' ? 1 : Math.random() < 1 / 8 ? 0.4 : 1.3) },
     'guts': { d: '+12 % de daño con movimientos físicos; con menos de la mitad de vida, +40 %.',
@@ -210,7 +214,15 @@ G.AbilityFX = (() => {
     'pixilate': { d: '+15 % de daño con movimientos de tipo Normal y Hada.', out: (pl, m) => (m.type === 'normal' || m.type === 'fairy' ? 1.15 : 1) },
     'multitype': { d: '+13 % de daño con todos sus movimientos.', out: allOut(1.13) },
     'rks-system': { d: '+13 % de daño con todos sus movimientos.', out: allOut(1.13) },
-    'corrosion': { d: 'Sus golpes envenenan a veces (1 de cada 5), incluso a los de tipo Acero y Veneno.', hit: (pl, e) => { if (Math.random() < 0.2) e.applyPoison(1); } },
+    // Corrosión (24-10-2026: valía 7,7 con 1 de cada 5): en los juegos envenena incluso a los de tipo Acero
+    // y Veneno; aquí su veneno corroe: sus ataques de tipo Veneno no pierden fuerza contra ellos.
+    'corrosion': { d: 'Sus golpes envenenan a menudo (3 de cada 10) y sus movimientos de tipo Veneno dañan del todo a los de tipo Acero y Veneno.',
+      out: (pl, m, e) => {
+        const t = m.type === 'poison' && e && e.types;
+        if (!t || !(t.includes('steel') || t.includes('poison'))) return 1;
+        return mult('poison', t.filter(x => x !== 'steel' && x !== 'poison')) / Math.max(0.3, mult('poison', t));
+      },
+      hit: (pl, e) => { if (Math.random() < 0.3) e.applyPoison(1); } },
     'toxic-chain': { d: 'Sus golpes envenenan a veces (1 de cada 3).', hit: (pl, e) => { if (Math.random() < 1 / 3) e.applyPoison(1); } },
     'poison-touch': { d: 'Sus ataques cuerpo a cuerpo y embestidas envenenan.', touchPoison: true },
     'magician': { d: '+10 % de daño y +15 % de Pokémonedas.', out: allOut(1.1), start: pl => { pl.coinMul *= 1.15; } },
@@ -277,13 +289,13 @@ G.AbilityFX = (() => {
     'purifying-salt': steadyAnd({ d2: 'Recibe la mitad de daño de Fantasma y un 6 % menos del resto.', inMul: (pl, type) => (type === 'ghost' ? 0.5 : 0.94) }),
     'water-compaction': { d: 'Recibe un 35 % menos de daño de Agua.', inMul: (pl, type) => (type === 'water' ? 0.65 : 1) },
     'water-absorb': absorb('water'), 'storm-drain': absorb('water'),
-    'volt-absorb': absorb('electric', { d2: 'Recupera un 0,3 % de vida por segundo.', start: pl => { pl.regenFlat += pl.maxHp * 0.003; } }),
+    'volt-absorb': absorb('electric', { d2: 'Recupera un 0,3 % de vida por segundo.', regenK: 0.003 }),
     'lightning-rod': absorb('electric', { d2: '+5 % de daño con todos sus movimientos.', out: allOut(1.05) }),
     'motor-drive': absorb('electric', { d2: '+3 % de velocidad.', speed: () => 1.03 }),
     'flash-fire': absorb('fire', { d2: '+6 % de daño con movimientos de tipo Fuego.', out: (pl, m) => (m.type === 'fire' ? 1.06 : 1) }),
     'well-baked-body': absorb('fire'),
     'sap-sipper': absorb('grass'),
-    'earth-eater': absorb('ground', { d2: 'Recupera un 0,15 % de vida por segundo.', start: pl => { pl.regenFlat += pl.maxHp * 0.0015; } }),
+    'earth-eater': absorb('ground', { d2: 'Recupera un 0,15 % de vida por segundo.', regenK: 0.0015 }),
     'multiscale': { d: 'Con la vida casi llena recibe un 40 % menos de daño.', inMul: pl => (nearFull(pl) ? 0.6 : 1) },
     'shadow-shield': { d: 'Con la vida casi llena recibe un 40 % menos de daño.', inMul: pl => (nearFull(pl) ? 0.6 : 1) },
     'filter': { d: 'Los ataques muy eficaces le hacen un 30 % menos.', d2: 'Recibe un 4 % menos de daño.', inMul: (pl, type) => (superEff(pl, type) ? 0.7 : 0.96) },
@@ -411,10 +423,10 @@ G.AbilityFX = (() => {
     'harvest': berry(8, 0.07, 'Cada 8 s le crece una baya: recupera un 7 % de vida (si le hace falta).'),
     'gluttony': { d: 'Las curas le curan un 60 % más y cada enemigo derrotado le cura un 0,4 % de vida.', healMul: 1.6, kill: pl => heal(pl, 0.004) },
     'cheek-pouch': { d: 'Las curas le curan un 60 % más y cada enemigo derrotado le cura un 0,4 % de vida.', healMul: 1.6, kill: pl => heal(pl, 0.004) },
-    'ripen': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, start: pl => { pl.regenFlat += pl.maxHp * 0.0025; } },
-    'cud-chew': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, start: pl => { pl.regenFlat += pl.maxHp * 0.0025; } },
-    'triage': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, start: pl => { pl.regenFlat += pl.maxHp * 0.0025; } },
-    'symbiosis': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, start: pl => { pl.regenFlat += pl.maxHp * 0.0025; } },
+    'ripen': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, regenK: 0.0025 },
+    'cud-chew': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, regenK: 0.0025 },
+    'triage': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, regenK: 0.0025 },
+    'symbiosis': { d: 'Las curas le curan el doble y recupera un 0,25 % de vida por segundo.', healMul: 2, regenK: 0.0025 },
     'supersweet-syrup': { d: 'Atrae los objetos desde más lejos (+30 % de imán) y las curas le curan un 50 % más.', healMul: 1.5,
       start: pl => { pl.magnet *= 1.3; } },
     'shed-skin': { d: 'Cada 4 s muda: se quita los frenazos y recupera un 3,5 % de vida (si le hace falta).',
@@ -434,13 +446,13 @@ G.AbilityFX = (() => {
       out: () => (now() < 60 ? 0.6 : 1.15), speed: () => (now() < 60 ? 0.8 : 1) },
     'defeatist': { d: 'Cañón de cristal: +16 % de daño con más de la mitad de vida; con menos, −25 %.', out: pl => (half(pl) ? 0.75 : 1.16) },
     'schooling': { d: 'Forma banco: +8 % de vida y, con más de 1/4 de vida, +10 % de daño.',
-      start: pl => { pl.maxHp = Math.round(pl.maxHp * 1.08); pl.hp = pl.maxHp; }, out: pl => (pl.hp > pl.maxHp / 4 ? 1.1 : 1) },
+      hpMul: 1.08, out: pl => (pl.hp > pl.maxHp / 4 ? 1.1 : 1) },
     'zen-mode': { d: '+10 % de daño; con menos de la mitad de vida entra en Modo Daruma: +40 %.', out: pl => (half(pl) ? 1.4 : 1.1) },
     'stance-change': { d: 'Alterna cada 8 s entre filo (+12 % de daño) y escudo (−12 % de daño recibido).',
       tick: (pl, dt) => { pl.stanceT = (pl.stanceT || 0) + dt; if (pl.stanceT >= 8) { pl.stanceT = 0; pl.shieldForm = !pl.shieldForm; } },
       out: pl => (pl.shieldForm ? 1 : 1.12), inMul: pl => (pl.shieldForm ? 0.88 : 1) },
     'imposter': { d: 'Se transforma: pega y aguanta como un Pokémon equilibrado.',
-      start: pl => { const m = pl.mon; m.pa = m.sa = m.atk = pl.baseAtk = Math.max(m.atk, 0.95); m.df = Math.max(m.df, 58); m.sd = Math.max(m.sd, 58); } },
+      mon: m => { m.pa = m.sa = m.atk = Math.max(m.atk, 0.95); m.df = Math.max(m.df, 58); m.sd = Math.max(m.sd, 58); } },
     'moody': { d: 'Cada 10 s, +15 % a algo al azar: ataque, ataque especial, velocidad o defensa.',
       tick: (pl, dt) => {
         pl.moodT = (pl.moodT || 0) - dt;
@@ -466,5 +478,20 @@ G.AbilityFX = (() => {
     return (id && FX[id]) || generic(mon);
   }
 
-  return { FX, of };
+  /**
+   * Al empezar la partida: pone en pl lo que hace la habilidad fx (player.js setAbility y
+   * tools/balance.cjs). Lo que va con la fase (mon) se vuelve a poner al evolucionar (stage):
+   * antes, Potencia y Energía Pura se perdían en la primera evolución.
+   */
+  function begin(pl, fx) {
+    if (fx.cdMul) pl.cdMul *= fx.cdMul;
+    pl.regenK = fx.regenK || 0;
+    if (fx.hpMul) { pl.maxHp = Math.round(pl.maxHp * fx.hpMul); pl.hp = pl.maxHp; }
+    if (fx.mon) { fx.mon(pl.mon); pl.baseAtk = pl.mon.atk; }
+    if (fx.start) fx.start(pl);
+  }
+  /** Al evolucionar: lo de la fase, sobre la nueva (m: copia de G.Mons.formFor, aún sin poner). */
+  function stage(fx, m) { if (fx && fx.mon) fx.mon(m); }
+
+  return { FX, of, begin, stage };
 })();

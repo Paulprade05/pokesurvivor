@@ -121,6 +121,33 @@ G.LevelUp = (() => {
     return { mine, more };
   }
 
+  /**
+   * Pasivas que piden tus ataques para evolucionar (estén o no al máximo) y que aún no
+   * llevas, si te queda hueco para cogerlas: { id de la pasiva: [tus ataques] }.
+   */
+  function neededPassives(pl) {
+    const out = {};
+    for (const m of pl.moves) {
+      const ev = evoNeed(m, pl);
+      if (!ev || ev.has || !canTake(pl, ev.needs)) continue;
+      (out[ev.needs] = out[ev.needs] || []).push(m);
+    }
+    return out;
+  }
+  /**
+   * Si coges la pasiva nueva `id` y con ella llenas el último hueco: tus ataques que se
+   * quedarían sin evolucionar (piden otra pasiva que no llevas). → [ataques] (vacío si nada).
+   */
+  function wouldBlock(pl, id) {
+    if (!isPassive(id) || (pl.statsTaken[id] || 0) > 0 || passivesOf(pl).length + 1 < MAX_PASSIVES) return [];
+    const out = [];
+    for (const m of pl.moves) {
+      const ev = evoNeed(m, pl);
+      if (ev && !ev.has && ev.needs !== id) out.push(m);
+    }
+    return out;
+  }
+
   /** Construye el conjunto de cartas candidatas, con pesos. */
   function candidates(pl) {
     const out = [];
@@ -136,14 +163,19 @@ G.LevelUp = (() => {
         const f = G.Stats.fit(mon, cat);
         return f < 0.95 ? ` <span class="fit-low">Con ${mon.name} rinde un ${Math.round(f * 100)} %: pega mejor con ataques ${G.Stats.sideOf(mon) === 'special' ? 'especiales' : 'físicos'}.</span>` : '';
       };
-      const pool = G.Moves.poolFor(pl.mon).filter(id =>
+      // Evolución por movimiento pendiente (Tangela → Poder Pasado...): ese movimiento entra
+      // en las cartas aunque no sea de sus tipos, y sale mucho más (G.Evo.wantedMoves).
+      const wm = G.Evo ? G.Evo.wantedMoves(pl) : null, want = wm ? wm.ids : [];
+      const pool = [...new Set(G.Moves.poolFor(pl.mon).concat(want))].filter(id =>
         !pl.hasMove(id) && !(pl.banned && pl.banned.has(id)) && !(buffs >= 2 && G.Moves.nonAttacking(G.Moves.BY_ID[id].kind)));
-      // Los de su lado bueno (y los empatados y mejoras) salen el doble.
-      const weight = id => { const d = G.Moves.BY_ID[id]; return G.Stats.fit(pl.mon, d.cat) >= 0.999 ? 2 : 1; };
+      // Los de su lado bueno (y los empatados y mejoras) salen el doble; los que le hacen
+      // evolucionar, entre todos como 4 de los de su lado bueno (uno solo: casi siempre entre los 6).
+      const wantW = want.length ? Math.max(1, 8 / want.length) : 0;
+      const weight = id => { const d = G.Moves.BY_ID[id]; return want.includes(id) ? wantW : G.Stats.fit(pl.mon, d.cat) >= 0.999 ? 2 : 1; };
       for (const id of pickWeighted(pool, 6, weight)) {
-        const d = G.Moves.BY_ID[id];
+        const d = G.Moves.BY_ID[id], evoTo = want.includes(id) ? wm.to : 0;
         out.push({
-          w: 10, type: 'new', key: 'new:' + id,
+          w: evoTo ? 16 : 10, type: 'new', key: 'new:' + id, evoTo,
           icon: 'move:' + id, color: G.U.TYPE_COLOR[d.type],
           // (Físico o especial va en su propia etiqueta, con borde: ver run-ui.js. Los
           // potenciadores no tienen categoría, pero Danza Espada y Danza Dragón suben el
@@ -196,7 +228,12 @@ G.LevelUp = (() => {
     // juego acababa colgándose. Las que piden una evolución salen siempre.
     // Con los 4 huecos de pasiva llenos, sólo las que ya llevas (canTake).
     const room = s => (!s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id);
-    const pickStats = G.U.pickN(STATS.filter(s => !waiting[s.id] && room(s)), 5).concat(STATS.filter(s => waiting[s.id] && room(s)));
+    // Las pasivas que piden tus ataques para evolucionar (aunque aún no estén al máximo) y que
+    // no llevas: mientras queden huecos de pasiva salen siempre y mucho más (24-10-2026: antes
+    // los huecos se llenaban de pasivas al azar y luego no cabía la que hacía falta).
+    const needed = neededPassives(pl);
+    const must = s => waiting[s.id] || needed[s.id];
+    const pickStats = G.U.pickN(STATS.filter(s => !must(s) && room(s)), 5).concat(STATS.filter(s => must(s) && room(s)));
     for (const s of pickStats) {
       const evoFor = waiting[s.id];
       // Un pasivo que no le sirve a ninguno de tus movimientos (Réplica con sólo
@@ -204,7 +241,7 @@ G.LevelUp = (() => {
       const idle = !evoFor && s.id !== 'luck' && PASSIVES.includes(s) && pl.slots.length >= pl.maxMoves &&
                    !pl.moves.some(m => G.Moves.passiveAffects(m.kind, s.id));
       out.push({
-        w: evoFor ? 14 : (pl.slots.length < pl.maxMoves ? 4 : 7) * (idle ? 0.5 : 1),
+        w: evoFor ? 14 : needed[s.id] ? 11 : (pl.slots.length < pl.maxMoves ? 4 : 7) * (idle ? 0.5 : 1),
         type: 'stat', key: 'stat:' + s.id,
         icon: s.icon, color: evoFor ? '#ffd23f' : '#8fa3c4', tag: evoFor ? 'Evoluciona ' + evoFor.map(m => G.T(m.name, 'move')).join(', ') : 'Mejora',
         title: s.title, desc: s.desc, evolves: evolvesWith(s.id, pl),
@@ -239,5 +276,5 @@ G.LevelUp = (() => {
     return picked;
   }
 
-  return { offer, STATS, evoNeed, evolvesWith, MAX_PASSIVES, isPassive, passivesOf, canTake };
+  return { offer, STATS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake };
 })();

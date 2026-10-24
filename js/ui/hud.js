@@ -53,9 +53,10 @@ G.HUD = (() => {
    * dónde acaba lo de arriba (con los jefes); lo / hi: franja de alto para las
    * flechas en vertical; l / r: márgenes de los lados (la muesca del iPhone);
    * cardR / cardB: borde derecho y de abajo de la tarjeta; k: tamaño de lo de
-   * arriba (hudK); cmp: ¿HUD de móvil?
+   * arriba (hudK); cmp: ¿HUD de móvil?; barT / barB: arriba (con la chapa del
+   * nombre del activo) y abajo de la barra de ataques, en px de pantalla (evo-ui.js).
    */
-  const lay = { tall: false, below: 0, lo: 0, hi: 0, l: 0, r: 0, cardR: 0, cardB: 0, k: 1, cmp: false };
+  const lay = { tall: false, below: 0, lo: 0, hi: 0, l: 0, r: 0, cardR: 0, cardB: 0, k: 1, cmp: false, barT: 0, barB: 0 };
   /** Alto de una flecha del borde: en vertical, sin pisar lo de arriba ni la barra de ataques. */
   function edgeY(sy, lo, hi) { return lay.tall ? G.U.clamp(sy, Math.max(lo, lay.lo), Math.min(hi, lay.hi)) : G.U.clamp(sy, lo, hi); }
   /** Ancho de una flecha del borde: lejos de la muesca. */
@@ -701,6 +702,9 @@ G.HUD = (() => {
     const nDraw = tall ? nAll : n, barEnd = sx + nDraw * (S + GAP) - GAP, bondW = pl.bonds > 1 ? BOND_S + 23 : BOND_S;   // (icono y «×N»)
     const zx = barEnd + IG, tailEnd = barEnd + ZW;   // (el botón Z y dónde acaba todo: el vínculo va detrás)
     const bondUp = tall && pl.bonds > 0 && tailEnd + 12 + bondW > W - 4;
+    // Dónde empieza y acaba la barra (con la chapa del nombre del activo encima), en px de
+    // pantalla: el cartel de la evolución va justo encima (evo-ui.js), lejos de lo de arriba.
+    lay.barT = (sy - (bondUp ? BOND_UP : RISE + NAME_H + 6)) * kb; lay.barB = (sy + S) * kb;
     // Vertical: las flechas del borde, entre lo de arriba (con toda su pila) y
     // la barra con el nombre del ataque (si está abajo).
     if (tall) {

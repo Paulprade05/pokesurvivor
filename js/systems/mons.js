@@ -140,7 +140,9 @@ G.Mons = (() => {
  *   - intercambio: al nivel equivalente, o antes en grupo junto a un compañero;
  *   - amistad: al nivel equivalente; saber un movimiento: al aprenderlo (o al nivel);
  *   - los raros: monedas, pasos, jefes, daño recibido o enemigos derrotados;
- *   - bebés (Pichu, Igglybuff...): su primera evolución es rápida.
+ *   - bebés (Pichu, Igglybuff...): su primera evolución es rápida;
+ *   - y en todos, por tiempo: cada paso llega también en un minuto fijo de la partida
+ *     (minuteOf), lo que pase antes.
  * Ramas (Eevee, Tyrogue, Wurmple...): si elegiste una forma concreta, la línea va
  * hacia esa; si no, al llegar el momento se elige con una carta (ui/evo-ui.js).
  * Mejoras, naturaleza, habilidad y récords siguen siendo del que elegiste (pl.dex);
@@ -190,20 +192,57 @@ G.Evo = (() => {
   // Los raros (monedas, pasos...): si no se cumple, evoluciona igual unos niveles después.
   const LATE = 8;
   const STEP = 32;                     // un paso: un tile
+  const RARE = { coins: 1, steps: 1, bosses: 1, damage: 1, kills: 1 };
 
-  /** ¿Sabe el movimiento que pide (o uno de su tipo)? */
+  /*
+   * O por tiempo (24-10-2026, revisión): cada paso llega también en un minuto fijo de la
+   * partida, lo que pase antes (lo pidió así el dueño: «en cierto nivel o en cierto tiempo»).
+   * Sin esto, las formas finales que van tarde casi nunca llegaban (Dragonite, Nv. 26: en
+   * partidas de prueba, aún Dratini o Dragonair en el minuto 30). La primera evolución, hacia el minuto 5-6, y la
+   * segunda, hacia el 13 (lo de un inicial: Nv. 8 y 18); por cada nivel de partida de más o
+   * de menos, 0,35 min (pseudolegendarios y líneas lentas, algo después: Dragonite en el 16),
+   * entre el 4 y el 9 la primera y entre el 11 y el 17 la segunda. Los bebés, en el 2; los
+   * raros (monedas, pasos...), 2 min más tarde. La de bebé no cuenta como primera: Raichu
+   * (Pichu → Pikachu → Raichu) es la primera evolución de verdad.
+   */
+  const T_MIN = [0, 5.5, 13], T_LV = [0, 8, 18], T_PER = 0.35, T_SPAN = [null, [4, 9], [11, 17]], T_BABY = 2, T_RARE = 2;
+  const STAGE = {};
+  /** Qué evolución es la que lleva a dex: 1 la primera, 2 la segunda (sin contar la de bebé). */
+  function stageOf(dex) {
+    if (STAGE[dex] != null) return STAGE[dex];
+    let s = 0;
+    for (let d = dex, n = 0; n < 6 && rule(d); n++) { if (!rule(d).q) s++; d = rule(d).f; }
+    return (STAGE[dex] = Math.max(1, Math.min(2, s)));
+  }
+  /** Minuto de la partida en que llega la evolución a dex (r: su regla) aunque no se cumpla lo demás. */
+  function minuteOf(r, dex) {
+    if (r.q) return T_BABY;
+    const s = stageOf(dex), span = T_SPAN[s];
+    const m = Math.round(G.U.clamp(T_MIN[s] + (levelOf(r) - T_LV[s]) * T_PER, span[0], span[1]));
+    return RARE[r.k] ? m + T_RARE : m;
+  }
+  const late = (r, dex) => !!dex && G.Game.st.time >= minuteOf(r, dex) * 60;
+
+  /**
+   * ¿Ha aprendido en la partida el movimiento que pide (o uno de su tipo)? Los de empezar
+   * (since 0) no cuentan: son los del Pokémon que elegiste, y eligiendo Sylveon se empezaba
+   * con uno de tipo Hada y Eevee evolucionaba nada más salir.
+   */
   function knows(pl, r) {
-    if (r.mv) return pl.hasMove(r.mv);
-    if (r.mt) return pl.moves.some(m => m.type === r.mt);
+    const learnt = m => m.since > 0;
+    if (r.mv) return pl.moves.some(m => m.id === r.mv && learnt(m));
+    if (r.mt) return pl.moves.some(m => m.type === r.mt && learnt(m));
     return false;
   }
 
   /**
-   * ¿Se cumple ya lo que pide r? (ev: el estado de la partida, pl.evo)
+   * ¿Se cumple ya lo que pide r para evolucionar a dex? (ev: el estado de la partida, pl.evo)
    * mate: segundos que llevas junto a un compañero (intercambio en grupo).
+   * Con dex, también por tiempo (minuteOf): llegado su minuto, siempre.
    */
-  function ready(pl, r) {
+  function ready(pl, r, dex) {
     const ev = pl.evo, L = levelOf(r), lv = pl.level;
+    if (late(r, dex)) return true;
     switch (r.k) {
       case 'lv': return lv >= L && (!r.wx || lv >= L + 4 || ((G.Weather.current || {}).kind === r.wx));
       case 'move': return lv >= L || knows(pl, r);
@@ -254,12 +293,26 @@ G.Evo = (() => {
     ev.t = 0.25;                                    // se mira 4 veces por segundo
     const opts = options(pl);
     if (!opts.length) return null;
-    const ok = opts.filter(dex => ready(pl, rule(dex)));
+    const ok = opts.filter(dex => ready(pl, rule(dex), dex));
     if (!ok.length) return null;
     if (opts.length > 1) return { choose: opts };
     const r = rule(opts[0]);
     if (r.k === 'item' && !r.q) return { item: opts[0], it: r.it };
-    return { dex: opts[0], via: r.k === 'trade' && ev.mate >= 1.5 && pl.level < levelOf(r) ? 'mate' : '' };
+    return { dex: opts[0], via: r.k === 'trade' && ev.mate >= 1.5 && pl.level < levelOf(r) && !late(r, opts[0]) ? 'mate' : '' };
+  }
+
+  /**
+   * Evolución por movimiento pendiente (Tangela, Yanma y Piloswine: Poder Pasado; Lickitung:
+   * Rodar; Eevee → Sylveon: uno de tipo Hada): los movimientos que la harían ya, para que las
+   * cartas de nivel los ofrezcan antes (levelup.js; no son de sus tipos y si no, no salían).
+   * Sólo si la siguiente fase es ésa (con rama por elegir, no: Eevee sin más).
+   * → { to: dex al que evoluciona, ids: [id...] } o null
+   */
+  function wantedMoves(pl) {
+    const o = options(pl), r = o.length === 1 ? rule(o[0]) : null;
+    if (!r || r.k !== 'move' || knows(pl, r)) return null;
+    const ids = r.mv ? (G.Moves.BY_ID[r.mv] ? [r.mv] : []) : r.mt ? (G.Moves.POOL[r.mt] || []).slice() : [];
+    return ids.length ? { to: o[0], ids } : null;
   }
 
   /** Ya ha evolucionado a dex (o la has elegido): sigue la línea desde ahí. */
@@ -271,13 +324,13 @@ G.Evo = (() => {
     ev.item = null; ev.wait = null; ev.t = 0.5;
   }
 
-  /** La próxima evolución (si sólo hay una) y a qué nivel: para el aviso. → { dex, r, lv } | { many } | null */
+  /** La próxima evolución (si sólo hay una), a qué nivel y en qué minuto: para el aviso. → { dex, r, lv, min } | { many, lv, min } | null */
   function nextOf(pl) {
     const o = options(pl);
     if (!o.length) return null;
-    if (o.length > 1) return { many: o, lv: Math.min(...o.map(d => levelOf(rule(d)))) };
+    if (o.length > 1) return { many: o, lv: Math.min(...o.map(d => levelOf(rule(d)))), min: Math.min(...o.map(d => minuteOf(rule(d), d))) };
     const r = rule(o[0]);
-    return { dex: o[0], r, lv: levelOf(r) };
+    return { dex: o[0], r, lv: levelOf(r), min: minuteOf(r, o[0]) };
   }
 
   /**
@@ -296,5 +349,5 @@ G.Evo = (() => {
     return out;
   }
 
-  return { rule, kids, path, base, family, runLevel, levelOf, ready, start, options, tick, advance, nextOf, line, knows, STEP, QUICK };
+  return { rule, kids, path, base, family, runLevel, levelOf, minuteOf, stageOf, wantedMoves, ready, start, options, tick, advance, nextOf, line, knows, STEP, QUICK };
 })();

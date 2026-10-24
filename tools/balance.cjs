@@ -589,8 +589,9 @@ function habilidades() {
     const mon = Object.assign({}, mon0, { types: mon0.types.slice() });
     const fx = FX.of(id, mon);
     const pl = mockPl(mon);
-    if (fx.cdMul) pl.cdMul *= fx.cdMul;
-    if (fx.start) fx.start(pl);
+    // (Lo mismo que player.js setAbility; un ability-fx.js de antes, --fx, sin begin: cdMul y start.)
+    if (FX.begin) FX.begin(pl, fx);
+    else { if (fx.cdMul) pl.cdMul *= fx.cdMul; if (fx.start) fx.start(pl); }
     if (fx.block) pl.blockAt = Infinity;           // (los golpes que para, aparte: ver abajo)
     const WXS = fx.summon ? weatherSeq(fx.summon) : WX0;
     const pool = G.Moves.poolFor(mon0, true).filter(m => MV[m]);
@@ -691,7 +692,7 @@ function habilidades() {
     }
     const def = PTS.def * (1 - D) + (fx.sturdy ? PTS.sturdy : 0) + PTS.hp * (pl.maxHp / 400 - 1) + (eff.slow * 2 + eff.stun * 6) / T;
     // --- curas (regeneración, lo que cura cada fotograma —en lo que sirve, como una regeneración—, al absorber, más curas) ---
-    const heal = PTS.regen * (pl.regenFlat / pl.maxHp + (refEff > 0 ? healEff / refEff * 0.005 : 0) +
+    const heal = PTS.regen * (pl.regenFlat / pl.maxHp + (pl.regenK || 0) +(refEff > 0 ? healEff / refEff * 0.005 : 0) +
       absorbed / STEPS * CTX.hitsMin / 60 * 0.03 * STEPS / T * DT + ((fx.healMul || 1) - 1) * CTX.healSec);
     // --- velocidad y lo demás ---
     const S = spdAcc / STEPS * pl.spdMul * (fx.steady ? 1 + CTX.liquid * 0.5 + CTX.slowed : 1) * (fx.levitate ? 1 + CTX.liquid * 0.5 : 1);

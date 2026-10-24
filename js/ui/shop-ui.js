@@ -683,7 +683,8 @@ G.ShopUI = (() => {
     const recipe = `<div class="z-recipe">${step(has, 'zring', 'Pulsera Z', G.T(has ? 'Ya la lleva' : 'De este Pokémon'))}<i>+</i>`
       + `${step(n > 0, 'z:' + t0, 'Cristal Z', n + '/' + G.Shop.Z_TYPES.length)}<i>+</i>`
       + `${step(false, start && G.Moves.BY_ID[start] ? 'move:' + start : 'cards', '2 ataques', G.T('del tipo del cristal'))}<i>=</i>`
-      + `${step(has && n > 0, 'z:' + t0, 'Movimiento Z', G.T('1 min · recarga 4'), ' zr-end')}</div>`;
+      // («1 min · recarga 4 min»: antes «recarga 4», sin unidad. El número, pegado a su «min» al partir la línea.)
+      + `${step(has && n > 0, 'z:' + t0, 'Movimiento Z', G.I18n.f('{x} min · recarga {x} min', Math.round(G.Moves.Z_DUR / 60), Math.round(G.Moves.Z_CD / 60)).replace(/(\d) /g, '$1\u00a0'), ' zr-end')}</div>`;
     return note('Con la Pulsera Z, ese Pokémon puede usar movimientos Z en la partida: necesita también el Cristal Z de un tipo y llevar 2 ataques de ese tipo en sus huecos. Es para siempre.')
       + `<div class="list-row shop-row ring-card${has ? ' got' : ''}" style="--stage-c:${G.U.TYPE_COLOR[mon.types[0]]}">
         <span class="ring-stage"><canvas id="shop-ring-cv" width="88" height="80"></canvas>
@@ -718,7 +719,7 @@ G.ShopUI = (() => {
     }).join('');
     const t = zSel, d = G.Moves.Z[t], got = G.Shop.zHas(t);
     const rule = G.I18n.f('Se activa con la Pulsera Z y 2 ataques {x}.', G.T(G.U.TYPE_NAME[t]));
-    return `<p class="sub shop-note">${G.I18n.f('Uno por tipo y para siempre: {x} cada uno. En la partida, pulsa Z (o su botón) y su movimiento Z se lanza solo 1 minuto; luego se recarga 4.', G.Shop.Z_PRICE.toLocaleString(G.I18n.locale))}</p>`
+    return `<p class="sub shop-note">${G.I18n.f('Uno por tipo y para siempre: {x} cada uno. En la partida, pulsa Z (o su botón) y su movimiento Z se lanza solo 1 minuto; luego se recarga 4 min.', G.Shop.Z_PRICE.toLocaleString(G.I18n.locale))}</p>`
       + `<div class="z-grid">${cells}</div>
       <div class="list-row shop-row z-detail${got ? ' got' : ''}" style="--z-c:${G.U.TYPE_COLOR[t]}">${zTile(t, 30)}
         <div class="grow shop-txt"><b>${G.T(G.Shop.Z_NAME[t])}</b><span class="shop-tags">${zTags(t)}</span><small><span class="gold">${rule}</span> ${G.T(d.desc)}</small></div>

@@ -459,7 +459,12 @@ G.Game = (() => {
     const judge = guard('Judgment', () => G.Judgment.summary()) || null;
     if (judge) guard('Progress', () => G.Progress.event('judgeEnd', judge));
     guard('Judgment', () => G.Judgment.reset());
-    guard('Progress', () => G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types: pl.mon.types, group: coop }));
+    // Tipos: los del Pokémon que elegiste y los de la fase a la que ha llegado (misiones «con un
+    // Pokémon de tipo X»: eligiendo Charizard, Volador cuenta aunque acabes como Charmander).
+    guard('Progress', () => {
+      const types = [...new Set(((G.DEX_BY[pl.dex] || {}).types || []).concat(pl.mon.types || []))];
+      G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types, group: coop });
+    });
     guard('Progress', () => G.Progress.checkAch());
     // A la nube al acabar la partida (como mucho cada hora); si la marca entra
     // en un top (hoy, semana o mes), enseguida (abajo, tras subirla al ranking).

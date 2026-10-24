@@ -1627,7 +1627,9 @@ body.touch .touch-hint { display: block; }
   .box h3 { font-size: 16px; }
   .sub { font-size: 13px; margin-bottom: 8px; }
   .note { margin-top: 8px; font-size: 12px; }
-  .ach-pop { top: auto; bottom: max(8px, var(--sa-b)); }
+  /* Tumbado: arriba a la derecha, debajo de la barra (abajo pisaba los avisos y «Jugar»). */
+  .ach-pop { top: calc(var(--bar-h) + var(--sa-t) + 6px); bottom: auto; left: auto; right: max(12px, var(--sa-r));
+    transform: none; animation: pop .2s ease-out; max-width: min(320px, 46vw); }
 
   /* (Cartas de nivel, objeto, vínculo y resumen final: en «pantallas: partida», al final.) */
 }
@@ -4478,6 +4480,19 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   .pick-card .pc-art { padding-bottom: 6px; }
   .card.pick-card .ds .fit-low { margin-top: 2px; font-size: 11px; line-height: 1.25; }
 }
+/* Y si una carta con todo (hueco, chip Z, texto largo, «rinde un N %», evolución) aun así no cabe
+   (en 667x375 se cortaban 13 px de la línea de evolución), run-ui.js (fitCards) la aprieta por
+   pasos mientras no quepa: .crowded más junta y con la baldosa menor, .crowded2 sin la nota de
+   «rinde» y .crowded3 con lo de dentro desplazable. Nunca se corta. */
+.card.pick-card.crowded { gap: 3px; padding-top: 6px; padding-bottom: 6px; }
+.pick-card.crowded .pc-art { padding-bottom: 4px; }
+.pick-card.crowded .ico-tile.pc-ico { --tile: 46px; border-radius: 14px; }
+.pick-card.crowded .pc-ico > img { width: 46px; height: 46px; }
+.pick-card.crowded .pc-txt { gap: 2px; }
+.card.pick-card.crowded .ds { line-height: 1.24; }
+.card.pick-card.crowded .ds .fit-low { margin-top: 1px; line-height: 1.2; }
+.card.pick-card.crowded2 .ds .fit-low { display: none; }
+.card.pick-card.crowded3 .pc-txt { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 
 /* ---- Lista de ataques (pausa y resumen, movesTable en run-ui.js) ---- */
 .mv-legend { display: flex; justify-content: flex-end; align-items: baseline; gap: 4px; margin: -2px 2px 6px; font: 700 var(--fs-xs)/1.3 var(--font); color: var(--muted); }
@@ -4600,6 +4615,10 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 /* Carta nueva: qué hueco ocupa (el último, en amarillo). */
 .pick-card .pc-slot { letter-spacing: .04em; }
 .pick-card .pc-slot.last { color: var(--c-yellow); }
+/* El ataque que hace evolucionar a tu Pokémon (Tangela con Poder Pasado), y la pasiva que llena el
+   último hueco mientras un ataque tuyo pide otra: «Te quedarás sin la evolución de…» (24-10-2026). */
+.pick-card .pc-slot.evo-mon { color: var(--c-yellow); }
+.pick-card .pc-warn { display: block; font: 700 var(--fs-xs)/1.3 var(--font); color: #ff9aa5; }
 /* Evolución imposible: te falta esa pasiva y no te quedan huecos de pasiva. */
 :is(.pc-evo, .mv-evo).blocked .evo-need > b { color: #ff9aa5; text-decoration: line-through; text-decoration-thickness: 1.5px; }
 :is(.pc-evo, .mv-evo) .evo-no { white-space: nowrap; color: #ff9aa5; font-weight: 700; }
@@ -5081,15 +5100,17 @@ img.ico-mv { image-rendering: pixelated; }
  * (#scr-evo, con las mismas cartas .pick-card que las de nivel) y la línea de la
  * ficha de la colección (.dx-evo: cómo empieza y cómo evoluciona en partida).
  */
-/* Cartel: arriba, bajo el reloj; pequeño y breve (no se toca: no tapa nada que haga falta). */
+/* Cartel: abajo, justo encima de la barra de ataques (evo-ui.js pone --evo-b con G.HUD.lay.barT);
+   pequeño y breve, no se toca. (Antes iba arriba, bajo el reloj, y tapaba las barras de los jefes,
+   la cuenta atrás del evento y los avisos.) */
 .evo-toast {
   --evo-c: #ffcb05;
-  position: fixed; left: 50%; top: calc(var(--sa-t, 0px) + 118px); z-index: var(--z-toast);
+  position: fixed; left: 50%; bottom: var(--evo-b, calc(var(--sa-b, 0px) + 96px)); z-index: var(--z-toast);
   display: flex; align-items: center; gap: 10px; width: max-content; max-width: min(460px, calc(100% - 32px));
   padding: 6px 16px 6px 6px; border-radius: 18px;
   background: var(--surface-float); border: 1px solid var(--line-2);
   box-shadow: var(--sh-pop), inset 0 0 0 1px color-mix(in srgb, var(--evo-c) 55%, transparent), 0 0 22px color-mix(in srgb, var(--evo-c) 35%, transparent);
-  pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, -8px) scale(.96);
+  pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, 8px) scale(.96);
   transition: opacity .3s, transform .3s var(--ease), visibility 0s .3s;
 }
 .evo-toast.on { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); transition: opacity .16s, transform .28s var(--ease-pop, var(--ease)), visibility 0s; }
@@ -5110,7 +5131,7 @@ body:has(> .scr:not(.hidden)) .evo-toast.on { opacity: 0; visibility: hidden; tr
 .evo-dot { margin: 0 .3em; font-style: normal; color: var(--muted); opacity: .7; }
 .evo-it { color: var(--ink); }
 @media (max-width: 599px), (max-height: 520px) {
-  .evo-toast { top: calc(var(--sa-t, 0px) + 54px); gap: 8px; padding: 4px 12px 4px 4px; border-radius: 14px; }
+  .evo-toast { gap: 8px; padding: 4px 12px 4px 4px; border-radius: 14px; }
   .evo-t-art { width: 40px; height: 40px; border-radius: 11px; }
   .evo-t-art > canvas { width: 40px; height: 40px; }
   .evo-t-nm { font-size: 15px; }

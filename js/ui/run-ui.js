@@ -179,7 +179,21 @@ G.RunUI = (() => {
     renderCards(list);
     $('lvl-reroll').onclick = reroll;
     G.UI.show('scr-levelup');
+    fitCards($('cards'));
     guard($('cards'));
+  }
+
+  /*
+   * Carta con todo (hueco, chip Z, texto largo, nota de «rinde un N %» y línea de evolución)
+   * en un móvil tumbado bajo (667x375): si no cabe, más apretada (.crowded), luego sin la nota
+   * de «rinde» (.crowded2) y, si aun así no cabe, lo de dentro se desplaza (.crowded3): nunca se
+   * corta. Se mira una vez al sacarlas (con la pantalla ya a la vista), no en cada fotograma.
+   */
+  const CROWD = ['crowded', 'crowded2', 'crowded3'];
+  function fitCards(box) {
+    for (const c of box.children) {
+      for (let i = 0; i < CROWD.length && c.scrollHeight > c.clientHeight + 1; i++) c.classList.add(CROWD[i]);
+    }
   }
 
   /** Cabecera de las cartas: cuántos huecos de ataque y de pasiva llevas (la tira la pone run-ui.js). */
@@ -207,6 +221,7 @@ G.RunUI = (() => {
     p.rerolls = (p.rerolls || 0) + 1;
     G.Audio.sfx('select');
     renderCards(G.LevelUp.offer(p));
+    fitCards($('cards'));
   }
 
   /** El movimiento de una carta de nivel (definición o el tuyo), o null. */
@@ -229,20 +244,26 @@ G.RunUI = (() => {
     const evo = m ? evoHtml(m, ev, 'pc-evo') : '';
     const pl = G.Game.player;
     if (c.type === 'evo') return { cls: 'evo', icon: c.icon, tile: 't-gold', badge: badge('EVOLUCIÓN', 'gold'), title: c.title, chips, desc: c.desc, evo };
-    if (c.type === 'new') return { cls: 'is-new', icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips: chips + zChip(m), desc: c.desc, evo,
-                                   eyebrow: pl ? slotNote('atk', pl.slots.length, pl.maxMoves) : '' };
+    // (El que hace evolucionar a tu Pokémon —Tangela con Poder Pasado—, dorado y lo dice arriba.)
+    if (c.type === 'new') return { cls: 'is-new' + (c.evoTo ? ' unlocks' : ''), icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips: chips + zChip(m), desc: c.desc, evo,
+                                   eyebrow: c.evoTo && G.DEX_BY[c.evoTo] ? `<span class="pc-slot evo-mon">${G.I18n.f('¡Evoluciona a {x}!', G.T(G.DEX_BY[c.evoTo].name))}</span>`
+                                     : pl ? slotNote('atk', pl.slots.length, pl.maxMoves) : '' };
     if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc, evo };
     // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
     // desbloquea ya una evolución (el ataque está al máximo), dorada. Una pasiva que
     // ya llevas sube de nivel («Nv. 2 → 3»); una nueva dice qué hueco de pasiva ocupa.
     const id = String(c.key || '').slice(5), unlocks = !!c.tag && c.tag !== 'Mejora', passive = PASSIVE.has(id);
     const n = (pl && pl.statsTaken && pl.statsTaken[id]) || 0, slot = pl && G.LevelUp.isPassive(id);
+    // Pasiva nueva que llena el último hueco mientras un ataque tuyo pide otra: lo avisa (en rojo).
+    const lost = slot && !n ? G.LevelUp.wouldBlock(pl, id) : [];
+    const warn = lost.length ? `<span class="pc-warn">${G.I18n.f('Te quedarás sin la evolución de {x}',
+      lost.slice(0, 2).map(m => G.T(m.name, 'move')).join(', ') + (lost.length > 2 ? '…' : ''))}</span>` : '';
     return {
       cls: 'is-stat' + (unlocks ? ' unlocks' : ''), icon: c.icon, tile: unlocks ? 't-gold' : passive ? 't-purple' : 't-blue',
       badge: slot && n > 0 ? lvBadge(n, true, passive ? 'purple' : 'ghost') : passive ? badge('Pasivo', 'purple') : badge('Mejora', 'ghost'),
       eyebrow: slot && !n ? slotNote('pas', G.LevelUp.passivesOf(pl).length, G.LevelUp.MAX_PASSIVES) : '',
       title: c.title, chips: '', desc: c.desc,
-      evo: c.evolves ? evolvesHtml(c.evolves) : unlocks ? `<span class="evo-hint">${c.tag}</span>` : ''
+      evo: (c.evolves ? evolvesHtml(c.evolves) : unlocks ? `<span class="evo-hint">${c.tag}</span>` : '') + warn
     };
   }
 

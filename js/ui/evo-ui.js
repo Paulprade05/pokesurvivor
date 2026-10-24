@@ -1,6 +1,7 @@
 /* ============ evo-ui.js — lo que se ve de la evolución en partida (24-10-2026) ============
  * La lógica (qué fase toca y cuándo) está en systems/mons.js (G.Evo); aquí:
- *   - el aviso al evolucionar: un cartel pequeño arriba, breve (tú y, en grupo, los demás)
+ *   - el aviso al evolucionar: un cartel pequeño encima de la barra de ataques, breve (tú y, en
+ *     grupo, los demás)
  *   - la carta para elegir rama (Eevee, Tyrogue, Wurmple...), al estilo de las de nivel
  *   - la piedra u objeto que aparece en el suelo cerca de ti (se dibuja en el mundo)
  *   - la línea de la ficha de la colección: cómo empieza y cómo evoluciona en partida
@@ -15,40 +16,46 @@ G.EvoUI = (() => {
   const itemName = it => (G.EVO_ITEM && G.EVO_ITEM[it] ? G.Mons.name(G.EVO_ITEM[it]) : String(it || ''));
   const moveName = id => (G.Moves.BY_ID[id] ? G.Moves.BY_ID[id].name : '');
   const lvText = n => 'Nv. ' + n;
+  /**
+   * «o min 14»: el minuto de la partida en que llega aunque no se cumpla lo demás (G.Evo.minuteOf).
+   * (Con un espacio delante: en las cartas de rama, .ds no es flex y se pegaba, «Nv. 15o min 8».)
+   */
+  const minHtml = m => (m ? ` <span>${G.I18n.f('o min {x}', m)}</span>` : '');
 
   // ---------------- cómo evoluciona (texto) ----------------
 
   /**
-   * Lo que pide la regla r, en trozos de HTML. Cada texto en su elemento (el juego
-   * traduce frases enteras); los nombres de objeto, tal cual (ya en su idioma).
+   * Lo que pide la regla r para llegar a dex, en trozos de HTML: «Nv. 26 o min 16»,
+   * «Piedra Trueno · Nv. 15 o min 8»... Cada texto en su elemento (el juego traduce
+   * frases enteras); los nombres de objeto, tal cual (ya en su idioma). Sin dex, sin el minuto.
    */
-  function howHtml(r) {
+  function howHtml(r, dex) {
     if (!r) return '';
-    const L = G.Evo.levelOf(r), lv = `<span>${lvText(L)}</span>`;
+    const L = G.Evo.levelOf(r), orMin = minHtml(dex ? G.Evo.minuteOf(r, dex) : 0), lv = `<span>${lvText(L)}</span>${orMin}`;
     const it = r.it ? `<span class="evo-it" translate="no">${esc(itemName(r.it))}</span>` : '';
     const dot = '<i class="evo-dot">·</i>';
     if (r.q) return lv;
     switch (r.k) {
-      case 'lv': return r.wx ? `<span>${G.I18n.f('Nv. {x} con lluvia', L)}</span>` : lv;
+      case 'lv': return r.wx ? `<span>${G.I18n.f('Nv. {x} con lluvia', L)}</span>${orMin}` : lv;
       case 'item': return it + dot + lv;
       case 'trade': return (it ? `<span>${T('Intercambio con')}</span> ${it}` : `<span>${T('Intercambio')}</span>`) + dot + lv;
       case 'friend': return `<span>${T('Amistad')}</span>${dot}${lv}`;
       case 'move':
-        if (r.mv) return `<span>${G.I18n.f('Al aprender {x}', G.T(moveName(r.mv), 'move'))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>`;
-        if (r.mt) return `<span>${G.I18n.f('Al aprender un ataque de tipo {x}', T(G.U.TYPE_NAME[r.mt]))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>`;
+        if (r.mv) return `<span>${G.I18n.f('Al aprender {x}', G.T(moveName(r.mv), 'move'))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>${orMin}`;
+        if (r.mt) return `<span>${G.I18n.f('Al aprender un ataque de tipo {x}', T(G.U.TYPE_NAME[r.mt]))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>${orMin}`;
         return lv;
-      case 'coins': return `<span>${G.I18n.f('Recoge {x} monedas', r.n)}</span>`;
-      case 'steps': return `<span>${G.I18n.f('Camina {x} pasos', r.n)}</span>`;
-      case 'bosses': return `<span>${r.n === 1 ? T('Derrota a un jefe') : G.I18n.f('Derrota a {x} jefes', r.n)}</span>`;
-      case 'damage': return `<span>${G.I18n.f('Recibe {x} de daño', r.n)}</span>`;
-      case 'kills': return `<span>${G.I18n.f('Derrota a {x} enemigos', r.n)}</span>`;
+      case 'coins': return `<span>${G.I18n.f('Recoge {x} monedas', r.n)}</span>${orMin}`;
+      case 'steps': return `<span>${G.I18n.f('Camina {x} pasos', r.n)}</span>${orMin}`;
+      case 'bosses': return `<span>${r.n === 1 ? T('Derrota a un jefe') : G.I18n.f('Derrota a {x} jefes', r.n)}</span>${orMin}`;
+      case 'damage': return `<span>${G.I18n.f('Recibe {x} de daño', r.n)}</span>${orMin}`;
+      case 'kills': return `<span>${G.I18n.f('Derrota a {x} enemigos', r.n)}</span>${orMin}`;
       default: return lv;
     }
   }
 
   // ---------------- ficha de la colección ----------------
 
-  /** «En partida: Charmander → Charmeleon (Nv. 9) → Charizard (Nv. 18)», para showDetail. */
+  /** «En partida: Charmander → Charmeleon (Nv. 8 o min 6) → Charizard (Nv. 18 o min 13)», para showDetail. */
   function dexLine(dex) {
     if (!G.Evo || !G.DEX_BY[dex]) return '';
     const line = G.Evo.line(dex);
@@ -60,10 +67,11 @@ G.EvoUI = (() => {
       body = line.map((s, i) => {
         if (s.branch) {
           const lv = Math.min(...s.branch.map(d => G.Evo.levelOf(G.Evo.rule(d))));
-          return `${arrow}<span class="evo-step"><span class="evo-how"><span>${T('A elegir')}</span><i class="evo-dot">·</i><span>${lvText(lv)}</span></span>`
+          const min = Math.min(...s.branch.map(d => G.Evo.minuteOf(G.Evo.rule(d), d)));
+          return `${arrow}<span class="evo-step"><span class="evo-how"><span>${T('A elegir')}</span><i class="evo-dot">·</i><span>${lvText(lv)}</span>${minHtml(min)}</span>`
             + `<span class="evo-opts">${s.branch.map(nm).join('')}</span></span>`;
         }
-        return (i ? arrow : '') + `<span class="evo-step">${nm(s.dex)}${s.r ? `<span class="evo-how">${howHtml(s.r)}</span>` : ''}</span>`;
+        return (i ? arrow : '') + `<span class="evo-step">${nm(s.dex)}${s.r ? `<span class="evo-how">${howHtml(s.r, s.dex)}</span>` : ''}</span>`;
       }).join('');
     }
     return `<p class="dx-evo"><span class="dx-lbl">${T('En partida')}</span><span class="evo-line">${body}</span></p>`;
@@ -118,8 +126,8 @@ G.EvoUI = (() => {
     if (p.mate) sub = `<span class="evo-t-sub" translate="no">${esc(p.pl.tag || '')}</span>`;
     else {
       const n = G.Evo.nextOf(p.pl);
-      if (n && n.many) sub = `<span class="evo-t-sub"><span>${T('Siguiente: a elegir')}</span><i class="evo-dot">·</i><span>${lvText(n.lv)}</span></span>`;
-      else if (n) sub = `<span class="evo-t-sub"><span>${G.I18n.f('Siguiente: {x}', T(NAME(n.dex)))}</span><i class="evo-dot">·</i>${howHtml(n.r)}</span>`;
+      if (n && n.many) sub = `<span class="evo-t-sub"><span>${T('Siguiente: a elegir')}</span><i class="evo-dot">·</i><span>${lvText(n.lv)}</span>${minHtml(n.min)}</span>`;
+      else if (n) sub = `<span class="evo-t-sub"><span>${G.I18n.f('Siguiente: {x}', T(NAME(n.dex)))}</span><i class="evo-dot">·</i>${howHtml(n.r, n.dex)}</span>`;
       else if (p.via === 'mate') sub = `<span class="evo-t-sub"><span>${T('¡Intercambio con un compañero!')}</span></span>`;
     }
     toastEl.innerHTML = `<span class="evo-t-art"></span><span class="evo-t-txt">`
@@ -127,6 +135,11 @@ G.EvoUI = (() => {
       + `<span class="evo-t-nm">${p.from ? `<span>${esc(NAME(p.from))}</span><i class="evo-arr" aria-hidden="true">→</i>` : ''}<b>${esc(mon.name || '')}</b></span>`
       + `${sub}</span>`;
     toastEl.style.setProperty('--evo-c', G.U.TYPE_COLOR[(mon.types || ['normal'])[0]]);
+    // Abajo, justo encima de la barra de ataques (G.HUD.lay.barT, con la chapa del nombre del
+    // activo): arriba tapaba la pila del HUD (jefes, evento, avisos). Si el jugador ha subido la
+    // barra («Colocar los botones»), abajo del todo.
+    const L = G.HUD.lay, cv = $('game'), H = (cv && cv.clientHeight) || window.innerHeight;
+    toastEl.style.setProperty('--evo-b', L.barT > H / 2 ? Math.round(H - L.barT + 4) + 'px' : 'calc(var(--sa-b, 0px) + 12px)');
     const art = toastEl.querySelector('.evo-t-art');
     art.appendChild(G.UI.spriteCanvas(p.to, 48, 48, { scale: 2, shiny: !!p.pl.shiny, shadow: false }));
     toastEl.classList.remove('on');
@@ -189,7 +202,7 @@ G.EvoUI = (() => {
       c.innerHTML = `<span class="key">${i + 1}</span>
         <span class="pc-art"><span class="ico-tile pc-ico tint" style="--tile-c:${col}"></span></span>
         <span class="pc-txt"><span class="nm">${esc(mon.name)}</span><span class="pc-chips">${G.UI.typeChips(mon.types)}</span>
-        <span class="ds evo-how">${howHtml(G.Evo.rule(dex))}</span>
+        <span class="ds evo-how">${howHtml(G.Evo.rule(dex), dex)}</span>
         <span class="evo-stats">${statsHtml(G.Mons.formFor(pl.dex, dex))}</span>
         ${tail.length ? `<span class="evo-hint">${tail.map(x => `<i class="evo-arr" aria-hidden="true">→</i><span>${esc(NAME(x))}</span>`).join('')}</span>` : ''}</span>`;
       c.querySelector('.pc-ico').appendChild(G.UI.spriteCanvas(dex, 80, 80, { scale: 2, lively: true, shiny: !!pl.shinyWant && G.Sprites.hasShiny(dex) }));

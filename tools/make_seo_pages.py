@@ -481,9 +481,12 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-24', ('Evoluciones en partida, 4 pasivas y el móvil en horizontal', 'In-run evolutions, 4 passives and landscape phones'),
+  ('Ahora empiezas con la primera fase de tu Pokémon y evoluciona durante la partida como en los juegos (por nivel, piedra, intercambio, amistad o movimiento, o al cabo de unos minutos). Como mucho 4 pasivas, Pulsera Z por Pokémon, habilidades equilibradas, un mundo más justo, guardado automático y, en el móvil, sólo horizontal con menús de juego nativo.',
+   'You now start with the first stage of your Pokémon and it evolves during the run like in the games (by level, stone, trade, friendship or move, or after a few minutes). At most 4 passives, a Z-Ring per Pokémon, balanced abilities, a fairer world, autosave and, on phones, landscape only with native-style menus.')),
  ('2026-10-24', ('Movimientos Z, jefes más duros y un HUD más pequeño', 'Z-Moves, tougher bosses and a smaller HUD'),
-  ('Cristales Z en la Tienda Kecleon: el movimiento Z de tu tipo se lanza solo durante un minuto y se recarga en cuatro. Grietas con varios legendarios, jefes con muchos más ataques, más dificultad de los minutos 20 a 30, un icono propio para cada ataque y siempre a la vista con qué evoluciona.',
-   'Z-Crystals in the Kecleon Shop: your type’s Z-Move fires on its own for a minute and recharges in four. Rifts with several legendaries, bosses with many more attacks, a harder minute 20 to 30, a unique icon for every move and its evolution always in sight.')),
+  ('Cristales Z en la Tienda Kecleon: el movimiento Z se lanza solo durante un minuto y se recarga en cuatro. Grietas con varios legendarios, jefes con muchos más ataques, más dificultad de los minutos 20 a 30, un icono propio para cada ataque y siempre a la vista con qué evoluciona.',
+   'Z-Crystals in the Kecleon Shop: the Z-Move fires on its own for a minute and recharges in four. Rifts with several legendaries, bosses with many more attacks, a harder minute 20 to 30, a unique icon for every move and its evolution always in sight.')),
  ('2026-10-23', ('Pantalla completa en el móvil y joystick fijo', 'Full-screen phone screens and a fixed joystick'),
   ('En el móvil cada pantalla ocupa ya toda la pantalla y todo es algo más pequeño; el joystick es fijo de serie (se puede volver a flotante en Ajustes › Controles) y el cooperativo aguanta mejor los cortes de conexión.',
    'On phones every screen now fills the whole display and everything is a bit smaller; the joystick is fixed by default (you can switch back to floating in Settings › Controls) and co-op copes better with connection drops.')),

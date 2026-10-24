@@ -22,6 +22,7 @@ G.Player = class Player {
     this.cdMul = perks.cdMul || 1;
     this.dmgReduce = perks.dmgReduce || 0;
     this.regenFlat = perks.regen || 0;
+    this.regenK = 0;           // regeneración de la habilidad: esa parte de la vida máxima por segundo
     this.magnet = 78 * (perks.magnetMul || 1);
     this.xpMul = perks.xpMul || 1;
     this.coinMul = perks.coinMul || 1;
@@ -118,14 +119,16 @@ G.Player = class Player {
     this.body(mon.form || mon.dex);
     this.baseSpd = mon.spd;
     if (!this.remote) {
-      const up = (mon.hp || 0) - (old.hp || 0);
+      // La habilidad es la misma; su pasiva de tipo (la genérica) va con el tipo de la fase nueva.
+      // Lo que cambia los stats de la fase (Potencia, Energía Pura...) se pone otra vez sobre la
+      // nueva (G.AbilityFX.stage); lo demás de al empezar (críticos, monedas...) ya está y no se repite.
+      // La regeneración que va con la vida máxima (regenK) crece sola con ella (get regen).
+      if (this.abil) { this.abil = G.AbilityFX.of(this.abilId, this.mon); G.AbilityFX.stage(this.abil, mon); }
+      const up = Math.round(((mon.hp || 0) - (old.hp || 0)) * ((this.abil && this.abil.hpMul) || 1));
       this.maxHp = Math.max(1, this.maxHp + up);
       this.hp = Math.min(this.maxHp, Math.max(1, this.hp + Math.max(0, up)));
       if (fx) this.heal(this.maxHp * 0.25);
       this.baseAtk = mon.atk;
-      // La habilidad es la misma; su pasiva de tipo (la genérica) va con el tipo de la fase nueva.
-      // (Lo que hace al empezar ya está puesto: no se repite.)
-      if (this.abil) this.abil = G.AbilityFX.of(this.abilId, this.mon);
       // (El movimiento Z no cambia: va con la Pulsera Z del elegido y el tipo de tus
       // ataques, no con los tipos de la fase; ver combat.js zOf.)
     }
@@ -138,12 +141,11 @@ G.Player = class Player {
   /** Lo que dura el destello de la evolución (s). */
   static get EVO_TIME() { return 1.25; }
 
-  /** Pone la habilidad (G.AbilityFX.of) y aplica lo que hace al empezar. */
+  /** Pone la habilidad (G.AbilityFX.of) y aplica lo que hace al empezar (G.AbilityFX.begin). */
   setAbility(id) {
     this.abilId = id || '';
     this.abil = G.AbilityFX.of(id, this.mon);
-    if (this.abil.cdMul) this.cdMul *= this.abil.cdMul;
-    if (this.abil.start) this.abil.start(this);
+    G.AbilityFX.begin(this, this.abil);
   }
 
   /** Segundos que hay que estar junto a un compañero caído para levantarlo. */
@@ -181,7 +183,7 @@ G.Player = class Player {
     return G.Judgment && G.Judgment.active ? G.Judgment.capSpd(s * slow * w) : s * slow * w;
   }
   get reduction() { return Math.min(0.8, this.dmgReduce + this.buffs.def.n * this.buffs.def.amount); }
-  get regen() { return this.regenFlat + this.buffs.regen.n * this.buffs.regen.amount; }
+  get regen() { return this.regenFlat + this.maxHp * this.regenK + this.buffs.regen.n * this.buffs.regen.amount; }
 
   // ---------------- movimientos ----------------
   addMove(id) {
