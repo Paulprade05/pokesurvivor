@@ -517,6 +517,10 @@ G.DB = (() => {
   //   - al cerrar sesión
   //   - una vez al crear la partida en la nube (cuenta nueva, ver firstPush)
   // Nada más: ni solo cada cierto tiempo, ni al entrar, ni al cerrar la pestaña.
+  // ESTA COPIA (proyecto pokesurvivor-paul, 24-10-2026): con pocos jugadores sobran
+  // escrituras, así que vuelve el guardado automático: lo pendiente se sube solo a los
+  // AUTO_MS del primer cambio (como mucho una subida cada MIN_GAP) y al ocultar o
+  // cerrar la pestaña. El botón Guardar sigue sirviendo para subirlo ya.
   // Todo se guarda al momento en este navegador igualmente, y al entrar se junta
   // con lo de la nube. Y se escribe sin leer antes (era una transacción: 1
   // lectura + 1 escritura); si juegas en dos aparatos a la vez, gana el último
@@ -643,7 +647,7 @@ G.DB = (() => {
     lastPush = Date.now();
     if (!online) { pending = true; setSync('offline'); }
     else if (same) setSync('ok');
-    else { pending = true; setSync('pending'); }
+    else { pending = true; setSync('pending'); setTimeout(autoSave, 0); }
     firstUp = online && !remote;           // aún no está en la nube: se sube una vez (firstPush)
     startTab();
   }
@@ -744,6 +748,17 @@ G.DB = (() => {
     return { ok: false, why: syncState === 'offline' ? 'offline' : 'fail' };
   }
 
+  /** Guardado automático (esta copia): lo pendiente se sube solo al poco del primer cambio. */
+  const AUTO_MS = 20000;
+  function autoSave() { if (mode === 'cloud' && !guest && tabOn && pending) schedulePush(AUTO_MS); }
+  // Al ocultar o cerrar la pestaña (salir de la app en el móvil), se sube lo pendiente si se puede ya.
+  function saveOnHide() {
+    if (mode !== 'cloud' || guest || !save || !uid || !tabOn || !pending || pushing) return;
+    if (sinceOk() > 21000) pushNow(true);
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveOnHide(); });
+  addEventListener('pagehide', saveOnHide);
+
   // Si ya había una subida programada antes, se respeta (una compra no espera a la siguiente partida).
   let pushDue = 0;
   function schedulePush(ms) {
@@ -837,7 +852,7 @@ G.DB = (() => {
     if (!st || !save || (st.updated || 0) === (save.updated || 0)) return;
     applyInPlace(merge(plain(fold(save, myDev())), migrate(st, st.name)));
     write(storeKey(), save);
-    if (mode === 'cloud') { pending = true; setSync('pending'); }
+    if (mode === 'cloud') { pending = true; setSync('pending'); autoSave(); }
     if (G.UI && G.UI.refreshCoins) G.UI.refreshCoins();
   }
 
@@ -893,7 +908,7 @@ G.DB = (() => {
     save.updated = Math.max(Date.now(), was + 1, (+prev || 0) + 1);
     const ok = write(storeKey(), save);
     tabSay('sync');
-    if (mode === 'cloud') { pending = true; setSync('pending'); }
+    if (mode === 'cloud') { pending = true; setSync('pending'); autoSave(); }
     return ok;
   }
 
@@ -1011,8 +1026,9 @@ G.DB = (() => {
     if (mode === 'local') return write(K_SAVE + key, save);
     write(K_CLOUD + uid, save);
     pending = true;
-    setSync('pending');                // se sube al pulsar Guardar
+    setSync('pending');
     firstPush();
+    autoSave();
     return true;
   }
 
