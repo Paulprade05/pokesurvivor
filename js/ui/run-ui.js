@@ -311,19 +311,9 @@ G.RunUI = (() => {
   }
 
   // ---------------- resumen final ----------------
-
-  /**
-   * Mensaje de apoyo (Ko-fi) al acabar: tras un récord o cada 10 partidas,
-   * nunca en la primera y como mucho una vez al día. Se cierra con la X.
-   */
-  function askSupport(r) {
-    if (!G.Funding || !G.Funding.url) return false;
-    const runs = (G.DB.save && G.DB.save.stats && G.DB.save.stats.runs) || 0;
-    if (runs < 2 || !(r.record || runs % 10 === 0)) return false;
-    const today = new Date().toISOString().slice(0, 10);
-    try { if (localStorage.getItem('ps.ask') === today) return false; localStorage.setItem('ps.ask', today); } catch (e) { return false; }
-    return true;
-  }
+  // (26-10-2026: sin el aviso de Ko-fi ni la tarjeta de Guardar —la partida se sube sola—, y
+  //  en una rejilla en vez de columnas CSS: en el iPhone la tarjeta de la 2.ª columna salía
+  //  cortada y montada sobre «Movimientos».)
 
   /** Baldosa de una cifra del resumen: icono, número y qué es (full: la cifra entera, si se ha acortado). */
   const ovTile = (icon, label, value, full = '') =>
@@ -341,36 +331,29 @@ G.RunUI = (() => {
       try { return new Intl.NumberFormat(G.I18n.locale, { notation: 'compact', maximumFractionDigits: 1 }).format(v); } catch (e) { return n(v); }
     };
     const dmg = (icon, label, v) => ovTile(icon, label, big(v), (v || 0) >= 1e6 ? n(v) : '');
-    // Con cuenta en la nube, lo de esta partida aún no está subido: se ofrece Guardar aquí mismo.
-    const unsaved = G.DB.mode === 'cloud' && !G.DB.guest && G.DB.syncState === 'pending';
     const tickets = r.t1 || r.t10 ? `<div class="ov-tickets"><span class="ov-lbl">Tickets del gacha</span>
         ${r.t1 ? `<span class="ov-tk"><span class="ico-tile s">${G.Icons.html('ticket', 30)}</span><b>+${r.t1}</b></span>` : ''}
         ${r.t10 ? `<span class="ov-tk"><span class="ico-tile s t-purple">${G.Icons.html('ticket10', 30)}</span><b>+${r.t10}</b></span>` : ''}</div>` : '';
+    // Arriba, en dos columnas (una en el móvil de pie): las cifras a la izquierda y lo
+    // ganado a la derecha. Debajo, a todo el ancho, los movimientos y los shinies.
     $('over-stats').innerHTML = `
-      <div class="ov-tiles">${ovTile('clock', 'Tiempo', G.U.mmss(r.time))}${ovTile('up', 'Nivel', r.level)}${ovTile('ball', 'Derrotados', n(r.kills))}${ovTile('crown', 'Jefes', r.bosses)}</div>
-      ${r.judge ? `<div class="ov-judge"><span class="ico-tile s t-gold">${G.Icons.html('ball4', 30)}</span>
-        <div class="grow"><span class="ov-lbl">Ante Arceus</span><b>${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div></div>` : ''}
-      <div class="ov-tiles ov-dmg">${dmg('choiceband', 'Daño total', r.dealt)}${dmg('rockyhelmet', 'Daño recibido', r.taken)}${dmg('berry', 'Curación', r.healed)}</div>
-      <div class="ov-coins">
-        <span class="ico-tile l round t-gold">${G.Icons.html('coin', 60)}</span>
-        <div class="ov-coins-txt"><span class="ov-lbl">Pokémonedas ganadas</span><b class="ov-big">+${n(r.coins)}</b><small>${r.breakdown}</small></div>
-        ${tickets}
+      <div class="ov-top">
+        <div class="ov-figs">
+          <div class="ov-tiles">${ovTile('clock', 'Tiempo', G.U.mmss(r.time))}${ovTile('up', 'Nivel', r.level)}${ovTile('ball', 'Derrotados', n(r.kills))}${ovTile('crown', 'Jefes', r.bosses)}</div>
+          ${r.judge ? `<div class="ov-judge"><span class="ico-tile s t-gold">${G.Icons.html('ball4', 30)}</span>
+            <div class="grow"><span class="ov-lbl">Ante Arceus</span><b>${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div></div>` : ''}
+          <div class="ov-tiles ov-dmg">${dmg('choiceband', 'Daño total', r.dealt)}${dmg('rockyhelmet', 'Daño recibido', r.taken)}${dmg('berry', 'Curación', r.healed)}</div>
+        </div>
+        <div class="ov-coins">
+          <span class="ico-tile l round t-gold">${G.Icons.html('coin', 60)}</span>
+          <div class="ov-coins-txt"><span class="ov-lbl">Pokémonedas ganadas</span><b class="ov-big">+${n(r.coins)}</b><small>${r.breakdown}</small></div>
+          ${tickets}
+        </div>
       </div>
-      <section class="ov-sec"><h3>Movimientos</h3>
+      <section class="ov-sec ov-moves"><h3>Movimientos</h3>
         ${r.moves.length ? movesTable(r.moves, r.time, false) : '<p class="muted">—</p>'}</section>
       ${r.caught && r.caught.length ? `<section class="ov-sec caught"><h3>${G.Icons.html('shiny', 18)}<span>${r.caught.length} Shinies conseguidos</span></h3>
-        <div class="caught-row" id="over-caught"></div></section>` : ''}
-      ${unsaved ? '<div class="over-save" id="over-save"></div>' : ''}
-      ${askSupport(r) ? `<div class="support-ask" id="over-ask">
-        <button class="icon-btn plain x" type="button" aria-label="Cerrar" title="Cerrar">${G.UI.svg('close', 20)}</button>
-        <span class="ico-tile s t-red">${G.Icons.html('heart', 22)}</span>
-        <p>¿Te está gustando PokéSurvivor? Lo hago yo solo y los servidores cuestan dinero. Si quieres, puedes ayudarme a mantenerlo en línea.</p>
-        <a class="btn small ic kofi" href="${G.Funding.url}" target="_blank" rel="noopener">${G.Icons.html('heart', 18)}<span>Apoyar en Ko-fi</span></a>
-      </div>` : ''}`;
-    const ask = $('over-ask');
-    if (ask) ask.querySelector('.x').onclick = () => ask.remove();
-    const sv = $('over-save');
-    if (sv) { saveNote(sv, G.DB.syncState); watchSave(); }
+        <div class="caught-row" id="over-caught"></div></section>` : ''}`;
     $('btn-again').onclick = onBack;
     if (r.caught && r.caught.length) {
       const row = $('over-caught');
@@ -384,28 +367,6 @@ G.RunUI = (() => {
     G.UI.show('scr-over');
     const body = $('scr-over').querySelector('.over-body');
     if (body) body.scrollTop = 0;
-  }
-
-  /**
-   * Aviso del resumen final: «sin guardar» con un botón que pulsa el Guardar de
-   * la barra de arriba (oculta en partida; así son los mismos avisos y esperas), o «guardado».
-   * (Azul y no amarillo: la acción principal de la pantalla es «Volver al menú».)
-   */
-  function saveNote(el, st) {
-    el.classList.toggle('ok', st === 'ok');
-    el.innerHTML = st === 'ok'
-      ? `<span class="ico-tile s round t-green">${G.UI.svg('check', 20)}</span><p>Guardado en la nube</p>`
-      : `<span class="ico-tile s round t-gold">${G.UI.svg('save', 20)}</span><p>Tu progreso aún no está en la nube</p>`
-        + `<button class="btn small ic" type="button" data-sfx="none"${st === 'syncing' ? ' disabled' : ''}>${G.UI.svg('save', 18)}<span>Guardar</span></button>`;
-    const b = el.querySelector('button');
-    if (b) b.onclick = () => $('btn-save').click();
-  }
-  // Sigue al estado de la nube mientras se ve (se apunta una sola vez).
-  let saveWatch = false;
-  function watchSave() {
-    if (saveWatch) return;
-    saveWatch = true;
-    G.DB.onSync(st => { const el = $('over-save'); if (el && G.UI.isOpen('scr-over')) saveNote(el, st); });
   }
 
   // ---------------- objeto ----------------

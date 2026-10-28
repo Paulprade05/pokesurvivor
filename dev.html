@@ -248,7 +248,7 @@
   <div class="menu-right">
     <button class="menu-item play" data-go="play"><span class="mi-t">Jugar</span><small>Entra en la mazmorra</small></button>
     <div class="menu-list">
-      <button class="menu-item tile" data-go="dex"><span class="mi-t">Pokémon</span><small id="menu-dex-count">Tu colección</small></button>
+      <button class="menu-item tile" data-go="dex"><span class="mi-t">Pokédex</span><small id="menu-dex-count">Tus Pokémon</small></button>
       <button class="menu-item tile" data-go="upgrades"><span class="mi-t">Mejoras</span><small>Haz más fuerte cada run</small></button>
       <button class="menu-item tile" data-go="shop"><span class="mi-t">Tienda Kecleon</span><small>Mentas, Cápsulas y MT</small></button>
       <button class="menu-item tile" data-go="bag"><span class="mi-t">Mochila</span><small id="menu-bag-sub">Vacía</small></button>
@@ -256,15 +256,17 @@
       <button class="menu-item tile" data-go="goals"><span class="mi-t">Misiones</span><small id="menu-goals-sub">Misiones, logros y perfil</small></button>
       <button class="menu-item tile" data-go="friends"><span class="mi-t">Amigos</span><small id="menu-friends-sub">Juega en grupo, hasta 4</small></button>
       <button class="menu-item tile" data-go="rank"><span class="mi-t">Ranking</span><small>Quién aguanta más</small></button>
-      <button class="menu-item tile" data-go="settings"><span class="mi-t">Ajustes</span><small>Sonido, gráficos, controles y cuenta</small></button>
+      <!-- (26-10-2026) Compendio en el hueco de Ajustes, que sigue a un toque: el engranaje de la barra de arriba. -->
+      <button class="menu-item tile" data-go="compendium"><span class="mi-t">Compendio</span><small>Ataques, pasivas y objetos</small></button>
     </div>
     <div id="menu-stats" class="menu-stats"></div>
   </div>
 </section>
 
 <!-- ====== Barra de arriba (ui.js: chrome, refreshCoins y sus iconos) ======
-     Izquierda: monedas y tickets. Derecha: perfil, Guardar y .tb-menu, que en
-     pantalla ancha va en la barra y, más estrecha, se abre con «Más» (⋯). -->
+     Izquierda: monedas y tickets. Derecha: perfil y .tb-menu, que en pantalla
+     ancha va en la barra y, más estrecha, se abre con «Más» (⋯). (Sin Guardar
+     desde el 26-10-2026: la partida se sube sola; el botón queda en Ajustes → Cuenta.) -->
 <div id="topbar" class="topbar hidden">
   <div class="tb-wallet">
     <div class="pill cur-pill" id="coins-pill" title="Pokémonedas"><span class="cur-ico" id="coins-ico"></span><span id="coins">0</span></div>
@@ -272,14 +274,14 @@
   </div>
   <div class="tb-acts">
     <div class="pill" id="user-pill"></div>
-    <button id="btn-save" class="tb-btn save-btn hidden" type="button" title="Guardar la partida en la nube"></button>
+    <!-- Ajustes, siempre en la barra (también en el móvil, fuera del menú «Más»): desde el
+         26-10-2026 su baldosa del menú principal es la del Compendio. -->
+    <button id="btn-settings" class="tb-btn" type="button" title="Ajustes"></button>
     <div class="tb-menu" id="tb-menu">
       <button id="tb-profile" class="tb-btn tb-profile" type="button"></button>
       <button id="btn-news" class="tb-btn news-btn" type="button" title="Novedades"></button>
-      <button id="btn-support" class="tb-btn hidden" type="button" title="Apoyar el proyecto"></button>
       <button id="btn-sound" class="tb-btn" type="button" title="Sonido"></button>
       <button id="btn-full" class="tb-btn hidden" type="button" title="Pantalla completa"></button>
-      <button id="btn-settings" class="tb-btn" type="button" title="Ajustes"></button>
       <button id="btn-logout" class="tb-btn" type="button" title="Salir"><span class="lbl">Salir</span></button>
     </div>
     <button id="btn-more" class="tb-btn tb-more" type="button" title="Más" aria-label="Más" aria-expanded="false" aria-controls="tb-menu"></button>
@@ -328,18 +330,6 @@
   </div>
 </section>
 
-<!-- ====== Apoyar el proyecto (donaciones): hoja con «Donar en Ko-fi» en el pie (support-ui.js) ====== -->
-<section id="scr-support" class="scr dim hidden" role="dialog" aria-labelledby="sup-title">
-  <div class="box sheet-box narrow sup-sheet">
-    <header class="sheet-head">
-      <button class="icon-btn" id="sup-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
-      <h2 id="sup-title">Apoyar el proyecto</h2>
-    </header>
-    <div id="sup-body" class="sheet-body"></div>
-    <footer class="sheet-foot" id="sup-foot"></footer>
-  </div>
-</section>
-
 <!-- ====== Ajustes: hoja con las pestañas a la izquierda (en el móvil de pie, arriba y
      deslizables) y el contenido de cada una a la derecha (settings-ui.js) ====== -->
 <section id="scr-settings" class="scr dim hidden" role="dialog" aria-labelledby="set-title">
@@ -376,7 +366,7 @@
       <section class="legal-sec">
         <h3>Proyecto de fan</h3>
         <p><b>PokéSurvivor</b> es un juego hecho por fans, <b>gratuito y sin ánimo de lucro</b>.
-          No tiene anuncios ni compras. Se puede apoyar con donaciones voluntarias, que se usan sólo para pagar los servidores y el dominio, y que no dan ninguna ventaja en el juego.</p>
+          No tiene anuncios ni compras.</p>
         <p>No está afiliado, patrocinado ni aprobado por Nintendo, Creatures Inc., GAME FREAK ni
           The Pokémon Company. Pokémon y todos los nombres y personajes relacionados son marcas y
           propiedad de sus respectivos dueños.</p>
@@ -444,8 +434,10 @@
     <p class="tap-blink">Pulsa para empezar</p>
   </div>
 </div>
-<!-- «Gira el móvil»: en el móvil el juego es sólo horizontal. mobile.js pone html.need-rotate
-     al ponerlo de pie (y pausa la partida); este aviso tapa todo, también la carga. -->
+<!-- En el móvil el juego es sólo horizontal: de pie se pinta girado 90° (rotate.js y mobile.js;
+     html.rot y el bloque «giro» de style.css, tras este aviso; mientras carga, lo gira style.css solo).
+     «Gira el móvil» queda de reserva: mobile.js pone html.need-rotate sólo si el navegador no
+     deja girar la página; entonces este aviso tapa todo (y pausa la partida). -->
 <div id="rotate" class="rotate" role="alertdialog" aria-modal="true" aria-hidden="true" aria-labelledby="rotate-t">
   <div class="rot-in">
     <svg class="rot-phone" viewBox="0 0 64 64" width="96" height="96" aria-hidden="true" focusable="false">
@@ -632,6 +624,35 @@
   </div>
 </section>
 
+<!-- ====== Compendio (26-10-2026, compendium-ui.js; estilos en el bloque «compendio» de style.css) ======
+     Qué hace cada ataque (y los movimientos Z), cada pasiva y cada objeto, y qué ataques puede
+     llevar cada Pokémon. Pestañas en la cabecera; debajo, la lista con su buscador y filtros a la
+     izquierda y la ficha a la derecha (en una ventana estrecha de pie, la ficha tapa la lista:
+     #scr-compendium.detail-open). Todo sale en vivo de los datos del juego. -->
+<section id="scr-compendium" class="scr dim under-bar hidden">
+  <div class="box sheet-box wide tall cmp-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <h2>Compendio</h2>
+      <div class="sheet-row">
+        <div class="tabs cmp-tabs" id="cmp-tabs" role="tablist" aria-label="Compendio">
+          <button class="tab on" type="button" role="tab" data-tab="moves" aria-controls="cmp-rows">Ataques</button>
+          <button class="tab" type="button" role="tab" data-tab="passives" aria-controls="cmp-rows">Pasivas</button>
+          <button class="tab" type="button" role="tab" data-tab="items" aria-controls="cmp-rows">Objetos</button>
+          <button class="tab" type="button" role="tab" data-tab="mons" aria-controls="cmp-rows">Pokémon</button>
+        </div>
+      </div>
+    </header>
+    <div class="cmp-main">
+      <div class="cmp-list">
+        <div class="cmp-tools" id="cmp-tools"></div>
+        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio"></div>
+      </div>
+      <article class="cmp-detail" id="cmp-detail"></article>
+    </div>
+  </div>
+</section>
+
 <!-- ====== Perfil público de un jugador (ventana que tapa la barra) ====== -->
 <section id="scr-profile" class="scr dim modal hidden">
   <div class="box sheet-box profile-sheet">
@@ -658,35 +679,34 @@
   </div>
 </div>
 
-<!-- ====== Colección (hoja, 22-10-2026) ======
-     Escritorio, tableta y móvil tumbado: la lista a la izquierda y la ficha a la
-     derecha. Móvil de pie (≤ 760 px de ancho): la lista llena la hoja y, al tocar
-     un Pokémon, su ficha la ocupa entera (#scr-dex.detail-open); «Volver» la
-     cierra. Lo de dentro lo pinta menu.js (openDex, dexCell, showDetail). -->
+<!-- ====== Pokédex (antes «Pokémon» / colección; rehecha el 26-10-2026) ======
+     Una entrada por familia: su forma final (data/families.js); las preevoluciones,
+     en su ficha. Ordenador y tableta: la lista a la izquierda y la ficha a la derecha.
+     Móvil (tumbado y de pie): la lista llena la hoja y, al tocar un Pokémon, su ficha
+     la ocupa entera (#scr-dex.detail-open); «Volver» la cierra. Arriba de la lista, una
+     sola fila: buscador, región (en el móvil; en el ordenador, pestañas), tipo, orden
+     y «Filtros» (tengo / me faltan, shiny, favoritos y rarezas, en un panel que se
+     abre debajo). Lo de dentro lo pinta menu.js (openDex, dexCell, showDetail). -->
 <section id="scr-dex" class="scr dim under-bar hidden">
   <div class="box sheet-box wide tall dex-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
-      <h2>Pokémon</h2>
-      <div class="sheet-acts"><span id="dex-total" class="dx-total"></span></div>
-      <div class="sheet-row"><div class="gen-tabs" id="dex-gens"></div></div>
+      <h2>Pokédex</h2>
+      <span id="dex-total" class="dx-total"></span>
+      <div class="sheet-row"><div class="gen-tabs" id="dex-gens" role="tablist" aria-label="Región"></div></div>
     </header>
     <div class="dex-main">
       <div class="dex-list" id="dex-list">
         <div class="dx-tools" id="dex-tools">
-          <div class="dx-search">
-            <label class="dx-q" data-ico="search" data-ico-size="18">
-              <input id="dex-q" class="field" type="search" placeholder="Buscar por nombre o número" aria-label="Buscar por nombre o número" autocomplete="off" spellcheck="false">
-            </label>
-            <span id="dex-count" class="dx-count"></span>
-            <button class="chip hidden" id="dex-clear" type="button">Limpiar</button>
-          </div>
-          <div class="dx-filters" id="dex-row">
-            <label class="dx-pick" title="Tipo" data-ico="filter" data-ico-size="16"><select id="dex-type" aria-label="Tipo"></select></label>
-            <label class="dx-pick" title="Orden" data-ico="sort" data-ico-size="16"><select id="dex-sort" aria-label="Orden"></select></label>
-            <div class="dx-chips" id="dex-filters"></div>
-          </div>
+          <label class="dx-q" data-ico="search" data-ico-size="18">
+            <input id="dex-q" class="field" type="search" placeholder="Buscar por nombre o número" aria-label="Buscar por nombre o número" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="dx-pick dx-pick-gen no-ico" title="Región"><select id="dex-gen" aria-label="Región"></select></label>
+          <label class="dx-pick no-ico" title="Tipo"><select id="dex-type" aria-label="Tipo"></select></label>
+          <label class="dx-pick" title="Orden" data-ico="sort" data-ico-size="16"><select id="dex-sort" aria-label="Orden"></select></label>
+          <button class="chip dx-more" id="dex-more" type="button" aria-expanded="false" aria-controls="dex-panel"></button>
         </div>
+        <div class="dx-panel hidden" id="dex-panel"></div>
         <div class="dx-grid" id="dex-grid"></div>
       </div>
       <aside class="dex-detail" id="dex-detail"></aside>
@@ -700,15 +720,19 @@
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Tienda Kecleon</h2>
+      <!-- Móvil: vuelve a enseñar el puesto (que sale al entrar y luego se esconde). -->
+      <div class="sheet-acts"><button class="icon-btn shop-stall-btn" type="button" id="shop-stall-btn" aria-pressed="false" aria-label="Ver el puesto" title="Ver el puesto"></button></div>
     </header>
     <div class="sheet-body shop-scroll">
-      <!-- El puesto: cae, se despliega el toldo, sube la persiana y salen los dos Kecleon (ver shop-ui.js). -->
+      <!-- El puesto: cae, se despliega el toldo, sube la persiana y salen los dos Kecleon (ver shop-ui.js).
+           En el móvil tapa la tienda sólo durante la entrada; un toque lo esconde. -->
       <div class="shop-stall" id="shop-stall">
         <!-- Todo el puesto (paisaje, toldo, estanterías, persiana, farolillos y los dos
              Kecleon) se dibuja en pixel art en este lienzo: ver Scene en shop-ui.js. -->
         <canvas id="shop-scene" class="shop-scene"></canvas>
         <div class="shop-sign" id="shop-sign"><span>Tienda Kecleon</span></div>
         <div class="shop-bubble hide" id="shop-bubble"></div>
+        <button class="btn small gold shop-go" type="button" id="shop-go">Ir a la tienda</button>
       </div>
       <div class="shop-inner">
         <p class="sub shop-hello" id="shop-hello">¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la colección.</p>
@@ -782,6 +806,9 @@
           </div>
         </div>
         <div class="gh-feat" id="gacha-feat"></div>
+        <!-- Región anterior / siguiente (también deslizando el dedo por el cartel). -->
+        <button class="gh-nav prev" type="button" id="gacha-prev" aria-label="Región anterior" title="Región anterior"></button>
+        <button class="gh-nav next" type="button" id="gacha-next" aria-label="Región siguiente" title="Región siguiente"></button>
       </section>
       <div class="gacha-info">
         <div class="panel gacha-pity">
@@ -817,7 +844,11 @@
   </div>
   <p class="pfx-sum hidden" id="pull-sum"></p>
   <div class="pfx-grid" id="pull-results"></div>
-  <div class="pfx-foot"><button id="pull-close" class="btn gold big hidden" type="button">Continuar</button></div>
+  <!-- «Otra vez»: la misma tirada otra vez, si te llega (gacha-ui.js). -->
+  <div class="pfx-foot">
+    <button id="pull-again" class="btn pull-btn pull-again hidden" type="button" data-sfx="none"><span class="pb-t" id="pull-again-t"></span><span class="pb-cost" id="cost-again"></span></button>
+    <button id="pull-close" class="btn gold big hidden" type="button">Continuar</button>
+  </div>
 </div>
 
 <!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ====== -->
@@ -918,6 +949,7 @@
 <script defer src="js/core/audio.js"></script>
 <script defer src="js/core/input.js"></script>
 <script defer src="js/core/touch.js"></script>
+<script defer src="js/core/rotate.js"></script>
 <script defer src="js/core/mobile.js"></script>
 <script defer src="js/core/gamepad.js"></script>
 <script defer src="js/core/sprites.js"></script>
@@ -928,6 +960,7 @@
 <script defer src="js/data/abilities.js"></script>
 <script defer src="js/data/tms.js"></script>
 <script defer src="js/data/evolutions.js"></script>
+<script defer src="js/data/families.js"></script>
 <script defer src="js/data/types.js"></script>
 <script defer src="js/data/starters.js"></script>
 <script defer src="js/data/enemies.js"></script>
@@ -936,7 +969,6 @@
 <script defer src="js/data/shop.js"></script>
 <script defer src="js/data/missions.js"></script>
 <script defer src="js/data/achievements.js"></script>
-<script defer src="js/data/funding.js"></script>
 <script defer src="js/data/changelog.js"></script>
 <!-- mundo -->
 <script defer src="js/world/tiles.js"></script>
@@ -986,9 +1018,9 @@
 <script defer src="js/ui/ranking-ui.js"></script>
 <script defer src="js/ui/mod-ui.js"></script>
 <script defer src="js/ui/goals-ui.js"></script>
+<script defer src="js/ui/compendium-ui.js"></script>
 <script defer src="js/ui/settings-ui.js"></script>
 <script defer src="js/ui/layout-ui.js"></script>
-<script defer src="js/ui/support-ui.js"></script>
 <script defer src="js/ui/news-ui.js"></script>
 <script defer src="js/ui/install-ui.js"></script>
 <script defer src="js/core/updater.js"></script>

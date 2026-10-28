@@ -45,8 +45,11 @@ de personalidad y a la mazmorra.
 **En móvil o tablet** (en horizontal): pon el dedo en cualquier sitio y arrastra
 para moverte (el joystick aparece donde tocas), toca un ataque de abajo para
 cambiarlo y el botón de arriba a la derecha para pausar. Se puede instalar como
-app ("Añadir a pantalla de inicio"). En **Ajustes** hay sonido, calidad gráfica
-(con modo automático), números de daño, menos sacudidas, FPS y la cuenta.
+app ("Añadir a pantalla de inicio"). En **Ajustes** (el engranaje de arriba) hay
+sonido, calidad gráfica (con modo automático), números de daño, menos sacudidas,
+FPS y la cuenta. En el **Compendio** (menú principal) se ve qué hace cada ataque
+(cómo sube por niveles y en qué evoluciona), cada pasiva y cada objeto, y qué
+ataques puede llevar cada Pokémon.
 
 El Pokémon ataca solo con el movimiento activo (o con todos los de un
 **vínculo**: cada legendario vencido deja fusionar movimientos para lanzarlos a
@@ -74,6 +77,12 @@ Las **mejoras** son de cada Pokémon. El **gacha** va con **tickets** que se
 ganan jugando (×1 de algunos Pokémon, ×10 de jefes y legendarios), y se tira
 en una tragaperras pixel art.
 
+**Próximamente, megaevoluciones:** cómo funcionarían dentro y fuera de la
+partida (Mega-Aro, megapiedras, interfaz, equilibrio y cooperativo), la lista
+de las 97 megas (y las 2 regresiones primigenias) con su megapiedra y si tienen
+sprite de Mundo Misterioso, y el plan por fases, en
+[docs/MEGAEVOLUCIONES.md](docs/MEGAEVOLUCIONES.md).
+
 Cada enemigo tiene 1/4096 de salir **shiny**: brilla, una flecha en el borde de
 la pantalla te dice dónde está, y si lo derrotas te lo quedas. En el gacha sale
 shiny 1 de cada 100 tiradas. En la colección eliges tu compañero en versión
@@ -92,7 +101,11 @@ jefe, la captura de un shiny salvaje y un shiny en el gacha.
 
 - **Base de datos (Firebase):** cuentas con nombre + contraseña o Google, y la
   partida se sigue en cualquier ordenador. Pasos en [docs/FIREBASE.md](docs/FIREBASE.md).
-  Sin configurar, el juego guarda sólo en el navegador, como antes.
+  Sin configurar, el juego guarda sólo en el navegador, como antes. La partida
+  se sube sola a la nube a los pocos segundos de cada cambio y al cerrar el
+  juego (no hace falta pulsar nada; por si acaso, hay **Guardar** en Ajustes → Cuenta).
+- **Esta copia:** código en <https://github.com/Paulprade05/pokesurvivor>, se
+  juega en <https://paulprade05.github.io/pokesurvivor/>.
 - **Jugar con amigos (hasta 4) y ranking:** con cuenta en la nube, menú
   **Amigos** (añadir por apodo, invitar a tu sala) y **Ranking** (tiempo
   aguantado: solo o grupo, de hoy a histórico, amigos, por Pokémon).

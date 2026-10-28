@@ -2,7 +2,8 @@
  * Se guardan en el navegador (no en la cuenta): cada PC o móvil tiene los
  * suyos. El volumen lo guarda audio.js aparte.
  *
- *   quality     'auto' | 'high' | 'mid' | 'low'   efectos y partículas
+ *   quality     'auto' | 'ultra' | 'high' | 'mid' | 'low'   efectos y partículas; 'ultra' es 'high' y
+ *               además el mapa en 2,5D como los juegos de DS (world.js). Auto nunca lo elige.
  *   dmgNumbers  true/false                        números de daño
  *   calm        true/false                        menos sacudidas y destellos
  *   fps         true/false                        contador de FPS
@@ -68,7 +69,9 @@ G.Settings = (() => {
     get, set, sample, DEF,
     on(fn) { fns.add(fn); },
     get all() { return Object.assign({}, s); },
-    get fx() { return s.quality === 'auto' ? autoLevel : s.quality === 'high' ? 2 : s.quality === 'mid' ? 1 : 0; },
+    get fx() { return s.quality === 'auto' ? autoLevel : s.quality === 'high' || s.quality === 'ultra' ? 2 : s.quality === 'mid' ? 1 : 0; },
+    /** Mapa en 2,5D (calidad Ultra). */
+    get ultra() { return s.quality === 'ultra'; },
     get autoLevel() { return autoLevel; },
     get touch() { return touchy; }
   };

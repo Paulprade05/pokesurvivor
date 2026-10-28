@@ -13,6 +13,10 @@
  *
  * Portátil con pantalla táctil: un toque pasa el HUD a modo móvil y volver a
  * usar el ratón o el teclado lo devuelve al modo PC.
+ *
+ * Móvil de pie (el juego va girado, rotate.js): los toques ya llegan en
+ * coordenadas de la vista tumbada (clientX / clientY), así que el joystick y
+ * los botones no cambian; sólo los márgenes del iPhone se pasan a su lado (safeArea).
  */
 G.Touch = (() => {
   let cv = null, stick = null;
@@ -204,6 +208,9 @@ G.Touch = (() => {
     safe = { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0,
              bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
     d.remove();
+    // Con el juego girado (móvil de pie, rotate.js), los márgenes de la pantalla pasan a su lado
+    // de la vista: la muesca o la isla, a un lado, y la barra de inicio, al otro.
+    if (G.Rotate && G.Rotate.angle) safe = G.Rotate.insets(safe);
     return safe;
   }
   addEventListener('resize', () => { safe = null; });

@@ -580,6 +580,27 @@ G.World = (() => {
 
   // ---------------- dibujo ----------------
 
+  /*
+   * Modo Ultra (calidad 'ultra' en Ajustes): 2,5D como los juegos de DS. Las
+   * paredes se levantan y se dibujan por filas ordenadas por Y con los Pokémon
+   * (wallRows / drawWallRow: tapan lo que queda detrás), los objetos llevan su
+   * sombra proyectada y se inclinan un poco hacia fuera del centro de la pantalla
+   * (perspectiva de cámara), y encima va la luz del bioma (drawLight). Los demás
+   * modos no pagan nada de esto. Los chunks se vuelven a hornear al cambiar de modo.
+   */
+  let ultra = false;
+  const LEAN = 0.11;                                        // inclinación en el borde de la pantalla
+  const CAST = { tree: 1, rock: 1, altar: 1, bigchest: 1, chest: 1 };     // con sombra proyectada
+  const TALL = { tree: 1, rock: 1, altar: 1, bigchest: 1 };               // se inclinan
+  let livePl = null;                                        // tu Pokémon en partida (en el menú, ninguno)
+  function syncMode() {
+    livePl = G.Game.state !== 'ui' ? G.Game.player : null;
+    const u = G.Settings.get('quality') === 'ultra';
+    if (u === ultra) return;
+    ultra = u;
+    images.clear(); fade = null;
+  }
+
   function chunkImage(cx, cy, bi = biome, cache = images) {
     const k = cx + ',' + cy;
     let img = cache.get(k);
@@ -589,10 +610,57 @@ G.World = (() => {
     // interpola por píxel para que las manchas tengan bordes orgánicos.
     const S = 6 * G.Tiles.T;
     const dirtField = (gx, gy) => fbm(gx / S, gy / S, seed + 303);
-    img = G.Tiles.paintChunk(cx, cy, N, at, dirtField, bi, seed);
+    img = G.Tiles.paintChunk(cx, cy, N, at, dirtField, bi, seed, ultra);
     if (cache.size > MAX_IMAGES) cache.delete(cache.keys().next().value);
     cache.set(k, img);
     return img;
+  }
+
+  /*
+   * Ultra: filas del chunk con paredes, como «objetos» para el orden por Y
+   * (game.js los mezcla con los demás). Cada una: los tramos seguidos de pared
+   * [i0, i1]. Se calculan una vez por chunk (sólo dependen del terreno).
+   */
+  function wallRows(c) {
+    if (c.rows) return c.rows;
+    c.rows = [];
+    for (let j = 0; j < N; j++) {
+      const runs = [];
+      for (let i = 0; i < N; i++) {
+        if (c.terr[j * N + i] !== WALL) continue;
+        let e = i;
+        while (e + 1 < N && c.terr[j * N + e + 1] === WALL) e++;
+        runs.push([i, e]);
+        i = e;
+      }
+      // y = arriba del tile: lo que está al norte queda detrás (tapado por lo alto de
+      // la pared) y lo que vuela por encima de la pared (fantasmas, jefes), delante.
+      if (runs.length) c.rows.push({ wallrow: true, type: 'wallrow', flat: false, cx: c.cx, cy: c.cy, j, runs, x: c.cx * CW + CW / 2, y: (c.cy * N + j) * TS + 1 });
+    }
+    return c.rows;
+  }
+
+  function drawWallRow(ctx, r) {
+    const P = G.Sprites.PX, CH = G.Tiles.CAP_H;
+    const X = r.cx * CW, Y = (r.cy * N + r.j) * TS - G.Tiles.RAISE * P;
+    const l = G.Camera.left() - 40, rr = l + G.Camera.w + 80;
+    const k = fadeK();
+    const draw = img => {
+      const slot = img.capSlot ? img.capSlot[r.j] : -1;
+      if (slot < 0 || !img.caps) return;
+      for (const [i0, i1] of r.runs) {
+        const x0 = X + i0 * TS, w = (i1 - i0 + 1) * TS;
+        if (x0 > rr || x0 + w < l) continue;
+        ctx.drawImage(img.caps, i0 * T, slot * CH, (i1 - i0 + 1) * T, CH, x0, Y, w + (i1 === N - 1 ? 1 : 0), CH * P);
+      }
+    };
+    if (k != null) {
+      ctx.globalAlpha = 1 - k;
+      draw(chunkImage(r.cx, r.cy, fade.from, fade.images));
+      ctx.globalAlpha = k;
+    }
+    draw(chunkImage(r.cx, r.cy));
+    ctx.globalAlpha = 1;
   }
 
   /** 0..1 del fundido de bioma (suavizado), o null si no hay. */
@@ -607,6 +675,7 @@ G.World = (() => {
   }
 
   function drawGround(ctx, cam) {
+    syncMode();
     ctx.imageSmoothingEnabled = false;
     const k = fadeK();
     for (const [cx, cy] of visibleChunks(cam)) {
@@ -644,11 +713,15 @@ G.World = (() => {
     ctx.globalAlpha = 1;
   }
 
-  /** Props visibles, para mezclarlos en el orden por Y con las entidades. */
+  /** Props visibles, para mezclarlos en el orden por Y con las entidades (en Ultra, también las filas de pared). */
   function visibleProps(cam) {
     const out = [];
+    // (Filas de pared: sólo las que se ven; así su chunk ya está horneado por drawGround.)
+    const top = cam.top(), bot = top + cam.h, l = cam.left(), r = l + cam.w;
     for (const [cx, cy] of visibleChunks(cam, 60)) {
-      for (const p of chunkData(cx, cy).props) if (cam.sees(p.x, p.y, 70)) out.push(p);
+      const c = chunkData(cx, cy);
+      for (const p of c.props) if (cam.sees(p.x, p.y, 70)) out.push(p);
+      if (ultra && cx * CW < r && cx * CW + CW > l) for (const w of wallRows(c)) if (w.y + TS > top && w.y - 18 < bot) out.push(w);
     }
     return out;
   }
@@ -657,20 +730,28 @@ G.World = (() => {
    * Variante del sprite (tiles.js las pinta una vez y las guarda): aspecto (3 árboles,
    * 2 rocas, 3 matas de hierba) y estado (mecida por el viento, rota, usada, seca...).
    * Todo el dibujo de un objeto es drawImage de imágenes ya hechas: su sombra también.
+   * La hierba se agita cuando la pisas y le pasan rachas de viento por encima (una
+   * ola que cruza el campo); las trampas tienen 4 fotogramas (burbujas, brillo).
    */
   function propVariant(p, t) {
     switch (p.type) {
-      case 'grass': return (p.look % 3) * 2 + (Math.sin(t * 2.4 + p.wiggle) > 0.55 ? 1 : 0);
+      case 'grass': {
+        // (En Ultra, de la 9 en adelante: las mismas con su sombra proyectada.)
+        const pl = livePl, u = ultra ? 9 : 0;
+        if (pl && !pl.dead && Math.abs(pl.x - p.x) < 20 && pl.y > p.y - 30 && pl.y < p.y + 8) return u + (p.look % 3) * 3 + 2;
+        return u + (p.look % 3) * 3 + (Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
+      }
       case 'rock': return (p.look % 2) * 2 + (p.hp < p.maxHp * 0.5 ? 1 : 0);
       case 'tree': return p.look % 3;
       case 'altar': return p.kind * 2 + (p.used ? 1 : 0);
       case 'spring': return p.charge < 0.15 ? 1 : 0;
-      case 'trap': return p.kind;
+      case 'trap': return p.kind * 4 + (((t * 5 + p.wiggle) | 0) & 3);
       default: return 0;
     }
   }
 
   function drawProp(ctx, p, t) {
+    if (p.wallrow) { drawWallRow(ctx, p); return; }
     const P = G.Sprites.PX;
     const variant = propVariant(p, t);
     const img = G.Tiles.propSprite(biome, p.type, variant);
@@ -699,22 +780,41 @@ G.World = (() => {
       ctx.stroke();
       ctx.restore();
     }
+    // (padR/padB: lo que la sombra pintada en el sprite le añade a la derecha y abajo.)
+    const x = Math.round(p.x - (w - (img.padR || 0) * P) / 2), y = Math.round(p.y - h + (img.padB || 0) * P + (p.type === 'grass' ? 4 : 2));
     if (p.type !== 'grass') {
-      // Sombra: imagen guardada (antes, una elipse con su trazado en cada fotograma).
-      const sh = G.Tiles.shadow(p.type), sw = sh.width * P, shh = sh.height * P;
-      ctx.drawImage(sh, Math.round(p.x - sw / 2), Math.round(p.y - shh / 2), sw, shh);
+      if (ultra && CAST[p.type]) {
+        // Ultra: su silueta tumbada en el suelo (sombra proyectada, guardada por variante).
+        const cs = G.Tiles.castShadow(biome, p.type, variant);
+        ctx.drawImage(cs, x, y + cs.dy * P, cs.width * P, cs.height * P);
+      } else {
+        // Sombra: imagen guardada (antes, una elipse con su trazado en cada fotograma).
+        const sh = G.Tiles.shadow(p.type), sw = sh.width * P, shh = sh.height * P;
+        ctx.drawImage(sh, Math.round(p.x - sw / 2), Math.round(p.y - shh / 2), sw, shh);
+      }
     }
-    const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + (p.type === 'grass' ? 4 : 2));
+    // Ultra: lo alto se inclina hacia fuera del centro de la pantalla (cámara en
+    // perspectiva, como en los juegos de DS): una sola transformación por objeto.
+    const lean = ultra && TALL[p.type] ? -(p.x - G.Camera.x) / (G.Camera.w / 2) * LEAN : 0;
+    const by = p.y + 2;
+    if (lean) { ctx.translate(p.x, by); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-p.x, -by); }
+    let a = 1;
+    if (ultra && p.type === 'tree') {
+      // Si tu Pokémon queda detrás de la copa, se transparenta un poco.
+      const pl = livePl;
+      if (pl && pl.y < p.y - 2 && pl.y > p.y - h * 0.85 && Math.abs(pl.x - p.x) < w * 0.42) a = 0.55;
+    }
     const k = fadeK();
     if (k != null) {
       // El objeto viejo se desvanece mientras aparece el nuevo.
       const old = G.Tiles.propSprite(fade.from, p.type, variant);
-      ctx.globalAlpha = 1 - k;
-      ctx.drawImage(old, Math.round(p.x - old.width * P / 2), Math.round(p.y - old.height * P + (p.type === 'grass' ? 4 : 2)), old.width * P, old.height * P);
-      ctx.globalAlpha = k;
-    }
+      ctx.globalAlpha = (1 - k) * a;
+      ctx.drawImage(old, Math.round(p.x - (old.width - (old.padR || 0)) * P / 2), Math.round(p.y - (old.height - (old.padB || 0)) * P + (p.type === 'grass' ? 4 : 2)), old.width * P, old.height * P);
+      ctx.globalAlpha = k * a;
+    } else if (a < 1) ctx.globalAlpha = a;
     ctx.drawImage(img, x, y, w, h);
     if (p.flash > 0) { ctx.globalAlpha = 0.6; ctx.drawImage(G.Sprites.white(img), x, y, w, h); }
+    if (lean) { ctx.translate(p.x, by); ctx.transform(1, 0, -lean, 1, 0, 0); ctx.translate(-p.x, -by); }
     // (Sin save/restore por objeto: sólo se toca la transparencia y aquí se deja como estaba.)
     ctx.globalAlpha = 1;
   }
@@ -756,9 +856,67 @@ G.World = (() => {
 
   function biomeName() { return G.Tiles.BIOMES[biome].name; }
 
+  /*
+   * Ultra: luz del bioma en coordenadas de pantalla (en vez de la viñeta). Una
+   * imagen pequeña guardada (¼ de la pantalla, se estira suavizada): luz cálida
+   * arriba a la izquierda, sombra fresca abajo a la derecha, bruma arriba (lo
+   * lejano, como con la cámara inclinada de DS) y la viñeta. En los biomas oscuros
+   * (mood.dark), además, la luz alrededor de tu Pokémon como en las mazmorras de
+   * Mundo Misterioso. Cuesta dos drawImage por fotograma.
+   */
+  let lightCv = null, lightKey = '', darkCv = null, darkKey = '';
+  const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+  function makeLight(w, h, m) {
+    const cw = Math.max(48, Math.ceil(w / 4)), ch = Math.max(32, Math.ceil(h / 4));
+    const c = document.createElement('canvas');
+    c.width = cw; c.height = ch;
+    const g = c.getContext('2d');
+    let gr = g.createLinearGradient(0, 0, cw * 0.8, ch * 1.2);
+    gr.addColorStop(0, rgba(m.warm || '#fff0c0', 0.2));
+    gr.addColorStop(0.45, rgba(m.warm || '#fff0c0', 0));
+    gr.addColorStop(1, rgba(m.cool || '#0a1838', 0.3));
+    g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
+    gr = g.createLinearGradient(0, 0, 0, ch * 0.32);
+    gr.addColorStop(0, rgba('#d8e6ff', 0.12)); gr.addColorStop(1, rgba('#d8e6ff', 0));
+    g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
+    gr = g.createRadialGradient(cw / 2, ch * 0.46, Math.min(cw, ch) * 0.36, cw / 2, ch * 0.46, Math.max(cw, ch) * 0.78);
+    gr.addColorStop(0, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, rgba(m.cool || '#000000', 0.55));
+    g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
+    return c;
+  }
+  function makeDark(w, h, m) {
+    const cw = Math.max(64, Math.ceil(w / 2)), ch = Math.max(48, Math.ceil(h / 2));   // 2× la pantalla a ¼
+    const c = document.createElement('canvas');
+    c.width = cw; c.height = ch;
+    const g = c.getContext('2d');
+    const r0 = Math.min(cw, ch) * 0.2, r1 = Math.max(cw, ch) * 0.34;
+    const gr = g.createRadialGradient(cw / 2, ch / 2, r0, cw / 2, ch / 2, r1);
+    gr.addColorStop(0, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, rgba(m.cool || '#000000', m.dark));
+    g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
+    return c;
+  }
+  function drawLight(ctx, w, h) {
+    const m = G.Tiles.BIOMES[biome].mood || {};
+    const key = w + 'x' + h + '/' + biome;
+    if (key !== lightKey) { lightCv = makeLight(w, h, m); lightKey = key; }
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(lightCv, 0, 0, w, h);
+    if (m.dark > 0) {
+      if (key !== darkKey) { darkCv = makeDark(w, h, m); darkKey = key; }
+      const cam = G.Camera, pl = livePl;
+      let px = w / 2, py = h / 2;
+      if (pl) { px = (pl.x - cam.left()) * cam.scale; py = (pl.y - G.LIFT - cam.top()) * cam.scale; }
+      ctx.drawImage(darkCv, px - w, py - h, w * 2, h * 2);
+    }
+    ctx.imageSmoothingEnabled = false;
+  }
+
   /** Viñeta en coordenadas de pantalla (el degradado se guarda: sólo cambia con el tamaño). */
   let vig = null, vigW = 0, vigH = 0;
   function drawVignette(ctx, w, h) {
+    if (ultra) { drawLight(ctx, w, h); return; }
     if (!vig || vigW !== w || vigH !== h) {
       vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.34, w / 2, h / 2, Math.max(w, h) * 0.78);
       vig.addColorStop(0, 'rgba(0,0,0,0)');

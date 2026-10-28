@@ -12,7 +12,7 @@ G.SettingsUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const VERSION = '1.2 · 2026-10-09';
-  const REPO = 'https://github.com/JPTER78/pokesurvivor';
+  const REPO = G.UI.REPO;
   let tab = 'sound';
 
   function init() {
@@ -197,7 +197,8 @@ G.SettingsUI = (() => {
       + `<div class="list-row set-row set-col"><div class="chips" translate="no">${G.I18n.choices.map(([v, l]) =>
            `<button type="button" class="chip ${G.I18n.lang === v ? 'on' : ''}" data-lang="${v}" aria-pressed="${G.I18n.lang === v}">${l}</button>`).join('')}</div></div>`
       + section('Calidad', 'Cuántos efectos y partículas se dibujan. <b>Auto</b> la baja sola si el juego va a tirones (ahora: ' + auto + ').')
-      + list(choice('quality', [['auto', 'Auto'], ['high', 'Alta'], ['mid', 'Media'], ['low', 'Baja']]))
+      + '<p class="set-sub">Ultra: el mapa en 2,5D como en los juegos de DS (relieve, sombras y luz). Pide más al aparato.</p>'
+      + list(choice('quality', [['auto', 'Auto'], ['ultra', 'Ultra'], ['high', 'Alta'], ['mid', 'Media'], ['low', 'Baja']]))
       + section('Pantalla')
       + list(toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.'),
         toggle('calm', 'Menos sacudidas y destellos', 'La cámara tiembla menos y los fogonazos son suaves.'),
@@ -274,9 +275,9 @@ G.SettingsUI = (() => {
 
   function renderAccount(box) {
     const st = G.DB.guest ? 'guest' : G.DB.syncState;
-    // Lo mismo que el punto de la barra de arriba (ui.js): a la nube sólo se sube con Guardar.
-    const SYNC = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Sin guardar en la nube: pulsa Guardar',
-                   offline: 'Sin conexión: pulsa Guardar cuando vuelva', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
+    // Lo mismo que el punto de la barra de arriba (ui.js): se sube solo (db.js); aquí, además, Guardar.
+    const SYNC = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Pendiente de subir: se guarda solo en unos segundos',
+                   offline: 'Sin conexión: se guardará en cuanto vuelva.', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
     if (G.DB.guest) {
       box.innerHTML = section('Cuenta')
         + `<div class="acc-hero"><span class="ico-tile l round">${G.Icons.html('user', 34)}</span>`
@@ -298,9 +299,10 @@ G.SettingsUI = (() => {
       + list(row('Has entrado con', cloud && !named ? 'Cuenta de Google. Con otro Gmail tendrías otra partida.' : '', who),
         named ? row('Gmail vinculado', G.DB.hasGoogle ? 'Si olvidas la contraseña, entra con Google.' : 'Vincúlalo para entrar con Google si olvidas la contraseña.',
           G.DB.hasGoogle ? MAIL(mail || 'Google') : '<button type="button" class="btn small" id="set-link">Vincular Gmail</button>') : '',
-        row('Partida', cloud ? 'La nube se actualiza al pulsar Guardar, antes de una actualización automática y al cerrar sesión. Pulsa Guardar antes de cambiar de aparato.' : '',
+        row('Partida', cloud ? 'Se sube sola a la nube a los pocos segundos de cada cambio y al cerrar el juego. Si vas a cambiar de aparato, puedes guardar ya aquí.' : '',
           `<span class="set-val acc-sync"><i class="sync ${st}"></i><span>${esc(SYNC[st] || st)}</span></span>`))
-      + `<div class="set-acts">${cloud && st !== 'ok' && st !== 'syncing' ? '<button type="button" class="btn gold" id="set-save">Guardar</button>' : ''}
+      // Guardar: el único que queda (26-10-2026), por si acaso; dorado si hay algo sin subir.
+      + `<div class="set-acts">${cloud ? `<button type="button" class="btn ${st === 'ok' ? 'ghost' : 'gold'}" id="set-save"${st === 'syncing' ? ' disabled' : ''}>Guardar</button>` : ''}
            <button type="button" class="btn" id="set-logout">Cerrar sesión</button></div>`
       + '<div class="acc-danger"><button type="button" class="btn danger" id="set-delete">Borrar cuenta</button></div>'
       + '<p class="note set-note" id="set-msg" role="alert"></p>';
@@ -342,8 +344,9 @@ G.SettingsUI = (() => {
     box.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => { if (b.dataset.lang !== G.I18n.lang) G.I18n.set(b.dataset.lang); }; });
     const lo = $('set-login'); if (lo) lo.onclick = () => { close(); leave(); };
     const out = $('set-logout'); if (out) out.onclick = () => { close(); leave(); };
-    // Cuenta: Guardar (lo mismo que el botón de arriba) y vincular Gmail.
-    const sv = $('set-save'); if (sv) sv.onclick = () => $('btn-save').click();
+    // Cuenta: Guardar (sube ya lo pendiente; lo normal es que se suba solo) y vincular Gmail.
+    const sv = $('set-save');
+    if (sv) sv.onclick = async () => { sv.disabled = true; await G.UI.saveNow(); if (sv.isConnected) sv.disabled = false; };
     const lk = $('set-link');
     if (lk) lk.onclick = async () => {
       lk.disabled = true;

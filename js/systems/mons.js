@@ -35,12 +35,13 @@ G.Mons = (() => {
     h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15;
     return (h >>> 0) / 4294967296;
   }
-  const roll = (dex, salt) => hash(((save() && save().created) || 0) + ':' + dex + ':' + salt);
+  // created: la fecha de creación de la partida (sin ella, la de la partida abierta; ver rolledIn).
+  const roll = (dex, salt, created) => hash((created != null ? created : (save() && save().created) || 0) + ':' + dex + ':' + salt);
 
   // ---------------- naturaleza ----------------
 
   /** La que le tocó (sin Menta). */
-  function rolledNature(dex) { return G.NATURES[Math.floor(roll(dex, 'nat') * G.NATURES.length)]; }
+  function rolledNature(dex, created) { return G.NATURES[Math.floor(roll(dex, 'nat', created) * G.NATURES.length)]; }
   /** La que tiene ahora: la de la Menta o la que le tocó. */
   function natureOf(dex) {
     const s = save(), p = s && s.pnat && s.pnat[dex];
@@ -81,10 +82,19 @@ G.Mons = (() => {
   /** [habilidad 1, habilidad 2 o 0, oculta o 0] */
   const slots = dex => (G.DEX_ABIL && G.DEX_ABIL[dex]) || [0, 0, 0];
   /** Hueco que le tocó: 2 (oculta) 1 de cada 20 si tiene; si no, 0 o 1. */
-  function rolledSlot(dex) {
+  function rolledSlot(dex, created) {
     const l = slots(dex);
-    if (l[2] && roll(dex, 'hid') < HIDDEN_RATE) return 2;
-    return l[1] && roll(dex, 'abil') < 0.5 ? 1 : 0;
+    if (l[2] && roll(dex, 'hid', created) < HIDDEN_RATE) return 2;
+    return l[1] && roll(dex, 'abil', created) < 0.5 ? 1 : 0;
+  }
+  /**
+   * Lo que le tocó a dex en la partida s (no tiene por qué ser la abierta), sin Menta ni
+   * Cápsula: { nature: id, slot }. Para pasar lo de una preevolución a su forma final
+   * (core/db.js, «FAMILIAS», 26-10-2026).
+   */
+  function rolledIn(s, dex) {
+    const c = (s && s.created) || 0;
+    return { nature: rolledNature(dex, c).id, slot: rolledSlot(dex, c) };
   }
   /** { id, slot }: la de la Cápsula o la que le tocó. */
   function abilityOf(dex) {
@@ -127,7 +137,7 @@ G.Mons = (() => {
     return true;
   }
 
-  return { name, natureOf, setNature, rolledNature, monFor, formFor, abilityOf, abilityChoices, setAbility, abilityName,
+  return { name, natureOf, setNature, rolledNature, rolledIn, monFor, formFor, abilityOf, abilityChoices, setAbility, abilityName,
            slots, taught, learnable, canLearn, teach, natural };
 })();
 

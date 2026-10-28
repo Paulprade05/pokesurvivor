@@ -7,23 +7,30 @@
  * Además hay un logro por CADA legendario: vencerle en una grieta.
  */
 G.AchDefs = (() => {
-  const own = s => Object.keys(s.owned || {}).filter(d => G.DEX_BY[d]).length;
-  const shinies = s => Object.keys(s.shiny || {}).length;
-  const legends = s => Object.keys(s.legends || {}).length;
+  // Familias (26-10-2026, data/families.js): cada familia cuenta una vez, por su forma final
+  // (Charmander, Charmeleon y Charizard son un Pokémon: Charizard). Igual los shinies.
+  const fam = () => G.Fam && G.Fam.ready();
+  const own = s => (fam() ? G.Fam.owned(s) : Object.keys(s.owned || {}).filter(d => G.DEX_BY[d]).length);
+  const shinies = s => (fam() ? G.Fam.shinies(s) : Object.keys(s.shiny || {}).length);
+  // Legendarios vencidos, por familia: vencer a Cosmog cuenta para Solgaleo y Lunala.
+  const legBeat = (s, dex) => !!(s.legends && (s.legends[dex] || (fam() && G.Fam.lineOf(dex).some(d => s.legends[d]))));
+  const legends = s => LIST.filter(a => a.dex && legBeat(s, a.dex)).length;
   const st = k => s => (s.stats && s.stats[k]) || 0;
   const count = k => s => Object.keys(s[k] || {}).length;
 
-  const CATS = [['coleccion', 'Colección'], ['supervivencia', 'Supervivencia'], ['combate', 'Combate'],
+  const CATS = [['coleccion', 'Pokédex'], ['supervivencia', 'Supervivencia'], ['combate', 'Combate'],
                 ['grietas', 'Grietas'], ['legendarios', 'Legendarios'], ['otros', 'Misiones y más']];
 
   const LIST = [
-    // ---------- colección ----------
+    // ---------- colección (Pokédex) ----------
+    // (26-10-2026: con las familias hay unas 540 entradas, no 966: las metas de 250 y 500
+    // bajan a 150 y 300. Los ids se quedan, para no volver a dar premios ya cobrados.)
     { id: 'own1', cat: 'coleccion', tier: 1, name: 'Primer compañero', desc: 'Ten 1 Pokémon.', value: own, goal: 1, reward: { coins: 100 } },
     { id: 'own10', cat: 'coleccion', tier: 1, name: 'Pequeño equipo', desc: 'Ten 10 Pokémon.', value: own, goal: 10, reward: { t1: 2 } },
     { id: 'own50', cat: 'coleccion', tier: 2, name: 'Coleccionista', desc: 'Ten 50 Pokémon.', value: own, goal: 50, reward: { t1: 5 }, title: 'Coleccionista' },
     { id: 'own100', cat: 'coleccion', tier: 2, name: 'Cien amigos', desc: 'Ten 100 Pokémon.', value: own, goal: 100, reward: { t10: 1 } },
-    { id: 'own250', cat: 'coleccion', tier: 3, name: 'Maestro Pokémon', desc: 'Ten 250 Pokémon.', value: own, goal: 250, reward: { t10: 2 }, title: 'Maestro Pokémon' },
-    { id: 'own500', cat: 'coleccion', tier: 3, name: 'Enciclopedia', desc: 'Ten 500 Pokémon.', value: own, goal: 500, reward: { t10: 3 } },
+    { id: 'own250', cat: 'coleccion', tier: 3, name: 'Maestro Pokémon', desc: 'Ten 150 Pokémon.', value: own, goal: 150, reward: { t10: 2 }, title: 'Maestro Pokémon' },
+    { id: 'own500', cat: 'coleccion', tier: 3, name: 'Enciclopedia', desc: 'Ten 300 Pokémon.', value: own, goal: 300, reward: { t10: 3 } },
     { id: 'ownAll', cat: 'coleccion', tier: 3, name: 'Profesor Pokémon', desc: 'Ten todos los Pokémon del juego.', value: own, goal: 966, reward: { t10: 10 }, title: 'Profesor Pokémon' },
     { id: 'shiny1', cat: 'coleccion', tier: 1, name: 'Algo brilla', desc: 'Consigue 1 shiny.', value: shinies, goal: 1, reward: { t1: 3 }, title: 'Brillante' },
     { id: 'shiny5', cat: 'coleccion', tier: 2, name: 'Ojo para el brillo', desc: 'Consigue 5 shinies.', value: shinies, goal: 5, reward: { t10: 1 } },
@@ -74,15 +81,17 @@ G.AchDefs = (() => {
     { id: 'group10', cat: 'otros', tier: 2, name: 'Compañero fiel', desc: 'Juega 10 partidas en grupo.', value: st('groupRuns'), goal: 10, reward: { t10: 1 }, title: 'Compañero fiel' }
   ];
 
-  // Un logro por legendario: "Vence a Mewtwo"...
-  for (const p of G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex])) {
+  // Un logro por legendario: "Vence a Mewtwo"... Sólo los de forma final (26-10-2026); vencer a una
+  // preevolución (Cosmog, Kubfu...) cuenta para su(s) final(es) (legBeat).
+  for (const p of G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex] && (!fam() || G.Fam.isFinal(p.dex)))) {
     LIST.push({ id: 'leg_' + p.dex, cat: 'legendarios', tier: 2, dex: p.dex, name: 'Vence a ' + p.name,
-                desc: 'Derrota a ' + p.name + ' en una grieta.', value: s => (s.legends && s.legends[p.dex] ? 1 : 0), goal: 1, reward: { t1: 1 } });
+                desc: 'Derrota a ' + p.name + ' en una grieta.', value: s => (legBeat(s, p.dex) ? 1 : 0), goal: 1, reward: { t1: 1 } });
   }
   const totalLegends = LIST.filter(a => a.dex).length;
   for (const a of LIST) if (a.id === 'legAll') { a.goal = totalLegends; a.desc = `Vence a los ${totalLegends} legendarios.`; }
   // Metas que dependen de los datos del juego.
-  for (const a of LIST) if (a.id === 'ownAll') { a.goal = G.DEX.length; a.desc = `Ten los ${G.DEX.length} Pokémon del juego.`; }
+  const ALL = fam() ? G.Fam.total() : G.DEX.length;
+  for (const a of LIST) if (a.id === 'ownAll') { a.goal = ALL; a.desc = `Ten los ${ALL} Pokémon del juego.`; }
   const evoTotal = Object.keys(G.Moves.EVO).length;
   for (const a of LIST) if (a.id === 'evoAll') { a.goal = evoTotal; a.desc = `Evoluciona los ${evoTotal} movimientos distintos.`; }
 

@@ -12,6 +12,11 @@
  * sombra), `curl` (aspas en espiral), `ricochet` (rebota en una caja
  * alrededor de su dueño y vuelve a golpear cada `rehit` s) y `sway` (la
  * lluvia, que cae con vaivén). `alpha`: algo transparentes (la lluvia).
+ *
+ * Ataques únicos (26-10-2026, ver combat.js): `upd3(p, dt)` antes de moverse (lo que
+ * cambia su rumbo o su tamaño), `upd(p, dt)` después de moverse (su trayectoria propia),
+ * los dos con true = se acaba; `end(p)` al acabar su vida y `ds`, la escala a la que se
+ * dibuja (0 o sin poner: la de siempre).
  */
 G.Projectiles = (() => {
   let list = [];
@@ -58,7 +63,9 @@ G.Projectiles = (() => {
         continue;
       }
 
-      if (p.t >= p.life) { list.splice(i, 1); continue; }
+      // (end: lo que hace al acabar su vida; upd3: lo suyo antes de moverse —ataques únicos, combat.js—.)
+      if (p.t >= p.life) { if (p.end) p.end(p); list.splice(i, 1); continue; }
+      if (p.upd3 && p.upd3(p, dt)) { list.splice(i, 1); continue; }
 
       // Bumerán: a los `boom` segundos se da la vuelta (y puede volver a
       // golpear a los mismos) y vuelve a su dueño; al llegar, desaparece.
@@ -110,6 +117,8 @@ G.Projectiles = (() => {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
       }
+      // Trayectoria propia (ataques únicos, combat.js: onda, péndulo, botes...). true = se acaba.
+      if (p.upd && p.upd(p, dt)) { list.splice(i, 1); continue; }
 
       // Fuera de la vista con margen generoso -> se descarta.
       if (!G.Camera.sees(p.x, p.y, 260)) { list.splice(i, 1); continue; }
@@ -194,7 +203,7 @@ G.Projectiles = (() => {
       else if (G.VFX.spins(shape)) angle = p.t * 9;
       // (Los de un movimiento Z, del tamaño de lo que golpean: las bolas de fuego gigantes se ven gigantes.)
       G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, {
-        angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1,
+        angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.ds || (p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1),
         frame: Math.floor(p.t * 12)
       });
     }

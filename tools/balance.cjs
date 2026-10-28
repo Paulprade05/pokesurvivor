@@ -77,6 +77,8 @@ const load = f => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), s
 for (const f of ['js/core/util.js', 'js/data/types.js', 'js/systems/stats.js', 'js/data/moves.js', 'js/systems/levelup.js',
                  'js/entities/projectile.js', 'js/systems/combat.js']) load(f);
 const G = sandbox.G;
+// (26-10-2026) Daño fijo (Tinieblas) en «ataque 1»: se divide entre el ataque típico del minuto REF.min.
+G.BAL_ATK = REF.atk;
 
 // De mentira: efectos, sonido, mundo sin paredes, cámara de 768×432 que sigue al jugador.
 const VIS = Object.freeze({ proj: 'ball', pal: 'normal' });
@@ -110,19 +112,25 @@ class Dummy {
   constructor(x, y, r, boss) {
     this.id = nextId++; this.x = x; this.y = y; this.r = r; this.bodyH = r * 1.6; this.boss = boss;
     this.types = []; this.mon = null; this.behavior = 'chase'; this.dead = false; this.touchCd = 1e9;
+    // Hacia dónde mira (dirección de 8 del sprite): hacia ti, como en el juego (Brillo Mágico, Golpe Bajo...).
+    this.anim = { dir: 0 };
     // Vida en «ataque 1» (los barridos de pantalla quitan un % de ella); no baja: no se mueren.
     this.hpRef = boss ? REF.bossHp : REF.hp; this.maxHp = this.hp = this.hpRef / REF.atk;
     this.fresh();
   }
-  fresh() { this.burn = this.burnT = this.burnTick = 0; this.poison = this.poisonT = this.poisonTick = 0; this.slow = this.slowT = 0; this.stunT = 0; }
+  fresh() { this.burn = this.burnT = this.burnTick = 0; this.poison = this.poisonT = this.poisonTick = 0; this.slow = this.slowT = 0; this.stunT = 0; this.x2 = null; }
   cy() { return this.y; }
-  hurt(amount) { S.direct += Math.max(1, Math.round(amount)); S.hits++; }
+  /** Mira hacia pl (dirección de 8 del sprite), como los del juego que te persiguen. */
+  face(pl) { const a = Math.atan2(pl.y - this.y, pl.x - this.x); this.anim.dir = ((Math.round((Math.PI / 2 - a) / (Math.PI / 4)) % 8) + 8) % 8; }
+  // (Ataques únicos, 26-10-2026: Vulnerable y Espada Santa suben lo que recibe, como en enemy.js.)
+  hurt(amount) { if (this.x2) amount *= G.Combat.uq.stHurtK(this); S.direct += Math.max(1, Math.round(amount)); S.hits++; }
   applyStun(d) { this.stunT = Math.max(this.stunT, d); }
   applySlow(f, d = 1.2) { this.slow = Math.max(this.slow, f); this.slowT = Math.max(this.slowT, d); }
   applyBurn(n = 1) { this.burn = Math.min(8, this.burn + n); this.burnT = 3; }
   applyPoison(n = 1) { this.poison = Math.min(8, this.poison + n); this.poisonT = 4; }
   /** Estados como en enemy.js (en «ataque 1»: se divide entre REF.atk). */
   tick(dt) {
+    if (this.x2) G.Combat.uq.tickDummy(this, dt);      // (relojes de los estados nuevos y el veneno grave)
     if (this.stunT > 0) this.stunT -= dt;
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slow = 0; }
     if (this.burn > 0) {
@@ -143,7 +151,7 @@ function makePlayer(m, P, crit, abil) {
   const pl = {
     x: 0, y: 0, r: 14, wr: 14, bodyH: 24, scale: 1, aim: 0, moveAngle: 0, target: null, manualAim: false, dead: false, remote: false,
     cdMul: 1, critChance: (crit && crit.critChance) || 0, critDmg: (crit && crit.critDmg) || 0, abil: abil || null, pass: P, moves: [m], slots: [[m]], active: 0, swapLock: 0, level: REF.level,
-    dmgDealt: 0, invuln: 0, maxHp: 400, hp: 400,
+    dmgDealt: 0, invuln: 0, maxHp: 400, hp: 400, walking: true, dmgReduce: 0, dmgTaken: 0,   // (walking: Terratemblor pisa al andar)
     atkFor: () => 1, onDealt: noop, heal: noop, addBuff: noop, hasItem: () => false,
     activeGroup() { return this.slots[0]; }, activeMove() { return m; },
     cast(x) { if (x === m) S.casts++; }
@@ -191,7 +199,7 @@ const SCEN = {
       const tmp = { x: 0, y: 0, moveAngle: 0 };
       walk(tmp, t - lag, 110, 80); e.x = tmp.x; e.y = tmp.y;
       walk(pl, t, 110, 80);
-      e.tick(dt);
+      e.tick(dt); e.face(pl);
       pl.target = e; pl.aim = Math.atan2(e.y - pl.y, e.x - pl.x);
       if (Math.floor(t / 2) % 2) pl.moveAngle = pl.aim;
       struck(pl, dt, t, 1);
@@ -217,7 +225,7 @@ const SCEN = {
       for (const e of enemies) {
         e.tick(dt);
         // (Lo que les atrae un remolino se pierde: van pegados a ti.)
-        e.x = pl.x + e.ox; e.y = pl.y + e.oy;
+        e.x = pl.x + e.ox; e.y = pl.y + e.oy; e.face(pl);
         if ((e.life -= dt) <= 0) { e.life = 2 + rng() * 4; e.id = nextId++; e.fresh(); }
       }
       struck(pl, dt, t, 0.7);

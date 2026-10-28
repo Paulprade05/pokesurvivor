@@ -9,7 +9,7 @@ G.UI = (() => {
   const $ = id => document.getElementById(id);
   const SCREENS = ['scr-login', 'scr-test', 'scr-result', 'scr-starters', 'scr-menu',
                    'scr-dex', 'scr-upgrades', 'scr-shop', 'scr-bag', 'scr-gacha', 'scr-levelup', 'scr-pause', 'scr-over',
-                   'scr-nick', 'scr-friends', 'scr-lobby', 'scr-rank', 'scr-item', 'scr-goals', 'scr-bond', 'scr-mod'];
+                   'scr-nick', 'scr-friends', 'scr-lobby', 'scr-rank', 'scr-item', 'scr-goals', 'scr-bond', 'scr-mod', 'scr-compendium'];
 
   function show(id, keepMenu = false) {
     for (const s of SCREENS) if (s !== id && !(keepMenu && s === 'scr-menu')) $(s).classList.add('hidden');
@@ -67,10 +67,10 @@ G.UI = (() => {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------------- barra de arriba ----------------
-  // Botones que inician otros módulos (news-ui, support-ui, settings-ui y menu.js
-  // les ponen su onclick): el icono y el texto (éste sólo se ve en el menú «Más»)
-  // los pone aquí la barra, una vez y con todos ya iniciados.
-  const BAR = [['btn-news', 'news', 'Novedades'], ['btn-support', 'heart', 'Apoyar'], ['btn-full', 'full', 'Pantalla completa'],
+  // Botones que inician otros módulos (news-ui, settings-ui y menu.js les ponen
+  // su onclick): el icono y el texto (éste sólo se ve en el menú «Más») los pone
+  // aquí la barra, una vez y con todos ya iniciados.
+  const BAR = [['btn-news', 'news', 'Novedades'], ['btn-full', 'full', 'Pantalla completa'],
                ['btn-settings', 'gear', 'Ajustes'], ['btn-logout', 'logout', 'Salir']];
   let barDone = false;
   function barIcons() {
@@ -97,9 +97,10 @@ G.UI = (() => {
   }
 
   // Punto de sincronización: verde = guardado en la nube, amarillo = hay cambios
-  // sin subir (sólo se suben con Guardar, desde el 20-10-2026), rojo = sin conexión.
-  const TIP = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Sin guardar en la nube: pulsa Guardar',
-                offline: 'Sin conexión: pulsa Guardar cuando vuelva', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
+  // sin subir (se suben solos al poco, db.js), rojo = sin conexión. (Desde el
+  // 26-10-2026 no hay botón Guardar en la barra: sólo en Ajustes → Cuenta.)
+  const TIP = { ok: 'Guardado en la nube', syncing: 'Guardando…', pending: 'Pendiente de subir: se guarda solo en unos segundos',
+                offline: 'Sin conexión: se guardará en cuanto vuelva.', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
 
   function refreshCoins() {
     const s = G.DB.save;
@@ -117,11 +118,19 @@ G.UI = (() => {
     // En el móvil de pie, el perfil va dentro del menú «Más», con su estado escrito.
     $('tb-profile').innerHTML = svg('user') + `<span class="tbp-txt"><b translate="no">${name}</b>` +
       `<small><i class="sync ${st}"></i>${TIP[st] || ''}</small></span>`;
-    // Botón Guardar: sólo con cuenta en la nube (en local ya se guarda al momento).
-    // Lleva un punto rojo si hay cambios sin subir (data-sync, style.css).
-    const sb = $('btn-save');
-    sb.classList.toggle('hidden', G.DB.guest || G.DB.mode !== 'cloud');
-    sb.dataset.sync = st;
+  }
+
+  /**
+   * Sube ya lo pendiente a la nube y lo dice en un aviso (Ajustes → Cuenta: el único
+   * botón Guardar desde el 26-10-2026; lo demás se sube solo, ver db.js).
+   */
+  async function saveNow() {
+    const r = await G.DB.saveNow();
+    const MSG = { local: 'Tu partida se guarda en este navegador.', guest: 'Como invitado la partida no se guarda.',
+                  done: 'Ya está todo guardado en la nube.', offline: 'Sin conexión: se guardará en cuanto vuelva.',
+                  fail: 'No se pudo guardar. Vuelve a probar en un momento.' };
+    toast(r.why === 'wait' ? G.I18n.f('Se guarda en la nube en {x} s.', r.secs) : r.why ? MSG[r.why] : '¡Partida guardada en la nube!', 3000);
+    return r;
   }
 
   let toastEl = null, toastT = 0;
@@ -190,7 +199,7 @@ G.UI = (() => {
   // ---------------- aviso legal ----------------
 
   const CONTACT = 'jpieratorregrosa@gmail.com';
-  const REPO = 'https://github.com/JPTER78/pokesurvivor';
+  const REPO = 'https://github.com/Paulprade05/pokesurvivor';
   let legalBack = null;
 
   function openLegal() {
@@ -307,17 +316,6 @@ G.UI = (() => {
     if (wal && window.ResizeObserver) {
       new ResizeObserver(() => document.documentElement.style.setProperty('--tb-w', Math.ceil(wal.getBoundingClientRect().width) + 'px')).observe(wal);
     }
-    const sb = $('btn-save');
-    sb.innerHTML = svg('save') + '<span class="lbl">Guardar</span>';
-    sb.onclick = async () => {
-      sb.disabled = true;
-      const r = await G.DB.saveNow();
-      sb.disabled = false;
-      const MSG = { local: 'Tu partida se guarda en este navegador.', guest: 'Como invitado la partida no se guarda.',
-                    done: 'Ya está todo guardado en la nube.', offline: 'Sin conexión: se guardará en cuanto vuelva.',
-                    fail: 'No se pudo guardar. Vuelve a probar en un momento.' };
-      toast(r.why === 'wait' ? `Se guarda en la nube en ${r.secs} s.` : r.why ? MSG[r.why] : '¡Partida guardada en la nube!', 3000);
-    };
     wireSounds();
     refreshSoundIcon();
     $('btn-sound').onclick = () => {
@@ -482,7 +480,7 @@ G.UI = (() => {
     return cv;
   }
 
-  return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, typeChips, stars, confirmDelete,
+  return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, typeChips, stars, confirmDelete, saveNow, REPO,
            sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap, otherTab, svg, icons,
            /** ¿Está puesto el aviso de «abierto en otra pestaña»? (bloquea teclado y mando) */
            tabBlocked: () => !!tabEl && !tabEl.classList.contains('hidden') };

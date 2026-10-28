@@ -81,15 +81,16 @@ G.LoginUI = (() => {
    */
   const cloud = () => G.DB.mode === 'cloud' && !G.DB.guest;
   const NOTES = [
-    // Botón Guardar (18-10-2026). El .1 decía que se subía sola cada 10 minutos, y no es
-    // así desde el 20-10-2026: con otra clave (.2) se vuelve a enseñar a todos con lo cierto.
+    // Guardado (26-10-2026): ya no hay botón Guardar arriba, la partida se sube sola (db.js,
+    // guardado automático de esta copia). Los avisos .1 y .2 pedían pulsar Guardar: con otra
+    // clave (.3) se cuenta a todos que ya no hace falta y dónde queda el botón, por si acaso.
     // ico: el icono de la ventana (G.Icons; los de objeto a 60 px, los SVG a 40).
-    { key: 'ps.savenote.2', when: cloud, ico: 'save',
-      title: ['Importante: guarda tu partida', 'Important: save your game'],
-      body: ['<p>Tu progreso se guarda al momento <b>en este aparato</b>, pero a la nube sólo se sube cuando pulsas <b class="gold">Guardar</b> (arriba a la derecha), antes de una actualización automática o al cerrar sesión.</p>' +
-             '<p><b>Pulsa Guardar antes de cambiar de aparato</b>: si no, en el otro no estará lo último que hayas conseguido.</p>',
-             '<p>Your progress is saved instantly <b>on this device</b>, but it is only uploaded to the cloud when you press <b class="gold">Save</b> (top right), before an automatic update or when you log out.</p>' +
-             '<p><b>Press Save before switching devices</b>: otherwise your latest progress won’t be on the other one.</p>'] },
+    { key: 'ps.savenote.3', when: cloud, ico: 'save',
+      title: ['Tu partida ya se guarda sola', 'Your game now saves itself'],
+      body: ['<p>Ya no hace falta pulsar Guardar: lo que consigues se sube <b>solo a la nube</b> a los pocos segundos y al cerrar el juego.</p>' +
+             '<p>Si quieres asegurarte antes de cambiar de aparato, tienes <b class="gold">Guardar</b> en <b>Ajustes → Cuenta</b>.</p>',
+             '<p>You no longer need to press Save: your progress is uploaded <b>to the cloud automatically</b> after a few seconds and when you close the game.</p>' +
+             '<p>If you want to be sure before switching devices, there is a <b class="gold">Save</b> button in <b>Settings → Account</b>.</p>'] },
     { key: 'ps.ranknote.1', when: () => cloud() && ((G.DB.save.stats || {}).runs || 0) > 0, ico: 'trophy',   // rankings desde cero (18-10-2026)
       title: ['Los rankings se han reiniciado', 'The leaderboards have been reset'],
       body: ['<p>Hemos ajustado la <b>Sentencia de Arceus</b>: huir corriendo con toda la velocidad subida y el veneno ya no sirven para aguantar para siempre.</p>' +

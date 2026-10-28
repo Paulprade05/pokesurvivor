@@ -94,6 +94,7 @@ G.DB = (() => {
       zc: {},                 // tipo -> fecha: Cristales Z comprados (24-10-2026; para siempre, se juntan al fusionar)
       pz: {},                 // dex -> fecha: Pulsera Z de ese Pokémon (movimientos Z por Pokémon; igual que zc)
       pzDone: true,           // ya se regaló la Pulsera Z a quien tenía cristales de antes (migrate)
+      prec: {},               // dex -> [mejor tiempo, mejor nivel, más derrotados, más jefes] con él (data/families.js)
       tickets: { t1: 0, t10: 0 },   // tickets del gacha (x1 y x10)
       pity: {},               // generación del banner -> tiradas sin ★5
       legends: {},            // dex -> fecha: legendarios vencidos en grietas
@@ -127,8 +128,136 @@ G.DB = (() => {
     s.tickets = Object.assign({ t1: 0, t10: 0 }, s.tickets);
     sanitize(s);
     if (zGift) giftRings(s);
+    famMigrate(s);
     s.v = VERSION;
     return s;
+  }
+
+  // =====================================================================
+  //          FAMILIAS: cada una, por su forma final (26-10-2026)
+  // =====================================================================
+  /*
+   * Desde el 26-10-2026 cada familia se representa por su última evolución
+   * (data/families.js): en la Pokédex y en el gacha sólo hay formas finales. Lo que
+   * una partida tenga de una preevolución pasa a su forma final sin perder nada:
+   *   - Pokémon y shinies: la forma final a la que llega. En las ramas (Eevee, Wurmple,
+   *     Tyrogue, Slowpoke, Applin...) TODAS sus finales: con la preevolución podías
+   *     jugar cualquiera de sus ramas (en partida se elegía con una carta), y así sigues
+   *     pudiendo jugarlas todas.
+   *   - Mejoras: el nivel más alto de cada una (entre la final y sus preevoluciones).
+   *     MT: todas. Pulsera Z y trofeo de la Sentencia: si los tenía alguno (la fecha más antigua).
+   *   - Naturaleza y habilidad: la cambiada con Menta o Cápsula más reciente; si nadie
+   *     las cambió, la final se queda las suyas si ya la tenías y, si no, hereda las de
+   *     la preevolución con la que más has jugado (es «tu» Pokémon). La habilidad oculta,
+   *     si la tenía alguno, nunca se pierde.
+   *   - Favorito: lo último que hiciste en la familia. Partidas jugadas y récords: el mayor.
+   *   - Movimiento inicial, atajos y vetos: los de la final; si no tenía, los de la
+   *     preevolución con la que más has jugado.
+   *   - Compañero y favoritos del perfil: su forma final (en una rama, la que más has
+   *     jugado o mejorado).
+   * Va en migrate (cada vez que se carga o se junta una partida) y en commit, y es
+   * idempotente: si un aparato con la versión de antes vuelve a traer una preevolución,
+   * se pasa otra vez y queda igual (por eso todo es «el mayor», no sumas).
+   */
+  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pjudg', 'prec'];
+  const famOk = () => !!(G.Fam && G.Fam.ready());
+  const isPre = d => !!G.DEX_BY[d] && !G.Fam.isFinal(+d);
+
+  function famMigrate(s) {
+    if (!s || !famOk()) return false;
+    const pre = new Set();
+    for (const k of FAM_KEYS) if (isObj(s[k])) for (const d of Object.keys(s[k])) if (isPre(d)) pre.add(+d);
+    const partnerPre = s.partner != null && isPre(s.partner);
+    const favs = s.profile && Array.isArray(s.profile.favs) ? s.profile.favs : [];
+    if (!pre.size && !partnerPre && !favs.some(isPre)) return false;
+    // Lo que había antes de pasar nada: Pokémon y partidas con cada uno (famInto las sube a la final).
+    const before = new Set(Object.keys(s.owned || {}).map(Number));
+    const pu0 = Object.assign({}, isObj(s.pused) ? s.pused : {});
+    const used = d => +pu0[d] || 0;
+    const lv = d => Object.values((s.pupg || {})[d] || {}).reduce((a, b) => a + (+b || 0), 0);
+    // De cada forma final afectada, de dónde le llega algo: ella misma y sus preevoluciones.
+    const src = new Map();
+    for (const d of pre) for (const f of G.Fam.finalsOf(d)) { if (!src.has(f)) src.set(f, [f]); src.get(f).push(d); }
+    for (const [f, list] of src) famInto(s, f, list, before, used);
+    // Compañero: su final (en una rama, la que más has jugado, luego la más mejorada y la que ya tenías).
+    if (partnerPre) {
+      const best = l => l.slice().sort((a, b) => used(b) - used(a) || lv(b) - lv(a) || before.has(b) - before.has(a) || a - b)[0];
+      const f = best(G.Fam.finalsOf(s.partner));
+      if (f != null) { s.partner = f; if (s.partnerShiny && !(s.shiny && s.shiny[f])) s.partnerShiny = false; }
+    }
+    // Favoritos del perfil (los ven los demás): su final, sin repetir.
+    if (favs.some(isPre)) {
+      const out = [];
+      for (const d of favs) {
+        const f = isPre(d) ? (G.Fam.finalsOf(d).find(x => s.owned && s.owned[x]) || G.Fam.finalsOf(d)[0]) : d;
+        if (f != null && !out.includes(f)) out.push(f);
+      }
+      s.profile.favs = out.slice(0, 3);
+    }
+    for (const k of FAM_KEYS) if (isObj(s[k])) for (const d of pre) delete s[k][d];
+    return true;
+  }
+
+  /** Lo de `list` (la final f y sus preevoluciones) a f. before: lo que tenía la partida antes. */
+  function famInto(s, f, list, before, used) {
+    const get = k => (isObj(s[k]) ? list.filter(d => s[k][d] != null).map(d => [d, s[k][d]]) : []);
+    const put = (k, v) => { if (!isObj(s[k])) s[k] = {}; s[k][f] = v; };
+    // Pokémon y shinies: el que se consiguió antes (como al fusionar partidas).
+    for (const k of ['owned', 'shiny']) {
+      const l = get(k).filter(([, e]) => isObj(e)).sort((a, b) => (+a[1].at || 0) - (+b[1].at || 0));
+      if (l.length) put(k, Object.assign({}, l[0][1]));
+    }
+    // Mejoras: el nivel más alto de cada una.
+    const up = get('pupg');
+    if (up.length) {
+      const m = {};
+      for (const [, u] of up) if (isObj(u)) for (const id of Object.keys(u)) m[id] = Math.max(m[id] || 0, +u[id] || 0);
+      put('pupg', m);
+    }
+    // MT: todas.
+    const tm = get('ptm');
+    if (tm.length) put('ptm', [...new Set([].concat(...tm.map(([, l]) => (Array.isArray(l) ? l : []))))]);
+    // Pulsera Z y Sentencia: la fecha más antigua. Partidas jugadas: el mayor. Récords: el mayor de cada uno.
+    for (const k of ['pz', 'pjudg']) {
+      const ds = get(k).map(([, v]) => +v || 0).filter(v => v > 0);
+      if (ds.length) put(k, Math.min(...ds));
+    }
+    const pu = get('pused');
+    if (pu.length) put('pused', Math.max(...pu.map(([, v]) => +v || 0)));
+    const pr = get('prec');
+    if (pr.length) put('prec', [0, 1, 2, 3].map(i => Math.max(...pr.map(([, r]) => (Array.isArray(r) ? +r[i] || 0 : 0)))));
+    // Favorito: lo último que se hizo (poner o quitar) en la familia.
+    const fv = get('dfav');
+    if (fv.length) put('dfav', fv.map(([, v]) => +v || 0).sort((a, b) => Math.abs(b) - Math.abs(a))[0]);
+    // «Tu» Pokémon de la familia: la final si ya la tenías (así su naturaleza no cambia nunca);
+    // si no, la preevolución con la que más has jugado (a igualdad, la fase más avanzada).
+    const mine = before.has(f) ? f : list.filter(d => before.has(d))
+      .sort((a, b) => used(b) - used(a) || G.Fam.lineOf(b).length - G.Fam.lineOf(a).length)[0];
+    // Movimiento inicial, atajos y vetos: los de la final; si no, los de «tu» Pokémon (o de quien los tenga).
+    for (const k of ['pstart', 'pstart2', 'pbind', 'pban']) {
+      if (!isObj(s[k]) || s[k][f] != null) continue;
+      const from = mine != null && s[k][mine] != null ? mine : list.find(d => s[k][d] != null);
+      if (from != null) put(k, JSON.parse(JSON.stringify(s[k][from])));
+    }
+    if (!G.Mons || !G.Mons.rolledIn) return;
+    const roll = d => G.Mons.rolledIn(s, d);
+    // Naturaleza: la de la Menta más reciente; si no, la de «tu» Pokémon.
+    const nat = get('pnat').filter(([, e]) => Array.isArray(e)).sort((a, b) => (+b[1][1] || 0) - (+a[1][1] || 0));
+    if (nat.length) { if (nat[0][0] !== f) put('pnat', nat[0][1].slice()); }
+    else if (mine != null && mine !== f && (!G.NATURE_BY || G.NATURE_BY[roll(mine).nature])) put('pnat', [roll(mine).nature, 1]);
+    // Habilidad: la oculta si la tenía alguno (tocada o cambiada); si no, la de la Cápsula más
+    // reciente; si no, la de «tu» Pokémon. (Fecha 1: cualquier Cápsula que uses después manda.)
+    const sl = G.Mons.slots(f);
+    const ab = get('pabil').filter(([, e]) => Array.isArray(e)).sort((a, b) => (+b[1][1] || 0) - (+a[1][1] || 0));
+    const slotOf = d => { const e = isObj(s.pabil) && s.pabil[d]; return Array.isArray(e) ? e[0] : roll(d).slot; };
+    const cand = [...new Set(list.filter(d => before.has(d)).concat(ab.map(([d]) => d)))];
+    const hid = cand.find(d => slotOf(d) === 2);
+    let want = null;
+    if (sl[2] && hid != null) want = [2, Array.isArray((s.pabil || {})[hid]) ? +s.pabil[hid][1] || 1 : 1];
+    else if (ab.length) want = [ab[0][1][0], +ab[0][1][1] || 1];
+    else if (mine != null && mine !== f) want = [roll(mine).slot, 1];
+    const cur = Array.isArray((s.pabil || {})[f]) ? s.pabil[f][0] : (before.has(f) ? roll(f).slot : null);
+    if (want && sl[want[0]] && want[0] !== cur) put('pabil', want);
   }
 
   /**
@@ -202,6 +331,13 @@ G.DB = (() => {
     for (const d of Object.keys(s.pz)) {
       if ((G.DEX_BY && !G.DEX_BY[d]) || !n(s.pz[d])) delete s.pz[d];
       else s.pz[d] = n(s.pz[d]);
+    }
+    // Récords con cada Pokémon (26-10-2026): 4 números enteros de Pokémon que existen.
+    if (!isObj(s.prec)) s.prec = {};
+    for (const d of Object.keys(s.prec)) {
+      const r = s.prec[d];
+      if (!Array.isArray(r) || (G.DEX_BY && !G.DEX_BY[d])) delete s.prec[d];
+      else s.prec[d] = [0, 1, 2, 3].map(i => n(r[i]));
     }
     // MT aprendidas: movimientos que existen, sin repetir.
     if (!isObj(s.ptm)) s.ptm = {};
@@ -377,6 +513,12 @@ G.DB = (() => {
     for (const d in older.dfav || {}) if (Math.abs(+older.dfav[d] || 0) > Math.abs(+r.dfav[d] || 0)) r.dfav[d] = older.dfav[d];
     r.pused = r.pused || {};
     for (const d in older.pused || {}) r.pused[d] = Math.max(+r.pused[d] || 0, +older.pused[d] || 0);
+    // Récords con cada Pokémon: el mayor de cada uno.
+    r.prec = isObj(r.prec) ? r.prec : {};
+    for (const d in isObj(older.prec) ? older.prec : {}) {
+      const x = Array.isArray(r.prec[d]) ? r.prec[d] : [], y = Array.isArray(older.prec[d]) ? older.prec[d] : [];
+      r.prec[d] = [0, 1, 2, 3].map(i => Math.max(+x[i] || 0, +y[i] || 0));
+    }
     // Movimiento inicial: el de la versión más reciente; si no lo tenía elegido, el de la otra.
     for (const k of ['pstart', 'pstart2']) {
       r[k] = r[k] || {};
@@ -1048,6 +1190,9 @@ G.DB = (() => {
    * MODO NUBE). urgent ya no cambia nada (se queda por si vuelve a hacer falta).
    */
   function commit(urgent = false) {
+    // Lo de una preevolución recién llegada, a su forma final (el test del inicial da
+    // Charmander: compañero y Pokémon, Charizard). También a los invitados.
+    if (save) famMigrate(save);
     if (guest || !key || !save) return false;
     const prev = save.updated;
     save.updated = Date.now();
@@ -1171,13 +1316,28 @@ G.DB = (() => {
 
   // ---------------- helpers de partida ----------------
 
-  function owns(dex) { return !!(save && save.owned[dex]); }
+  /*
+   * Familias (26-10-2026): se tienen las formas finales. Una preevolución (un rescate,
+   * un shiny salvaje, el test del inicial) cuenta como tenida si tienes todas sus finales,
+   * y conseguirla da su forma final (en una rama, una que te falte, al azar).
+   */
+  const finals = dex => (famOk() && G.DEX_BY[dex] ? G.Fam.finalsOf(dex) : [dex]);
+  function owns(dex) { return !!save && finals(dex).every(d => !!save.owned[d]); }
 
-  function grant(dex, from) {
-    if (!save.owned[dex]) save.owned[dex] = { at: Date.now(), from };
+  /** La forma final que da conseguir dex: la suya o, en una rama, una que no tengas en `coll`. */
+  function famPick(dex, coll) {
+    const l = finals(dex), miss = l.filter(d => !(save[coll] && save[coll][d]));
+    return G.U && G.U.pick ? G.U.pick(miss.length ? miss : l) : (miss[0] || l[0]);
   }
 
-  function ownsShiny(dex) { return !!(save && save.shiny && save.shiny[dex]); }
+  /** Da dex (su forma final). → la forma final que se ha dado. */
+  function grant(dex, from) {
+    const d = famPick(dex, 'owned');
+    if (!save.owned[d]) save.owned[d] = { at: Date.now(), from };
+    return d;
+  }
+
+  function ownsShiny(dex) { return !!(save && save.shiny && finals(dex).every(d => !!save.shiny[d])); }
 
   /** Favoritos de la colección. */
   function isFav(dex) { return !!(save && save.dfav && +save.dfav[dex] > 0); }
@@ -1197,9 +1357,10 @@ G.DB = (() => {
 
   /** Da la versión shiny (y la normal, si no la tenía). Devuelve true si es nueva. */
   function grantShiny(dex, from) {
-    grant(dex, from);
-    if (save.shiny[dex]) return false;
-    save.shiny[dex] = { at: Date.now(), from };
+    const d = famPick(dex, 'shiny');
+    grant(d, from);
+    if (save.shiny[d]) return false;
+    save.shiny[d] = { at: Date.now(), from };
     return true;
   }
 

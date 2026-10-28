@@ -571,6 +571,397 @@ G.VFX = (() => {
     'make-it-rain':  { proj: 'coin', pal: 'electric' }
   };
 
+  // -- ataques únicos: Lucha, Veneno, Tierra, Volador, Psíquico, Bicho (26-10-2026) --
+  // Paletas, formas y aspecto propio de cada ataque de estos tipos (su mecánica, en combat.js).
+  Object.assign(PAL, {
+    acid:      ['#243206', '#4f6e0a', '#9ccc24', '#dcff62', '#fbffd2'],    // Bomba Ácida: verde-amarillo
+    ghostfire: ['#05241a', '#0c5634', '#27c873', '#98ffba', '#eafff0'],    // Hueso Sombrío (Marowak de Alola)
+    yveltal:   ['#120308', '#3c0a18', '#a3162e', '#ff4b5c', '#ffd4d8'],    // Ala Mortífera
+    // (gold —Espada Santa, Ataque Aéreo—: la del bloque de Roca, Fantasma..., de abajo; es la misma)
+    mist:      ['#56607a', '#9aa6c4', '#d2dcf2', '#f0f5ff', '#ffffff'],    // Bola Neblina
+    mud:       ['#241606', '#4a2e10', '#7a5222', '#a87c46', '#dcbc8e'],    // Disparo Lodo, Bomba Fango
+    hotsand:   ['#5a1c04', '#a8460c', '#f08a24', '#ffc75a', '#fff0c0'],    // Arenas Ardientes, Tierra Viva
+    psyb:      ['#3c0a5a', '#7a24b0', '#c45cff', '#ffe36a', '#fff8d8'],    // Psicorrayo: violeta y amarillo
+    focus:     ['#1a1c58', '#2c5cd0', '#ff8a2e', '#ffd28a', '#ffffff'],    // Onda Certera: azul y naranja
+    silk:      ['#5a5a66', '#a4a4b4', '#e2e2ea', '#f8f8ff', '#ffffff']     // Disparo Demora
+  });
+  Object.assign(SHAPES, {
+    // Espiral de confusión (sobre la cabeza).
+    spiral: { w: 11, h: 11, frames: 2, gen(P, f) {
+      for (let i = 0; i < 26; i++) { const a = i * 0.48 + f * 1.6, r = 0.6 + i * 0.17; P.set(5 + Math.cos(a) * r, 5 + Math.sin(a) * r, i > 18 ? 'l' : 'm'); }
+      P.set(5, 5, 'w');
+    } },
+    // Ojo de Premonición.
+    eye: { w: 13, h: 9, frames: 2, gen(P, f) {
+      P.fill((x, y) => { const e = ((x - 6) / 6) ** 2 + ((y - 4) / (f ? 2.6 : 3.4)) ** 2; return e <= 1 ? (e > 0.55 ? 'l' : 'w') : null; });
+      P.fill((x, y) => Math.hypot(x - 6, y - 4) < 1.9 ? 'm' : null);
+      P.set(6, 4, 'o'); P.set(5, 3, 'w');
+      P.outline();
+    } },
+    // Marca en X (Tijera X, Veneno X).
+    xmark: { w: 9, h: 9, gen(P) {
+      for (let i = 0; i < 9; i++) { P.set(i, i, i === 4 ? 'w' : 'l'); P.set(8 - i, i, i === 4 ? 'w' : 'l'); }
+      P.outline();
+    } },
+    // Rombo de señalado (Rayo Señal).
+    diamond: { w: 7, h: 9, gen(P) {
+      P.fill((x, y) => Math.abs(x - 3) / 3.2 + Math.abs(y - 4) / 4.2 <= 1 ? (y < 4 ? 'l' : 'm') : null);
+      P.set(3, 2, 'w'); P.outline();
+    } },
+    // Escudo roto (vulnerable).
+    crackshield: { w: 9, h: 10, gen(P) {
+      SHAPES.shield.gen(P);
+      for (const [x, y] of [[4, 1], [5, 2], [4, 3], [3, 4], [4, 5], [5, 6], [4, 7]]) P.set(x, y, 'o');
+    } },
+    // Abrojo de 4 puntas (Púas).
+    caltrop: { w: 9, h: 7, gen(P) {
+      P.line(1, 5, 4, 3, 'm'); P.line(7, 5, 4, 3, 'm'); P.line(4, 3, 4, 0, 'l'); P.line(4, 3, 4, 6, 'd');
+      P.set(4, 3, 'w'); P.set(4, 0, 'w');
+      P.outline();
+    } },
+    // Espada clavada (Espada Santa): mira hacia abajo.
+    swordv: { w: 7, h: 17, gen(P) {
+      for (let y = 6; y <= 15; y++) { P.set(3, y, 'w'); P.set(2, y, 'l'); P.set(4, y, 'm'); }
+      P.set(3, 16, 'l');
+      for (let x = 0; x <= 6; x++) P.set(x, 5, 'd');                   // cruz
+      for (let y = 1; y <= 4; y++) P.set(3, y, 'm');                   // empuñadura
+      P.set(3, 0, 'l');
+      P.outline();
+    } },
+    // Embudo de tornado (Huracán, Vendaval).
+    tornado: { w: 17, h: 21, frames: 3, gen(P, f) {
+      for (let y = 1; y < 20; y++) {
+        const w = 1 + (20 - y) * 0.36, cx = 8 + Math.sin(y * 0.45 + f * 2.1) * 1.6;
+        for (let k = -1; k <= 1; k += 2) P.set(cx + k * w, y, (y + f) % 3 ? 'l' : 'w');
+        if (y % 3 === f) P.line(cx - w, y, cx + w, y, 'm');
+      }
+    } },
+    // Bocanada de nube o gas.
+    puff: { w: 15, h: 9, frames: 2, gen(P, f) {
+      const B = [[4, 5, 3.4], [8, 4, 4], [11.5, 5.2, 3], [7, 6, 3.2]];
+      P.fill((x, y) => { for (const [cx, cy, r] of B) { const d = Math.hypot(x - cx, (y - cy) * 1.2); if (d < r + (f ? 0.3 : 0)) return d < r * 0.5 ? 'w' : y < 5 ? 'l' : 'm'; } return null; });
+      P.outline();
+    } },
+    // Colmena (Escaramuza).
+    hive: { w: 13, h: 15, gen(P) {
+      P.fill((x, y) => { const e = ((x - 6) / 5.6) ** 2 + ((y - 8) / 6.4) ** 2; return e <= 1 ? (y % 3 === 0 ? 'd' : x < 5 ? 'l' : 'm') : null; });
+      P.fill((x, y) => Math.hypot(x - 6, y - 11) < 1.6 ? 'o' : null);   // boca
+      P.set(6, 1, 'd'); P.set(6, 0, 'd');
+      P.outline();
+    } },
+    // Puño (mira a la derecha).
+    fistd: { w: 11, h: 11, dir: true, gen(P) {
+      P.fill((x, y) => (x >= 4 && x <= 9 && y >= 2 && y <= 8 && !(x === 9 && (y === 2 || y === 8))) ? (y < 4 ? 'l' : 'm') : null);
+      for (let y = 3; y <= 7; y++) P.set(1, y, 'd'), P.set(2, y, 'm'), P.set(3, y, 'm');   // muñeca
+      for (const y of [4, 6]) P.set(8, y, 'd');                                             // dedos
+      P.set(5, 2, 'w'); P.set(6, 2, 'w');
+      P.outline();
+    } },
+    // Taladro (Taladradora): cono en espiral que mira a la derecha.
+    drill: { w: 15, h: 11, frames: 2, dir: true, gen(P, f) {
+      P.fill((x, y) => { const hw = (14 - x) * 0.36; return x >= 1 && Math.abs(y - 5) <= hw ? ((x + y * 2 + f * 2) % 4 < 2 ? 'l' : 'm') : null; });
+      P.set(14, 5, 'w');
+      P.outline();
+    } },
+    // Cuerno de luz (Megacuerno).
+    horn: { w: 15, h: 9, dir: true, gen(P) {
+      P.fill((x, y) => { const hw = (14 - x) * 0.3 + 0.5; const yc = 5 - (x / 14) * 1.5; return x >= 1 && Math.abs(y - yc) <= hw ? (y < yc ? 'w' : 'l') : null; });
+      P.outline();
+    } }
+  });
+  Object.assign(MOVE, {
+    // Psíquico
+    'confusion':      { proj: 'ring', trail: 'wisp' },
+    'psybeam':        { beam: 'ring', pal: 'psyb' },
+    'psychic':        { proj: 'ring' },
+    'psycho-cut':     { proj: 'crescent', trail: 'wisp' },
+    'extrasensory':   { proj: 'eye' },
+    'mist-ball':      { proj: 'ball', pal: 'mist', trail: 'wisp' },
+    'photon-geyser':  { proj: 'star', pal: 'electric', trail: 'spark', rise: true },
+    'psychic-terrain': { proj: 'ring', aura: 'spiral' },
+    // Veneno
+    'sludge':         { proj: 'blob', trail: 'bubbles' },
+    'poison-sting':   { proj: 'needle', trail: 'bubbles' },
+    'toxic':          { aura: 'bubble', rise: true },
+    'toxic-spikes':   { proj: 'caltrop' },
+    'acid-spray':     { proj: 'drop', pal: 'acid', trail: 'bubbles' },
+    'cross-poison':   { proj: 'crescent', trail: 'wisp' },
+    'baneful-bunker': { proj: 'shield', aura: 'puff' },
+    // Tierra
+    'mud-shot':       { proj: 'blob', pal: 'mud', trail: 'dirt' },
+    'bulldoze':       { proj: 'rock', aura: 'rock', rise: true },
+    'bonemerang':     { proj: 'bone' },
+    'spikes':         { proj: 'caltrop', pal: 'steel' },
+    'sand-tomb':      { proj: 'rock', trail: 'dirt' },
+    'magnitude':      { proj: 'rock', trail: 'dirt' },
+    'bone-club':      { proj: 'bone' },
+    'mud-bomb':       { proj: 'blob', pal: 'mud', aura: 'bubble' },
+    // Volador
+    'gust':           { proj: 'wind' },
+    'wing-attack':    { melee: 'feather', proj: 'feather' },
+    'aerial-ace':     { proj: 'feather' },
+    'whirlwind':      { proj: 'wind' },
+    'air-slash':      { proj: 'crescent', trail: 'spark' },
+    'dual-wingbeat':  { proj: 'bird' },
+    'feather-dance':  { proj: 'feather', beam: 'wind' },
+    // Bicho
+    'bug-bite':       { melee: 'jaws' },
+    'string-shot':    { proj: 'web', pal: 'silk' },
+    'bug-buzz':       { aura: 'note' },
+    'signal-beam':    { proj: 'diamond', trail: 'spark' },
+    'u-turn':         { proj: 'streak', trail: 'spark' },
+    'pin-missile':    { proj: 'needle' },
+    'attack-order':   { proj: 'bee', pal: 'electric' },
+    // Lucha
+    'karate-chop':    { melee: 'impact', proj: 'fistd' },
+    'aura-sphere':    { proj: 'ball', pal: 'aura', trail: 'spark' },
+    'rolling-kick':   { melee: 'impact', proj: 'streak' },
+    'vacuum-wave':    { proj: 'ring', pal: 'aura' },
+    'dynamic-punch':  { proj: 'fistd' },
+    'cross-chop':     { proj: 'crescent', trail: 'spark' },
+    'sky-uppercut':   { proj: 'fistd', rise: true }
+  });
+  // -- fin: ataques únicos --
+
+  /* ---- ataques únicos: Roca, Fantasma, Dragón, Siniestro, Acero, Hada (26-10-2026) ----
+   * Formas, paletas y aspecto propio de cada ataque de estos seis tipos (el resto, en sus bloques).
+   * Formas: gem, spike, axe, fist, gobj (objetos fantasma), crack, dragonhead, dreepy, scale,
+   * moon, cloud, flower, mirror, magnet, sword. Todas con caché, como las demás. */
+  Object.assign(PAL, {
+    gem:       ['#4a0a1e', '#a0183e', '#e8406a', '#ff9ab8', '#ffffff'],
+    diamond:   ['#5a3a5e', '#b07ab8', '#f2c6f0', '#ffeefc', '#ffffff'],
+    ancient:   ['#2a2016', '#5e4a2e', '#9a8058', '#d8c48e', '#9af0ff'],
+    rockhot:   ['#3a1206', '#8a2e10', '#d85a24', '#ffa860', '#fff0c0'],
+    tongue:    ['#4a0e36', '#a03070', '#e66aa8', '#ffb0d6', '#ffffff'],
+    umbra:     ['#08040e', '#1e1030', '#3c2468', '#7a52c0', '#d8c0ff'],
+    wisp:      ['#101a48', '#2a3a9a', '#5a6aff', '#a8b4ff', '#f0f2ff'],
+    dragonhot: ['#2a0a50', '#6a1eb0', '#a45cff', '#e0c8ff', '#ffffff'],
+    dreepy:    ['#0e2a40', '#2a5e8a', '#4aa0d8', '#9ad8ff', '#ffffff'],
+    lunar:     ['#3a3048', '#8a7a9e', '#d8cce6', '#fff0fa', '#ffffff'],
+    regal:     ['#3e2a06', '#8a6010', '#d8a820', '#ffe070', '#fffbe0'],
+    gold:      ['#4a3000', '#a06c00', '#f0b800', '#ffe46a', '#ffffff'],
+    rose:      ['#5a0a2a', '#b02a5a', '#ff6a9a', '#ffc0d8', '#ffffff'],
+    therian:   ['#5a0a1a', '#b0203a', '#ff4a6a', '#ff9aaa', '#fff0f0'],
+    verdant:   ['#0e3a1a', '#2a7a3a', '#5ac86a', '#ffb0d0', '#ffffff'],
+    magnet:    ['#2a1010', '#8a1a1a', '#e03a3a', '#c8d0d8', '#ffffff'],
+    laser:     ['#4a0a0a', '#c02020', '#ff5a5a', '#ffd0d0', '#ffffff'],
+    nightmare: ['#1a0612', '#4a0e2a', '#8a1e4a', '#d05a8a', '#ffd0e0']
+  });
+  Object.assign(SHAPES, {
+    // Gema facetada: corona arriba y punta abajo; destella (Joya de Luz, Tormenta de Diamantes).
+    gem: { w: 11, h: 11, frames: 2, spin: true, gen(P, f) {
+      P.fill((x, y) => {
+        const dx = Math.abs(x - 5);
+        if (y < 1 || y > 10) return null;
+        if (y <= 3) { const half = 2 + (y - 1) * 1.4; return dx <= half ? (y === 1 ? 'l' : dx < 1 ? 'w' : 'l') : null; }
+        const half = 4.8 - (y - 3) * 0.72;
+        return dx <= half ? (x < 5 ? 'm' : 'd') : null;
+      });
+      for (let x = 2; x <= 8; x++) P.set(x, 4, 'l');
+      P.set(4, 6, 'l'); P.set(5, 7, 'm');
+      if (f) { P.set(3, 2, 'w'); P.set(7, 5, 'w'); }
+      P.outline();
+    } },
+    // Pico de piedra (Roca Afilada, Trampa Rocas): triángulo con grieta.
+    spike: { w: 9, h: 12, gen(P) {
+      P.fill((x, y) => {
+        if (y < 1 || y > 10) return null;
+        const half = (y - 1) * 0.42 + 0.4, dx = x - 4;
+        if (Math.abs(dx) > half) return null;
+        return dx < -half * 0.3 ? 'l' : dx > half * 0.45 ? 'd' : 'm';
+      });
+      P.set(4, 1, 'w'); P.set(3, 4, 'w'); P.line(5, 5, 4, 8, 'd');
+      P.outline();
+    } },
+    // Hacha de piedra que gira (Hachazo Pétreo).
+    axe: { w: 13, h: 13, spin: true, gen(P) {
+      P.line(3, 11, 9, 3, 'd', 1, 'm');                                            // mango
+      P.fill((x, y) => {                                                           // hoja de piedra
+        const dx = x - 9, dy = y - 3, d = Math.hypot(dx, dy);
+        return d < 3.6 && dx + dy > -1.5 ? (dx - dy > 1 ? 'l' : 'm') : null;
+      });
+      P.set(11, 1, 'w'); P.set(12, 3, 'w');
+      P.outline();
+    } },
+    // Puño que sale del suelo (Puño Sombra) o que cae (Puño Meteoro).
+    fist: { w: 11, h: 11, gen(P) {
+      P.fill((x, y) => {
+        if (y >= 3 && y <= 7 && x >= 1 && x <= 9) return y === 3 ? 'l' : x === 1 ? 'd' : 'm';      // nudillos
+        if (y >= 8 && y <= 10 && x >= 3 && x <= 7) return 'd';                                       // muñeca
+        return null;
+      });
+      for (const x of [3, 5, 7]) P.set(x, 4, 'd');                                                   // dedos
+      P.set(2, 3, 'w'); P.set(8, 5, 'l'); P.set(9, 6, 'l');
+      P.outline();
+    } },
+    // Objetos fantasma (Poltergeist): cuchara, piedra y taza según el fotograma.
+    gobj: { w: 11, h: 11, frames: 3, spin: true, gen(P, f) {
+      if (f === 0) {
+        P.line(2, 9, 7, 4, 'l', 1, 'm');
+        P.fill((x, y) => (((x - 8) / 2.2) ** 2 + ((y - 3) / 1.8) ** 2 <= 1 ? 'l' : null));
+        P.set(8, 2, 'w');
+      } else if (f === 1) {
+        P.fill((x, y) => { const d = Math.hypot(x - 5, (y - 5) * 1.2); return d < 4 ? (x + y < 9 ? 'l' : 'm') : null; });
+        P.set(4, 3, 'w');
+      } else {
+        P.fill((x, y) => (y >= 3 && y <= 8 && x >= 2 && x <= 7 ? (x === 2 ? 'l' : 'm') : null));
+        P.arc(8, 5.5, 1.8, -1.5, 1.5, 'l');
+        P.set(3, 3, 'w');
+      }
+      P.outline();
+    } },
+    // Grieta en el suelo (Rayo Umbrío).
+    crack: { w: 15, h: 7, gen(P) {
+      const pts = [[0, 3], [3, 2], [5, 4], [8, 2], [10, 4], [14, 3]];
+      for (let i = 0; i < pts.length - 1; i++) P.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 'w', 1, 'm');
+      P.set(6, 5, 'm'); P.set(9, 1, 'm');
+    } },
+    // Cabeza de dragón con las fauces abiertas (Pulso Dragón).
+    dragonhead: { w: 17, h: 13, frames: 2, dir: true, gen(P, f) {
+      const open = f ? 1 : 2;
+      P.fill((x, y) => {                                                           // cráneo
+        const d = Math.hypot((x - 7) / 6, (y - 5) / 3.6);
+        return d <= 1 ? (y < 4 ? 'l' : 'm') : null;
+      });
+      for (let x = 9; x <= 15; x++) { P.set(x, 4 - open + Math.floor((x - 9) / 4), 'm'); P.set(x, 7 + open - Math.floor((x - 9) / 4), 'm'); }   // mandíbulas
+      for (let x = 10; x <= 14; x += 2) { P.set(x, 5 - open + Math.floor((x - 9) / 4), 'w'); P.set(x, 6 + open - Math.floor((x - 9) / 4), 'w'); }
+      P.line(2, 2, 0, 0, 'l'); P.line(4, 1, 3, 0, 'l');                            // cuernos
+      P.set(8, 3, 'o'); P.set(7, 3, 'w');                                          // ojo
+      P.outline();
+    } },
+    // Dreepy (Dracoflecha): flecha translúcida con cabeza de triángulo.
+    dreepy: { w: 13, h: 9, frames: 2, dir: true, gen(P, f) {
+      P.fill((x, y) => {
+        if (x >= 7) { const half = (12 - x) * 0.8; return Math.abs(y - 4) <= half ? (y < 4 ? 'l' : 'm') : null; }  // cabeza
+        const half = 1 + (x - 1) * 0.15 + (f && x < 3 ? 0.5 : 0);
+        return x >= 1 && Math.abs(y - 4 - Math.sin(x * 1.2 + f * 2) * 0.6) <= half ? 'L' : null;                  // cola
+      });
+      P.set(9, 3, 'o'); P.set(10, 4, 'w');
+      P.outline();
+    } },
+    // Escama (Ráfaga Escamas): rombo con brillo.
+    scale: { w: 9, h: 9, dir: true, gen(P) {
+      P.fill((x, y) => (Math.abs(x - 4) / 4.2 + Math.abs(y - 4) / 3 <= 1 ? (y < 4 ? 'l' : x > 5 ? 'd' : 'm') : null));
+      P.set(3, 3, 'w'); P.set(4, 2, 'w');
+      P.outline();
+    } },
+    // Luna creciente con halo (Fuerza Lunar).
+    moon: { w: 13, h: 13, frames: 2, gen(P, f) {
+      P.fill((x, y) => {
+        const a = Math.hypot(x - 6, y - 6), b = Math.hypot(x - 8.6, y - 4.6);
+        if (a > 5.4 || b < 4.2) return f && a <= 6.2 && a > 5.4 && (x + y) % 3 === 0 ? 'L' : null;
+        return b < 5 ? 'w' : a > 4.4 ? 'm' : 'l';
+      });
+      P.outline();
+    } },
+    // Nube de pelea (Carantoña): bolas de polvo con una mano o una pata que asoma.
+    cloud: { w: 17, h: 13, frames: 3, gen(P, f) {
+      const B = [[5, 7, 3.6], [9, 5, 4], [12, 8, 3.4], [8, 9, 3.4]];
+      P.fill((x, y) => {
+        for (const [cx, cy, r] of B) { const d = Math.hypot(x - cx - (f === 1 ? 0.5 : 0), y - cy); if (d <= r) return d < r * 0.55 ? 'w' : 'l'; }
+        return null;
+      });
+      const limbs = [[[1, 6], [2, 6], [1, 7]], [[15, 4], [15, 5], [16, 5]], [[7, 12], [8, 12], [8, 11]]];
+      for (const [x, y] of limbs[f]) P.set(x, y, 'm');
+      P.set(f * 4 + 4, 3, 'm');                                                    // estrellita
+      P.outline();
+    } },
+    // Flor (Cañón Floral): cinco pétalos y el centro; abierta en el fotograma 1.
+    flower: { w: 11, h: 11, frames: 2, gen(P, f) {
+      const R = f ? 3.4 : 2.4;
+      for (let k = 0; k < 5; k++) {
+        const a = k * 1.2566 - 1.57, cx = 5 + Math.cos(a) * R, cy = 5 + Math.sin(a) * R;
+        P.fill((x, y) => (Math.hypot(x - cx, y - cy) <= 1.7 ? (P.get(x, y) || 'm') : null));
+      }
+      P.fill((x, y) => (Math.hypot(x - 5, y - 5) <= 1.4 ? 'w' : null));
+      P.set(4, 4, 'l');
+      P.outline();
+    } },
+    // Espejo que gira (Disparo Espejo): óvalo con marco, más estrecho al girar.
+    mirror: { w: 11, h: 13, frames: 3, gen(P, f) {
+      const rx = [4.4, 2.8, 1.2][f];
+      P.fill((x, y) => {
+        const e = Math.hypot((x - 5) / rx, (y - 5.5) / 5);
+        if (e > 1) return null;
+        return e > 0.78 ? 'm' : (x - 5 + (y - 5.5) * 0.5 < -0.5 ? 'w' : 'l');
+      });
+      P.set(5, 12, 'd'); P.set(5, 11, 'm');
+      P.outline();
+    } },
+    // Imán en U (Bomba Imán).
+    magnet: { w: 11, h: 11, gen(P) {
+      P.fill((x, y) => {
+        const d = Math.hypot(x - 5, y - 4);
+        if (y <= 4 && d <= 4.6 && d >= 2) return 'm';
+        if (y > 4 && y <= 9 && ((x >= 1 && x <= 3) || (x >= 7 && x <= 9))) return y >= 8 ? 'l' : 'm';
+        return null;
+      });
+      P.set(1, 9, 'w'); P.set(9, 9, 'w'); P.set(3, 1, 'w');
+      P.outline();
+    } },
+    // Espada fantasma (Embate Supremo, Aegislash).
+    sword: { w: 17, h: 7, dir: true, gen(P) {
+      for (let x = 5; x <= 15; x++) { P.set(x, 3, 'w'); P.set(x, 2, x < 14 ? 'l' : null); P.set(x, 4, x < 14 ? 'm' : null); }
+      P.set(16, 3, 'l');
+      for (let y = 0; y <= 6; y++) P.set(4, y, 'd');                               // guarda
+      for (let x = 0; x <= 3; x++) P.set(x, 3, 'm');                               // empuñadura
+      P.set(0, 3, 'l');
+      P.outline();
+    } }
+  });
+  Object.assign(MOVE, {
+    // Roca
+    'rock-throw':    { proj: 'rock', trail: 'dirt' },
+    'rock-slide':    { proj: 'rock', trail: 'dirt', aura: 'spike' },
+    'rock-tomb':     { proj: 'rock', trail: 'dirt' },
+    'ancient-power': { proj: 'rock', pal: 'ancient', trail: 'spark' },
+    'power-gem':     { proj: 'gem', pal: 'gem', trail: 'spark' },
+    'rock-blast':    { proj: 'rock', trail: 'dirt' },
+    'rollout':       { proj: 'rock', trail: 'dirt' },
+    // Fantasma
+    'lick':          { pal: 'tongue' },
+    'shadow-ball':   { proj: 'shadow', pal: 'umbra', trail: 'wisp' },
+    'hex':           { beam: 'shadow', proj: 'gobj', pal: 'umbra' },
+    'shadow-sneak':  { proj: 'shadow', pal: 'umbra', melee: 'claw' },
+    'ominous-wind':  { proj: 'leaf', pal: 'umbra', trail: 'wisp' },
+    'last-respects': { proj: 'wisp', pal: 'wisp' },
+    'astral-barrage': { proj: 'shadow', pal: 'wisp', trail: 'wisp' },
+    // Dragón
+    'dragon-rage':   { beam: 'fire', pal: 'dragon' },
+    'dragon-dance':  { buff: 'fire', pal: 'dragon' },
+    'dragon-breath': { proj: 'fire', trail: 'ember', pal: 'dragon' },
+    'dragon-claw':   { melee: 'claw', proj: 'crescent' },
+    'outrage':       { melee: 'claw', proj: 'dreepy' },
+    'scale-shot':    { proj: 'scale', trail: 'spark' },
+    'twister':       { proj: 'wind', trail: 'wisp' },
+    // Hada
+    'fairy-wind':    { proj: 'star', trail: 'spark' },
+    'dazzling-gleam': { aura: 'star' },
+    'draining-kiss': { proj: 'heart' },
+    'play-rough':    { proj: 'cloud', melee: 'impact' },
+    'disarming-voice': { proj: 'note', aura: 'heart' },
+    'fleur-cannon':  { beam: 'star', proj: 'petal', aura: 'flower', pal: 'rose' },
+    'springtide-storm': { proj: 'petal' },
+    // Acero
+    'metal-claw':    { melee: 'claw' },
+    'flash-cannon':  { beam: 'shard' },
+    'meteor-mash':   { proj: 'fist', trail: 'spark' },
+    'mirror-shot':   { proj: 'shard', trail: 'spark', aura: 'mirror' },
+    'gyro-ball':     { melee: 'impact', proj: 'wheel' },
+    'kings-shield':  { proj: 'shield', aura: 'star', pal: 'regal' },
+    'steel-wing':    { proj: 'bird', trail: 'spark' },
+    'make-it-rain':  { proj: 'coin', pal: 'gold' },
+    // Siniestro
+    'bite':          { melee: 'jaws' },
+    'dark-pulse':    { proj: 'crescent', pal: 'umbra' },
+    'night-shade':   { aura: 'shadow', rise: true },
+    'sucker-punch':  { proj: 'fist', trail: 'wisp' },
+    'night-slash':   { melee: 'claw' },
+    'dark-void':     { proj: 'shadow' },
+    'beat-up':       { proj: 'impact' }
+  });
+  /* ---- fin del bloque de Roca, Fantasma, Dragón, Siniestro, Acero, Hada ---- */
+
   const TYPE_SHAPE = {
     fire: 'fire', water: 'drop', grass: 'leaf', electric: 'bolt', psychic: 'ring', ice: 'shard',
     fighting: 'ball', poison: 'blob', ground: 'blob', flying: 'wind', bug: 'needle', rock: 'rock',

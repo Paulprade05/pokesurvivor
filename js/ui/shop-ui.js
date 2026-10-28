@@ -2,7 +2,8 @@
  * (20-10-2026, del PR #236 de TheAdro7, adaptado.)
  *   Tienda   en pestañas (24-10-2026): Objetos (Menta, Cápsulas), Pulsera Z (para el
  *            Pokémon que elijas), Cristales Z (los 18) y las 8 MT del día (data/shop.js);
- *            el puesto de los dos Kecleon (Scene) arriba o, en el móvil tumbado, a la izquierda
+ *            el puesto de los dos Kecleon (Scene) arriba o, en el móvil (26-10-2026), a
+ *            pantalla completa sólo al entrar y luego escondido (showStall / hideStall)
  *   Mochila  desde el menú principal (openBag)
  * Lo de la Mochila se usa desde la ficha de cada Pokémon en la colección.
  */
@@ -65,9 +66,9 @@ G.ShopUI = (() => {
     }
 
     function resize() {
-      const r = cv.getBoundingClientRect();
-      if (!r.width) return false;
-      const w = Math.round(r.width), h = Math.round(r.height);
+      // (El tamaño de la caja, sin transformaciones: en el móvil el puesto entra y sale deslizándose.)
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if (!w || !h) return false;
       if (w === W && h === H) return true;
       const oldLW = LW;
       W = w; H = h; cv.width = W; cv.height = H;
@@ -121,7 +122,15 @@ G.ShopUI = (() => {
 
     // ---------------- arranque, salto de la entrada, parada ----------------
 
-    function start(withIntro) {
+    /**
+     * Arranca el puesto. mode:
+     *   true / 'full'  la entrada entera (4,7 s; ordenador y tableta)
+     *   'fast'         la misma, en algo más de la mitad (2,6 s): la del móvil la primera vez
+     *   'hello'        sin persiana: salen los Kecleon, giran, saltan y saludan (1,4 s; el móvil, las demás veces)
+     *   false          ya montado, sin entrada
+     * done: se llama al acabar la entrada (no si se salta).
+     */
+    function start(mode, done) {
       cv = $('shop-scene'); ctx = cv.getContext('2d');
       if (!back) {
         back = document.createElement('canvas'); bg = back.getContext('2d');
@@ -131,34 +140,51 @@ G.ShopUI = (() => {
       W = 0;
       timers.forEach(clearTimeout); timers = [];
       parts = []; ks = [mk(false), mk(true)];
-      if (!resize()) { requestAnimationFrame(() => start(withIntro)); return; }
+      if (!resize()) { timers.push(setTimeout(() => start(mode, done), 50)); return; }
       for (const k of ks) { k.x = home(k); k.a.loop('Idle'); face(k); }
-      intro = withIntro;
-      if (!withIntro) { finish(); }
-      else {
-        // Todo cerrado.
+      intro = !!mode;
+      const end = () => { $('shop-sign').classList.add('lit'); intro = false; greet(); if (done) done(); };
+      if (!mode) { finish(); }
+      else if (mode === 'hello') {
+        // Puesto ya abierto: los Kecleon salen del camuflaje, giran, saltan con confeti y saludan.
+        finish(true); intro = true;
+        for (const k of ks) { k.cam = 0; k.camTo = 0; }
+        const sg = $('shop-sign'); sg.classList.remove('shown', 'lit', 'show');
+        at(120, () => { ks[0].camTo = 1; sparkle(ks[0].x, L.feet - 6); G.Audio.sfx('shiny'); });
+        at(300, () => { ks[1].camTo = 1; sparkle(ks[1].x, L.feet - 6); });
+        at(560, () => { for (const k of ks) spin(k, 0.4); });
+        at(900, () => {
+          for (const k of ks) { hop(k, 95); k.a.play('Attack'); }
+          confetti(LW / 2, L.openTop + 6, 50);
+          G.Audio.sfx('levelup');
+          sg.classList.add('show');
+        });
+        at(1400, end);
+      } else {
+        // Todo cerrado. (Con 'fast', todo antes: los tiempos por q y la persiana, más rápida.)
+        const q = mode === 'fast' ? 0.55 : 1, tq = (ms, fn) => at(ms * q, fn);
         shutter = 1; shutterV = 0; shake = 0; lit = [false, false]; shown = 0;
         for (const k of ks) { k.cam = 0; k.camTo = 0; }
-        at(250, () => G.Audio.sfx('descend'));
-        at(850, () => { shake = 1; G.Audio.sfx('shake'); });
-        at(1200, () => { shake = 1; G.Audio.sfx('shake'); });
-        at(1550, () => { shutterV = -1.6; G.Audio.sfx('chest'); });
-        at(2150, () => {
+        tq(250, () => G.Audio.sfx('descend'));
+        tq(850, () => { shake = 1; G.Audio.sfx('shake'); });
+        tq(1200, () => { shake = 1; G.Audio.sfx('shake'); });
+        tq(1550, () => { shutterV = -1.6 / q; G.Audio.sfx('chest'); });
+        tq(2150, () => {
           // El género, uno a uno.
-          slots.forEach((s, i) => at(i * 55, () => { shown = i + 1; s.pop = T; if (i % 3 === 0) G.Audio.sfx('coin'); }));
+          slots.forEach((s, i) => tq(i * 55, () => { shown = i + 1; s.pop = T; if (i % 3 === 0) G.Audio.sfx('coin'); }));
         });
-        at(2450, () => { lit[0] = true; G.Audio.sfx('select'); });
-        at(2620, () => { lit[1] = true; G.Audio.sfx('select'); });
-        at(2750, () => { ks[0].camTo = 1; sparkle(ks[0].x, L.feet - 6); G.Audio.sfx('shiny'); });
-        at(3000, () => { ks[1].camTo = 1; sparkle(ks[1].x, L.feet - 6); });
-        at(3550, () => { for (const k of ks) spin(k, 0.5); G.Audio.sfx('reveal', { rarity: 4 }); });
-        at(4050, () => {
+        tq(2450, () => { lit[0] = true; G.Audio.sfx('select'); });
+        tq(2620, () => { lit[1] = true; G.Audio.sfx('select'); });
+        tq(2750, () => { ks[0].camTo = 1; sparkle(ks[0].x, L.feet - 6); G.Audio.sfx('shiny'); });
+        tq(3000, () => { ks[1].camTo = 1; sparkle(ks[1].x, L.feet - 6); });
+        tq(3550, () => { for (const k of ks) spin(k, 0.5); G.Audio.sfx('reveal', { rarity: 4 }); });
+        tq(4050, () => {
           for (const k of ks) { hop(k, 95); k.a.play('Attack'); }
           confetti(LW / 2, L.openTop + 6, 70);
           G.Audio.sfx('levelup');
           const sg = $('shop-sign'); sg.classList.remove('shown'); sg.classList.add('show');
         });
-        at(4700, () => { $('shop-sign').classList.add('lit'); intro = false; greet(); });
+        tq(4700, end);
       }
       // El primer fotograma ya, para que no se vea la caja vacía ni un instante.
       cancelAnimationFrame(raf);
@@ -166,14 +192,14 @@ G.ShopUI = (() => {
       frame(last);
     }
 
-    /** Todo ya montado (sin entrada, o al saltarla). */
-    function finish() {
+    /** Todo ya montado (sin entrada, o al saltarla). quiet: sin saludar (lo hará la entrada corta). */
+    function finish(quiet) {
       timers.forEach(clearTimeout); timers = [];
       intro = false; shutter = 0; shutterV = 0; shake = 0; lit = [true, true];
       shown = slots.length; slots.forEach(s => { s.pop = -1; });
       for (const k of ks) { k.cam = k.camTo = 1; k.spin = 0; k.x = home(k); k.tx = null; k.then = null; k.a.loop('Idle'); face(k); }
       const sg = $('shop-sign'); sg.classList.remove('show'); sg.classList.add('shown', 'lit');
-      greet();
+      if (quiet !== true) greet();
     }
     function greet() { say(G.U.pick(['¡Bienvenido a la Tienda Kecleon!', '¡Hola! Echa un vistazo, ¿eh?'])); }
 
@@ -464,9 +490,22 @@ G.ShopUI = (() => {
     $('shop-bubble').classList.add('hide');
     render();
     const st = $('shop-stall'), withIntro = !G.Settings.get('calm');
+    const btn = $('shop-stall-btn');
+    if (!btn.firstChild) btn.innerHTML = G.Icons.html('shop', 30);
+    btn.onclick = () => { if (stallUp()) hideStall(); else showStall('hello'); };
+    $('shop-go').onclick = e => { e.stopPropagation(); hideStall(); };
+    clearTimeout(stallT);
     st.classList.remove('opening');
+    if (small()) {
+      // Móvil: el puesto, a pantalla completa, sólo para la entrada; luego se esconde y queda la tienda.
+      if (!withIntro) { hideStall(true); return; }
+      showStall(seenIntro ? 'hello' : 'fast', true);
+      seenIntro = true;
+      return;
+    }
+    $('scr-shop').classList.remove('stall-off');
     if (withIntro) { void st.offsetWidth; st.classList.add('opening'); setTimeout(() => st.classList.remove('opening'), 4800); }
-    // (Si el lienzo aún no tiene tamaño, start lo vuelve a intentar al siguiente fotograma.)
+    // (Si el lienzo aún no tiene tamaño, start lo vuelve a intentar enseguida.)
     Scene.start(withIntro);
     st.onclick = () => {
       if (!Scene.intro) return;
@@ -474,6 +513,49 @@ G.ShopUI = (() => {
       Scene.skip();
     };
   }
+
+  // ---------------- el puesto en el móvil (26-10-2026) ----------------
+  // Tumbado (también con el móvil de pie: el juego va girado) el puesto ya no se queda a
+  // un lado ocupando media pantalla: sale a pantalla completa con la entrada (la persiana,
+  // los Kecleon saludando, el género...), corta, y se esconde deslizándose hacia arriba;
+  // la tienda queda entera. Con el botón del puesto de la cabecera se vuelve a ver (y un
+  // toque, o «Ir a la tienda», lo esconde). Escondido no se dibuja.
+  const MOB = matchMedia('(max-height: 520px)');
+  const small = () => MOB.matches;
+  let stallT = 0, seenIntro = false;
+  const stallUp = () => !$('scr-shop').classList.contains('stall-off');
+  /** Saca el puesto. auto: al entrar (al acabar la entrada, un momento para el saludo y fuera); con el botón, hasta que lo toques. */
+  function showStall(mode, auto) {
+    const scr = $('scr-shop'), st = $('shop-stall');
+    clearTimeout(stallT);
+    scr.classList.remove('stall-off');
+    st.setAttribute('aria-hidden', 'false');
+    $('shop-stall-btn').setAttribute('aria-pressed', 'true');
+    Scene.start(mode, auto ? () => { stallT = setTimeout(hideStall, 1000); } : null);
+    st.onclick = () => hideStall();
+  }
+  function hideStall(now) {
+    const scr = $('scr-shop'), st = $('shop-stall');
+    clearTimeout(stallT);
+    if (Scene.intro) Scene.skip();
+    scr.classList.add('stall-off');
+    st.classList.remove('opening');
+    st.setAttribute('aria-hidden', 'true');
+    $('shop-stall-btn').setAttribute('aria-pressed', 'false');
+    $('shop-bubble').classList.add('hide');
+    // Cuando acaba de irse, se para (no se dibuja escondido).
+    stallT = setTimeout(() => { if (scr.classList.contains('stall-off')) Scene.stop(); }, now === true ? 0 : 500);
+  }
+  // Si la ventana pasa de móvil a tableta u ordenador con la tienda abierta (o al revés).
+  const onMob = () => {
+    if (!G.UI.isOpen('scr-shop')) return;
+    if (small()) { hideStall(true); return; }
+    clearTimeout(stallT);
+    $('scr-shop').classList.remove('stall-off');
+    $('shop-stall').onclick = null;
+    Scene.start(false);
+  };
+  if (MOB.addEventListener) MOB.addEventListener('change', onMob); else if (MOB.addListener) MOB.addListener(onMob);
 
   /**
    * Mochila desde el menú principal. Arriba a la derecha, la tienda; abajo,
@@ -570,8 +652,8 @@ G.ShopUI = (() => {
    *   Pulsera Z    para el Pokémon que elijas (selector; de serie, tu compañero)
    *   Cristales Z  los 18 en una rejilla; el elegido, abajo con su movimiento y el botón
    *   MT de hoy    las 8 del día
-   * En el móvil tumbado el puesto va a la izquierda y esto a la derecha, sin
-   * desplazar (CSS, «Tienda Kecleon» en la sección de la colección).
+   * En el móvil tumbado, a pantalla completa (el puesto sale sólo al entrar: showStall),
+   * con las pestañas siempre arriba (CSS, «Tienda Kecleon» en la sección de la colección).
    */
   const TABS = [['items', 'mint', 'Objetos'], ['ring', 'zring', 'Pulsera Z'], ['z', '', 'Cristales Z'], ['tm', 'tm', 'MT de hoy']];
   // Lo que dice el Kecleon al cambiar de pestaña.
@@ -592,7 +674,7 @@ G.ShopUI = (() => {
         tab = b.dataset.tab;
         G.Audio.sfx('select');
         render();
-        if (!Scene.intro) say(TAB_SAY[tab]);
+        if (!Scene.intro && stallUp()) say(TAB_SAY[tab]);
       };
     });
     box.querySelectorAll('[data-zt]').forEach(b => {
@@ -619,15 +701,24 @@ G.ShopUI = (() => {
         G.Audio.sfx('buy');
         G.UI.refreshCoins();
         const t = box.querySelector(`[data-fly="${key}"]`), icon = t ? t.innerHTML : '';
-        const from = Scene.cheer(key.startsWith('tm:') ? 'tm' : key.startsWith('z') ? 'zring' : SHELF_ICON[key] || 'ball');
-        say(key.startsWith('zr:') ? '¡Ya puede usar movimientos Z!' : G.U.pick(['¡Muchas gracias!', '¡Gracias, vuelve pronto!']));
+        let from;
+        if (!stallUp()) {
+          // Móvil con el puesto escondido: el objeto sale del botón y el puesto de la cabecera bota.
+          const r = b.getBoundingClientRect();
+          from = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+          const sb = $('shop-stall-btn');
+          sb.classList.remove('bump'); void sb.offsetWidth; sb.classList.add('bump');
+        } else {
+          from = Scene.cheer(key.startsWith('tm:') ? 'tm' : key.startsWith('z') ? 'zring' : SHELF_ICON[key] || 'ball');
+          say(key.startsWith('zr:') ? '¡Ya puede usar movimientos Z!' : G.U.pick(['¡Muchas gracias!', '¡Gracias, vuelve pronto!']));
+        }
         render();
         if (icon) flyToBag(icon, from, key);
       };
     });
     // Pasar por algo de la tienda: el Kecleon más cercano va a señalarlo.
     box.querySelectorAll('.shop-row, .z-cell').forEach(it => {
-      it.addEventListener('pointerenter', () => { const r = it.getBoundingClientRect(); Scene.point(r.left + r.width / 2); });
+      it.addEventListener('pointerenter', () => { if (!stallUp()) return; const r = it.getBoundingClientRect(); Scene.point(r.left + r.width / 2); });
     });
   }
 

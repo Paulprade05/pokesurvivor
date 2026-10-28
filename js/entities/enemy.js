@@ -969,6 +969,44 @@
       }
     }
 
+    /**
+     * Animación según lo que le pasa (26-10-2026), aparte de la IA (que sigue pidiendo
+     * Idle / Walk; aquí se cambian con anim.sub): aturdido se encoge a ratos (Hurt
+     * despacio) y, si es para rato (dormir: Brecha Negra...), se duerme (Sleep); con la
+     * mecha encendida, cargando; el saltador salta (Hop) en el aire. Lo de caer al morir
+     * va en sprites.js. Lo llama el gestor tras cada update (también a las copias del
+     * cooperativo, a las que casi nada de esto les llega: se ven como antes). Sólo se ve.
+     */
+    pickAnim() {
+      const a = this.anim;
+      if (this.dead) { a.sub = null; return; }
+      // Su hoja de dormir (diminuta) desde el principio, para caer y dormirse ya la primera
+      // vez; los saltadores, también la de saltar. (Sólo al empezar: en cada fotograma, no.)
+      if (this.animAt !== a) {
+        this.animAt = a;
+        G.Sprites.ready(this.dex, 'Sleep', a.shiny);
+        if (this.behavior === 'jumper') G.Sprites.ready(this.dex, 'Hop', a.shiny);
+      }
+      const S = Enemy.SUBS || (Enemy.SUBS = { sleep: { Idle: 'Sleep' }, daze: { Idle: 'Hurt' }, fuse: { Idle: 'Charge' } });
+      let sub = null;
+      if (this.stunT > 0) {
+        // Al aturdirle (otra vez): si es para rato y tiene con qué, dormido; si no, encogido.
+        if (this.stunT > (this.stunSeen || 0) + 0.05) this.stunNap = this.stunT >= 1.5 && G.Sprites.ready(this.dex, 'Sleep', a.shiny);
+        sub = this.stunNap ? S.sleep : S.daze;
+      } else if (this.phase === 'fuse') sub = S.fuse;
+      this.stunSeen = this.stunT || 0;
+      a.sub = sub;
+      a.subK = sub === S.daze ? 0.5 : sub === S.fuse ? 1.6 : 1;
+      // (Sólo los saltadores: los jefes son muy grandes y su hoja de saltar pesa mucho.)
+      const j = this.behavior === 'jumper' && this.jump;
+      if (!j) { this.hopped = false; return; }
+      if (j.t >= 0 && !this.hopped) {
+        this.hopped = true;
+        const m = G.Sprites.ready(this.dex, 'Hop', a.shiny) && G.Sprites.animMeta(this.dex, 'Hop', a.shiny);
+        if (m) a.play('Hop', { speed: Math.max(0.5, m.d.reduce((s, d) => s + d, 0) / 60 / j.dur) });
+      }
+    }
+
     draw(ctx) {
       const alpha = this.dead ? G.U.clamp(this.fade / 0.5, 0, 1) : 1;
       if (alpha <= 0) return;
@@ -1224,6 +1262,7 @@
       for (const e of list) {
         if (e.remote) e.netUpdate(dt);
         else e.update(dt, nearestPlayer(players, e.x, e.y) || pl);
+        e.pickAnim();
       }
       if (!G.Coop.active || G.Coop.isHost) separate(dt);
       for (let i = list.length - 1; i >= 0; i--) {

@@ -108,10 +108,29 @@
                           : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min';
     }
 
+    // (26-10-2026) Más compactas: las recogidas, en una línea baja (sin barra); la cuenta, junto
+    // al título; y «Recoger todo» si hay más de un premio esperando.
     function missions(box) {
       const M = G.DB.save.missions;
+      const ready = [...M.daily.map(m => [m, false]), ...M.weekly.map(m => [m, true])].filter(([m]) => !m.claimed && G.Progress.done(m));
+      if (ready.length > 1) {
+        const all = document.createElement('div');
+        all.className = 'goals-claim-all';
+        all.innerHTML = `<span class="ico-tile s round t-gold">${ico('coin')}</span><b>${G.I18n.f('{x} premios por recoger', ready.length)}</b>`;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn small gold'; b.textContent = 'Recoger todo'; b.dataset.sfx = 'none';
+        b.onclick = () => {
+          let n = 0;
+          for (const [m, w] of ready) if (G.Progress.claim(m, w)) n++;
+          if (n) { G.Audio.sfx('buy'); G.UI.toast('¡Premio recogido!'); }
+          render();
+        };
+        all.appendChild(b);
+        box.appendChild(all);
+      }
       const section = (title, list, weekly) => {
-        box.insertAdjacentHTML('beforeend', `<div class="goals-sec${weekly ? ' weekly' : ''}"><h3>${title}</h3>
+        const got = list.filter(m => m.claimed).length;
+        box.insertAdjacentHTML('beforeend', `<div class="goals-sec${weekly ? ' weekly' : ''}"><h3>${title}<small>${got} / ${list.length}</small></h3>
           <span class="goals-left">${G.UI.svg('refresh', 16)}<span>Se renuevan en ${untilText(weekly ? 'w' : 'd')}</span></span></div>`);
         const wrap = document.createElement('div');
         wrap.className = 'mission-list';
@@ -125,9 +144,9 @@
           const tint = m.claimed ? '' : done ? ' t-gold' : weekly ? ' t-purple' : ' t-blue';
           el.innerHTML = `
             <span class="ico-tile m-ico${tint}">${icon}</span>
-            <div class="m-txt"><b>${esc(G.Progress.text(m))}</b>
-              <div class="m-prog"><div class="meter${done ? ' green' : ''}"><i style="width:${pct}%"></i></div>
-              <small>${num(Math.min(m.prog, m.goal))} / ${num(m.goal)}</small></div></div>
+            <div class="m-txt"><div class="m-l1"><b>${esc(G.Progress.text(m))}</b>
+              <small class="m-n">${num(Math.min(m.prog, m.goal))} / ${num(m.goal)}</small></div>
+              ${m.claimed ? '' : `<div class="meter m-bar${done ? ' green' : ''}"><i style="width:${pct}%"></i></div>`}</div>
             <div class="m-rw">${rewardChips(d.reward)}</div>`;
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -158,11 +177,12 @@
       const s = G.DB.save;
       const all = G.AchDefs.LIST;
       const got = all.filter(a => s.ach && s.ach[a.id]).length;
-      box.insertAdjacentHTML('beforeend', `<div class="panel ach-sum">
-        <span class="ico-tile l round t-gold">${G.Icons.html('medal3', 60)}</span>
-        <div class="grow"><b class="ach-count">${got} / ${all.length}</b>
-          <p class="sub">${got} de ${all.length} logros · títulos: ${G.Progress.titles().length}</p>
-          <div class="meter"><i style="width:${all.length ? got / all.length * 100 : 0}%"></i></div></div></div>`);
+      // Resumen en una franja (26-10-2026): medalla, cuántos, la barra y los títulos.
+      box.insertAdjacentHTML('beforeend', `<div class="ach-sum">
+        <span class="ico-tile s round t-gold">${ico('medal3')}</span>
+        <b class="ach-count">${got} / ${all.length}</b>
+        <div class="meter"><i style="width:${all.length ? got / all.length * 100 : 0}%"></i></div>
+        <span class="ach-titles">${ico('crown')}<span>${G.I18n.f('{x} títulos', G.Progress.titles().length)}</span></span></div>`);
 
       // Categorías: píldoras que se deslizan de lado en el móvil.
       const chips = document.createElement('div');
@@ -223,51 +243,83 @@
         // (la evolución, el mismo dibujo en baldosa dorada; con ✓ si ya la tienes).
         const eg = document.createElement('div');
         eg.className = 'evo-grid evo-eqs';
+        // Cada una lleva a la ficha del ataque en el Compendio (26-10-2026).
         eg.innerHTML = ids.map(id => {
           const need = G.LevelUp.STATS.find(x => x.id === EVO[id][1]);
           const needName = need ? need.title : G.Moves.NEED_NAME[EVO[id][1]] || '';
           const col = G.U.TYPE_COLOR[BY[id].type] || '#9fb1c9';
-          return `<div class="evo-tile${ok(id) ? ' ok' : ''}">
-            <div class="evo-eq"><span class="ico-tile s tint" style="--tile-c:${col}">${ico('move:' + id)}</span><i>+</i>`
+          return `<button type="button" class="evo-tile${ok(id) ? ' ok' : ''}" data-mv="${esc(id)}">
+            <span class="evo-eq"><span class="ico-tile s tint" style="--tile-c:${col}">${ico('move:' + id)}</span><i>+</i>`
             + `<span class="ico-tile s" title="${esc(needName)}">${need ? ico(need.icon) : ''}</span><i>=</i>`
-            + `<span class="ico-tile s t-gold evo-to">${ico('move:' + id)}${ok(id) ? `<span class="evo-got" title="¡Conseguido!">${G.UI.svg('check', 12)}</span>` : ''}</span></div>
-            <div class="evo-txt"><b>${G.T(BY[id].name, 'move')}</b><small class="gold">→ ${G.T(EVO[id][0], 'move')}</small>
-            <small><span>${needName}</span> · <span>Nv.</span> ${BY[id].maxLvl}</small></div></div>`;
+            + `<span class="ico-tile s t-gold evo-to">${ico('move:' + id)}${ok(id) ? `<span class="evo-got" title="¡Conseguido!">${G.UI.svg('check', 12)}</span>` : ''}</span></span>
+            <span class="evo-txt"><b>${G.T(BY[id].name, 'move')}</b><small class="gold">→ ${G.T(EVO[id][0], 'move')}</small>
+            <small><span>${needName}</span> · <span>Nv.</span> ${BY[id].maxLvl}</small></span></button>`;
         }).join('');
+        eg.onclick = e => { const t = e.target.closest('[data-mv]'); if (t && G.CompendiumUI) G.CompendiumUI.open('moves', t.dataset.mv); };
         box.appendChild(eg);
       }
     }
 
+    /**
+     * Un logro en una ficha baja (26-10-2026; antes, una tarjeta alta con todo en columna):
+     * la medalla a la izquierda; nombre (y su título, si da uno) y qué pide; a la derecha el
+     * premio y la cuenta (o ✓); y la barra de progreso fina en el borde de abajo.
+     */
     function achCard(a, s) {
       const ok = !!(s.ach && s.ach[a.id]);
       const v = Math.min(a.goal, a.value(s));
       const el = document.createElement('div');
       el.className = 'ach-tile tier' + a.tier + (ok ? ' ok' : '');
-      el.innerHTML = `<span class="ico-tile round ach-medal">${G.Icons.html(ok ? 'medal' + a.tier : 'medalOff', 60)}
-          ${ok ? '' : `<span class="ach-lock">${G.UI.svg('lock', 14)}</span>`}</span>
-        <b class="ach-name">${esc(a.name)}</b>
-        <small class="ach-desc">${esc(a.desc)}</small>
-        ${ok ? `<span class="ach-done">${G.UI.svg('check', 16)}<span>¡Conseguido!</span></span>`
-             : `<div class="ach-prog"><div class="meter"><i style="width:${v / a.goal * 100}%"></i></div><small>${num(v)} / ${num(a.goal)}</small></div>`}
-        ${rewardChips(a.reward)}
-        ${a.title ? `<span class="ach-title">Título: ${esc(a.title)}</span>` : ''}`;
+      el.innerHTML = `<span class="ico-tile round ach-medal">${ico(ok ? 'medal' + a.tier : 'medalOff')}`
+        + `${ok ? '' : `<span class="ach-lock">${G.UI.svg('lock', 12)}</span>`}</span>
+        <div class="ach-main"><div class="ach-l1"><b class="ach-name">${esc(a.name)}</b>`
+        // El título que da: la corona y su nombre (sólo la corona si se llama como el logro).
+        + `${a.title ? `<span class="ach-title${a.title === a.name ? ' same' : ''}" title="${esc(G.I18n.f('Título: {x}', a.title))}">${ico('crown')}`
+          + `${a.title === a.name ? '' : `<span>${esc(a.title)}</span>`}</span>` : ''}</div>
+          <small class="ach-desc">${esc(a.desc)}</small></div>
+        <div class="ach-side">${rewardChips(a.reward)}${ok ? `<span class="ach-done" title="¡Conseguido!">${G.UI.svg('check', 14)}<span>¡Conseguido!</span></span>`
+          : `<small class="ach-n">${num(v)} / ${num(a.goal)}</small>`}</div>
+        ${ok ? '' : `<i class="ach-bar"><i style="width:${v / a.goal * 100}%"></i></i>`}`;
       return el;
     }
 
     // ---------------- perfil (editar) ----------------
 
+    /*
+     * Perfil (26-10-2026): una ficha de entrenador, como en los juegos (antes, tres cajas
+     * enormes y mucho hueco). A la izquierda la ficha —tu apodo, el título (se elige ahí
+     * mismo) y tus 3 favoritos, que se cambian tocándolos— y a la derecha tus marcas, las
+     * mismas que ven los demás en tu perfil público, y cuánto llevas de colección y logros.
+     */
     function profile(box) {
-      const s = G.DB.save;
+      const s = G.DB.save, st = s.stats || {};
       s.profile = s.profile || { favs: [], title: '' };
       const P = s.profile;
-      box.insertAdjacentHTML('beforeend', `<p class="sub goals-hint">${G.DB.online ? 'Así te ven los demás jugadores (desde el ranking y la lista de amigos).'
-        : 'Tu perfil se publica cuando juegas con una cuenta online.'}</p>
-        <div class="goals-sec"><h3>Tus 3 Pokémon favoritos</h3></div>`);
-      const favs = document.createElement('div');
-      favs.className = 'fav-slots';
-      box.appendChild(favs);
+      const titles = G.Progress.titles();
+      const name = G.Social.me ? G.Social.me.name : G.DB.guest ? G.T('Invitado') : (G.DB.user || '');
+      const ownedN = Object.keys(s.owned || {}).filter(d => G.DEX_BY[d]).length;
+      const achN = G.AchDefs.LIST.filter(a => s.ach && s.ach[a.id]).length;
+
+      const card = document.createElement('section');
+      card.className = 'tcard';
+      card.innerHTML = `<div class="tc-top">
+          <span class="ico-tile round t-gold tc-ico">${G.Icons.html(G.DB.guest ? 'user' : 'crown', 30)}</span>
+          <div class="tc-id"><span class="eyebrow">Ficha de entrenador</span><h3 class="tc-name" translate="no">${esc(name)}</h3></div>
+        </div>
+        <label class="tc-title${P.title ? ' on' : ''}">${ico('crown')}<select aria-label="Título"></select></label>
+        <div class="fav-slots tc-favs" id="tc-favs"></div>
+        <p class="tc-hint">${G.DB.online ? 'Así te ven los demás jugadores (desde el ranking y la lista de amigos). Toca un favorito para cambiarlo.'
+          : 'Tu perfil se publica cuando juegas con una cuenta online.'}</p>`;
+      box.appendChild(card);
+      const sel = card.querySelector('select');
+      sel.innerHTML = `<option value="">${titles.length ? '(sin título)' : 'Consigue logros para desbloquear títulos.'}</option>`
+        + titles.map(t => `<option value="${esc(t)}" ${t === P.title ? 'selected' : ''}>${esc(t)}</option>`).join('');
+      sel.disabled = !titles.length;
+      sel.onchange = () => { P.title = sel.value; sel.parentElement.classList.toggle('on', !!sel.value); save(); };
+
+      const favs = card.querySelector('#tc-favs');
       favW = innerWidth;
-      const w = slotWidth(favs, 3, 128, 10), h = slotHeight(w);
+      const w = slotWidth(favs, 3, 120, 8), h = slotHeight(w);
       for (let i = 0; i < 3; i++) {
         const f = P.favs[i];
         const slot = document.createElement('button');
@@ -276,39 +328,50 @@
         if (f && G.DEX_BY[f.dex]) {
           slot.classList.add('has');
           if (f.shiny) slot.classList.add('shiny');
-          slot.appendChild(G.UI.spriteCanvas(f.dex, w, h, { scale: 2, lively: true, shiny: !!f.shiny }));
+          // (hero: los grandes, como Charizard, a ×1 si a ×2 no caben enteros en la casilla baja.)
+          slot.appendChild(G.UI.spriteCanvas(f.dex, w, h, { scale: 2, hero: true, lively: true, shiny: !!f.shiny }));
           slot.insertAdjacentHTML('beforeend', `<b>${f.shiny ? G.Icons.html('shiny', 16) : ''}<span>${esc(G.DEX_BY[f.dex].name)}</span></b>`);
-        } else slot.innerHTML = `<span class="fav-plus">${G.UI.svg('plus', 26)}</span><b>Elegir</b>`;
+          slot.title = G.T('Cambiar');
+        } else slot.innerHTML = `<span class="fav-plus">${G.UI.svg('plus', 24)}</span><b>Elegir</b>`;
         slot.onclick = () => pickFav(i);
         favs.appendChild(slot);
       }
 
-      const titles = G.Progress.titles();
-      box.insertAdjacentHTML('beforeend', `<div class="goals-sec"><h3>Título</h3></div>`);
-      const row = document.createElement('div');
-      row.className = 'panel prof-title-row';
-      row.innerHTML = `<span class="ico-tile round t-gold">${ico('crown')}</span>`;
-      const sel = document.createElement('select');
-      sel.className = 'field';
-      sel.setAttribute('aria-label', 'Título');
-      sel.innerHTML = `<option value="">(sin título)</option>` + titles.map(t => `<option value="${esc(t)}" ${t === P.title ? 'selected' : ''}>${esc(t)}</option>`).join('');
-      sel.onchange = () => { P.title = sel.value; save(); };
-      row.appendChild(sel);
-      box.appendChild(row);
-      if (!titles.length) box.insertAdjacentHTML('beforeend', '<p class="note">Consigue logros para desbloquear títulos.</p>');
-
+      // Tus marcas: las del perfil público y, además, colección y logros.
+      const mk = (icon, value, label) => `<div class="tc-stat"><span class="ico-tile s">${ico(icon)}</span><div><b>${value}</b><span>${label}</span></div></div>`;
+      const side = document.createElement('section');
+      side.className = 'tc-side';
+      side.innerHTML = `<div class="tc-stats">
+          ${mk('clock', fmt(st.bestTime || 0), 'Mejor tiempo')}
+          ${mk('friends', fmt(st.bestGroupTime || 0), 'En grupo')}
+          ${mk('exp', st.bestLevel || 0, 'Nivel máximo')}
+          ${mk('ball', num(st.runs), 'Runs')}
+          ${mk('fist', num(st.totalKills), 'Derrotados')}
+          ${mk('crown', num(st.bossesTotal), 'Jefes')}
+          ${mk('ball4', Object.keys(s.legends || {}).length, 'Legendarios')}
+          ${mk('book', `${num(ownedN)}<small> / ${num(G.DEX.length)}</small>`, 'Pokémon')}
+          ${mk('medal3', `${achN}<small> / ${G.AchDefs.LIST.length}</small>`, 'Logros')}
+        </div>`;
+      // Tus mejores medallas (las que salen en tu perfil público): el oro primero.
+      const best = G.AchDefs.LIST.filter(a => s.ach && s.ach[a.id]).sort((a, b) => (b.tier - a.tier) || (s.ach[b.id] - s.ach[a.id])).slice(0, 8);
+      if (best.length) {
+        side.insertAdjacentHTML('beforeend', `<div class="tc-medals"><span class="eyebrow">Medallas</span><div class="tc-mrow">${best.map(a =>
+          `<span class="ico-tile s round tc-medal tier${a.tier}" title="${esc(a.name)}">${ico('medal' + a.tier)}</span>`).join('')}</div></div>`);
+      }
       const prev = document.createElement('button');
       prev.type = 'button';
-      prev.className = 'btn gold ic prof-preview';
-      prev.innerHTML = G.UI.svg('user', 20) + '<span>Ver mi perfil público</span>';
+      prev.className = 'btn small ghost ic prof-preview';
+      prev.innerHTML = G.UI.svg('user', 18) + '<span>Ver mi perfil público</span>';
       prev.onclick = () => G.ProfileUI.showData(G.Social.profileData());
-      box.appendChild(prev);
+      side.appendChild(prev);
+      box.appendChild(side);
     }
 
     function pickFav(i) {
       const s = G.DB.save;
       const box = $('goals-body');
       box.scrollTop = 0;
+      box.dataset.tab = 'fav';
       box.innerHTML = `<div class="fav-pick-head">
           <button class="icon-btn" type="button" id="fav-back" aria-label="Volver" title="Volver">${G.UI.svg('back')}</button>
           <h3>Elige el favorito ${i + 1}</h3></div>

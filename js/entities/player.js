@@ -58,7 +58,9 @@ G.Player = class Player {
     this.critChance = perks.crit || 0;       // probabilidad de golpe crítico (Mejoras)
     this.critDmg = 0;                        // + al daño de los críticos (cartas de Puntería; combat.js critMul)
     // Pasivos de la run (cartas Amplitud, Persistencia, Réplica y Propulsión): ver G.Moves.applyPassives.
-    this.pass = { area: 1, dur: 1, amt: 0, pspd: 1 };
+    // Se empieza con lo que den las mejoras permanentes de los ataques (26-10-2026, data/upgrades.js:
+    // duración, velocidad de proyectiles y cantidad); las cartas suman encima.
+    this.pass = { area: 1, dur: perks.passDur || 1, amt: perks.passAmt | 0, pspd: perks.passSpd || 1 };
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
     this.bind = {};                          // movimiento -> hueco fijo (0-3), elegido en Mejoras
     this.coins = 0;            // monedas recogidas en esta run
@@ -189,7 +191,10 @@ G.Player = class Player {
   addMove(id) {
     if (this.slots.length >= this.maxMoves || this.hasMove(id)) return false;
     const m = G.Moves.instance(id, 1);
-    m.since = G.Game.st.time;          // desde cuándo lo tienes (daño por segundo en el resumen)
+    // Con los pasivos que ya lleva (los de las mejoras permanentes, desde el principio): antes
+    // sólo llegaban con la siguiente carta (rebakeAll), y al empezar la partida no había ninguno.
+    if (this.pass) G.Moves.applyPassives(m, this.pass);
+    m.since = G.Game.st.time;         // desde cuándo lo tienes (daño por segundo en el resumen)
     this.moves.push(m);
     const group = [m];
     this.slots.push(group);
@@ -307,11 +312,7 @@ G.Player = class Player {
     if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && m.kind !== 'ward' && !m.z && !this.remote) {
       this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));
     }
-    const anim = { melee: 'Attack', beam: 'Shoot', projectile: 'Shoot', nova: 'Attack',
-                   aura: 'Charge', buff: 'Charge', orbit: 'Charge', boomerang: 'Shoot', chain: 'Shoot',
-                   mine: 'Charge', meteor: 'Charge', turret: 'Charge', dash: 'Attack', trail: 'Walk', cone: 'Shoot',
-                   lob: 'Shoot', knife: 'Shoot', cross: 'Attack', column: 'Charge', sweep: 'Shoot', ricochet: 'Shoot',
-                   wipe: 'Charge', ward: 'Charge', ally: 'Charge', wings: 'Charge', puddle: 'Shoot', dusting: 'Charge' }[m.kind] || 'Attack';
+    const anim = this.pickAnim(m.kind);
     // Las familias nuevas suenan como la parecida de las de siempre.
     const SND = { boomerang: 'projectile', chain: 'beam', mine: 'nova', meteor: 'nova', turret: 'buff', dash: 'melee', trail: 'aura', cone: 'projectile',
                   lob: 'projectile', knife: 'projectile', cross: 'nova', column: 'beam', sweep: 'beam', ricochet: 'projectile',
@@ -369,6 +370,7 @@ G.Player = class Player {
     this.hp -= d;
     this.invuln = 0.45;
     this.flash = 0.14;
+    this.hurtAnim();
     G.Audio.sfx('hurt');
     G.Camera.kick(0.28);
     if (!this.remote) G.Pad.rumble(0.25 + Math.min(0.75, d / this.maxHp * 3), 140);
@@ -594,7 +596,7 @@ G.Player = class Player {
     // --- animación: mira al objetivo al atacar, si no a donde camina ---
     const face = this.attackFace > 0 || !this.walking ? this.aim : this.moveAngle;
     this.anim.dir = G.Sprites.dirFromAngle(face);
-    this.anim.loop(this.walking ? 'Walk' : 'Idle', this.walking ? s / 110 : 1);
+    this.animTick(dt, s / 110);
   }
 
   /**
@@ -635,6 +637,7 @@ G.Player = class Player {
     this.graceT = Math.max(this.graceT || 0, 2);   // ni la lava ni los ataques avisados la quitan
     this.reviveT = 0;
     this.anim._start('Idle', false);
+    this.cheer(['Hop']);              // se levanta de un salto
     G.FX.ring(this.x, this.y, 6, 70, '#5fe08a', 0.5, 4);
     G.FX.burst(this.x, this.y - this.bodyH * 0.5, '#9dffb8', 18, 150);
     G.Audio.sfx('heal');
@@ -666,7 +669,11 @@ G.Player = class Player {
     if (this.attackFace > 0) this.attackFace -= dt;
     if (G.U.dist2(this.x, this.y, n.x, n.y) > 300 * 300) { this.x = n.x; this.y = n.y; }
     else { this.x = G.U.damp(this.x, n.x, 14, dt); this.y = G.U.damp(this.y, n.y, 14, dt); }
-    if (n.hp < this.hp - 0.5 && !n.dead) this.flash = 0.14;
+    if (n.hp < this.hp - 0.5 && !n.dead) {
+      this.flash = 0.14;
+      // Se encoge con un golpe, no con lo poco que quita la Vidasfera a cada ataque.
+      if (n.hp < this.hp - this.maxHp * 0.015) this.hurtAnim();
+    }
     this.hp = n.hp; this.maxHp = n.maxHp;
     this.magnet = n.mag || this.magnet;
     this.reviveT = n.rev || 0;
@@ -689,7 +696,70 @@ G.Player = class Player {
     this.aim = n.aim;
     const face = this.attackFace > 0 || !this.walking ? this.aim : this.moveAngle;
     this.anim.dir = G.Sprites.dirFromAngle(face);
-    this.anim.loop(this.walking ? 'Walk' : 'Idle', this.walking ? this.baseSpd / 110 : 1);
+    this.animTick(dt, this.baseSpd / 110);
+  }
+
+  // ---------------- animaciones (Mundo Misterioso) ----------------
+  /*
+   * Qué animación hace según lo que pasa (26-10-2026): la de la familia del movimiento
+   * al lanzarlo (los que giran, girar; los que golpean el suelo, saltar...), encogerse
+   * al recibir un golpe, caer al morir (sprites.js), posar o saltar al subir de nivel y
+   * al evolucionar, saltar al levantarse y dormirse si se queda un rato quieto sin
+   * atacar (o enseguida en la pausa del cooperativo). Las extra (Rotate, Hop, Sleep,
+   * Pose...) sólo si su Pokémon las tiene y ya están cargadas; si no, las de siempre.
+   * Sólo se ve: no cambia nada del juego ni va por la red (en grupo, cada uno lo
+   * calcula para los demás con lo que ya llega: sus ataques, su vida, si cae...).
+   */
+  /** Animaciones de cada familia al lanzar, de la preferida a la de siempre (la última). */
+  static get CAST_ANIM() {
+    return Player._castAnim || (Player._castAnim = {
+      melee: ['Attack'], dash: ['Attack'], cross: ['Attack'],
+      nova: ['Rotate', 'Attack'], spin: ['Rotate', 'Attack'], vortex: ['Rotate', 'Charge'],
+      shove: ['Hop', 'Attack'], quake: ['Hop', 'Attack'],
+      projectile: ['Shoot'], beam: ['Shoot'], boomerang: ['Shoot'], chain: ['Shoot'], cone: ['Shoot'], lob: ['Shoot'],
+      knife: ['Shoot'], sweep: ['Shoot'], ricochet: ['Shoot'], puddle: ['Shoot'], homing: ['Shoot'], bounce: ['Shoot'],
+      aura: ['Charge'], buff: ['Charge'], orbit: ['Charge'], mine: ['Charge'], meteor: ['Charge'], turret: ['Charge'],
+      column: ['Charge'], wipe: ['Charge'], ward: ['Charge'], ally: ['Charge'], wings: ['Charge'], dusting: ['Charge'],
+      charge: ['Charge'], stun: ['Charge'], trail: ['Walk']
+    });
+  }
+  /** Segundos quieto y sin atacar hasta que se duerme. */
+  static get NAP_T() { return 8; }
+
+  /** Animación al lanzar un movimiento de la familia `kind` (una nueva sin apuntar: Attack). */
+  pickAnim(kind) {
+    let list = Player.CAST_ANIM[kind] || ['Attack'];
+    // Con orbes se concentra y, una de cada tres veces, gira con ellos.
+    if (kind === 'orbit' && (this.orbAnimN = (this.orbAnimN || 0) + 1) % 3 === 0) list = ['Rotate', 'Charge'];
+    return G.Sprites.choose(this.form, this.shiny, list) || 'Attack';
+  }
+
+  /** Al recibir un golpe: se encoge (salvo a media animación de ataque) y se despierta. */
+  hurtAnim() {
+    this.calmT = 0;
+    const a = this.anim;
+    if (this.dead || (a.busy() && a.cur !== 'Hurt' && a.progress() < 0.5)) return;
+    a.play('Hurt');
+  }
+
+  /** Posa o salta (subir de nivel, evolucionar, levantarse), si tiene con qué. */
+  cheer(list = ['Pose', 'Hop']) {
+    const k = G.Sprites.choose(this.form, this.shiny, list);
+    if (k && !this.dead) { this.anim.play(k); this.calmT = 0; }
+  }
+
+  /** Animación de fondo (quieto, andar o dormido) y las de una vez por lo que ha pasado. k: velocidad al andar. */
+  animTick(dt, k) {
+    const a = this.anim;
+    if (this.warmed !== a) { this.warmed = a; G.Sprites.warm(this.form, this.shiny); }   // sus extra, por detrás
+    if (this.lvSeen != null && this.level > this.lvSeen) this.cheer();
+    this.lvSeen = this.level;
+    if (this.evoSeen && !this.evoFx) this.cheer();
+    this.evoSeen = !!this.evoFx;
+    this.calmT = this.walking || this.attackFace > 0 ? 0 : (this.calmT || 0) + dt;
+    const nap = this.calmT > (this.frozen ? 1 : Player.NAP_T) && G.Sprites.ready(this.form, 'Sleep', this.shiny);
+    a.sub = nap ? Player._nap || (Player._nap = { Idle: 'Sleep' }) : null;
+    a.loop(this.walking ? 'Walk' : 'Idle', this.walking ? k : 1);
   }
 
   draw(ctx) {

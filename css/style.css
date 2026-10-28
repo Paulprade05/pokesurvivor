@@ -851,16 +851,7 @@ kbd {
 .topbar .tb-btn:disabled { opacity: .55; cursor: wait; }
 .topbar .tb-btn .ui-svg { width: 22px; height: 22px; }
 .topbar .tb-btn .lbl { display: none; }
-#btn-support .ui-svg { color: var(--c-pink); }
-/* Guardar: píldora amarilla con texto (en el móvil de pie, sólo el icono). Punto rojo = cambios sin subir. */
-.topbar #btn-save { width: auto; padding: 0 16px 0 12px; border-radius: var(--rad-pill);
-  background: var(--c-yellow); color: var(--c-on-yellow); border-color: rgba(255, 255, 255, .4); }
-.topbar #btn-save:hover { background: var(--c-yellow-hi); }
-.topbar #btn-save .lbl { display: inline; }
-#btn-save[data-sync="pending"]::after, #btn-save[data-sync="offline"]::after {
-  content: ''; position: absolute; top: -2px; right: -2px; width: 11px; height: 11px; border-radius: 50%;
-  background: var(--c-red); box-shadow: 0 0 0 2px var(--bg-1);
-}
+/* (Sin Guardar ni Apoyar en la barra desde el 26-10-2026: se guarda solo; Guardar, en Ajustes → Cuenta.) */
 /* Punto de «hay novedades». */
 .news-btn .dot { display: none; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px; border-radius: 50%;
   background: var(--c-red); box-shadow: 0 0 0 2px var(--bg-1); }
@@ -891,7 +882,6 @@ kbd {
   .tb-menu .tb-btn .lbl { display: inline; overflow: hidden; text-overflow: ellipsis; }
   .tb-menu .news-btn .dot { position: static; margin-left: auto; flex: none; }
   .tb-menu .ui-svg { color: var(--muted); }
-  .tb-menu #btn-support .ui-svg { color: var(--c-pink); }
 }
 @media (max-width: 599px) {
   .topbar { left: max(10px, var(--sa-l)); right: max(10px, var(--sa-r)); gap: 6px; }
@@ -904,8 +894,6 @@ kbd {
   .tb-profile .tbp-txt { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
   .tb-profile .tbp-txt b { font: 600 16px/1.2 var(--font-display); overflow: hidden; text-overflow: ellipsis; }
   .tb-profile .tbp-txt small { font: 600 12px/1.2 var(--font); color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .topbar #btn-save { width: var(--ctl); padding: 0; border-radius: 50%; }
-  .topbar #btn-save .lbl { display: none; }
 }
 /* Móvil (de pie y tumbado): barra de 52 px (botones y pastillas de 40, --ctl) y
    menú «Más» con filas de 44 px. */
@@ -913,15 +901,11 @@ kbd {
   .pill { padding: 0 10px 0 6px; font-size: 14px; gap: 4px; }
   .cur-ico { width: 22px; height: 22px; }
   .topbar .tb-btn .ui-svg { width: 20px; height: 20px; }
-  .topbar #btn-save { padding: 0 14px 0 10px; font-size: 14px; }
   .tb-menu { min-width: 220px; padding: 5px; top: calc(100% + 6px); }
   .tb-menu .tb-btn, .topbar .tb-menu .tb-btn { height: 44px; gap: 10px; padding: 0 12px 0 10px; font-size: 15px; }
   .tb-menu .tb-profile { min-height: 50px; padding: 6px 10px; }
   .tb-profile .tbp-txt b { font-size: 15px; }
   .tb-profile .tbp-txt small { font-size: 11px; }
-}
-@media (max-width: 599px) {
-  .topbar #btn-save { padding: 0; }
 }
 /* Tumbado: barra de 44 px (pastillas y botones de 36) y menú «Más» con filas de 40. */
 @media (max-height: 520px) {
@@ -933,12 +917,11 @@ kbd {
   .cur-ico img { width: 20px; height: 20px; }
   #user-pill { padding: 0 12px 0 6px; max-width: 180px; }
   .topbar .tb-btn .ui-svg { width: 19px; height: 19px; }
-  .topbar #btn-save { padding: 0 12px 0 9px; font-size: 13px; }
   .tb-menu { min-width: 210px; padding: 4px; top: calc(100% + 4px); max-height: calc(100vh - var(--bar-h) - 8px); overflow-y: auto; }
   .tb-menu .tb-btn, .topbar .tb-menu .tb-btn { height: 40px; font-size: 14px; }
 }
 /* Ventanas que tapan la barra (Ajustes, Novedades, Perfil...): la barra se esconde. */
-body:has(:is(.scr.modal, #scr-settings, #scr-news, #scr-support, #scr-legal, #scr-profile, #scr-recover, #scr-savenote, #scr-nick, #scr-install, #scr-layout):not(.hidden))
+body:has(:is(.scr.modal, #scr-settings, #scr-news, #scr-legal, #scr-profile, #scr-recover, #scr-savenote, #scr-nick, #scr-install, #scr-layout):not(.hidden))
   :is(#topbar, #sound-panel) { visibility: hidden; }
 /* Panel de sonido (se abre desde la barra). */
 .box.sound-panel {
@@ -1040,6 +1023,26 @@ html.need-rotate .rotate {
 .rot-run, .rot-coop { display: none; margin-top: 10px; padding: 4px 14px; border-radius: var(--rad-pill);
   background: var(--card-hi); color: var(--ink); font-size: 13px; }
 html.rotate-run .rot-run, html.rotate-coop .rot-coop { display: block; }
+
+/* ==== giro: el juego tumbado con el móvil de pie (26-10-2026, rotate.js y mobile.js) ====
+ * En el móvil el juego es sólo horizontal y, como el iPhone no deja bloquear la orientación
+ * desde una web, de pie se pinta girado: <body> mide lo que mediría tumbado (--rot-w ×
+ * --rot-h, la ventana de pie con los lados cambiados) y gira 90° desde su esquina de arriba
+ * a la izquierda (--rot-tf; 90 de serie: se coge girándolo a la izquierda, con la isla o la
+ * muesca a la izquierda). Todo lo fijo (#game, las .scr...) cuelga de <body>, así que gira
+ * con él. Las @media, vw / vh y las zonas seguras ya las cambia rotate.js. */
+html.rot { width: var(--rot-h, 100%); height: var(--rot-w, 100%); overflow: hidden; }
+html.rot body {
+  position: fixed; top: 0; left: 0; width: var(--rot-w) !important; height: var(--rot-h) !important;
+  overflow: hidden; transform-origin: 0 0; transform: var(--rot-tf);
+}
+html.rot.ios-app :is(#game, .scr) { width: var(--rot-w); height: var(--rot-h); }
+html.rot .rotate { display: none !important; }
+/* Mientras carga (aún sin rotate.js): el móvil de pie ya ve la pantalla de carga girada
+   igual (90°). Lo quita mobile.js (html.rot-ready) en cuanto toma el mando. */
+@media (orientation: portrait) and (max-device-width: 599px) and (pointer: coarse) {
+  html:not(.rot-ready) body { width: 100vh; height: 100vw; transform-origin: 0 0; transform: translateX(100vw) rotate(90deg); }
+}
 
 /* ---------- 14. Inicio de sesión ---------- */
 .logo { position: relative; text-align: center; margin-bottom: 14px; }
@@ -1641,13 +1644,13 @@ body.touch .touch-hint { display: block; }
    colocar) van aparte. */
 body.touch :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-menu, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag,
   #scr-gacha, #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news,
-  #scr-support, #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
+  #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
   :is(.chip, .gen-tab, .seg button, .field, .dex-tools input, .dex-tools select, .tab) { min-height: var(--tap); }
 /* .btn: el alto sale del relleno (con min-height el texto quedaba arriba): 11 + 20 + 11 + borde = 44 px
    (9 + 20 + 9 + borde = 40 en el móvil). El .btn normal ya mide 44 (40 en el móvil). */
 body.touch :is(#scr-login, #scr-test, #scr-result, #scr-starters, #scr-menu, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag,
   #scr-gacha, #scr-goals, #scr-profile, #scr-friends, #scr-lobby, #scr-rank, #scr-mod, #scr-settings, #scr-news,
-  #scr-support, #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
+  #scr-legal, #scr-nick, #scr-recover, #scr-savenote, #scr-install, #invite-pop, #pull-fx, #sound-panel)
   .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padding-bottom: calc(var(--tap) / 2 - 11px); line-height: 20px; }
 body.touch .icon-btn { width: var(--tap); height: var(--tap); }
 body.touch .gen-tab { justify-content: center; }
@@ -1703,7 +1706,7 @@ body.touch #rk-list .rk-row { grid-template-columns: 54px auto minmax(0, 1fr) au
   .scr:has(> .box.mcard) {
     padding-left: max(8px, var(--sa-l)); padding-right: max(8px, var(--sa-r)); padding-bottom: max(10px, var(--sa-b)); }
   :is(#scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-goals, #scr-friends, #scr-lobby, #scr-rank,
-    #scr-mod, #scr-settings, #scr-news, #scr-support, #scr-legal) .box h2 { font-size: var(--fs-xl); }
+    #scr-mod, #scr-settings, #scr-news, #scr-legal) .box h2 { font-size: var(--fs-xl); }
   .gen-tabs { margin-top: 4px; padding: 2px 2px 6px; }
   #scr-rank h2 .sub { display: none; }
 
@@ -1835,59 +1838,47 @@ img.ico-sm { transform: scale(1.3); }
   box-shadow: 0 0 0 1px rgba(154, 230, 255, .3), 0 0 28px rgba(154, 230, 255, .35), var(--sh-2);
 }
 
-/* ---- Colección: la hoja y la cabecera (título, cuántos tienes y regiones) ---- */
+/* ---- Pokédex (#scr-dex, antes «Pokémon» / colección; rehecha el 26-10-2026) ----
+ * Una entrada por familia (su forma final). Ordenador y tableta: lista a la izquierda
+ * y ficha a la derecha. Móvil (tumbado y de pie): la lista a pantalla completa y la
+ * ficha encima al tocar un Pokémon (#scr-dex.detail-open); tumbado, la ficha en dos
+ * columnas: el Pokémon (con «Elegir de compañero», que ya no tapa nada) y las pestañas
+ * Resumen / Evolución / Ataques / Récords, cada columna con su propio desplazamiento.
+ * Arriba de la lista, UNA fila: buscador, región (sólo en el móvil; en el ordenador,
+ * pestañas en la cabecera), tipo, orden y «Filtros» (panel que se abre debajo). */
 .dex-box { --dx-pad: 16px; }
 /* (Una regla vieja del móvil tumbado hace de «#scr-dex > .box» una rejilla: aquí sigue siendo la hoja.) */
 #scr-dex > .box.sheet-box { display: flex; gap: 0; align-items: stretch; }
+#scr-dex .sheet-head h2 { flex: 0 1 auto; }
 .dx-total {
-  display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 12px 0 0;
+  display: inline-flex; align-items: center; gap: 3px; height: 34px; margin-left: auto; padding: 0 12px 0 0;
   border-radius: var(--rad-pill); background: var(--sunk); border: 1px solid var(--line-1);
   font: 600 var(--fs-s)/1 var(--font-display); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 .dx-total > img.pix { margin: -4px -3px -4px -1px; }
 .dx-total b { font-size: var(--fs-m); font-weight: 600; color: var(--ink); }
-/* Regiones: píldoras que se deslizan de lado, de borde a borde; con cuántos tienes y una barrita. */
+/* Regiones (ordenador y tableta): píldoras que se deslizan de lado, con cuántos tienes y una barrita. */
 #scr-dex .sheet-row > .gen-tabs { margin: 0 -16px -6px -12px; padding: 4px 16px 8px 12px; }
 #scr-dex .gen-tab { min-width: 78px; }
+#scr-dex .gen-tab.done small { color: var(--ok); }
 .dx-gbar { display: block; align-self: stretch; height: 3px; margin-top: 5px; border-radius: 2px; background: var(--sunk); overflow: hidden; }
 .dx-gbar > i { display: block; height: 100%; border-radius: inherit; background: var(--c-blue-hi); }
 .gen-tab.on .dx-gbar > i { background: var(--c-yellow); }
 
-/* ---- Colección: la lista (buscador, filtros y rejilla) y la ficha al lado ---- */
-.dex-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(272px, 34%, 360px); grid-template-rows: minmax(0, 1fr); }
+/* ---- La lista: herramientas, panel de filtros y rejilla ---- */
+.dex-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 40%, 440px); grid-template-rows: minmax(0, 1fr); }
 .dex-list { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.dx-tools { flex: none; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px var(--dx-pad) 10px; border-bottom: 1px solid var(--line-1); }
-.dx-grid {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); align-content: start;
-  /* Filas a su alto: con desplazamiento y casillas overflow:hidden, «auto» las aplastaba. */
-  grid-auto-rows: max-content; gap: 8px;
-  padding: 12px var(--dx-pad) 20px;
-}
-/* Pantallas bajas: buscador y filtros suben con la rejilla al desplazar (más sitio para los Pokémon). */
-@media (max-height: 699px) {
-  .dex-list { display: block; overflow-y: auto; overscroll-behavior: contain; }
-  .dx-grid { overflow: visible; }
-}
-.dex-more { grid-column: 1 / -1; height: 1px; }
-.dx-empty { grid-column: 1 / -1; }
-/* Buscador: campo en píldora con la lupa dentro, cuántos salen y «Limpiar». */
-.dx-search { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.dx-q { position: relative; flex: 1 1 220px; min-width: 0; margin: 0; }
+.dx-tools { flex: none; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 10px var(--dx-pad); border-bottom: 1px solid var(--line-1); }
+/* Buscador: campo en píldora con la lupa dentro. */
+.dx-q { position: relative; flex: 1 1 160px; min-width: 96px; margin: 0; }
 .dx-q > .ui-svg { position: absolute; left: 13px; top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--faint); pointer-events: none; }
 /* (appearance: none: Safari no deja poner relleno ni radio a un campo de búsqueda nativo.) */
-.dx-q > .field { -webkit-appearance: none; appearance: none; min-height: 40px; padding: 8px 14px 8px 40px; border-radius: var(--rad-pill); font-size: 15px; }
-.dx-count { flex: none; font: 600 var(--fs-s)/1.2 var(--font-display); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-#dex-clear { flex: none; }
-/* Filtros: tipo y orden (desplegables en píldora) y los chips. Con ratón y sitio, en varias líneas. */
-.dx-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-.dx-filters > .dx-chips { display: contents; }
-.dx-sep { flex: none; width: 1px; height: 22px; margin: 0 3px; background: var(--line-2); }
-/* (El desplegable ocupa toda la píldora y el icono va encima sin recibir el toque:
-   así el mando y el dedo pulsan el desplegable, no la etiqueta.) */
+.dx-q > .field { -webkit-appearance: none; appearance: none; width: 100%; min-height: 38px; padding: 7px 12px 7px 38px; border-radius: var(--rad-pill); font-size: 15px; }
+/* Desplegables en píldora (región, tipo, orden). El desplegable ocupa toda la píldora y el
+   icono va encima sin recibir el toque: el dedo y el mando pulsan el desplegable. */
 .dx-pick {
-  position: relative; flex: none; display: inline-flex; align-items: stretch; margin: 0;
-  min-height: 32px; padding: 0; border-radius: var(--rad-pill);
+  position: relative; flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: stretch; margin: 0;
+  min-height: 38px; padding: 0; border-radius: var(--rad-pill);
   background: var(--card); border: 1px solid var(--line-2); color: var(--ink);
   font: 600 var(--fs-s)/1.2 var(--font-display);
   transition: border-color var(--t-fast), background-color var(--t-fast), color var(--t-fast);
@@ -1897,39 +1888,54 @@ img.ico-sm { transform: scale(1.3); }
 .dx-pick > .ui-svg { position: absolute; left: 11px; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--muted); pointer-events: none; }
 .dx-pick.on > .ui-svg { color: inherit; }
 .dx-pick > select {
-  appearance: none; -webkit-appearance: none; min-width: 0; margin: 0;
-  padding: 0 30px 0 32px; border: 0; border-radius: inherit; outline: none; cursor: pointer;
-  color: inherit; font: inherit;
-  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23afc0e6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 14px;
+  appearance: none; -webkit-appearance: none; min-width: 0; max-width: 152px; margin: 0;
+  padding: 0 28px 0 32px; border: 0; border-radius: inherit; outline: none; cursor: pointer;
+  color: inherit; font: inherit; text-overflow: ellipsis;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23afc0e6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 14px;
 }
+.dx-pick.no-ico > select { padding-left: 14px; }
+.dx-pick > select option { color: #10131a; }
 /* El anillo de foco (teclado y mando) rodea la píldora entera, no sólo el desplegable. */
 .dx-pick > select:focus-visible { outline: none; }
 .dx-pick > select.pad-focus { outline: none !important; box-shadow: none !important; }
 .dx-pick:has(> select:focus-visible) { outline: var(--focus); outline-offset: 2px; }
 .dx-pick:has(> select.pad-focus) { outline: 3px solid var(--c-yellow); outline-offset: 3px; box-shadow: 0 0 0 7px rgba(255, 203, 5, .25); }
-body.touch .dx-pick { min-height: var(--tap); }
-/* Con el dedo: los filtros, en una fila que se desliza de lado, de borde a borde
-   (con ratón siguen en varias líneas: una fila así no se desliza con la rueda). */
-body.touch .dx-filters {
-  flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-  margin: -4px calc(-1 * var(--dx-pad)); padding: 6px calc(var(--dx-pad) + 24px) 6px var(--dx-pad);
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
-  mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+/* Región en desplegable: sólo en el móvil (en el ordenador y la tableta, las pestañas de arriba). */
+.dx-pick-gen { display: none; }
+/* «Filtros»: con cuántos hay puestos. */
+.dx-more { flex: none; min-height: 38px; }
+.dx-more > .ui-svg { width: 16px; height: 16px; }
+.dx-badge {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--c-yellow); color: var(--c-on-yellow); font: 600 11px/1 var(--font-display);
 }
-body.touch .dx-filters::-webkit-scrollbar { display: none; }
-body.touch :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
-@media (pointer: coarse) {
-  .dx-filters {
-    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-    margin: -4px calc(-1 * var(--dx-pad)); padding: 6px calc(var(--dx-pad) + 24px) 6px var(--dx-pad);
-    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
-    mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
-  }
-  .dx-filters::-webkit-scrollbar { display: none; }
-  :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
+body.touch :is(.dx-pick, .dx-more, .dx-q > .field) { min-height: var(--tap); }
+/* Panel de filtros: grupos con su nombre; abajo, cuántos salen, Limpiar y Listo. */
+.dx-panel {
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding: 10px var(--dx-pad) 12px; border-bottom: 1px solid var(--line-1); background: rgba(3, 8, 24, .22);
+  animation: drop-in .16s var(--ease);
 }
+.dx-panel.hidden { display: none; }
+.dx-pg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.dx-pl { font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.dx-pc { display: flex; flex-wrap: wrap; gap: 6px; }
+.dx-pc .chip > img.pix { margin: -7px -3px -7px -7px; }
+.dx-pf { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
+.dx-pf .dx-count { margin-right: auto; }
+.dx-count { font: 600 var(--fs-s)/1.2 var(--font-display); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* La rejilla. */
+.dx-grid {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); align-content: start;
+  /* Filas a su alto: con desplazamiento y casillas overflow:hidden, «auto» las aplastaba. */
+  grid-auto-rows: max-content; gap: 8px;
+  padding: 12px var(--dx-pad) 20px;
+}
+.dex-more { grid-column: 1 / -1; height: 1px; }
+.dx-empty { grid-column: 1 / -1; }
 
-/* ---- Colección: casillas (tarjeta teñida con el color de su rareza) ---- */
+/* ---- Casillas (tarjeta teñida con el color de su rareza) ---- */
 .dx-cell { --rc: var(--r1); --cb: var(--card); overflow: hidden; padding: 6px 4px 8px; border-radius: var(--rad-l); }
 .dx-cell.r2 { --rc: var(--r2); }
 .dx-cell.r3 { --rc: var(--r3); }
@@ -1959,11 +1965,11 @@ body.touch :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
 .dx-marks > span { display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: -10px; }
 .dx-cell:focus-visible { outline: var(--focus); outline-offset: 2px; }
 
-/* ---- Colección: la ficha ---- */
+/* ---- La ficha: el Pokémon (.dx-hero) y las pestañas (.dx-body) ---- */
 .dex-detail { --dx-panel: var(--bg-1); min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--line-1); background: var(--sunk); }
-.dx-in { display: flex; flex-direction: column; gap: 12px; min-height: 100%; padding: 16px 16px 0; }
-.dx-in > :last-child:not(.dx-foot) { margin-bottom: 16px; }
-.dx-stage { height: 188px; }
+.dx-in { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 18px; }
+.dx-hero { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dx-stage { height: 176px; }
 .dx-no {
   position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: baseline; gap: 6px;
   padding: 3px 10px; border-radius: var(--rad-pill); background: rgba(5, 10, 26, .55);
@@ -1973,25 +1979,63 @@ body.touch :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
 .dx-fav { position: absolute; top: 8px; right: 8px; background: rgba(5, 10, 26, .5); }
 .dx-fav.on { border-color: rgba(255, 203, 5, .6); background: rgba(255, 203, 5, .18); }
 .dx-fav > img.pix { display: block; }
-.dx-seg { margin: -4px auto 0; }
-.dx-id { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; }
+/* Anterior / siguiente (de la lista de ahora), abajo en las esquinas del escenario. */
+.dx-nav { position: absolute; bottom: 8px; width: 32px; height: 32px; background: rgba(5, 10, 26, .5); }
+body.touch .dx-nav { width: 36px; height: 36px; }
+.dx-nav .ui-svg { width: 18px; height: 18px; }
+.dx-nav.prev { left: 8px; }
+.dx-nav.next { right: 8px; }
+.dx-id { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 10px; }
 .dex-detail .dx-name { margin: 0; min-width: 0; font: 600 var(--fs-2xl)/1.15 var(--font-display); overflow-wrap: anywhere; }
 .dx-rar { display: inline-flex; align-items: center; font: 600 var(--fs-s)/1.2 var(--font-display); white-space: nowrap; }
 .dx-rar img.pix { margin: -6px -2px -6px -7px; }
-.dx-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: -6px; }
+.dx-types { display: flex; flex-wrap: wrap; gap: 4px; }
 .dx-types .type { margin: 0; }
-.dex-detail .dx-judged {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; margin: 0; padding: 4px 12px 4px 4px;
-  border-radius: var(--rad-m); background: rgba(255, 203, 5, .08); border: 1px solid rgba(255, 203, 5, .35);
-  font: 700 var(--fs-s)/1.3 var(--font);
+.dx-seg { margin: 0; }
+/* Compañero: en el bloque del Pokémon, nunca encima de nada (antes tapaba las estadísticas en el móvil). */
+.dx-partner {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 6px 14px;
+  border-radius: var(--rad-m); background: rgba(255, 203, 5, .1); border: 1px solid rgba(255, 203, 5, .45);
+  color: var(--c-yellow); font: 600 16px/1.2 var(--font-display);
 }
-.dx-judged small { margin-left: auto; color: var(--muted); font-weight: 600; }
-/* Secciones (estadísticas, naturaleza y habilidad, movimientos): recuadros con un antetítulo. */
+.dx-partner > img.pix { margin: -6px -2px -6px -8px; }
+/* Pestañas de la ficha: un segmento; en el ordenador se quedan arriba al desplazar. */
+.dx-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dx-tabs {
+  position: sticky; top: 0; z-index: 2; display: flex; gap: 3px; padding: 3px; margin: 0 -2px;
+  border-radius: 14px; background: var(--surface-solid); border: 1px solid var(--line-2); box-shadow: 0 6px 14px rgba(3, 8, 24, .35);
+}
+.dx-tab {
+  appearance: none; cursor: pointer; flex: 1 1 0; min-width: 0; min-height: 34px; padding: 4px 6px; border: 0; border-radius: 11px;
+  background: transparent; color: var(--muted); font: 600 var(--fs-s)/1.15 var(--font-display);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+.dx-tab:hover { color: var(--ink); background: rgba(255, 255, 255, .05); }
+.dx-tab.on { background: var(--c-blue-btn); color: #fff; }
+.dx-tab:focus-visible { outline: var(--focus); outline-offset: 1px; }
+body.touch .dx-tab { min-height: var(--tap); }
+.dx-pane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* (Lo de dentro no encoge: con la pestaña más alta que su hueco, la fila de fases —que se
+   desliza de lado— se aplastaba hasta 0.) */
+.dx-pane > *, .dx-hero > * { flex-shrink: 0; }
+/* Recuadros con un antetítulo. */
 .dx-sec { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
 .dx-h { margin: 0; font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .dex-detail .dx-note { margin: 0; font-size: var(--fs-s); line-height: 1.4; color: var(--muted); }
-/* Estadísticas: nombre, barra y cifra, alineadas en columnas. Naturaleza: la que sube en verde, la que baja en rojo. */
-.dx-stats { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; align-items: center; gap: 8px 10px; }
+/* Resumen: «En partida: Charmander → Charmeleon → Charizard» (lleva a Evolución). */
+.dx-famline {
+  appearance: none; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; width: 100%; margin: 0;
+  padding: 7px 10px; border-radius: var(--rad-m); background: rgba(255, 255, 255, .04); border: 1px solid var(--line-1);
+  color: var(--ink); text-align: left; font: 600 var(--fs-s)/1.35 var(--font);
+}
+.dx-famline:hover { border-color: var(--line-3); background: var(--card-hi); }
+.dx-famline > .ui-svg { margin-left: auto; color: var(--muted); }
+.dx-famline.solo { cursor: default; }
+.dx-fl-names { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; min-width: 0; }
+.dx-fl-names b { font: 600 var(--fs-m)/1.3 var(--font-display); }
+/* Estadísticas: nombre, barra y cifra, alineadas. Naturaleza: la que sube en verde, la que baja en rojo. */
+.dx-stats { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; align-items: center; gap: 7px 10px; }
 .dx-stat { display: contents; }
 .dx-stat > span:first-child { font: 700 var(--fs-s)/1.2 var(--font); color: var(--muted); }
 .dx-stat > b { min-width: 3.4em; text-align: right; font: 600 var(--fs-s)/1 var(--font-display); font-variant-numeric: tabular-nums; }
@@ -2004,9 +2048,10 @@ body.touch :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
 /* Naturaleza, habilidad y MT: una fila cada una; a la derecha, el objeto de la Mochila que la cambia. */
 .dx-extra { gap: 0; padding: 2px 12px; }
 .dx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 0; }
-.dx-row + .dx-row { border-top: 1px solid var(--line-1); }
+.dx-row + .dx-row, #mx-picker + .dx-row { border-top: 1px solid var(--line-1); }
 .dx-rt { flex: 1 1 140px; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
 .dx-lbl { flex: 1 1 100%; font: 600 var(--fs-xs)/1.4 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.dx-famline > .dx-lbl { flex: none; }
 .dx-rt b { font: 600 var(--fs-m)/1.3 var(--font-display); }
 .dx-rt small { font-size: var(--fs-s); color: var(--muted); }
 .dx-rt small.gold { color: var(--c-yellow); }
@@ -2022,188 +2067,278 @@ body.touch :is(.dx-filters, .dx-filters > .dx-chips) > * { flex: none; }
 .dx-tm > img.pix { margin: -4px -2px -4px 0; }
 /* Selector que se abre debajo (naturalezas, habilidades, MT). */
 .dx-picker { margin: 0 0 12px; padding: 10px; border-radius: var(--rad-m); background: var(--sunk); border: 1px solid var(--line-2); animation: drop-in .16s var(--ease); }
-/* (Los de la barra de filtros, #dex-filters, también son .dx-chips, pero van en «display: contents».) */
 .dx-picker > .dx-chips, .upg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 :is(.dx-picker, .upg-chips) .chip small { font: 600 var(--fs-xs)/1.2 var(--font); color: var(--muted); }
 :is(.dx-picker, .upg-chips) .chip.on small { color: inherit; }
-/* Movimientos: con cuál empieza y los que puede aprender (al tocar uno, sale su nombre). */
-.dex-detail .dx-start { display: flex; align-items: center; gap: 4px; margin: 0; font-size: var(--fs-s); }
+:is(.dx-picker, .dx-sibs) .chip > img.pix { margin: -7px -3px -7px -7px; }
+/* Evolución: las fases en tarjetas con su sprite, tipos y cómo se llega; otras ramas; tabla de estadísticas. */
+.dx-evo-row { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
+.dx-evo-row::-webkit-scrollbar { display: none; }
+.dx-st {
+  flex: 1 0 104px; max-width: 168px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
+  padding: 6px 6px 8px; border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1); text-align: center;
+}
+.dx-st.on { border-color: rgba(255, 203, 5, .6); background: rgba(255, 203, 5, .08); }
+.dx-st > canvas { display: block; image-rendering: pixelated; }
+.dx-st > b { max-width: 100%; font: 600 var(--fs-m)/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dx-st.on > b { color: var(--c-yellow); }
+.dx-st-types { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.dx-st-types .type { margin: 0; font-size: 11px; padding: 0 7px; }
+.dx-st-how { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 4px; font: 700 var(--fs-xs)/1.3 var(--font); color: var(--muted); }
+.dx-st-how .evo-it { color: var(--ink); }
+.dx-st-arr { flex: none; font-style: normal; color: var(--c-yellow); opacity: .8; }
+.dx-evo-row.miss { justify-content: center; margin-top: 10px; }
+.dx-evo-row.miss .dx-st { flex: 0 0 96px; }
+.dx-sibs { display: flex; flex-wrap: wrap; gap: 6px; }
+.dx-sib .dx-sn { color: var(--muted); font-variant-numeric: tabular-nums; }
+.dx-sib.miss { border-style: dashed; color: var(--muted); }
+.dx-cmp-wrap { overflow-x: auto; margin: 0 -4px; }
+.dx-cmp { width: 100%; border-collapse: collapse; font: 600 var(--fs-s)/1.25 var(--font-display); font-variant-numeric: tabular-nums; }
+.dx-cmp th, .dx-cmp td { padding: 5px 4px; text-align: center; border-bottom: 1px solid var(--line-1); }
+.dx-cmp thead th { font: 700 var(--fs-xs)/1.2 var(--font); color: var(--muted); vertical-align: bottom; }
+.dx-cmp tbody th { text-align: left; white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+.dx-cmp tbody tr:last-child > * { border-bottom: 0; }
+.dx-cmp tr.on th { color: var(--c-yellow); }
+.dx-cmp td.up { color: var(--ok); }
+.dx-cmp td.down { color: var(--err); }
+/* Ataques: con cuál empieza, las MT y los de sus tipos (por tipo, con lo que hacen). */
+.dex-detail .dx-start { display: flex; align-items: center; gap: 4px; margin: 0; font-size: var(--fs-m); }
 .dx-start > img.pix { margin: -6px 0 -6px -4px; }
-.dx-moves { display: flex; flex-wrap: wrap; gap: 6px; }
-.dx-mv {
-  appearance: none; cursor: pointer; display: grid; place-items: center; width: 38px; height: 38px; padding: 0;
-  border-radius: 12px; border: 1px solid var(--line-1);
-  background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, .16), rgba(255, 255, 255, .04) 72%);
-  transition: border-color var(--t-fast), transform .08s var(--ease);
+.dx-mg + .dx-mg { margin-top: 4px; }
+.dx-mh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; letter-spacing: 0; text-transform: none; }
+.dx-mh .type { margin: 0; }
+.dx-mlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 6px; }
+.dx-mrow {
+  display: flex; align-items: flex-start; gap: 4px; min-width: 0; padding: 4px 8px 6px 2px;
+  border-radius: var(--rad-m); background: var(--sunk); border: 1px solid var(--line-1);
 }
-.dx-mv:hover { border-color: var(--line-3); }
-.dx-mv:active { transform: scale(.94); }
-.dx-mv:focus-visible { outline: var(--focus); outline-offset: 2px; }
-.dx-mv > img.pix { display: block; }
-body.touch .dx-mv { width: var(--tap); height: var(--tap); }
-/* «Elegir de compañero»: abajo, siempre a la vista (se pega al fondo al desplazar). */
-.dx-foot {
-  position: sticky; bottom: 0; z-index: 2; margin: auto -16px 0; padding: 14px 16px;
-  background: linear-gradient(180deg, transparent, var(--dx-panel) 28%);
+.dx-mrow.start { border-color: rgba(255, 203, 5, .55); }
+.dx-mrow > img.pix { flex: none; margin: -2px -2px -4px 0; }
+.dx-mt { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; min-width: 0; padding-top: 4px; }
+.dx-mt > b { font: 600 var(--fs-m)/1.2 var(--font-display); }
+.dx-mt .tag-chip, .dx-mt .fam-chip { font-size: 10.5px; }
+.dx-mt > small { flex: 1 1 100%; font-size: var(--fs-xs); line-height: 1.35; color: var(--muted); }
+/* Récords: cifras en baldosas y, debajo, filas «nombre · valor». */
+.dx-recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.dx-rec {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico val" "ico lbl"; align-items: center; column-gap: 2px;
+  padding: 6px 10px 6px 2px; border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1);
 }
-.dx-partner {
-  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 6px 16px;
-  border-radius: var(--rad-m); background: rgba(255, 203, 5, .1); border: 1px solid rgba(255, 203, 5, .45);
-  color: var(--c-yellow); font: 600 16px/1.2 var(--font-display);
-}
-.dx-partner > img.pix { margin: -6px -2px -6px -8px; }
+.dx-rec > img.pix { grid-area: ico; }
+.dx-rec > b { grid-area: val; font: 600 var(--fs-l)/1.15 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dx-rec > span { grid-area: lbl; font: 700 var(--fs-xs)/1.25 var(--font); color: var(--muted); }
+.dx-kvs { gap: 0; padding: 2px 12px; }
+.dx-kv { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: var(--fs-s); }
+.dx-kv + .dx-kv { border-top: 1px solid var(--line-1); }
+.dx-kv > span { color: var(--muted); font-weight: 700; }
+.dx-kv > b { font: 600 var(--fs-m)/1.2 var(--font-display); text-align: right; }
+/* Uno que te falta. */
 .dx-missing { padding: 16px; border-radius: var(--rad-l); background: var(--card); border: 1px dashed var(--line-2); text-align: center; color: var(--muted); }
-.dex-detail .dx-missing p { margin: 0; line-height: 1.5; }
+.dex-detail .dx-missing p { margin: 0 0 6px; line-height: 1.5; }
+.dx-missing b { color: var(--ink); }
 
-/* ---- Colección en el móvil de pie: la lista llena la hoja y la ficha la tapa entera al abrirla ---- */
-@media (max-width: 760px) and (min-height: 521px) {
+/* Tableta de pie y ventanas estrechas: con la ficha al lado, la lista es estrecha y el buscador va en su línea. */
+@media (max-width: 1080px) and (min-width: 761px) and (min-height: 521px) {
+  .dx-tools { flex-wrap: wrap; }
+  .dx-q { flex-basis: 100%; }
+}
+/* ---- Móvil (tumbado y de pie): la lista a pantalla completa; la ficha, encima ---- */
+@media (max-width: 760px) and (min-height: 521px), (max-height: 520px) {
   .dex-main { grid-template-columns: minmax(0, 1fr); }
   .dex-detail { --dx-panel: var(--surface-solid); display: none; border-left: 0; background: none; }
-  #scr-dex.detail-open :is(.dex-list, .sheet-row, .sheet-acts) { display: none; }
+  #scr-dex.detail-open :is(.dex-list, .sheet-row) { display: none; }
   #scr-dex.detail-open .dex-detail { display: block; animation: sheet-up var(--t-med) var(--ease); }
-  .dx-in { padding: 14px var(--dx-pad) 0; }
-  .dx-stage { height: 208px; }
-  .dx-foot { margin-inline: calc(-1 * var(--dx-pad)); padding: 12px var(--dx-pad) max(14px, var(--sa-b)); }
-  .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(16px, var(--sa-b)); }
 }
-/* ---- Colección en el móvil (de pie y tumbado), modo compacto (23-10-2026) ----
- * Casillas más pequeñas (su lienzo también: 76×64 en vez de 92×80, menu.js,
- * COMPACT) y la ficha con recuadros más apretados. */
+/* ---- Móvil, modo compacto: casillas más pequeñas (su lienzo también: 76×60, menu.js) ---- */
 @media (max-width: 599px), (max-height: 520px) {
   .dex-box { --dx-pad: 12px; }
   #scr-dex .gen-tab b { font-size: 14px; }
-  .dx-grid { gap: 6px; padding-top: 10px; }
+  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; padding-top: 10px; padding-bottom: max(16px, var(--sa-b)); }
   .dx-cell { padding: 4px 3px 6px; border-radius: var(--rad-m); }
   .dx-cell > b { font-size: 12px; }
   .dx-cell .no { top: 4px; left: 6px; }
   .dx-marks { top: 11px; }
   .dx-sec { gap: 6px; padding: 10px; border-radius: 14px; }
-  .dx-extra { padding: 0 10px; }
+  .dx-extra, .dx-kvs { padding: 0 10px; }
   .dx-row { padding: 8px 0; }
-  .dx-partner { min-height: 40px; font-size: 15px; }
+  .dx-partner { min-height: 38px; font-size: 15px; }
+  .dx-pick > select { max-width: 150px; }
 }
-/* ---- De pie: cabecera, buscador y filtros más bajos; cuatro casillas por fila ---- */
-@media (max-width: 599px) and (min-height: 521px) {
+/* ---- De pie (tabletas estrechas; en el móvil el juego va tumbado): la ficha, en una columna ---- */
+@media (max-width: 760px) and (min-height: 521px) {
   #scr-dex .sheet-row > .gen-tabs { margin: 0 -12px -4px; padding: 2px 12px 6px; }
-  /* Regiones: la cuenta al lado del nombre y la barrita debajo (una línea menos). */
   #scr-dex .gen-tab { flex-flow: row wrap; align-items: baseline; column-gap: 5px; min-width: 0; padding: 5px 11px 6px; }
   #scr-dex .dx-gbar { flex: 1 1 100%; margin-top: 4px; }
-  .dx-tools { gap: 6px; padding: 8px var(--dx-pad); }
-  body.touch .dx-filters { margin-block: -2px; padding-block: 2px; }
-  /* Cuatro casillas por fila (tres en los de 320 px de ancho). */
-  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); padding-bottom: max(16px, var(--sa-b)); }
-  /* Ficha (a pantalla completa): escenario más bajo (el Pokémon, a ×4). */
-  .dx-in { gap: 10px; padding-top: 12px; }
-  .dx-stage { height: 176px; border-radius: 18px; }
-  .dx-foot { padding-top: 8px; padding-bottom: max(10px, var(--sa-b)); }
-  .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(12px, var(--sa-b)); }
+  .dx-tools { flex-wrap: wrap; gap: 6px; padding: 8px var(--dx-pad); }
+  .dx-q { flex-basis: 100%; }
+  .dx-in { padding: 12px var(--dx-pad) max(16px, var(--sa-b)); }
+  .dx-stage { height: 188px; }
 }
-/* ---- Colección en el móvil tumbado: lista y ficha lado a lado, todo compacto ----
- * La lista deja a la izquierda la zona segura (muesca) y la ficha, a la derecha. */
+/* ---- Tumbado (el móvil): una franja de cabecera, una fila de herramientas y la ficha en dos columnas ----
+ * La lista deja a la izquierda la zona segura (muesca); la ficha, a los dos lados. */
 @media (max-height: 520px) {
-  .dex-main { grid-template-columns: minmax(0, 1fr) minmax(224px, 38%); }
-  /* Cabecera en una línea (48 px): volver, título y las regiones (se deslizan). */
+  /* Cabecera: volver, título y cuántos tienes (a la derecha, las monedas de la barra de arriba). */
   #scr-dex .sheet-head { flex-wrap: nowrap; padding-top: 2px; padding-bottom: 2px; }
-  #scr-dex .sheet-head h2 { flex: none; }
-  #scr-dex .sheet-head > .sheet-row { flex: 1 1 0; min-width: 0; }
-  #scr-dex .sheet-acts { display: none; }
-  #scr-dex .sheet-row > .gen-tabs { padding: 2px 4px; }
-  #scr-dex .gen-tab { flex-direction: row; align-items: baseline; gap: 5px; min-width: 0; padding: 5px 10px; }
-  .dx-gbar { display: none; }
-  /* Buscador, tipo, orden y chips en una sola fila que se desliza de lado. */
-  .dx-tools {
-    flex-direction: row; align-items: center; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-    padding: 6px 36px 6px max(var(--dx-pad), var(--sa-l));
-    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
-    mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
-  }
-  .dx-tools::-webkit-scrollbar { display: none; }
-  .dx-search, .dx-filters { display: contents; }
-  .dx-tools > *, .dx-search > *, .dx-filters > *, .dx-filters > .dx-chips > * { flex: none; }
-  .dx-q { flex: 0 0 168px; }
-  .dx-count { display: none; }
-  .dx-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    padding-left: max(var(--dx-pad), var(--sa-l)); padding-bottom: max(16px, var(--sa-b)); }
-  /* Ficha a la derecha (el Pokémon, a ×3: con menos de 120 px «hero» lo bajaba a ×2). */
-  .dex-detail { --dx-pr: max(12px, var(--sa-r)); }
-  .dx-in { gap: 8px; padding: 10px var(--dx-pr) 0 12px; }
-  .dx-stage { height: 128px; border-radius: var(--rad-l); }
-  .dex-detail .dx-name { font-size: var(--fs-xl); }
-  .dx-foot { margin-inline: -12px calc(-1 * var(--dx-pr)); padding: 8px var(--dx-pr) max(8px, var(--sa-b)) 12px; }
-  .dx-in > :last-child:not(.dx-foot) { margin-bottom: max(12px, var(--sa-b)); }
-  /* Más justo (24-10-2026): la fila de búsqueda y filtros, de 44 px (controles de 34-36),
-     y la ficha más estrecha, con el escenario más bajo y los recuadros apretados. */
-  .dex-main { grid-template-columns: minmax(0, 1fr) minmax(212px, 34%); }
-  #scr-dex .gen-tab small { font-size: 11px; }
-  .dx-tools { gap: 5px; padding-top: 4px; padding-bottom: 4px; }
-  .dx-q > .field { min-height: 34px; padding: 4px 12px 4px 34px; }
-  #scr-dex .dx-q > .field { min-height: 34px; }
-  .dx-q > .ui-svg { left: 11px; width: 16px; height: 16px; margin-top: -8px; }
-  body.touch .dx-pick, .dx-pick { min-height: 34px; }
-  body.touch #scr-dex .dx-tools .chip { min-height: 34px; }
-  .dx-grid { gap: 5px; padding-top: 6px; }
+  #scr-dex .sheet-head > .sheet-row { display: none; }
+  .dx-total { height: 30px; margin-left: 4px; }
+  .dx-total b { font-size: var(--fs-s); }
+  /* Herramientas en una fila de 36 px (la región, en desplegable). */
+  .dx-tools { gap: 6px; padding: 6px max(var(--dx-pad), var(--sa-r)) 6px max(var(--dx-pad), var(--sa-l)); }
+  .dx-pick-gen { display: inline-flex; }
+  .dx-q { flex: 1 1 120px; min-width: 88px; }
+  .dx-q > .field, #scr-dex .dx-q > .field { min-height: 34px; padding: 4px 10px 4px 32px; font-size: 14px; }
+  .dx-q > .ui-svg { left: 10px; width: 16px; height: 16px; margin-top: -8px; }
+  .dx-pick, body.touch .dx-pick, .dx-more, body.touch #scr-dex .dx-more { min-height: 34px; }
+  .dx-pick > select { max-width: 132px; padding-right: 24px; background-position: right 7px center; }
+  .dx-pick.no-ico > select { padding-left: 11px; }
+  .dx-panel { gap: 6px 14px; padding: 6px max(var(--dx-pad), var(--sa-r)) 8px max(var(--dx-pad), var(--sa-l)); }
+  body.touch #scr-dex .dx-panel .chip { min-height: 32px; }
+  body.touch #scr-dex .dx-panel .btn.small { padding-top: 5px; padding-bottom: 5px; }
+  .dx-grid { gap: 5px; padding: 6px max(var(--dx-pad), var(--sa-r)) max(14px, var(--sa-b)) max(var(--dx-pad), var(--sa-l)); }
   .dx-cell { padding: 3px 2px 5px; }
-  .dx-in { gap: 6px; padding-top: 8px; }
-  .dx-stage { height: 120px; }
+  /* Ficha: el Pokémon a la izquierda y las pestañas a la derecha, cada uno con su desplazamiento. */
+  #scr-dex.detail-open .dex-detail { display: block; height: 100%; overflow: hidden; }
+  .dx-in {
+    display: grid; grid-template-columns: clamp(196px, 30%, 268px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+    gap: 0; height: 100%; padding: 0;
+  }
+  .dx-hero {
+    gap: 6px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    padding: 8px 10px max(10px, var(--sa-b)) max(12px, var(--sa-l)); border-right: 1px solid var(--line-1);
+  }
+  .dx-hero::-webkit-scrollbar { display: none; }
+  .dx-stage { flex: none; height: 132px; border-radius: var(--rad-l); }
+  .dex-detail .dx-name { font-size: var(--fs-xl); }
+  .dx-rar { font-size: var(--fs-xs); }
+  .dx-seg { align-self: center; }
+  .dx-foot { margin-top: auto; padding-top: 2px; }
+  .dx-partner { min-height: 36px; padding: 4px 10px; font-size: 14px; }
+  .dx-body { gap: 0; min-height: 0; }
+  .dx-tabs { position: static; flex: none; margin: 8px max(12px, var(--sa-r)) 6px 10px; box-shadow: none; }
+  .dx-tab { min-height: 32px; font-size: var(--fs-s); }
+  body.touch .dx-tab { min-height: 34px; }
+  .dx-pane {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; gap: 8px;
+    padding: 2px max(12px, var(--sa-r)) max(12px, var(--sa-b)) 10px;
+  }
   .dx-sec { gap: 5px; padding: 8px 10px; border-radius: 12px; }
-  .dx-extra { padding: 0 10px; }
+  .dx-extra, .dx-kvs { padding: 0 10px; }
   .dx-row { padding: 6px 0; }
   .dx-stats { gap: 5px 8px; }
-  .dx-mv { width: 34px; height: 34px; border-radius: 10px; }
-  body.touch .dx-mv { width: 36px; height: 36px; }
-  .dx-foot { padding-top: 6px; padding-bottom: max(6px, var(--sa-b)); }
-  .dx-partner { min-height: 36px; padding: 4px 12px; font-size: 14px; }
+  .dx-st { flex-basis: 96px; padding: 4px 4px 6px; }
+  .dx-mlist { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 5px; }
+  .dx-recs { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+  .dx-rec > b { font-size: var(--fs-m); }
+  /* Uno que te falta: el aviso centrado. */
+  .dx-in.is-miss .dx-pane { justify-content: center; }
+}
+/* Muy bajo y estrecho (667×375): la ficha más apretada. */
+@media (max-height: 400px) {
+  .dx-in { grid-template-columns: clamp(184px, 30%, 236px) minmax(0, 1fr); }
+  .dx-stage { height: 112px; }
+  .dx-hero { gap: 5px; }
 }
 
-/* ---- Mejoras: el Pokémon (escenario, selector y progreso) y las tarjetas ---- */
-.upg-box .upg-body { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; grid-auto-rows: max-content; gap: 14px; }
-.upg-mon { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 12px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
+/* ---- Mejoras (rehecha el 26-10-2026): el Pokémon y una fila baja por mejora ----
+ * A la izquierda (tumbado y ordenador; arriba de pie) el Pokémon: escenario, la «cara»
+ * del selector (un <select> nativo invisible encima: en el iPhone abre su rueda), tipos y
+ * progreso, cómo se compra (×1 / Máx.), «Elegir de compañero» y tus Pokémon a mano. A la
+ * derecha, las mejoras por apartados: icono · nombre, nivel, efecto y segmentos · UN botón
+ * con el precio. Lo pinta js/ui/menu.js (upgShell, renderUpgrades y upgRow). */
+.upg-box .upg-body { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; grid-auto-rows: max-content; gap: 12px; }
+.upg-mon { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-width: 0; padding: 10px;
+  border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
 .upg-stage { width: 132px; height: 104px; border-radius: 18px; }
-.upg-who { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.upg-who > .eyebrow { margin: 0; }
-#upg-mon { width: 100%; min-width: 0; }
-.upg-sum { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-width: 0; }
+.upg-who { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.upg-who > .eyebrow { display: none; }
+/* La cara del selector: nombre, «Compañero» y la flecha; el <select> va encima, invisible. */
+.upg-sel { position: relative; min-width: 0; }
+.upg-face { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 10px 4px 12px; border-radius: var(--rad-m);
+  background: var(--sunk); border: 1px solid var(--line-2); color: var(--muted); transition: border-color var(--t-fast), box-shadow var(--t-fast); }
+.upg-fn { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.upg-fn > b { font: 600 var(--fs-l)/1.2 var(--font-display); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upg-fn > small { font: 700 var(--fs-xs)/1.2 var(--font); color: var(--c-yellow); }
+.upg-fn > small:empty { display: none; }
+#scr-upgrades .upg-sel > #upg-mon { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.upg-sel:hover > .upg-face { border-color: var(--line-3); }
+.upg-sel:focus-within > .upg-face { border-color: var(--c-blue-hi); box-shadow: 0 0 0 3px rgba(255, 203, 5, .35); }
+.upg-sum { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
 .upg-types { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .upg-types .type { margin: 0; }
 /* Cuántos niveles lleva de todos los que hay. */
-.upg-prog { flex: 1 1 140px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.upg-prog { flex: 1 1 120px; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .upg-prog .meter { display: block; flex: 1 1 auto; min-width: 40px; height: 8px; }
 .upg-prog b { font: 600 var(--fs-m)/1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .upg-prog b small { font-size: var(--fs-xs); color: var(--muted); }
-/* Tarjetas: una columna en el móvil de pie; dos o tres con más sitio. */
-.upg-grid { min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-content: start; gap: 10px; }
-/* Arriba el icono, el nombre y el efecto; debajo, el nivel y el precio; y, si hace falta, una tercera línea. */
+/* Cómo se compra: de uno en uno o todos los niveles que puedas pagar (el botón de cada fila lo dice). */
+.upg-mode { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.upg-mode > .eyebrow { margin: 0; }
+.upg-mode > .seg { flex: 1 1 auto; width: auto; margin: 0; }
+.upg-mode .seg button { flex: 1 1 0; justify-content: center; }
+.upg-mode .seg button.on[data-n="0"] { background: linear-gradient(180deg, var(--c-yellow-hi), var(--c-yellow)); color: var(--c-on-yellow); }
+#upg-partner { white-space: normal; }
+/* A mano: tus Pokémon con mejoras (y los favoritos), para cambiar de un toque. */
+.upg-quick { flex: 1 1 100%; min-width: 0; }
+.upg-quick > .eyebrow { margin: 0 0 4px; }
+.upg-qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 6px; }
+.upg-q {
+  appearance: none; position: relative; display: grid; place-items: center; height: 46px; padding: 0; overflow: hidden; cursor: pointer;
+  border-radius: 12px; background: var(--sunk); border: 1px solid var(--line-1); color: var(--ink); -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--t-fast), background-color var(--t-fast), transform .08s var(--ease);
+}
+.upg-q:hover { border-color: var(--line-3); }
+.upg-q:active { transform: scale(.95); }
+.upg-q > canvas { display: block; width: 40px; height: 36px; image-rendering: pixelated; }
+.upg-q > small { position: absolute; right: 4px; bottom: 2px; font: 600 11px/1 var(--font-display); color: var(--c-yellow);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .7); font-variant-numeric: tabular-nums; }
+.upg-q.on { border-color: var(--c-yellow); background: rgba(255, 203, 5, .13); box-shadow: inset 0 0 0 1px var(--c-yellow); }
+/* Las mejoras: una columna estrecha, dos o más con sitio; un título por apartado. */
+.upg-grid { min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); align-content: start; gap: 6px 8px; }
+.upg-grid > h3.upg-h { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; margin: 8px 2px 0;
+  font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.upg-grid > h3.upg-h:first-child { margin-top: 0; }
+.upg-h > small { margin-left: auto; font-size: inherit; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+/* Fila: icono · nombre (con su nivel), efecto y segmentos · el botón; debajo, si hace falta, lo demás. */
 .upg-card {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico info info" "lv lv buy" "more more more";
-  align-items: center; gap: 10px 12px; min-width: 0; padding: 12px;
-  border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1);
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico info acts" "more more more";
+  align-items: center; align-content: center; column-gap: 10px; min-width: 0; padding: 6px 8px 6px 6px;
+  border-radius: 14px; background: var(--card); border: 1px solid var(--line-1);
   transition: border-color var(--t-fast), background-color var(--t-fast);
 }
 .upg-card:hover { border-color: var(--line-2); }
 .upg-card > .ico-tile { grid-area: ico; }
-.upg-info { grid-area: info; min-width: 0; }
-.upg-info b { display: block; font: 600 16px/1.25 var(--font-display); }
-.upg-info small { display: block; margin-top: 2px; font-size: var(--fs-s); line-height: 1.35; color: var(--muted); }
-.upg-price { grid-area: buy; justify-self: end; }
-.upg-buy > span { font-variant-numeric: tabular-nums; }
-.upg-maxed { min-height: 28px; padding: 3px 12px; font-size: var(--fs-s); }
-/* Nivel: un segmento por nivel y la cifra. */
-.upg-lv { grid-area: lv; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.upg-pips { flex: 1 1 auto; display: flex; gap: 3px; min-width: 0; }
-.upg-pips > i { flex: 1 1 0; height: 8px; border-radius: 4px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--line-1); }
+.upg-info { grid-area: info; min-width: 0; display: flex; flex-direction: column; gap: 1px; border-radius: 8px; }
+.upg-info.has-desc { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.upg-info.has-desc:focus-visible { outline: 2px solid var(--c-yellow); outline-offset: 2px; }
+.upg-top { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.upg-top > b { min-width: 0; font: 600 15px/1.25 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upg-top > .ui-svg { color: var(--muted); }
+.upg-info[aria-expanded="true"] .upg-top > .ui-svg { color: var(--c-yellow); }
+.upg-num { flex: none; margin-left: auto; padding-left: 6px; font: 600 var(--fs-xs)/1 var(--font-display); color: var(--muted); font-variant-numeric: tabular-nums; }
+.upg-num b { font-size: var(--fs-s); font-weight: 600; color: var(--ink); }
+.upg-info > small { display: block; font-size: var(--fs-s); line-height: 1.3; color: var(--muted); }
+/* Nivel: un segmento por nivel. */
+.upg-pips { display: flex; gap: 2px; margin-top: 3px; }
+.upg-pips > i { flex: 1 1 0; height: 4px; border-radius: 2px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--line-1); }
 .upg-pips > i.on { background: linear-gradient(180deg, var(--c-yellow-hi), var(--c-yellow)); box-shadow: none; }
-.upg-num { flex: none; font: 600 var(--fs-xs)/1 var(--font-display); color: var(--muted); font-variant-numeric: tabular-nums; }
-.upg-num b { font-size: var(--fs-m); font-weight: 600; color: var(--ink); }
-/* Segunda línea: elegir movimientos o vetos, «necesita…» y «Máx. +N». */
-.upg-more { grid-area: more; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-.upg-many { margin-left: auto; }
+.upg-acts { grid-area: acts; display: flex; align-items: center; justify-content: flex-end; }
+.upg-buy { min-width: 84px; }
+.upg-grid.mode-max .upg-buy { min-width: 124px; }
+.upg-buy > span, .upg-buy > .upg-k { font-variant-numeric: tabular-nums; }
+.upg-buy > .upg-k { margin-right: auto; font-weight: 700; }
+.upg-maxed { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 12px; font-size: var(--fs-s); }
+.upg-more { grid-area: more; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; margin-top: 6px; }
+.upg-desc { flex: 1 1 100%; margin: 0; padding: 6px 10px; border-radius: 10px; background: var(--sunk); font-size: var(--fs-s); line-height: 1.4; color: var(--ink); }
 .upg-pick { max-width: 100%; }
 .upg-pick > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upg-pick.on { border-color: var(--c-yellow); box-shadow: inset 0 0 0 1px var(--c-yellow); }
 .upg-lock { display: inline-flex; align-items: center; gap: 6px; font: 700 var(--fs-s)/1.3 var(--font); color: var(--muted); }
 .upg-card.is-max { border-color: rgba(255, 203, 5, .35); background: linear-gradient(180deg, rgba(255, 203, 5, .08), transparent 60%), var(--card); }
 .upg-card.is-locked > .ico-tile { filter: grayscale(.85); opacity: .7; }
-/* Paneles a todo el ancho: elegir movimientos y vetos (debajo de su tarjeta) y los atajos. */
+/* Recién comprada: un destello en su fila. */
+.upg-card.bump { animation: upg-bump .6s var(--ease); }
+@keyframes upg-bump { 0% { border-color: var(--c-yellow); box-shadow: 0 0 0 2px rgba(255, 203, 5, .45), 0 0 18px rgba(255, 203, 5, .3); } 100% { box-shadow: none; } }
+/* Paneles a todo el ancho: elegir movimientos y vetos (debajo de su fila) y los atajos. */
 .upg-panel {
   grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px;
   border-radius: var(--rad-l); background: var(--sunk); border: 1px solid var(--line-2); animation: drop-in .16s var(--ease);
@@ -2223,78 +2358,78 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 }
 .upg-slot > .field { flex: 1 1 auto; min-width: 0; }
 @media (max-width: 760px) { .upg-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* Escritorio y tableta tumbada: el Pokémon en una columna fija a la izquierda. */
+/* Ordenador y tableta tumbada: el Pokémon en una columna fija a la izquierda. */
 @media (min-width: 900px) and (min-height: 600px) {
-  .upg-box .upg-body { grid-template-columns: 248px minmax(0, 1fr); gap: 18px; align-items: start; }
-  .upg-mon { position: sticky; top: 0; flex-direction: column; align-items: stretch; padding: 14px; }
-  .upg-stage { width: 100%; height: 176px; }
+  .upg-box .upg-body { grid-template-columns: 236px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .upg-mon { position: sticky; top: 0; flex-direction: column; flex-wrap: nowrap; align-items: stretch; padding: 12px; }
+  .upg-stage { width: 100%; height: 150px; }
+  .upg-who, .upg-quick { flex: none; }
+  .upg-qgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-/* ---- Mejoras en el móvil (de pie y tumbado), modo compacto (23-10-2026) ----
- * Tarjetas más apretadas; si su tercera línea sólo lleva «Máx. +N», ese botón
- * sube a la del nivel, al lado del precio (una línea menos por tarjeta). */
+/* ---- Móvil (de pie y tumbado), modo compacto ---- */
 @media (max-width: 599px), (max-height: 520px) {
   .upg-box .upg-body { gap: 10px; }
-  .upg-mon { gap: 10px; padding: 8px; border-radius: 14px; }
-  .upg-who { gap: 4px; }
-  .upg-grid { gap: 8px; }
-  .upg-card { gap: 8px 10px; padding: 10px; border-radius: 14px; }
-  .upg-card:has(> .upg-more > .upg-many:only-child) {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "ico info info info" "lv lv more buy";
-  }
-  .upg-info b { font-size: 15px; }
-  .upg-info small { margin-top: 1px; }
-  .upg-lv { gap: 8px; }
-  .upg-more { gap: 6px; }
+  .upg-mon { gap: 8px 10px; padding: 8px; border-radius: 14px; }
+  .upg-who { gap: 6px; }
+  .upg-face { min-height: 40px; border-radius: 12px; }
+  .upg-card { padding: 4px 6px 4px 4px; column-gap: 8px; border-radius: 12px; }
+  .upg-top > b { font-size: 14px; }
+  .upg-info > small { font-size: 12px; }
   .upg-panel { gap: 8px; padding: 10px; border-radius: 14px; }
 }
 @media (max-width: 599px) and (min-height: 521px) {
   .upg-stage { width: 100px; height: 84px; border-radius: 14px; }
 }
-/* Tumbado (24-10-2026), como un juego de móvil: el Pokémon en una columna fija a la
-   izquierda (escenario, selector y progreso) y las mejoras a la derecha, una por fila
-   (icono · nombre y efecto · nivel · precio), dos columnas si hay sitio. */
+/* Tumbado (el móvil, siempre): el Pokémon en una columna estrecha y fija a la izquierda, que
+   se desliza sola si no cabe; las mejoras a la derecha, en dos columnas si hay sitio. Filas
+   de 42 px: el botón de 36 (lo que se toca) y el nombre, el efecto y los segmentos al lado. */
 @media (max-height: 520px) {
-  .upg-box .upg-body { grid-template-columns: calc(176px + var(--sa-l)) minmax(0, 1fr); align-items: start; gap: 10px;
-    padding-left: max(10px, var(--sa-l)); }
-  .upg-mon { position: sticky; top: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px; border-radius: 12px; }
-  .upg-stage { width: 100%; height: 92px; border-radius: 10px; }
-  .upg-who { gap: 4px; }
-  .upg-who > .eyebrow { display: none; }
-  #upg-mon { width: 100%; padding-left: 10px; }
-  .upg-sum { flex-direction: column; align-items: stretch; gap: 4px; }
-  .upg-types { justify-content: center; }
-  .upg-prog { flex: none; }
-  .upg-grid { grid-template-columns: minmax(0, 1fr); gap: 5px; }
-  .upg-card {
-    grid-template-columns: auto minmax(0, 1fr) minmax(56px, 112px) auto;
-    grid-template-areas: "ico info lv buy" "more more more more";
-    gap: 4px 10px; padding: 4px 6px 4px 4px; border-radius: 12px;
+  .upg-box .upg-body { grid-template-columns: 146px minmax(0, 1fr); align-items: start; gap: 10px; }
+  .upg-mon {
+    position: sticky; top: 0; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 6px; padding: 6px; border-radius: 12px;
+    max-height: calc(100vh - 66px - var(--sa-t) - var(--sa-b)); max-height: calc(100dvh - 66px - var(--sa-t) - var(--sa-b));
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
   }
-  .upg-card:has(> .upg-more > .upg-many:only-child) {
-    grid-template-columns: auto minmax(0, 1fr) minmax(56px, 112px) auto auto;
-    grid-template-areas: "ico info lv more buy";
-  }
-  .upg-info b { font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .upg-info small { margin-top: 0; font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .upg-lv { gap: 6px; }
-  .upg-pips { gap: 2px; }
-  .upg-pips > i { height: 6px; border-radius: 3px; }
-  .upg-num b { font-size: 13px; }
-  .upg-more { gap: 5px; }
+  .upg-mon::-webkit-scrollbar { display: none; }
+  .upg-stage { flex: none; width: 100%; height: 72px; border-radius: 10px; }
+  /* Los tipos, pequeños, encima del escenario (arriba a la izquierda): una línea menos. */
+  .upg-mon .upg-types { position: absolute; z-index: 1; top: 10px; left: 10px; right: 10px; gap: 3px; justify-content: flex-start; pointer-events: none; }
+  .upg-mon .upg-types .type { padding: 0 7px; font-size: 10px; line-height: 16px; }
+  .upg-who { flex: none; gap: 6px; }
+  .upg-face { min-height: 36px; gap: 4px; padding: 2px 6px 2px 9px; border-radius: 11px; }
+  .upg-fn > b { font-size: 14px; }
+  .upg-fn > small { font-size: 10px; line-height: 1.1; }
+  .upg-sum { flex-direction: column; align-items: stretch; gap: 5px; }
+  .upg-prog { flex: none; gap: 6px; }
+  .upg-prog b { font-size: 13px; }
+  .upg-mode > .eyebrow { display: none; }
+  .upg-mode .seg button { padding: 5px 4px; }
+  #upg-partner { padding: 5px 6px; font-size: 12px; line-height: 15px; }
+  .upg-quick { flex: none; }
+  .upg-quick > .eyebrow { margin-bottom: 3px; font-size: 10px; }
+  .upg-qgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .upg-q { height: 42px; border-radius: 10px; }
+  .upg-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 4px 6px; }
+  .upg-grid > h3.upg-h { margin-top: 4px; font-size: 10px; }
+  .upg-grid > h3.upg-h:first-child { margin-top: 0; }
+  .upg-card { column-gap: 8px; padding: 2px 4px 2px 2px; border-radius: 11px; }
+  .upg-card > .ico-tile.s { --tile: 34px; border-radius: 10px; }
+  .upg-top > b { font-size: 13.5px; line-height: 1.2; }
+  .upg-num b { font-size: 12px; }
+  .upg-info > small { font-size: 11px; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .upg-pips { margin-top: 2px; }
+  .upg-pips > i { height: 3px; border-radius: 2px; }
+  .upg-buy { min-width: 74px; }
+  .upg-grid.mode-max .upg-buy { min-width: 112px; }
   .upg-buy > img.pix { margin: -8px -4px -8px -8px !important; }
-  .upg-maxed { min-height: 24px; padding: 2px 10px; }
+  .upg-maxed { min-height: 24px; padding: 2px 9px; }
+  .upg-more { margin: 3px 0 2px; gap: 5px; }
+  .upg-desc { padding: 5px 8px; font-size: 12px; line-height: 1.35; }
   .upg-panel { gap: 6px; padding: 8px; border-radius: 12px; }
   .upg-ph b { font-size: var(--fs-m); }
   .upg-slots { gap: 6px; }
   .upg-sn { width: 28px; height: 28px; border-radius: 8px; font-size: 13px; }
-}
-/* Con dos columnas, el nivel pasa debajo del nombre (si no, los nombres no cabían). */
-@media (max-height: 520px) and (min-width: 880px) {
-  .upg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .upg-card { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico info buy" "ico lv lv" "more more more"; row-gap: 2px; }
-  .upg-card:has(> .upg-more > .upg-many:only-child) { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "ico info more buy" "ico lv lv lv"; }
-  .upg-card > .ico-tile { align-self: center; }
 }
 /* Mochila tumbada (24-10-2026): filas bajas en dos o tres columnas, con el objeto a
    30 px (el dibujo de 60 a la mitad: sigue nítido) en una baldosa de 46. Por id: pesa
@@ -2463,23 +2598,37 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 .ring-worn-k { font: 600 var(--fs-s)/1.3 var(--font); color: var(--muted); margin-right: 2px; }
 .ring-mon.chip { min-height: 26px; padding: 1px 10px; font-size: var(--fs-xs); }
 .ring-more { font: 700 var(--fs-xs)/1 var(--font); color: var(--muted); }
-/* Móvil tumbado: el puesto a la izquierda, de arriba abajo, y las pestañas a la derecha,
-   cada una en una pantalla (lo que no quepa se desplaza sólo en su columna). */
+/* Móvil tumbado (26-10-2026): la tienda a pantalla completa. El puesto ya no ocupa media
+   pantalla a la izquierda: sale encima, entero, sólo con la entrada (shop-ui.js showStall)
+   y se va deslizándose hacia arriba (#scr-shop.stall-off); el botón del puesto de la
+   cabecera lo vuelve a sacar y un toque (o «Ir a la tienda») lo esconde. Las pestañas se
+   quedan arriba y lo de cada una se desplaza debajo. */
+.shop-stall-btn, .shop-go { display: none; }
 @media (max-height: 520px) {
-  #scr-shop .shop-scroll { display: grid; grid-template-columns: clamp(200px, 32%, 290px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
-  #scr-shop .shop-stall { height: auto; min-height: 0; border-bottom: 0; border-right: 1px solid var(--line-1); }
-  #scr-shop .shop-sign { font-size: 13px; padding: 2px 10px; }
-  #scr-shop .shop-bubble { max-width: 92%; font-size: 11px; padding: 4px 8px; white-space: normal; }
-  #scr-shop .shop-inner { min-height: 0; overflow-y: auto; overscroll-behavior: contain; gap: 8px;
-    padding: 6px max(10px, var(--sa-r)) max(8px, var(--sa-b)) 10px; }
+  #scr-shop .shop-scroll { position: relative; display: block; overflow: hidden; }
+  #scr-shop .shop-stall { position: absolute; inset: 0; z-index: 4; height: auto; min-height: 0; border: 0; cursor: pointer;
+    transition: transform .45s var(--ease), opacity .3s ease-out; }
+  #scr-shop.stall-off .shop-stall { transform: translateY(-102%); opacity: 0; visibility: hidden; pointer-events: none;
+    transition: transform .45s var(--ease), opacity .3s ease-in .12s, visibility 0s .45s; }
+  #scr-shop .shop-sign { font-size: 15px; padding: 2px 12px; }
+  #scr-shop .shop-bubble { font-size: 12px; padding: 4px 9px; }
+  #scr-shop .shop-go { position: absolute; z-index: 5; right: max(12px, var(--sa-r)); bottom: max(10px, var(--sa-b));
+    display: inline-flex; box-shadow: inset 0 -3px 0 rgba(150, 100, 0, .32), 0 6px 18px rgba(0, 0, 0, .45); }
+  #scr-shop .shop-stall-btn { display: inline-grid; place-items: center; }
+  #scr-shop .shop-stall-btn > img { display: block; }
+  #scr-shop .shop-stall-btn[aria-pressed="true"] { border-color: var(--c-yellow); background: rgba(255, 203, 5, .13); }
+  #scr-shop .shop-stall-btn.bump > img { animation: shopBump .4s ease-out; }
+  #scr-shop .shop-inner { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; gap: 8px;
+    padding: 0 max(12px, var(--sa-r)) max(10px, var(--sa-b)) max(12px, var(--sa-l)); }
   #shop-body { gap: 6px; }
+  /* (Opacas aunque el fondo de las pestañas sea translúcido: lo de debajo pasa por detrás.) */
+  #scr-shop .tabs.shop-tabs { position: sticky; top: 6px; z-index: 3; margin-top: 6px;
+    background: linear-gradient(var(--sunk), var(--sunk)), var(--surface-solid); box-shadow: 0 -7px 0 var(--surface-solid), 0 6px 10px -6px rgba(0, 0, 0, .55); }
   .tabs.shop-tabs { padding: 2px; gap: 2px; }
   .shop-tab { padding: 2px 6px; gap: 3px; font-size: 13px; }
   .shop-tab > img { margin: -8px -6px -8px -8px; transform: scale(.75); }
   .shop-pane { gap: 6px; }
   .box .shop-pane > .shop-note { font-size: 11.5px; line-height: 1.3; }
-  /* (Cristales y MT: lo de la nota ya lo dicen el elegido de abajo, las filas y el bocadillo.) */
-  .box :is(.pane-z, .pane-tm, .pane-ring) > .shop-note { display: none; }
   .z-recipe { gap: 4px; padding: 5px 8px; border-radius: 11px; }
   .z-recipe > i { font-size: 15px; }
   .zr-step { gap: 4px; }
@@ -2487,14 +2636,15 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   .zr-txt small { font-size: 10.5px; }
   #scr-shop .tm-grid .shop-row small { -webkit-line-clamp: 1; }
   #scr-shop .shop-grid { gap: 5px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
-  #scr-shop .tm-grid { grid-template-columns: minmax(0, 1fr); }
+  #scr-shop .tm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #scr-shop .shop-row { min-height: 0; padding: 4px 6px 4px 4px; gap: 8px; border-radius: 11px; }
   #scr-shop .shop-row b { font-size: 13.5px; line-height: 1.2; }
   #scr-shop .shop-row small { font-size: 11px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   #scr-shop .shop-tags { margin: 1px 0; gap: 2px 4px; }
   #scr-shop .shop-tags .tag-chip { font-size: 10.5px; padding: 0 6px; }
   #scr-shop .shop-buy { padding-left: 8px; padding-right: 10px; }
-  .z-grid { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 4px; }
+  /* (Los 18 cristales en dos filas de 9: con la tienda a todo el ancho caben.) */
+  .z-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
   .z-cell { padding: 2px 2px 3px; gap: 1px; border-radius: 10px; font-size: 10.5px; }
   .z-cell > .ico-tile { --tile: 30px; border-radius: 9px; }
   .z-got { top: 2px; right: 2px; width: 14px; height: 14px; }
@@ -2507,17 +2657,10 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   .ring-for > select { max-width: 220px; }
   .ring-mon.chip { min-height: 26px; }
 }
-@media (max-height: 520px) and (min-width: 720px) {
-  #scr-shop .tm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-/* Los más estrechos y bajos (667×375 a 812×375): sin la cuenta de la pestaña (el nombre
-   no cabía) y el texto del cristal elegido en una línea: así caben las 4 filas de cristales. */
-@media (max-height: 520px) and (max-width: 830px) {
+/* Los más estrechos (667 a 719 de ancho): sin la cuenta de la pestaña ni los iconos de la receta. */
+@media (max-height: 520px) and (max-width: 719px) {
   .shop-tab-n { display: none; }
   .zr-step > .ico-tile { display: none; }
-}
-@media (max-height: 380px) {
-  #scr-shop .z-detail small { -webkit-line-clamp: 1; }
 }
 
 /* ---- Mochila: tarjetas con el objeto grande y cuántos tienes ---- */
@@ -2779,57 +2922,69 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 .pfx-grid.low .pull-card .pmon { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* «Continuar», siempre a la vista abajo aunque las cartas no quepan. */
 .pfx-foot { position: sticky; bottom: max(8px, var(--sa-b)); z-index: 2; flex: none; display: flex; justify-content: center; width: 100%; }
-.pfx-foot:has(> .hidden) { display: none; }
+/* (Sin nada que enseñar, fuera: ni «Otra vez» ni «Continuar».) */
+.pfx-foot:not(:has(> :not(.hidden))) { display: none; }
 #pull-fx #pull-close {
   position: static; min-width: min(280px, 100%);
   box-shadow: inset 0 -3px 0 rgba(150, 100, 0, .32), 0 8px 28px rgba(0, 0, 0, .6);
 }
 
-/* ---- Misiones · Logros · Perfil ---- */
+/* ---- Misiones · Logros · Perfil ----
+ * (26-10-2026) Más compactos y claros: misiones en filas bajas (las recogidas, en una
+ * línea apagada) y «Recoger todo»; logros en fichas bajas a dos columnas con la barra
+ * fina abajo; el perfil, una ficha de entrenador con tus marcas al lado. */
 /* Ancho de la hoja en tableta y ordenador (en el móvil, a pantalla completa: sección 4b). */
 @media (min-width: 600px) and (min-height: 521px) {
-  .goals-sheet.sheet-box { width: min(860px, 100%); }
+  .goals-sheet.sheet-box { width: min(940px, 100%); }
   .box.sheet-box.profile-sheet { width: min(620px, 100%); }
 }
 #goals-tabs { margin: 0; }
 :where(#goals-tabs) > button.tab { appearance: none; border: 0; background: transparent; }
 /* (La regla vieja #scr-goals > .box > * no dejaba encoger el cuerpo.) */
 #scr-goals > .sheet-box > .sheet-body { flex: 1 1 auto; min-height: 0; }
-/* Encabezado de cada parte: título y, a la derecha, cuándo se renuevan. */
-.goals-sec { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin: 20px 0 10px; }
+/* Encabezado de cada parte: título (con cuántas llevas) y, a la derecha, cuándo se renuevan. */
+.goals-sec { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin: 16px 0 8px; }
 .goals-sec:first-child { margin-top: 0; }
-.goals-sec h3 { margin: 0; font: 600 var(--fs-l)/1.2 var(--font-display); }
+.goals-sec h3 { display: flex; align-items: baseline; gap: 8px; margin: 0; font: 600 var(--fs-l)/1.2 var(--font-display); }
+.goals-sec h3 > small { font: 600 var(--fs-s)/1 var(--font-display); color: var(--muted); font-variant-numeric: tabular-nums; }
 .goals-sec.weekly h3 { color: #dcc8ff; }
 .goals-left {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--rad-pill);
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--rad-pill);
   background: var(--sunk); color: var(--muted); font: 700 var(--fs-xs)/1.2 var(--font);
 }
 .goals-hint { margin: 0 0 10px; font-size: var(--fs-s); }
 .goals-meter { margin: -2px 0 12px; }
 /* Premio: fichas con el objeto de verdad y la cantidad. */
-.rw-chips { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rw-chips { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .rw-chip {
-  display: inline-flex; align-items: center; gap: 1px; height: 32px; padding: 0 10px 0 1px; border-radius: var(--rad-pill);
+  display: inline-flex; align-items: center; gap: 1px; height: 28px; padding: 0 9px 0 1px; border-radius: var(--rad-pill);
   background: var(--sunk); border: 1px solid var(--line-1);
 }
-.rw-chip img { display: block; }
+.rw-chip img { display: block; width: 26px; height: 26px; }
 .rw-chip b { font: 600 var(--fs-s)/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .rw-chip.t10 { border-color: rgba(166, 107, 255, .5); }
+/* «Recoger todo» (con más de un premio esperando). */
+.goals-claim-all {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 6px 8px 6px 6px; border-radius: var(--rad-l);
+  background: linear-gradient(90deg, rgba(255, 203, 5, .18), rgba(255, 203, 5, .04)); border: 1px solid rgba(255, 203, 5, .6);
+}
+.goals-claim-all > b { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-m)/1.2 var(--font-display); color: var(--c-yellow); }
+.goals-claim-all .ico-tile img { display: block; }
 
-/* Misiones: icono · texto y barra · premio · botón (en el móvil, premio y botón debajo). */
-.mission-list { display: grid; gap: 8px; }
+/* Misiones: icono · título (la cuenta a su derecha) y barra · premio · botón. */
+.mission-list { display: grid; gap: 6px; }
 .mission-row {
-  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; grid-template-areas: "ico txt rw btn";
-  align-items: center; gap: 8px 12px; padding: 10px 12px;
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; grid-template-areas: "ico txt rw btn";
+  align-items: center; gap: 6px 12px; padding: 8px 10px; min-width: 0;
   border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1);
 }
-.mission-row .m-ico { grid-area: ico; }
+.mission-row .m-ico { grid-area: ico; --tile: 40px; border-radius: 12px; }
 .mission-row .m-ico img { display: block; }
 .mission-row .m-txt { grid-area: txt; min-width: 0; }
-.mission-row .m-txt b { display: block; font: 600 var(--fs-m)/1.25 var(--font-display); }
-.m-prog { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.m-prog .meter { flex: 1 1 auto; height: 8px; }
-.m-prog small { flex: none; color: var(--muted); font: 700 var(--fs-xs)/1 var(--font); font-variant-numeric: tabular-nums; }
+.m-l1 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.m-l1 > b { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-m)/1.25 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-n { flex: none; color: var(--muted); font: 700 var(--fs-xs)/1 var(--font); font-variant-numeric: tabular-nums; }
+.meter.m-bar { height: 6px; margin-top: 6px; }
 .mission-row .m-rw { grid-area: rw; }
 .mission-row .m-btn { grid-area: btn; min-width: 104px; white-space: nowrap; }
 .mission-row.weekly { border-color: rgba(166, 107, 255, .3); }
@@ -2837,51 +2992,73 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
   border-color: rgba(255, 203, 5, .7); background: linear-gradient(90deg, rgba(255, 203, 5, .14), rgba(255, 203, 5, .04));
   box-shadow: 0 0 0 1px rgba(255, 203, 5, .2), 0 6px 18px rgba(255, 203, 5, .08);
 }
-.mission-row.claimed { opacity: .62; }
-.mission-row.claimed .m-txt b { text-decoration: line-through; text-decoration-color: var(--line-3); }
+.mission-row.ready .m-n { color: var(--c-yellow); }
+/* Recogidas: una línea baja y apagada (sin barra). */
+.mission-row.claimed { padding-top: 3px; padding-bottom: 3px; background: transparent; opacity: .58; }
+.mission-row.claimed .m-ico { --tile: 30px; justify-self: center; background: none; box-shadow: none; }
+.mission-row.claimed .m-ico img { width: 26px; height: 26px; }
+.mission-row.claimed .m-l1 > b { text-decoration: line-through; text-decoration-color: var(--line-3); }
+.mission-row.claimed .rw-chip { height: 24px; }
+.mission-row.claimed .rw-chip img { width: 22px; height: 22px; }
+.mission-row.claimed .m-btn { padding-top: 3px; padding-bottom: 3px; }
 
-/* Logros: resumen, categorías y la rejilla de medallas. */
-.ach-sum { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-.ach-sum .grow { min-width: 0; }
+/* Logros: resumen en una franja, categorías y fichas bajas (dos columnas con sitio). */
+.ach-sum {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 6px 12px 6px 6px; border-radius: var(--rad-l);
+  background: linear-gradient(90deg, rgba(255, 203, 5, .13), rgba(255, 203, 5, .02)); border: 1px solid rgba(255, 203, 5, .35);
+}
 .ach-sum .ico-tile img { display: block; }
-.ach-count { display: block; font: 700 var(--fs-2xl)/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
-.ach-sum .sub { margin: 2px 0 8px; font-size: var(--fs-s); }
-.goals-cats { margin: 0 0 12px; }
+.ach-count { flex: none; font: 700 var(--fs-xl)/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.ach-sum > .meter { flex: 1 1 auto; height: 8px; }
+.ach-titles { flex: none; display: inline-flex; align-items: center; gap: 3px; color: var(--c-yellow); font: 600 var(--fs-s)/1 var(--font-display); white-space: nowrap; }
+.ach-titles img { width: 22px; height: 22px; }
+.goals-cats { margin: 0 0 10px; }
 .goals-cats .chip { gap: 6px; padding-left: 4px; }
-.goals-cats .chip img { display: block; }
+.goals-cats .chip img { display: block; width: 26px; height: 26px; }
 .goals-cats .chip small { color: var(--muted); font: 700 var(--fs-xs)/1 var(--font); font-variant-numeric: tabular-nums; }
 .goals-cats .chip.on small { color: inherit; }
 .goals-cats .chip.full:not(.on) small { color: var(--ok); }
-.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 6px; }
 .ach-tile {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0;
-  padding: 14px 10px 12px; text-align: center;
-  border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1);
+  position: relative; overflow: hidden; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-width: 0; min-height: 52px; padding: 6px 10px 8px 7px;
+  border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1);
 }
-.ach-tile.ok { border-color: rgba(255, 203, 5, .45); background: linear-gradient(180deg, rgba(255, 203, 5, .1), var(--card) 60%); }
-.ico-tile.ach-medal { --tile: 72px; position: relative; }
+.ach-tile.ok { border-color: rgba(255, 203, 5, .45); background: linear-gradient(90deg, rgba(255, 203, 5, .12), var(--card) 65%); }
+.ico-tile.ach-medal { --tile: 40px; position: relative; overflow: visible; }
 .ach-tile:not(.ok) .ach-medal { background: var(--sunk); }
+.ach-tile:not(.ok) .ach-medal img { opacity: .6; }
 .ach-medal img { display: block; }
 .ach-lock {
-  position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
   background: var(--surface-solid); border: 1px solid var(--line-2); color: var(--muted);
 }
 /* Medallas de bronce, plata y oro: la baldosa del color de su metal. */
 .ach-tile.tier1.ok .ach-medal, .pm.tier1 .ico-tile { background: radial-gradient(circle at 50% 30%, rgba(240, 170, 110, .5), rgba(208, 138, 78, .16) 72%); }
 .ach-tile.tier2.ok .ach-medal, .pm.tier2 .ico-tile { background: radial-gradient(circle at 50% 30%, rgba(236, 242, 252, .5), rgba(201, 214, 234, .14) 72%); }
 .ach-tile.tier3.ok .ach-medal, .pm.tier3 .ico-tile { background: radial-gradient(circle at 50% 30%, rgba(255, 220, 110, .5), rgba(255, 203, 5, .14) 72%); }
-.ach-name { font: 600 var(--fs-m)/1.2 var(--font-display); overflow-wrap: anywhere; }
-.ach-desc { color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
-.ach-prog, .ach-done { margin-top: auto; }
-.ach-prog { display: flex; align-items: center; gap: 6px; width: 100%; }
-.ach-prog .meter { flex: 1 1 auto; height: 7px; }
-.ach-prog small { flex: none; color: var(--muted); font: 700 var(--fs-xs)/1 var(--font); font-variant-numeric: tabular-nums; }
-.ach-done { display: inline-flex; align-items: center; gap: 4px; color: var(--ok); font: 800 var(--fs-xs)/1.2 var(--font); }
-.ach-tile .rw-chips { justify-content: center; }
+.ach-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ach-l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ach-name { flex: 0 0 auto; max-width: 100%; min-width: 0; font: 600 var(--fs-m)/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ach-title {
-  display: inline-block; max-width: 100%; padding: 2px 10px; border-radius: var(--rad-pill);
-  border: 1px solid rgba(255, 203, 5, .55); color: var(--c-yellow); font: 600 var(--fs-xs)/1.4 var(--font-display); overflow-wrap: anywhere;
+  flex: 0 1 auto; display: inline-flex; align-items: center; gap: 1px; min-width: 20px; padding: 0 8px 0 1px;
+  border-radius: var(--rad-pill); border: 1px solid rgba(255, 203, 5, .55); color: var(--c-yellow);
+  font: 600 11px/18px var(--font-display); white-space: nowrap; overflow: hidden;
 }
+.ach-title > img { flex: none; width: 18px; height: 18px; }
+.ach-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ach-title.same { padding: 0 1px; }
+.ach-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
+.ach-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ach-side .rw-chips { justify-content: flex-end; }
+.ach-tile .rw-chip { height: 24px; padding-right: 7px; }
+.ach-tile .rw-chip img { width: 22px; height: 22px; }
+.ach-tile .rw-chip b { font-size: 12px; }
+.ach-n { color: var(--muted); font: 700 var(--fs-xs)/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ach-done { display: inline-flex; align-items: center; gap: 3px; color: var(--ok); font: 800 var(--fs-xs)/1.2 var(--font); white-space: nowrap; }
+/* La barra de progreso, fina, en el borde de abajo de la ficha. */
+.ach-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(3, 8, 24, .45); }
+.ach-bar > i { display: block; height: 100%; border-radius: 0 2px 2px 0; background: linear-gradient(90deg, #e9b800, var(--c-yellow)); }
 /* Legendarios vencidos: su sprite (en sombra si aún no). */
 .leg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
 .leg-cell {
@@ -2893,9 +3070,11 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 .leg-cell.ok { border-color: rgba(255, 203, 5, .5); background: radial-gradient(ellipse at 50% 78%, rgba(255, 203, 5, .18), transparent 70%), var(--card); }
 .leg-cell.ok small { color: var(--ink); }
 .leg-ok { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--c-yellow); color: var(--c-on-yellow); }
-/* Movimientos que evolucionan. */
+/* Movimientos que evolucionan (cada uno lleva a su ficha del Compendio). */
 .evo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 8px; }
 .evo-tile { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1); }
+button.evo-tile { appearance: none; cursor: pointer; width: 100%; color: inherit; font: inherit; text-align: left; transition: background-color var(--t-fast), border-color var(--t-fast); }
+button.evo-tile:hover { background: var(--card-hi); border-color: var(--line-3); }
 .evo-tile.ok { border-color: rgba(255, 203, 5, .45); }
 .evo-tile:not(.ok) > .ico-tile:first-child img { filter: grayscale(.7) brightness(.8); }
 .evo-tile .ico-tile img { display: block; }
@@ -2904,31 +3083,78 @@ body.touch .dx-mv { width: var(--tap); height: var(--tap); }
 .evo-txt small { color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .evo-txt small.gold { color: var(--c-yellow); }
 
-/* Perfil (pestaña): tus 3 favoritos, el título y «Ver mi perfil público». */
-.fav-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+/* Perfil (pestaña): la ficha de entrenador a la izquierda y tus marcas a la derecha. */
+#goals-body[data-tab=profile] { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; align-content: start; gap: 12px; }
+.tcard {
+  position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px;
+  border-radius: var(--rad-xl); border: 1px solid var(--line-3);
+  background: radial-gradient(circle at 90% 8%, rgba(255, 203, 5, .24), transparent 42%), linear-gradient(135deg, #2a1d6e, var(--c-blue-deep) 60%, #0f4d6e);
+  box-shadow: var(--sh-2), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+/* Una Poké Ball grande y tenue detrás (sólo adorno). */
+.tcard::before {
+  content: ''; position: absolute; z-index: -1; right: -60px; top: -70px; width: 220px; height: 220px; border-radius: 50%;
+  border: 16px solid rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 40px rgba(255, 255, 255, .025); pointer-events: none;
+}
+.tc-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ico-tile.tc-ico { --tile: 52px; flex: none; }
+.tc-ico img { display: block; }
+.tc-id { min-width: 0; }
+.tc-id .eyebrow { margin: 0; color: rgba(244, 247, 255, .78); }
+.box .tc-name { margin: 0; font: 700 var(--fs-2xl)/1.1 var(--font-display); overflow-wrap: anywhere; }
+/* El título: un desplegable en píldora dorada, dentro de la ficha. */
+label.tc-title { position: relative; display: flex; align-items: center; margin: 0; min-width: 0; }
+.tc-title > img { position: absolute; left: 6px; top: 50%; width: 24px; height: 24px; margin-top: -12px; pointer-events: none; }
+.tc-title > select {
+  appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 38px; margin: 0; padding: 0 34px 0 36px; cursor: pointer;
+  border-radius: var(--rad-pill); border: 1px solid rgba(255, 203, 5, .6); color: var(--c-yellow); outline: none;
+  font: 600 var(--fs-m)/1.2 var(--font-display); text-overflow: ellipsis;
+  background: rgba(5, 10, 26, .35) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffcb05' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center / 14px;
+}
+.tc-title:not(.on) > select { color: rgba(244, 247, 255, .8); border-color: var(--line-3); }
+.tc-title > select:disabled { cursor: default; opacity: .8; }
+.tc-title > select:focus-visible { outline: var(--focus); outline-offset: 2px; }
+.tc-hint { margin: 0; color: rgba(244, 247, 255, .78); font-size: var(--fs-xs); line-height: 1.4; }
+/* Favoritos: casillas bajas dentro de la ficha (tocarlas los cambia). */
+.fav-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .fav-slot {
-  appearance: none; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  min-width: 0; min-height: 132px; padding: 8px 6px 10px; border-radius: var(--rad-l);
-  background: var(--sunk); border: 2px dashed var(--line-3); color: var(--ink); font: inherit; text-align: center;
+  appearance: none; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 0; min-height: 112px; padding: 4px 4px 6px; border-radius: var(--rad-l);
+  background: rgba(5, 10, 26, .32); border: 1.5px dashed rgba(255, 255, 255, .3); color: var(--ink); font: inherit; text-align: center;
   transition: border-color var(--t-fast), background-color var(--t-fast), transform .1s var(--ease);
 }
 button.fav-slot { cursor: pointer; }
-button.fav-slot:hover { border-color: var(--c-yellow); background-color: var(--card-hi); }
+button.fav-slot:hover { border-color: var(--c-yellow); background-color: rgba(5, 10, 26, .45); }
 button.fav-slot:active { transform: scale(.98); }
 button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
 .fav-slot.has {
-  border-style: solid; border-color: var(--line-2);
-  background: radial-gradient(ellipse at 50% 74%, rgba(61, 125, 202, .35), transparent 65%), var(--card);
+  min-height: 0; border-style: solid; border-color: var(--line-2);
+  background: radial-gradient(ellipse at 50% 74%, rgba(61, 125, 202, .4), transparent 65%), rgba(5, 10, 26, .3);
 }
 .fav-slot.shiny { border-color: rgba(154, 230, 255, .6); box-shadow: 0 0 18px rgba(154, 230, 255, .22); }
 .fav-slot canvas { display: block; max-width: none; }
 .fav-slot b { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; font: 600 var(--fs-s)/1.25 var(--font-display); }
 .fav-slot b > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fav-plus { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 203, 5, .12); color: var(--c-yellow); }
-.prof-title-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
-.prof-title-row .ico-tile img { display: block; }
-.prof-title-row .field { flex: 1 1 auto; min-width: 0; max-width: 360px; }
-.prof-preview { margin-top: 18px; }
+.fav-plus { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 203, 5, .14); color: var(--c-yellow); }
+/* Marcas: icono y cifra con su nombre, en fichas pequeñas. */
+.tc-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.tc-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.tc-stat { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px 6px 6px; border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1); }
+.tc-stat > .ico-tile { --tile: 34px; flex: none; border-radius: 10px; }
+.tc-stat > .ico-tile img { display: block; }
+.tc-stat > div { display: flex; flex-direction: column; min-width: 0; }
+.tc-stat b { font: 600 var(--fs-l)/1.1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tc-stat b small { font-size: var(--fs-xs); color: var(--muted); }
+.tc-stat span { color: var(--muted); font: 700 var(--fs-xs)/1.25 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-side .prof-preview { align-self: flex-start; }
+/* Tus mejores medallas (las de tu perfil público). */
+.tc-medals { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1); }
+.tc-medals .eyebrow { margin: 0; }
+.tc-mrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-medal img { display: block; }
+.tc-medal.tier1 { background: radial-gradient(circle at 50% 30%, rgba(240, 170, 110, .5), rgba(208, 138, 78, .16) 72%); }
+.tc-medal.tier2 { background: radial-gradient(circle at 50% 30%, rgba(236, 242, 252, .5), rgba(201, 214, 234, .14) 72%); }
+.tc-medal.tier3 { background: radial-gradient(circle at 50% 30%, rgba(255, 220, 110, .5), rgba(255, 203, 5, .14) 72%); }
 /* Elegir un favorito: cabecera con «Volver», buscador y la rejilla. */
 .fav-pick-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .fav-pick-head h3 { margin: 0; font-size: var(--fs-l); }
@@ -2936,6 +3162,24 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
 #goals-body .fav-grid { max-height: none; overflow: visible; padding: 2px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
 .fav-grid .cell { appearance: none; font: inherit; }
 .fav-grid .cell.shiny { border-color: rgba(154, 230, 255, .45); }
+/* Móvil (de pie y tumbado): las categorías de logros, en una fila que se desliza de lado. */
+@media (max-width: 599px), (max-height: 520px) {
+  .goals-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -2px 8px; padding: 2px 2px 4px; }
+  .goals-cats::-webkit-scrollbar { display: none; }
+  .goals-cats .chip { flex: none; }
+  .leg-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+  .evo-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+  .evo-tile { gap: 8px; padding: 6px 8px; }
+  .fav-pick-head { gap: 8px; margin-bottom: 8px; }
+  .fav-q.field { margin-bottom: 10px; }
+}
+/* Estrecho (de pie): misiones con el premio y el botón debajo; el perfil, en una columna. */
+@media (max-width: 599px) {
+  .mission-row { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "ico txt txt" ". rw btn"; }
+  .mission-row .m-ico { align-self: start; }
+  #goals-body[data-tab=profile] { grid-template-columns: minmax(0, 1fr); }
+  #goals-body .fav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+}
 
 /* ---- Perfil público (#scr-profile): tarjeta del jugador, marcas y medallas ---- */
 /* (Ancho de la hoja: arriba, con el de Misiones.) */
@@ -3030,42 +3274,8 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .pull-card { padding: 6px 6px 8px; border-radius: 14px; }
   .pfx-grid.one .pull-card { gap: 4px; padding: 10px 10px 12px; }
   #pull-fx #pull-close { min-width: min(240px, 100%); }
-  /* Misiones. */
+  /* (Misiones, logros y perfil: en su bloque, arriba y al final de esta sección.) */
   #scr-goals #goals-tabs { padding: 2px; }
-  .goals-sec { gap: 6px 10px; margin: 16px 0 8px; }
-  .goals-left { gap: 5px; padding: 3px 9px; }
-  .goals-hint { margin-bottom: 8px; }
-  .goals-meter { margin-bottom: 10px; }
-  .rw-chips { gap: 4px; }
-  .rw-chip { height: 28px; padding-right: 8px; }
-  .rw-chip img { margin: -1px 0; }
-  .mission-list { gap: 6px; }
-  .mission-row { grid-template-columns: 38px minmax(0, 1fr) auto auto; gap: 6px 10px; padding: 8px 10px; border-radius: 14px; }
-  .mission-row .m-btn { min-width: 92px; }
-  .m-prog { margin-top: 4px; }
-  .m-prog .meter { height: 7px; }
-  /* Logros. */
-  .ach-sum { gap: 12px; margin-bottom: 10px; }
-  .ach-sum .sub { margin: 2px 0 6px; }
-  /* Categorías: una fila que se desliza de lado (de pie y tumbado). */
-  .goals-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -2px 10px; padding: 2px 2px 4px; }
-  .goals-cats::-webkit-scrollbar { display: none; }
-  .goals-cats .chip { flex: none; }
-  .ach-grid { grid-template-columns: repeat(auto-fill, minmax(144px, 1fr)); gap: 8px; }
-  .ach-tile { gap: 4px; padding: 10px 8px; border-radius: 14px; }
-  .ico-tile.ach-medal { --tile: 64px; }
-  .ach-lock { width: 22px; height: 22px; }
-  .leg-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
-  .evo-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
-  .evo-tile { gap: 8px; padding: 6px 8px; }
-  /* Perfil (pestaña). */
-  .fav-slots { gap: 8px; }
-  .fav-slot { min-height: 116px; padding: 6px 6px 8px; border-radius: 14px; }
-  .fav-plus { width: 44px; height: 44px; }
-  .prof-title-row { gap: 10px; padding: 8px 10px; }
-  .prof-preview { margin-top: 14px; }
-  .fav-pick-head { gap: 8px; margin-bottom: 8px; }
-  .fav-q.field { margin-bottom: 10px; }
   /* Perfil público. */
   .prof-hero { padding: 12px; border-radius: var(--rad-l); }
   .prof-id { gap: 12px; margin-bottom: 12px; }
@@ -3094,11 +3304,6 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .pfx-grid.row { gap: 6px; }
   .pfx-grid.row .pull-card { gap: 6px; padding: 5px 6px 5px 4px; }
   .pfx-grid.row .pc-txt { gap: 2px; }
-  /* Misiones: el premio y el botón, debajo del texto. */
-  .mission-row { grid-template-columns: 38px minmax(0, 1fr) auto; grid-template-areas: "ico txt txt" ". rw btn"; }
-  .mission-row .m-ico { align-self: start; }
-  .prof-preview { display: flex; width: 100%; }
-  #goals-body .fav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 }
 /* Móvil tumbado (≤ 520 px de alto). */
 @media (max-height: 520px) {
@@ -3242,57 +3447,135 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   #pull-fx .ps-chip { min-height: 28px; padding: 2px 12px; }
   .pfx-grid.one .pull-card { padding: 8px 10px 10px; }
 }
-/* ---- Misiones · Logros · Perfil en el móvil tumbado (24-10-2026): filas bajas ----
- * Misiones de 46 px (icono, texto y barra, premio y botón en una línea); logros en
- * fichas tumbadas (la medalla a la izquierda, a 30 px: el dibujo de 60 a la mitad);
- * perfil con los favoritos más bajos. */
+/* ---- Gacha más a mano (26-10-2026, gacha-ui.js) ----
+ * - Cambiar de región sin subir a las pestañas: flechas abajo en el cartel, al alcance de
+ *   los pulgares (y deslizando el dedo por él). Sólo en el móvil tumbado.
+ * - Botones de tirar claros: el que no se puede pulsar dice cuántos tickets te faltan, y no
+ *   se apaga tanto (se lee); el que sí, un poco más alto y con la letra más grande.
+ * - Al acabar la tirada, «Otra vez ×10» (la misma, si te llega) junto a «Continuar»; en el
+ *   móvil, los dos a la derecha de las cartas, uno encima del otro. */
+.gh-nav { display: none; }
+.pb-miss { margin-left: 6px; padding: 1px 7px; border-radius: var(--rad-pill); background: rgba(10, 14, 36, .62);
+  font: 700 var(--fs-xs)/1.25 var(--font); color: #ffd1d6; white-space: nowrap; }
+#scr-gacha .pull-btn:disabled { opacity: .72; filter: saturate(.25); }
+.pfx-foot { gap: 10px; align-items: center; }
+#pull-fx .pull-again { flex: none; min-width: 150px; }
 @media (max-height: 520px) {
-  #scr-goals .goals-sec { margin: 10px 0 5px; }
+  #scr-gacha .gh-nav {
+    position: absolute; z-index: 3; bottom: 10px; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+    border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3); background: rgba(8, 14, 36, .5); color: #fff; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35); transition: background-color var(--t-fast), transform var(--t-fast);
+  }
+  #scr-gacha .gh-nav.prev { left: 10px; }
+  #scr-gacha .gh-nav.next { right: 10px; }
+  #scr-gacha .gh-nav:hover { background: rgba(8, 14, 36, .75); }
+  #scr-gacha .gh-nav:active { transform: scale(.92); }
+  #scr-gacha .gh-nav .ui-svg { width: 22px; height: 22px; stroke-width: 2.6; }
+  /* Botones de tirar: 48 px y el texto más grande; lo que falta, en su línea con el precio. */
+  #scr-gacha .gacha-foot > .btn.pull-btn { min-height: 48px; }
+  #scr-gacha .pull-btn .pb-t { font-size: 15px; line-height: 19px; }
+  #scr-gacha .gacha-foot > .btn.pull-btn, #pull-fx .pull-again { grid-template-columns: 24px auto auto; grid-template-areas: "ico t t" "ico n m"; }
+  #scr-gacha .pull-btn .pb-cost b { font-size: 13px; line-height: 16px; }
+  .pull-btn .pb-miss { grid-area: m; align-self: center; margin-left: 5px; font-size: 10.5px; }
+  /* Resultado: «Otra vez» encima de «Continuar», a la derecha. */
+  #pull-fx.revealed .pfx-foot { flex-direction: column; align-items: stretch; gap: 8px; top: calc(50% - 50px); }
+  #pull-fx .pull-again { min-width: 0; min-height: 44px; }
+}
+/* Con sitio (430 de alto, iPhone grande), tus tickets justo encima de los botones de tirar, en una línea. */
+@media (max-height: 520px) and (min-height: 420px) {
+  #scr-gacha .gacha-info > .gacha-wallet { order: 3; margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 8px 5px 10px; }
+  #scr-gacha .gacha-wallet .eyebrow { margin: 0; }
+  #scr-gacha .gacha-wallet .gw-row { flex-wrap: nowrap; gap: 6px; }
+  #scr-gacha .gw-chip { gap: 4px; padding: 1px 10px 1px 1px; }
+  #scr-gacha .gw-chip .ico-tile { --tile: 28px; }
+  #scr-gacha .gw-chip b { font-size: var(--fs-m); }
+}
+/* Los más estrechos (667 a 719): la columna de la derecha algo más ancha y la letra de los
+   botones como antes, para que «Tirar todos» quepa entero. */
+@media (max-height: 520px) and (max-width: 719px) {
+  #scr-gacha > .box.gacha-sheet { grid-template-columns: minmax(0, 1fr) 284px; }
+  #scr-gacha .pull-btn .pb-t { font-size: 14px; }
+  #scr-gacha .gacha-foot > .btn.pull-btn { padding-left: 6px; padding-right: 6px; column-gap: 5px; }
+}
+/* ---- Misiones · Logros · Perfil en el móvil tumbado (26-10-2026): filas bajas ----
+ * Misiones de 42 px (icono, título y barra, premio y botón en una línea; las recogidas,
+ * de 30); logros en fichas de 44 px; el perfil, la ficha y las marcas lado a lado. */
+@media (max-height: 520px) {
+  #scr-goals .goals-sec { margin: 8px 0 4px; }
   #scr-goals .goals-sec:first-child { margin-top: 0; }
   #scr-goals .goals-sec h3 { font-size: var(--fs-m); }
   #scr-goals .goals-left { padding: 2px 8px; font-size: 11px; }
   #scr-goals .goals-left .ui-svg { width: 14px; height: 14px; }
   #scr-goals .goals-hint { margin-bottom: 6px; font-size: var(--fs-s); }
   #scr-goals .goals-meter { margin-bottom: 8px; }
+  .goals-claim-all { gap: 8px; margin-bottom: 6px; padding: 3px 4px 3px 4px; border-radius: 12px; }
+  .goals-claim-all > .ico-tile.s { --tile: 28px; }
+  .goals-claim-all > .ico-tile img { width: 24px; height: 24px; }
+  .goals-claim-all > b { font-size: var(--fs-s); }
   .mission-list { gap: 4px; }
-  .mission-row { grid-template-columns: 34px minmax(0, 1fr) auto auto; gap: 4px 8px; padding: 4px 6px 4px 5px; border-radius: 12px; }
-  .mission-row .m-txt b { font-size: 13px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .m-prog { margin-top: 3px; gap: 6px; }
-  .m-prog .meter { height: 6px; }
+  .mission-row { grid-template-columns: 32px minmax(0, 1fr) auto auto; gap: 4px 8px; padding: 4px 6px 4px 5px; border-radius: 12px; }
+  .mission-row .m-ico { --tile: 32px; border-radius: 9px; }
+  .mission-row .m-ico img { width: 26px; height: 26px; }
+  .m-l1 > b { font-size: 13px; line-height: 1.2; }
+  .meter.m-bar { height: 5px; margin-top: 4px; }
   .mission-row .m-btn { min-width: 84px; }
-  .rw-chip { height: 26px; padding-right: 7px; }
-  .rw-chip img { margin: -2px -1px; }
+  .mission-row.claimed { padding-top: 1px; padding-bottom: 1px; }
+  .mission-row.claimed .m-ico { --tile: 26px; }
+  .mission-row.claimed .m-ico img { width: 22px; height: 22px; }
+  .rw-chip { height: 24px; padding-right: 7px; }
+  .rw-chip img { width: 22px; height: 22px; }
   .rw-chip b { font-size: 12px; }
-  /* Logros: resumen en una línea y fichas tumbadas. */
-  #scr-goals .ach-sum { gap: 10px; margin-bottom: 8px; padding: 6px 10px; }
-  #scr-goals .ach-sum .ico-tile.l { --tile: 44px; }
-  #scr-goals .ach-sum .ico-tile.l img { width: 30px; height: 30px; }
+  /* Logros. */
+  #scr-goals .ach-sum { gap: 8px; margin-bottom: 6px; padding: 3px 10px 3px 3px; border-radius: 12px; }
+  #scr-goals .ach-sum .ico-tile.s { --tile: 28px; }
+  #scr-goals .ach-sum .ico-tile img { width: 24px; height: 24px; }
   #scr-goals .ach-count { font-size: var(--fs-l); }
-  #scr-goals .ach-sum .sub { margin: 0 0 4px; font-size: 11px; }
-  .goals-cats { margin-bottom: 8px; }
-  .ach-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 5px; }
-  .ach-tile { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 8px; row-gap: 2px; align-items: center; align-content: center;
-    padding: 6px 8px 6px 6px; text-align: left; border-radius: 12px; }
-  .ach-tile > * { grid-column: 2; }
-  .ach-tile > .ach-medal { grid-column: 1; grid-row: 1 / span 5; align-self: start; }
-  .ico-tile.ach-medal { --tile: 40px; }
-  .ach-medal img { width: 30px; height: 30px; }
-  .ach-lock { width: 18px; height: 18px; right: -4px; bottom: -4px; }
-  .ach-lock .ui-svg { width: 11px; height: 11px; }
+  #scr-goals .ach-titles { font-size: 12px; }
+  #scr-goals .ach-titles img { width: 18px; height: 18px; }
+  .goals-cats { margin-bottom: 6px; }
+  .goals-cats .chip img { width: 22px; height: 22px; }
+  .ach-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 4px; }
+  .ach-tile { grid-template-columns: 32px minmax(0, 1fr) auto; gap: 8px; min-height: 44px; padding: 4px 8px 6px 5px; border-radius: 10px; }
+  .ico-tile.ach-medal { --tile: 32px; }
+  .ach-medal img { width: 26px; height: 26px; }
+  .ach-lock { width: 16px; height: 16px; }
+  .ach-lock .ui-svg { width: 10px; height: 10px; }
   .ach-name { font-size: 13px; }
-  .ach-desc { font-size: 11px; }
-  .ach-tile .rw-chips { justify-content: flex-start; }
-  .ach-prog, .ach-done { margin-top: 2px; }
+  .ach-desc { font-size: 11px; -webkit-line-clamp: 1; }
+  .ach-done > span { display: none; }
+  .ach-tile .rw-chip { height: 22px; padding-right: 6px; }
+  .ach-tile .rw-chip img { width: 20px; height: 20px; }
+  .ach-tile .rw-chip b { font-size: 11px; }
+  .ach-side { gap: 2px; }
   .leg-grid { grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 5px; }
   .evo-grid { gap: 5px; }
-  /* Perfil: favoritos más bajos (lienzo de 80), título y «Ver mi perfil público» a su ancho. */
+  /* Perfil: la ficha más baja (favoritos de 80 de alto) y las marcas de dos en dos. */
+  #goals-body[data-tab=profile] { gap: 8px; }
+  .tcard { gap: 6px; padding: 8px 10px; border-radius: var(--rad-l); }
+  .ico-tile.tc-ico { --tile: 40px; }
+  .box .tc-name { font-size: var(--fs-xl); }
+  .tc-title > select { min-height: 34px; font-size: 14px; }
   .fav-slots { gap: 6px; }
-  .fav-slot { min-height: 0; padding: 4px 6px 6px; border-radius: 12px; }
-  .fav-slot:not(.has) { min-height: 104px; }
-  .fav-plus { width: 40px; height: 40px; }
-  .prof-title-row { padding: 6px 8px; }
-  .prof-preview { margin-top: 10px; }
+  .fav-slot { padding: 2px 4px 4px; border-radius: 12px; }
+  .fav-slot:not(.has) { min-height: 96px; }
+  .fav-plus { width: 36px; height: 36px; }
+  .tc-hint { font-size: 11px; }
+  .tc-side { gap: 6px; }
+  .tc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .tc-stat { gap: 6px; padding: 3px 6px 3px 3px; border-radius: 10px; }
+  .tc-stat > .ico-tile { --tile: 30px; border-radius: 9px; }
+  .tc-stat > .ico-tile img { width: 26px; height: 26px; }
+  .tc-stat b { font-size: var(--fs-m); }
+  .tc-stat span { font-size: 11px; }
+  .tc-medals { gap: 4px; padding: 5px 8px; border-radius: 10px; }
+  .tc-mrow { gap: 4px; }
+  .tc-medal.ico-tile.s { --tile: 28px; }
+  .tc-medal img { width: 24px; height: 24px; }
   #goals-body .fav-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 5px; }
+}
+/* Tumbado ancho (iPhone grande, 844 o más): las marcas, de tres en tres. */
+@media (max-height: 520px) and (min-width: 840px) {
+  .tc-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 /* La «i» de las reglas sólo hace falta tumbado (en el resto se ven siempre). */
 .gr-info { display: none; }
@@ -3622,6 +3905,28 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .rk-foot .ico-tile { display: none; }
   #scr-rank #rk-me { font-size: var(--fs-s); }
 }
+/* (26-10-2026) Ranking tumbado: los filtros se deslizan de lado (ranking-ui.js trae a la vista
+   el periodo elegido): sus bordes se difuminan para que se vea que hay más. En los estrechos
+   (667) sin el título: con él sólo cabía un periodo. */
+@media (max-height: 520px) {
+  .rk-head > .rk-bar {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 18px), transparent);
+  }
+}
+@media (max-height: 520px) and (max-width: 760px) {
+  .rk-head .rk-title { display: none; }
+}
+/* (26-10-2026) Amigos tumbado: con sitio (844 o más), la columna de tu tarjeta más ancha para que
+   «Apodo de tu amigo» quepa entero; en los estrechos, el campo y «Añadir» uno encima del otro. */
+@media (max-height: 520px) and (min-width: 800px) {
+  .fr-body { grid-template-columns: minmax(0, 270px) minmax(0, 1fr); }
+}
+@media (max-height: 520px) and (max-width: 799px) {
+  .fr-add-row { flex-wrap: wrap; gap: 6px; }
+  .fr-add-row .field { flex: 1 1 100%; }
+  .fr-add-row .btn { flex: 1 1 100%; }
+}
 
 /* ---------- Moderación (sólo la cuenta de admin) ---------- */
 #scr-mod #mod-tabs { margin: 0; }
@@ -3769,7 +4074,7 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
   .nick-head .sub { font-size: var(--fs-s); }
 }
 /* ==== pantallas: ventanas ==== */
-/* Ajustes, Novedades, Apoyar, Aviso legal e Instalar como app (hojas, sección 4 de
+/* Ajustes, Novedades, Aviso legal e Instalar como app (hojas, sección 4 de
  * la base) y las ventanas pequeñas: recuperar la cuenta, avisos de una actualización,
  * borrar la cuenta y «abierto en otra pestaña» (.mcard). Todo va por id de pantalla
  * para no tocar otras. Guía: docs/DISENO.md.
@@ -3777,8 +4082,8 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
  * aquí sólo se compacta lo de dentro; las .mcard siguen siendo tarjetas. */
 
 /* ---- capas (gamepad.js decide qué ventana manda por su z-index) ---- */
-#scr-settings, #scr-support { z-index: var(--z-sheet); }
-#scr-legal { z-index: var(--z-legal); }        /* por delante de Ajustes y Apoyar */
+#scr-settings { z-index: var(--z-sheet); }
+#scr-legal { z-index: var(--z-legal); }        /* por delante de Ajustes */
 #scr-install { z-index: var(--z-editor); }     /* por delante de Ajustes y del aviso legal */
 #scr-delacc { z-index: var(--z-boot); }        /* borrar la cuenta: encima de Ajustes, Aviso legal e Instalar */
 #scr-othertab { z-index: var(--z-block); }     /* otra pestaña: encima de todo */
@@ -3787,21 +4092,21 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
 :is(#scr-settings, #scr-news, #scr-legal) .sheet-head > .ico-tile { color: var(--ink); }
 :is(#scr-settings, #scr-news, #scr-legal) .sheet-head > .ico-tile .ui-svg { width: 22px; height: 22px; }
 /* Título de apartado (antetítulo en mayúsculas pequeñas). */
-:is(#scr-settings, #scr-support) :is(.set-h, .sup-h) {
+#scr-settings .set-h {
   margin: 22px 4px 8px; font: 600 var(--fs-s)/1.3 var(--font-display); letter-spacing: .08em;
   text-transform: uppercase; color: var(--muted);
 }
-:is(#scr-settings, #scr-support) :is(.set-h, .sup-h):first-child { margin-top: 0; }
+#scr-settings .set-h:first-child { margin-top: 0; }
 /* ---- móvil (de pie y tumbado): a pantalla completa y compacto ----
  * Las hojas ya ocupan toda la pantalla (sección 4b de la base): aquí no se les pone
  * ancho, alto, margen ni radio en el móvil (las volvería a hacer recuadro); sólo se
  * aprieta lo de dentro. Título de 19 px también tumbado (la regla de «pantallas
  * bajas» lo dejaba en 20) y las baldosas redondas (.round) siguen redondas. */
 @media (max-width: 599px), (max-height: 520px) {
-  :is(#scr-settings, #scr-news, #scr-support, #scr-legal, #scr-install) .sheet-head h2 { font-size: var(--fs-xl); }
+  :is(#scr-settings, #scr-news, #scr-legal, #scr-install) .sheet-head h2 { font-size: var(--fs-xl); }
   :is(#scr-settings, #scr-news, #scr-legal) .sheet-head > .ico-tile .ui-svg { width: 20px; height: 20px; }
-  :is(#scr-settings, #scr-support, #scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) .ico-tile.round { border-radius: 50%; }
-  :is(#scr-settings, #scr-support) :is(.set-h, .sup-h) { margin: 16px 2px 6px; }
+  :is(#scr-settings, #scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) .ico-tile.round { border-radius: 50%; }
+  #scr-settings .set-h { margin: 16px 2px 6px; }
 }
 
 /* ======================= Ventana pequeña (.mcard) =======================
@@ -4112,36 +4417,6 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   #scr-news .news-part li { font-size: var(--fs-s); }
 }
 
-/* ============================ Apoyar ============================ */
-#scr-support .sup-hero { display: flex; align-items: flex-start; gap: 14px; }
-#scr-support .sup-hero > p { margin: 0; font-size: var(--fs-m); line-height: 1.55; }
-#scr-support .sup-free { display: flex; align-items: center; gap: 10px; margin: 16px 0 0; padding: 10px 12px; border-radius: var(--rad-m);
-  background: rgba(110, 231, 160, .1); border: 1px solid rgba(110, 231, 160, .35); color: var(--ok); font: 700 var(--fs-s)/1.35 var(--font); }
-#scr-support .sup-free .ui-svg { flex: none; }
-#scr-support .sup-h { margin-top: 22px; }
-#scr-support .sup-costs .list-row { min-height: 52px; }
-#scr-support .sup-costs .grow { font-size: var(--fs-s); line-height: 1.4; }
-#scr-support .sup-costs .sup-val { flex: 0 1 auto; max-width: 48%; text-align: right; font: 600 var(--fs-s)/1.3 var(--font-display); color: var(--c-yellow); }
-#scr-support .note { margin-top: 12px; }
-#scr-support .sheet-foot { justify-content: flex-end; }
-#scr-support .sheet-foot .btn .pix { width: 20px; height: 20px; }
-/* Móvil (de pie y tumbado): a pantalla completa (sin el ancho de 640 que tenía
-   tumbado) y más junto. */
-@media (max-width: 599px), (max-height: 520px) {
-  #scr-support .sup-hero { gap: 12px; }
-  #scr-support .sup-hero .ico-tile { --tile: 52px; }
-  #scr-support .sup-hero > p { line-height: 1.5; }
-  #scr-support .sup-free { gap: 8px; margin-top: 12px; padding: 8px 10px; }
-  #scr-support .sup-h { margin-top: 16px; }
-  #scr-support .sup-costs .list-row { min-height: 44px; padding: 6px 12px; }
-  #scr-support .note { margin-top: 10px; }
-}
-@media (max-height: 520px) {
-  #scr-support .sup-hero .ico-tile { --tile: 48px; }
-  #scr-support .sup-hero > p { font-size: var(--fs-s); }
-  #scr-support .sup-h { margin-top: 12px; }
-}
-
 /* ============================ Aviso legal ============================
  * Un apartado por tarjeta; «Borrar mi cuenta», al final y en rojo. */
 .box.legal-sheet { width: min(760px, 100%); }
@@ -4232,7 +4507,7 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 }
 /* ---- Ventanas en el móvil tumbado, más justas (24-10-2026) ----
  * Ajustes: la columna de pestañas, de 148 (sólo icono y nombre) y filas de 44.
- * Novedades, Apoyar, Aviso legal e Instalar: tarjetas con menos aire y, con
+ * Novedades, Aviso legal e Instalar: tarjetas con menos aire y, con
  * sitio, en dos columnas; la letra de los párrafos sigue en 12 px o más. */
 @media (max-height: 520px) {
   #scr-settings .set-main { grid-template-columns: calc(148px + var(--sa-l)) minmax(0, 1fr); }
@@ -4240,7 +4515,7 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   #scr-settings .set-tab { min-height: 36px; gap: 6px; padding: 2px 6px 2px 2px; font-size: var(--fs-s); }
   #scr-settings .set-tab .ico-tile { --tile: 30px; }
   #scr-settings .set-body { padding: 8px max(12px, var(--sa-r)) max(10px, var(--sa-b)) 12px; }
-  #scr-settings :is(.set-h, .sup-h) { margin: 10px 2px 5px; font-size: var(--fs-xs); }
+  #scr-settings .set-h { margin: 10px 2px 5px; font-size: var(--fs-xs); }
   #scr-settings .set-sub { margin-bottom: 6px; font-size: var(--fs-s); }
   #scr-settings .set-row { min-height: 44px; padding: 4px 10px; }
   #scr-settings .set-row > .grow > b { font-size: var(--fs-s); }
@@ -4255,11 +4530,9 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   #scr-news .news-card { padding: 8px 12px; }
   #scr-news .news-card h3 { margin-bottom: 6px; font-size: var(--fs-m); }
   #scr-news .news-part + .news-part { margin-top: 8px; padding-top: 8px; }
-  #scr-news .news-part ul { margin-top: 6px; gap: 4px; }
-  #scr-news .news-part li { line-height: 1.4; }
-  #scr-support .sup-hero .ico-tile { --tile: 44px; }
-  #scr-support .sup-free { margin-top: 8px; padding: 6px 10px; }
-  #scr-support .sup-costs .list-row { min-height: 38px; padding: 4px 10px; }
+  /* (26-10-2026) Los puntos, en dos columnas con sitio: a 72 caracteres quedaba media tarjeta vacía. */
+  #scr-news .news-part ul { margin-top: 6px; gap: 4px 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); }
+  #scr-news .news-part li { max-width: none; line-height: 1.4; }
   #scr-legal .legal { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; gap: 6px; }
   #scr-legal .legal-sec { padding: 8px 12px 2px; }
   #scr-legal .legal-sec h3 { font-size: var(--fs-m); }
@@ -4744,7 +5017,11 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
   .mv-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 }
 
-/* ---- Resumen final ---- */
+/* ---- Resumen final ----
+   (26-10-2026) Rejilla en vez de columnas CSS: en Safari (iPhone) la tarjeta de la
+   segunda columna salía cortada y montada sobre «Movimientos». Arriba, .ov-top: las
+   cifras a la izquierda (.ov-figs) y las monedas a la derecha; debajo, a todo el
+   ancho, los movimientos y los shinies. Sin la tarjeta de Guardar (se guarda solo). */
 #scr-over > .over-box {
   width: min(920px, 100%);
   background: radial-gradient(90% 260px at 50% 0%, rgba(255, 203, 5, .16), transparent 70%), var(--surface-float);
@@ -4761,11 +5038,10 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
   background: linear-gradient(180deg, var(--c-yellow-hi), var(--c-yellow)); color: var(--c-on-yellow);
   font: 600 var(--fs-m)/1.3 var(--font-display); box-shadow: 0 4px 16px rgba(255, 203, 5, .3);
 }
-/* Dos columnas si caben (280 px cada una); cada bloque entero en la suya. */
-.over-stats { column-width: 280px; column-count: 2; column-gap: 14px; }
-.over-stats > * { -webkit-column-break-inside: avoid; break-inside: avoid; margin: 0 0 12px; }
-/* Ataques y shinies, a todo el ancho (lo de antes y lo de después sigue en dos columnas). */
-.over-stats > .ov-sec { -webkit-column-span: all; column-span: all; }
+.over-stats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
+.over-stats > * { min-width: 0; margin: 0; }
+.ov-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.ov-figs { display: grid; gap: 8px; align-content: start; min-width: 0; }
 .ov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .ov-tiles.ov-dmg { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ov-tile {
@@ -4782,8 +5058,9 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
   border-radius: var(--rad-l); background: rgba(255, 203, 5, .1); border: 1px solid rgba(255, 203, 5, .45);
 }
 .ov-judge b { display: block; font: 600 18px/1.25 var(--font-display); color: var(--c-yellow); }
+/* Monedas: a la derecha de las cifras, tan alta como ellas (centrada). */
 .ov-coins {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 14px; padding: 14px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; align-content: center; gap: 10px 14px; padding: 14px;
   border-radius: var(--rad-l); background: linear-gradient(135deg, rgba(255, 203, 5, .18), rgba(255, 203, 5, .04)); border: 1px solid rgba(255, 203, 5, .45);
 }
 .ov-coins-txt { min-width: 0; }
@@ -4793,34 +5070,27 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
 .ov-tickets .ov-lbl { flex: 1 1 auto; }
 .ov-tk { display: inline-flex; align-items: center; gap: 6px; }
 .ov-tk b { font: 600 18px/1 var(--font-display); }
-.ov-sec { padding: 14px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
+.ov-sec { position: relative; padding: 14px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
 .box .ov-sec h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: var(--fs-m); line-height: 1.25; }
+/* La leyenda «Daño · % · Por segundo», en la línea del título (como en la pausa). */
+.ov-moves > .mv-legend { position: absolute; top: 14px; right: 14px; margin: 0; line-height: 1.25; }
 .caught-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .caught-row > div { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .caught-row small { font: 700 var(--fs-xs)/1.3 var(--font); color: var(--c-cyan); }
 .caught-row small b { font: 600 13px/1.3 var(--font-display); color: var(--ink); }
-.over-save {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px;
-  border-radius: var(--rad-l); background: rgba(255, 203, 5, .08); border: 1px solid rgba(255, 203, 5, .45);
-}
-.over-save p { flex: 1 1 140px; margin: 0; font-size: var(--fs-s); font-weight: 700; line-height: 1.35; }
-.over-save.ok { background: rgba(60, 207, 127, .1); border-color: rgba(110, 231, 160, .45); }
-#scr-over .support-ask {
-  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 12px;
-  padding: 12px 52px 12px 12px; border-radius: var(--rad-l);
-  background: linear-gradient(135deg, rgba(255, 122, 168, .18), rgba(255, 122, 168, .04)); border: 1px solid rgba(255, 122, 168, .5);
-}
-#scr-over .support-ask p { margin: 0; font-size: var(--fs-s); line-height: 1.4; }
-#scr-over .support-ask .kofi { grid-column: 2; justify-self: start; color: #fff; background: linear-gradient(180deg, #ff8fb6, #e04f86); border-color: rgba(255, 210, 225, .5); }
-#scr-over .support-ask .x { position: absolute; top: 6px; right: 6px; }
 .over-foot { justify-content: center; }
 .over-foot > #btn-again { min-width: min(340px, 100%); }
+/* Estrecho (móvil de pie): las monedas debajo de las cifras. */
+@media (max-width: 599px) {
+  .ov-top { grid-template-columns: minmax(0, 1fr); }
+}
 /* Móvil (de pie y tumbado): a pantalla completa y opaco (4b), con el mismo halo
    arriba. Desde el 23-10-2026, mucho más compacto (se veía enorme): el título en
    una línea con su icono, las cifras con el icono al lado del número y la etiqueta
    debajo, las monedas con un icono de 44 y «Volver al menú» de 40 px de alto. */
 @media (max-width: 599px), (max-height: 520px) {
-  #scr-over > .over-box { background: radial-gradient(90% 200px at 50% 0%, rgba(255, 203, 5, .16), transparent 70%), var(--surface-solid); }
+  /* (A todo el ancho: con el de escritorio, 920, quedaba una franja del mapa a la derecha en 932.) */
+  #scr-over > .over-box { width: 100%; background: radial-gradient(90% 200px at 50% 0%, rgba(255, 203, 5, .16), transparent 70%), var(--surface-solid); }
   #scr-over.is-dead > .over-box { background: radial-gradient(90% 200px at 50% 0%, rgba(238, 59, 59, .2), transparent 70%), var(--surface-solid); }
   .over-hero {
     display: grid; grid-template-columns: auto auto; grid-template-areas: "ico eye" "ico title" "ico rec";
@@ -4832,8 +5102,8 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
   .over-hero .eyebrow { grid-area: eye; margin: 0; }
   .box #over-title { grid-area: title; font-size: 22px; }
   .over-record { grid-area: rec; justify-self: start; margin: 3px 0 0; padding: 1px 10px; font-size: var(--fs-s); box-shadow: none; }
-  .over-stats { column-gap: 8px; }
-  .over-stats > * { margin-bottom: 8px; }
+  .over-stats, .ov-top { gap: 8px; }
+  .ov-figs { gap: 6px; }
   .ov-tiles { gap: 4px; }
   /* Baldosa: icono y cifra en una línea, la etiqueta debajo. */
   .ov-tile {
@@ -4859,18 +5129,24 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
   .ov-tk b { font-size: 15px; }
   .ov-sec { padding: 8px 10px 10px; border-radius: 12px; }
   .box .ov-sec h3 { margin-bottom: 6px; font-size: var(--fs-m); }
+  .ov-moves > .mv-legend { top: 9px; right: 10px; }
   .caught-row { gap: 6px; }
-  .over-save { padding: 6px 8px; border-radius: 10px; }
-  #scr-over .support-ask { gap: 6px 10px; padding: 8px 48px 8px 8px; border-radius: 10px; }
   /* 40 px de alto (9 + 20 + 9 + borde), lo que pide el dedo en el móvil (--tap). */
   .btn.big#btn-again { padding: 9px 22px; font-size: 17px; line-height: 20px; border-radius: var(--rad-m); }
 }
-/* Tumbado: el título, aún más bajo. */
+/* Tumbado: el título, aún más bajo; «Volver al menú» en un pie más bajo (sin su borde de arriba). */
 @media (max-height: 520px) {
   .over-hero { padding-top: max(6px, var(--sa-t)); padding-bottom: 6px; }
   .ico-tile.over-ico { --tile: 44px; }
   .ico-tile.over-ico > img { width: 36px; height: 36px; }
   .box #over-title { font-size: 20px; }
+  #scr-over .over-foot { padding-top: 6px; padding-bottom: max(6px, var(--sa-b)); }
+}
+/* Tumbados estrechos (667×375 y menos): las monedas, algo más estrechas que las cifras. */
+@media (max-height: 520px) and (max-width: 719px) {
+  .ov-top { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+  .ov-coins > .ico-tile.l { --tile: 36px; }
+  .ov-coins > .ico-tile.l > img { width: 30px; height: 30px; }
 }
 
 /* ---- Colocar los botones (layout-ui.js): por delante de Ajustes ----
@@ -5210,3 +5486,242 @@ body:has(> .scr:not(.hidden)) .evo-toast.on { opacity: 0; visibility: hidden; tr
 .evo-step .evo-how { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; font-size: var(--fs-xs); color: var(--muted); }
 .evo-step .evo-opts { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
 .evo-step .evo-opts > b { padding: 0 7px; border-radius: var(--rad-pill); background: rgba(255, 255, 255, .07); font: 600 var(--fs-s)/1.45 var(--font-display); }
+
+/* ==== compendio (26-10-2026) ====
+ * El Compendio (#scr-compendium, js/ui/compendium-ui.js): qué hace cada ataque, pasiva y
+ * objeto y qué ataques puede llevar cada Pokémon. Hoja de la base (docs/DISENO.md §4):
+ * cabecera con las pestañas; debajo, la lista (buscador, filtros y filas) a la izquierda y
+ * la ficha a la derecha, cada una con su propio desplazamiento. Móvil tumbado: cabecera en
+ * una línea (con las monedas a la derecha, 4c) y filas y fichas más bajas. Ventana estrecha
+ * de pie: la ficha tapa la lista (.detail-open) y tiene su X.
+ * También aquí: la baldosa del menú principal y el engranaje de Ajustes, siempre en la barra. */
+.menu-item[data-go=compendium] { --tint: rgba(154, 230, 255, .16); --tint-hi: rgba(190, 240, 255, .5); }
+/* Ajustes: fuera del menú «Más», siempre a la vista en la barra (su baldosa es ahora el Compendio). */
+.topbar #btn-settings .lbl { display: none; }
+
+@media (min-width: 600px) and (min-height: 521px) {
+  .cmp-box.sheet-box { width: min(1120px, 100%); }
+}
+#scr-compendium .sheet-head .cmp-tabs { margin: 0; }
+:where(#cmp-tabs) > button.tab { appearance: none; border: 0; background: transparent; }
+.cmp-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
+.cmp-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--line-1); }
+
+/* ---- Buscador y filtros ---- */
+.cmp-tools { flex: none; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 14px 10px; border-bottom: 1px solid var(--line-1); }
+.cmp-q { position: relative; margin: 0; min-width: 0; }
+.cmp-q > .ui-svg { position: absolute; left: 13px; top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--faint); pointer-events: none; }
+/* (appearance: none: Safari no deja poner relleno ni radio a un campo de búsqueda nativo.) */
+.cmp-q > .field { -webkit-appearance: none; appearance: none; min-height: 40px; padding: 8px 14px 8px 40px; border-radius: var(--rad-pill); font-size: 15px; }
+.cmp-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.cmp-pick {
+  position: relative; flex: 0 1 auto; display: inline-flex; align-items: stretch; min-width: 0; max-width: 100%; margin: 0;
+  min-height: 32px; padding: 0; border-radius: var(--rad-pill);
+  background: var(--card); border: 1px solid var(--line-2); color: var(--ink); font: 600 var(--fs-s)/1.2 var(--font-display);
+  transition: border-color var(--t-fast), background-color var(--t-fast), color var(--t-fast);
+}
+.cmp-pick:hover { border-color: var(--line-3); background: var(--card-hi); }
+.cmp-pick.on { border-color: var(--c-yellow); color: var(--c-yellow); background: rgba(255, 203, 5, .13); }
+.cmp-pick > .ui-svg { position: absolute; left: 11px; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--muted); pointer-events: none; }
+.cmp-pick.on > .ui-svg { color: inherit; }
+.cmp-pick > select {
+  appearance: none; -webkit-appearance: none; min-width: 0; max-width: 100%; margin: 0;
+  padding: 0 28px 0 32px; border: 0; border-radius: inherit; outline: none; cursor: pointer;
+  color: inherit; font: inherit; text-overflow: ellipsis;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23afc0e6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 14px;
+}
+.cmp-pick > select:focus-visible { outline: none; }
+.cmp-pick:has(> select:focus-visible) { outline: var(--focus); outline-offset: 2px; }
+.cmp-pick:has(> select.pad-focus) { outline: 3px solid var(--c-yellow); outline-offset: 3px; }
+.cmp-tools .chip > img { width: 24px; height: 24px; margin: -4px -2px -4px -6px; }
+.cmp-count { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 600 var(--fs-s)/1 var(--font-display); color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; }
+.cmp-q > .field { padding-right: 50px; }
+body.touch .cmp-pick { min-height: 36px; }
+
+/* ---- Lista ---- */
+.cmp-rows { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 12px; }
+.cmp-row {
+  appearance: none; cursor: pointer; flex: none; display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 48px;
+  padding: 5px 10px 5px 6px; border-radius: var(--rad-m); border: 1px solid transparent; background: transparent;
+  color: var(--ink); font: inherit; text-align: left; -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast), border-color var(--t-fast);
+}
+.cmp-row:hover { background: var(--card); }
+.cmp-row:active { background: var(--card-hi); }
+.cmp-row.on { border-color: rgba(255, 203, 5, .6); background: rgba(255, 203, 5, .1); }
+.cmp-row:focus-visible { outline: var(--focus); outline-offset: -2px; }
+.cmp-row > .ico-tile { flex: none; }
+.cmp-rt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cmp-rt b { font: 600 15px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-rt small { display: block; color: var(--muted); font: 700 var(--fs-xs)/1.3 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; vertical-align: 0; }
+.cmp-flag { flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; font: 700 12px/1 var(--font-display); }
+.cmp-flag.evo { color: var(--c-yellow); background: rgba(255, 203, 5, .12); }
+.cmp-flag.evo.ok { color: var(--c-on-yellow); background: var(--c-yellow); }
+.cmp-flag.z { color: var(--c-on-yellow); background: linear-gradient(135deg, #ffe066, #ff9f1c); }
+.cmp-num { flex: none; min-width: 42px; font: 600 var(--fs-s)/1.2 var(--font-display); color: var(--faint); font-variant-numeric: tabular-nums; }
+.cmp-tys { flex: none; display: flex; gap: 3px; }
+.cmp-tys > i { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+.cmp-own { flex: none; display: grid; place-items: center; }
+.cmp-own > img { width: 20px; height: 20px; }
+.cmp-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px 12px; color: var(--muted); text-align: center; }
+.cmp-empty b { font: 600 var(--fs-m)/1.3 var(--font-display); }
+
+/* ---- Ficha ---- */
+.cmp-detail { position: relative; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 20px; }
+.cmp-close { display: none; position: absolute; z-index: 1; top: 10px; right: 10px; }
+.cmp-hero {
+  display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 12px; padding: 12px;
+  border-radius: var(--rad-l); border: 1px solid var(--line-2);
+  background: radial-gradient(circle at 8% 50%, color-mix(in srgb, var(--c, #3d7dca) 32%, transparent), transparent 62%), var(--card);
+}
+.cmp-hero > .ico-tile { flex: none; }
+.cmp-hero-t { min-width: 0; }
+.box .cmp-hero h3 { margin: 0 0 6px; font: 700 var(--fs-2xl)/1.1 var(--font-display); overflow-wrap: anywhere; }
+.cmp-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.cmp-detail .badge.purple { background: var(--c-purple); color: #fff; }
+.cmp-detail .badge.green .ui-svg { margin-left: -2px; }
+.cmp-detail p.cmp-desc { margin: 0 0 8px; font-size: var(--fs-m); line-height: 1.5; }
+.cmp-detail p.cmp-fam { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 4px; color: var(--muted); font-size: var(--fs-s); line-height: 1.45; }
+button.fam-chip { appearance: none; cursor: pointer; flex: none; }
+button.fam-chip:hover { border-color: var(--c-yellow); }
+.cmp-sec { margin-top: 12px; padding: 12px 14px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
+.box .cmp-sec h4 { margin: 0 0 8px; font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmp-sec.evo { border-color: rgba(255, 203, 5, .4); background: linear-gradient(135deg, rgba(255, 203, 5, .1), rgba(255, 203, 5, .02)); }
+/* Cómo sube: lo que da cada nivel y la tabla de números. */
+.cmp-ladder { list-style: none; display: grid; gap: 4px; margin: 0 0 10px; padding: 0; }
+.cmp-ladder li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-s); line-height: 1.35; }
+.cmp-ladder .badge { flex: none; min-width: 46px; justify-content: center; }
+.cmp-stats { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cmp-stats th, .cmp-stats td { padding: 4px 6px; text-align: right; white-space: nowrap; }
+.cmp-stats th:first-child { text-align: left; }
+.cmp-stats thead th { font: 600 var(--fs-xs)/1.2 var(--font-display); color: var(--muted); border-bottom: 1px solid var(--line-2); }
+.cmp-stats tbody th { font: 700 var(--fs-s)/1.2 var(--font); color: var(--muted); }
+.cmp-stats td { font: 600 var(--fs-s)/1.2 var(--font-display); }
+.cmp-stats tbody tr + tr > * { border-top: 1px solid var(--line-1); }
+.cmp-stats .gold { color: var(--c-yellow); }
+.cmp-stats.one { width: auto; min-width: 220px; }
+/* Evolución: ataque + carta = evolución; nombre, con qué y lo que gana. */
+.cmp-evo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.cmp-eq { flex: none; display: flex; align-items: center; gap: 6px; }
+.cmp-eq > i { font: 700 16px/1 var(--font-display); font-style: normal; color: var(--muted); }
+.cmp-eq > .ico-tile { position: relative; }
+button.ico-tile { appearance: none; cursor: pointer; padding: 0; border: 0; color: inherit; }
+button.ico-tile:hover { filter: brightness(1.2); }
+.cmp-got { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--c-yellow); color: var(--c-on-yellow); }
+.cmp-evo-t { flex: 1 1 220px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cmp-evo-t > b { font: 600 var(--fs-l)/1.2 var(--font-display); }
+.cmp-evo-t > small { color: var(--muted); font-size: var(--fs-s); line-height: 1.4; }
+.cmp-evo-t > small.cmp-gain { color: var(--ink); }
+.cmp-evo-t > small.cmp-done { display: inline-flex; align-items: center; gap: 4px; color: var(--ok); font-weight: 800; }
+.cmp-link { appearance: none; cursor: pointer; padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+.cmp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmp-chips .chip > img { width: 24px; height: 24px; margin: -4px -2px -4px -6px; }
+.chip.static { cursor: default; }
+.chip.static:hover { border-color: var(--line-2); background: var(--card); }
+.cmp-detail p.cmp-note { margin: 6px 0 0; color: var(--muted); font-size: var(--fs-s); line-height: 1.45; }
+.cmp-detail p.cmp-note:first-child { margin-top: 0; }
+.cmp-detail p.cmp-note.gold { color: var(--c-yellow); }
+.cmp-go {
+  appearance: none; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 6px 10px;
+  border-radius: var(--rad-m); border: 1px solid var(--line-2); background: var(--sunk); color: var(--ink);
+  font: 600 var(--fs-m)/1.2 var(--font-display); text-align: left;
+}
+.cmp-go:hover { border-color: var(--line-3); background: var(--card-hi); }
+.cmp-go > span { flex: 1 1 auto; min-width: 0; }
+.cmp-go > b { color: var(--c-yellow); font-variant-numeric: tabular-nums; }
+.cmp-go > .ui-svg { color: var(--muted); }
+.cmp-facts { list-style: none; display: grid; gap: 4px; margin: 4px 0 0; padding: 0; }
+.cmp-facts li { display: flex; align-items: baseline; gap: 6px; color: var(--muted); font-size: var(--fs-s); line-height: 1.4; }
+.cmp-facts .ui-svg { flex: none; color: var(--ok); transform: translateY(2px); }
+/* Botones de ataque (llevan a su ficha): icono y nombre, del color de su tipo. */
+.cmp-mvs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
+.cmp-mv {
+  --c: #9fb1c9; appearance: none; cursor: pointer; display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 36px;
+  padding: 3px 8px 3px 3px; border-radius: 10px; color: var(--ink); text-align: left;
+  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 14%, rgba(255, 255, 255, .03));
+  font: 600 var(--fs-s)/1.2 var(--font-display);
+}
+.cmp-mv:hover { background: color-mix(in srgb, var(--c) 26%, rgba(255, 255, 255, .03)); }
+.cmp-mv > img { flex: none; width: 28px; height: 28px; }
+.cmp-mv > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-mv.start { box-shadow: inset 0 0 0 1.5px var(--c-yellow); }
+.cmp-mv.tm { opacity: .85; }
+.cmp-grp + .cmp-grp { margin-top: 10px; }
+.cmp-grp-h { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.cmp-grp-h small { color: var(--muted); font: 700 var(--fs-xs)/1 var(--font); }
+/* Pokémon: su sprite, ataque inicial y habilidad. */
+.cmp-hero.mon { --c: #3d7dca; }
+.cmp-spr { flex: none; display: grid; place-items: center; width: 112px; height: 96px; overflow: hidden; border-radius: var(--rad-m);
+  background: radial-gradient(ellipse at 50% 82%, rgba(255, 255, 255, .14), transparent 66%), var(--sunk); }
+.cmp-spr > canvas { display: block; }
+.cmp-hero .cmp-num { display: block; margin-bottom: 2px; }
+.cmp-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.cmp-kv > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
+.cmp-kv > div > .cmp-mv { align-self: stretch; }
+.cmp-k { font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmp-kv b { font: 600 var(--fs-m)/1.25 var(--font-display); }
+.cmp-kv small { color: var(--muted); font-size: var(--fs-s); line-height: 1.4; }
+
+/* ---- Móvil tumbado (≤ 520 px de alto): cabecera en una línea, filas de 40 y ficha más junta ---- */
+@media (max-height: 520px) {
+  #scr-compendium .sheet-head { flex-wrap: nowrap; }
+  #scr-compendium .sheet-head h2 { flex: 0 1 auto; }
+  #scr-compendium .sheet-head > .sheet-row { flex: 1 1 auto; display: flex; justify-content: flex-end; min-width: 0; }
+  #scr-compendium .cmp-tabs { flex: 1 1 auto; max-width: 440px; min-width: 0; padding: 2px; }
+  #scr-compendium .cmp-tabs > .tab { min-width: 0; min-height: 34px; padding: 4px 8px; }
+  .cmp-main { grid-template-columns: minmax(0, 41%) minmax(0, 1fr); }
+  .cmp-tools { gap: 5px; padding: 6px 8px 6px max(8px, var(--sa-l)); }
+  .cmp-q > .field { min-height: 34px; padding: 5px 46px 5px 36px; font-size: 14px; }
+  .cmp-count { right: 12px; font-size: 12px; }
+  .cmp-q > .ui-svg { left: 11px; width: 16px; height: 16px; margin-top: -8px; }
+  .cmp-pick { min-height: 30px; font-size: 12px; }
+  body.touch .cmp-pick { min-height: 32px; }
+  .cmp-pick > select { padding: 0 24px 0 28px; background-position: right 7px center; }
+  .cmp-pick > .ui-svg { left: 9px; width: 14px; height: 14px; margin-top: -7px; }
+  .cmp-tools .chip { min-height: 30px; padding: 2px 9px; font-size: 12px; }
+  .cmp-rows { gap: 2px; padding: 4px 6px max(8px, var(--sa-b)) max(6px, var(--sa-l)); }
+  .cmp-row { min-height: 40px; gap: 8px; padding: 3px 6px 3px 3px; border-radius: 10px; }
+  .cmp-row > .ico-tile.s { --tile: 32px; border-radius: 9px; }
+  .cmp-row > .ico-tile > img { width: 26px; height: 26px; }
+  .cmp-rt b { font-size: 13.5px; }
+  .cmp-rt small { font-size: 11px; }
+  .cmp-num { min-width: 36px; font-size: 12px; }
+  .cmp-detail { padding: 8px max(12px, var(--sa-r)) max(10px, var(--sa-b)) 12px; }
+  .cmp-hero { gap: 10px; margin-bottom: 8px; padding: 8px; border-radius: 12px; }
+  .cmp-hero > .ico-tile.l { --tile: 52px; border-radius: 15px; }
+  .cmp-hero > .ico-tile.l > img { width: 44px; height: 44px; }
+  .box .cmp-hero h3 { margin-bottom: 4px; font-size: var(--fs-xl); }
+  .cmp-detail p.cmp-desc { margin-bottom: 6px; font-size: var(--fs-s); line-height: 1.45; }
+  .cmp-sec { margin-top: 8px; padding: 8px 10px; border-radius: 12px; }
+  .box .cmp-sec h4 { margin-bottom: 6px; }
+  .cmp-ladder { gap: 3px; margin-bottom: 8px; }
+  .cmp-ladder li { font-size: 12px; }
+  .cmp-stats th, .cmp-stats td { padding: 3px 5px; }
+  .cmp-stats td, .cmp-stats tbody th { font-size: 12px; }
+  .cmp-evo-t > b { font-size: var(--fs-m); }
+  .cmp-evo-t > small { font-size: 12px; }
+  .cmp-mvs { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 4px; }
+  .cmp-mv { min-height: 32px; font-size: 12px; }
+  .cmp-mv > img { width: 24px; height: 24px; }
+  .cmp-spr { width: 96px; height: 80px; }
+  .cmp-kv { gap: 6px; }
+  .cmp-kv > div { padding: 6px 10px; border-radius: 12px; }
+  .cmp-go { min-height: 36px; font-size: var(--fs-s); }
+}
+/* Tumbados estrechos (667×375): las pestañas, más justas. */
+@media (max-height: 520px) and (max-width: 760px) {
+  #scr-compendium .cmp-tabs > .tab { padding: 4px 6px; font-size: 12px; }
+  #scr-compendium .sheet-head h2 { font-size: var(--fs-l); }
+}
+/* ---- Ventana estrecha de pie: la lista llena la hoja y, al elegir, la ficha la tapa ---- */
+@media (max-width: 699px) and (min-height: 521px) {
+  .cmp-main { grid-template-columns: minmax(0, 1fr); }
+  .cmp-list { border-right: 0; }
+  .cmp-detail { display: none; }
+  #scr-compendium.detail-open .cmp-list { display: none; }
+  #scr-compendium.detail-open .cmp-detail { display: block; }
+  .cmp-close { display: inline-grid; }
+  .cmp-hero { padding-right: 56px; }
+  #scr-compendium .cmp-tabs { overflow-x: auto; scrollbar-width: none; }
+}

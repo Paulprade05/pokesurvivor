@@ -22,7 +22,7 @@ for (const f of ['js/core/locales.js', 'js/core/util.js', 'js/core/i18n.js']) lo
 const add = G.I18n.add;
 G.I18n.add = (d, language = 'en', context = '') => { if (language === 'en' && !context) Object.assign(EN, d); add(d, language, context); };
 for (const f of ['js/data/lang-en.js', 'js/core/settings.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/moves.js', 'js/data/types.js',
-                 'js/data/items.js', 'js/data/achievements.js', 'js/world/tiles.js', 'js/data/funding.js']) {
+                 'js/data/items.js', 'js/data/achievements.js', 'js/world/tiles.js']) {
   try { load(f); } catch (e) { console.warn('aviso', f, e.message); }
 }
 const moves = Object.values(G.Moves.BY_ID).map(m => {
@@ -44,7 +44,6 @@ const out = {
   matrix: Object.fromEntries(Object.keys(G.U.TYPE_NAME).map(a => [a, Object.fromEntries(Object.keys(G.U.TYPE_NAME).map(d => [d, G.Types.mult(a, [d])]))])),
   // (Sin la arena de Arceus: las de las grietas son una por tipo.)
   arenas: Object.fromEntries(Object.entries(G.ARENA_THEMES || (G.Tiles && G.Tiles.ARENA_THEMES) || {}).filter(([k]) => k !== 'judgment').map(([k, v]) => [k, v.name])),
-  funding: { kofi: G.Funding.kofi, sponsors: G.Funding.sponsors, costs: G.Funding.costs },
   en: EN
 };
 fs.mkdirSync(path.join(__dirname, 'cache'), { recursive: true });

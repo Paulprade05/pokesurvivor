@@ -64,16 +64,20 @@ for (const [i, lang] of langs.entries()) {
     b.ctx.document.createElement = () => ({});
     b.load('js/ui/login.js');
     assert.equal(b.G.LoginUI.updateNotices(), true);
-    // El aviso del guardado (ps.savenote.2), entero y con sus negritas: la nube sólo con Guardar, sin "cada 10 minutos".
+    // El aviso del guardado (ps.savenote.3, 26-10-2026: ya se guarda solo; Guardar queda en Ajustes),
+    // entero y con sus negritas, en el idioma del jugador o, si su diccionario aún no lo tiene, en inglés.
     const body = node('savenote-body');
-    assert.ok(body.innerHTML.includes('class="gold">' + save[i] + '<') && !/\b10\b/.test(body.innerHTML));
+    const TITLE = ['Tu partida ya se guarda sola', 'Your game now saves itself'];
+    const enBody = body.innerHTML.includes('You no longer need to press Save');
+    assert.ok(body.innerHTML.includes('class="gold">' + (enBody ? 'Save' : save[i]) + '<') && !/\b10\b/.test(body.innerHTML));
     assert.equal((body.innerHTML.match(/<b[ >]/g) || []).length, 3);
-    if (lang !== 'es') assert.ok(!body.innerHTML.includes('Tu progreso se guarda'));
-    if (lang !== 'es' && lang !== 'en') assert.ok(!body.innerHTML.includes('Your progress is saved') && body.attrs.translate === 'no');
+    if (lang !== 'es') assert.ok(!body.innerHTML.includes('Ya no hace falta pulsar Guardar'));
+    if (lang === 'en') assert.ok(enBody);
+    if (lang !== 'es' && lang !== 'en') assert.equal(body.attrs.translate, 'no');
     // Título y botón en el idioma del jugador (la caja va con translate="no").
-    if (lang === 'es' || lang === 'en') assert.equal(node('savenote-title').textContent, lang === 'es' ? 'Importante: guarda tu partida' : 'Important: save your game');
-    else assert.equal(node('savenote-title').textContent, b.G.T('Importante: guarda tu partida'));
-    if (lang !== 'es') assert.notEqual(node('savenote-title').textContent, 'Importante: guarda tu partida');
+    if (lang === 'es' || lang === 'en') assert.equal(node('savenote-title').textContent, TITLE[lang === 'es' ? 0 : 1]);
+    else assert.equal(node('savenote-title').textContent, I.has(TITLE[0]) ? b.G.T(TITLE[0]) : TITLE[1]);
+    if (lang !== 'es') assert.notEqual(node('savenote-title').textContent, TITLE[0]);
     assert.equal(node('savenote-ok').textContent, lang === 'es' ? 'Entendido' : lang === 'en' ? 'Got it' : b.G.T('Entendido'));
     assert.equal(b.G.LoginUI.updateNotices(), false);
     b.G.DB.save.stats.runs = 1;

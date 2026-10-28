@@ -11,10 +11,13 @@
  *     su sitio y, si el tamaño cambió sin avisar, se vuelve a medir (issue #91).
  *   - <html class="standalone"> si se abre desde la pantalla de inicio (o a
  *     pantalla completa) e "ios" en iPhone y iPad, por si el CSS lo necesita.
- *   - Sólo horizontal en el móvil (24-10-2026): de pie, «Gira el móvil» a
- *     pantalla completa (#rotate, html.need-rotate) y la partida en pausa; en la
- *     app instalada o a pantalla completa, la orientación se bloquea en horizontal
- *     donde el navegador lo deja. Tableta y ordenador, como siempre.
+ *   - Sólo horizontal en el móvil (26-10-2026, bloqueado): de pie, el juego entero
+ *     se pinta girado 90° (rotate.js), así que siempre se juega tumbado aunque el
+ *     giro de la pantalla esté desbloqueado; en la app instalada o a pantalla
+ *     completa, además, la orientación se bloquea en horizontal donde el navegador
+ *     lo deja (Android). Al girar el móvil en plena partida, pausa. Si el navegador
+ *     no deja girar la página, el aviso «Gira el móvil» de antes. Tableta y
+ *     ordenador, como siempre.
  * En PC sólo hace lo de la pantalla encendida (útil jugando con mando).
  */
 G.Mobile = (() => {
@@ -25,6 +28,10 @@ G.Mobile = (() => {
   const isField = el => !!el && el.nodeType === 1 && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
   const media = q => (window.matchMedia ? matchMedia(q) : null);
   const onMedia = (m, fn) => { if (!m) return; if (m.addEventListener) m.addEventListener('change', fn); else if (m.addListener) m.addListener(fn); };
+  // Con el juego girado (rotate.js), innerWidth y compañía son los de la vista tumbada;
+  // aquí hace falta la ventana de verdad.
+  const R = G.Rotate;
+  const rawW = () => (R.installed ? R.raw.w() : innerWidth), rawH = () => (R.installed ? R.raw.h() : innerHeight);
 
   // ---------------- app de la pantalla de inicio ----------------
   const appMode = media('(display-mode: standalone), (display-mode: fullscreen)');
@@ -48,41 +55,81 @@ G.Mobile = (() => {
     if (!on) return;
     const a = Math.min(screen.width, screen.height), b = Math.max(screen.width, screen.height);
     const o = typeof window.orientation === 'number' ? window.orientation : null;
-    const land = o !== null ? Math.abs(o) === 90 : innerWidth > innerHeight;
+    const land = o !== null ? Math.abs(o) === 90 : rawW() > rawH();
     root.style.setProperty('--app-w', (land ? b : a) + 'px');
     root.style.setProperty('--app-h', (land ? a : b) + 'px');
   }
   appSize();
   onMedia(appMode, appSize);
 
-  // ---------------- sólo horizontal en el móvil ----------------
+  // ---------------- sólo horizontal en el móvil (26-10-2026: bloqueado de verdad) ----------------
   // Móvil = táctil y con el lado corto de la pantalla de menos de 600 px (la
   // pantalla, no la ventana: el iPad en Slide Over o en pantalla dividida no cuenta).
+  // De pie, el juego se pinta girado 90° (rotate.js): sigue tumbado aunque el giro
+  // de la pantalla esté desbloqueado. Si el navegador no deja girarlo (muy viejo),
+  // queda el aviso «Gira el móvil» de antes (#rotate, html.need-rotate).
   const shortSide = () => {
     const a = Math.min(screen.width || 0, screen.height || 0);
-    return a > 0 ? a : Math.min(innerWidth, innerHeight);
+    return a > 0 ? a : Math.min(rawW(), rawH());
   };
   const phone = () => TOUCH && shortSide() < 600;
-  const portraitMq = media('(orientation: portrait)');
-  const isPortrait = () => (portraitMq ? portraitMq.matches : innerHeight > innerWidth);
-  let rotOn = false;
-  /** De pie en el móvil: el aviso tapa todo y la partida se pausa (en grupo sigue: la llevan los demás). */
+  if (phone()) R.install();
+  const portraitMq = R.installed ? R.raw.matchMedia('(orientation: portrait)') : media('(orientation: portrait)');
+  const isPortrait = () => (portraitMq ? portraitMq.matches : rawH() > rawW());
+  // El giro de la pantalla, cuando el navegador está tumbado: 90 (girado a la izquierda) o -90 (a la derecha).
+  function landAngle() {
+    const o = typeof window.orientation === 'number' ? window.orientation : null;
+    if (o === 90 || o === -90) return o;
+    const so = screen.orientation;
+    if (so && typeof so.angle === 'number') return so.angle === 270 ? -90 : so.angle === 90 ? 90 : 0;
+    return 0;
+  }
+  // Hacia dónde se gira la página de pie: hacia el último lado en que estuvo tumbado
+  // (así, al ponerlo de pie, la imagen no se mueve respecto al móvil); de serie, 90.
+  const SIDE_KEY = 'ps.rotSide';
+  let side = 90;
+  try { if (localStorage.getItem(SIDE_KEY) === '-90') side = -90; } catch (e) { /* sin almacenamiento */ }
+  function noteSide() {
+    const a = landAngle();
+    if (!a || a === side) return;
+    side = a;
+    try { localStorage.setItem(SIDE_KEY, String(a)); } catch (e) { /* nada */ }
+  }
+  /** La ventana de verdad, de pie: [ancho, alto]. En la app del iPhone, la pantalla (ver appSize). */
+  function physSize() {
+    if (root.classList.contains('ios-app')) {
+      const a = Math.min(screen.width, screen.height), b = Math.max(screen.width, screen.height);
+      return [a, b];
+    }
+    return [rawW(), rawH()];
+  }
+  let rotOn = false;        // ¿de pie en el móvil?
+  /** De pie en el móvil: el juego, girado. Al girar el móvil en plena partida (en solitario), pausa. */
   function rotateCheck() {
-    const on = phone() && isPortrait();
-    if (on === rotOn) return;
-    rotOn = on;
+    root.classList.add('rot-ready');                           // (ya no hace falta el giro de la carga, style.css)
+    const ph = phone(), on = ph && isPortrait(), changed = on !== rotOn;
+    if (ph && !on) noteSide();
+    rotOn = on;                                                // (antes de girar: set() avisa con un 'resize' que vuelve a entrar aquí)
+    if (R.installed) {
+      const [w, h] = physSize();
+      R.set(on ? side : 0, w, h);
+    }
+    if (!changed) return;
+    // La partida se pausa (las manos se están recolocando); en grupo sigue: la llevan los demás.
+    const g = G.Game, run = !!g && g.state !== 'ui' && g.state !== 'over' && g.state !== undefined;
+    const coop = !!(G.Coop && G.Coop.active);
+    if (G.Touch) G.Touch.reset();
+    if (run && !coop && g.state === 'playing') g.togglePause();
+    // Fuera el teclado (si escribía algo) y el foco.
+    const a = document.activeElement;
+    if (on && a && a !== document.body && a.blur) a.blur();
+    if (R.installed) return;
+    // Sin giro: el aviso de antes.
     root.classList.toggle('need-rotate', on);
     const el = document.getElementById('rotate');
     if (el) el.setAttribute('aria-hidden', on ? 'false' : 'true');
-    if (!on) return;
-    const g = G.Game, run = !!g && g.state !== 'ui' && g.state !== 'over' && g.state !== undefined;
-    const coop = !!(G.Coop && G.Coop.active);
-    if (run && !coop && g.state === 'playing') g.togglePause();
-    root.classList.toggle('rotate-run', run && !coop);
-    root.classList.toggle('rotate-coop', run && coop);
-    // Fuera el teclado (si escribía algo) y el foco, que no se quede debajo del aviso.
-    const a = document.activeElement;
-    if (a && a !== document.body && a.blur) a.blur();
+    root.classList.toggle('rotate-run', on && run && !coop);
+    root.classList.toggle('rotate-coop', on && run && coop);
   }
   rotateCheck();
   onMedia(portraitMq, rotateCheck);
@@ -196,6 +243,7 @@ G.Mobile = (() => {
   // hubiera llegado. Sólo si cambió: el editor de botones recarga lo colocado con cada aviso.
   function remeasure() {
     appSize();
+    rotateCheck();                                                        // (con el giro, la vista a la nueva medida)
     settle();
     if (innerWidth !== seenW || innerHeight !== seenH) dispatchEvent(new Event('resize'));
   }
@@ -205,12 +253,13 @@ G.Mobile = (() => {
     laterT.forEach(clearTimeout);
     laterT = [300, 1000].map(ms => setTimeout(remeasure, ms));
   }
-  onMedia(media('(orientation: portrait)'), remeasureSoon);
+  onMedia(portraitMq, remeasureSoon);                                     // (la de verdad, no la de la vista)
   addEventListener('orientationchange', remeasureSoon);
   addEventListener('pageshow', remeasureSoon);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) remeasureSoon(); keepAwake(); });
   // Al cerrar el teclado (salir del campo sin entrar en otro), la página a su sitio.
   document.addEventListener('focusout', e => { if (isField(e.target)) setTimeout(settle, 120); });
 
-  return { standalone, ios: IOS, get awake() { return !!lock; }, /** ¿Está puesto «Gira el móvil»? */ get mustRotate() { return rotOn; } };
+  return { standalone, ios: IOS, get awake() { return !!lock; },
+    /** ¿De pie en el móvil? (el juego va girado o, si el navegador no deja, con el aviso «Gira el móvil») */ get mustRotate() { return rotOn; } };
 })();

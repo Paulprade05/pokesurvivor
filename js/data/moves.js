@@ -285,6 +285,34 @@
       { t: '+10% de vida quitada y +50% daño', m: { pct: 0.10, dmg: 1.50 } }
     ]
   };
+  // -- ataques únicos: Roca, Fantasma, Dragón, Siniestro, Acero, Hada (26-10-2026) --
+  // Los que ya no encajan con la escalera de su familia (la gema se parte, el remolino gira...).
+  Object.assign(LADDER_BY_ID, {
+    'power-gem': [
+      { t: '+1 gema',                       m: { count: 1, spread: 1.3 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: 'Se parte una vez más y +30% daño', m: { bounce: 1, dmg: 1.30 } }
+    ],
+    'ominous-wind': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+30% radio',                    m: { radius: 1.30 } },
+      { t: '+50% duración',                 m: { dur: 1.50 } },
+      { t: 'Gira más fuerte y +40% daño',   m: { pull: 1.40, dmg: 1.40 } }
+    ],
+    'play-rough': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: 'Nube un 25% más grande',        m: { radius: 1.25 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+3 golpes en la nube y +50% daño', m: { count: 3, dmg: 1.50 } }
+    ],
+    'steel-wing': [
+      { t: '+1 ave',                        m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: 'Pasadas un 30% más anchas y un 15% más seguidas', m: { radius: 1.30, rate: 0.85 } },
+      { t: '+1 ave y +40% daño',            m: { count: 1, dmg: 1.40 } }
+    ]
+  });
 
   // (23-10-2026: daños retocados con tools/balance.cjs, que lanza cada ataque contra un jefe
   //  y contra una horda con el combate de verdad: ninguno muy por encima ni por debajo del
@@ -451,13 +479,15 @@
       cd: 0.45, dmg: 8, radius: 66 },
 
     // ---------------- ROCA ----------------
+    // (26-10-2026: ataques únicos de Roca, Fantasma, Dragón, Siniestro, Acero y Hada: lo propio de
+    //  cada uno, en combat.js, MECH3; hold, roll, wall... son números suyos que sólo lee su mecánica.)
     { id: 'rock-throw', name: 'Lanzarrocas', type: 'rock', kind: 'projectile',
-      desc: 'Pedrusco pesado que empuja al enemigo.',
-      cd: 0.7, dmg: 24, speed: 260, count: 1, spread: 0.12, pierce: 0, life: 1.4, size: 9, knock: 90 },
+      desc: 'Pedrusco pesado que empuja y se queda 2,5 s en el suelo como barricada: los enemigos lo rodean y para sus disparos.',
+      cd: 0.7, dmg: 27, speed: 260, count: 1, spread: 0.12, pierce: 0, life: 1.1, size: 9, knock: 90, hold: 2.5 },
 
     { id: 'rock-slide', name: 'Avalancha', type: 'rock', kind: 'meteor',
-      desc: 'Caen rocas del cielo sobre los enemigos cercanos.',
-      cd: 1.3, dmg: 21, count: 3, radius: 46, knock: 50 },     // (12-10-2026: era 26; mataba el doble que la media)
+      desc: 'Caen rocas del cielo sobre los enemigos y luego ruedan pantalla abajo arrollando e interrumpiendo a los que pillan.',
+      cd: 1.3, dmg: 12, count: 3, radius: 46, knock: 50, roll: 100 },     // (12-10-2026: era 26; mataba el doble que la media)
 
     // ---------------- HIELO ----------------
     { id: 'ice-beam', name: 'Rayo Hielo', type: 'ice', kind: 'beam',
@@ -479,51 +509,51 @@
 
     // ---------------- FANTASMA ----------------
     { id: 'lick', name: 'Lengüetazo', type: 'ghost', kind: 'melee',
-      desc: 'Lametazo espectral que paraliza un poco.',
-      cd: 0.48, dmg: 12, radius: 48, arc: 1.8, slow: 0.4 },
+      desc: 'Un lametazo largo en línea que atraviesa paredes y deja paralizado al enemigo 2 s.',
+      cd: 0.48, dmg: 12, radius: 48, arc: 1.8, para: 2 },
 
     { id: 'shadow-ball', name: 'Bola Sombra', type: 'ghost', kind: 'projectile',
-      desc: 'Esfera oscura que atraviesa a varios.',
-      cd: 0.66, dmg: 19, speed: 280, count: 1, spread: 0.1, pierce: 2, life: 1.6, size: 9 },
+      desc: 'Una esfera oscura que crece y pega un 15% más con cada enemigo que atraviesa; a veces les baja la defensa.',
+      cd: 0.66, dmg: 13, speed: 280, count: 1, spread: 0.1, pierce: 2, life: 1.6, size: 9 },
 
     // ---------------- DRAGÓN ----------------
     { id: 'dragon-rage', name: 'Furia Dragón', type: 'dragon', kind: 'beam',
-      desc: 'Llamarada dracónica en línea recta.',
-      cd: 1.0, dmg: 26, radius: 230, width: 34 },
+      desc: 'Una llamarada dracónica en línea que se enfurece si sigues atacando al mismo enemigo: +25% cada vez, hasta ×2.',
+      cd: 1.0, dmg: 20, radius: 230, width: 34 },
 
     { id: 'dragon-dance', name: 'Danza Dragón', type: 'dragon', kind: 'buff',
-      desc: 'No hace daño: acumula ATAQUE (físico) más rápido que Danza Espada.',
-      cd: 0.7, stat: 'patk', amount: 0.11, dur: 7, stacks: 5 },
+      desc: 'No hace daño: cada pila sube a la vez tu ATAQUE (físico) y tu VELOCIDAD.',
+      cd: 0.7, stat: 'patk', amount: 0.08, dur: 7, stacks: 5 },
 
     // ---------------- HADA ----------------
     { id: 'fairy-wind', name: 'Viento Feérico', type: 'fairy', kind: 'nova',
-      desc: 'Brisa mágica en todas direcciones.',
-      cd: 1.0, dmg: 11, speed: 230, count: 10, pierce: 0, life: 1.2, size: 7 },
+      desc: 'Una brisa mágica en todas direcciones que aparta un poco a los enemigos y te trae la experiencia y los objetos que toca.',
+      cd: 1.0, dmg: 11, speed: 230, count: 10, pierce: 0, life: 1.2, size: 7, knock: 30 },
 
     { id: 'dazzling-gleam', name: 'Brillo Mágico', type: 'fairy', kind: 'aura',
-      desc: 'Destello a tu alrededor.',
-      cd: 0.5, dmg: 9, radius: 72 },
+      desc: 'Un destello a tu alrededor que deslumbra: ×1,6 a los que vienen hacia ti y ×0,7 a los que te dan la espalda.',
+      cd: 0.5, dmg: 6, radius: 72 },
 
     // ---------------- ACERO ----------------
     { id: 'metal-claw', name: 'Garra Metal', type: 'steel', kind: 'melee',
-      desc: 'Zarpazo de acero en arco.',
-      cd: 0.5, dmg: 15, radius: 50, arc: 1.6, knock: 60 },
+      desc: 'Un zarpazo de ida y vuelta: el de vuelta llega justo después y es crítico si el de ida acertó.',
+      cd: 0.5, dmg: 7, radius: 50, arc: 1.6, knock: 60 },
 
     { id: 'flash-cannon', name: 'Foco Resplandor', type: 'steel', kind: 'beam',
-      desc: 'Rayo de luz metálica que perfora.',
-      cd: 1.05, dmg: 27, radius: 220, width: 30 },
+      desc: 'Un rayo de luz metálica que se refleja en las paredes y en los objetos sólidos hasta 2 veces.',
+      cd: 1.05, dmg: 24, radius: 220, width: 30, reflect: 2 },
 
     // ---------------- SINIESTRO ----------------
     { id: 'bite', name: 'Mordisco', type: 'dark', kind: 'melee',
-      desc: 'Dentellada rápida que hace retroceder.',
-      cd: 0.45, dmg: 14, radius: 46, arc: 1.5, knock: 70 },
+      desc: 'Muerdes y no sueltas: arrastras al enemigo delante de ti 0,5 s con tres mordiscos y le interrumpes lo que preparaba.',
+      cd: 0.45, dmg: 12, radius: 46, arc: 1.5, knock: 0 },
 
     { id: 'dark-pulse', name: 'Pulso Umbrío', type: 'dark', kind: 'nova',
-      desc: 'Onda de energía oscura en todas direcciones.',
-      cd: 1.15, dmg: 14, speed: 240, count: 10, pierce: 1, life: 1.1, size: 8 },
+      desc: 'Una onda oscura en todas direcciones que se contagia: cada enemigo alcanzado suelta su propio pulso y a veces se le interrumpe el ataque.',
+      cd: 1.15, dmg: 9.5, speed: 240, count: 10, pierce: 1, life: 1.1, size: 8 },
 
     { id: 'night-shade', name: 'Tinieblas', type: 'dark', kind: 'aura',
-      desc: 'Una sombra te rodea y consume lo cercano.',
+      desc: 'Una sombra te rodea: hace un daño fijo según tu nivel (sin tipos ni defensas) y engaña a los de dentro, que a veces disparan hacia atrás.',
       cd: 0.5, dmg: 9, radius: 72 },
 
     // ---------------- NUEVOS (2026-10-10): mismas formas, otras mecánicas ----------------
@@ -548,8 +578,8 @@
       cd: 1.2, dmg: 18, count: 4, radius: 40, slow: 0.4 },
 
     { id: 'meteor-mash', name: 'Puño Meteoro', type: 'steel', kind: 'meteor',
-      desc: 'Dos meteoros de acero que aplastan donde caen.',
-      cd: 1.4, dmg: 23, count: 2, radius: 54, knock: 80 },
+      desc: 'Puños meteoro que caen sobre los enemigos y rebotan hacia el siguiente más cercano (2 rebotes).',
+      cd: 1.4, dmg: 10, count: 2, radius: 54, knock: 80, hops: 2 },
 
     { id: 'will-o-wisp', name: 'Fuego Fatuo', type: 'fire', kind: 'turret',
       desc: 'Deja una llama flotante que dispara sola y quema.',
@@ -572,7 +602,7 @@
       cd: 0.65, dmg: 6, count: 7, arc: 1.0, speed: 340, life: 0.45, size: 6, slow: 0.3 },
 
     { id: 'hex', name: 'Infortunio', type: 'ghost', kind: 'chain',
-      desc: 'Maldición que salta entre enemigos. Mucho más daño si están quemados, envenenados o frenados.',
+      desc: 'Una maldición que salta entre enemigos con algún estado (×1,7) y se los alarga 1 s; deja malditos a los que toca.',
       cd: 0.9, dmg: 23, count: 4, radius: 150, hex: 1.7 },
 
     // ================= NUEVOS (19-10-2026): todos los tipos con 5 o más =================
@@ -642,14 +672,15 @@
       cd: 0.7, dmg: 17, radius: 120, width: 34 },
     // Roca
     { id: 'rock-tomb', name: 'Tumba Rocas', type: 'rock', kind: 'stun',
-      desc: 'Caen rocas donde avisa el suelo y dejan atrapados a los que pilla.',
-      cd: 1.7, dmg: 38, radius: 56, stun: 0.9 },
+      desc: 'Caen seis rocas en anillo alrededor del enemigo: lo encierran 3 s, lo frenan y no dejan entrar a nadie. Paran los disparos.',
+      cd: 1.7, dmg: 42, radius: 56, stun: 0.5, slow: 0.4, wall: 3 },
     { id: 'ancient-power', name: 'Poder Pasado', type: 'rock', kind: 'orbit',
-      desc: 'Rocas antiguas que giran a tu alrededor.',
+      desc: 'Rocas antiguas giran a tu alrededor y cada 2 s salen disparadas al enemigo más cercano y vuelven a crecer. A veces te suben todas las stats.',
       cd: 0.28, dmg: 13, count: 3, radius: 70, speed: 2.6, size: 9 },
+    // (bounce: las veces que se parte la gema, no rebotes; ver LADDER_BY_ID.)
     { id: 'power-gem', name: 'Joya de Luz', type: 'rock', kind: 'bounce',
-      desc: 'Un destello de gema que rebota de enemigo en enemigo.',
-      cd: 0.66, dmg: 13, speed: 320, life: 1.6, size: 8, bounce: 3 },
+      desc: 'Una gema que se parte en dos cada vez que golpea a un enemigo (hasta 4 ramas).',
+      cd: 0.66, dmg: 13, speed: 320, life: 1.2, size: 8, bounce: 2 },
     // Hielo
     { id: 'ice-shard', name: 'Canto Helado', type: 'ice', kind: 'homing',
       desc: 'Esquirlas rapidísimas que persiguen al enemigo.',
@@ -669,44 +700,47 @@
       cd: 1.7, dmg: 36, radius: 54, stun: 0.9 },
     // Fantasma
     { id: 'shadow-sneak', name: 'Sombra Vil', type: 'ghost', kind: 'homing',
-      desc: 'Una sombra que se escurre por el suelo hasta el enemigo.',
-      cd: 0.45, dmg: 14, speed: 300, life: 1.8, size: 7, homing: 6 },
+      desc: 'Tu sombra se estira al instante por el suelo hasta el enemigo y lo deja clavado 0,6 s (no se mueve, pero puede disparar).',
+      cd: 0.45, dmg: 18, speed: 300, life: 1.8, size: 7, homing: 6, range: 200 },
     { id: 'ominous-wind', name: 'Viento Aciago', type: 'ghost', kind: 'vortex',
-      desc: 'Un viento maldito que arremolina a los enemigos y los va dañando.',
-      cd: 3.0, dmg: 10, radius: 74, dur: 2.6, pull: 140 },
+      desc: 'Un viento maldito hace girar a los enemigos alrededor de su centro: chocan entre ellos y a veces se marean.',
+      cd: 3.0, dmg: 10, radius: 74, dur: 2.6, pull: 160 },
     // Dragón
     { id: 'dragon-breath', name: 'Dragoaliento', type: 'dragon', kind: 'cone',
-      desc: 'Un aliento de dragón en abanico corto que frena.',
-      cd: 0.7, dmg: 7, count: 7, arc: 0.95, speed: 330, life: 0.5, size: 7, slow: 0.25 },
+      desc: 'Un aliento de dragón en abanico que atraviesa a todos: pega más de cerca que de lejos y a veces paraliza.',
+      cd: 0.7, dmg: 5, count: 7, arc: 0.95, speed: 330, life: 0.5, size: 7, pierce: 99 },
     { id: 'dragon-claw', name: 'Garra Dragón', type: 'dragon', kind: 'melee',
-      desc: 'Un zarpazo de dragón en arco.',
-      cd: 0.52, dmg: 17, radius: 52, arc: 2.0, knock: 70 },
+      desc: 'Un zarpazo de dragón que además lanza tres cortes de energía hacia delante.',
+      cd: 0.52, dmg: 9.5, radius: 52, arc: 2.0, knock: 70 },
+    // (count: lo que dura el frenesí, 1,7 + 0,2 s por cada uno.)
     { id: 'outrage', name: 'Enfado', type: 'dragon', kind: 'spin',
-      desc: 'Una furia de golpes en giro que no deja a nadie en pie.',
-      cd: 1.1, dmg: 9, count: 4, radius: 64 },
+      desc: 'Un frenesí de 2,5 s girando cada vez más rápido y más abierto; al acabar te mareas un momento.',
+      cd: 3, dmg: 3.5, count: 4, radius: 64 },
     // Hada
     { id: 'draining-kiss', name: 'Beso Drenaje', type: 'fairy', kind: 'homing',
-      desc: 'Un beso que persigue al enemigo y te cura un poco al darle.',
-      cd: 0.55, dmg: 13, speed: 280, life: 2.0, size: 7, homing: 5, drain: 1 },
+      desc: 'Un beso que persigue al enemigo, te cura la mitad del daño que hace y lo deja enamorado 1,5 s (ni te toca ni dispara).',
+      cd: 0.55, dmg: 18, speed: 280, life: 2.0, size: 7, homing: 5 },
+    // (count: los golpes que caen en la nube.)
     { id: 'play-rough', name: 'Carantoña', type: 'fairy', kind: 'melee',
-      desc: 'Un ataque juguetón pero muy fuerte en arco.',
-      cd: 0.6, dmg: 18, radius: 50, arc: 2.0, knock: 60 },
+      desc: 'Una nube de polvo cómica sobre el enemigo: dentro caen golpes al azar sobre todos los que pilla.',
+      cd: 0.6, dmg: 16, radius: 50, arc: 2.0, knock: 60, count: 6 },
     { id: 'disarming-voice', name: 'Voz Cautivadora', type: 'fairy', kind: 'shove',
-      desc: 'Un grito encantador que daña y aparta a los que tienes cerca.',
-      cd: 1.15, dmg: 15, radius: 94, knock: 300 },
+      desc: 'Un grito encantador que daña y aparta a los que tienes cerca; luego caminan embelesados 1,5 s hacia donde lo lanzaste sin tocarte.',
+      cd: 1.15, dmg: 15, radius: 94, knock: 160 },
     // Acero
+    // (Disparo Espejo, 26-10-2026: deja un espejo; sus reflejos rebotan `bounce` veces.)
     { id: 'mirror-shot', name: 'Disparo Espejo', type: 'steel', kind: 'bounce',
-      desc: 'Un destello metálico que rebota entre los enemigos.',
-      cd: 0.64, dmg: 12, speed: 340, life: 1.6, size: 7, bounce: 3 },
+      desc: 'Deja un espejo que gira 3 s: cada disparo tuyo que lo cruza sale duplicado y cada 0,6 s destella y lanza un reflejo que rebota entre los enemigos.',
+      cd: 3, dmg: 15, speed: 340, life: 1.6, size: 7, bounce: 3 },
     { id: 'gyro-ball', name: 'Giro Bola', type: 'steel', kind: 'spin',
-      desc: 'Giras como una bola de acero golpeando todo alrededor.',
+      desc: 'Giras como una bola de acero golpeando todo alrededor: cuanto más lento vas, más daño (quieto ×2, corriendo ×0,6).',
       cd: 1.05, dmg: 11, count: 3, radius: 60 },
     // Siniestro
     { id: 'sucker-punch', name: 'Golpe Bajo', type: 'dark', kind: 'homing',
-      desc: 'Un golpe a traición que busca al enemigo.',
-      cd: 0.7, dmg: 22, speed: 330, life: 1.6, size: 7, homing: 6 },
+      desc: 'Un golpe a traición al enemigo que está a punto de atacar: le hace el doble y le cancela el ataque. Si nadie prepara nada, al más cercano (más fuerte si está de espaldas).',
+      cd: 0.7, dmg: 28, speed: 420, life: 1.6, size: 7, homing: 6 },
     { id: 'night-slash', name: 'Tajo Umbrío', type: 'dark', kind: 'spin',
-      desc: 'Cortes en giro que alcanzan a todo lo que te rodea.',
+      desc: 'Te desvaneces 0,5 s en la oscuridad mientras giras: te pierden de vista y tus tajos son críticos contra los que no te miran.',
       cd: 1.0, dmg: 11, count: 3, radius: 62 },
 
     // ================= NUEVOS (22-10-2026): familias de Vampire Survivors =================
@@ -714,9 +748,10 @@
     { id: 'bone-club', name: 'Hueso Palo', type: 'ground', kind: 'lob',
       desc: 'Lanza un hueso en parábola hacia el enemigo: sube, cae y atraviesa a varios.',
       cd: 1.15, dmg: 26, count: 1, speed: 340, life: 1.6, size: 9, pierce: 2, spread: 70, grav: 720, knock: 60 },
+    // (count: las que salen seguro; rnd: hasta cuántas más al azar. Con Encadenado, todas.)
     { id: 'rock-blast', name: 'Pedrada', type: 'rock', kind: 'lob',
-      desc: 'Lanza rocas en parábola hacia el enemigo: suben, caen y atraviesan a varios.',
-      cd: 1.1, dmg: 20, count: 2, speed: 330, life: 1.6, size: 8, pierce: 1, spread: 70, grav: 700 },
+      desc: 'Lanza entre 2 y 5 rocas en parábola (siempre 5 con Encadenado): caen, atraviesan y botan una vez.',
+      cd: 1.1, dmg: 19, count: 2, rnd: 3, speed: 330, life: 1.6, size: 8, pierce: 1, spread: 60, grav: 700 },
     // Ráfaga (knife): hacia donde miras; cdMin para que la ráfaga acabe antes de la siguiente.
     { id: 'water-shuriken', name: 'Shuriken de Agua', type: 'water', kind: 'knife',
       desc: 'Ráfaga de estrellas de agua hacia donde miras. Muy rápida, pero hay que encarar al enemigo.',
@@ -728,8 +763,8 @@
       desc: 'Agujas en ráfaga hacia donde miras que atraviesan a uno.',
       cd: 0.55, cdMin: 0.15, dmg: 10, count: 2, speed: 440, life: 0.75, size: 5, pierce: 1, spread: 0.1 },
     { id: 'scale-shot', name: 'Ráfaga Escamas', type: 'dragon', kind: 'knife',
-      desc: 'Escamas afiladas en ráfaga hacia donde miras; empujan un poco.',
-      cd: 0.55, cdMin: 0.15, dmg: 12, count: 2, speed: 480, life: 0.7, size: 6, pierce: 0, spread: 0.06, knock: 30 },
+      desc: 'Escamas en ráfaga hacia donde miras. Al acabar cada ráfaga ganas velocidad, pero tu defensa baja un poco.',
+      cd: 0.55, cdMin: 0.15, dmg: 15, count: 2, speed: 480, life: 0.7, size: 6, pierce: 0, spread: 0.06, knock: 30 },
     // Aspas (cross): curl = giro de cada aspa en rad/s (espiral).
     { id: 'swift', name: 'Meteoros', type: 'normal', kind: 'cross',
       desc: 'Estrellas en todas direcciones que giran en espiral; una va siempre al enemigo.',
@@ -741,8 +776,8 @@
       desc: 'Tajos en aspa a todos lados, uno hacia el enemigo; atraviesan y empujan.',
       cd: 0.9, dmg: 18, count: 4, speed: 340, life: 0.85, size: 9, pierce: 1, curl: 0, knock: 50 },
     { id: 'twister', name: 'Ciclón', type: 'dragon', kind: 'cross',
-      desc: 'Tornados que salen girando en espiral y arrastran a los enemigos.',
-      cd: 1.1, dmg: 16, count: 3, speed: 250, life: 1.3, size: 10, pierce: 3, curl: 2.6, knock: 30 },
+      desc: 'Tornados que salen girando en espiral y se llevan consigo a los enemigos pequeños; ×1,5 a los voladores.',
+      cd: 1.1, dmg: 18, count: 3, speed: 250, life: 1.3, size: 10, pierce: 3, curl: 2.6, knock: 30 },
     // Columna (column): life = lo que dura (un golpe cada 0,25 s).
     { id: 'waterfall', name: 'Cascada', type: 'water', kind: 'column',
       desc: 'Una columna de agua cae de arriba abajo sobre ti y arrastra a todo lo que pilla.',
@@ -764,7 +799,7 @@
       desc: 'Un rayo helado que gira a tu alrededor como una aguja de reloj y congela un momento.',
       cd: 3, dmg: 10, count: 1, width: 14, radius: 150, dur: 2.4, turn: 5.2, stun: 0.4 },
     { id: 'fleur-cannon', name: 'Cañón Floral', type: 'fairy', kind: 'sweep',
-      desc: 'Un rayo floral ancho que gira a tu alrededor como una aguja de reloj.',
+      desc: 'Un rayo floral que gira a tu alrededor como una aguja de reloj y va plantando flores que estallan al segundo.',
       cd: 3.2, dmg: 12, count: 1, width: 20, radius: 165, dur: 2, turn: 6.3, stun: 0 },
     // Carambola (ricochet): dur = lo que rebota.
     { id: 'pyro-ball', name: 'Balón Ígneo', type: 'fire', kind: 'ricochet',
@@ -774,14 +809,14 @@
       desc: 'Una rueda eléctrica rapidísima que rebota por los bordes de la pantalla y frena.',
       cd: 2.8, dmg: 17, count: 1, speed: 400, size: 8, homing: 1.2, dur: 3, slow: 0.3 },
     { id: 'rollout', name: 'Rodar', type: 'rock', kind: 'ricochet',
-      desc: 'Una roca rodando que rebota por los bordes de la pantalla arrollando todo.',
-      cd: 3, dmg: 24, count: 1, speed: 280, size: 10, homing: 1, dur: 3, knock: 60 },
+      desc: 'Una roca rodando que rebota por la pantalla y dobla su daño con cada golpe seguido (hasta ×8); si pasa 1 s sin golpear, vuelve a ×1. Con Fortaleza activa empieza en ×2.',
+      cd: 3, dmg: 12, count: 1, speed: 280, size: 10, homing: 1, dur: 3, knock: 60 },
     // Barrido (wipe): recarga larga con tope propio (cdMin); pct = umbral de KO (exec) o vida quitada (cut).
     { id: 'perish-song', name: 'Canto Mortal', type: 'normal', kind: 'wipe',
       desc: 'Un canto que oye toda la pantalla: a los 3 s debilita a los que estén muy tocados y daña al resto. Los jefes lo aguantan.',
       cd: 45, cdMin: 20, dmg: 30, pct: 0.25, delay: 3, mode: 'exec' },
     { id: 'dark-void', name: 'Brecha Negra', type: 'dark', kind: 'wipe',
-      desc: 'Una oscuridad cubre la pantalla: duerme a todos, les quita parte de la vida y daña. Los jefes duermen menos.',
+      desc: 'Una oscuridad cubre la pantalla: duerme a todos (se despiertan con un golpe fuerte), les quita parte de la vida y daña. Los jefes duermen menos.',
       cd: 30, cdMin: 15, dmg: 20, stun: 2, pct: 0.15, delay: 1.2, mode: 'cut' },
     // Escudo (ward): cd = lo que tarda en ganar un escudo; count = escudos máximos; radius = contraataque.
     { id: 'spiky-shield', name: 'Barrera Espinosa', type: 'grass', kind: 'ward',
@@ -791,25 +826,27 @@
       desc: 'Un búnker que para un golpe y envenena mucho a los que tienes cerca.',
       cd: 6, cdMin: 2.5, dmg: 24, count: 1, radius: 80, poison: 2 },
     { id: 'kings-shield', name: 'Escudo Real', type: 'steel', kind: 'ward',
-      desc: 'Un escudo regio que para un golpe y deja aturdidos a los que tienes cerca.',
+      desc: 'Un escudo regio que para un golpe y aturde a los que tienes cerca; al gastarlo pasas 3 s a forma Filo: +40% de ataque físico, pero sin escudos nuevos.',
       cd: 6, cdMin: 2.5, dmg: 32, count: 1, radius: 76, stun: 0.8 },
     // Aliados (ally): size = radio de golpe; phase = atraviesan paredes; sprite owner = copias de tu Pokémon.
     { id: 'attack-order', name: 'Al Ataque', type: 'bug', kind: 'ally',
       desc: 'Llamas a un enjambre: las abejas revolotean cerca y pican a los enemigos.',
       cd: 6, dmg: 8, count: 3, speed: 160, size: 7, dur: 6 },
     { id: 'last-respects', name: 'Homenaje Póstumo', type: 'ghost', kind: 'ally',
-      desc: 'Espíritus que atraviesan paredes, persiguen a los enemigos y los frenan.',
+      desc: 'Espíritus que atraviesan paredes, persiguen y frenan a los enemigos; salen más y más fuertes cuantos más enemigos hayas debilitado en los últimos 20 s.',
       cd: 6, dmg: 8, count: 3, speed: 140, size: 7, dur: 6, slow: 0.3, phase: 1 },
+    // (Paliza, 26-10-2026: una copia por tipo de tus ataques; count suma copias de más.)
     { id: 'beat-up', name: 'Paliza', type: 'dark', kind: 'ally',
-      desc: 'Copias pequeñas de tu Pokémon corren a pegar a los enemigos cercanos.',
-      cd: 6, dmg: 12, count: 2, speed: 130, size: 9, dur: 6, knock: 40, sprite: 'owner' },
+      desc: 'Copias pequeñas de tu Pokémon, una por cada tipo de tus ataques (hasta 4): cada una pega con su tipo y su estado (la de fuego quema, la de veneno envenena...).',
+      cd: 6, dmg: 9, count: 2, speed: 130, size: 9, dur: 6, knock: 40, sprite: 'owner' },
     // Aves (wings): speed = giro en rad/s; ring = radio del círculo; radius = explosión de cada bomba.
     { id: 'dual-wingbeat', name: 'Ala Bis', type: 'flying', kind: 'wings',
       desc: 'Dos aves vuelan en círculo lejos de ti y bombardean a los enemigos de abajo.',
       cd: 8, dmg: 15, count: 2, speed: 1.7, radius: 34, dur: 8, rate: 0.6, ring: 150 },
+    // (Ala de Acero, 26-10-2026: pasadas rasantes; rate = cada cuánto pasa, radius = el ancho de la pasada.)
     { id: 'steel-wing', name: 'Ala de Acero', type: 'steel', kind: 'wings',
-      desc: 'Un ave de acero vuela en círculo lejos de ti y suelta bombas pesadas.',
-      cd: 8, dmg: 26, count: 1, speed: 1.5, radius: 42, dur: 8, rate: 0.65, ring: 160 },
+      desc: 'Un ave de acero cruza la pantalla en pasadas rasantes cada 1,5 s atravesando a todos; a veces te sube la defensa.',
+      cd: 8, dmg: 32, count: 1, speed: 1.5, radius: 42, dur: 8, rate: 1.5, ring: 160 },
     // Charcos (puddle): range = hasta dónde lanza los frascos.
     { id: 'fire-pledge', name: 'Voto Fuego', type: 'fire', kind: 'puddle',
       desc: 'Lanza frascos de fuego sobre los enemigos: dejan un mar de llamas que quema.',
@@ -825,14 +862,14 @@
       desc: 'Caen plumas de lo alto de la pantalla que dañan y frenan a todos los que rozan.',
       cd: 1.6, dmg: 9, count: 8, speed: 200, size: 7, slow: 0.35 },
     { id: 'astral-barrage', name: 'Orbes Espectro', type: 'ghost', kind: 'dusting',
-      desc: 'Caen orbes fantasma de lo alto de la pantalla y se desvían hacia los enemigos.',
-      cd: 1.6, dmg: 8, count: 8, speed: 230, size: 7, homing: 0.6 },
+      desc: 'Orbes fantasma caen en corona alrededor del enemigo con más vida de la pantalla y se juntan sobre él.',
+      cd: 1.6, dmg: 7, count: 8, speed: 230, size: 7 },
     { id: 'springtide-storm', name: 'Ciclón Primavera', type: 'fairy', kind: 'dusting',
-      desc: 'Caen pétalos de lo alto de la pantalla que dañan y apartan a los enemigos.',
+      desc: 'Caen pétalos de lo alto: con más de media vida bajan el ataque de los enemigos; con menos, cada pétalo que acierta te sube el ataque.',
       cd: 1.6, dmg: 10, count: 8, speed: 210, size: 7, knock: 40 },
     { id: 'make-it-rain', name: 'Fiebre Dorada', type: 'steel', kind: 'dusting',
-      desc: 'Llueven monedas de lo alto de la pantalla que golpean a todo lo que pillan.',
-      cd: 1.7, dmg: 10, count: 8, speed: 240, size: 6 }
+      desc: 'Llueven monedas que botan y se quedan 3 s en el suelo: si las pisas, +2% de crítico 5 s (hasta 5). Cada lluvia te cansa un poco: −10% de at. esp. 2 s.',
+      cd: 1.7, dmg: 15, count: 8, speed: 240, size: 6 }
   ];
 
   // Cuerpo a cuerpo (12-10-2026): +20 % de daño y +25 % de alcance y de arco
@@ -844,6 +881,104 @@
     m.radius = Math.round(m.radius * 1.25);
     if (m.arc) m.arc = Math.min(3, +(m.arc * 1.25).toFixed(2));
   }
+
+  // -- ataques únicos: Lucha, Veneno, Tierra, Volador, Psíquico, Bicho (26-10-2026) --
+  /*
+   * Cada uno con su mecánica propia (systems/combat.js, bloque del mismo nombre, UQ[id]):
+   * la familia (kind) sigue mandando en pasivos, icono y animación. Aquí, su texto y los
+   * números que lee su mecánica: crit2 (crítico de más, se suma), wave [amplitud, frecuencia],
+   * conf [probabilidad, s de confusión]... (todos con tools/balance.cjs).
+   */
+  const UQ_DEF = {
+    // Psíquico
+    'confusion': { desc: 'Una onda psíquica ondulante que confunde: los confusos se chocan entre ellos.',
+      dmg: 18, pierce: 1, homing: 2, wave: [24, 7], conf: [0.25, 1.5] },
+    'psybeam': { desc: 'Un rayo psicodélico que se tuerce a mitad de camino y confunde.', refr: 0.6, conf: [0.2, 1.5] },
+    // (Psíquico: count = enemigos que levanta; size, hasta dónde los busca.)
+    'psychic': { desc: 'Levantas a los enemigos con la mente y los lanzas contra otros.',
+      cd: 1.35, dmg: 26, count: 3, size: 7, pierce: 0, lift: 0.6 },
+    'psycho-cut': { desc: 'Cuchillas que oscilan como un péndulo: delante, detrás y otra vez a ti.', dmg: 8, crit2: 0.25 },
+    'extrasensory': { desc: 'Una onda mental que teletransporta lejos a los que tienes encima.', stun: 0.3 },
+    'mist-ball': { desc: 'Una bola de bruma que deja niebla: dentro, los enemigos no te ven y fallan.', dmg: 20, mist: [60, 3] },
+    'photon-geyser': { desc: 'Un pilar de luz que se ensancha y al final deslumbra. Pega con tu lado más fuerte.', dmg: 11, life: 0.6 },
+    'psychic-terrain': { desc: 'Un campo psíquico que potencia tus disparos y frena a los enemigos y los suyos.', dmg: 8 },
+    // Veneno
+    'sludge': { desc: 'Un lodo que se pega: el enemigo va dejando un rastro tóxico.' },
+    'poison-sting': { desc: 'Dos aguijones a la vez: si los dos aciertan al mismo, el veneno es doble.', count: 2, spread: 0.05, dmg: 6 },
+    'toxic': { desc: 'Dejas un rastro de veneno grave: cuanto más tiempo lo sufre, más daño hace.', dmg: 3.4 },
+    'toxic-spikes': { desc: 'Púas venenosas por capas: con dos capas en el mismo sitio, el veneno es grave.', radius: 60, dur: 10, poison: 1 },
+    'acid-spray': { desc: 'Un ácido que rebota y deja a los enemigos sin defensa.', dmg: 9.5, vuln: 2 },
+    'cross-poison': { desc: 'Dos cuchillas que se cruzan sobre el enemigo: donde se cruzan, crítico seguro.', count: 2, speed: 300, life: 1.1 },
+    'baneful-bunker': { desc: 'Al parar un golpe te encierras en un búnker: no te tocan y envenena gravemente a los de alrededor.' },
+    // Tierra
+    'mud-shot': { desc: 'Bolas de barro que frenan cada vez más hasta dejar atascados a los enemigos.', dmg: 13 },
+    'bulldoze': { desc: 'Al andar das pisotones que hacen temblar el suelo: frenan a los que no vuelan y rompen rocas.', dmg: 8 },
+    'bonemerang': { desc: 'Un hueso que va y vuelve al sitio desde donde lo lanzas: si lo atrapas, el siguiente sale antes.' },
+    'spikes': { desc: 'Siembras abrojos delante de ti: cada uno daña y frena mucho al primero que lo pisa.', dur: 8, slow: 0.6 },
+    'sand-tomb': { desc: 'Arenas movedizas: los que caen dentro no pueden salir y se hunden cada vez más.', dmg: 9.5, dur: 3 },
+    'magnitude': { desc: 'Un temblor de magnitud al azar (de 4 a 10): a veces poco, a veces enorme. No toca a los que vuelan.', dmg: 8 },
+    'bone-club': { desc: 'Un hueso que cae y se queda clavado girando: golpea a todo el que pasa y corta lo que preparan.', dur: 3 },
+    'mud-bomb': { desc: 'Charcos de barro: frenan a los enemigos y les hacen fallar los disparos.' },
+    // Volador
+    'gust': { desc: 'Remolinos que te escoltan y devuelven los disparos enemigos contra ellos.' },
+    'wing-attack': { desc: 'Un aletazo que aparta a los enemigos y te aleja de ellos.', dmg: 15, back: 40 },
+    'aerial-ace': { desc: 'Apareces a la espalda del enemigo y le cortas en X: nunca falla y no puede dispararte un momento.', dmg: 26 },
+    'whirlwind': { desc: 'Un vendaval en cono que manda lejos a los enemigos y los hace huir.', dmg: 24, fear: 1.5 },
+    'air-slash': { desc: 'Cuchillas de aire que atraviesan en fila y cortan los ataques que preparan.', dmg: 8.5, pierce: 99 },
+    'dual-wingbeat': { desc: 'Aves que bajan en picado de dos en dos sobre los enemigos.', dmg: 18 },
+    'feather-dance': { desc: 'Llueven plumas que quitan fuerza y frenan a los enemigos.', weak: 0.4 },
+    // Bicho
+    'bug-bite': { desc: 'Mordiscos que te curan; a veces los enemigos sueltan una baya.' },
+    'string-shot': { desc: 'Atas a varios enemigos con hilo de seda: se arrastran unos a otros y van lentos.', dmg: 19, dur: 4, slow: 0.5 },
+    'bug-buzz': { desc: 'Un zumbido que ablanda a los enemigos y, al máximo, los aparta.', dmg: 6.5 },
+    'signal-beam': { desc: 'Un destello que rebota y señala a los enemigos: tu puntería y tus aliados van a por ellos.', conf: [0.15, 1.5] },
+    'u-turn': { desc: 'Cruzas, golpeas y vuelves a tu sitio; al volver, el siguiente ataque de tu vínculo sale al momento.' },
+    'pin-missile': { desc: 'Agujas que se clavan; con cinco clavadas, el enemigo revienta.' },
+    'attack-order': { desc: 'Un enjambre que ataca a tu objetivo en formación, con mucho crítico.', dmg: 7, crit2: 0.2 },
+    // Lucha
+    'karate-chop': { desc: 'Un tajo seco en línea con mucho crítico: cada crítico te deja golpear otra vez.', dmg: 15, crit2: 0.3 },
+    'aura-sphere': { desc: 'Una esfera de aura que nunca falla, atraviesa paredes y pega más cuanto más lejos va.', dmg: 19, homing: 9 },
+    'rolling-kick': { desc: 'Avanzas girando hacia el enemigo a patadas y cortas lo que prepara.', dmg: 10 },
+    'vacuum-wave': { desc: 'Un puñetazo al aire que crea un vacío: atrae a los enemigos a un punto y los golpea.', dmg: 24 },
+    'dynamic-punch': { desc: 'Un puñetazo tremendo que a veces falla, pero si acierta confunde siempre.', stun: 2 },
+    'cross-chop': { desc: 'Tajos en cruz que, al acabar, se quedan girando como las aspas de un molino.' },
+    'sky-uppercut': { desc: 'Un gancho al cielo que mantiene a los enemigos en el aire y luego caen.', dmg: 10, life: 0.6 }
+  };
+  for (const m of RAW) if (UQ_DEF[m.id]) Object.assign(m, UQ_DEF[m.id]);
+  // Escaleras propias de los que ya no encajan en la de su familia.
+  Object.assign(LADDER_BY_ID, {
+    'toxic': [
+      { t: '+50% daño',                     m: { dmg: 1.50 } },
+      { t: '+40% duración',                 m: { dur: 1.40 } },
+      { t: 'Charcos un 30% más grandes',    m: { radius: 1.30 } },
+      { t: '+60% daño y +30% radio',        m: { dmg: 1.60, radius: 1.30 } }
+    ],
+    'magnitude': [
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+25% tamaño',                   m: { radius: 1.25 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+50% daño y +1 onda',           m: { dmg: 1.50, count: 1 } }
+    ],
+    'string-shot': [
+      { t: '+1 enemigo atado',              m: { count: 1 } },
+      { t: '+50% daño',                     m: { dmg: 1.50 } },
+      { t: '+40% duración',                 m: { dur: 1.40 } },
+      { t: '+1 enemigo atado y -25% recarga', m: { count: 1, cd: 0.75 } }
+    ],
+    'psychic': [
+      { t: '+1 enemigo levantado',          m: { count: 1 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+1 enemigo levantado y +30% daño', m: { count: 1, dmg: 1.30 } }
+    ],
+    'karate-chop': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+25% alcance',                  m: { radius: 1.25 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+50% daño y +15% de crítico',   m: { dmg: 1.50, crit2: 0.15 } }
+    ]
+  });
+  // -- fin: ataques únicos (Lucha, Veneno, Tierra, Volador, Psíquico, Bicho) --
 
   // Pool de movimientos por tipo. El pool `normal` lo tienen todos.
   const POOL = {};
@@ -919,6 +1054,8 @@
                 // familias del 22-10-2026
                 'height', 'turn', 'ring', 'grav', 'curl', 'heal', 'blast'];
   const ADD = ['count', 'pierce', 'stacks', 'bounce', 'pct'];
+  // -- ataques únicos (Lucha, Veneno, Tierra, Volador, Psíquico, Bicho): crit2 = crítico de más, se suma --
+  ADD.push('crit2');
 
   function applyMods(s, m) {
     for (const k in m) {
@@ -959,7 +1096,7 @@
   /*
    * Un movimiento al NIVEL MÁXIMO evoluciona si en esa run has cogido alguna
    * vez la mejora de su condición (`needs`, un id de LevelUp.STATS). Sale una
-   * carta dorada. Los potenciadores (buff) no evolucionan.
+   * carta dorada. Los potenciadores (buff) sólo si llevan evolución propia (EVO[id][2], abajo).
    */
   const NEED_NAME = { hp: 'Vigor', atk: 'Potencia', spd: 'Carrera', cd: 'Reflejos', def: 'Coraza',
                       rgn: 'Síntesis', mag: 'Imán', xp: 'Aprendizaje',
@@ -1081,6 +1218,171 @@
     dusting:    { t: '×2,2 daño, +2 caídas y más grandes', m: { dmg: 2.2, count: 2, size: 1.2 } }
   };
 
+  /*
+   * Evolución POR MOVIMIENTO (26-10-2026): EVO[id][2] = { t: texto de la carta, mods }. Si la
+   * tiene, sus mods van en lugar de los de la familia (EVO_MODS) y lo que cambia de verdad cómo
+   * funciona lo hace su mecánica (combat.js, UQ[id] o MECH3[id], con m.evolved). Así también
+   * evolucionan los potenciadores que la lleven (Danza Dragón → Estruendo Escama).
+   */
+  // -- ataques únicos: evolución propia de Lucha, Veneno, Tierra, Volador, Psíquico, Bicho (26-10-2026) --
+  const EVO_UQ = {
+    'confusion':      { t: 'Los confusos que toca se vuelven marionetas: van a por otro enemigo y le pegan.', mods: { dmg: 1.35, count: 2, pierce: 1, size: 1.2 } },
+    'psybeam':        { t: 'Cada enemigo tocado queda marcado: 2 s después le cae encima un pilar de energía.', mods: { dmg: 1.5, width: 1.2 } },
+    'psychic':        { t: 'Levanta a todos los de la pantalla y los estampa contra el suelo (el doble dentro del Campo Psíquico).', mods: { dmg: 1.5 } },
+    'psycho-cut':     { t: 'Rompe los escudos de los enemigos y, en cada pasada, se cierra como una mandíbula sobre los que hay entre la cuchilla y tú.', mods: { dmg: 1.25, count: 1, radius: 1.1 } },
+    'extrasensory':   { t: 'En vez de dispersarlos, los junta en un punto delante de ti y allí estalla una onda psíquica.', mods: { dmg: 1.6, radius: 1.2 } },
+    'mist-ball':      { t: 'La niebla destella cada 0,5 s: daña a todos los de dentro y les baja la defensa.', mods: { dmg: 1.15, count: 1 } },
+    'photon-geyser':  { t: 'El pilar dura 2 s y se desplaza solo hacia el enemigo más cercano.', mods: { dmg: 0.6, life: 3.4 } },
+    'psychic-terrain': { t: 'Dos campos que se tocan se funden en uno más grande que lanza una onda psíquica cada segundo.', mods: { dmg: 1.4, count: 1 } },
+    'sludge':         { t: 'La bomba bota 3 veces por el suelo hacia el enemigo y deja un charco tóxico en cada bote.', mods: { dmg: 0.8 } },
+    'poison-sting':   { t: 'En vez de disparar, das tres estocadas rápidas hacia delante que envenenan mucho.', mods: { dmg: 3.4 } },
+    'toxic':          { t: 'El rastro se vuelve una nube de gas grande que te sigue: dentro, frena y envenena gravemente.', mods: { dmg: 2.0 } },
+    'toxic-spikes':   { t: 'Los que caen sobre las púas revientan y salpican capas nuevas alrededor.', mods: { dmg: 1.6, count: 1 } },
+    'acid-spray':     { t: 'Cada rebote suelta un anillo de veneno que alcanza a los de alrededor.', mods: { dmg: 1.5, bounce: 1, count: 1, spread: 1.3 } },
+    'cross-poison':   { t: 'La X se queda grabada en el suelo 2 s: una zona venenosa en forma de X.', mods: { dmg: 1.5, count: 2 } },
+    'baneful-bunker': { t: 'Al parar un golpe te vuelves líquido: te deslizas al doble de rápido, sin que te toquen, dejando ácido.', mods: { count: 1, dmg: 1.6 } },
+    'mud-shot':       { t: 'El suelo erupciona bajo los embarrados: más daño cuantas más pilas de barro llevan.', mods: { dmg: 1.35, count: 2 } },
+    'bulldoze':       { t: 'Cada 2 s tiembla toda la pantalla: más fuerte cerca de ti, sólo a los que no vuelan.', mods: { dmg: 3.6, cd: 2.6 } },
+    'bonemerang':     { t: 'En el punto más lejano, el hueso se queda girando como una hélice antes de volver.', mods: { dmg: 1.8, count: 1 } },
+    'spikes':         { t: 'Una grieta une los abrojos: hace mucho daño a los que la cruzan y se traga a los pequeños que ya están tocados.', mods: { dmg: 2.2, count: 2 } },
+    'sand-tomb':      { t: 'Una estampida: cada 0,5 s sale de la arena una línea de pisotones en una dirección al azar.', mods: { dmg: 1.6, radius: 1.2 } },
+    'magnitude':      { t: 'Un taladro que perfora en línea sin parar, escupe piedras a los lados y hace más críticos.', mods: { dmg: 2.5 } },
+    'bone-club':      { t: 'El hueso arde en fuego fantasma: al clavarse, un círculo que daña y maldice (más daño recibido).', mods: { dmg: 1.5 } },
+    'mud-bomb':       { t: 'El barro se seca en arena ardiente que quema; con sol o en el volcán dura el doble.', mods: { dmg: 1.3, count: 1, burn: 1 } },
+    'gust':           { t: 'Los remolinos se juntan en un huracán grande que confunde; con lluvia, el doble de grande.', mods: { dmg: 5.5 } },
+    'wing-attack':    { t: 'Reculas y al momento vuelves en picado, envuelto en llamas, a través de los enemigos.', mods: { dmg: 1.1, radius: 1.15 } },
+    'aerial-ace':     { t: 'Encadenas hasta 4 saltos entre enemigos cercanos, cada uno con su tajo.', mods: { dmg: 1.4 } },
+    'whirlwind':      { t: 'Un huracán se queda 3 s donde estás: levanta a los que entran y los lanza lejos, con daño al caer.', mods: { dmg: 2.2 } },
+    'air-slash':      { t: 'Brillas un instante y todas las cuchillas se juntan en una enorme que no falla, lo atraviesa todo y hace críticos.', mods: { dmg: 1.4 } },
+    'dual-wingbeat':  { t: 'Aves de sombra roja y negra: cada picado te cura un poco.', mods: { dmg: 2.4 } },
+    'feather-dance':  { t: 'Cada 8 plumas que caen, sale de ti un aerochorro hacia el grupo más grande.', mods: { dmg: 1.5, count: 2 } },
+    'bug-bite':       { t: 'Un tajo en X que marca a los enemigos: tu siguiente golpe sobre ellos es crítico seguro.', mods: { dmg: 1.5, radius: 1.2, arc: 9 } },
+    'string-shot':    { t: 'Además, una red pegajosa en el suelo que atrapa al que la pisa y frena mucho.', mods: { dmg: 1.5, count: 1 } },
+    'bug-buzz':       { t: 'Un enjambre te rodea y pica más fuerte a los que ya tienen la defensa al mínimo.', mods: { dmg: 1.4, radius: 1.25 } },
+    'signal-beam':    { t: 'Una embestida con el cuerno: llega más lejos por cada señalado en la línea y les hace más daño.', mods: { dmg: 5.5 } },
+    'u-turn':         { t: 'Te cura un poco por cada enemigo que atraviesas.', mods: { dmg: 1.7 } },
+    'pin-missile':    { t: 'Si una aguja o su estallido debilita a un enemigo, tu ataque físico sube para toda la partida (hasta 10 veces).', mods: { dmg: 1.5, count: 1 } },
+    'attack-order':   { t: 'Además, una colmena en el suelo que suelta una abeja cada segundo.', mods: { dmg: 1.5, count: 1 } },
+    'karate-chop':    { t: 'Una ráfaga de 6 golpes rapidísimos al frente; después bajas la guardia (−20% de defensa) 2 s.', mods: { dmg: 0.5 } },
+    'aura-sphere':    { t: 'Una esfera enorme y lenta que atrae a los enemigos a su paso y estalla en el blanco.', mods: { dmg: 2.4 } },
+    'rolling-kick':   { t: 'Saltas al enemigo más grande y caes sobre él con un rodillazo enorme; si no hay nadie donde caes, te haces daño.', mods: { dmg: 2.3 } },
+    'vacuum-wave':    { t: 'Cada enemigo golpeado te sube el ataque físico un rato (hasta 6 veces).', mods: { dmg: 2.0, radius: 1.2 } },
+    'dynamic-punch':  { t: 'Ya no falla y deja un cráter 2 s donde los enemigos quedan confusos.', mods: { dmg: 2.4, radius: 1.2 } },
+    'cross-chop':     { t: 'Cada 4 s, cuatro espadas se clavan a tu alrededor: los enemigos dentro reciben un 30% más de daño.', mods: { dmg: 1.9 } },
+    'sky-uppercut':   { t: 'Cargas un instante: si no te golpean fuerte, un puñetazo devastador en línea; si te golpean, recuperas la mitad de la recarga.', mods: { dmg: 2.9 } }
+  };
+  for (const id in EVO_UQ) if (EVO[id]) EVO[id][2] = EVO_UQ[id];
+  // -- fin: Lucha, Veneno, Tierra, Volador, Psíquico, Bicho --
+
+  // -- ataques únicos: Roca, Fantasma, Dragón, Siniestro, Acero, Hada (26-10-2026) --
+  const EVO_RFDSAH = {
+    // Roca
+    'rock-throw':    { t: '×1,5 daño y +1 piedra. Son puntiagudas: al deshacerse estallan en 6 esquirlas que atraviesan.',
+                       mods: { dmg: 1.5, count: 1, size: 1.2, spread: 1.1, shards: 6 } },
+    'rock-slide':    { t: '×1,5 daño y +2 rocas. Se quedan 6 s como piedras puntiagudas: ×2 a Volador, Fuego, Hielo y Bicho; ×0,5 a Lucha, Tierra y Acero.',
+                       mods: { dmg: 1.5, count: 2, radius: 1.1, trap: 6 } },
+    'rock-tomb':     { t: '×1,8 daño y tumba más grande. Te lanzas de cabeza a la tumba y los muros estallan hacia fuera como metralla.',
+                       mods: { dmg: 1.8, radius: 1.2, stun: 1.4, head: 1 } },
+    'ancient-power': { t: '+2 rocas y ×1,4 daño. Son diamantes: estallan en esquirlas al impactar y cada impacto te da +1 de defensa (hasta 5).',
+                       mods: { count: 2, dmg: 1.4, radius: 1.15, gems: 1 } },
+    'power-gem':     { t: '×1,4 daño y +1 gema. Las ramas que fallan vuelven a ti (+1 de at. esp.); con 3 guardadas disparas un rayo de meteoros.',
+                       mods: { dmg: 1.4, count: 1, size: 1.2, spread: 1.3, meteor: 1 } },
+    'rock-blast':    { t: '×2 daño. Cada roca, al caer, se parte en dos hachas de piedra que barren el suelo hacia los lados.',
+                       mods: { dmg: 2, size: 1.2, pierce: 1, axes: 2 } },
+    'rollout':       { t: '×1,5 daño y más grande. Al llegar a ×8 estalla, rompe las rocas del mapa cercanas (sueltan metralla) y vuelve a empezar.',
+                       mods: { dmg: 1.5, size: 1.2, crush: 80 } },
+    // Fantasma
+    'lick':          { t: '×2,3 daño. Puños de sombra salen de tu sombra y golpean a la vez a los 3 enemigos más cercanos, sin fallar y a través de las paredes.',
+                       mods: { dmg: 2.3, radius: 1.2, count: 3 } },
+    'shadow-ball':   { t: '×1,5 daño y +1 bola. A los 80 px desaparece y reaparece dentro del blanco estallando, sin que la paren los escudos.',
+                       mods: { dmg: 1.5, count: 1, spread: 1.1, phase: 80 } },
+    'hex':           { t: '×2 daño y +2 saltos. Por cada estado que tenga un enemigo, un objeto fantasma vuela desde lejos y le golpea.',
+                       mods: { dmg: 2, count: 2, radius: 1.2, polter: 1 } },
+    'shadow-sneak':  { t: '×1,4 daño y +1 sombra. Salen tres garras de la sombra que desgarran al blanco y a los de alrededor, con un 30% de crítico.',
+                       mods: { dmg: 1.4, count: 1, claws: 3 } },
+    'ominous-wind':  { t: '×2,2 daño y más grande. Desapareces dentro del remolino (invulnerable 1 s) y reapareces en su centro con un golpe que lanza fuera a todos.',
+                       mods: { dmg: 2.2, radius: 1.3, pull: 1.3, sneak: 1 } },
+    'last-respects': { t: '×1,8 daño y +2 espíritus. Los enemigos que debilitan se levantan 3 s como fantasmas aliados (hasta 4) que atacan a los demás.',
+                       mods: { dmg: 1.8, count: 2, size: 1.3, raise: 4 } },
+    'astral-barrage': { t: '×2 daño y +2 orbes. Cada orbe que impacta abre una grieta: medio segundo después sale de ella un rayo de sombra.',
+                       mods: { dmg: 2, count: 2, size: 1.2, cracks: 1 } },
+    // Dragón
+    'dragon-rage':   { t: '×1,7 daño y más grueso. Caen 5 cometas a lo largo del rayo; después tu at. esp. baja un 30% durante 3 s.',
+                       mods: { dmg: 1.7, width: 1.4, radius: 1.2, cd: 0.9, comets: 5 } },
+    'dragon-dance':  { t: 'Cada uso sube 1 pila de TODO: ataque, at. esp., velocidad y defensa. Al llegar al máximo, un rugido asusta a los de alrededor.',
+                       mods: { all: 1 } },
+    'dragon-breath': { t: 'Ahora es una onda con forma de cabeza de dragón que avanza 200 px atravesando a todos y al final muerde lo que pilla.',
+                       mods: { dmg: 9, pulse: 1 } },
+    'dragon-claw':   { t: '×2,4 daño. Embistes en semicírculo alrededor del blanco cortando todo lo del arco y acabas detrás de él.',
+                       mods: { dmg: 2.4, radius: 1.2, arc: 9, charge: 1 } },
+    'outrage':       { t: '×1,9 daño y más radio. Al acabar el frenesí, dos Dreepy van a por dos enemigos y vuelven a ti, dos veces.',
+                       mods: { dmg: 1.9, radius: 1.2, darts: 2 } },
+    'scale-shot':    { t: '×1,5 daño, +1 escama y −25% recarga. Al acabar la ráfaga, cada enemigo tocado suelta un anillo de sonido que daña a los de al lado.',
+                       mods: { dmg: 1.5, count: 1, cd: 0.75, ring3: 40 } },
+    'twister':       { t: '×1,5 daño y +2 tornados. Dejan un rastro de energía y, cuando dos se cruzan, estallan juntos.',
+                       mods: { dmg: 1.5, count: 2, pierce: 2, size: 1.25, energy: 1 } },
+    // Hada
+    'fairy-wind':    { t: '×1,9 daño. Una luna se queda sobre ti y dispara rayos de luz lunar al enemigo con más vida, bajándole el ataque un 30%.',
+                       mods: { count: 2, dmg: 1.9, pierce: 1, moon: 1 } },
+    'dazzling-gleam': { t: '×1,8 daño. Una niebla te sigue: tú y tus compañeros dentro no recibís estados y los enemigos dentro hacen un 30% menos de daño (los Dragón, un 50%).',
+                       mods: { dmg: 1.8, radius: 1.35, mist: 140 } },
+    'draining-kiss': { t: '×1,8 daño y +2 besos. Lo que cures por encima de tu vida máxima se guarda como escudo (hasta un 15% de tu vida) que se va gastando.',
+                       mods: { dmg: 1.8, count: 2, size: 1.3, spread: 1.2, lunar: 0.15 } },
+    'play-rough':    { t: '×2,2 daño. La nube rueda 120 px hacia delante arrastrando a los que pilla dentro.',
+                       mods: { dmg: 2.2, radius: 1.2, roll: 120 } },
+    'disarming-voice': { t: '×2 daño y más radio. Además, a los embelesados les baja el ataque un 60%.',
+                       mods: { dmg: 2, radius: 1.25, disarm: 0.6 } },
+    'fleur-cannon':  { t: '×1,5 daño y +1 rayo. Al estallar, cada flor dispara un rayo de luz hacia ti que atraviesa todo lo que hay entre medias.',
+                       mods: { dmg: 1.5, count: 1, radius: 1.2, annihil: 1 } },
+    'springtide-storm': { t: '×1,8 daño y +2 pétalos. Además, cada pétalo quita un 1,5% de la vida que le quede al enemigo (a los jefes, la cuarta parte).',
+                       mods: { dmg: 1.8, count: 2, size: 1.2, gnaw: 0.015 } },
+    // Acero
+    'metal-claw':    { t: '×2,6 daño. Un cabezazo con embestida corta que interrumpe a todos los que golpea.',
+                       mods: { dmg: 2.6, radius: 1.3, arc: 9, head: 1 } },
+    'flash-cannon':  { t: 'Un láser continuo de 1,2 s que sigue tu apuntado y se refleja hasta 4 veces.',
+                       mods: { dmg: 1.1, width: 1.4, radius: 1.2, reflect: 4, laser: 1.2 } },
+    'meteor-mash':   { t: '×2,2 daño y +2 bombas. Bombas imán que no fallan: se pegan al enemigo, atraen a los de alrededor y estallan a los 0,6 s.',
+                       mods: { dmg: 2.2, count: 2, radius: 1.2, magnet: 80 } },
+    'mirror-shot':   { t: '×1,4 daño. Dos espejos con un láser entre ellos que daña todo lo que cruza la línea.',
+                       mods: { dmg: 1.4, bounce: 2, count: 1, spread: 1.3, laser: 1 } },
+    'gyro-ball':     { t: '×1,5 daño y +1 vuelta. Quieto te anclas: no te frenan y los que te tocan rebotan aturdidos y reciben el giro.',
+                       mods: { dmg: 1.5, count: 1, radius: 1.2, anchor: 1 } },
+    'kings-shield':  { t: '+1 escudo y ×1,8 daño. En forma Filo, una espada fantasma gira a tu alrededor cortando.',
+                       mods: { count: 1, dmg: 1.8, heal: 0.04, sword: 1 } },
+    'steel-wing':    { t: '×1,5 daño. El ave se estrella como un meteoro en el grupo más grande y deja un cráter de chatarra 4 s: dentro, +defensa para ti.',
+                       mods: { dmg: 1.5, radius: 1.25, crash: 80 } },
+    'make-it-rain':  { t: '×2,2 daño y +2 monedas. 2 s después de cada lluvia, una estrella cae sobre el grupo más grande.',
+                       mods: { dmg: 2.2, count: 2, size: 1.2, wish: 1 } },
+    // Siniestro
+    'bite':          { t: '×1,7 daño. Cada mordisco le baja la defensa y al soltarlo lo lanzas lejos.',
+                       mods: { dmg: 1.7, radius: 1.3, arc: 9, crunch: 1 } },
+    'dark-pulse':    { t: '×1,9 daño. Los pulsos llegan el doble de lejos y bajan el ataque de los alcanzados un 40%.',
+                       mods: { count: 2, dmg: 1.9, pierce: 1, shriek: 1 } },
+    'night-shade':   { t: '×1,8 daño. Los que pasan 2 s dentro se duermen y los dormidos pierden un 3% de su vida por segundo.',
+                       mods: { dmg: 1.8, radius: 1.35, dream: 1 } },
+    'sucker-punch':  { t: '×1,8 daño y +2 golpes. Duele más cuanto más fuerte es el enemigo: a los jefes, ×2,5.',
+                       mods: { dmg: 1.8, count: 2, size: 1.3, spread: 1.2, foul: 1 } },
+    'night-slash':   { t: '×1,3 daño y un 40% más de radio. Giras con los brazos abiertos atrayendo hacia dentro, sin que te paren los escudos ni la resistencia a tu tipo.',
+                       mods: { dmg: 1.3, count: 1, radius: 1.4, lariat: 1 } },
+    'dark-void':     { t: '×2 daño, +20% de efecto y −15% recarga. Al acabar, un agujero negro se abre en ti 3 s y se traga a los dormidos.',
+                       mods: { dmg: 2, pct: 0.2, cd: 0.85, hole: 3 } },
+    'beat-up':       { t: '×1,8 daño y +1 copia. Salen de portales junto a los enemigos (les pegan por la espalda) y los portales se tragan los disparos enemigos.',
+                       mods: { dmg: 1.8, count: 1, size: 1.3, portal: 1 } }
+  };
+  EVO['dragon-dance'] = ['Estruendo Escama', 'spd'];          // (los potenciadores no tenían)
+  for (const id in EVO_RFDSAH) if (EVO[id]) EVO[id][2] = EVO_RFDSAH[id];
+  // -- fin de Roca, Fantasma, Dragón, Siniestro, Acero, Hada --
+
+  /** Lo que gana una instancia al evolucionar: lo suyo (EVO[id][2]) o lo de su familia. null si no evoluciona. */
+  function evoMods(m) {
+    const e = EVO[m.id], own = e && e[2];
+    return own && own.mods ? own.mods : EVO_MODS[m.kind] ? EVO_MODS[m.kind].m : null;
+  }
+  function evoText(m) {
+    const e = EVO[m.id], own = e && e[2];
+    return own && own.t ? own.t : EVO_MODS[m.kind] ? EVO_MODS[m.kind].t : '';
+  }
+
   // ---------------- pasivos de la run (22-10-2026) ----------------
   /*
    * Cartas al estilo de los pasivos de Vampire Survivors. Cada jugador lleva
@@ -1178,7 +1480,7 @@
   function rebake(m, P) {
     const s = instance(m.id, m.lvl);
     if (!s) return m;
-    if (m.evolved && EVO_MODS[s.kind]) applyMods(s, EVO_MODS[s.kind].m);
+    if (m.evolved && evoMods(s)) applyMods(s, evoMods(s));
     applyPassives(s, P);
     for (const k of BAKE) if (s[k] !== undefined) m[k] = s[k];
     m.pk = s.pk;
@@ -1208,17 +1510,17 @@
   /** ¿Puede evolucionar ya? → { name, needs, needName, text, ready } o null */
   function evoInfo(m, statsTaken) {
     const e = EVO[m.id];
-    if (!e || m.evolved || m.lvl < m.def.maxLvl || !EVO_MODS[m.kind]) return null;
+    if (!e || m.evolved || m.lvl < m.def.maxLvl || !evoMods(m)) return null;
     const [name, needs] = e;
-    return { name, needs, needName: NEED_NAME[needs], text: EVO_MODS[m.kind].t,
+    return { name, needs, needName: NEED_NAME[needs], text: evoText(m),
              ready: !!(statsTaken && statsTaken[needs]) };
   }
 
   /** Evoluciona una instancia (cambia nombre y potencia; sigue siendo del mismo tipo). */
   function evolve(m) {
     const e = EVO[m.id];
-    if (!e || m.evolved) return false;
-    applyMods(m, EVO_MODS[m.kind].m);
+    if (!e || m.evolved || !evoMods(m)) return false;
+    applyMods(m, evoMods(m));
     m.baseName = m.name;
     m.name = e[0];
     m.evolved = true;

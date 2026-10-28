@@ -6,6 +6,9 @@
  * el cuerpo, y los botones de tirar en el pie.
  * Tirada (#pull-fx): la tragaperras pixel art (slots.js) a escala entera de
  * píxeles de pantalla y luego las cartas, en una rejilla que cabe en el móvil.
+ * Más a mano (26-10-2026): región anterior / siguiente con las flechas del cartel o
+ * deslizando el dedo por él, cuántos tickets faltan en los botones que no se pueden
+ * pulsar, «Otra vez» al acabar una tirada y «Tirar todos» con una ventana del juego.
  */
 G.GachaUI = (() => {
   const $ = G.UI.$;
@@ -25,8 +28,10 @@ G.GachaUI = (() => {
     $('pull-fast').insertAdjacentHTML('afterbegin', ico('boot'));
     $('pull-fast').onclick = () => { G.Slots.setFast(!G.Slots.fast); fastChip(); };
     $('pull-skip').onclick = skip;
+    $('pull-again').onclick = again;
     $('slot').addEventListener('click', () => { if (busy) { G.Slots.setFast(true); fastChip(); } });
     $('gacha-pity-ico').innerHTML = ico('ball4');
+    wireNav();
 
     const tabs = $('gacha-gens');
     G.Gacha.BANNERS.forEach(b => {
@@ -59,13 +64,116 @@ G.GachaUI = (() => {
     refresh();
   }
 
+  // ---------------- a mano en el móvil (26-10-2026) ----------------
+  // Cambiar de región sin ir a las pestañas de arriba: las flechas del cartel o
+  // deslizar el dedo por él (a la izquierda, la siguiente). La pestaña elegida, siempre a la vista.
+  function step(d) {
+    if (busy) return;
+    const n = G.Gacha.BANNERS.length;
+    gen = ((gen - 1 + d) % n + n) % n + 1;
+    G.Audio.sfx('select');
+    refresh();
+  }
+  function wireNav() {
+    $('gacha-prev').innerHTML = G.UI.svg('back');
+    $('gacha-next').innerHTML = G.UI.svg('chevron');
+    $('gacha-prev').onclick = () => step(-1);
+    $('gacha-next').onclick = () => step(1);
+    // (Con toques y no con punteros: al arrastrar, el navegador se queda el gesto y
+    // cancela el puntero, pero el toque sí termina.)
+    const hero = $('banner');
+    let sw = null;
+    hero.addEventListener('touchstart', e => {
+      const t = e.changedTouches[0];
+      sw = e.touches.length === 1 && t && !e.target.closest('button') ? { id: t.identifier, x: t.clientX, y: t.clientY } : null;
+    }, { passive: true });
+    hero.addEventListener('touchend', e => {
+      const t = sw && [...e.changedTouches].find(q => q.identifier === sw.id);
+      if (!t) return;
+      const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      sw = null;
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+    }, { passive: true });
+    hero.addEventListener('touchcancel', () => { sw = null; }, { passive: true });
+  }
+  /** La pestaña de la región elegida, a la vista (las regiones se deslizan de lado). */
+  function showTab() {
+    const strip = $('gacha-gens'), t = strip.querySelector('.gen-tab.on');
+    if (!t || !strip.clientWidth) return;
+    const l = t.offsetLeft - strip.offsetLeft, r = l + t.offsetWidth;
+    if (l < strip.scrollLeft + 8) strip.scrollLeft = Math.max(0, l - 24);
+    else if (r > strip.scrollLeft + strip.clientWidth - 8) strip.scrollLeft = r - strip.clientWidth + 24;
+  }
+
+  /**
+   * Botones de tirar: lo que cuesta cada uno, con el ticket de verdad, y si no te
+   * llega, cuántos te faltan (así se entiende por qué no se puede).
+   */
+  function costs(s) {
+    const t = s.tickets || { t1: 0, t10: 0 };
+    const pill = (icon, need, have) => `<span class="pb-ico">${ico(icon)}</span><b>${need}</b>`
+      + (have < need ? `<small class="pb-miss">${G.I18n.f('te faltan {x}', need - have)}</small>` : '');
+    $('cost-1').innerHTML = pill('ticket', 1, t.t1);
+    $('cost-10').innerHTML = pill('ticket', 10, t.t1);
+    $('cost-10b').innerHTML = pill('ticket10', 1, t.t10);
+    $('pull-1').disabled = !G.Gacha.costOf(s, 1);
+    $('pull-10').disabled = !G.Gacha.costOf(s, 10, 't1');
+    $('pull-10b').disabled = !G.Gacha.costOf(s, 10, 't10');
+  }
+
+  // «Otra vez»: al acabar una tirada, la misma (en la misma región) sin volver al cartel.
+  let lastPull = null;
+  function againBtn(show) {
+    const b = $('pull-again'), p = lastPull, s = G.DB.save;
+    const ok = !!(show && p && G.Gacha.costOf(s, p.n, p.use));
+    b.classList.toggle('hidden', !ok);
+    if (!ok) return;
+    b.classList.toggle('rainbow', p.use === 't10');
+    $('pull-again-t').textContent = G.I18n.f('Otra vez ×{x}', p.n);
+    $('cost-again').innerHTML = `<span class="pb-ico">${ico(p.use === 't10' ? 'ticket10' : 'ticket')}</span><b>${p.use === 't10' ? 1 : p.n}</b>`;
+  }
+  function again() {
+    if (busy || !lastPull) return;
+    $('pull-results').innerHTML = '';
+    pull(lastPull.n, lastPull.use);
+  }
+
+  /** «¿Tirar todos?» en una ventana del juego (no la del sistema: con el móvil de pie saldría de lado). → Promise<boolean> */
+  function ask(text) {
+    return new Promise(done => {
+      const el = document.createElement('section');
+      el.id = 'scr-pullall';
+      el.className = 'scr dim modal';
+      el.setAttribute('role', 'alertdialog');
+      el.setAttribute('aria-labelledby', 'pullall-title');
+      el.innerHTML = `<div class="box mcard">
+        <span class="ico-tile l round t-purple mcard-ico" aria-hidden="true">${G.Icons.html('ball4', 60)}</span>
+        <h2 id="pullall-title">Tirar todos</h2>
+        <p class="mcard-txt"></p>
+        <div class="mcard-acts">
+          <button class="btn gold big block" type="button" data-a="yes">Tirar todos</button>
+          <button class="btn ghost block" type="button" data-a="no" data-back>Cancelar</button>
+        </div></div>`;
+      el.querySelector('.mcard-txt').textContent = text;
+      document.body.appendChild(el);
+      const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); end(false); } };
+      const end = v => { removeEventListener('keydown', onKey, true); el.remove(); done(v); };
+      addEventListener('keydown', onKey, true);
+      el.querySelector('[data-a=no]').onclick = () => end(false);
+      el.querySelector('[data-a=yes]').onclick = () => end(true);
+      el.addEventListener('click', e => { if (e.target === el) end(false); });
+      setTimeout(() => el.querySelector('[data-a=yes]').focus({ preventScroll: true }), 50);
+    });
+  }
+
   function refresh() {
     const s = G.DB.save;
     const banner = G.Gacha.BANNERS[gen - 1];
 
     // Pestañas: la región y cuántos tienes de ella (en verde si está completa).
+    // Familias (26-10-2026): sólo cuentan las formas finales, lo que puede salir.
     const cnt = {};
-    for (const p of G.DEX) { const c = cnt[p.gen] || (cnt[p.gen] = [0, 0]); c[1]++; if (s.owned[p.dex]) c[0]++; }
+    for (const b of G.Gacha.BANNERS) { const l = G.Gacha.all(b.gen); cnt[b.gen] = [l.filter(p => s.owned[p.dex]).length, l.length]; }
     document.querySelectorAll('#gacha-gens .gen-tab').forEach(t => {
       const g = +t.dataset.gen, c = cnt[g] || [0, 0], on = g === gen;
       t.classList.toggle('on', on);
@@ -75,7 +183,7 @@ G.GachaUI = (() => {
     });
 
     // Cartel: los colores de la región, su nombre y lo que llevas.
-    const all = G.DEX.filter(p => p.gen === gen);
+    const all = G.Gacha.all(gen);
     const owned = all.filter(p => s.owned[p.dex]).length;
     const shinies = all.filter(p => s.shiny && s.shiny[p.dex]).length;
     const hero = $('banner');
@@ -115,10 +223,10 @@ G.GachaUI = (() => {
     // tumbado van en fichas y las reglas salen con la «i» (en el resto, siempre a la vista).
     const rates = $('gacha-rates');
     rates.innerHTML = `<h3><span>Probabilidades</span><button type="button" class="icon-btn plain gr-info" aria-expanded="${rulesOn}" ` +
-      `aria-label="Reglas del gacha" title="Reglas del gacha">${G.UI.svg('info')}</button></h3><div class="rate-list">` + G.Gacha.RATES.slice().reverse().map(([r, w]) => `
+      `aria-label="Reglas del gacha" title="Reglas del gacha">${G.UI.svg('info')}</button></h3><div class="rate-list">` + G.Gacha.ratesFor(gen).slice().reverse().map(([r, w]) => `
       <div class="rate-row" style="--rc:${G.Gacha.RARITY_COLOR[r]}"><span class="ico-tile s round">${ico(G.Icons.RARITY_BALL[r])}</span>
         <span class="grow"><b>${G.Gacha.RARITY_NAME[r]}</b><small>${G.Gacha.pool(r, gen).length} Pokémon</small></span>
-        <b class="rate-pct">${w}%</b></div>`).join('') +
+        <b class="rate-pct">${w.toLocaleString(G.I18n.locale)}%</b></div>`).join('') +
       `<div class="rate-row shiny" style="--rc:var(--shiny)"><span class="ico-tile s round">${G.Icons.html('shiny', 24)}</span>
         <span class="grow"><b>Shiny</b></span><b class="rate-pct">1%</b></div></div>
       <p class="gacha-rules">· La tirada ×10 garantiza al menos una Épica.<br>
@@ -133,18 +241,14 @@ G.GachaUI = (() => {
       rates.querySelector('.gr-info').setAttribute('aria-expanded', String(rulesOn));
     };
 
-    // Botones de tirar: lo que cuesta cada uno, con el ticket de verdad.
-    $('cost-1').innerHTML = `<span class="pb-ico">${ico('ticket')}</span><b>1</b>`;
-    $('cost-10').innerHTML = `<span class="pb-ico">${ico('ticket')}</span><b>10</b>`;
-    $('cost-10b').innerHTML = `<span class="pb-ico">${ico('ticket10')}</span><b>1</b>`;
-    $('pull-1').disabled = !G.Gacha.costOf(s, 1);
-    $('pull-10').disabled = !G.Gacha.costOf(s, 10, 't1');
-    $('pull-10b').disabled = !G.Gacha.costOf(s, 10, 't10');
+    // Botones de tirar: lo que cuesta cada uno, con el ticket de verdad (y lo que falta).
+    costs(s);
     const plan = allPlan(s);
     $('pull-all').classList.toggle('hidden', plan.n < 2);
     $('cost-all').innerHTML = `<span class="pb-ico">${ico('ball4')}</span><b>×${plan.n * 10}</b>`;
     // Al final, con todo ya puesto: si el cuerpo se desplaza, su barra estrecha el cartel.
     fitFeat();
+    showTab();
     G.UI.refreshCoins();
   }
 
@@ -202,6 +306,7 @@ G.GachaUI = (() => {
     if (busy) return;
     const res = G.Gacha.pull(G.DB.save, n, gen, use);
     if (!res) { G.Audio.sfx('error'); G.UI.toast('No tienes tickets suficientes: consíguelos jugando'); return; }
+    lastPull = { n, use };
     G.Progress.checkAch();
     G.DB.commit(true);
     await reveal(res);
@@ -223,7 +328,11 @@ G.GachaUI = (() => {
     if (busy) return;
     const s = G.DB.save, p = allPlan(s);
     if (p.n < 1) { refresh(); return; }
-    if (!confirm(`¿Hacer ${p.n} tiradas ×10? Gastarás ${p.a} tickets ×10 y ${p.b * 10} tickets.`)) return;
+    busy = true;                         // (mientras pregunta, nada de tirar dos veces)
+    const yes = await ask(G.I18n.f('¿Hacer {x} tiradas ×10? Gastarás {x} tickets ×10 y {x} tickets.', p.n, p.a, p.b * 10));
+    busy = false;
+    if (!yes) return;
+    lastPull = null;
     const all = [];
     for (let i = 0; i < p.n; i++) {
       const res = G.Gacha.pull(s, 10, gen, G.Gacha.costOf(s, 10, 't10') ? 't10' : 't1');
@@ -292,6 +401,7 @@ G.GachaUI = (() => {
     const fx = $('pull-fx'), slot = $('slot'), out = $('pull-results');
     out.innerHTML = '';
     $('pull-close').classList.add('hidden');
+    againBtn(false);
     $('pull-sum').classList.add('hidden');
     $('pull-ctl').classList.remove('hidden');
     fastChip();
@@ -323,6 +433,7 @@ G.GachaUI = (() => {
     }
     if ((many || skipCards) && cards.length) G.Audio.sfx('reveal', { rarity: Math.max(...cards.map(r => r.rarity)) });
     $('pull-close').classList.remove('hidden');
+    againBtn(!many);
     busy = false;
     // Con teclado, Intro sigue; el mando ya empieza en «Continuar» (botón dorado).
     try { $('pull-close').focus({ preventScroll: true }); } catch (e) { /* nada */ }

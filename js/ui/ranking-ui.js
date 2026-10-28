@@ -76,6 +76,14 @@ G.RankingUI = (() => {
       period = k;
       if (k !== 'a' && dex) { dex = null; $('rk-poke').value = ''; $('rk-clear').classList.add('hidden'); setFind(findOn); }
     }, 'chip');
+    // (26-10-2026) Tumbado, los filtros se deslizan de lado y el periodo elegido podía quedar
+    // fuera (en 667 sólo se veía «Diario»): se desliza lo justo para que se vea.
+    const on = $('rk-period').querySelector('.on'), bar = on && on.closest('.rk-bar');
+    if (bar && bar.scrollWidth > bar.clientWidth + 1) {
+      const r = on.getBoundingClientRect(), s = bar.getBoundingClientRect();
+      if (r.right > s.right) bar.scrollLeft += r.right - s.right + 12;
+      else if (r.left < s.left) bar.scrollLeft -= s.left - r.left + 12;
+    }
   }
 
   const fmt = t => t >= 3600 ? Math.floor(t / 3600) + ':' + G.U.mmss(t % 3600).padStart(5, '0') : G.U.mmss(t);

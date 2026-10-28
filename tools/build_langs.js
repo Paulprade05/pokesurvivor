@@ -49,7 +49,7 @@ function build() {
 function missing() {
   const en = {};
   const files = ['js/data/lang-en.js', 'js/core/settings.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/moves.js', 'js/data/types.js', 'js/data/items.js',
-                 'js/data/achievements.js', 'js/world/tiles.js', 'js/data/funding.js'];
+                 'js/data/achievements.js', 'js/world/tiles.js'];
   // Los datos del juego necesitan G de verdad (util.js): el mismo entorno que tools/export_data.js.
   const noop = () => {}, fakeCtx = new Proxy({}, { get: () => noop });
   const sb = {

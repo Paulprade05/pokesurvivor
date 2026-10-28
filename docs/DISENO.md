@@ -28,7 +28,7 @@ Usa siempre la variable, nunca el valor suelto.
 | `--c-blue` / `--c-blue-hi` / `--c-blue-btn` | `#3d7dca` / `#4a8ad6` / `#2f6bb8` | Secundario. Fondo de botón azul = `--c-blue-btn` (blanco encima ≥ 4,5:1). |
 | `--c-blue-deep` | `#1d3b78` | Azul profundo (contorno del logotipo, fondos). |
 | `--c-red` / `--c-red-btn` | `#ee3b3b` / `#d62f3a` | Peligro, avisos, punto de «nuevo». Botón rojo = `--c-red-btn`. |
-| `--c-green`, `--c-pink`, `--c-purple`, `--c-cyan` | | Acentos (éxito, apoyar, épico, shiny). |
+| `--c-green`, `--c-pink`, `--c-purple`, `--c-cyan` | | Acentos (éxito, rosa, épico, shiny). |
 | `--bg-0` / `--bg-1` / `--bg-2` | `#070e22` / `#0b1530` / `#14224a` | Fondos (de más oscuro a menos). |
 | `--surface` | `rgba(17,30,68,.86)` | Panel de cristal (`.box`). Reserva sin desenfoque: `--surface-solid`. |
 | `--surface-float` | `rgba(17,30,68,.96)` | Menús flotantes, avisos, tooltips. |
@@ -65,7 +65,7 @@ Usa siempre la variable, nunca el valor suelto.
 
 `--z-screen` 20 (pantallas) < `--z-chrome` 25 (barra de arriba, créditos) <
 `--z-panel` 30 (panel de sonido) < `--z-modal` 35 (ventanas que tapan la barra)
-< `--z-fx` 40 (tirada del gacha) < `--z-sheet` 60 (Ajustes, Apoyar) <
+< `--z-fx` 40 (tirada del gacha) < `--z-sheet` 60 (Ajustes) <
 `--z-legal` 65 < `--z-editor` 66 (colocar botones, instalar) < `--z-boot` 70
 (carga, invitación) < `--z-tap` 80 (pulsa para empezar, logro) < `--z-noscript`
 90 < `--z-toast` 95 < `--z-block` 150 (otra pestaña) < `--z-fly` 1000.
@@ -91,7 +91,7 @@ deba ir encima necesita un z-index mayor, no sólo ir después en el HTML.
 - `.scr`: capa fija a pantalla completa, contenido centrado, relleno con las zonas seguras. En el móvil, su panel la ocupa entera (§16).
 - `.dim`: velo azul noche (el mundo se sigue viendo). Todas las pantallas de menú lo llevan; el menú principal no.
 - `.under-bar`: la pantalla deja ver la barra de arriba (monedas, tickets): se abre con `G.UI.show(id, true)` y empieza debajo de la barra. Hoy además van por id: `#scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod`.
-- `.modal`: ventana que va por delante de la barra y la **esconde** (`z 35`). Hoy por id: `#scr-news, #scr-recover, #scr-savenote, #scr-profile, #scr-nick` (y Ajustes, Apoyar, Aviso legal, Instalar, Colocar botones con su propio z-index). Una ventana nueva de este tipo: `class="scr dim modal"`.
+- `.modal`: ventana que va por delante de la barra y la **esconde** (`z 35`). Hoy por id: `#scr-news, #scr-recover, #scr-savenote, #scr-profile, #scr-nick` (y Ajustes, Aviso legal, Instalar, Colocar botones con su propio z-index). Una ventana nueva de este tipo: `class="scr dim modal"`.
 - `.hidden` (con `!important`) apaga cualquier cosa.
 
 ---
@@ -338,10 +338,10 @@ No escales la imagen con CSS a tamaños que no sean 30/60.
 Es de `ui.js` (`chrome`, `refreshCoins`) y de la base. No pongas iconos ni
 texto a sus botones desde otros módulos: pon sólo su `onclick`.
 
-- Izquierda: monedas y tickets (`.tb-wallet`). Derecha (`.tb-acts`): perfil, Guardar (amarillo, con punto rojo si hay cambios sin subir) y `.tb-menu`.
+- Izquierda: monedas y tickets (`.tb-wallet`). Derecha (`.tb-acts`): perfil, Ajustes (el engranaje, siempre a la vista) y `.tb-menu`. Sin Guardar desde el 26-10-2026: la partida se sube sola; el botón queda sólo en Ajustes → Cuenta.
 - ≥ 900 px de ancho (y más de 520 de alto): todos los botones a la vista, sólo icono (con `title`).
-- < 900 px, o móvil tumbado (≤ 520 px de alto): Novedades, Apoyar, Sonido, Pantalla completa, Ajustes y Salir pasan al menú «Más» (⋯), con su texto.
-- < 600 px de ancho (móvil de pie): el perfil también va al menú «Más» (primera fila, con su estado de guardado) y Guardar queda en icono.
+- < 900 px, o móvil tumbado (≤ 520 px de alto): Novedades, Sonido, Pantalla completa y Salir pasan al menú «Más» (⋯), con su texto.
+- < 600 px de ancho (móvil de pie): el perfil también va al menú «Más» (primera fila, con su estado de guardado).
 - Si aun así no cabe, se acorta el nombre del perfil (…); las monedas no se encogen.
 - Se esconde sola cuando hay una ventana `.modal` (o Ajustes, Novedades, Perfil…) abierta.
 
