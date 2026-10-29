@@ -221,6 +221,9 @@ G.Enemies = (() => {
    * adelante; dos partidas, sin muro); sin mejoras, en el 11-19 (Mewtwo, el más fuerte, en el 19).
    * Caídas medias en los minutos 0-10 / 10-20 / 20-30: con mejoras 0 / 29 / 174 (antes 68 / 350 / 575);
    * sin mejoras 8 / 86 / 224 (antes 89 / 525 / 535). Detalle en docs/JEFES.md.
+   * 29-10-2026, con los ataques finales de los 18 tipos y el principio más suave (earlyK/earlyHp): con mejoras, muro en
+   * los minutos 15-28 (la mitad de las partidas, sin muro); sin mejoras, en el 9-17 (Mewtwo, 28 o sin muro); caídas
+   * 0 / 19 / 78 con mejoras y 5 / 116 / 287 sin ellas.
    */
   const EFF = [[0, 0], [120, 80], [300, 155], [600, 275], [900, 390], [1200, 540], [1500, 760], [1800, 1080]];
   function eff(t) {

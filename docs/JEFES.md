@@ -189,12 +189,16 @@ experiencia sigue al reloj real (`xpLag`).
 
 Medido el 28-10-2026 (bot que esquiva y recoge, inmortal: apunta cuándo habría caído). «Muro» = primer minuto con 10 caídas o
 más, o con 5 dos minutos seguidos. Delibird (flojo), Charizard (medio, empieza de Charmander), Garchomp (empieza de Gible) y
-Mewtwo (fuertes). Antes: 1 partida de cada; ahora: 2.
+Mewtwo (fuertes). Antes: 1 partida de cada; después, 2. El 29-10-2026 se volvió a medir con los ataques ya
+finales de los 18 tipos: sin mejoras el muro había vuelto al minuto 3-9, y se suavizó el principio (EARLY_K 0,5 y los
+golpes y la vida llegan a lo normal en el minuto 11 y el 10, en vez del 9 y el 8).
 
 | | Muro con todas las mejoras | Muro sin mejoras | Caídas medias 0-10 / 10-20 / 20-30 (máx. · sin) |
 |---|---|---|---|
 | Antes (8834a1e9) | Charizard 5, Delibird 8, Garchomp 8, Mewtwo sin muro | Garchomp 2, Delibird 3, Charizard 5, Mewtwo 6 | 68 / 350 / 575 · 89 / 525 / 535 |
-| Ahora | Charizard 15 y 24, Garchomp 18 y 25, Delibird 19 y sin muro, Mewtwo 21 y sin muro | Charizard 11 y 12, Garchomp 11 y 12, Delibird 17 y 25, Mewtwo 19 y 19 | 0 / 29 / 174 · 8 / 86 / 224 |
+| 28-10 (ataques de antes) | Charizard 15 y 24, Garchomp 18 y 25, Delibird 19 y sin muro, Mewtwo 21 y sin muro | Charizard 11 y 12, Garchomp 11 y 12, Delibird 17 y 25, Mewtwo 19 y 19 | 0 / 29 / 174 · 8 / 86 / 224 |
+| Con los ataques finales (29-10), antes de ajustar | Charizard 19 y sin muro, Garchomp 16 y 19, Delibird 13 y 25, Mewtwo sin muro (2) | Charizard 3 y 5, Garchomp 3 y 9, Delibird 6 y 6, Mewtwo 9 y 16 | 0 / 11 / 61 · 33 / 174 / 459 |
+| Ahora (29-10: golpes y vida del principio más suaves hasta el minuto 10-11) | Charizard 16 y 20, Garchomp 15 y sin muro, Delibird 28 y sin muro, Mewtwo sin muro (2) | Charizard 9 y 17, Garchomp 13 y sin muro, Delibird 12 y 13, Mewtwo 28 y sin muro | 0 / 19 / 78 · 5 / 116 / 287 |
 
 El bot varía mucho de una partida a otra (sobre todo por las cartas que le salen: con ataques flojos se atasca de nivel y cae
 antes), así que conviene medir al menos dos de cada. Ejemplo: `node tools/curve.cjs --par 8 --out <carpeta> 6:max:2 6:zero:2
