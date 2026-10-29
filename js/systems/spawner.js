@@ -93,7 +93,7 @@ G.Spawner = (() => {
 
   /** @param extra  distancia de más fuera de la vista (al azar entre 10 y 70 si no se dice) */
   function ringPoint(pl, angle, extra) {
-    const d = G.Camera.outerRadius(viewW(pl), viewH(pl)) + (extra == null ? G.U.rand(10, 70) : extra);
+    const d = G.Camera.outerRadius(viewW(pl), viewH(pl), pl.remote ? G.Camera.ULTRA : undefined) + (extra == null ? G.U.rand(10, 70) : extra);
     return [pl.x + Math.cos(angle) * d, pl.y + Math.sin(angle) * d * 0.9];
   }
 
@@ -256,7 +256,7 @@ G.Spawner = (() => {
     const base = plainPick(t, true);
     const def = Object.assign({}, base, { behavior: 'stampede' });
     const a = Math.random() * 6.2832, ca = Math.cos(a), sa = Math.sin(a);
-    const D = G.Camera.outerRadius(viewW(pl), viewH(pl)) + 40;
+    const D = G.Camera.outerRadius(viewW(pl), viewH(pl), pl.remote ? G.Camera.ULTRA : undefined) + 40;
     const sx = pl.x - ca * D, sy = pl.y - sa * D * 0.9;
     const spd = G.U.clamp(base.spd * 2.4, 150, 200);
     const gap = G.U.randInt(1, n - 3);            // dos plazas libres seguidas

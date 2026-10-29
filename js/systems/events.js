@@ -336,7 +336,7 @@ G.Events = (() => {
 
   /** Flecha del borde (chapa redonda con punta, como las de hud.js) con un icono y el nombre. */
   function edgeArrow(ctx, w, h, cam, x, y, col, label, F, icon) {
-    const sx = (x - cam.left()) * cam.scale, sy = (y - cam.top()) * cam.scale;
+    const { x: sx, y: sy } = cam.toScreen(x, y);   // (con Ultra, con la perspectiva)
     if (sx > 0 && sx < w && sy > 0 && sy < h) return;
     // (Lejos de la muesca, sin pisar el HUD ni las otras flechas: ver G.HUD.place.)
     const M = 44, p = G.HUD.place(G.HUD.edgeX(sx, M, w), G.HUD.edgeY(sy, M + 70, h - M - 80), w, h);

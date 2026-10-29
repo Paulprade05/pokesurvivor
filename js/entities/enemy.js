@@ -3188,7 +3188,7 @@ G.BossSig = (() => {
       }
       else if (f.k === 'slowall' && me && f.t > (f.delay || 0)) {
         ctx.save(); ctx.globalAlpha = 0.16 * Math.min(1, (f.t - f.delay) * 3, (f.dur - f.t) * 3); ctx.fillStyle = '#6ab0ff';
-        ctx.fillRect(cam.left(), cam.top(), cam.w, cam.h); ctx.restore();
+        const vr = cam.viewRect(20); ctx.fillRect(vr.x, vr.y, vr.w, vr.h); ctx.restore();
       }
     }
     // La oscuridad (una sola aunque haya varias), alrededor de tu Pokémon (la niebla, más suave).

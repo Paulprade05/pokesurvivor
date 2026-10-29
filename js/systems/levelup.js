@@ -227,7 +227,8 @@ G.LevelUp = (() => {
     // acumulaban sin fin (velocidad, recarga y experiencia por las nubes) y el
     // juego acababa colgándose. Las que piden una evolución salen siempre.
     // Con los 4 huecos de pasiva llenos, sólo las que ya llevas (canTake).
-    const room = s => (!s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id);
+    // (Réplica cuenta también la permanente de Mejoras, que ya va en pl.pass.amt: con ella, la 3.ª carta no sumaba nada.)
+    const room = s => (s.id === 'amt' ? ((pl.pass && pl.pass.amt) || 0) < s.max : !s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id);
     // Las pasivas que piden tus ataques para evolucionar (aunque aún no estén al máximo) y que
     // no llevas: mientras queden huecos de pasiva salen siempre y mucho más (24-10-2026: antes
     // los huecos se llenaban de pasivas al azar y luego no cabía la que hacía falta).

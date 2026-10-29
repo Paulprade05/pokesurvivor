@@ -1699,7 +1699,7 @@ G.Combat = (() => {
    * sobre los dormidos. La «pantalla» es la de la cámara (sólo se ve).
    */
   function drawWipe(ctx, f, own, now) {
-    const cam = G.Camera, L = cam.left() - 30, T = cam.top() - 30, W = cam.w + 60, H = cam.h + 60;
+    const cam = G.Camera, vr = cam.viewRect(30), L = vr.x, T = vr.y, W = vr.w, H = vr.h;     // (con Ultra, también las esquinas de arriba)
     const k = G.U.clamp(f.t / f.delay, 0, 1), after = f.t >= f.delay;
     const out = after ? Math.max(0, 1 - (f.t - f.delay) / 0.5) : 1;
     ctx.save();

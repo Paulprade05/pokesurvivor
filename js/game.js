@@ -396,7 +396,8 @@ G.Game = (() => {
   G.onRescue = (dex, name) => {
     if (!G.DB.save || !pl) return;
     const isNew = !G.DB.owns(dex);
-    if (isNew) { G.DB.grant(dex, 'rescue'); G.DB.commit(true); }
+    // (Se guarda la forma final de su familia, ver G.Fam: el aviso dice esa.)
+    if (isNew) { const fin = G.DB.grant(dex, 'rescue'); if (G.DEX_BY[fin]) name = G.DEX_BY[fin].name; G.DB.commit(true); }
     else pl.coins += 150;
     G.Spawner.say(isNew ? '¡' + name + ' se une a tu equipo!' : '¡' + name + ' te da las gracias! (+150 monedas, ya lo tenías)', 4);
     G.Audio.sfx('shinyGet');
@@ -410,7 +411,10 @@ G.Game = (() => {
     G.DB.save.stats.shinies++;
     G.DB.commit(true);
     caught.push({ dex: e.dex, isNew });
-    G.Spawner.say(isNew ? '¡Has conseguido a ' + e.name + ' shiny!' : '¡Otro ' + e.name + ' shiny! (+300 monedas)', 4);
+    // (Se guarda en la forma final de su familia, ver G.Fam: si sólo hay una, el aviso la nombra.)
+    const fins = G.Fam && G.Fam.finalsOf ? G.Fam.finalsOf(e.dex) : [];
+    const nm = fins.length === 1 && G.DEX_BY[fins[0]] ? G.DEX_BY[fins[0]].name : e.name;
+    G.Spawner.say(isNew ? '¡Has conseguido a ' + nm + ' shiny!' : '¡Otro ' + nm + ' shiny! (+300 monedas)', 4);
     if (!isNew) pl.coins += 300;
     G.Audio.sfx('shinyGet');
   };
@@ -1017,7 +1021,7 @@ G.Game = (() => {
    * píxel a píxel (medido el 28-10-2026: +1 a +3 ms por fotograma sobre Alta).
    */
   const D3 = (() => {
-    const PERSP = 0.12;               // arriba de la pantalla, un 12 % más pequeño; abajo, un 12 % más grande
+    const PERSP = G.Camera.ULTRA;     // 0,12: arriba de la pantalla, un 12 % más pequeño; abajo, un 12 % más grande
     const GB = 4;                     // franjas del suelo: 4 filas de mundo (2 de píxel de arte)
     const BAND = 8;                   // alto de las franjas de la capa de aire (px de pantalla)
     const WS = 6;                     // tiras de las filas de pared (px de arte; CAP_H = 24, 4 tiras)
@@ -1051,6 +1055,10 @@ G.Game = (() => {
       G.Hazards.draw(gx);
       G.Combat.drawGroundFields(gx);
       G.Pickups.draw(gx);
+      // Lo de las firmas de los jefes (G.BossSig): lo del suelo (y = -1e9) va en este lienzo y
+      // lo del aire (y = 1e9), en el de aire. Por orden de Y caían fuera de la vista y no se veían.
+      const ens = G.EnemyMgr.drawables(cam);
+      for (const e of ens) if (e.y <= -1e8) e.draw(gx);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = false;
       for (let r = 0; r < GH; r += GB) {
@@ -1065,7 +1073,7 @@ G.Game = (() => {
       // 2) De pie, por orden de Y; cada uno a la escala del sitio que pisa.
       const items = [];
       for (const p of props) if (!p.flat) items.push({ y: p.y, prop: p });
-      for (const e of G.EnemyMgr.drawables(cam)) items.push({ y: e.y, ent: e });
+      for (const e of ens) if (Math.abs(e.y) < 1e8) items.push({ y: e.y, ent: e });
       for (const e of extra) items.push({ y: e.y, ent: e });
       const rift = G.Rift.drawable();
       if (rift) items.push({ y: rift.y, ent: rift });
@@ -1119,6 +1127,7 @@ G.Game = (() => {
         G.Combat.drawAirFields(ax);
         G.FX.draw(ax);
         G.Judgment.drawAir(ax);
+        for (const e of ens) if (e.y >= 1e8) e.draw(ax);
         // (Sin suavizar: nítido y bastante más barato que con suavizado.)
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         for (let y = 0; y < Hd; y += BAND) {

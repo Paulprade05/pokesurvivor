@@ -763,7 +763,7 @@ G.HUD = (() => {
     // cuántos hay ya lo dicen sus barras de arriba («+N»).
     const offB = [];
     for (const b of bosses) {
-      const sx = (b.x - cam.left()) * cam.scale, sy = (b.y - (b.bodyH || 0) * 0.5 - cam.top()) * cam.scale;
+      const { x: sx, y: sy } = cam.toScreen(b.x, b.y - (b.bodyH || 0) * 0.5);   // (con Ultra, con la perspectiva)
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
       offB.push({ b, sx, sy, d: G.U.dist2(pl.x, pl.y, b.x, b.y) });
     }
@@ -789,7 +789,7 @@ G.HUD = (() => {
 
     // Shinies fuera de pantalla: flecha en el borde.
     for (const e of G.EnemyMgr.shinies()) {
-      const sx = (e.x - cam.left()) * cam.scale, sy = (e.y - cam.top()) * cam.scale;
+      const { x: sx, y: sy } = cam.toScreen(e.x, e.y);
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
       const M = 34;
       // (Por debajo de las barras de los jefes, como sus flechas.)
@@ -1220,7 +1220,7 @@ G.HUD = (() => {
     for (const m of G.Coop.mates) {
       if (!m.connected) continue;
       const o = m.pl;
-      const sx = (o.x - cam.left()) * cam.scale, sy = (o.y - o.bodyH * 0.5 - cam.top()) * cam.scale;
+      const { x: sx, y: sy } = cam.toScreen(o.x, o.y - o.bodyH * 0.5);
       if (sx > 0 && sx < w && sy > 0 && sy < h) continue;
       const M = 42;
       const p = place(edgeX(sx, M, w), edgeY(sy, M + 70, h - M - 80), w, h), ex = p.x, ey = p.y;

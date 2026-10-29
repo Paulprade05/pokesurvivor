@@ -392,7 +392,7 @@ G.Rift = (() => {
     if (!travel) return;
     G.Touch.clearButtons();             // (el HUD no se dibuja mientras dura)
     const pl = G.Game.player, cam = G.Camera;
-    const cx = pl ? (pl.x - cam.left()) * cam.scale : w / 2, cy = pl ? (pl.y - pl.bodyH * 0.5 - cam.top()) * cam.scale : h / 2;
+    const ps = pl ? cam.toScreen(pl.x, pl.y - pl.bodyH * 0.5) : null, cx = ps ? ps.x : w / 2, cy = ps ? ps.y : h / 2;
     const r = G.BossFX.tunnel(ctx, w, h, travel.t, TRAVEL, cx, cy);
     // Tu Pokémon (y los demás) cruzando el túnel, con estela.
     const sc = Math.max(1, Math.round(Math.min(w, h) / 430 * 1.5 * 2) / 2), bob = Math.sin(travel.t * 9) * 4;

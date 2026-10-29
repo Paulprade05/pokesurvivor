@@ -1353,7 +1353,8 @@ G.BossFX = (() => {
     const g = ctx.createRadialGradient(px, py - 14, 60, px, py - 14, 175);
     g.addColorStop(0, 'rgba(6,3,14,0)'); g.addColorStop(1, `rgba(6,3,14,${(0.92 * a).toFixed(3)})`);
     ctx.fillStyle = g;
-    ctx.fillRect(cam.left() - 30, cam.top() - 30, cam.w + 60, cam.h + 60);
+    const vr = cam.viewRect(30);                 // (con Ultra, también las esquinas de arriba)
+    ctx.fillRect(vr.x, vr.y, vr.w, vr.h);
     ctx.restore();
   }
 
@@ -1361,7 +1362,7 @@ G.BossFX = (() => {
   function wind(ctx, cam, ax, ay, a, now, col) {
     ctx.save();
     ctx.strokeStyle = col; ctx.lineWidth = 1.5;
-    const L = cam.left(), T = cam.top(), W = cam.w + 160, Hh = cam.h + 160;
+    const vr = cam.viewRect(0), L = vr.x, T = vr.y, W = vr.w + 160, Hh = vr.h + 160;
     for (let i = 0; i < 18; i++) {
       const u = (H(i, 1, 9) * W + now * 420 * ax + 8000 * W) % W, v = (H(i, 2, 9) * Hh + now * 420 * ay + 8000 * Hh) % Hh;
       const x = L - 80 + u, y = T - 80 + v;

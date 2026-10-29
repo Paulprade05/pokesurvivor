@@ -71,7 +71,9 @@ G.Camera = {
   toScreen(x, y) {
     let du = x - this.x, dv = y - this.y;
     const a = this._pa();
-    if (a) { const q = 1 - a * dv; du /= q; dv /= q; }
+    // (Muy por debajo de la vista q llegaría a 0 o menos y la flecha saldría al revés:
+    // con el tope sigue lejos y por abajo, que es lo que importa.)
+    if (a) { const q = Math.max(0.08, 1 - a * dv); du /= q; dv /= q; }
     return { x: (du + this.w / 2 + this._sx) * this.scale, y: (dv + this.h / 2 + this._sy) * this.scale };
   },
   /** Pantalla (px CSS) → mundo (el punto del suelo que se ve ahí). */
@@ -89,6 +91,17 @@ G.Camera = {
     return { x: this.w / 2 * f, top: this.h / 2 * f };
   },
 
+  /**
+   * Rectángulo del mundo que cubre todo lo que se ve (con margen): con Ultra, más
+   * ancho y más alto por arriba. Para lo que tapa la vista entera (velos, oscuridad,
+   * viento): con cam.left/top y w/h, en Ultra quedaban sin cubrir las esquinas de arriba.
+   */
+  viewRect(pad = 0) {
+    const e = this.persp ? this._ext() : null;
+    const ex = (e ? e.x : 0) + pad, et = (e ? e.top : 0) + pad;
+    return { x: this.left() - ex, y: this.top() - et, w: this.w + ex * 2, h: this.h + et + pad };
+  },
+
   /** ¿Está el punto dentro de la vista (con margen)? */
   sees(x, y, pad = 60) {
     const e = this.persp ? this._ext() : null;
@@ -104,9 +117,11 @@ G.Camera = {
    * por arriba o por abajo. En horizontal sale siempre lo de antes.
    */
   /** Radio que cubre la vista (la de este aparato, o la de un compañero si se pasa su ancho y alto). */
-  outerRadius(w = this.w, h = this.h) {
-    // (Ultra: con la perspectiva, las esquinas de arriba quedan más lejos.)
-    const k = this.persp ? 1 / (1 - this.persp) : 1;
+  // (Ultra: con la perspectiva, las esquinas de arriba quedan más lejos. persp: la de quien mira;
+  // de un compañero no se sabe si juega en Ultra y spawner.js pasa ULTRA, por si acaso.)
+  ULTRA: 0.12,
+  outerRadius(w = this.w, h = this.h, persp = this.persp) {
+    const k = persp ? 1 / (1 - persp) : 1;
     return Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
   }
 };

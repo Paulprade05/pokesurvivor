@@ -459,7 +459,7 @@ G.Judgment = (() => {
     let a = 0;
     if (phase === 'cine') a = G.U.clamp((ct - T_PORT) / 0.6, 0, 1) * G.U.clamp((T_LAND + 0.6 - ct) / 0.6, 0, 1);
     if (a <= 0) return;
-    const top = cam.top() - 40, bot = A.y + 6;
+    const top = cam.viewRect(40).y, bot = A.y + 6;
     const near = G.U.clamp(1 - A.lift / 900, 0, 1);
     const w = 40 + near * 40 + Math.sin(ct * 9) * 6;
     ctx.save();
@@ -653,7 +653,7 @@ G.Judgment = (() => {
     G.HUD.pill(ctx, 'SENTENCIA · ' + G.U.mmss(arenaT) + ' · JEFES ' + downs, w, cy, GOLD, 12);
     // Flecha hacia Arceus si no se ve.
     const cam = G.Camera;
-    const sx = (A.x - cam.left()) * cam.scale, sy = (A.y - A.bodyH * 0.5 - cam.top()) * cam.scale;
+    const { x: sx, y: sy } = cam.toScreen(A.x, A.y - A.bodyH * 0.5);   // (con Ultra, con la perspectiva)
     if (sx < 0 || sx > w || sy < 0 || sy > h) {
       const M = 46, ex = G.HUD.edgeX(sx, M, w), ey = G.HUD.edgeY(sy, M + 70, h - M - 80);
       const an = Math.atan2(sy - ey, sx - ex);
