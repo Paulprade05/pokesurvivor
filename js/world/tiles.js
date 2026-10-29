@@ -6,63 +6,60 @@
  * Autotiling: cada tile mira a sus 8 vecinos al pintarse (bordes de pared,
  * cara frontal, esquinas redondeadas, espuma de la orilla...).
  *
- * Estilo «Pokémon de DS» (26-10-2026), sobre todo Mundo Misterioso (Exploradores):
- *   - suelo con textura de verdad según el bioma (ground): briznas de hierba,
- *     losas, ceniza, arena con ondas, nieve, tablas de madera, chapas;
- *   - caminos de tierra clara con el borde de hierba que asoma por encima;
- *   - paredes de arbustos (bosques: copas apretadas y troncos debajo, como las
- *     paredes de los bosques de Mundo Misterioso) o de roca (losas y estratos);
- *   - agua hundida: se ve el talud de tierra en la orilla de arriba;
- *   - hierba alta como la de los juegos (matas de tres puntas, en filas);
- *   - trampas pintadas en el suelo (charco de veneno, baba, baldosa agrietada
- *     que brilla) en vez de un recuadro.
- * Todo es dibujo propio: nada copiado de los juegos.
+ * Estilo «Pokémon Platino» (27-10-2026; antes, 26-10, más Mundo Misterioso):
+ *   - suelo limpio, de colores vivos, con un dibujo que se repite por tile (las
+ *     «w» de hierba de las rutas, losas, ondas de arena...): se nota la cuadrícula
+ *     como en los juegos de DS y no hay ruido de puntos ni tramados;
+ *   - caminos hechos de tiles con las esquinas redondeadas y el borde limpio;
+ *   - bosques de coníferas redondeadas en filas apretadas (paredes 'bush'): cada
+ *     fila tapa la falda de la de detrás, con contorno marcado;
+ *   - acantilados de roca con estratos (paredes 'rock');
+ *   - agua con su orilla clara y ondas «~»;
+ *   - hierba alta en un tile que se repite (dos filas de matas con las puntas
+ *     claras) que forma campos sin huecos;
+ *   - sombras suaves y redondas debajo de los objetos.
+ * Todo es dibujo propio en código: nada copiado ni sacado de los juegos.
  *
- * Modo Ultra (2,5D, G.Settings 'ultra'): las paredes se levantan (RAISE px de
- * arte más altas, la cara el doble) y se pintan aparte en tiras por fila
- * (caps) para ordenarse por Y con los Pokémon (world.js); el suelo lleva las
- * sombras que proyectan (la luz viene de arriba a la izquierda) y los objetos,
- * su sombra proyectada (castShadow).
+ * Modo Ultra (2,5D, G.Settings 'ultra'): la cámara inclinada con perspectiva va en
+ * game.js (D3). Aquí, las paredes se levantan (RAISE px de arte más altas, la cara
+ * el doble) y se pintan aparte en tiras por fila (caps) para ordenarse por Y con
+ * los Pokémon (world.js).
  */
 G.Tiles = (() => {
   const T = 16;                       // píxeles de arte por tile
   const RAISE = 8;                    // Ultra: cuánto sube la parte de arriba de las paredes (px de arte)
   const CAP_H = T + RAISE;            // Ultra: alto de la tira de paredes de una fila
-  // Ultra: hacia dónde cae la sombra por cada px de altura (luz de arriba a la izquierda).
-  const SUN_X = 0.5, SUN_Y = 0.25;
 
   /*
-   * ground: textura del suelo · walls: 'bush' (arbustos y troncos) o 'rock' ·
-   * mood: luz del modo Ultra { warm, cool, dark } (dark 0..1: oscuridad lejos de ti)
+   * ground: textura del suelo ('grass' | 'stone' | 'ash' | 'sand' | 'snow' | 'wood' | 'metal')
+   * walls: 'bush' (bosque de coníferas) o 'rock' (acantilados)
    */
   const BIOMES = [
+    // Como una ruta de Sinnoh: hierba viva, caminos de tierra clara y bosques de coníferas.
     { name: 'Bosque Umbrío', liquid: 'water', ground: 'grass', walls: 'bush',
-      floor: ['#4a8d40', '#53984a', '#43833a'], dirt: ['#9e8150', '#ab8e5b', '#907448'],
-      speck: '#2d662a', light: '#76b95b', flowers: ['#f4d65c', '#f39ac0', '#eef2ff'],
-      wallTop: ['#5d6e49', '#677a50', '#566544'], wallLight: '#88a06e', wallEdge: '#10240f',
-      wallFace: ['#3e4934', '#363f2d'], wallFaceDark: '#0d1c0c',
-      liq: '#3f86d0', liqDeep: '#2c64a6', foam: '#c8ecff', shore: '#4e5a2e',
-      prop: 'tree', leaf: ['#1d4d24', '#2a6a2e', '#3f8c3a', '#62b04e'], trunk: ['#5b3b22', '#7a5130'],
-      rock: ['#636b75', '#848d98', '#a8b1bb'], grass: ['#2a682a', '#3f9038', '#6cc04e'],
-      mood: { warm: '#ffe9a8', cool: '#0b2a3a', dark: 0 } },
+      floor: ['#5cbb51', '#68c75a', '#52ad49'], dirt: ['#c39b5e', '#d3ae70', '#e0c186'],
+      speck: '#3e953f', light: '#98e17b', flowers: ['#ffd54a', '#ff7f9e', '#ffffff'],
+      wallTop: ['#5d6e49', '#677a50', '#566544'], wallLight: '#88a06e', wallEdge: '#123a1c',
+      wallFace: ['#2f5a2e', '#264d27'], wallFaceDark: '#0c2412',
+      liq: '#4a98e6', liqDeep: '#3b84d4', foam: '#eaf7ff', shore: '#8a6d43',
+      prop: 'tree', leaf: ['#1d5a2c', '#2e7d36', '#47a043', '#7dca5c'], trunk: ['#5b3a22', '#87582f'],
+      rock: ['#7a818b', '#a1a8b2', '#cbd1d8'], grass: ['#1f7434', '#3a9a42', '#82d266'] },
     { name: 'Cueva Cristal', liquid: 'water', ground: 'stone', walls: 'rock',
-      floor: ['#4d5778', '#535e81', '#47506f'], dirt: ['#3c4462', '#424a69', '#37405b'],
-      speck: '#3b4363', light: '#6a78a4', flowers: ['#8fe3ff', '#c9a6ff', '#7ef0d0'],
-      wallTop: ['#5f5089', '#695996', '#56497d'], wallLight: '#a08ddc', wallEdge: '#1f1934',
-      wallFace: ['#3f3463', '#382e59'], wallFaceDark: '#221c3a',
-      liq: '#2a9cab', liqDeep: '#1d7c8a', foam: '#aaf4f7', shore: '#33405e',
+      floor: ['#5a6590', '#6470a0', '#525c84'], dirt: ['#454f79', '#4c5682', '#535e8b'],
+      speck: '#3f4970', light: '#8794c6', flowers: ['#8fe3ff', '#c9a6ff', '#7ef0d0'],
+      wallTop: ['#6a5a98', '#7666a8', '#5e4f8a'], wallLight: '#b09ce8', wallEdge: '#1f1934',
+      wallFace: ['#463a70', '#3c3164'], wallFaceDark: '#221c3a',
+      liq: '#2fa8c0', liqDeep: '#2389a3', foam: '#c4fbff', shore: '#3a4670',
       prop: 'crystal', leaf: ['#5ad1e8', '#8fe7f5', '#c8f7ff', '#ffffff'], trunk: ['#3a4a78', '#4e64a0'],
-      rock: ['#555d79', '#737c9c', '#959fc0'], grass: ['#3d5c8a', '#5a86c0', '#8ab8ee'],
-      mood: { warm: '#b8f4ff', cool: '#120a30', dark: 0.42 } },
+      rock: ['#5d6684', '#7d87a8', '#a0aaca'], grass: ['#3d5c8a', '#5a86c0', '#8ab8ee'] },
     { name: 'Volcán Ceniza', liquid: 'lava', ground: 'ash', walls: 'rock',
-      floor: ['#5b4537', '#644c3c', '#533f32'], dirt: ['#403530', '#473b34', '#392f2b'],
-      speck: '#47362b', light: '#806452', flowers: ['#ff8d3d', '#ffc45e', '#e06a4a'],
-      wallTop: ['#3c3634', '#443d3a', '#35302e'], wallLight: '#625752', wallEdge: '#141110',
-      wallFace: ['#2b2624', '#25201f'], wallFaceDark: '#151211',
-      liq: '#e45a1f', liqDeep: '#b9401a', foam: '#ffd46a', shore: '#3a2a22',
+      floor: ['#6a5040', '#755a48', '#604838'], dirt: ['#4a3d36', '#52443c', '#5a4b42'],
+      speck: '#4d3a2e', light: '#97775f', flowers: ['#ff8d3d', '#ffc45e', '#e06a4a'],
+      wallTop: ['#4a4240', '#554c49', '#403937'], wallLight: '#7d6f68', wallEdge: '#141110',
+      wallFace: ['#342e2c', '#2c2725'], wallFaceDark: '#151211',
+      liq: '#f0641f', liqDeep: '#c8461a', foam: '#ffe07a', shore: '#3a2a22',
       prop: 'dead', leaf: ['#4a3a30', '#5e4a3c', '#6f5a49', '#806a58'], trunk: ['#3a2e27', '#52423a'],
-      rock: ['#4e4642', '#6a605b', '#877c76'], grass: ['#6b4a2a', '#94693a', '#c4914e'],
-      mood: { warm: '#ffb46a', cool: '#2a0a08', dark: 0.12 } },
+      rock: ['#5a514c', '#776c66', '#968a83'], grass: ['#6b4a2a', '#94693a', '#c4914e'] },
   ];
   const NORMAL = 3;                   // biomas que se van turnando en una run
   const ARENA = 3;                    // a partir de aquí, las arenas de la grieta (una por tipo)
@@ -76,87 +73,87 @@ G.Tiles = (() => {
    *   pillars  probabilidad de una columna 2×2 (cobertura) por bloque
    *   props    densidad de árboles / rocas / hierba
    *   weather  clima que trae (ver systems/weather.js) o null
-   *   ground / walls / mood   como en BIOMES (textura del suelo, paredes, luz del Ultra)
+   *   ground / walls   como en BIOMES (textura del suelo y paredes)
    */
   const ARENA_THEMES = {
-    normal:   { name: 'Pradera Eterna', floor: '#6f8a4f', wall: '#8a7f6a', liquid: 'water', liq: '#4f8fd0', prop: 'tree',
-                leaf: '#5aa04a', trunk: '#6b4a2a', flowers: ['#f4d65c', '#ffffff', '#f39ac0'], grass: '#5a9a40', rock: '#8a8a8a',
+    normal:   { name: 'Pradera Eterna', floor: '#63b552', wall: '#8a7f6a', liquid: 'water', liq: '#4f98e0', prop: 'tree',
+                leaf: '#55a848', trunk: '#6b4a2a', flowers: ['#f4d65c', '#ffffff', '#f39ac0'], grass: '#4fa040', rock: '#8a8a8a',
                 pools: 0, pillars: 0.035, props: { tree: 0.025, grass: 0.05 }, weather: null,
-                ground: 'grass', walls: 'bush', mood: { warm: '#fff0b0', cool: '#10283a', dark: 0 } },
-    fire:     { name: 'Volcán Ígneo', floor: '#5b3a2e', wall: '#3a2826', liquid: 'lava', liq: '#e45a1f', foam: '#ffd46a', prop: 'dead',
+                ground: 'grass', walls: 'bush' },
+    fire:     { name: 'Volcán Ígneo', floor: '#653f30', wall: '#3a2826', liquid: 'lava', liq: '#f0601f', foam: '#ffd46a', prop: 'dead',
                 leaf: '#5e4a3c', trunk: '#3a2e27', flowers: ['#ff8d3d', '#ffc45e', '#e06a4a'], grass: '#94693a', rock: '#6a605b',
                 pools: 0.31, pillars: 0.03, props: { tree: 0.01 }, weather: 'sun',
-                ground: 'ash', walls: 'rock', mood: { warm: '#ffa050', cool: '#300806', dark: 0.1 } },
-    water:    { name: 'Gruta Marina', floor: '#3c6a80', wall: '#2a4660', liquid: 'water', liq: '#2f86d6', foam: '#bfeaff', prop: 'crystal',
+                ground: 'ash', walls: 'rock' },
+    water:    { name: 'Gruta Marina', floor: '#457891', wall: '#2a4660', liquid: 'water', liq: '#3a90e0', foam: '#cff0ff', prop: 'crystal',
                 leaf: '#5fd0e8', trunk: '#2a4a78', flowers: ['#ff9ec4', '#7ef0d0', '#ffffff'], grass: '#3f8a9a', rock: '#5d7a90',
                 pools: 0.33, pillars: 0.02, props: { tree: 0.015 }, weather: 'rain',
-                ground: 'stone', walls: 'rock', mood: { warm: '#c0f0ff', cool: '#04203a', dark: 0.18 } },
-    grass:    { name: 'Selva Esmeralda', floor: '#3a7a32', wall: '#4a6a36', liquid: 'swamp', liq: '#4f6b2a', foam: '#9ac25a', prop: 'tree',
-                leaf: '#3f9a3a', trunk: '#5b3b22', flowers: ['#f4d65c', '#ff8ad8', '#ffffff'], grass: '#4caa3f', rock: '#6a7a5a',
+                ground: 'stone', walls: 'rock' },
+    grass:    { name: 'Selva Esmeralda', floor: '#4ea844', wall: '#4a6a36', liquid: 'swamp', liq: '#557531', foam: '#a6cc66', prop: 'tree',
+                leaf: '#3f9a3a', trunk: '#5b3b22', flowers: ['#f4d65c', '#ff8ad8', '#ffffff'], grass: '#46a83c', rock: '#6a7a5a',
                 pools: 0.22, pillars: 0, props: { tree: 0.05, grass: 0.12 }, weather: null,
-                ground: 'grass', walls: 'bush', mood: { warm: '#f0ffb0', cool: '#06281a', dark: 0.06 } },
-    electric: { name: 'Central Voltio', floor: '#4a4840', wall: '#3a3a48', liquid: 'spark', liq: '#e8c020', foam: '#fff6c0', prop: 'crystal',
+                ground: 'grass', walls: 'bush' },
+    electric: { name: 'Central Voltio', floor: '#55534a', wall: '#3a3a48', liquid: 'spark', liq: '#e8c020', foam: '#fff6c0', prop: 'crystal',
                 leaf: '#ffd23f', trunk: '#5a5030', flowers: ['#ffe14d', '#ffffff', '#7fd0ff'], grass: '#8a8a40', rock: '#70707a',
                 pools: 0.28, pillars: 0.04, props: { tree: 0.01 }, weather: 'rain',
-                ground: 'metal', walls: 'rock', mood: { warm: '#fff4a0', cool: '#10102a', dark: 0.15 } },
-    ice:      { name: 'Glaciar Eterno', floor: '#b8cfe0', wall: '#7f9fc0', liquid: 'ice', liq: '#9fd8f0', foam: '#ffffff', prop: 'crystal',
+                ground: 'metal', walls: 'rock' },
+    ice:      { name: 'Glaciar Eterno', floor: '#c6dcec', wall: '#7f9fc0', liquid: 'ice', liq: '#a6dcf4', foam: '#ffffff', prop: 'crystal',
                 leaf: '#bfe8ff', trunk: '#6f8fb0', flowers: ['#ffffff', '#9fe0ff', '#d8f1ff'], grass: '#9fc0d8', rock: '#8fa8c0',
                 pools: 0.36, pillars: 0.02, props: { tree: 0.02 }, weather: 'snow',
-                ground: 'snow', walls: 'rock', mood: { warm: '#ffffff', cool: '#1a3a6a', dark: 0 } },
-    fighting: { name: 'Dojo Ancestral', floor: '#8a6a46', wall: '#5e4232', liquid: 'water', liq: '#4f8fd0', prop: 'tree',
+                ground: 'snow', walls: 'rock' },
+    fighting: { name: 'Dojo Ancestral', floor: '#9a7650', wall: '#5e4232', liquid: 'water', liq: '#4f98e0', prop: 'tree',
                 leaf: '#4f8a3a', trunk: '#5b3b22', flowers: ['#ff5f6d', '#f4d65c', '#ffffff'], grass: '#6a8a40', rock: '#8a7a6a',
                 pools: 0, pillars: 0.075, props: { tree: 0.008 }, weather: null,
-                ground: 'wood', walls: 'rock', mood: { warm: '#ffe0a0', cool: '#2a140a', dark: 0.05 } },
-    poison:   { name: 'Ciénaga Tóxica', floor: '#46384f', wall: '#33263f', liquid: 'poison', liq: '#9a4fc0', foam: '#e0a6ff', prop: 'dead',
+                ground: 'wood', walls: 'rock' },
+    poison:   { name: 'Ciénaga Tóxica', floor: '#4e3f58', wall: '#33263f', liquid: 'poison', liq: '#a452cc', foam: '#e6b0ff', prop: 'dead',
                 leaf: '#5a4a6a', trunk: '#3a2f45', flowers: ['#c86bdc', '#8bd94a', '#e0a6ff'], grass: '#6a5a8a', rock: '#5a4f6a',
                 pools: 0.31, pillars: 0.015, props: { tree: 0.02 }, weather: null,
-                ground: 'stone', walls: 'rock', mood: { warm: '#e8b0ff', cool: '#140820', dark: 0.32 } },
-    ground:   { name: 'Desierto Rojo', floor: '#b08a52', wall: '#8a5e34', liquid: 'swamp', liq: '#9a7a48', foam: '#d6b98a', prop: 'dead',
+                ground: 'stone', walls: 'rock' },
+    ground:   { name: 'Desierto Rojo', floor: '#c49a5c', wall: '#8a5e34', liquid: 'swamp', liq: '#9a7a48', foam: '#d6b98a', prop: 'dead',
                 leaf: '#8a6a40', trunk: '#6a4a2a', flowers: ['#e06a4a', '#f4d65c', '#ffffff'], grass: '#b0904a', rock: '#9a7a5a',
                 pools: 0.25, pillars: 0.04, props: { tree: 0.01, rock: 0.015 }, weather: 'sand',
-                ground: 'sand', walls: 'rock', mood: { warm: '#ffd890', cool: '#3a1a08', dark: 0 } },
-    flying:   { name: 'Pico Celeste', floor: '#9fb8d8', wall: '#dfe8f4', liquid: 'water', liq: '#7fb8ff', prop: 'tree',
+                ground: 'sand', walls: 'rock' },
+    flying:   { name: 'Pico Celeste', floor: '#a8c2e2', wall: '#dfe8f4', liquid: 'water', liq: '#7fb8ff', prop: 'tree',
                 leaf: '#e8f2ff', trunk: '#9aa8c0', flowers: ['#ffffff', '#ffe14d', '#bfe0ff'], grass: '#b8d0e8', rock: '#c0ccdc',
                 pools: 0, pillars: 0.02, props: { tree: 0.025 }, weather: null,
-                ground: 'snow', walls: 'rock', mood: { warm: '#ffffff', cool: '#20406a', dark: 0 } },
-    psychic:  { name: 'Templo Mental', floor: '#5e4470', wall: '#3e2a55', liquid: 'water', liq: '#8a5ad0', prop: 'crystal',
+                ground: 'snow', walls: 'rock' },
+    psychic:  { name: 'Templo Mental', floor: '#684c7c', wall: '#3e2a55', liquid: 'water', liq: '#8a5ad0', prop: 'crystal',
                 leaf: '#ff8ad8', trunk: '#5a3a7a', flowers: ['#ff8ad8', '#c9a6ff', '#ffffff'], grass: '#8a5a9a', rock: '#7a6a8a',
                 pools: 0, pillars: 0.045, props: { tree: 0.02 }, weather: null,
-                ground: 'stone', walls: 'rock', mood: { warm: '#ffc0f0', cool: '#180a30', dark: 0.2 } },
-    bug:      { name: 'Bosque Colmena', floor: '#5a6a2a', wall: '#5e4a26', liquid: 'swamp', liq: '#6a7a2a', foam: '#c4d65a', prop: 'tree',
+                ground: 'stone', walls: 'rock' },
+    bug:      { name: 'Bosque Colmena', floor: '#74962e', wall: '#5e4a26', liquid: 'swamp', liq: '#6a7a2a', foam: '#c4d65a', prop: 'tree',
                 leaf: '#8aaa30', trunk: '#5b3b22', flowers: ['#f4d65c', '#ffffff', '#c4d65a'], grass: '#8aaa30', rock: '#7a7a5a',
                 pools: 0.2, pillars: 0, props: { tree: 0.04, grass: 0.12 }, weather: null,
-                ground: 'grass', walls: 'bush', mood: { warm: '#fff0a0', cool: '#1a200a', dark: 0.08 } },
-    rock:     { name: 'Cantera Antigua', floor: '#7a6a58', wall: '#55473a', liquid: 'water', liq: '#4f8fd0', prop: 'dead',
+                ground: 'grass', walls: 'bush' },
+    rock:     { name: 'Cantera Antigua', floor: '#8a7864', wall: '#55473a', liquid: 'water', liq: '#4f98e0', prop: 'dead',
                 leaf: '#6a5a4a', trunk: '#4a3e32', flowers: ['#c9b28a', '#ffffff', '#a89070'], grass: '#8a7a5a', rock: '#8a7a6a',
                 pools: 0, pillars: 0.08, props: { rock: 0.03 }, weather: 'sand',
-                ground: 'stone', walls: 'rock', mood: { warm: '#ffe0b0', cool: '#20140a', dark: 0 } },
-    ghost:    { name: 'Cementerio Sombrío', floor: '#383447', wall: '#24202e', liquid: 'water', liq: '#3a3a6a', prop: 'dead',
+                ground: 'stone', walls: 'rock' },
+    ghost:    { name: 'Cementerio Sombrío', floor: '#3e3a4f', wall: '#24202e', liquid: 'water', liq: '#3a3a6a', prop: 'dead',
                 leaf: '#4a4060', trunk: '#2e2838', flowers: ['#9a8ad0', '#5fe0c0', '#c9cfdc'], grass: '#4a4a60', rock: '#5a5670',
                 pools: 0, pillars: 0.03, props: { tree: 0.03 }, weather: 'fog',
-                ground: 'stone', walls: 'rock', mood: { warm: '#c8c0ff', cool: '#08061a', dark: 0.5 } },
-    dragon:   { name: 'Santuario Dragón', floor: '#363a5e', wall: '#24264a', liquid: 'lava', liq: '#7b5cff', foam: '#c9a6ff', prop: 'crystal',
+                ground: 'stone', walls: 'rock' },
+    dragon:   { name: 'Santuario Dragón', floor: '#3c4066', wall: '#24264a', liquid: 'lava', liq: '#7b5cff', foam: '#c9a6ff', prop: 'crystal',
                 leaf: '#7b5cff', trunk: '#2a2a5a', flowers: ['#7b5cff', '#ffd23f', '#ffffff'], grass: '#4a4a8a', rock: '#5a5a8a',
                 pools: 0.22, pillars: 0.04, props: { tree: 0.015 }, weather: null,
-                ground: 'stone', walls: 'rock', mood: { warm: '#d8c8ff', cool: '#0a0628', dark: 0.32 } },
-    dark:     { name: 'Callejón Oscuro', floor: '#2c282e', wall: '#1c181f', liquid: 'water', liq: '#2a2a3a', prop: 'dead',
+                ground: 'stone', walls: 'rock' },
+    dark:     { name: 'Callejón Oscuro', floor: '#332e35', wall: '#1c181f', liquid: 'water', liq: '#2a2a3a', prop: 'dead',
                 leaf: '#3a3040', trunk: '#241e28', flowers: ['#ff5f6d', '#6b5c52', '#9a8a9a'], grass: '#3a343a', rock: '#4a444a',
                 pools: 0, pillars: 0.05, props: { tree: 0.02 }, weather: null,
-                ground: 'stone', walls: 'rock', mood: { warm: '#ffd0c0', cool: '#06040a', dark: 0.52 } },
-    steel:    { name: 'Fortaleza de Acero', floor: '#6d7888', wall: '#465060', liquid: 'water', liq: '#4f8fd0', prop: 'crystal',
+                ground: 'stone', walls: 'rock' },
+    steel:    { name: 'Fortaleza de Acero', floor: '#76818f', wall: '#465060', liquid: 'water', liq: '#4f98e0', prop: 'crystal',
                 leaf: '#c9d2de', trunk: '#5d6773', flowers: ['#c9d2de', '#ffd23f', '#ffffff'], grass: '#8a96a6', rock: '#9aa6b5',
                 pools: 0, pillars: 0.08, props: { tree: 0.01 }, weather: null,
-                ground: 'metal', walls: 'rock', mood: { warm: '#f0f6ff', cool: '#0a1428', dark: 0.08 } },
-    fairy:    { name: 'Bosque Encantado', floor: '#4f7f5a', wall: '#7a5a8a', liquid: 'water', liq: '#8fd8ff', foam: '#ffe0f4', prop: 'tree',
+                ground: 'metal', walls: 'rock' },
+    fairy:    { name: 'Bosque Encantado', floor: '#5fa46c', wall: '#7a5a8a', liquid: 'water', liq: '#8fd8ff', foam: '#ffe0f4', prop: 'tree',
                 leaf: '#e08ad0', trunk: '#6b4a5a', flowers: ['#ff8ad8', '#ffffff', '#c9a6ff'], grass: '#c48ad8', rock: '#9a8aa8',
                 pools: 0.16, pillars: 0, props: { tree: 0.05, grass: 0.1 }, weather: null,
-                ground: 'grass', walls: 'bush', mood: { warm: '#ffe0f8', cool: '#1a0a2a', dark: 0.06 } },
+                ground: 'grass', walls: 'bush' },
     // La arena de Arceus al minuto 30 (systems/judgment.js): ceniza, ruinas y
     // árboles muertos, con un claro donde aterriza (clear). No es de ninguna grieta.
-    judgment: { name: 'Ruinas del Juicio', floor: '#4a4240', wall: '#2e2829', liquid: 'lava', liq: '#e8a82a', foam: '#fff1b8', prop: 'dead',
+    judgment: { name: 'Ruinas del Juicio', floor: '#4f4644', wall: '#2e2829', liquid: 'lava', liq: '#e8a82a', foam: '#fff1b8', prop: 'dead',
                 leaf: '#3e3633', trunk: '#2a2321', flowers: ['#8a7f76', '#e8a82a', '#5a514c'], grass: '#5e544c', rock: '#6a625c',
                 pools: 0, pillars: 0.03, props: { tree: 0.012, rock: 0.02 }, weather: null, clear: 4.5,
-                ground: 'ash', walls: 'rock', mood: { warm: '#fff0b8', cool: '#1a1008', dark: 0.15 } }
+                ground: 'ash', walls: 'rock' }
   };
   const ARENA_TYPES = Object.keys(ARENA_THEMES);
 
@@ -165,22 +162,29 @@ G.Tiles = (() => {
     const c = rgb(hex).map(v => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k)));
     return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
   }
+  /** Mezcla dos colores hex (t = cuánto del segundo) y devuelve hex. */
+  function mixHex(h1, h2, t) {
+    const a = rgb(h1), b = rgb(h2);
+    return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
+  }
 
   /** Paleta completa de bioma a partir de los pocos colores de una arena. */
   function arenaBiome(th) {
     const f = th.floor, w = th.wall, L = th.liq;
-    const bush = th.walls === 'bush';
+    const bush = th.walls === 'bush', grassy = th.ground === 'grass';
+    // (En los de hierba, los caminos son de tierra clara, como en las rutas; en los demás, del suelo más oscuro.)
+    const d = grassy ? mixHex(f, '#d4ad6c', 0.78) : shade(f, -0.13);
     return {
-      name: 'Grieta · ' + th.name, liquid: th.liquid, ground: th.ground || 'stone', walls: th.walls || 'rock', mood: th.mood,
-      floor: [f, shade(f, 0.05), shade(f, -0.06)], dirt: [shade(f, -0.16), shade(f, -0.12), shade(f, -0.2)],
-      speck: shade(f, -0.25), light: shade(f, 0.22), flowers: th.flowers,
+      name: 'Grieta · ' + th.name, liquid: th.liquid, ground: th.ground || 'stone', walls: th.walls || 'rock',
+      floor: [f, shade(f, 0.06), shade(f, -0.06)], dirt: [shade(d, -0.08), d, shade(d, 0.1)],
+      speck: shade(f, grassy ? -0.3 : -0.25), light: shade(f, grassy ? 0.32 : 0.22), flowers: th.flowers,
       wallTop: [w, shade(w, 0.07), shade(w, -0.07)], wallLight: shade(w, 0.32), wallEdge: shade(bush ? th.leaf : w, -0.75),
       wallFace: [shade(w, -0.3), shade(w, -0.38)], wallFaceDark: shade(bush ? th.leaf : w, bush ? -0.8 : -0.55),
-      liq: L, liqDeep: shade(L, -0.22), foam: th.foam || shade(L, 0.55), shore: shade(f, -0.32),
-      prop: th.prop, leaf: [shade(th.leaf, -0.35), shade(th.leaf, -0.15), th.leaf, shade(th.leaf, 0.3)],
+      liq: L, liqDeep: shade(L, -0.18), foam: th.foam || shade(L, 0.6), shore: grassy ? shade(d, -0.3) : shade(f, -0.32),
+      prop: th.prop, leaf: [shade(th.leaf, -0.42), shade(th.leaf, -0.2), th.leaf, shade(th.leaf, 0.32)],
       trunk: [shade(th.trunk, -0.2), th.trunk],
       rock: [shade(th.rock, -0.2), th.rock, shade(th.rock, 0.22)],
-      grass: [shade(th.grass, -0.28), th.grass, shade(th.grass, 0.28)]
+      grass: [shade(th.grass, -0.32), th.grass, shade(th.grass, 0.34)]
     };
   }
   for (const t of ARENA_TYPES) BIOMES.push(arenaBiome(ARENA_THEMES[t]));
@@ -202,11 +206,6 @@ G.Tiles = (() => {
     const a = rgb(h1), b = rgb(h2);
     const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
     return ((255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0;
-  }
-  /** Oscurece un color ya empaquetado (k = cuánto queda: 0..1) tirando un poco a azul (sombra). */
-  function dimPacked(c, k) {
-    const r = c & 255, g = (c >>> 8) & 255, b = (c >>> 16) & 255;
-    return ((255 << 24) | (Math.min(255, b * k + 14) << 16) | ((g * k + 3) << 8) | (r * k)) >>> 0;
   }
 
   /** Lienzo de píxeles: set(x,y,color) y canvas() al final. */
@@ -235,10 +234,6 @@ G.Tiles = (() => {
     return (h >>> 0) / 4294967296;
   }
 
-  // Tramado ordenado (Bayer 4×4), en 0..1: pasa de un tono a otro sin manchas cuadradas.
-  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
-  const bay = (x, y) => BAYER[((y & 3) << 2) | (x & 3)];
-
   /** Luminancia aproximada de un color hex (0..255). */
   const lum = hex => { const [r, g, b] = rgb(hex); return r * 0.3 + g * 0.59 + b * 0.11; };
   /** Colores ordenados de oscuro a claro (las paletas no siempre vienen en orden). */
@@ -246,8 +241,8 @@ G.Tiles = (() => {
   const ramp = list => sortHex(list).map(h => pack(h));
 
   /*
-   * Bultos de los bordes de los arbustos (0..2 px que se come el borde), en
-   * bucle de 32 px: 6 bultos redondos con algo de variación.
+   * Bultos de los bordes de los bosques (0..2 px que se come el borde), en bucle
+   * de 32 px: 6 bultos redondos con algo de variación.
    */
   const BUMP = new Int8Array(32);
   for (let i = 0; i < 32; i++) {
@@ -277,16 +272,14 @@ G.Tiles = (() => {
   }
 
   /**
-   * Tono del suelo de todo el chunk (0..1, con el tramado ya puesto): manchas
-   * grandes (16 px) y medianas (8 px) del mismo ruido que smoothField, pero en
-   * un solo recorrido (el chunk empieza en múltiplo de 16: las celdas encajan).
+   * Tono del suelo de todo el chunk (0..1): manchas grandes (32 px) y medianas
+   * (16 px), calculado cada 2 px. Con él se hacen manchas de 2 o 3 tonos con el
+   * borde limpio (sin tramado: el «ruido de puntos» de antes).
    */
   function toneMap(gx0, gy0, W, s) {
-    // El campo es muy suave: se calcula cada 2 px (un cuarto del trabajo) y el
-    // tramado, que sí va píxel a píxel, se suma al leerlo (paintFloor).
     const hw = W >> 1, out = new Float32Array(hw * hw);
-    addTone(out, hw, gx0, gy0, 3, 0.62, s + 41);    // celdas de 16 px (8 en la rejilla de 2 px)
-    addTone(out, hw, gx0, gy0, 2, 0.38, s + 42);    // celdas de 8 px
+    addTone(out, hw, gx0, gy0, 4, 0.66, s + 41);    // celdas de 32 px (16 en la rejilla de 2 px)
+    addTone(out, hw, gx0, gy0, 3, 0.34, s + 42);    // celdas de 16 px
     return out;
   }
   function addTone(out, hw, gx0, gy0, bits, k, s) {
@@ -307,33 +300,55 @@ G.Tiles = (() => {
   }
 
   /*
-   * Textura de hojas de 32×32 que encaja consigo misma (para la parte de arriba
-   * de las paredes de arbustos): racimos redondos con luz arriba a la izquierda,
-   * pintados de arriba abajo para que cada uno tape un poco al de detrás.
+   * Bosque denso (paredes 'bush'), como los bosques de coníferas de las rutas de
+   * Sinnoh (dibujo propio): copas de conífera de 18×17 en filas cada 8 px, al
+   * tresbolillo (cada fila, media copa de lado); se pintan de arriba abajo, así la
+   * de delante tapa la falda de la de detrás. Se hace una textura de 32×32 que
+   * encaja consigo misma (full) y, para la primera fila de tiles de cada bosque,
+   * otra con sólo las dos filas de copas que nacen en ese tile (top; entre las
+   * puntas queda transparente y se ve el suelo de detrás). k0odd: la primera fila
+   * de copas es de las desplazadas (en Ultra, las paredes suben 8 px).
    */
-  function leafTexture(B) {
-    const L = ramp(B.leaf), out = new Uint32Array(32 * 32);
-    const edge = pack(B.wallEdge);
-    out.fill(L[0]);
-    const clumps = [];
-    for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) {
-      clumps.push([i * 8 + (j & 1) * 4 + H(i, j, 11) * 3, j * 8 + H(i, j, 12) * 3, 4.6 + H(i, j, 13) * 1.4]);
-    }
-    clumps.sort((a, b) => a[1] - b[1]);
-    for (const [cx, cy, r] of clumps) {
-      for (let y = Math.floor(cy - r) - 1; y <= cy + r + 1; y++) for (let x = Math.floor(cx - r) - 1; x <= cx + r + 1; x++) {
-        const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) / r;
-        if (d > 1) continue;
-        const lit = (-dx * 0.6 - dy * 0.8) / r;
-        let idx = lit > 0.45 ? 3 : lit > 0 ? 2 : lit > -0.5 ? 1 : 0;
-        if (d > 0.82 && lit < -0.1) idx = 0;
-        const tex = H(x >> 1, (y + (x & 1)) >> 1, 14);
-        if (tex > 0.86 && idx < 3 && lit > -0.2) idx++;
-        let c = L[idx];
-        if (d > 0.9 && dy > 0) c = edge;                    // contorno de abajo de cada racimo
-        out[(y & 31) * 32 + (x & 31)] = c;
+  function coneShape(L, edge) {
+    // Tres pisos que se ensanchan; el de abajo, más ancho que el de arriba (falda).
+    const TIERS = [[0, 5, 1, 4.2], [5, 10, 2.8, 6.6], [10, 16, 4.6, 8.8]];
+    const px = [];
+    for (const [y0, y1, w0, w1] of TIERS) {
+      for (let y = y0; y <= y1; y++) {
+        const t = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * t;
+        for (let x = 0; x < 18; x++) {
+          const dx = x + 0.5 - 9, u = dx / hw;
+          if (Math.abs(u) > 1) continue;
+          let idx = u < -0.45 ? 3 : u < 0.05 ? 2 : u < 0.6 ? 1 : 0;
+          if (y >= y1 - 1) idx = Math.max(0, idx - 1);                 // la falda, en sombra
+          else if (y <= y0 + 1 && Math.abs(dx) < 1.6) idx = 3;          // luz en la punta de cada piso
+          let c = L[idx];
+          if (Math.abs(dx) > hw - 1 || y === y1 && y1 === 16) c = edge; // contorno
+          else if (y === y1) c = L[0];                                  // raya oscura entre pisos
+          px.push([x, y, c]);
+        }
       }
     }
+    return px;
+  }
+  function canopy(B, top, k0odd) {
+    const L = ramp(B.leaf), edge = pack(B.wallEdge), shape = coneShape(L, edge);
+    const BW = 96, BH = 96, buf = new Uint32Array(BW * BH);
+    // Filas k (y = 8k); desplazadas las impares (+8 en x). Se recorta [32, 64) en x e y.
+    for (let k = 0; k < 12; k++) {
+      const y0 = k * 8;
+      if (top && (y0 < 32 || y0 > 40)) continue;                        // top: sólo las filas en y = 0 y 8 del recorte
+      const odd = ((k + (top && k0odd ? 1 : 0)) & 1) === 1;
+      for (let m = 0; m < 7; m++) {
+        const cx = m * 16 + (odd ? 8 : 0);
+        for (const [x, y, c] of shape) {
+          const X = cx + x - 9 + 8, Y = y0 + y;
+          if (X >= 0 && X < BW && Y < BH) buf[Y * BW + X] = c;
+        }
+      }
+    }
+    const out = new Uint32Array(32 * 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) out[y * 32 + x] = buf[(y + 32) * BW + x + 32];
     return out;
   }
 
@@ -344,27 +359,33 @@ G.Tiles = (() => {
     if (C) return C;
     const B = BIOMES[bi];
     const fl = sortHex(B.floor), dt = sortHex(B.dirt), wt = sortHex(B.wallTop);
+    const bush = B.walls === 'bush';
     C = {
       floor: fl.map(h => pack(h)), dirt: dt.map(h => pack(h)), wallTop: wt.map(h => pack(h)),
       wallFace: ramp(B.wallFace), flowers: B.flowers.map(h => pack(h)), rock: ramp(B.rock),
       speck: pack(B.speck), light: pack(B.light), wallLight: pack(B.wallLight), wallEdge: pack(B.wallEdge),
       wallFaceDark: pack(B.wallFaceDark), liq: pack(B.liq), liqDeep: pack(B.liqDeep), foam: pack(B.foam), shore: pack(B.shore),
-      liqLight: mixPack(B.liq, B.foam, 0.28),
+      liqLight: mixPack(B.liq, B.foam, 0.3),
       // Sombra de contacto de las paredes sobre el suelo (fuerte y suave).
-      shade: mixPack(fl[0], B.wallFaceDark, 0.55), shade2: mixPack(fl[0], B.wallFaceDark, 0.22),
-      dirtEdge: mixPack(dt[0], B.speck, 0.55), dirtShade: mixPack(dt[0], B.speck, 0.25),
+      shade: mixPack(fl[0], B.wallFaceDark, 0.5), shade2: mixPack(fl[0], B.wallFaceDark, 0.22),
+      // Caminos: borde oscuro, sombra de la hierba en el borde de arriba, piedrecitas.
+      dirtEdge: mixPack(dt[0], B.speck, 0.5), dirtShade: mixPack(dt[0], dt[1], 0.35),
+      grassRim: mixPack(fl[0], B.speck, 0.55),
       crack: mixPack(wt[0], B.wallEdge, 0.55), wallRim: mixPack(wt[2], B.wallLight, 0.6),
       faceLight: mixPack(sortHex(B.wallFace)[1], B.wallTop[0], 0.45),
-      flowerMid: B.flowers.map(h => pack(lum(h) > 175 ? '#c8742c' : '#fff1a8')),
+      faceSeam: mixPack(sortHex(B.wallFace)[0], B.wallFaceDark, 0.6),
+      flowerMid: B.flowers.map(h => pack(lum(h) > 175 ? '#e0902c' : '#fff1a8')),
       // Talud de la orilla de arriba del agua (se ve la tierra: el agua está más baja).
-      bank: [mixPack(B.shore, '#000000', 0.35), pack(B.shore), mixPack(B.shore, dt[1], 0.45)],
-      bankShadow: mixPack(B.liqDeep, '#000000', 0.25),
-      // Arbustos: hojas, troncos y el hueco oscuro entre ellos.
-      leaf: ramp(B.leaf), trunk: ramp(B.trunk), gap: pack(B.wallFaceDark),
+      bank: [mixPack(B.shore, '#000000', 0.3), pack(B.shore), mixPack(B.shore, dt[2], 0.45)],
+      bankShadow: mixPack(B.liqDeep, '#000000', 0.22),
+      // Bosques: hojas, troncos y el hueco oscuro entre ellos.
+      leaf: ramp(B.leaf), trunk: ramp(B.trunk),
+      gap: mixPack(sortHex(B.leaf)[0], B.wallFaceDark, 0.55),
       trunkDark: mixPack(sortHex(B.trunk)[0], B.wallFaceDark, 0.45),
-      leafTex: B.walls === 'bush' ? leafTexture(B) : null,
-      // Grietas / juntas del suelo de piedra, madera y metal.
-      seam: mixPack(fl[0], '#000000', 0.32), seamLight: mixPack(fl[2], '#ffffff', 0.18),
+      canopy: bush ? canopy(B, false, false) : null,
+      canopyTop: bush ? [canopy(B, true, false), canopy(B, true, true)] : null,
+      // Juntas del suelo de piedra, madera y metal.
+      seam: mixPack(fl[0], '#000000', 0.3), seamLight: mixPack(fl[2], '#ffffff', 0.2),
       cinder: pack('#ff8a3d'), sparkle: pack('#ffffff')
     };
     palCache.set(bi, C);
@@ -373,34 +394,35 @@ G.Tiles = (() => {
 
   // ---------------- chunk de suelo ----------------
 
-  /**
-   * Máscara de tierra del chunk a resolución de píxel (con DOS filas de más por
-   * arriba y una por abajo para ver los bordes). El ruido se evalúa cada 4 px y se
-   * interpola: ~30 veces menos llamadas que evaluarlo píxel a píxel.
+  /*
+   * Caminos de tierra hechos de tiles, como en los juegos de DS: cada tile es de
+   * tierra o no (el campo suave de world.js en su centro) y las esquinas se
+   * redondean (radio RC) por fuera y por dentro: borde limpio, sin deshilachar.
+   * Máscara del chunk a resolución de píxel con un píxel de margen a los lados,
+   * MT filas de más por arriba y una por abajo (para ver los bordes).
    */
-  const MT = 2;                      // filas de más por arriba en la máscara
-  function dirtMask(gx0, gy0, W, field, seed) {
-    const S = 4, gw = W / S + 3;
-    const grid = new Float32Array(gw * gw);
+  const MT = 2, RC = 5;
+  function dirtMask(tx0, ty0, n, field) {
+    const W = n * T, gw = n + 4;
+    const tiles = new Uint8Array(gw * gw);                // tiles de -2 a n+1
     for (let j = 0; j < gw; j++) for (let i = 0; i < gw; i++)
-      grid[j * gw + i] = field(gx0 + (i - 1) * S, gy0 + (j - 1) * S);
-    const mask = new Uint8Array(W * (W + MT + 1));
-    // El temblor del borde va por bloques de 2×2 px: se calcula una vez por bloque.
-    const jit = new Float32Array(W >> 1);
-    for (let y = -MT; y <= W; y++) {
-      if (y === -MT || !(y & 1)) for (let i = 0; i < W >> 1; i++) jit[i] = (H((gx0 >> 1) + i, (gy0 + y) >> 1, seed + 9) - 0.5) * 0.05;
-      const fy = (y + S) / S, j = Math.floor(fy), v = fy - j;
-      for (let x = 0; x < W; x++) {
-        const fx = (x + S) / S, i = Math.floor(fx), u = fx - i;
-        const a = grid[j * gw + i], b = grid[j * gw + i + 1];
-        const c = grid[(j + 1) * gw + i], d = grid[(j + 1) * gw + i + 1];
-        const val = (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v + jit[x >> 1];
-        mask[(y + MT) * W + x] = val > 0.64 ? 1 : 0;
+      tiles[j * gw + i] = field((tx0 + i - 2) * T + T / 2, (ty0 + j - 2) * T + T / 2) > 0.67 ? 1 : 0;
+    const D = (i, j) => tiles[(j + 2) * gw + i + 2] === 1;
+    const MW = W + 2, mask = new Uint8Array(MW * (W + MT + 2));
+    for (let y = -MT; y <= W; y++) for (let x = -1; x <= W; x++) {
+      const i = x >> 4, j = y >> 4, lx = x & 15, ly = y & 15;
+      let d = D(i, j);
+      const sx = lx < RC ? -1 : lx >= T - RC ? 1 : 0, sy = ly < RC ? -1 : ly >= T - RC ? 1 : 0;
+      if (sx && sy) {
+        const hn = D(i + sx, j), vn = D(i, j + sy);
+        const ccx = sx < 0 ? RC - 0.5 : T - RC - 0.5, ccy = sy < 0 ? RC - 0.5 : T - RC - 0.5;
+        if (hn === vn && hn !== d && (lx - ccx) ** 2 + (ly - ccy) ** 2 > RC * RC) d = hn;   // esquina por fuera / por dentro
       }
+      mask[(y + MT) * MW + x + 1] = d ? 1 : 0;
     }
-    // dirtAt(x, y) en coordenadas locales del chunk (y de -MT a W); .mask: fila y en (y+MT)·W.
-    const dirtAt = (x, y) => mask[(y + MT) * W + x] === 1;
-    dirtAt.mask = mask;
+    // dirtAt(x, y) en coordenadas locales del chunk (x de -1 a W, y de -MT a W).
+    const dirtAt = (x, y) => mask[(y + MT) * MW + x + 1] === 1;
+    dirtAt.mask = mask; dirtAt.MW = MW;
     return dirtAt;
   }
 
@@ -411,14 +433,13 @@ G.Tiles = (() => {
    * cuesta por fotograma.
    *
    * ultra: las paredes no van en el suelo sino en .caps (una tira de CAP_H px por
-   * fila con paredes; .capSlot[fila] = su hueco o -1) y el suelo lleva las sombras
-   * que proyectan.
+   * fila con paredes; .capSlot[fila] = su hueco o -1).
    */
   function paintChunk(cx, cy, n, at, dirtField, bi, seed = 0, ultra = false) {
     const P = Pix(n * T, n * T);
     const C = palette(bi), B = BIOMES[bi];
     const tx0 = cx * n, ty0 = cy * n, gx0 = tx0 * T, gy0 = ty0 * T, W = n * T;
-    const dirtAt = dirtMask(gx0, gy0, W, dirtField, seed);
+    const dirtAt = dirtMask(tx0, ty0, n, dirtField);
     const F = { tone: toneMap(gx0, gy0, W, seed), W, rock: null, crack: null, ultra };
     // Terreno del chunk con un tile de borde (para no preguntar a at() en cada píxel).
     const gw = n + 2, kinds = new Uint8Array(gw * gw);
@@ -445,61 +466,37 @@ G.Tiles = (() => {
         paintFloor(P, C, B, ox, oy, tx, ty, dirtAt, at, F, kind === 0);
 
         if (kind === 1) {
-          if (!F.rock) { F.rock = smoothField(gx0, gy0, W, 2, seed + 43); F.crack = smoothField(gx0, gy0, W, 4, seed + 44); }
+          if (!F.rock) { F.rock = smoothField(gx0, gy0, W, 3, seed + 43); F.crack = smoothField(gx0, gy0, W, 4, seed + 44); }
           if (ultra) paintWall(caps, C, B, ox, capSlot[j] * CAP_H, tx, ty, at, F, true);
           else paintWall(P, C, B, ox, oy, tx, ty, at, F, false);
         } else if (kind === 2) paintLiquid(P, C, ox, oy, tx, ty, at);
       }
     }
-    if (ultra) castWallShadows(P, n, kindAt);
     const cv = P.canvas();
     if (ultra) { cv.caps = caps ? caps.canvas() : null; cv.capSlot = capSlot; }
     return cv;
   }
 
-  /*
-   * Ultra: sombra que proyectan las paredes (altas: T px de arte) sobre el suelo,
-   * hacia abajo a la derecha. Un píxel está en sombra si yendo hacia el sol
-   * (arriba a la izquierda) se topa con una pared antes de T·SUN px. Sólo mira
-   * los tiles que tienen una pared al lado.
-   */
-  function castWallShadows(P, n, kindAt) {
-    const W = n * T, buf = P.buf;
-    const L = T * 0.6;                                   // largo de la sombra (en x; en y, la mitad)
-    const wallPx = (x, y) => kindAt(Math.floor(x / T), Math.floor(y / T)) === 1;
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      if (kindAt(i, j) === 1) {
-        // Bajo la pared (se ve en las esquinas recortadas): oscuro.
-        for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) { const o = (j * T + y) * W + i * T + x; buf[o] = dimPacked(buf[o], 0.5); }
-        continue;
-      }
-      if (kindAt(i - 1, j) !== 1 && kindAt(i, j - 1) !== 1 && kindAt(i - 1, j - 1) !== 1) continue;
-      for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-        const px = i * T + x, py = j * T + y;
-        let hit = 0;
-        for (let s = 1; s <= 4 && !hit; s++) if (wallPx(px - L * s / 4, py - L * s / 8)) hit = s;
-        if (!hit) continue;
-        // Junto a la pared, más oscura (oclusión); al final de la sombra, tramada.
-        if (hit === 4 && bay(px, py) < 0.5) continue;
-        const o = py * W + px;
-        buf[o] = dimPacked(buf[o], hit === 1 ? 0.58 : 0.68);
-      }
-    }
-  }
-
-  // Detalles del suelo: [dx, dy, color] (L luz, G hierba clara, D sombra, F flor,
-  // M centro de la flor, R0..R2 piedra de oscura a clara).
-  const TUFT = [[-1, -2, 'L'], [1, -2, 'L'], [0, -1, 'L'], [-1, -1, 'G'], [1, -1, 'G'], [-1, 0, 'D'], [0, 0, 'G'], [1, 0, 'D']];
+  // Detalles del suelo: [dx, dy, color] (L luz, G hierba clara, D oscuro, F flor,
+  // M centro de la flor, R0..R2 piedra de oscura a clara, S/W brillo).
   const FLOWER = [[0, -1, 'F'], [-1, 0, 'F'], [1, 0, 'F'], [0, 1, 'F'], [0, 0, 'M'], [1, 1, 'D'], [0, 2, 'D'], [-1, 1, 'D']];
   const PEBBLE = [[0, 0, 'R2'], [1, 0, 'R1'], [0, 1, 'R1'], [1, 1, 'R0'], [2, 1, 'D'], [1, 2, 'D']];
   const CRACK = [[0, 0, 'D'], [1, 1, 'D'], [2, 1, 'D'], [3, 2, 'D'], [1, 0, 'R1']];
   const CRACK2 = [[0, 0, 'D'], [1, 0, 'D'], [2, 1, 'D'], [2, 2, 'D'], [3, 3, 'D'], [1, 1, 'R1'], [3, 2, 'R1']];
-  // Briznas de hierba del suelo (estilo de las rutas de DS): V, W y una sola.
-  const BLADE_V = [[-1, -1, 'L'], [1, -1, 'L'], [-1, 0, 'G'], [0, 0, 'D'], [1, 0, 'G']];
-  const BLADE_W = [[-2, -1, 'L'], [0, -2, 'L'], [2, -1, 'L'], [0, -1, 'G'], [-1, 0, 'D'], [1, 0, 'D']];
-  const BLADE_1 = [[0, -1, 'L'], [0, 0, 'G'], [1, 0, 'D']];
+  // La «w» de las rutas: dos briznas en V, con luz en la punta de la izquierda.
+  const GRASS_W = [[0, -1, 'D'], [1, 0, 'D'], [2, -1, 'D'], [3, 0, 'D'], [4, -1, 'D'], [0, -2, 'L']];
+  const GRASS_V = [[0, -1, 'D'], [1, 0, 'D'], [2, -1, 'D'], [0, -2, 'L']];
   const SPARK = [[0, -1, 'S'], [-1, 0, 'S'], [0, 0, 'W'], [1, 0, 'S'], [0, 1, 'S']];
   const DIMPLE = [[0, 0, 'D'], [1, 0, 'D'], [2, 0, 'D'], [-1, -1, 'L'], [3, -1, 'L']];
+  const RIPPLE = [[0, 0, 'L'], [1, -1, 'L'], [2, -1, 'L'], [3, 0, 'L'], [0, 1, 'D'], [1, 0, 'D'], [2, 0, 'D'], [3, 1, 'D']];
+  // Dónde van los detalles en cada una de las 4 variantes de tile (un dibujo que se
+  // repite, como el de los tiles de los juegos de DS).
+  const LAYOUT = [
+    [[2, 5], [10, 3], [6, 10], [12, 13]],
+    [[5, 3], [12, 7], [2, 12], [8, 14]],
+    [[3, 8], [10, 11], [8, 4], [13, 2]],
+    [[9, 5], [2, 3], [11, 13], [4, 13]]
+  ];
 
   function stamp(P, shape, x, y, cols) {
     for (const [dx, dy, k] of shape) P.set(x + dx, y + dy, cols[k]);
@@ -511,66 +508,58 @@ G.Tiles = (() => {
 
   function paintFloor(P, C, B, ox, oy, tx, ty, dirtAt, at, F, open) {
     let dirtCount = 0;
-    const mask = dirtAt.mask, W = F.W, tone = F.tone, style = B.ground;
+    const mask = dirtAt.mask, MW = dirtAt.MW, W = F.W, tone = F.tone, style = B.ground;
     const grassy = style === 'grass';
     for (let y = 0; y < T; y++) {
-      const gy = ty * T + y, ly = oy + y, mrow = (ly + MT) * W;
+      const gy = ty * T + y, ly = oy + y, mrow = (ly + MT) * MW + 1;
       for (let x = 0; x < T; x++) {
-        const gx = tx * T + x, lx = ox + x;
-        const dirt = mask[mrow + lx] === 1;
-        const pal = dirt ? C.dirt : C.floor;
-        // Tono suave con tramado: manchas grandes que se funden, sin cuadros ni ruido de sal y pimienta.
-        let v = tone[(ly >> 1) * (W >> 1) + (lx >> 1)] + (BAYER[((gy & 3) << 2) | (gx & 3)] - 0.5) * 0.11;
-        if (!dirt) {
-          if (style === 'wood') {
-            // Tablas de 5 px de alto con juntas a tresbolillo; cada tabla, su tono.
-            const row = Math.floor(gy / 5), seg = Math.floor((gx + H(row, 0, 61) * 24) / 24);
-            v = 0.28 + H(row, seg, 62) * 0.5 + (BAYER[((gy & 3) << 2) | (gx & 3)] - 0.5) * 0.12;
-          } else if (style === 'metal') {
-            v = 0.3 + H(gx >> 4, gy >> 4, 63) * 0.42 + (BAYER[((gy & 3) << 2) | (gx & 3)] - 0.5) * 0.1;
-          }
-        }
-        let col = v < 0.41 ? pal[0] : v > 0.6 ? pal[2] : pal[1];
-        const r = H(gx, gy, 13);
+        const gx = tx * T + x, lx = ox + x, mo = mrow + lx;
+        const dirt = mask[mo] === 1;
+        const v = tone[(ly >> 1) * (W >> 1) + (lx >> 1)];
+        let col;
         if (dirt) {
           dirtCount++;
-          if (r < 0.03) col = pal[0];
-          else if (r > 0.985) col = pal[2];
-          // Bordes de la tierra: la hierba asoma por encima con bultos (como en
-          // los caminos de los juegos), con su sombra debajo; borde con luz abajo.
-          const up1 = mask[mrow - W + lx] === 1, up2 = mask[mrow - 2 * W + lx] === 1;
-          const bump = grassy && BUMP[(gx + 3) & 31] > 0;
-          if (!up1) col = bump ? C.floor[1] : C.dirtEdge;
-          else if (!up2) col = bump ? C.dirtEdge : C.dirtShade;
-          else if (mask[mrow + W + lx] !== 1) col = pal[2];
-          else if (mask[mrow + lx - 1] !== 1 || mask[mrow + lx + 1] !== 1) col = pal[0];
+          // Tierra: lisa, con alguna mancha suave y el borde limpio.
+          col = v < 0.24 ? C.dirt[0] : v > 0.8 ? C.dirt[2] : C.dirt[1];
+          // Borde: una raya más oscura; arriba, la sombra de la hierba sobre el camino.
+          // (Fuera de la hierba, sólo un borde suave: son zonas del suelo más oscuras.)
+          if (mask[mo - MW] !== 1 || mask[mo + MW] !== 1 || mask[mo - 1] !== 1 || mask[mo + 1] !== 1) col = grassy ? C.dirtEdge : C.dirt[0];
+          else if (grassy && mask[mo - 2 * MW] !== 1) col = C.dirtShade;
         } else {
-          if (style === 'wood') {
-            if (gy % 5 === 0) col = C.seam;
-            else if (gy % 5 === 1) col = C.seamLight;
-            else if (Math.floor((gx + H(Math.floor(gy / 5), 0, 61) * 24) % 24) === 0) col = C.seam;
-            else if (r < 0.02) col = C.speck;
+          if (grassy) {
+            // Hierba: un verde limpio con manchas grandes muy suaves (casi no se notan).
+            col = v < 0.3 ? C.floor[0] : C.floor[1];
+          } else if (style === 'wood') {
+            // Tablas de 5 px de alto con juntas a tresbolillo; cada tabla, su tono.
+            // (ry y la junta con floor: también con coordenadas negativas, donde % daba
+            // restos negativos y las tablas salían sin juntas.)
+            const row = Math.floor(gy / 5), sx = gx + H(row, 0, 61) * 24, seg = Math.floor(sx / 24);
+            const k = H(row, seg, 62), ry = gy - row * 5;
+            col = k < 0.33 ? C.floor[0] : k > 0.7 ? C.floor[2] : C.floor[1];
+            if (ry === 0) col = C.seam;
+            else if (ry === 1) col = C.seamLight;
+            else if (Math.floor(sx - seg * 24) === 0) col = C.seam;
           } else if (style === 'metal') {
+            const k = H(gx >> 4, gy >> 4, 63);
+            col = k < 0.33 ? C.floor[0] : k > 0.7 ? C.floor[2] : C.floor[1];
             const mx = gx & 15, my = gy & 15;
             if (mx === 0 || my === 0) col = C.seam;
             else if (mx === 1 || my === 1) col = C.seamLight;
             else if ((mx === 3 || mx === 13) && (my === 3 || my === 13)) col = C.light;
             else if ((mx === 4 || mx === 14) && (my === 4 || my === 14)) col = C.seam;
-            else if (r < 0.01) col = C.speck;
-          } else if (style === 'sand') {
-            // Ondas de arena: líneas onduladas con luz arriba y sombra abajo.
-            const w = ((gy + WAVE[(gx + (H(gx >> 6, 0, 64) * 64 | 0)) & 63]) % 9 + 9) % 9;
-            const on = H((gx + 3) >> 3, Math.floor((gy + 4) / 9), 65) < 0.62;     // a trozos, no rayas enteras
-            if (on && w < 1) col = C.light;
-            else if (on && w < 2) col = pal[0];
-            else if (r < 0.008) col = C.speck;
           } else {
-            // (Pocas motas sueltas: el suelo de los juegos de DS es más limpio.)
-            if (r < 0.006) col = C.speck;
-            else if (r > 0.997) col = C.light;
+            // Piedra, ceniza, arena y nieve: manchas de tres tonos con el borde limpio.
+            col = v < 0.36 ? C.floor[0] : v > 0.64 ? C.floor[2] : C.floor[1];
+            if (style === 'sand') {
+              // Ondas de arena: líneas onduladas a trozos con luz arriba y sombra abajo.
+              const w = ((gy + WAVE[(gx + (H(gx >> 6, 0, 64) * 64 | 0)) & 63]) % 9 + 9) % 9;
+              const on = H((gx + 3) >> 3, Math.floor((gy + 4) / 9), 65) < 0.55;
+              if (on && w < 1) col = C.light;
+              else if (on && w < 2) col = C.floor[0];
+            }
           }
-          // La hierba asoma sobre la tierra que queda arriba: un borde con luz.
-          if (mask[mrow - W + lx] === 1) col = r < 0.75 ? C.light : C.floor[2];
+          // Junto al camino, la hierba lleva un borde oscuro (se lee bien dónde acaba).
+          if (grassy && (mask[mo + MW] === 1 || mask[mo - MW] === 1 || mask[mo - 1] === 1 || mask[mo + 1] === 1)) col = C.grassRim;
         }
         P.set(lx, ly, col);
       }
@@ -578,83 +567,77 @@ G.Tiles = (() => {
     if (!open) return;
 
     // Sombra de contacto de las paredes que hay al norte y al oeste (la luz viene
-    // de arriba a la izquierda). En Ultra la pone castWallShadows, más larga.
-    const wn = at(tx, ty - 1) === 'wall', ww = at(tx - 1, ty) === 'wall';
-    if (!F.ultra) {
-      if (wn) {
-        for (let x = 0; x < T; x++) {
-          const gx = tx * T + x;
-          P.set(ox + x, oy, C.shade);
-          P.set(ox + x, oy + 1, bay(gx, ty * T + 1) < 0.6 ? C.shade : C.shade2);
-          if (bay(gx, ty * T + 2) < 0.4) P.set(ox + x, oy + 2, C.shade2);
-        }
-      }
-      if (ww) {
-        for (let y = wn ? 2 : 0; y < T; y++) {
-          const gy = ty * T + y;
-          P.set(ox, oy + y, bay(tx * T, gy) < 0.7 ? C.shade2 : C.shade);
-          if (bay(tx * T + 1, gy) < 0.3) P.set(ox + 1, oy + y, C.shade2);
-        }
-      } else if (!wn && at(tx - 1, ty - 1) === 'wall') {
-        P.set(ox, oy, C.shade); P.set(ox + 1, oy, C.shade2); P.set(ox, oy + 1, C.shade2);
-      }
+    // de arriba a la izquierda): bandas lisas, como en los juegos de DS (antes, con
+    // tramado: un borde de puntitos junto a las paredes). En Ultra, sólo al pie de la
+    // cara: el lado de la pared va de pie y en perspectiva (por filas), y la sombra
+    // lateral, pegada al suelo, quedaba como una raya suelta junto a ella.
+    const wn = at(tx, ty - 1) === 'wall', ww = !F.ultra && at(tx - 1, ty) === 'wall';
+    if (wn) {
+      for (let x = 0; x < T; x++) { P.set(ox + x, oy, C.shade); P.set(ox + x, oy + 1, C.shade2); }
+    }
+    if (ww) {
+      for (let y = wn ? 2 : 0; y < T; y++) P.set(ox, oy + y, C.shade2);
+    } else if (!F.ultra && !wn && at(tx - 1, ty - 1) === 'wall') {
+      P.set(ox, oy, C.shade2);
     }
 
-    // Detalles: matojo, flor, piedrecita, briznas...
+    // Detalles: el dibujo del tile (una de 4 variantes) y, a veces, flores o piedras.
     const cols = { L: C.light, G: C.floor[2], D: C.speck, F: 0, M: 0, R0: C.rock[0], R1: C.rock[1], R2: C.rock[2], S: C.light, W: C.sparkle };
-    const d = H(tx, ty, 14);
-    const dx = ox + 3 + Math.floor(H(tx, ty, 15) * 10), dy = oy + 4 + Math.floor(H(tx, ty, 16) * 9);
+    const d = H(tx, ty, 14), lay = LAYOUT[Math.floor(H(tx, ty, 15) * 4)];
     const lo = wn ? 3 : 0;                 // no pintar sobre la sombra de la pared
-    if (dirtCount > T * T / 2 || dirtAt(dx, dy)) {
+    const ok = (x, y) => y - oy > lo + 1 && y - oy < T && !dirtAt(x, y) && !dirtAt(x + 3, y) && !dirtAt(x, y - 2);
+    if (dirtCount > T * T / 2) {
+      // Camino: alguna piedrecita.
       cols.D = C.dirt[0];
-      if (dy - oy > lo + 1) {
-        if (d < 0.12) stamp(P, PEBBLE, dx, dy, cols);
-        else if (d < 0.2) { cols.R1 = C.dirt[2]; stamp(P, CRACK, dx - 1, dy, cols); }
-      }
+      const [px, py] = lay[0];
+      if (d < 0.16 && dirtAt(ox + px, oy + py) && py > lo + 1) stamp(P, PEBBLE, ox + px, oy + py, cols);
       return;
     }
     if (grassy) {
-      // Briznas repartidas en los cuatro cuartos del tile (textura de hierba de las rutas).
+      if (d < 0.07) {
+        // Flores (dos o tres juntas, como en los parterres de las rutas).
+        const f = Math.floor(H(tx, ty, 17) * C.flowers.length);
+        cols.F = C.flowers[f]; cols.M = C.flowerMid[f]; cols.D = C.floor[0];
+        for (let q = 0; q < 3; q++) { const [px, py] = lay[q]; if (ok(ox + px, oy + py)) stamp(P, FLOWER, ox + px + 1, oy + py, cols); }
+        return;
+      }
       for (let q = 0; q < 4; q++) {
-        const hq = H(tx * 2 + (q & 1), ty * 2 + (q >> 1), 22);
-        if (hq > 0.5) continue;
-        const bx = ox + (q & 1) * 8 + 2 + Math.floor(H(tx, ty, 23 + q) * 5), by = oy + (q >> 1) * 8 + 3 + Math.floor(H(tx, ty, 27 + q) * 5);
-        if (by - oy <= lo + 1 || dirtAt(bx, by)) continue;
-        stamp(P, hq < 0.2 ? BLADE_V : hq < 0.38 ? BLADE_W : BLADE_1, bx, by, cols);
+        const [px, py] = lay[q];
+        if (!ok(ox + px, oy + py)) continue;
+        stamp(P, q & 1 ? GRASS_V : GRASS_W, ox + px, oy + py, cols);
       }
-      if (dy - oy > lo + 2) {
-        if (d < 0.1) stamp(P, TUFT, dx, dy, cols);
-        else if (d < 0.19) {
-          const f = Math.floor(H(tx, ty, 17) * C.flowers.length);
-          cols.F = C.flowers[f]; cols.M = C.flowerMid[f];
-          stamp(P, FLOWER, dx, dy - 1, cols);
-          if (H(tx, ty, 21) < 0.45) stamp(P, FLOWER, dx + 3, dy + 1, cols);   // a veces, dos o tres juntas
-          if (H(tx, ty, 24) < 0.2) stamp(P, FLOWER, dx - 3, dy + 2, cols);
-        } else if (d < 0.23) stamp(P, PEBBLE, dx, dy, cols);
-      }
+      if (d > 0.97 && ok(ox + 7, oy + 8)) stamp(P, PEBBLE, ox + 7, oy + 8, cols);
       return;
     }
-    if (dy - oy <= lo + 2) return;
     if (style === 'snow') {
       cols.D = C.floor[0];
-      if (d < 0.22) stamp(P, SPARK, dx, dy, cols);
-      else if (d < 0.36) stamp(P, DIMPLE, dx - 1, dy, cols);
-      else if (d < 0.4) stamp(P, PEBBLE, dx, dy, cols);
+      for (let q = 0; q < 2; q++) {
+        const [px, py] = lay[q];
+        if (!ok(ox + px, oy + py)) continue;
+        stamp(P, (d + q * 0.5) % 1 < 0.45 ? SPARK : DIMPLE, ox + px, oy + py, cols);
+      }
     } else if (style === 'sand') {
-      if (d < 0.08) stamp(P, PEBBLE, dx, dy, cols);
-      else if (d < 0.13) { const f = Math.floor(H(tx, ty, 17) * C.flowers.length); cols.F = C.flowers[f]; cols.M = C.flowerMid[f]; stamp(P, FLOWER, dx, dy, cols); }
+      const [px, py] = lay[0];
+      if (d < 0.1 && ok(ox + px, oy + py)) stamp(P, PEBBLE, ox + px, oy + py, cols);
+      else if (d < 0.16 && ok(ox + px, oy + py)) { const f = Math.floor(H(tx, ty, 17) * C.flowers.length); cols.F = C.flowers[f]; cols.M = C.flowerMid[f]; stamp(P, FLOWER, ox + px, oy + py, cols); }
     } else if (style === 'wood' || style === 'metal') {
-      if (d < 0.05) stamp(P, PEBBLE, dx, dy, cols);
+      const [px, py] = lay[1];
+      if (d < 0.05 && ok(ox + px, oy + py)) stamp(P, PEBBLE, ox + px, oy + py, cols);
     } else {
-      // Piedra y ceniza: grietas, piedrecitas y (en la ceniza) brasas.
+      // Piedra y ceniza: grietas, piedrecitas, alguna flor y (en la ceniza) brasas.
       cols.R1 = C.floor[2];
-      if (d < 0.14) stamp(P, CRACK, dx - 1, dy, cols);
-      else if (d < 0.24) stamp(P, CRACK2, dx - 1, dy - 1, cols);
-      else if (d < 0.34) { cols.R1 = C.rock[1]; stamp(P, PEBBLE, dx, dy, cols); }
-      else if (d < 0.4) { const f = Math.floor(H(tx, ty, 17) * C.flowers.length); cols.F = C.flowers[f]; cols.M = C.flowerMid[f]; stamp(P, FLOWER, dx, dy, cols); }
-      if (style === 'ash' && H(tx, ty, 25) < 0.18) {
-        const ex = ox + 2 + Math.floor(H(tx, ty, 26) * 12), ey = oy + 3 + Math.floor(H(tx, ty, 27) * 12);
-        P.set(ex, ey, C.cinder);
+      const [px, py] = lay[0], [qx, qy] = lay[2];
+      if (ok(ox + px, oy + py)) {
+        if (d < 0.2) stamp(P, CRACK, ox + px - 1, oy + py, cols);
+        else if (d < 0.36) stamp(P, CRACK2, ox + px - 1, oy + py - 1, cols);
+      }
+      if (ok(ox + qx, oy + qy)) {
+        if (d > 0.55 && d < 0.8) { cols.R1 = C.rock[1]; stamp(P, PEBBLE, ox + qx, oy + qy, cols); }
+        else if (d >= 0.94) { const f = Math.floor(H(tx, ty, 17) * C.flowers.length); cols.F = C.flowers[f]; cols.M = C.flowerMid[f]; stamp(P, FLOWER, ox + qx, oy + qy, cols); }
+      }
+      if (style === 'ash' && H(tx, ty, 25) < 0.22) {
+        const [ex, ey] = lay[3];
+        if (ok(ox + ex, oy + ey)) { P.set(ox + ex, oy + ey, C.cinder); if (H(tx, ty, 26) < 0.4) P.set(ox + ex + 1, oy + ey, C.cinder); }
       }
     }
   }
@@ -662,6 +645,8 @@ G.Tiles = (() => {
   /*
    * Pared. ultra: la tira de su fila (CAP_H px de alto, la de arriba RAISE px por
    * encima del tile) con la cara el doble de alta. Sin pared al sur hay cara frontal.
+   * Roca: arriba, una meseta de dos tonos con el canto claro; delante, el
+   * acantilado en estratos horizontales (como los de las rutas de montaña de DS).
    */
   function paintWall(P, C, B, ox, oy, tx, ty, at, F, ultra) {
     const W = (x, y) => at(x, y) === 'wall';
@@ -684,34 +669,27 @@ G.Tiles = (() => {
         const gx = tx * T + x;
         let col;
         if (y >= rows - FACE) {
-          // Cara frontal: borde en sombra, estratos verticales con luz a la izquierda y base oscura.
+          // Acantilado: estratos de 4 px (luz arriba, raya oscura abajo), alguna
+          // grieta vertical, el canto de arriba claro y el pie en sombra.
           const fy = y - (rows - FACE);
-          const cut = H(gx, 0, 21) < 0.3, after = H(gx - 1, 0, 21) < 0.3;
-          col = cut ? face[0] : after ? C.faceLight : face[1];
-          if (fy === 0) col = C.wallEdge;
-          else if (fy === 1) col = cut ? C.wallFaceDark : face[0];
+          const band = (fy - 1) >> 2, r = (fy - 1) & 3, alt = (band + (H(gx >> 3, band, 27) < 0.3 ? 1 : 0)) & 1;
+          col = r === 0 ? C.faceLight : r === 3 ? C.faceSeam : face[alt];
+          if (fy === 0) col = C.wallRim;
           else if (y === rows - 1) col = C.wallFaceDark;
-          else if ((fy === 3 || fy === 10) && H(gx >> 2, ty + fy, 26) < 0.35) col = face[0];   // grietas horizontales
-          else if (H(gx, gy, 22) < 0.06) col = C.wallFaceDark;
-          else if (ultra && y >= rows - 3 && bay(gx, gy) < 0.5) col = C.wallFaceDark;        // pie de la pared, en sombra
+          else if (r > 0 && r < 3 && H(gx, band, 28) < 0.08) col = C.faceSeam;     // grieta
           if (!w && x === 0 || !e && x === T - 1) col = C.wallFaceDark;
         } else {
-          // Cara de arriba: losas de roca (separadas por la curva de nivel 0,5 de un
-          // ruido suave: grietas de 1 px), cada una con su tono y tramado.
+          // Meseta: manchas grandes de dos tonos con el borde limpio y alguna grieta.
+          const v = F.rock(gx, gy);
+          col = v < 0.38 ? top[0] : v > 0.66 ? top[2] : top[1];
           const c = F.crack(gx, gy) - 0.5;
-          const v = F.rock(gx, gy) + (c > 0 ? 0.07 : -0.07) + (bay(gx, gy) - 0.5) * 0.22;
-          col = v < 0.38 ? top[0] : v > 0.64 ? top[2] : top[1];
-          if (c * (F.crack(gx - 1, gy) - 0.5) < 0 || c * (F.crack(gx, gy - 1) - 0.5) < 0) col = C.crack;
-          else {
-            const cu = F.crack(gx, gy - 1) - 0.5;
-            if (cu * (F.crack(gx, gy - 2) - 0.5) < 0) col = C.wallRim;    // canto iluminado bajo la grieta
-            else if (H(gx, gy, 25) < 0.012) col = C.wallLight;
-          }
+          if (Math.abs(c) < 0.018 && H(gx >> 2, gy >> 2, 29) < 0.6) col = C.crack;
+          else if (H(gx, gy, 25) < 0.008) col = C.wallLight;
           // Bordes: contorno oscuro fuera, canto con luz dentro (más a la izquierda y arriba).
           const edgeY = rows - FACE - 1;
           if (!n && y === 0) col = C.wallEdge;
           else if (!n && y === 1) col = C.wallLight;
-          else if (!n && y === 2 && bay(gx, gy) < 0.5) col = C.wallRim;
+          else if (!n && y === 2) col = C.wallRim;
           if (!s && y === edgeY) col = C.wallRim;
           if (!w && x === 0) col = C.wallEdge;
           else if (!w && x === 1 && y > 0) col = C.wallRim;
@@ -724,45 +702,42 @@ G.Tiles = (() => {
   }
 
   /*
-   * Pared de arbustos (bosques, como en Mundo Misterioso): arriba, copas de hojas
-   * apretadas con el borde a bultos; delante, el borde de las copas colgando y los
-   * troncos en la sombra.
+   * Bosque (paredes 'bush'): arriba, las copas de conífera en filas (canopy; en el
+   * borde de arriba, sus puntas con el suelo entre ellas); delante, la falda de las
+   * copas colgando y los troncos en la sombra.
    */
   function paintBush(P, C, ox, oy, tx, gy0, rows, FACE, n, s, w, e) {
-    const L = C.leaf, tex = C.leafTex, Tr = C.trunk;
+    const Tr = C.trunk, full = C.canopy;
+    const top = n ? null : C.canopyTop[(gy0 >> 3) & 1];
     for (let y = 0; y < rows; y++) {
       const gy = gy0 + y;
       const bw = w ? -9 : BUMP[(gy + 7) & 31], be = e ? -9 : BUMP[(gy + 19) & 31];
       for (let x = 0; x < T; x++) {
         const gx = tx * T + x;
-        const bn = n ? -9 : BUMP[gx & 31];
-        if (y < bn || x < bw || T - 1 - x < be) continue;
-        if (!n && !w && x + y < 3) continue;
-        if (!n && !e && (T - 1 - x) + y < 3) continue;
+        if (x < bw || T - 1 - x < be) continue;
         let col;
         if (y >= rows - FACE) {
           const fy = y - (rows - FACE);
-          const lip = 2 + BUMP[(gx + 5) & 31];         // las copas cuelgan 2..4 px sobre los troncos
-          if (fy < lip - 1) col = fy === 0 ? L[1] : L[0];
+          // Las faldas de la última fila de copas cuelgan sobre los troncos (más en Ultra).
+          const lip = (FACE > 8 ? 5 : 2) + BUMP[(gx + 5) & 31];
+          if (fy < lip - 1) col = full[(gy & 31) * 32 + (gx & 31)];
           else if (fy === lip - 1) col = C.wallEdge;
           else {
-            // Troncos de 2 px cada 5-6, con luz a la izquierda; entre ellos, oscuridad.
-            const k = (gx + Math.floor(H(gx >> 3, 1, 57) * 3)) % 6;
-            const bottom = y === rows - 1;
-            if (k === 1) col = Tr[1];
-            else if (k === 2) col = C.trunkDark;
-            else col = C.gap;
-            if (fy === lip && k > 0 && k < 3) col = C.trunkDark;     // sombra de las copas en el tronco
-            if (bottom) col = k === 0 || k === 3 ? C.trunkDark : C.wallEdge;
+            // Troncos de 2 px debajo de cada copa (cada 8 px, como las copas de las dos
+            // últimas filas), con luz a la izquierda; entre ellos, la sombra verde lisa.
+            // (gx & 7 también con x negativas: antes, con %, allí no salía ningún tronco
+            // y la cara del bosque era un bloque oscuro.)
+            const m = gx & 7, trunk = m === 7 || m === 0;
+            col = m === 7 ? Tr[1] : m === 0 ? C.trunkDark : C.gap;
+            if (fy === lip && trunk) col = C.trunkDark;               // sombra de las copas en el tronco
+            if (y === rows - 1) col = trunk || m === 6 || m === 1 ? C.trunkDark : C.wallEdge;   // raíces
           }
           if (!w && x === bw && fy >= lip) col = C.wallEdge;
           if (!e && T - 1 - x === be && fy >= lip) col = C.wallEdge;
         } else {
-          col = tex[(gy & 31) * 32 + (gx & 31)];
-          if (!n && y === bn) col = C.wallEdge;
-          else if (!n && y === bn + 1) col = L[3];
+          col = top && y < 32 ? top[y * 32 + (gx & 31)] : full[(gy & 31) * 32 + (gx & 31)];
+          if (!(col >>> 24)) continue;                  // entre las puntas: el suelo de detrás
           if (!w && x === bw) col = C.wallEdge;
-          else if (!w && x === bw + 1 && col !== C.wallEdge) col = L[2];
           if (!e && T - 1 - x === be) col = C.wallEdge;
         }
         P.set(ox + x, oy + y, col);
@@ -770,11 +745,19 @@ G.Tiles = (() => {
     }
   }
 
+  /*
+   * Agua (y lava, veneno...): orilla clara de espuma, una franja menos honda y el
+   * resto liso, con ondas «~» (como los estanques de las rutas). Arriba se ve el
+   * talud de tierra (el agua está más baja que el suelo).
+   */
   function paintLiquid(P, C, ox, oy, tx, ty, at) {
     const L = (x, y) => at(x, y) === 'liquid';
     const n = L(tx, ty - 1), s = L(tx, ty + 1), w = L(tx - 1, ty), e = L(tx + 1, ty);
     const nw = L(tx - 1, ty - 1), ne = L(tx + 1, ty - 1), sw = L(tx - 1, ty + 1), se = L(tx + 1, ty + 1);
     const BIG = 99, RC = 4.5;               // radio de las esquinas de fuera
+    // Una o dos ondas «~» por tile, en sitios fijos según el tile.
+    const wv = [[Math.floor(H(tx, ty, 37) * 9) + 1, Math.floor(H(tx, ty, 38) * 5) + 3], [Math.floor(H(tx, ty, 39) * 9) + 2, Math.floor(H(tx, ty, 40) * 4) + 10]];
+    const twoW = H(tx, ty, 41) < 0.6;
 
     for (let y = 0; y < T; y++) {
       const gy = ty * T + y;
@@ -790,33 +773,24 @@ G.Tiles = (() => {
         if (!n && !e && xr < RC && y < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - xr, RC - 0.5 - y));
         if (!s && !w && x < RC && yr < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - x, RC - 0.5 - yr));
         if (!s && !e && xr < RC && yr < RC) d = Math.min(d, RC - 0.5 - Math.hypot(RC - 0.5 - xr, RC - 0.5 - yr));
-
-        const gx = tx * T + x;
-        // Orilla irregular (sólo junto a tierra): se come un píxel aquí y allá.
-        if (d < 3) d += (H(gx >> 1, gy >> 1, 35) - 0.5) * 1.1;
         if (d < 0) continue;                 // se ve el suelo de debajo
 
+        const gx = tx * T + x;
         let col;
         // Orilla de arriba: el agua está más baja que el suelo y se ve el talud
         // de tierra (dos filas) y su sombra en el agua.
         const dn = n ? BIG : y;
         if (dn <= d + 0.6 && dn < 4) {
-          col = dn < 1 ? C.bank[2] : dn < 2 ? C.bank[H(gx, 0, 38) < 0.3 ? 0 : 1] : dn < 3 ? C.bank[0] : C.bankShadow;
-        } else if (d < 1) col = C.shore;                                       // labio de tierra mojada
-        else if (d < 2) col = H(gx, gy, 36) < 0.2 ? C.liqLight : C.foam; // espuma, a trozos
-        else {
-          // De somero a hondo con tramado (sin el ruido de antes).
-          const k = (d - 2) / 5 + (bay(gx, gy) - 0.5) * 0.4;
-          col = k < 0.3 ? C.liqLight : k < 0.78 ? C.liq : C.liqDeep;
-        }
-        if (d >= 3.5 && dn >= 4) {
-          // Olas: arquitos de 4 px repartidos en celdas de 8×6.
-          const cw = gx >> 3, ch = Math.floor(gy / 6), wy = gy - ch * 6;
-          if ((wy === 2 || wy === 3) && H(cw, ch, 33) < 0.42) {
-            const wx = (gx & 7) - Math.floor(H(cw, ch, 37) * 4);
-            if (wy === 2 ? wx === 1 || wx === 2 : wx === 0 || wx === 3) col = C.liqLight;
+          col = dn < 1 ? C.bank[2] : dn < 2 ? C.bank[1] : dn < 3 ? C.bank[0] : C.bankShadow;
+        } else if (d < 1) col = C.foam;                                       // espuma de la orilla
+        else if (d < 3) col = C.liqLight;                                     // franja menos honda
+        else col = d > 6.5 ? C.liqDeep : C.liq;
+        if (d >= 3 && dn >= 4) {
+          // Ondas «~» de 5 px.
+          for (let q = 0; q < (twoW ? 2 : 1); q++) {
+            const [wx, wy] = wv[q], rx = x - wx, ry = y - wy;
+            if ((ry === 0 && (rx === 1 || rx === 2)) || (ry === 1 && (rx === 0 || rx === 3 || rx === 4))) col = C.liqLight;
           }
-          if (H(gx, gy, 34) < 0.003) col = C.foam;
         }
         P.set(ox + x, oy + y, col);
       }
@@ -828,7 +802,7 @@ G.Tiles = (() => {
    * Se pintan una vez por bioma y variante y se guardan. Variantes (world.drawProp):
    *   tree      aspecto 0..2 (crystal y deadtree, 0..1)
    *   rock      aspecto*2 + (rota ? 1 : 0)
-   *   grass     aspecto*3 + estado (0 quieta · 1 viento · 2 la pisan); +9 en Ultra (con su sombra)
+   *   grass     aspecto*3 + estado (0 quieta · 1 viento · 2 la pisan)
    *   altar     efecto*2 + (usado ? 1 : 0)      spring  1 = seco
    *   trap      tipo*4 + fotograma (0..3)
    */
@@ -844,8 +818,7 @@ G.Tiles = (() => {
 
   /*
    * Sombras de los objetos, en píxeles de arte (radio x, radio y) y guardadas:
-   * antes era una elipse suavizada pintada en cada fotograma; así es una imagen
-   * más (igual de barata o más) y con el mismo píxel que el resto.
+   * una elipse suave (dos tonos) debajo, como en los juegos de DS.
    */
   const SHADOW = { tree: [11, 3.5], rock: [9, 3], chest: [7, 2.5], bigchest: [11, 3], altar: [8, 3] };
   const shadowCache = new Map();
@@ -855,64 +828,13 @@ G.Tiles = (() => {
     const [rx, ry] = SHADOW[type] || [7, 2.5];
     const w = Math.ceil(rx) * 2 + 1, h = Math.ceil(ry) * 2 + 1, cx = (w - 1) / 2, cy = (h - 1) / 2;
     const P = Pix(w, h);
-    const out = pack('#000000', 62), core = pack('#000000', 92);
+    const out = pack('#06200e', 54), core = pack('#06200e', 84);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const q = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
-      if (q <= 1) P.set(x, y, q < 0.45 ? core : out);
+      if (q <= 1) P.set(x, y, q < 0.5 ? core : out);
     }
     cv = P.canvas();
     shadowCache.set(type, cv);
-    return cv;
-  }
-
-  /*
-   * Ultra: sombra proyectada de un objeto (su silueta tumbada en el suelo hacia
-   * abajo a la derecha, SUN_X/SUN_Y px por px de altura). Se guarda con .dy, la
-   * fila del sprite donde empieza (la base del objeto).
-   */
-  const castCache = new Map();
-  function castShadow(bi, type, variant = 0) {
-    const k = bi + '/' + type + '/' + variant;
-    let cv = castCache.get(k);
-    if (cv) return cv;
-    const src = propSprite(bi, type, variant);
-    const w = src.width, h = src.height;
-    const px = new Uint32Array(src.getContext('2d').getImageData(0, 0, w, h).data.buffer);
-    let b = h - 1;
-    while (b > 0 && !px.subarray(b * w, b * w + w).some(v => v >>> 24)) b--;
-    const ext = Math.ceil(b * SUN_X) + 2, down = Math.ceil(b * SUN_Y) + 3;
-    const P = Pix(w + ext, down);
-    const out = pack('#06101e', 88), core = pack('#06101e', 120);
-    for (let y = 0; y <= b; y++) for (let x = 0; x < w; x++) {
-      if (!(px[y * w + x] >>> 24)) continue;
-      const z = b - y;
-      P.set(x + Math.round(z * SUN_X), 1 + Math.round(z * SUN_Y), z < 3 ? core : out);
-    }
-    cv = P.canvas();
-    cv.dy = b - 1;
-    castCache.set(k, cv);
-    return cv;
-  }
-
-  /*
-   * Un sprite con su sombra proyectada debajo, en la misma imagen. Crece hacia la
-   * derecha y hacia abajo: .padR y .padB dicen cuánto (world.js lo descuenta al
-   * colocarlo).
-   */
-  function withCastShadow(src) {
-    const w = src.width, h = src.height, b = h - 1;
-    const px = new Uint32Array(src.getContext('2d').getImageData(0, 0, w, h).data.buffer);
-    const padR = Math.ceil(b * SUN_X), padB = Math.ceil(b * SUN_Y);
-    const P = Pix(w + padR, h + padB);
-    const sh = pack('#06101e', 84);
-    for (let y = 0; y <= b; y++) for (let x = 0; x < w; x++) {
-      if (!(px[y * w + x] >>> 24)) continue;
-      const z = b - y;
-      P.set(x + Math.round(z * SUN_X), b + Math.round(z * SUN_Y), sh);
-    }
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = px[y * w + x]; if (c >>> 24) P.set(x, y, c); }
-    const cv = P.canvas();
-    cv.padR = padR; cv.padB = padB;
     return cv;
   }
 
@@ -952,19 +874,19 @@ G.Tiles = (() => {
     }
   }
 
-  // Copas: racimos [x, y, radio]. 0 redondo · 2 ancho (el 1 es el pino).
-  const TREE_SHAPES = [
-    [[15, 20, 10], [9, 16, 7], [21, 16, 7], [15, 10, 8], [10, 23, 6], [20, 23, 6]],
-    null,
-    [[15, 21, 9], [7, 19, 7], [23, 19, 7], [11, 13, 7], [19, 13, 7], [15, 24, 7]]
-  ];
+  // Copa redonda: racimos [x, y, radio].
+  const ROUND = [[15, 20, 10], [9, 16, 7], [21, 16, 7], [15, 10, 8], [10, 23, 6], [20, 23, 6]];
 
   const PAINT = {
+    /*
+     * Árboles de las rutas: 0 y 1, coníferas redondeadas (como las de Sinnoh; la 1,
+     * más estrecha); 2, árbol de copa redonda. Dibujo propio.
+     */
     tree(B, variant = 0) {
       if (B.prop === 'crystal') return PAINT.crystal(B, variant);
       if (B.prop === 'dead') return PAINT.deadtree(B, variant);
       const look = variant % 3;
-      if (look === 1) return PAINT.pine(B);
+      if (look < 2) return PAINT.conifer(B, look);
       const P = Pix(30, 40);
       const L = ramp(B.leaf), Tr = ramp(B.trunk);
       const bark = mixPack(sortHex(B.trunk)[0], '#000000', 0.35);
@@ -979,12 +901,11 @@ G.Tiles = (() => {
       }
       [[12, 37], [18, 37], [11, 38], [12, 38], [18, 38], [19, 38]].forEach(([x, y]) => P.set(x, y, x < 15 ? Tr[0] : bark));
       // Copa: racimos con luz de arriba a la izquierda, escamas de hojas y el
-      // borde de abajo de cada racimo en sombra (como las copas de Mundo Misterioso).
-      for (const [bx, by, br] of TREE_SHAPES[look]) {
+      // borde de abajo de cada racimo en sombra.
+      for (const [bx, by, br] of ROUND) {
         disc(P, bx, by, br, (x, y, d) => {
           const lit = ((x - bx) * -0.6 + (y - by) * -0.8) / br;
           let idx = lit > 0.5 ? 3 : lit > 0.05 ? 2 : lit > -0.45 ? 1 : 0;
-          // Escamas: arquitos de luz cada 4 px (hojas).
           const sx = (x + ((y >> 2) & 1) * 2) & 3, sy = y & 3;
           if (sy === 0 && sx < 2 && idx < 3 && lit > -0.35) idx++;
           else if (sy === 1 && sx === 3 && idx > 0) idx--;
@@ -997,46 +918,49 @@ G.Tiles = (() => {
       return P.canvas();
     },
 
-    /** Pino de pisos (como los árboles de las rutas de Sinnoh, dibujo propio). */
-    pine(B) {
-      const P = Pix(28, 44);
+    /*
+     * Conífera redondeada de las rutas (dibujo propio): pisos de ramas con la falda
+     * redondeada a bultos, cada uno tapando el de debajo, luz en la cresta del
+     * centro y a la izquierda, contorno oscuro y un poco de tronco abajo.
+     * look 1: más estrecha y baja.
+     */
+    conifer(B, look = 0) {
+      const narrow = look === 1;
+      const Wd = narrow ? 24 : 30, Ht = narrow ? 38 : 44, cx = Wd / 2;
+      const P = Pix(Wd, Ht);
       const L = ramp(B.leaf), Tr = ramp(B.trunk);
-      const bark = mixPack(sortHex(B.trunk)[0], '#000000', 0.35);
       const hi = mixPack(sortHex(B.leaf)[3], '#ffffff', 0.3);
-      for (let y = 36; y < 42; y++) for (let x = 12; x < 16; x++) P.set(x, y, x === 12 ? Tr[1] : x === 15 ? bark : Tr[0]);
-      [[11, 41], [16, 41]].forEach(([x, y]) => P.set(x, y, Tr[0]));
-      // Pisos: [y de la punta, y de la base, medio ancho de la base]. Se pintan de
-      // abajo arriba: la falda de cada piso tapa el de debajo y le deja sombra.
-      const tiers = [[1, 13, 6], [7, 22, 9], [14, 31, 11.5], [22, 38, 13]];
       const edge = pack(shade(sortHex(B.leaf)[0], -0.6));
+      const k = narrow ? 0.8 : 1;
+      // Tronco.
+      for (let y = Ht - 7; y < Ht - 1; y++) for (let x = Math.floor(cx) - 2; x < Math.floor(cx) + 2; x++)
+        P.set(x, y, x === Math.floor(cx) - 2 ? Tr[1] : x === Math.floor(cx) + 1 ? mixPack(sortHex(B.trunk)[0], '#000000', 0.3) : Tr[0]);
+      // Pisos: [y de arriba, y de abajo, medio ancho abajo]; de abajo arriba.
+      const tiers = narrow
+        ? [[1, 12, 5.5], [7, 21, 8.2], [14, 30, 10.6]]
+        : [[1, 12, 6], [7, 21, 9.4], [14, 30, 12.2], [22, 37, 14]];
       for (let ti = tiers.length - 1; ti >= 0; ti--) {
-        const [y0, y1, hw] = tiers[ti];
-        for (let y = y0; y <= y1; y++) {
-          const t = (y - y0) / (y1 - y0);
-          const half = 1 + (hw - 1) * t;
-          for (let x = Math.floor(13.5 - half); x <= Math.ceil(13.5 + half); x++) {
-            const u = (x - 13.5) / half;                    // -1 izquierda .. 1 derecha
+        const [y0, y1, hw0] = tiers[ti], hwB = hw0 * (narrow ? 1 : k);
+        for (let y = y0; y <= y1 + 1; y++) {
+          const t = Math.min(1, (y - y0) / (y1 - y0));
+          const half = 1.2 + (hwB - 1.2) * Math.pow(t, 0.75);
+          for (let x = 0; x < Wd; x++) {
+            const dx = x + 0.5 - cx, u = dx / half;
             if (Math.abs(u) > 1) continue;
-            // Borde de abajo en dientes de sierra (las ramas).
-            const zig = (x + ti) % 3;
-            if (y === y1 && zig !== 1) continue;
-            let idx = u < -0.45 ? 3 : u < 0.05 ? 2 : u < 0.55 ? 1 : 0;
-            if (y >= y1 - 1) idx = Math.max(0, idx - 1);
-            if (t > 0.25 && ((x * 2 + y) % 5 === 0) && idx > 0 && idx < 3) idx++;
-            P.set(x, y, idx === 3 && H(x, y, 45) < 0.35 ? hi : L[idx]);
-          }
-        }
-        // Sombra de la falda sobre el piso de abajo (y un contorno que los separa).
-        if (ti < tiers.length - 1) {
-          const half = hw;
-          for (let x = Math.floor(13.5 - half); x <= Math.ceil(13.5 + half); x++) {
-            const yb = y1 + ((x + ti) % 3 === 1 ? 1 : 0);
-            if (P.get(x, yb) >>> 24) P.set(x, yb, edge);
-            if (P.get(x, yb + 1) >>> 24) P.set(x, yb + 1, L[0]);
+            // Falda redondeada: bultos de 4 px (más abajo en el centro de cada bulto).
+            const bump = Math.cos(((x + ti * 2) % 4) / 4 * Math.PI * 2) > 0 ? 1 : 0;
+            if (y > y1 + bump - (Math.abs(u) > 0.85 ? 1 : 0)) continue;
+            let idx = u < -0.4 ? 3 : u < 0.1 ? 2 : u < 0.6 ? 1 : 0;
+            if (y >= y1 + bump - 1) idx = Math.max(0, idx - 2);                 // la falda, en sombra
+            else if (Math.abs(dx) < 1.5 && t < 0.6) idx = 3;                    // cresta del centro, con luz
+            else if (t < 0.18) idx = Math.min(3, idx + 1);
+            let c = L[idx];
+            if (idx === 3 && H(x, y, 45 + look) < 0.3 && u < -0.2) c = hi;
+            P.set(x, y, c);
           }
         }
       }
-      outline(P, pack(shade(sortHex(B.leaf)[0], -0.6)));
+      outline(P, edge);
       return P.canvas();
     },
 
@@ -1138,51 +1062,52 @@ G.Tiles = (() => {
     },
 
     /*
-     * Hierba alta como la de los juegos de Pokémon (dibujo propio): matas de tres
-     * puntas en dos filas (la de delante tapa la base de la de detrás), oscuras
-     * abajo y con las puntas claras. Ocupa el ancho del tile y un poco más, así
-     * varias seguidas forman un campo. Estado: 0 quieta · 1 viento · 2 la pisan.
+     * Hierba alta como la de los juegos de Pokémon de DS (dibujo propio): un tile que
+     * se repite, con dos filas de matas de tres hojas (la de delante tapa la base de
+     * la de detrás), oscuro abajo y con las puntas claras. Mide 18 px: 16 del tile y
+     * uno de cada lado que coincide con el del vecino, así varias seguidas forman un
+     * campo sin huecos; sobresale 2 px por arriba y tapa la mitad de abajo de quien
+     * está dentro. Estado: 0 quieta · 1 viento · 2 la pisan.
      */
     grass(B, variant = 0) {
-      // Ultra (variantes 9..17): la misma mata con su sombra proyectada ya pintada
-      // debajo (así no cuesta un dibujo más por mata).
-      if (variant >= 9) return withCastShadow(PAINT.grass(B, variant - 9));
-      const P = Pix(20, 17);
+      if (variant >= 9) variant -= 9;                    // (las variantes 9..17 eran las del Ultra de antes)
+      const P = Pix(18, 18);
       const Gc = ramp(B.grass);
-      const out = pack(shade(sortHex(B.grass)[0], -0.62));
-      const tip = mixPack(sortHex(B.grass)[2], '#ffffff', 0.25);
+      const out = pack(shade(sortHex(B.grass)[0], -0.58));
+      const base = mixPack(sortHex(B.grass)[0], shade(sortHex(B.grass)[0], -0.58), 0.45);
+      const tip = mixPack(sortHex(B.grass)[2], '#ffffff', 0.28);
       const look = Math.floor(variant / 3) % 3, st = variant % 3;
-      const wind = st === 1 ? 0.45 : 0, open = st === 2 ? 1.2 : 0;
-      // Una mata: tres hojas (la del centro, más alta) que se afilan hasta la punta,
-      // claras a la izquierda y oscuras abajo, con UN contorno alrededor de toda la
-      // mata (así cada mata se lee entera y tapa la base de la de detrás).
-      // Viento: las hojas se doblan a la derecha; pisada: se abren y se aplastan.
+      const wind = st === 1 ? 1 : 0, open = st === 2 ? 1.4 : 0, low = st === 2 ? 2 : 0;
+      // Base oscura que llena el tile por debajo de las puntas: el campo se ve entero.
+      for (let y = 3; y < 18; y++) for (let x = 0; x < 18; x++) P.set(x, y, base);
+      // Una mata: tres hojas que se afilan hasta la punta, claras a la izquierda,
+      // con UN contorno alrededor (así cada mata se lee entera).
       const tuft = (bx, by, h) => {
         const px = new Map();
-        const blade = (cx0, hh, lean, k) => {
+        const blade = (cx0, hh, lean) => {
           for (let i = 0; i < hh; i++) {
-            const t = i / (hh - 1), cx = cx0 + lean * t * t * 2.4;
-            const half = 2.1 * (1 - t) + 0.35;
+            const t = i / (hh - 1), cx = cx0 + lean * t * t * 2.2;
+            const half = 1.9 * (1 - t) + 0.3;
             for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) {
               const right = x > cx + 0.3;
-              const c = t > 0.66 ? (right ? Gc[2] : tip) : t > 0.28 ? (right ? Gc[k] : Gc[2]) : (right ? Gc[0] : Gc[1]);
+              const c = t > 0.62 ? (right ? Gc[2] : tip) : t > 0.25 ? (right ? Gc[1] : Gc[2]) : (right ? Gc[0] : Gc[1]);
               px.set(x + ',' + (by - i), c);
             }
           }
         };
-        blade(bx - 2.6, h - 3, -0.8 - open + wind, 1);
-        blade(bx + 2.6, h - 3, 0.8 + open + wind, 1);
-        blade(bx, h - (st === 2 ? 2 : 0), wind * 1.2, 1);
-        for (const [k, c] of px) {
+        blade(bx - 2.4, h - 3 - low, -0.75 - open + wind);
+        blade(bx + 2.4, h - 3 - low, 0.75 + open + wind);
+        blade(bx, h - low, wind * 1.2);
+        for (const k of px.keys()) {
           const [x, y] = k.split(',').map(Number);
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, -1]]) if (!px.has((x + dx) + ',' + (y + dy))) P.set(x + dx, y + dy, out);
         }
         for (const [k, c] of px) { const [x, y] = k.split(',').map(Number); P.set(x, y, c); }
       };
-      const jig = [0, 1, -1][look];
-      [[2.5 + jig, 10, 8], [10 - jig, 9, 9], [17.5 + jig, 10, 8]].forEach(([x, y, h]) => tuft(x, y, h));
-      [[6 - jig, 16, 9 + (look === 1 ? 1 : 0)], [14 + jig, 16, 9 - (look === 2 ? 1 : 0)]].forEach(([x, y, h]) => tuft(x, y, h));
-      outline(P, out);
+      // El dibujo se repite cada 16 px (el sprite empieza 1 px antes del tile).
+      const hb = [9, 10, 8][look], hf = [10, 9, 11][look];
+      for (const x of [-3, 5, 13, 21]) tuft(x + 1, 10, hb);           // fila de detrás
+      for (const x of [1, 9, 17]) tuft(x + 1, 15, hf - 1);             // fila de delante (abajo queda la base oscura)
       return P.canvas();
     },
 
@@ -1295,12 +1220,15 @@ G.Tiles = (() => {
       const kind = (variant >> 2) % 3, f = variant & 3;
       const P = Pix(24, 16);
       const cx = 11.5, cy = 7.5;
-      const stain = pack('#000000', 46);
       if (kind === 2) return crackedTrap(P, B, f, cx, cy);
+      // (27-10-2026) Sin el cerco oscuro de antes: alrededor, el suelo del bioma
+      // teñido del color de la trampa, a trozos, para que parezca parte del campo.
+      // La pegajosa es miel ámbar (antes, verde: sobre la hierba casi no se veía).
       const pal = kind === 0
         ? ['#3a1748', '#6e2b8a', '#9b48bb', '#d9a0ee']
-        : ['#2c5a18', '#5aa232', '#86cf52', '#e2ffbe'];
+        : ['#7a4510', '#c8841c', '#eab040', '#fff2b8'];
       const [rim, body, mid, hi] = pal.map(h => pack(h));
+      const stain = mixPack(sortHex(B.floor)[0], pal[1], 0.32), stain2 = mixPack(sortHex(B.floor)[0], pal[0], 0.5);
       // Forma: un charco (veneno) o tres gotas unidas (baba), que «respiran».
       const breathe = [0, 0.03, 0.06, 0.03][f];
       const blobs = kind === 0 ? [[cx, cy, 9.6, 5.6]]
@@ -1316,7 +1244,10 @@ G.Tiles = (() => {
       for (let y = 0; y < 16; y++) for (let x = 0; x < 24; x++) {
         const d = field(x, y);
         if (d > 1.3) continue;
-        if (d > 1) { P.set(x, y, stain); continue; }                    // suelo manchado alrededor
+        if (d > 1) {                                                       // suelo manchado alrededor, a trozos
+          if (H(x, y, 89 + kind) < 0.7) P.set(x, y, d < 1.12 && y > cy ? stain2 : stain);
+          continue;
+        }
         const lit = -(x - cx) * 0.06 - (y - cy) * 0.14;
         let c = d > 0.78 ? rim : lit > 0.25 ? mid : body;
         if (d > 0.55 && d <= 0.78 && y > cy) c = rim;                      // borde de abajo, más hondo
@@ -1391,7 +1322,7 @@ G.Tiles = (() => {
   const GLOW = ['#5a1a0c', '#b8441a', '#ff8a2a', '#ffd46a'];
   function crackedTrap(P, B, f, cx, cy) {
     const Fl = sortHex(B.floor).map(h => pack(shade(h, -0.24)));       // losas hundidas: más oscuras que el suelo
-    const deep = pack(shade(sortHex(B.floor)[0], -0.62)), lip = pack(shade(sortHex(B.floor)[2], 0.22));
+    const deep = pack(shade(sortHex(B.floor)[0], -0.45)), lip = pack(shade(sortHex(B.floor)[2], 0.22));
     const lvl = [1, 2, 3, 2][f];
     const G = GLOW.map(h => pack(h)), warm = mixPack(sortHex(B.floor)[1], '#ff8a2a', 0.28);
     const RX = 10, RY = 6.4;
@@ -1405,13 +1336,15 @@ G.Tiles = (() => {
       if (d > 0.8) c = y < cy + 1 ? deep : lip;              // borde: se ve que está hundida
       P.set(x, y, c);
     }
-    // Contorno oscuro fino alrededor (el corte del suelo).
+    // Alrededor, el suelo con grietitas que salen (a trozos, del color del suelo
+    // más oscuro): se funde con el campo en vez de un cerco negro.
     const ring = [];
     for (let y = 0; y < 16; y++) for (let x = 0; x < 24; x++) {
       if (P.get(x, y) >>> 24) continue;
       if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => x + a >= 0 && x + a < 24 && y + b >= 0 && y + b < 16 && (P.get(x + a, y + b) >>> 24))) ring.push([x, y]);
     }
-    for (const [x, y] of ring) P.set(x, y, pack('#000000', 70));
+    const rim = mixPack(sortHex(B.floor)[0], '#000000', 0.28);
+    for (const [x, y] of ring) if (H(x, y, 84) < 0.75) P.set(x, y, rim);
     // Grietas desde el centro (6 rayos con temblor) que brillan.
     const crackPx = [];
     for (let i = 0; i < 6; i++) {
@@ -1437,9 +1370,9 @@ G.Tiles = (() => {
     return P.canvas();
   }
 
-  function clearProps() { propCache.clear(); castCache.clear(); }
+  function clearProps() { propCache.clear(); }
 
-  return { T, RAISE, CAP_H, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, shadow, castShadow, clearProps,
+  return { T, RAISE, CAP_H, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, shadow, clearProps,
            /** Índice de bioma de la arena de un tipo. */
            arenaBiome: type => ARENA + Math.max(0, ARENA_TYPES.indexOf(type)) };
 })();

@@ -13,10 +13,11 @@
  * alrededor de su dueño y vuelve a golpear cada `rehit` s) y `sway` (la
  * lluvia, que cae con vaivén). `alpha`: algo transparentes (la lluvia).
  *
- * Ataques únicos (26-10-2026, ver combat.js): `upd3(p, dt)` antes de moverse (lo que
- * cambia su rumbo o su tamaño), `upd(p, dt)` después de moverse (su trayectoria propia),
- * los dos con true = se acaba; `end(p)` al acabar su vida y `ds`, la escala a la que se
- * dibuja (0 o sin poner: la de siempre).
+ * Ataques únicos (26-10-2026, ver el motor común en combat.js), todo opcional: `upd3(p, dt)`
+ * antes de moverse (lo que cambia su rumbo o su tamaño), `upd(p, dt)` después de moverse (su
+ * trayectoria propia), los dos con true = se acaba; `end(p)` al acabar su vida; `still`
+ * (quieto un momento); `drawFn(ctx, p, alpha)` su propio dibujo y `ds`, la escala a la que
+ * se dibuja (0 o sin poner: la de siempre).
  */
 G.Projectiles = (() => {
   let list = [];
@@ -65,7 +66,8 @@ G.Projectiles = (() => {
 
       // (end: lo que hace al acabar su vida; upd3: lo suyo antes de moverse —ataques únicos, combat.js—.)
       if (p.t >= p.life) { if (p.end) p.end(p); list.splice(i, 1); continue; }
-      if (p.upd3 && p.upd3(p, dt)) { list.splice(i, 1); continue; }
+      if (p.upd3 && p.upd3(p, dt) === true) { list.splice(i, 1); continue; }
+      if (p.still) { p.px = p.x; p.py = p.y; continue; }        // (quieto un momento: Meteoros)
 
       // Bumerán: a los `boom` segundos se da la vuelta (y puede volver a
       // golpear a los mismos) y vuelve a su dueño; al llegar, desaparece.
@@ -194,6 +196,8 @@ G.Projectiles = (() => {
       if (hi) ctx.stroke();
     }
     for (const p of list) {
+      // (Ataques únicos: su propio dibujo, p.drawFn(ctx, p, alpha).)
+      if (p.drawFn) { p.drawFn(ctx, p, p.friendly ? own : 1); continue; }
       const v = p.vis || G.VFX.forType('normal');
       const shape = v.proj;
       // (La lluvia aparece poco a poco: en vertical nace ya dentro de la pantalla.)

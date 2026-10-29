@@ -45,17 +45,23 @@ G.Enemies = (() => {
   ];
 
   // Franjas de jefe: minuto en que salen, PV base y franja de BST.
+  // (26-10-2026: algo menos de daño; el primero, del minuto 3, quitaba 2/3 de la vida
+  //  a un Pokémon sin mejoras de un pisotón. Los cuatro primeros, también menos vida:
+  //  sin mejoras no se les podía tumbar, se juntaban dos o tres y ahí acababa la partida. Los de los minutos
+  //  15, 18 y 21, también (28-10-2026): con todas las mejoras se tardaba 5-9 minutos en tumbar cada uno y
+  //  se amontonaban hacia el 15.
+  //  Además ahora traen su firma: G.BossSig.)
   const BOSS_SLOTS = [
-    { at: 180, hp: 1400,  dmg: 34, xp: 220,  bst: [490, 545] },
-    { at: 360, hp: 3200,  dmg: 42, xp: 420,  bst: [520, 580] },
-    { at: 540, hp: 5600,  dmg: 48, xp: 680,  bst: [540, 600] },
-    { at: 720, hp: 9000,  dmg: 56, xp: 1000, bst: [580, 700] },
-    { at: 900, hp: 16000, dmg: 68, xp: 1800, bst: [600, 700] },
+    { at: 180, hp: 1050,  dmg: 26, xp: 220,  bst: [490, 545] },
+    { at: 360, hp: 2400,  dmg: 34, xp: 420,  bst: [520, 580] },
+    { at: 540, hp: 4400,  dmg: 42, xp: 680,  bst: [540, 600] },
+    { at: 720, hp: 7600,  dmg: 50, xp: 1000, bst: [580, 700] },
+    { at: 900, hp: 13000, dmg: 58, xp: 1800, bst: [600, 700] },
     // Tramo final (23-10-2026): n = cuántos salen a la vez (cada uno con esta vida).
-    { at: 1080, hp: 22000, dmg: 76, xp: 2400, bst: [580, 720] },
-    { at: 1260, hp: 27000, dmg: 84, xp: 2900, bst: [580, 720] },
-    { at: 1440, hp: 20000, dmg: 86, xp: 2400, bst: [560, 720], n: 2 },
-    { at: 1620, hp: 25000, dmg: 94, xp: 2900, bst: [560, 720], n: 2 }
+    { at: 1080, hp: 18000, dmg: 64, xp: 2400, bst: [580, 720] },
+    { at: 1260, hp: 22000, dmg: 70, xp: 2900, bst: [580, 720] },
+    { at: 1440, hp: 20000, dmg: 72, xp: 2400, bst: [560, 720], n: 2 },
+    { at: 1620, hp: 25000, dmg: 78, xp: 2900, bst: [560, 720], n: 2 }
   ];
   // Voladores pequeños para los enjambres (los que tengan sprite y floten).
   const SWARM = [41, 415, 165, 193, 12, 15, 527, 278, 333, 425, 267, 742, 92, 81];
@@ -199,20 +205,69 @@ G.Enemies = (() => {
     return Object.assign(d, { behavior: 'chase', spd: Math.min(150, Math.round(d.spd * 1.35)) });
   }
 
+  /*
+   * Curva de dificultad (26-10-2026). «Con todas las mejoras al máximo me cuesta
+   * pasar del minuto 10»: medido con un bot (esquiva, recoge y elige bien las
+   * cartas) en Chrome, con mejoras al máximo el muro estaba en el minuto 8-10 y sin
+   * mejoras en el 3-5: cada golpe de un enemigo crecía ×30 en la partida y tu vida,
+   * ×2. Ahora la fuerza de los enemigos (vida, daño, tramos, campeones, jefes y
+   * legendarios) va con un tiempo «efectivo» que corre más despacio al principio y
+   * se acelera al final: el minuto 10 se parece al 4-5 de antes, el 20 al 9 y el 30
+   * al 18, y el tramo final (spawner.js) se encarga de que del 20 al 30 siga siendo
+   * lo más duro. Lo que sale por segundo sigue con el reloj real; cuántos caben, también
+   * (al principio, algo menos: ver capAt en spawner.js).
+   * Medido el 28-10-2026 con tools/curve.cjs (Delibird, Charizard, Garchomp y Mewtwo, dos
+   * partidas de cada): con todas las mejoras, muro en los minutos 15-25 (la mitad, del 21 en
+   * adelante; dos partidas, sin muro); sin mejoras, en el 11-19 (Mewtwo, el más fuerte, en el 19).
+   * Caídas medias en los minutos 0-10 / 10-20 / 20-30: con mejoras 0 / 29 / 174 (antes 68 / 350 / 575);
+   * sin mejoras 8 / 86 / 224 (antes 89 / 525 / 535). Detalle en docs/JEFES.md.
+   */
+  const EFF = [[0, 0], [120, 80], [300, 155], [600, 275], [900, 390], [1200, 540], [1500, 760], [1800, 1080]];
+  function eff(t) {
+    if (!(t > 0)) return 0;
+    for (let i = 1; i < EFF.length; i++) {
+      const [t1, e1] = EFF[i];
+      if (t <= t1) { const [t0, e0] = EFF[i - 1]; return e0 + (e1 - e0) * (t - t0) / (t1 - t0); }
+    }
+    const [tl, el] = EFF[EFF.length - 1];
+    return el + (t - tl);     // (pasado el 30, en la Sentencia: al ritmo normal)
+  }
+
   // (El "tiempo extra" del minuto 60 se quitó al llegar la Sentencia de Arceus,
   //  que acaba todas las partidas en el minuto 30: ver systems/judgment.js.)
   function scale(t) {
-    return { hp: 1 + t / 95, dmg: 1 + t / 420, spd: 1 + Math.min(0.35, t / 1400) };
+    const e = eff(t);
+    return { hp: 1 + e / 95, dmg: 1 + e / 420, spd: 1 + Math.min(0.35, e / 1400) };
   }
 
   /**
    * Los jefes ya traen su vida base creciente (1.400 ... 16.000), así que
    * escalan mucho más suave: con la curva normal el último llegaba a 168.000 PV.
    */
-  function bossScale(t) { return { hp: 1 + t / 600, dmg: 1 + t / 600, spd: 1 }; }
+  function bossScale(t) { const e = eff(t); return { hp: 1 + e / 600, dmg: 1 + e / 600, spd: 1 }; }
 
-  /** Tramo que toca en el segundo `t`. */
-  function tierAt(t) { let ti = 0; TIERS.forEach((tr, i) => { if (t >= tr.from) ti = i; }); return ti; }
+  /** Tramo que toca en el segundo `t` (con el tiempo efectivo). */
+  function tierAt(t) { const e = eff(t); let ti = 0; TIERS.forEach((tr, i) => { if (e >= tr.from) ti = i; }); return ti; }
+  /**
+   * Experiencia: la de cada enemigo sale de su tramo, que ahora llega más tarde; esto
+   * la deja como la del tramo que tocaría con el reloj real (como antes). Medido: sin
+   * esto se subía de nivel bastante más despacio y se llegaba flojo al final.
+   */
+  function xpLag(t) {
+    let ti = 0; TIERS.forEach((tr, i) => { if (t >= tr.from) ti = i; });
+    // (28-10-2026: a la 0,75; con el cociente entero se llegaba al nivel 140 en el minuto 29 y con la raíz
+    //  los que van flojos se quedaban atascados en el nivel 10-20.)
+    return Math.pow(TIERS[ti].xp / TIERS[tierAt(t)].xp, 0.75);
+  }
+
+  /**
+   * Principio suave (28-10-2026): los golpes de los enemigos (también jefes y legendarios)
+   * empiezan en EARLY_K y llegan a 1 en el minuto 9; su vida, en EARLY_HP y a 1 en el 8. Medido con tools/curve.cjs: sin mejoras se
+   * caía en el minuto 1-4 (una marea o una grieta temprana), y ahí no hay tiempo de nada.
+   */
+  const EARLY_K = 0.55, EARLY_HP = 0.75;
+  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 480)); }
+  function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 420)); }
 
   const NO_HORDE = new Set(['bomber', 'healer', 'shielder', 'summoner']);
   /** Tipos con bastantes Pokémon en el tramo actual para una horda (events.js). */
@@ -233,10 +288,10 @@ G.Enemies = (() => {
     const horde = G.Events && G.Events.bag();
     if (horde) return horde;
     if (!cast) rollRun();
-    const bag = [];
+    const bag = [], e = eff(t);
     for (const tier of cast) {
-      if (t < tier.from) continue;
-      const w = t - tier.from > 260 ? 3 : 10;       // los tramos viejos pierden peso
+      if (e < tier.from) continue;
+      const w = e - tier.from > 260 ? 3 : 10;       // los tramos viejos pierden peso (tiempo efectivo)
       for (const e of tier.list) for (let i = 0; i < w; i++) bag.push(e);
     }
     return bag.length ? bag : cast[0].list;
@@ -246,14 +301,15 @@ G.Enemies = (() => {
   function upcomingDex(t, ahead = 60) {
     if (!cast) rollRun();
     const out = [];
-    for (const tier of cast) if (tier.from <= t + ahead) for (const e of tier.list) out.push(e.dex);
+    const ea = eff(t + ahead);
+    for (const tier of cast) if (tier.from <= ea) for (const e of tier.list) out.push(e.dex);
     for (const b of bosses) if (b.at <= t + ahead) out.push(b.dex);
     if (t + ahead >= 360) out.push(...swarmDex);
     return out;
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, earlyK, earlyHp, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

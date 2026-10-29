@@ -746,6 +746,59 @@ G.Icons = (() => {
       P.lay(() => P.arrow(15, 3, 27, 5, M));
     }
   };
+  // -- ataques únicos: Normal, Fuego, Agua, Planta, Eléctrico, Hielo (26-10-2026) --
+  // Los que han cambiado tanto de forma que el dibujo de su familia ya no encaja (manda sobre KIND_ART).
+  const ID_ART = {
+    // Sustituto: un muñeco de trapo con cara (el señuelo), no una torreta.
+    substitute(P) {
+      P.lay(() => P.ell(15, 27.5, 8, 1.8, S));
+      P.lay(() => { P.line(4, 20, 10, 17, M, 3); P.line(20, 17, 26, 20, M, 3); P.rect(10.5, 23, 13.5, 27, M); P.rect(16.5, 23, 19.5, 27, M); });
+      P.lay(() => { P.rect(9.5, 14, 20.5, 24, M); P.line(15, 15, 15, 23, B, 1); P.set(13, 17, B); P.set(17, 21, B); });
+      P.lay(() => { P.disc(15, 8.5, 6.8, M); P.rect(12, 7, 12, 8, O); P.rect(18, 7, 18, 8, O); P.line(13, 11, 17, 11, B, 1); });
+      P.lay(() => P.star(25, 5, 3.2, 1.1, 4, A));
+    },
+    // Fuego Fatuo: llamas que flotan con su estela y se quedan pegadas a un enemigo (silueta gris).
+    'will-o-wisp'(P) {
+      P.lay(() => { P.ell(18, 23, 9, 5.5, S); P.disc(18, 15, 5.5, S); P.set(16, 14, N); P.set(20, 14, N); });
+      P.lay(() => { P.path([[1, 13], [4, 10], [7, 12], [10, 9]], L, 1); P.path([[9, 2], [12, 4], [15, 2]], L, 1); });
+      P.el(10, 10, 4.6); P.el(17, 4, 3.4); P.el(23, 17, 4.8);
+    },
+    // Giro Fuego: una jaula de llamas alrededor de un enemigo (silueta gris), no orbes a tu alrededor.
+    'fire-spin'(P) {
+      P.lay(() => P.ell(15, 25, 11, 3, S));
+      P.lay(() => { P.ell(15, 19, 5, 4.2, S); P.disc(15, 12.5, 4, S); P.set(13, 12, N); P.set(17, 12, N); });
+      for (const [x, y, r] of [[4.5, 21, 3.6], [6.5, 9.5, 3.4], [15, 4.5, 3.5], [23.5, 9.5, 3.4], [25.5, 21, 3.6], [15, 26.5, 3.2]]) P.el(x, y, r);
+    },
+    // Onda Ígnea: un frente de aire ardiente en arco que avanza.
+    'heat-wave'(P) {
+      P.lay(() => P.ring(3, 27, 20.5, 24, M, -88 * DEG, -2 * DEG));
+      P.lay(() => P.ring(3, 27, 13, 16, A, -84 * DEG, -6 * DEG));
+      P.lay(() => P.ring(3, 27, 6, 8.5, W, -80 * DEG, -10 * DEG));
+      for (const a of [-76, -45, -14]) { const [x, y] = pol(3, 27, 25, a * DEG); P.el(x, y, 3.2); }
+    },
+    // Bomba Germen: una semilla clavada que brota y estalla.
+    'seed-bomb'(P) {
+      P.lay(() => P.ell(15, 26.5, 9, 2.4, S));
+      P.lay(() => { for (const a of [-160, -125, -55, -20]) { const [x0, y0] = pol(15, 18, 9.5, a * DEG), [x1, y1] = pol(15, 18, 13.5, a * DEG); P.line(x0, y0, x1, y1, Y, 2); } });
+      P.lay(() => { P.ell(15, 22.5, 5.5, 3.8, A); P.set(13, 21, W); });
+      P.lay(() => P.line(15, 18.5, 15, 10, M, 2));
+      P.el(10.5, 9, 4.2); P.el(19.5, 8, 4.2);
+    },
+    // Golpe Cuerpo: saltas y caes con todo tu peso (la onda en el suelo).
+    'body-slam'(P) {
+      P.lay(() => { P.ell(15, 26, 13.5, 3.3, A); P.ell(15, 26, 9.5, 1.8, 0); });
+      P.lay(() => { P.line(7, 2, 7, 8, L, 1); P.line(23, 2, 23, 8, L, 1); P.line(11, 0, 11, 4, L, 1); P.line(19, 0, 19, 4, L, 1); });
+      P.lay(() => { P.ell(15, 15.5, 8.5, 7.5, M); P.set(12, 13, O); P.set(18, 13, O); P.line(13, 18, 17, 18, O, 1); });
+      P.lay(() => { P.star(4, 21, 3, 1.1, 4, Y); P.star(26, 20, 3, 1.1, 4, Y); });
+    },
+    // Látigo Cepa: la liana agarra a un enemigo y lo trae hacia ti.
+    'vine-whip'(P) {
+      P.lay(() => { P.ell(22, 13, 5, 4.4, S); P.disc(22, 6.5, 3.6, S); P.set(20, 6, N); P.set(24, 6, N); });
+      P.lay(() => { P.path([[2, 28], [5, 23], [9, 21], [13, 16], [17, 13]], M, 3); P.ring(22, 12, 4.4, 6.4, M, -200 * DEG, 40 * DEG); });
+      P.el(6.5, 17.5, 3.2); P.el(13.5, 22.5, 3);
+      P.lay(() => P.poly([[9, 3], [3, 8], [10, 9]], Y));
+    }
+  };
   const ART_FALLBACK = 'projectile';
   const ART_BLANK = { px: new Uint8Array(900), pal: [] };   // sin datos de movimientos aún: nada
 
@@ -760,7 +813,7 @@ G.Icons = (() => {
     const type = own(ART_PAL, m.type) ? m.type : 'normal';
     const P = artPen(type);
     const v = m.kind === 'buff' ? m.stat : VARIANT[id] || 0;
-    (KIND_ART[m.kind] || KIND_ART[ART_FALLBACK])(P, v);
+    (ID_ART[id] || KIND_ART[m.kind] || KIND_ART[ART_FALLBACK])(P, v);     // (ID_ART: ataques únicos, 26-10-2026)
     a = { px: P.done(), pal: [null, K, ...ART_PAL[type], ...ART_SHARED] };
     arts.set(id, a);
     return a;

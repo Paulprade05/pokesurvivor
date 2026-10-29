@@ -118,19 +118,18 @@ class Dummy {
     this.hpRef = boss ? REF.bossHp : REF.hp; this.maxHp = this.hp = this.hpRef / REF.atk;
     this.fresh();
   }
-  fresh() { this.burn = this.burnT = this.burnTick = 0; this.poison = this.poisonT = this.poisonTick = 0; this.slow = this.slowT = 0; this.stunT = 0; this.x2 = null; }
+  fresh() { this.burn = this.burnT = this.burnTick = 0; this.poison = this.poisonT = this.poisonTick = 0; this.slow = this.slowT = 0; this.stunT = 0; this.sts = null; }
   cy() { return this.y; }
   /** Mira hacia pl (dirección de 8 del sprite), como los del juego que te persiguen. */
   face(pl) { const a = Math.atan2(pl.y - this.y, pl.x - this.x); this.anim.dir = ((Math.round((Math.PI / 2 - a) / (Math.PI / 4)) % 8) + 8) % 8; }
   // (Ataques únicos, 26-10-2026: Vulnerable y Espada Santa suben lo que recibe, como en enemy.js.)
-  hurt(amount) { if (this.x2) amount *= G.Combat.uq.stHurtK(this); S.direct += Math.max(1, Math.round(amount)); S.hits++; }
+  hurt(amount) { if (this.sts) amount *= G.Combat.mx.stHurtK(this); S.direct += Math.max(1, Math.round(amount)); S.hits++; }
   applyStun(d) { this.stunT = Math.max(this.stunT, d); }
   applySlow(f, d = 1.2) { this.slow = Math.max(this.slow, f); this.slowT = Math.max(this.slowT, d); }
   applyBurn(n = 1) { this.burn = Math.min(8, this.burn + n); this.burnT = 3; }
   applyPoison(n = 1) { this.poison = Math.min(8, this.poison + n); this.poisonT = 4; }
   /** Estados como en enemy.js (en «ataque 1»: se divide entre REF.atk). */
   tick(dt) {
-    if (this.x2) G.Combat.uq.tickDummy(this, dt);      // (relojes de los estados nuevos y el veneno grave)
     if (this.stunT > 0) this.stunT -= dt;
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slow = 0; }
     if (this.burn > 0) {

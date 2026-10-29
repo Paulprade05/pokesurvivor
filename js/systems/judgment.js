@@ -118,6 +118,7 @@ G.Judgment = (() => {
 
   /** Salta la animación (tecla o toque; en grupo, el anfitrión). */
   function skip() {
+    if (G.Rift.traveling) { G.Rift.skipTravel(); return; }     // (el viaje por la grieta, 26-10-2026)
     if (phase !== 'cine' || !canSkip || ct >= T_BACK) return;
     if (G.Coop.isHost) G.Coop.broadcast(['jk']);
     doSkip();
@@ -187,6 +188,9 @@ G.Judgment = (() => {
 
   /** Durante la animación (el resto del juego está parado). */
   function cineTick(dt) {
+    // El viaje por la grieta (26-10-2026) también para el juego: va por aquí (game.js sólo
+    // conoce las animaciones de la Sentencia). Lo lleva rift.js.
+    if (G.Rift.traveling) { G.Rift.travelTick(dt); return; }
     const prev = ct;
     ct += dt;
     const at = x => prev < x && ct >= x;
@@ -482,6 +486,7 @@ G.Judgment = (() => {
 
   /** En pantalla: la animación, o el aviso de la pelea. */
   function drawOverlay(ctx, w, h) {
+    if (G.Rift.traveling) { G.Rift.drawTravel(ctx, w, h); return; }
     if (phase === 'cine') drawCine(ctx, w, h);
     else if (phase === 'fight') drawFight(ctx, w, h);
   }
@@ -707,9 +712,10 @@ G.Judgment = (() => {
   return {
     AT, reset, noteDmg, update, cineTick, skip, bossDown, drawable, drawAir, drawOverlay, onEvent, netState, netApply,
     get active() { return !!phase; }, capSpd,
-    get cinematic() { return phase === 'cine'; },
-    /** Lo que suena: nada en la animación hasta que aterriza. */
-    get music() { return phase === 'cine' && ct < T_LAND ? null : 'judgment'; },
+    // (También mientras viajas por una grieta: el juego se para igual. Ver rift.js.)
+    get cinematic() { return phase === 'cine' || G.Rift.traveling; },
+    /** Lo que suena: nada en la animación hasta que aterriza (y la de la grieta en el viaje). */
+    get music() { return G.Rift.traveling ? 'rift' : phase === 'cine' && ct < T_LAND ? null : 'judgment'; },
     /** Para el resumen de la partida: { time, bosses } o null. */
     summary() { return phase === 'fight' ? { time: arenaT, bosses: downs } : null; },
     /** Para pruebas: vida del primer legendario y daño medido. */

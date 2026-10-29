@@ -829,6 +829,9 @@ G.Game = (() => {
 
     G.Pad.poll(real);
     handleKeys();
+    // Ultra: cámara inclinada con perspectiva (D3). Antes de la lógica: la puntería con
+    // el ratón, lo que se ve y dónde salen los enemigos ya cuentan con ella.
+    G.Camera.persp = G.Settings.ultra ? D3.PERSP : 0;
 
     if (state === 'playing') update(dt);
     else if (pl && state !== 'ui') { G.FX.update(dt * 0.25); pl.anim.update(dt * 0.25); }
@@ -992,6 +995,146 @@ G.Game = (() => {
     }
   }
 
+  // ---------------- Ultra: el mundo en 2,5D (cámara inclinada de DS) ----------------
+  /*
+   * Con la calidad Ultra la cámara mira el suelo inclinada y con perspectiva
+   * (G.Camera.persp, ver camera.js): arriba, lejos, todo un poco más pequeño; abajo,
+   * cerca, un poco más grande; en el centro, tu Pokémon como siempre. Tres capas:
+   *  1) SUELO: el mapa, el agua, trampas y manantiales, los avisos de ataques, los
+   *     charcos y los objetos que se recogen, en un lienzo aparte a 1 px por unidad
+   *     de mundo (el mapa, a ×2 justo: nítido). Pasa a la pantalla por franjas de dos
+   *     filas de píxel de arte, cada una a su escala: la perspectiva, sin difuminar.
+   *  2) DE PIE (Pokémon, árboles, rocas, paredes, la grieta...): en la pantalla, por
+   *     orden de Y, cada uno de cara a la cámara y a la escala del sitio que pisa
+   *     (como los sprites de los juegos de DS sobre su mapa 3D): nada se deforma. Las
+   *     filas de pared, por tiras a la escala del suelo a su altura (bloques en
+   *     perspectiva, con los lados siguiendo las líneas del suelo).
+   *  3) AIRE (proyectiles, efectos, números): otro lienzo a la resolución de la
+   *     pantalla que pasa igual, por franjas.
+   * Todo usa la misma cuenta que G.Camera.toScreen: lo que se ve encaja con dónde
+   * están las cosas (choques, golpes, puntería, toques). Coste: unos cientos de
+   * drawImage y dos lienzos más (el del suelo, pequeño); nada se vuelve a pintar
+   * píxel a píxel (medido el 28-10-2026: +1 a +3 ms por fotograma sobre Alta).
+   */
+  const D3 = (() => {
+    const PERSP = 0.12;               // arriba de la pantalla, un 12 % más pequeño; abajo, un 12 % más grande
+    const GB = 4;                     // franjas del suelo: 4 filas de mundo (2 de píxel de arte)
+    const BAND = 8;                   // alto de las franjas de la capa de aire (px de pantalla)
+    const WS = 6;                     // tiras de las filas de pared (px de arte; CAP_H = 24, 4 tiras)
+    let gcv = null, gx = null, acv = null, ax = null;
+    const fit = (c, W, H) => { if (c.width !== W) c.width = W; if (c.height !== H) c.height = H; };
+    // La vista del lienzo del suelo (lo que necesitan World.drawGround / visibleProps).
+    const view = { l: 0, t: 0, w: 0, h: 0, left() { return this.l; }, top() { return this.t; },
+      sees(x, y, p = 60) { return x > this.l - p && x < this.l + this.w + p && y > this.t - p && y < this.t + this.h + p; } };
+
+    function draw(cam, extra, air) {
+      const Kd = cam.scale * dpr, K = cam.persp, hw = cam.w / 2, hh = cam.h / 2, a = K / hh;
+      const shX = cam._sx, shY = cam._sy, cx = cam.x, cy = cam.y, Hd = cv.height;
+      // Lo que se ve del mundo: más ancho arriba (lejos) que abajo.
+      const ex = hw / (1 - K) + 12 + Math.abs(shX);
+      const dvT = -hh / (1 - K) - 12 - Math.abs(shY), dvB = hh / (1 + K) + 12 + Math.abs(shY);
+      const t = performance.now() / 1000;
+
+      // 1) Suelo, a 1 px por unidad de mundo y alineado a los píxeles de arte (de 2 en 2).
+      const ox = Math.floor((cx - ex) / 2) * 2, oy = Math.floor((cy + dvT) / 2) * 2;
+      const GW = Math.ceil(cx + ex - ox) + 2, GH = (Math.ceil((cy + dvB - oy) / GB) + 1) * GB;
+      if (!gcv) { gcv = document.createElement('canvas'); }
+      fit(gcv, GW, GH);
+      if (!gx) gx = gcv.getContext('2d', { alpha: false });
+      view.l = ox; view.t = oy; view.w = GW; view.h = GH;
+      gx.setTransform(1, 0, 0, 1, -ox, -oy);
+      gx.imageSmoothingEnabled = false;
+      G.World.drawGround(gx, view, true);
+      G.World.drawLiquid(gx, view, t);
+      const props = G.World.visibleProps(view);
+      for (const p of props) if (p.flat) G.World.drawProp(gx, p, t);
+      G.Hazards.draw(gx);
+      G.Combat.drawGroundFields(gx);
+      G.Pickups.draw(gx);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      for (let r = 0; r < GH; r += GB) {
+        const v0 = oy + r - cy, v1 = v0 + GB;
+        const y0 = Math.round((v0 / (1 - a * v0) + hh + shY) * Kd), y1 = Math.round((v1 / (1 - a * v1) + hh + shY) * Kd);
+        if (y1 <= 0 || y1 <= y0) continue;
+        if (y0 >= Hd) break;
+        const s = 1 / (1 - a * (v0 + GB / 2));
+        ctx.drawImage(gcv, 0, r, GW, GB, ((ox - cx) * s + hw + shX) * Kd, y0, GW * s * Kd, y1 - y0);
+      }
+
+      // 2) De pie, por orden de Y; cada uno a la escala del sitio que pisa.
+      const items = [];
+      for (const p of props) if (!p.flat) items.push({ y: p.y, prop: p });
+      for (const e of G.EnemyMgr.drawables(cam)) items.push({ y: e.y, ent: e });
+      for (const e of extra) items.push({ y: e.y, ent: e });
+      const rift = G.Rift.drawable();
+      if (rift) items.push({ y: rift.y, ent: rift });
+      const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
+      if (arceus) items.push({ y: arceus.y, ent: arceus });
+      if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
+      items.sort((p, q) => p.y - q.y);
+      const TS = G.World.TS, PX = G.Sprites.PX, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
+      for (const it of items) {
+        const o = it.prop || it.ent;
+        // (Las filas de pared se apoyan en el borde de abajo de su fila y en vertical van
+        // como el suelo, s²: así una fila empieza justo donde acaba la de detrás.)
+        const fx = o.wallrow ? cx : o.x, fy = o.wallrow ? o.y - 1 + TS : o.y;
+        const dv = fy - cy, s = 1 / (1 - a * dv), k = s * Kd, ky = o.wallrow ? k * s : k;
+        // Dónde caen sus pies en la pantalla: lo que no se ve, ni se dibuja (lo alto
+        // sube desde los pies: puede asomar aunque los pies queden por debajo).
+        const sx = ((fx - cx) * s + hw + shX) * Kd, sy = (dv * s + hh + shY) * Kd;
+        if (sy < -60 * k || sy > Hd + 260 * k || sx < -200 * k || sx > cv.width + 200 * k) continue;
+        if (o.wallrow) {
+          // Fila de pared por tiras de WS px de arte: cada tira, a la escala del suelo a su
+          // altura en la pantalla, así los lados de las paredes siguen las líneas del suelo
+          // (antes, toda la fila a una escala: escalones en los lados). En vertical, igual.
+          // (Sin cara frontal, la tira sólo lleva la meseta: T filas de arte.)
+          const w00 = fy - TS - RAISE_W, end = o.face ? CAP_H : G.Tiles.T;
+          for (let a0 = 0; a0 < end; a0 += WS) {
+            const w0 = w00 + a0 * PX, w1 = w0 + WS * PX;
+            const y0 = Math.round(sy + ky * (w0 - fy)), y1 = Math.round(sy + ky * (w1 - fy));
+            if (y1 <= y0 || y1 <= 0 || y0 >= Hd) continue;
+            const ks = (1 + a * ((y0 + y1) / 2 / Kd - hh - shY)) * Kd, kys = (y1 - y0) / (w1 - w0);
+            ctx.setTransform(ks, 0, 0, kys, (hw + shX) * Kd - ks * cx, y0 - kys * w0);
+            G.World.drawProp(ctx, o, t, a0, a0 + WS);
+          }
+          continue;
+        }
+        ctx.setTransform(k, 0, 0, ky, sx - k * fx, sy - ky * fy);
+        if (it.prop) G.World.drawProp(ctx, it.prop, t); else it.ent.draw(ctx);
+      }
+
+      // 3) Aire: proyectiles y efectos, en su lienzo, y a la pantalla por franjas.
+      if (air) {
+        const aox = cx - ex, aoy = cy + dvT;
+        const AW = Math.ceil(2 * ex * Kd) + 2, AH = Math.ceil((dvB - dvT) * Kd) + 2;
+        if (!acv) { acv = document.createElement('canvas'); }
+        fit(acv, AW, AH);
+        if (!ax) ax = acv.getContext('2d');
+        ax.setTransform(1, 0, 0, 1, 0, 0);
+        ax.clearRect(0, 0, AW, AH);
+        ax.setTransform(Kd, 0, 0, Kd, -aox * Kd, -aoy * Kd);
+        ax.imageSmoothingEnabled = false;
+        G.Projectiles.draw(ax);
+        G.Combat.drawAirFields(ax);
+        G.FX.draw(ax);
+        G.Judgment.drawAir(ax);
+        // (Sin suavizar: nítido y bastante más barato que con suavizado.)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        for (let y = 0; y < Hd; y += BAND) {
+          const Y0 = y / Kd - hh - shY, Y1 = (y + BAND) / Kd - hh - shY;
+          const sy0 = (cy + Y0 / (1 + a * Y0) - aoy) * Kd, sy1 = (cy + Y1 / (1 + a * Y1) - aoy) * Kd;
+          if (sy1 <= 0 || sy0 >= AH) continue;
+          const s = 1 + a * (Y0 + Y1) / 2;
+          ctx.drawImage(acv, 0, sy0, AW, sy1 - sy0, ((aox - cx) * s + hw + shX) * Kd, y, AW * s, BAND);
+        }
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    return { PERSP, draw };
+  })();
+
   /*
    * Apuntar a mano: una mira donde está el ratón (y el cursor en cruz), o
    * delante de tu Pokémon si apuntas con el stick derecho.
@@ -1003,9 +1146,9 @@ G.Game = (() => {
     if (!on) return;
     let x, y;
     if (G.Pad.aim()) {
-      const k = G.Camera.scale;
-      x = (pl.x - G.Camera.left() + Math.cos(pl.aim) * 90) * k;
-      y = (pl.y - G.LIFT * 0.5 - G.Camera.top() + Math.sin(pl.aim) * 90) * k;
+      // (Con G.Camera.toScreen: en Ultra, con la perspectiva.)
+      ({ x, y } = G.Camera.toScreen(pl.x + Math.cos(pl.aim) * 90, pl.y + Math.sin(pl.aim) * 90));
+      y -= G.LIFT * 0.5 * G.Camera.scale * G.Camera.scaleAt(pl.y);
     } else ({ x, y } = G.Input.mouse());
     ctx.save();
     ctx.lineCap = 'round';
@@ -1022,21 +1165,24 @@ G.Game = (() => {
   let fogG = null, fogW = 0, fogH = 0;
   function render() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
+    if (!G.Camera.persp) ctx.clearRect(0, 0, w, h);     // (en Ultra el suelo ya tapa toda la pantalla)
     ctx.imageSmoothingEnabled = false;
 
-    ctx.save();
-    ctx.scale(G.Camera.scale, G.Camera.scale);
-    G.Camera.apply(ctx);
     const ents = G.Coop.active ? [pl, ...G.Coop.puppets()] : [pl];
     const stone = G.EvoUI.drawable();     // la piedra de su evolución, en el suelo
     if (stone) ents.push(stone);
-    drawScene(G.Camera, ents);
-    G.Projectiles.draw(ctx);
-    G.Combat.drawAirFields(ctx);
-    G.FX.draw(ctx);
-    G.Judgment.drawAir(ctx);
-    ctx.restore();
+    if (G.Camera.persp) D3.draw(G.Camera, ents, true);
+    else {
+      ctx.save();
+      ctx.scale(G.Camera.scale, G.Camera.scale);
+      G.Camera.apply(ctx);
+      drawScene(G.Camera, ents);
+      G.Projectiles.draw(ctx);
+      G.Combat.drawAirFields(ctx);
+      G.FX.draw(ctx);
+      G.Judgment.drawAir(ctx);
+      ctx.restore();
+    }
 
     G.Weather.draw(ctx, w, h, frameDt);
     G.World.drawVignette(ctx, w, h);
@@ -1167,11 +1313,15 @@ G.Game = (() => {
       step(dt);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      ctx.save();
-      ctx.scale(G.Camera.scale, G.Camera.scale);
-      G.Camera.apply(ctx);
-      drawScene(G.Camera, wanderers);
-      ctx.restore();
+      G.Camera.persp = G.Settings.ultra ? D3.PERSP : 0;
+      if (G.Camera.persp) D3.draw(G.Camera, wanderers, false);
+      else {
+        ctx.save();
+        ctx.scale(G.Camera.scale, G.Camera.scale);
+        G.Camera.apply(ctx);
+        drawScene(G.Camera, wanderers);
+        ctx.restore();
+      }
       G.World.drawVignette(ctx, w, h);
     }
 

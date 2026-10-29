@@ -53,10 +53,48 @@ G.Camera = {
   left() { return this.x - this.w / 2; },
   top() { return this.y - this.h / 2; },
 
+  /*
+   * ==== Ultra (2,5D como los juegos de DS): cámara inclinada con perspectiva ====
+   * persp = K (0: sin perspectiva). La escala en pantalla depende de la altura en
+   * la pantalla: s = 1 + a·Y (Y desde el centro, en unidades de mundo; a = K / (h/2)).
+   * Arriba (lejos) todo es un K más pequeño y abajo (cerca), un K más grande; en el
+   * centro (tu Pokémon) no cambia. Es una homografía del suelo:
+   *   q = 1 − a·dv,  X = du / q,  Y = dv / q   (du, dv: del centro de la cámara al punto)
+   * game.js dibuja el mundo así (D3); toScreen / toWorld son la misma cuenta para
+   * la puntería, los toques y las marcas de pantalla. Con persp = 0, lo de siempre.
+   */
+  persp: 0,
+  _pa() { return this.persp ? this.persp / (this.h / 2) : 0; },
+  /** Escala en pantalla de lo que tiene los pies en y (1 sin perspectiva). */
+  scaleAt(y) { const a = this._pa(); return a ? 1 / (1 - a * (y - this.y)) : 1; },
+  /** Mundo → pantalla (px CSS). */
+  toScreen(x, y) {
+    let du = x - this.x, dv = y - this.y;
+    const a = this._pa();
+    if (a) { const q = 1 - a * dv; du /= q; dv /= q; }
+    return { x: (du + this.w / 2 + this._sx) * this.scale, y: (dv + this.h / 2 + this._sy) * this.scale };
+  },
+  /** Pantalla (px CSS) → mundo (el punto del suelo que se ve ahí). */
+  toWorld(sx, sy) {
+    let X = sx / this.scale - this.w / 2 - this._sx, Y = sy / this.scale - this.h / 2 - this._sy;
+    const a = this._pa();
+    if (a) { const dv = Y / (1 + a * Y); X *= 1 - a * dv; Y = dv; }
+    return { x: this.x + X, y: this.y + Y };
+  },
+  /** Lo que se ve de más por los lados y por arriba con la perspectiva (unidades de mundo). */
+  _ext() {
+    const K = this.persp;
+    if (!K) return null;
+    const f = K / (1 - K);
+    return { x: this.w / 2 * f, top: this.h / 2 * f };
+  },
+
   /** ¿Está el punto dentro de la vista (con margen)? */
   sees(x, y, pad = 60) {
-    return x > this.left() - pad && x < this.left() + this.w + pad &&
-           y > this.top() - pad && y < this.top() + this.h + pad;
+    const e = this.persp ? this._ext() : null;
+    const ex = e ? e.x : 0, et = e ? e.top : 0;
+    return x > this.left() - pad - ex && x < this.left() + this.w + pad + ex &&
+           y > this.top() - pad - et && y < this.top() + this.h + pad;
   },
 
   /**
@@ -66,5 +104,9 @@ G.Camera = {
    * por arriba o por abajo. En horizontal sale siempre lo de antes.
    */
   /** Radio que cubre la vista (la de este aparato, o la de un compañero si se pasa su ancho y alto). */
-  outerRadius(w = this.w, h = this.h) { return Math.max(Math.hypot(w, h) / 2 + 40, h / 1.8 + 90); }
+  outerRadius(w = this.w, h = this.h) {
+    // (Ultra: con la perspectiva, las esquinas de arriba quedan más lejos.)
+    const k = this.persp ? 1 / (1 - this.persp) : 1;
+    return Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
+  }
 };

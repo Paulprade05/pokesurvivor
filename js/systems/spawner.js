@@ -15,6 +15,12 @@
  * jefes del calendario (antes el último era el del minuto 15), dos a la vez
  * en los minutos 24 y 27. Los primeros minutos no cambian.
  *
+ * Curva revisada el 26-10-2026 (medida con un bot en partidas reales): la fuerza de
+ * los enemigos va con el tiempo «efectivo» de G.Enemies.eff (más suave al principio,
+ * más dura al final), el tramo final empieza en el 15 y llega a +60 % de vida y +40 %
+ * de daño, al principio caben menos a la vez (capAt) y, hasta el 20, un jefe espera
+ * más a que caiga el anterior (bossLate).
+ *
  * Cada enemigo tiene 1/4096 de salir shiny (como en los juegos clásicos).
  * Una run mata 1.500–4.000, así que sale uno cada 1–3 partidas.
  *
@@ -28,22 +34,35 @@ G.Spawner = (() => {
   // experiencia), así la dificultad no baja. Del minuto 18 al 28 el tope sube
   // poco a poco hasta CAP_LATE. Las oleadas se pueden pasar del tope en OVER.
   const CAP = 64, CAP_LATE = 78, OVER = 20, ELITE_FROM = 0.85;
-  const capAt = t => CAP + Math.round((CAP_LATE - CAP) * G.U.clamp((t - 1080) / 600, 0, 1));
+  // (26-10-2026) Al principio caben menos (CAP_EARLY hasta el minuto 6, y sube hasta CAP en el 15): sin
+  // mejoras te rodeaban ya hacia el minuto 5 y no había forma de salir. Del 15 en adelante, como antes.
+  const CAP_EARLY = 50;
+  const capAt = t => (t < 1080 ? Math.round(CAP_EARLY + (CAP - CAP_EARLY) * G.U.clamp((t - 360) / 540, 0, 1))
+                               : CAP + Math.round((CAP_LATE - CAP) * G.U.clamp((t - 1080) / 600, 0, 1)));
   // Menos Pokémon pero más fuertes (la pantalla no se satura): salen ~24% de
   // los de antes, cada uno con más vida, daño y experiencia.
   const DENSITY = 0.24, DMG_K = 2.4, XP_K = 5.6;
+  // Tiempo «efectivo» de la fuerza de los enemigos (26-10-2026, ver G.Enemies.eff):
+  // al principio corre más despacio que el reloj y al final, más deprisa.
+  const eff = t => G.Enemies.eff(t);
   // La resistencia extra crece con la run: al principio ×3,3 y hasta ×5
-  // hacia el minuto 6, cuando ya tienes ataques para tumbarlos.
-  const hpK = t => 3.3 + Math.min(1.7, t / 210);
-  // Tramo final: de 0 en el minuto 12 a 1 en el 30, despacio al principio.
-  const lateR = t => Math.pow(G.U.clamp((t - 720) / 1080, 0, 1), 1.5);
-  const lateHp = t => 1 + 0.35 * lateR(t), lateDmg = t => 1 + 0.22 * lateR(t);
-  // Campeones: del 1 % en el minuto 8 al 6 % en el 28; como mucho 2 vivos (3 desde el 12, 4 desde el 18).
+  // hacia el minuto 6 (efectivo), cuando ya tienes ataques para tumbarlos.
+  const hpK = t => 3.3 + Math.min(1.7, eff(t) / 210);
+  // Tramo final (26-10-2026, con el reloj real): de 0 en el minuto 15 a 1 en el
+  // 30, despacio al principio; hasta +60 % de vida y +40 % de daño. Así del 20 al
+  // 30 sigue siendo lo más duro aunque lo de antes vaya más suave.
+  const lateR = t => Math.pow(G.U.clamp((t - 900) / 900, 0, 1), 1.5);
+  const lateHp = t => 1 + 0.8 * lateR(t), lateDmg = t => 1 + 0.55 * lateR(t);
+  // Campeones: del 1 % en el minuto 8 (efectivo; el 16 del reloj) al 6 %; como
+  // mucho 2 vivos (3 desde el 12 efectivo, 4 desde el 18).
   const CHAMP_FROM = 480;
-  const champChance = t => (t < CHAMP_FROM ? 0 : Math.min(0.065, 0.01 + (t - CHAMP_FROM) / 24000));
-  const champMax = t => (t < 720 ? 2 : t < 1080 ? 3 : 4);
+  const champChance = t => { const e = eff(t); return e < CHAMP_FROM ? 0 : Math.min(0.065, 0.01 + (e - CHAMP_FROM) / 24000); };
+  const champMax = t => { const e = eff(t); return e < 720 ? 2 : e < 1080 ? 3 : 4; };
   const SHINY_RATE = 1 / 4096;
   const BOSS_GAP = 45, BOSS_LATE = 60;
+  // (26-10-2026) Hasta el minuto 20 el siguiente jefe espera más al anterior (90 s): se juntaban dos o
+  // tres jefes que no se podían tumbar y ahí acababa la partida (sin mejoras hacia el 6; con todas, hacia el 15).
+  const bossLate = t => (t < 1200 ? 90 : BOSS_LATE);
   // Oleadas: desde cuándo hay de las nuevas y cuánto pesa cada una (antes y después del minuto 18).
   const WAVE_FROM = 360, LATE = 1080;
   const WAVES = {
@@ -62,7 +81,7 @@ G.Spawner = (() => {
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
   }
 
-  /** Enemigos por segundo según el minuto de la run. */
+  /** Enemigos por segundo según el minuto de la run (con el reloj real). */
   function rate(t) {
     return (1.6 + t * 0.028 + Math.pow(t / 60, 1.6) * 0.5) * DENSITY;
   }
@@ -134,8 +153,10 @@ G.Spawner = (() => {
    * o: { hp, dmg, xp } multiplicadores · weak (sin élite ni campeón) · noChamp
    */
   function make(def, x, y, t, o = {}) {
-    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * (o.hp || 1)));
-    e.dmg *= DMG_K * lateDmg(t) * (o.dmg || 1); e.xp = Math.max(1, Math.round(e.xp * XP_K * (o.xp || 1)));
+    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) * (o.hp || 1)));
+    // (xpLag: la experiencia sigue al reloj real aunque los tramos vayan con el efectivo,
+    //  26-10-2026; si no, se subía de nivel mucho más despacio y se llegaba flojo al final.)
+    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (o.dmg || 1); e.xp = Math.max(1, Math.round(e.xp * XP_K * G.Enemies.xpLag(t) * (o.xp || 1)));
     e.elite = !o.weak && G.EnemyMgr.count >= capAt(t) * ELITE_FROM;
     if (e.elite) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
     if (!o.weak && !o.noChamp && !SUPPORT.has(def.behavior) && def.behavior !== 'bomber' && def.behavior !== 'runner' &&
@@ -171,6 +192,7 @@ G.Spawner = (() => {
   function spawnBoss(pl, t, b, angle = Math.random() * 6.2832) {
     const [x, y] = ringPoint(pl, angle);
     const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
+    e.dmg *= G.Enemies.earlyK(t);           // (principio suave, 28-10-2026)
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);
     G.Camera.kick(1.1);
@@ -211,12 +233,14 @@ G.Spawner = (() => {
     say('¡Marea de Pokémon!', 2, false, LOW);
   }
 
-  /** Cerco: un anillo entero alrededor, todos a la misma distancia, que se va cerrando. */
+  /** Cerco: un anillo entero alrededor, todos a la misma distancia, que se va cerrando (hasta el minuto 12, con un hueco). */
   function ring(pl, t) {
     const n = Math.min(room(t), Math.round(Math.min(28, 10 + t / 90) * groupK()));
     if (n < 6) return surge(pl, t);
     const def = plainPick(t), fly = isFlyer(def), a0 = Math.random() * 6.2832;
-    for (let i = 0; i < n; i++) {
+    // (28-10-2026) Medido con tools/curve.cjs: el primer cerco (minuto 6) era un muro incluso con todas las mejoras.
+    const gap = t < 720 ? 2 : 0;
+    for (let i = gap; i < n; i++) {
       const [x, y] = ringPoint(pl, a0 + i / n * 6.2832, 30);
       if (players.length > 1 && seenByAnyone(x, y)) continue;
       if (!fly && !G.World.isFree(x, y, 14)) continue;
@@ -289,7 +313,7 @@ G.Spawner = (() => {
     // (al volver de una grieta larga salían dos en fotogramas seguidos). Los de
     // un mismo minuto (los dúos del final) salen juntos, por lados opuestos.
     const b = G.Enemies.BOSSES[bossIdx];
-    if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > BOSS_LATE || !G.EnemyMgr.bossAlive())) {
+    if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive())) {
       const group = [b];
       while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
       const pl = anchor(), a0 = Math.random() * 6.2832;

@@ -1,0 +1,299 @@
+#!/usr/bin/env node
+/*
+ * Curva de dificultad medida con partidas de verdad (28-10-2026).
+ *
+ * Uso:  node tools/curve.cjs [--par 6] [--speed 2] [--cap 1860] [--out <carpeta>] 6:max 6:zero:2 225:max 150:zero ...
+ *       node tools/curve.cjs --report <carpeta>...
+ *   (puppeteer-core: `--pp <carpeta node_modules>` o PUPPETEER_CORE=<ruta>; Chrome: `--chrome <exe>` o CHROME=<exe>)
+ *
+ * Cada trabajo es `dex:mejoras[:repeticiones]`, con mejoras `max` (todas las del Pokémon al máximo, también
+ * Persistencia, Propulsión y Réplica) o `zero` (ninguna). Pokémon de referencia: 225 Delibird (flojo), 6 Charizard
+ * (medio, empieza de Charmander) y 445 Garchomp / 150 Mewtwo (fuertes).
+ *
+ * Abre dev.html en Chrome sin ventana con un servidor propio, entra como invitado y juega una partida entera con
+ * un bot que esquiva (avisos en el suelo, disparos, campos de las firmas de los jefes), recoge, entra en las grietas
+ * y elige las cartas como una persona que sabe jugar. El bot es INMORTAL: lleva una vida «virtual» (golpes,
+ * regeneración y curas) y apunta cuándo habría caído; al caer vuelve a la vida llena y sigue, así una sola partida
+ * dice la presión de cada minuto. «primera» es cuándo habría acabado la partida de verdad.
+ *
+ * El informe (--report, y al acabar una tanda) da por partida: primera caída, «muro» (primer minuto con ≥10 caídas,
+ * o ≥5 dos minutos seguidos), caídas en los minutos 0-10 / 10-20 / 20-30 y nivel en los minutos 10, 20 y 29.
+ * Objetivo (dueño, 26-10-2026): con mejoras al máximo se llega con esfuerzo al 20-30; sin mejoras se cae hacia el
+ * 8-15; y los minutos 20-30 son los más duros.
+ */
+'use strict';
+const path = require('path'), fs = require('fs'), http = require('http'), os = require('os');
+const { spawn } = require('child_process');
+
+const args = process.argv.slice(2);
+const opt = (k, d) => { const i = args.indexOf('--' + k); if (i < 0) return d; const v = args[i + 1]; args.splice(i, 2); return v; };
+const flag = k => { const i = args.indexOf('--' + k); if (i < 0) return false; args.splice(i, 1); return true; };
+const ROOT = path.resolve(__dirname, '..');
+
+// ---------------------------------------------------------------- informe
+function report(dirs) {
+  for (const dir of dirs) {
+    console.log('== ' + dir);
+    for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.txt')).sort()) {
+      const s = fs.readFileSync(path.join(dir, f), 'utf8');
+      const rows = [...s.matchAll(/\[\s*(\d+):(\d+)\] Nv\.(\d+) .*?caídas=(\d+)/g)].map(m => ({ m: +m[1], lv: +m[3], d: +m[4] }));
+      const res = /RESULT .*?primera=(\S+) caídas=\[([^\]]*)\]/.exec(s);
+      if (!rows.length) { console.log(`${f.replace('.txt', '').padEnd(12)} (sin datos)`); continue; }
+      let wall = null;
+      for (let i = 0; i < rows.length; i++) { const r = rows[i], n = rows[i + 1]; if (r.d >= 10 || (r.d >= 5 && n && n.d >= 5)) { wall = r.m; break; } }
+      const lv = m => { const r = rows.find(x => x.m === m) || rows.filter(x => x.m <= m).pop(); return r ? r.lv : '-'; };
+      const first = res ? res[1] : '-';
+      const sum = (a, b) => rows.filter(r => r.m >= a && r.m < b).reduce((t, r) => t + r.d, 0);
+      console.log(`${f.replace('.txt', '').padEnd(12)} primera=${String(first === '-' ? '-' : (first / 60).toFixed(1) + 'min').padEnd(8)} muro=${wall == null ? 'no' : 'min ' + wall}`.padEnd(46) +
+        ` caídas 0-10/10-20/20-30: ${sum(0, 10)}/${sum(10, 20)}/${sum(20, 99)}  Nv m10/m20/m29: ${lv(10)}/${lv(20)}/${lv(29)}  (llegó al ${rows[rows.length - 1].m})`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- el bot (se ejecuta en la página)
+const PRELUDE = String.raw`
+window.sleep = ms => new Promise(r => setTimeout(r, ms));
+window.home = async () => {
+  for (const id of ['scr-settings', 'scr-news', 'scr-legal', 'scr-install', 'scr-profile']) { const e = document.getElementById(id); if (e) e.classList.add('hidden'); }
+  if (document.querySelector('.scr:not(.hidden):not(#scr-menu)')) { G.Flow.goMenu(); await sleep(300); }
+};
+window.BOT = { on: false, log: [], wander: Math.random() * 6.28, wt: 0, seen: {}, spin: Math.random() < 0.5 ? 1 : -1, target: null };
+// Cartas como una persona que sabe jugar: evoluciones, subir sus ataques, 2-3 ataques que pegan y pasivas de daño.
+BOT.pick = function (cards, cardInfo) {
+  const info = cards.map(cardInfo), pl = G.Game.player;
+  const byName = {}; for (const id in G.Moves.BY_ID) byName[G.Moves.BY_ID[id].name] = G.Moves.BY_ID[id];
+  const attacks = pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind))).length;
+  const STAT = { 'Potencia': 42, 'Réplica': 40, 'Reflejos': 36, 'Amplitud': 30, 'Coraza': 30, 'Vigor': 26, 'Puntería': 24, 'Síntesis': 24,
+                 'Persistencia': 20, 'Propulsión': 16, 'Carrera': 18, 'Imán': 12, 'Aprendizaje': 10 };
+  const score = c => {
+    if (/\bevo\b/.test(c.cls)) return 100;
+    if (/unlocks/.test(c.cls)) return 90;
+    const mv = byName[c.title], atk = mv && !G.Moves.nonAttacking(mv.kind);
+    if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 : 12; }
+    if (/is-new/.test(c.cls)) return atk ? (attacks < 2 ? 75 : attacks < 3 ? 48 : 22) : 4;
+    if (c.title === 'Baya Zidra') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
+    return STAT[c.title] != null ? STAT[c.title] : 15;
+  };
+  let idx = 0, best = -1;
+  info.forEach((c, i) => { const s = score(c) + Math.random() * 3; if (s > best) { best = s; idx = i; } });
+  return idx;
+};
+(function () {
+  const orig = G.Input.axis.bind(G.Input);
+  // Prueba 16 direcciones (y quedarse quieto), mira dónde estarían él y los enemigos dentro de 0,25 / 0,5 / 0,9 s
+  // y elige la más segura, con algo de atracción por orbes, la grieta y el espacio libre.
+  const DIRS = []; for (let i = 0; i < 16; i++) DIRS.push([Math.cos(i / 16 * 6.2832), Math.sin(i / 16 * 6.2832)]); DIRS.push([0, 0]);
+  let prev = [0, 0];
+  function smart(pl) {
+    const s = pl.spd || 100, R = pl.r || 12, en = [], pr = [];
+    for (const e of G.EnemyMgr.all()) if (!e.dead && Math.abs(e.x - pl.x) < 420 && Math.abs(e.y - pl.y) < 420 && e.behavior !== 'thief' && !(G.BossSig && G.BossSig.hidden(e))) en.push(e);
+    for (const p of G.Projectiles.all()) if (!p.friendly && !p.orb && Math.abs(p.x - pl.x) < 320 && Math.abs(p.y - pl.y) < 320) pr.push(p);
+    const hz = G.Hazards.all.filter(h => !h.hit);
+    const fl = G.BossSig && G.BossSig.botFields ? G.BossSig.botFields() : [];
+    let tx = null, ty = null, tw = 0;
+    const gem = pl.evo && pl.evo.item;
+    if (gem) { tx = gem.x; ty = gem.y; tw = 1.6; }
+    else if (BOT.target) { tx = BOT.target.x; ty = BOT.target.y; tw = 1.4; }
+    else {
+      let bd = 1e12, best = null;
+      for (const p of G.Pickups.all()) { const d2 = (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2; if (d2 < bd) { bd = d2; best = p; } }
+      if (best && bd < 600 * 600) { tx = best.x; ty = best.y; tw = 0.9; }
+    }
+    let bestS = -1e9, bx = 0, by = 0;
+    for (const [dx, dy] of DIRS) {
+      let danger = 0;
+      for (const T of [0.25, 0.5, 0.9]) {
+        const px = pl.x + dx * s * T, py = pl.y + dy * s * T;
+        if (T < 0.6 && (dx || dy) && !G.World.isFree(px, py, Math.min(R, 11))) danger += 6;
+        for (const e of en) {
+          let ux = pl.x - e.x, uy = pl.y - e.y; const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
+          const es = (e.spd || 60) * (e.phase === 'dash' ? 3 : 1) * 0.9;
+          const d = Math.hypot(px - (e.x + ux * es * T), py - (e.y + uy * es * T)) - (e.r || 12) - R, M = e.boss ? 90 : 50;
+          if (d < M) danger += (e.boss ? 3 : e.champ ? 2 : 1) * ((M - d) / M) ** 2 * (T < 0.3 ? 1.6 : 1);
+        }
+        for (const h of hz) { if (h.delay - h.t > T + 0.45) continue; if (G.Hazards.inside(h, px, py, R + 8)) danger += 9 * (h.kind === 'zone' && h.r > 80 ? 1.2 : 1); }
+        for (const f of fl) if (f.hits(px, py, R + 6, T)) danger += f.w;
+        for (const p of pr) { const d = Math.hypot(px - (p.x + p.vx * T), py - (p.y + p.vy * T)) - (p.r || 7) - R; if (d < 18) danger += 2.5 * ((18 - d) / 18) ** 2; }
+      }
+      let gain = 0;
+      if (tx != null && (dx || dy)) { const l = Math.hypot(tx - pl.x, ty - pl.y) || 1; gain += ((tx - pl.x) * dx + (ty - pl.y) * dy) / l * tw; }
+      if (tx == null && (dx || dy)) {
+        BOT.wt -= 1 / 600; if (BOT.wt <= 0) { BOT.wander += (Math.random() - 0.5) * 1.6; BOT.wt = 2.5; }
+        gain += (Math.cos(BOT.wander) * dx + Math.sin(BOT.wander) * dy) * 0.5;
+      }
+      if (dx || dy) { let c = 0; for (const e of en) { const ex = e.x - pl.x, ey = e.y - pl.y, l = Math.hypot(ex, ey); if (l < 320 && l > 1) c += (ex * dx + ey * dy) / l * (1 - l / 320); } gain -= c * 0.35; }
+      if ((dx || dy) && en.length > 4 && tw < 1.4) {
+        let cx = 0, cy = 0; for (const e of en) { cx += e.x; cy += e.y; } cx /= en.length; cy /= en.length;
+        let ox = pl.x - cx, oy = pl.y - cy; const l = Math.hypot(ox, oy) || 1; ox /= l; oy /= l;
+        gain += (-oy * BOT.spin * dx + ox * BOT.spin * dy) * 0.6;
+      }
+      gain += (dx * prev[0] + dy * prev[1]) * 0.25;
+      if (gain - danger > bestS) { bestS = gain - danger; bx = dx; by = dy; }
+    }
+    prev = [bx, by];
+    return [bx, by];
+  }
+  G.Input.axis = function () {
+    if (!BOT.on) return orig();
+    const pl = G.Game.player; if (!pl) return [0, 0];
+    const r = G.Rift.rift;
+    BOT.target = r && !G.EnemyMgr.bossAlive() ? { x: r.x, y: r.y - 10 } : null;
+    return smart(pl);
+  };
+  const visible = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
+  const T = () => Math.round(G.Game.st ? (G.Game.st.time || 0) : 0);
+  const cardInfo = el => ({ cls: el.className.replace('card pick-card', '').trim(), title: (el.querySelector('.nm') || {}).textContent || '' });
+  setInterval(() => {
+    if (!BOT.on) return;
+    try {
+      if (visible('scr-levelup')) { const cards = [...document.querySelectorAll('#cards .pick-card')]; if (cards.length) cards[BOT.pick(cards, cardInfo)].click(); }
+      else if (visible('scr-item')) { const c = document.querySelector('#item-cards .pick-card'); if (c) c.click(); }
+      else if (visible('scr-bond')) { const c = document.querySelector('#bond-cards .pick-card'); if (c) c.click(); }
+      else if (visible('scr-evo')) { const c = document.querySelector('#evo-cards .pick-card'); if (c) c.click(); }
+      if (G.Rift.traveling) G.Rift.skipTravel();
+    } catch (e) { BOT.log.push('bot err ' + e.message); }
+  }, 250);
+  let lastForm = null, lastBan = '';
+  setInterval(() => {
+    const pl = G.Game.player;
+    if (!pl || G.Game.state === 'ui') { lastForm = null; return; }
+    if (lastForm !== null && pl.form !== lastForm) BOT.log.push(T() + 's Nv.' + pl.level + ' evoluciona ' + (G.DEX_BY[lastForm] || {}).name + ' -> ' + (G.DEX_BY[pl.form] || {}).name);
+    lastForm = pl.form;
+    const b = G.Spawner.banner && G.Spawner.banner(), tx = b ? b.text : '';
+    if (tx && tx !== lastBan) BOT.log.push(T() + 's aviso: ' + tx);
+    lastBan = tx;
+  }, 200);
+})();
+`;
+
+// ---------------------------------------------------------------- una partida
+async function one(dex, upg, tag, speed, cap) {
+  const ppDir = opt('pp', process.env.PUPPETEER_CORE || '');
+  let puppeteer;
+  try { puppeteer = require(ppDir ? (/puppeteer-core$/.test(ppDir) ? ppDir : path.join(ppDir, 'puppeteer-core')) : 'puppeteer-core'); }
+  catch (e) { console.error('Falta puppeteer-core: pasa --pp <carpeta node_modules> o PUPPETEER_CORE=<ruta>'); process.exit(2); }
+  const CHROME = opt('chrome', process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe');
+  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json',
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
+  const server = http.createServer((req, res) => {
+    let f = path.join(ROOT, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+    if (!f.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
+    try { if (fs.statSync(f).isDirectory()) f = path.join(f, 'index.html'); } catch (e) { /* */ }
+    fs.readFile(f, (err, data) => {
+      if (err) { res.writeHead(404); return res.end('404'); }
+      res.writeHead(200, { 'Content-Type': types[path.extname(f).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      res.end(data);
+    });
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 3600000,
+    args: ['--no-first-run', '--mute-audio', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
+  const page = await browser.newPage();
+  let errors = 0;
+  page.on('pageerror', e => { errors++; console.log('  !! pageerror', String(e.message || e).slice(0, 300)); });
+  page.on('console', m => { if (m.type() === 'error' && !/beforeunload|favicon|firebase|ERR_|Failed to load resource/i.test(m.text())) { errors++; console.log('  !! console.error', m.text().slice(0, 300)); } });
+  await page.setViewport({ width: 932, height: 430, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  const log = s => console.log(s);
+  try {
+    // (Con muchas a la vez, cargar puede tardar: 30 s no bastaban con 12.)
+    await page.goto(`http://127.0.0.1:${server.address().port}/dev.html?dev`, { waitUntil: 'load', timeout: 180000 });
+    await page.evaluate(PRELUDE);
+    // Entrar como invitado (y pasar el test de naturaleza si sale).
+    await page.evaluate(async () => {
+      for (let i = 0; i < 80 && !document.querySelector('#scr-login:not(.hidden), #scr-menu:not(.hidden)'); i++) await sleep(250);
+      const g = [...document.querySelectorAll('button')].find(b => b.offsetParent && /invitado|guest/i.test(b.textContent));
+      if (g) { g.click(); await sleep(1200); }
+      for (let i = 0; i < 12; i++) { const b = document.querySelector('#scr-test:not(.hidden) .answer'); if (!b) break; b.click(); await sleep(300); }
+      await sleep(400);
+      const v = [...document.querySelectorAll('#scr-result button')].find(b => b.offsetParent);
+      if (v) { v.click(); await sleep(1200); }
+    });
+    await page.evaluate(async (dex, upg) => {
+      const S = G.DB.save, U = G.DB.upgradesOf(dex);
+      for (const k of Object.keys(U)) delete U[k];
+      if (upg === 'max') for (const u of G.Upgrades.LIST) U[u.id] = u.max;
+      S.owned[dex] = S.owned[dex] || { at: Date.now(), from: 'gacha' };
+      S.partner = dex; S.partnerShiny = false;
+      // Daño recibido por origen: contacto, disparo, aviso en el suelo, firma de jefe.
+      window.DMG = { touch: 0, proj: 0, hz: 0, sig: 0, other: 0, total: 0 };
+      window.__src = 'other';
+      const wrap = (obj, fn, src) => { if (!obj || !obj[fn]) return; const o = obj[fn].bind(obj); obj[fn] = function (...a) { const p = window.__src; window.__src = src; try { return o(...a); } finally { window.__src = p; } }; };
+      wrap(G.Hazards, 'update', 'hz'); wrap(G.Projectiles, 'update', 'proj'); wrap(G.Combat, 'resolve', 'touch'); wrap(G.BossSig, 'update', 'sig');
+      await home();
+      BOT.on = true;
+      G.Flow.play();
+      await sleep(1500);
+      // Vida «virtual»: no cae nunca, pero apunta cuándo habría caído.
+      const pl = G.Game.player, h = pl.hurt.bind(pl), hl = pl.heal.bind(pl);
+      window.V = { hp: pl.maxHp, deaths: [], heal: 0 };
+      pl.heal = function (a, ...r) { V.heal += Math.max(0, a || 0); return hl(a, ...r); };
+      pl.hurt = function (a, ...r) {
+        const hp0 = pl.hp; pl.hp = 1e9;
+        const out = h(a, ...r), d = Math.max(0, 1e9 - pl.hp);
+        pl.hp = hp0; pl.dead = false; V.hp -= d;
+        if (V.hp <= 0) { V.deaths.push(Math.round(G.Game.st.time)); V.hp = pl.maxHp; }
+        if (d > 0) { DMG[window.__src] = (DMG[window.__src] || 0) + d; DMG.total += d; }
+        return out;
+      };
+      let last = G.Game.st.time;
+      setInterval(() => { const now = G.Game.st.time, k = Math.max(0, Math.min(3, now - last)); last = now; V.hp = Math.min(pl.maxHp, V.hp + (pl.regen || 0) * k + V.heal); V.heal = 0; }, 100);
+    }, dex, upg);
+    await page.evaluate(k => G.Game.debugSpeed(k), speed);
+    const t0 = Date.now();
+    let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0;
+    for (let i = 0; i < 6000; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      s = await page.evaluate(() => {
+        const pl = G.Game.player;
+        return { t: Math.round(G.Game.st.time), lv: pl.level, max: Math.round(pl.maxHp), form: (G.DEX_BY[pl.form] || {}).name, kills: pl.kills, en: G.EnemyMgr.count,
+          boss: G.EnemyMgr.bosses().map(e => e.name + (e.legend ? '*' : '') + ':' + Math.round(100 * e.hp / e.maxHp) + '%').join(','), arena: G.Rift.inArena, judge: G.Judgment.active,
+          over: G.Game.state === 'over', moves: pl.moves.map(m => m.id + m.lvl + (m.evolved ? '*' : '')).join(' '), dmg: Object.assign({}, DMG), vhp: Math.round(V.hp), deaths: V.deaths.slice() };
+      });
+      if (s.t - lastLog >= 60 || s.over) {
+        lastLog = s.t;
+        const dm = s.dmg.total - lastDmg; lastDmg = s.dmg.total;
+        const nd = s.deaths.length - lastDeaths; lastDeaths = s.deaths.length;
+        log(`${tag} [${String(Math.floor(s.t / 60)).padStart(2)}:${String(s.t % 60).padStart(2, '0')}] Nv.${s.lv} ${s.form} v${s.vhp}/${s.max} en=${s.en} dmg/min=${Math.round(dm)} (${(dm / s.max).toFixed(1)}x) caídas=${nd} ` +
+            `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} | ${s.moves}`);
+      }
+      if (s.over || s.t >= cap || s.judge || Date.now() - t0 > 90 * 60 * 1000) break;
+    }
+    const blog = await page.evaluate(() => BOT.log.filter(l => /evolu|aviso: ¡|err/.test(l)).slice(-30).join(' | '));
+    log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} log=${blog}`);
+  } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
+  finally { await browser.close(); server.close(); }
+}
+
+// ---------------------------------------------------------------- tanda
+async function main() {
+  const rep = args.indexOf('--report');
+  if (rep >= 0) return report(args.slice(rep + 1));
+  if (flag('one')) {
+    const [dex, upg, tag] = args;
+    return one(+dex, upg, tag, +opt('speed', 2), +opt('cap', 1860));
+  }
+  const par = +opt('par', 6), speed = opt('speed', '2'), cap = opt('cap', '1860'), pp = opt('pp', process.env.PUPPETEER_CORE || ''), chrome = opt('chrome', '');
+  const out = path.resolve(opt('out', path.join(os.tmpdir(), 'ps-curve-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-'))));
+  const jobs = args.filter(a => /^\d+:(max|zero)(:\d+)?$/.test(a));
+  if (!jobs.length) { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 7).join('\n')); return; }
+  fs.mkdirSync(out, { recursive: true });
+  const queue = [];
+  for (const j of jobs) { const [dex, upg, n = 1] = j.split(':'); for (let r = 0; r < +n; r++) queue.push({ dex, upg, tag: `${dex}-${upg}-${r}` }); }
+  console.log(`${queue.length} partidas, ${par} a la vez, en ${out}`);
+  let running = 0;
+  await new Promise(done => {
+    const next = () => {
+      if (!queue.length) { if (!running) done(); return; }
+      const j = queue.shift(); running++;
+      const f = fs.openSync(path.join(out, j.tag + '.txt'), 'w');
+      const a = [__filename, '--one', j.dex, j.upg, j.tag, '--speed', speed, '--cap', cap];
+      if (pp) a.push('--pp', pp);
+      if (chrome) a.push('--chrome', chrome);
+      spawn(process.execPath, a, { stdio: ['ignore', f, f] }).on('exit', () => { running--; console.log('hecha', j.tag); next(); });
+    };
+    // (Escalonadas: si arrancan todas a la vez, Chrome tarda tanto en cargar que alguna falla.)
+    for (let i = 0; i < par; i++) setTimeout(next, i * 4000);
+  });
+  report([out]);
+}
+main().catch(e => { console.error(e); process.exit(1); });

@@ -197,7 +197,7 @@ G.SettingsUI = (() => {
       + `<div class="list-row set-row set-col"><div class="chips" translate="no">${G.I18n.choices.map(([v, l]) =>
            `<button type="button" class="chip ${G.I18n.lang === v ? 'on' : ''}" data-lang="${v}" aria-pressed="${G.I18n.lang === v}">${l}</button>`).join('')}</div></div>`
       + section('Calidad', 'Cuántos efectos y partículas se dibujan. <b>Auto</b> la baja sola si el juego va a tirones (ahora: ' + auto + ').')
-      + '<p class="set-sub">Ultra: el mapa en 2,5D como en los juegos de DS (relieve, sombras y luz). Pide más al aparato.</p>'
+      + '<p class="set-sub">Ultra: el mapa en 2,5D como en los juegos de DS (cámara inclinada con perspectiva y relieve). Pide más al aparato.</p>'
       + list(choice('quality', [['auto', 'Auto'], ['ultra', 'Ultra'], ['high', 'Alta'], ['mid', 'Media'], ['low', 'Baja']]))
       + section('Pantalla')
       + list(toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.'),

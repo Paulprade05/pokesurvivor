@@ -283,6 +283,69 @@
       { t: '+40% de sueño',                 m: { stun: 1.40 } },
       { t: '-15% recarga',                  m: { cd: 0.85 } },
       { t: '+10% de vida quitada y +50% daño', m: { pct: 0.10, dmg: 1.50 } }
+    ],
+    // -- ataques únicos: Normal, Fuego, Agua, Planta, Eléctrico, Hielo (26-10-2026) --
+    // Los que cambian tanto que la escalera de su familia ya no dice lo que hacen (mismos números o casi).
+    // (Bomba Germen ya no rebota: se clava y brota; su escalera habla de semillas y del brote.)
+    'seed-bomb': [
+      { t: '+1 semilla',                    m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+30% radio del brote',          m: { radius: 1.30 } },
+      { t: '+1 semilla y -20% recarga',     m: { count: 1, cd: 0.80 } }
+    ],
+    'vine-whip': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+25% alcance',                  m: { radius: 1.25 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+2 lianas a los lados y +50% daño', m: { arc: 9, dmg: 1.50 } }
+    ],
+    'body-slam': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+25% radio de la onda',         m: { radius: 1.25 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+30% radio de la onda y +50% daño', m: { radius: 1.30, dmg: 1.50 } }
+    ],
+    'hyper-voice': [
+      { t: '+25% de daño y de alcance',     m: { dmg: 1.25, size: 1.25 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: '+30% de alcance y +30% daño',   m: { size: 1.30, dmg: 1.30 } }
+    ],
+    'heat-wave': [
+      { t: 'Frente más ancho',              m: { count: 4 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '-25% recarga',                  m: { cd: 0.75 } },
+      { t: 'Frente más ancho y +30% de alcance', m: { count: 4, size: 1.30 } }
+    ],
+    'flamethrower': [
+      { t: 'Chorro más ancho y +20% daño',  m: { count: 3, dmg: 1.20 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+30% alcance',                  m: { life: 1.30 } },
+      { t: 'Chorro más ancho y +50% daño',  m: { count: 3, dmg: 1.50 } }
+    ],
+    'fire-spin': [
+      { t: '+1 llama en la jaula',          m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+25% radio y gira más rápido',  m: { radius: 1.25, speed: 1.35 } },
+      { t: '+1 llama y +45% daño',          m: { count: 1, dmg: 1.45 } }
+    ],
+    'razor-leaf': [
+      { t: '+1 hoja',                       m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+30% alcance',                  m: { radius: 1.30 } },
+      { t: '+1 hoja y +40% daño',           m: { count: 1, dmg: 1.40 } }
+    ],
+    'hail': [
+      { t: 'Más granizo',                   m: { count: 1 } },
+      { t: '+45% daño',                     m: { dmg: 1.45 } },
+      { t: '+30% radio',                    m: { radius: 1.30 } },
+      { t: 'Mucho más granizo y -20% recarga', m: { count: 2, cd: 0.80 } }
+    ],
+    'thunder-wave': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+25% radio',                    m: { radius: 1.25 } },
+      { t: '+50% de parálisis',             m: { stun: 1.50 } },
+      { t: '-25% recarga y +30% daño',      m: { cd: 0.75, dmg: 1.30 } }
     ]
   };
   // -- ataques únicos: Roca, Fantasma, Dragón, Siniestro, Acero, Hada (26-10-2026) --
@@ -322,93 +385,93 @@
   const RAW = [
     // ---------------- NORMAL (pool común a todos) ----------------
     { id: 'tackle', name: 'Placaje', type: 'normal', kind: 'melee',
-      desc: 'Embiste en arco a todo lo que tengas delante.',
-      cd: 0.50, dmg: 13, radius: 48, arc: 1.7, knock: 90 },
+      desc: 'Embistes de frente: los enemigos salen rodando como bolos y tiran a los que pillan.',
+      cd: 0.50, dmg: 13, radius: 48, arc: 1.7, knock: 150 },
 
     { id: 'quick-attack', name: 'Ataque Rápido', type: 'normal', kind: 'dash',
-      desc: 'Cruzas como un rayo hacia el enemigo y golpeas todo el camino.',
-      cd: 0.75, dmg: 22, radius: 110, width: 34, knock: 40 },
+      desc: 'Cruzas como un rayo: el primer golpe a un enemigo intacto hace mucho más.',
+      cd: 0.75, dmg: 18, radius: 110, width: 34, knock: 40 },
 
     { id: 'swords-dance', name: 'Danza Espada', type: 'normal', kind: 'buff',
-      desc: 'No hace daño: acumula ATAQUE (físico) mientras esté activo.',
+      desc: 'No hace daño: acumula ATAQUE. Con el máximo, dos espadas giran a tu alrededor.',
       cd: 0.85, stat: 'patk', amount: 0.13, dur: 7, stacks: 5 },
     // Como Danza Espada, para los especiales (en los juegos es Siniestro; aquí
     // va en el grupo Normal para que la pueda aprender cualquiera).
     { id: 'nasty-plot', name: 'Maquinación', type: 'normal', kind: 'buff',
-      desc: 'No hace daño: acumula ATAQUE ESPECIAL mientras esté activo.',
+      desc: 'No hace daño: acumula AT. ESP. Al llegar al máximo, el siguiente golpe especial es crítico.',
       cd: 0.85, stat: 'satk', amount: 0.13, dur: 7, stacks: 5 },
 
     { id: 'agility', name: 'Agilidad', type: 'normal', kind: 'buff',
-      desc: 'No hace daño: acumula VELOCIDAD mientras esté activo.',
+      desc: 'No hace daño: acumula VELOCIDAD. Con el máximo, a veces esquivas los golpes.',
       cd: 0.85, stat: 'spd', amount: 0.10, dur: 7, stacks: 5 },
 
     { id: 'harden', name: 'Fortaleza', type: 'normal', kind: 'buff',
-      desc: 'No hace daño: acumula DEFENSA mientras esté activo.',
+      desc: 'No hace daño: acumula DEFENSA. Con el máximo, los que te tocan rebotan.',
       cd: 0.85, stat: 'def', amount: 0.07, dur: 7, stacks: 5 },
 
     // ---------------- FUEGO ----------------
     { id: 'ember', name: 'Ascuas', type: 'fire', kind: 'projectile',
-      desc: 'Bola de fuego al enemigo más cercano.',
-      cd: 0.52, dmg: 18, speed: 310, count: 1, spread: 0.12, pierce: 0, life: 1.6, size: 7, burn: 1 },
+      desc: 'Una brasa que quema; sobre un enemigo ya quemado, la quemadura estalla y se contagia.',
+      cd: 0.52, dmg: 17, speed: 310, count: 1, spread: 0.12, pierce: 0, life: 1.6, size: 7, burn: 1 },
 
     { id: 'flamethrower', name: 'Lanzallamas', type: 'fire', kind: 'cone',
-      desc: 'Chorro de llamas en abanico corto que quema.',
-      cd: 0.70, dmg: 7, count: 7, arc: 0.9, speed: 380, life: 0.42, size: 6, pierce: 1, burn: 1 },
+      desc: 'Un chorro de llamas que sigue hacia donde apuntas y deja fuego en el suelo.',
+      cd: 0.9, dmg: 6.3, count: 7, arc: 0.9, speed: 380, life: 0.42, size: 6, pierce: 1, burn: 1 },
 
     { id: 'fire-spin', name: 'Giro Fuego', type: 'fire', kind: 'orbit',
-      desc: 'Llamas que giran a tu alrededor. Defensa constante.',
-      cd: 0.30, dmg: 14, count: 3, radius: 62, speed: 2.4, size: 9, burn: 1 },
+      desc: 'Encierras a un enemigo en un remolino de fuego del que no puede salir.',
+      cd: 2.6, dmg: 6, count: 3, radius: 40, speed: 2.4, size: 9, burn: 1 },
 
     { id: 'heat-wave', name: 'Onda Ígnea', type: 'fire', kind: 'nova',
-      desc: 'Explota en llamas en todas las direcciones.',
-      cd: 1.25, dmg: 13, speed: 250, count: 10, pierce: 1, life: 1.1, size: 7, burn: 1 },
+      desc: 'Un frente de aire ardiente avanza delante de ti quemando todo; con sol, mucho más.',
+      cd: 1.25, dmg: 11.5, speed: 250, count: 10, pierce: 1, life: 1.1, size: 7, burn: 1 },
 
     // ---------------- AGUA ----------------
     { id: 'water-gun', name: 'Pistola Agua', type: 'water', kind: 'projectile',
-      desc: 'Chorro perforante. Fiable a cualquier distancia.',
-      cd: 0.44, dmg: 14, speed: 350, count: 1, spread: 0.10, pierce: 1, life: 1.5, size: 6 },
+      desc: 'Un chorro que atraviesa, empuja y deja empapados a los enemigos.',
+      cd: 0.44, dmg: 14, speed: 350, count: 1, spread: 0.10, pierce: 1, life: 1.5, size: 6, knock: 60 },
 
     { id: 'bubble', name: 'Burbuja', type: 'water', kind: 'nova',
-      desc: 'Burbujas en abanico que ralentizan a quien tocan.',
-      cd: 1.00, dmg: 10, speed: 210, count: 8, pierce: 0, life: 1.3, size: 8, slow: 0.45 },
+      desc: 'Burbujas que atrapan a los enemigos y los hacen flotar hasta que revientan.',
+      cd: 1.00, dmg: 10, speed: 140, count: 8, pierce: 0, life: 1.3, size: 8, slow: 0.45 },
 
     { id: 'hydro-pump', name: 'Hidrobomba', type: 'water', kind: 'beam',
-      desc: 'Cañonazo de agua lento pero devastador.',
+      desc: 'Un chorro brutal que pega más cuanto más cerca estén.',
       cd: 1.50, dmg: 35, radius: 250, width: 30 },
 
     { id: 'aqua-ring', name: 'Acua Aro', type: 'water', kind: 'buff',
-      desc: 'No hace daño: acumula REGENERACIÓN de vida.',
+      desc: 'No hace daño: acumula REGENERACIÓN. Sus aros empapan a los que te tocan.',
       cd: 0.90, stat: 'regen', amount: 1.6, dur: 8, stacks: 4 },
 
     // ---------------- PLANTA ----------------
     { id: 'vine-whip', name: 'Látigo Cepa', type: 'grass', kind: 'melee',
-      desc: 'Látigos de largo alcance en arco amplio.',
+      desc: 'Tus lianas agarran al primer enemigo y lo traen hasta ti.',
       cd: 0.62, dmg: 13, radius: 68, arc: 1.3, knock: 60 },
 
     { id: 'razor-leaf', name: 'Hoja Afilada', type: 'grass', kind: 'boomerang',
-      desc: 'Dos hojas que van y vuelven cortando a la ida y a la vuelta.',
-      cd: 0.90, dmg: 10, speed: 330, count: 2, spread: 0.5, radius: 210, size: 6 },
+      desc: 'Hojas que vuelan en curva hacia el enemigo y suelen hacer crítico.',
+      cd: 0.90, dmg: 15, speed: 330, count: 2, spread: 0.5, radius: 210, size: 6 },
 
     { id: 'leaf-storm', name: 'Tormenta Floral', type: 'grass', kind: 'orbit',
-      desc: 'Un ciclón de hojas gira amplio a tu alrededor.',
+      desc: 'Un ciclón de pétalos que se abre y se cierra a tu alrededor.',
       cd: 0.26, dmg: 13, count: 4, radius: 74, speed: 2.6, size: 8 },
 
     // (Antes Gigadrenado: curaba con cada golpe y estaba roto. Mismo id para no romper partidas.)
     { id: 'giga-drain', name: 'Hierba Lazo', type: 'grass', kind: 'aura',
-      desc: 'Raíces que atrapan y machacan todo lo que tienes cerca.',
-      cd: 0.55, dmg: 9, radius: 76 },
+      desc: 'La hierba hace tropezar a los enemigos: cuanto más grandes, más daño.',
+      cd: 0.55, dmg: 11, radius: 76 },
 
     // ---------------- ELÉCTRICO ----------------
     { id: 'thunder-shock', name: 'Impactrueno', type: 'electric', kind: 'projectile',
-      desc: 'Descarga rapidísima que atraviesa varios enemigos.',
+      desc: 'Una chispa en zigzag que suelta arcos a los enemigos por los que pasa.',
       cd: 0.40, dmg: 13, speed: 480, count: 1, spread: 0.08, pierce: 2, life: 1.1, size: 5 },
 
     { id: 'discharge', name: 'Chispazo', type: 'electric', kind: 'aura',
-      desc: 'Campo eléctrico permanente alrededor de ti.',
-      cd: 0.45, dmg: 8, radius: 70 },
+      desc: 'Te cargas de electricidad al andar y la sueltas de golpe cuando se acercan.',
+      cd: 0.45, dmg: 12, radius: 70 },
 
     { id: 'thunderbolt', name: 'Rayo', type: 'electric', kind: 'chain',
-      desc: 'Un rayo que salta de un enemigo a otro.',
+      desc: 'Un rayo que salta de enemigo en enemigo; por los empapados no se para.',
       cd: 0.95, dmg: 29, count: 4, radius: 140 },
 
     // ---------------- PSÍQUICO ----------------
@@ -444,11 +507,11 @@
 
     // ---------------- NORMAL (extra) ----------------
     { id: 'body-slam', name: 'Golpe Cuerpo', type: 'normal', kind: 'melee',
-      desc: 'Placaje con todo el peso: lento, corto y brutal.',
-      cd: 0.95, dmg: 30, radius: 46, arc: 2.2, knock: 140 },
+      desc: 'Saltas sobre los enemigos y caes con todo tu peso: puede paralizar.',
+      cd: 0.95, dmg: 19, radius: 46, arc: 2.2, knock: 140 },
 
     { id: 'hyper-voice', name: 'Vozarrón', type: 'normal', kind: 'nova',
-      desc: 'Onda sonora que sale en todas direcciones.',
+      desc: 'Un grito que se expande en anillo: atraviesa paredes y frena en seco a los que están pegados a ti.',
       cd: 1.15, dmg: 12, speed: 260, count: 9, pierce: 1, life: 0.9, size: 7 },
 
     // ---------------- VENENO (extra) ----------------
@@ -480,7 +543,7 @@
 
     // ---------------- ROCA ----------------
     // (26-10-2026: ataques únicos de Roca, Fantasma, Dragón, Siniestro, Acero y Hada: lo propio de
-    //  cada uno, en combat.js, MECH3; hold, roll, wall... son números suyos que sólo lee su mecánica.)
+    //  cada uno, en combat.js, MECH; hold, roll, wall... son números suyos que sólo lee su mecánica.)
     { id: 'rock-throw', name: 'Lanzarrocas', type: 'rock', kind: 'projectile',
       desc: 'Pedrusco pesado que empuja y se queda 2,5 s en el suelo como barricada: los enemigos lo rodean y para sus disparos.',
       cd: 0.7, dmg: 27, speed: 260, count: 1, spread: 0.12, pierce: 0, life: 1.1, size: 9, knock: 90, hold: 2.5 },
@@ -491,12 +554,12 @@
 
     // ---------------- HIELO ----------------
     { id: 'ice-beam', name: 'Rayo Hielo', type: 'ice', kind: 'beam',
-      desc: 'Rayo helado que congela casi del todo.',
-      cd: 1.1, dmg: 26, radius: 220, width: 30, slow: 0.7 },
+      desc: 'Un rayo helado que deja el suelo resbaladizo y puede congelar.',
+      cd: 1.1, dmg: 29, radius: 220, width: 30 },
 
     { id: 'powder-snow', name: 'Nieve Polvo', type: 'ice', kind: 'aura',
-      desc: 'Ventisca a tu alrededor que ralentiza.',
-      cd: 0.55, dmg: 8, radius: 76, slow: 0.45 },
+      desc: 'Una nevada a tu alrededor que congela a los que se quedan cerca.',
+      cd: 0.55, dmg: 9, radius: 76 },
 
     // ---------------- LUCHA ----------------
     { id: 'karate-chop', name: 'Golpe Kárate', type: 'fighting', kind: 'melee',
@@ -574,31 +637,31 @@
       cd: 1.1, dmg: 11, count: 2, radius: 56, dur: 8, poison: 2 },
 
     { id: 'hail', name: 'Granizo', type: 'ice', kind: 'meteor',
-      desc: 'Bolas de hielo caen sobre los enemigos y los frenan.',
-      cd: 1.2, dmg: 18, count: 4, radius: 40, slow: 0.4 },
+      desc: 'Una nube de granizo te sigue y lo apedrea todo a tu alrededor.',
+      cd: 4.5, dmg: 9, count: 4, radius: 40, slow: 0.4, dur: 4 },
 
     { id: 'meteor-mash', name: 'Puño Meteoro', type: 'steel', kind: 'meteor',
       desc: 'Puños meteoro que caen sobre los enemigos y rebotan hacia el siguiente más cercano (2 rebotes).',
       cd: 1.4, dmg: 10, count: 2, radius: 54, knock: 80, hops: 2 },
 
     { id: 'will-o-wisp', name: 'Fuego Fatuo', type: 'fire', kind: 'turret',
-      desc: 'Deja una llama flotante que dispara sola y quema.',
-      cd: 3.5, dmg: 18, rate: 0.55, dur: 6, count: 1, range: 300, speed: 300, size: 7, burn: 1 },
+      desc: 'Llamas fantasmales que se pegan a los enemigos: los queman y les quitan fuerza.',
+      cd: 3.5, dmg: 33, rate: 0.55, dur: 6, count: 1, range: 300, speed: 300, size: 7, burn: 1 },
 
     { id: 'substitute', name: 'Sustituto', type: 'normal', kind: 'turret',
-      desc: 'Un muñeco que se queda disparando por ti.',
-      cd: 4.0, dmg: 17, rate: 0.4, dur: 6, count: 1, range: 280, speed: 320, size: 6 },
+      desc: 'Un muñeco con tu cara que atrae a los enemigos y estalla al romperse.',
+      cd: 4.0, dmg: 24, rate: 0.4, dur: 6, count: 1, range: 280, speed: 320, size: 6 },
 
     { id: 'aerial-ace', name: 'Golpe Aéreo', type: 'flying', kind: 'dash',
       desc: 'Te lanzas en picado y cortas todo lo que cruzas.',
       cd: 0.75, dmg: 18, radius: 120, width: 40, knock: 60 },
 
     { id: 'flame-wheel', name: 'Rueda Fuego', type: 'fire', kind: 'trail',
-      desc: 'Corres envuelto en fuego y dejas un rastro de llamas.',
-      cd: 0.28, dmg: 8, radius: 28, dur: 2.6, burn: 1 },
+      desc: 'Corres envuelto en una rueda de fuego que pega más cuanto más rato corres.',
+      cd: 0.28, dmg: 3.6, radius: 28, dur: 2.6, burn: 1 },
 
     { id: 'bubble-beam', name: 'Rayo Burbuja', type: 'water', kind: 'cone',
-      desc: 'Chorro de burbujas en abanico corto que frena.',
+      desc: 'Una cortina ondulante de burbujas que se quedan flotando como trampas.',
       cd: 0.65, dmg: 6, count: 7, arc: 1.0, speed: 340, life: 0.45, size: 6, slow: 0.3 },
 
     { id: 'hex', name: 'Infortunio', type: 'ghost', kind: 'chain',
@@ -608,35 +671,35 @@
     // ================= NUEVOS (19-10-2026): todos los tipos con 5 o más =================
     // Normal
     { id: 'hyper-beam', name: 'Hiperrayo', type: 'normal', kind: 'charge',
-      desc: 'Se carga un momento y suelta un rayo enorme que lo atraviesa todo.',
-      cd: 2.2, charge: 0.75, dmg: 58, radius: 300, width: 44 },
+      desc: 'Rayo enorme que barre y empuja; después te quedas agotado un momento.',
+      cd: 2.2, charge: 0.75, dmg: 46, radius: 300, width: 44 },
     { id: 'rapid-spin', name: 'Giro Rápido', type: 'normal', kind: 'spin',
-      desc: 'Giras sobre ti mismo golpeando todo lo que te rodea varias veces.',
+      desc: 'Giras como una peonza: vas más rápido, te limpias y desarmas las trampas que pisas.',
       cd: 1.0, dmg: 9, count: 3, radius: 62 },
     // Fuego
     { id: 'flame-charge', name: 'Nitrocarga', type: 'fire', kind: 'dash',
-      desc: 'Te lanzas envuelto en llamas y quemas todo el camino.',
-      cd: 0.8, dmg: 19, radius: 115, width: 36, burn: 1 },
+      desc: 'Te lanzas en llamas: cada golpe te hace más rápido y llegas más lejos.',
+      cd: 0.8, dmg: 12, radius: 115, width: 36, burn: 1 },
     // Agua
     { id: 'whirlpool', name: 'Torbellino', type: 'water', kind: 'vortex',
-      desc: 'Un remolino que arrastra a los enemigos a su centro y los va dañando.',
-      cd: 3.0, dmg: 11, radius: 72, dur: 2.6, pull: 150 },
+      desc: 'Un remolino que va solo hacia los grupos y se los lleva; en el agua es mayor.',
+      cd: 3.0, dmg: 9.5, radius: 72, dur: 2.6, pull: 150 },
     // Planta
     { id: 'seed-bomb', name: 'Bomba Germen', type: 'grass', kind: 'bounce',
-      desc: 'Una semilla que rebota de enemigo en enemigo.',
-      cd: 0.6, dmg: 12, speed: 320, life: 1.6, size: 7, bounce: 3 },
+      desc: 'Semillas que se clavan y al momento brotan en una explosión.',
+      cd: 0.6, dmg: 10.5, speed: 320, life: 1.6, size: 7, bounce: 3, radius: 50 },
     { id: 'energy-ball', name: 'Energibola', type: 'grass', kind: 'homing',
-      desc: 'Una bola de energía que persigue al enemigo.',
-      cd: 0.62, dmg: 19, speed: 280, life: 2.0, size: 8, homing: 5 },
+      desc: 'Una bola de energía que se divide en tres y persigue a tres enemigos.',
+      cd: 0.62, dmg: 21, speed: 280, life: 2.0, size: 8, homing: 5 },
     { id: 'solar-beam', name: 'Rayo Solar', type: 'grass', kind: 'charge',
-      desc: 'Absorbe luz un momento y la suelta en un rayo enorme.',
-      cd: 2.3, charge: 0.85, dmg: 62, radius: 290, width: 40 },
+      desc: 'Cargas luz mientras estás quieto y la sueltas en un rayo; con sol, al instante.',
+      cd: 2.3, charge: 0.85, dmg: 75, radius: 290, width: 40 },
     // Eléctrico
     { id: 'thunder-wave', name: 'Onda Trueno', type: 'electric', kind: 'stun',
-      desc: 'Una descarga que avisa en el suelo y deja paralizados a los que pilla.',
-      cd: 1.6, dmg: 28, radius: 58, stun: 1.0 },
+      desc: 'Una red eléctrica que paraliza, y la parálisis se contagia entre enemigos.',
+      cd: 1.6, dmg: 32, radius: 58, stun: 1.0 },
     { id: 'electro-ball', name: 'Bola Voltio', type: 'electric', kind: 'bounce',
-      desc: 'Una bola eléctrica que salta de enemigo en enemigo.',
+      desc: 'Una bola eléctrica que pega más cuanto más rápido vayas.',
       cd: 0.62, dmg: 12, speed: 340, life: 1.6, size: 7, bounce: 3 },
     // Psíquico
     { id: 'extrasensory', name: 'Paranormal', type: 'psychic', kind: 'shove',
@@ -683,10 +746,10 @@
       cd: 0.66, dmg: 13, speed: 320, life: 1.2, size: 8, bounce: 2 },
     // Hielo
     { id: 'ice-shard', name: 'Canto Helado', type: 'ice', kind: 'homing',
-      desc: 'Esquirlas rapidísimas que persiguen al enemigo.',
-      cd: 0.32, dmg: 9, speed: 380, life: 1.5, size: 6, homing: 7 },
+      desc: 'Una esquirla instantánea al enemigo que está a punto de tocarte.',
+      cd: 0.32, dmg: 13, speed: 380, life: 1.5, size: 6, homing: 7 },
     { id: 'freeze-dry', name: 'Liofilización', type: 'ice', kind: 'stun',
-      desc: 'Un frío repentino que avisa en el suelo y deja congelados a los que pilla.',
+      desc: 'Un frío que seca: muy eficaz contra el Agua y congela a los empapados.',
       cd: 1.6, dmg: 27, radius: 60, stun: 1.0 },
     // Lucha
     { id: 'rolling-kick', name: 'Patada Giro', type: 'fighting', kind: 'spin',
@@ -754,11 +817,11 @@
       cd: 1.1, dmg: 19, count: 2, rnd: 3, speed: 330, life: 1.6, size: 8, pierce: 1, spread: 60, grav: 700 },
     // Ráfaga (knife): hacia donde miras; cdMin para que la ráfaga acabe antes de la siguiente.
     { id: 'water-shuriken', name: 'Shuriken de Agua', type: 'water', kind: 'knife',
-      desc: 'Ráfaga de estrellas de agua hacia donde miras. Muy rápida, pero hay que encarar al enemigo.',
+      desc: 'Ráfaga de estrellas de agua: la primera sale al instante y rematas si todas aciertan.',
       cd: 0.5, cdMin: 0.15, dmg: 11, count: 2, speed: 460, life: 0.75, size: 5, pierce: 0, spread: 0.08 },
     { id: 'bullet-seed', name: 'Semilladora', type: 'grass', kind: 'knife',
-      desc: 'Una ametralladora de semillas hacia donde miras.',
-      cd: 0.55, cdMin: 0.15, dmg: 9, count: 3, speed: 420, life: 0.7, size: 5, pierce: 0, spread: 0.16 },
+      desc: 'Una ametralladora de semillas que dispara cada vez más rápido y siembra hierba.',
+      cd: 0.55, cdMin: 0.15, dmg: 7, count: 3, speed: 420, life: 0.7, size: 5, pierce: 0, spread: 0.16 },
     { id: 'pin-missile', name: 'Pin Misil', type: 'bug', kind: 'knife',
       desc: 'Agujas en ráfaga hacia donde miras que atraviesan a uno.',
       cd: 0.55, cdMin: 0.15, dmg: 10, count: 2, speed: 440, life: 0.75, size: 5, pierce: 1, spread: 0.1 },
@@ -767,8 +830,8 @@
       cd: 0.55, cdMin: 0.15, dmg: 15, count: 2, speed: 480, life: 0.7, size: 6, pierce: 0, spread: 0.06, knock: 30 },
     // Aspas (cross): curl = giro de cada aspa en rad/s (espiral).
     { id: 'swift', name: 'Meteoros', type: 'normal', kind: 'cross',
-      desc: 'Estrellas en todas direcciones que giran en espiral; una va siempre al enemigo.',
-      cd: 0.95, dmg: 14, count: 5, speed: 300, life: 1.1, size: 7, pierce: 1, curl: 1, homing: 1.5 },
+      desc: 'Estrellas que no fallan nunca: cada una elige a un enemigo distinto.',
+      cd: 0.95, dmg: 7.5, count: 5, speed: 300, life: 1.1, size: 7, pierce: 1, curl: 1, homing: 1.5 },
     { id: 'cross-poison', name: 'Veneno X', type: 'poison', kind: 'cross',
       desc: 'Cuchillas venenosas en aspa, una hacia el enemigo; atraviesan y envenenan.',
       cd: 0.85, dmg: 12, count: 4, speed: 340, life: 0.8, size: 8, pierce: 1, curl: 0, poison: 1 },
@@ -780,34 +843,34 @@
       cd: 1.1, dmg: 18, count: 3, speed: 250, life: 1.3, size: 10, pierce: 3, curl: 2.6, knock: 30 },
     // Columna (column): life = lo que dura (un golpe cada 0,25 s).
     { id: 'waterfall', name: 'Cascada', type: 'water', kind: 'column',
-      desc: 'Una columna de agua cae de arriba abajo sobre ti y arrastra a todo lo que pilla.',
+      desc: 'Una cascada cae sobre ti: te impulsa hacia delante y arrastra a los enemigos.',
       cd: 1.4, dmg: 12, count: 1, life: 0.45, width: 40, height: 240, anchor: 'self', knock: 40 },
     { id: 'photon-geyser', name: 'Géiser Fotónico', type: 'psychic', kind: 'column',
       desc: 'Un pilar de luz brota de arriba abajo en la columna del enemigo.',
       cd: 1.5, dmg: 16, count: 1, life: 0.45, width: 36, height: 220, anchor: 'target' },
     { id: 'icicle-crash', name: 'Chuzos', type: 'ice', kind: 'column',
-      desc: 'Caen carámbanos en la columna del enemigo, de arriba abajo, y frenan.',
+      desc: 'Caen carámbanos y los que fallan se quedan clavados frenando.',
       cd: 1.5, dmg: 15, count: 1, life: 0.45, width: 34, height: 200, anchor: 'target', slow: 0.4 },
     { id: 'sky-uppercut', name: 'Gancho Alto', type: 'fighting', kind: 'column',
       desc: 'Un gancho al cielo: una columna de golpes sobre ti que lanza lejos a los enemigos.',
       cd: 1.3, dmg: 13, count: 1, life: 0.45, width: 44, height: 200, anchor: 'self', knock: 90, knockUp: 1 },
     // Aguja (sweep): turn en rad/s. (Cañón Floral lleva stun 0: la evolución lo multiplica.)
     { id: 'charge-beam', name: 'Rayo Carga', type: 'electric', kind: 'sweep',
-      desc: 'Un rayo que gira a tu alrededor como una aguja de reloj y paraliza un instante.',
+      desc: 'Un rayo que gira a tu alrededor y te carga de ataque especial.',
       cd: 3, dmg: 12, count: 1, width: 16, radius: 150, dur: 2.4, turn: 4.2, stun: 0.3 },
     { id: 'aurora-beam', name: 'Rayo Aurora', type: 'ice', kind: 'sweep',
-      desc: 'Un rayo helado que gira a tu alrededor como una aguja de reloj y congela un momento.',
+      desc: 'Un rayo de aurora que gira y deja una estela que vuelve a golpear y quita fuerza.',
       cd: 3, dmg: 10, count: 1, width: 14, radius: 150, dur: 2.4, turn: 5.2, stun: 0.4 },
     { id: 'fleur-cannon', name: 'Cañón Floral', type: 'fairy', kind: 'sweep',
       desc: 'Un rayo floral que gira a tu alrededor como una aguja de reloj y va plantando flores que estallan al segundo.',
       cd: 3.2, dmg: 12, count: 1, width: 20, radius: 165, dur: 2, turn: 6.3, stun: 0 },
     // Carambola (ricochet): dur = lo que rebota.
     { id: 'pyro-ball', name: 'Balón Ígneo', type: 'fire', kind: 'ricochet',
-      desc: 'Un balón en llamas que rebota por los bordes de la pantalla quemando a todo lo que toca.',
-      cd: 3, dmg: 18, count: 1, speed: 320, size: 8, homing: 1.2, dur: 3, burn: 1 },
+      desc: 'Chutas un balón de fuego que vuelve a tus pies y cada pase pega más fuerte.',
+      cd: 3, dmg: 9, count: 1, speed: 320, size: 8, homing: 1.2, dur: 3, burn: 1 },
     { id: 'aura-wheel', name: 'Rueda Aural', type: 'electric', kind: 'ricochet',
-      desc: 'Una rueda eléctrica rapidísima que rebota por los bordes de la pantalla y frena.',
-      cd: 2.8, dmg: 17, count: 1, speed: 400, size: 8, homing: 1.2, dur: 3, slow: 0.3 },
+      desc: 'Una rueda que cambia de forma en cada rebote: eléctrica o siniestra.',
+      cd: 2.8, dmg: 17, count: 1, speed: 400, size: 8, homing: 1.2, dur: 3 },
     { id: 'rollout', name: 'Rodar', type: 'rock', kind: 'ricochet',
       desc: 'Una roca rodando que rebota por la pantalla y dobla su daño con cada golpe seguido (hasta ×8); si pasa 1 s sin golpear, vuelve a ×1. Con Fortaleza activa empieza en ×2.',
       cd: 3, dmg: 12, count: 1, speed: 280, size: 10, homing: 1, dur: 3, knock: 60 },
@@ -820,7 +883,7 @@
       cd: 30, cdMin: 15, dmg: 20, stun: 2, pct: 0.15, delay: 1.2, mode: 'cut' },
     // Escudo (ward): cd = lo que tarda en ganar un escudo; count = escudos máximos; radius = contraataque.
     { id: 'spiky-shield', name: 'Barrera Espinosa', type: 'grass', kind: 'ward',
-      desc: 'Un escudo de pinchos que para un golpe y castiga a los que tienes cerca.',
+      desc: 'Un escudo de pinchos: hiere a quien te toca y al parar un golpe dispara púas.',
       cd: 6, cdMin: 2.5, dmg: 45, count: 1, radius: 78, knock: 140 },
     { id: 'baneful-bunker', name: 'Búnker', type: 'poison', kind: 'ward',
       desc: 'Un búnker que para un golpe y envenena mucho a los que tienes cerca.',
@@ -849,7 +912,7 @@
       cd: 8, dmg: 32, count: 1, speed: 1.5, radius: 42, dur: 8, rate: 1.5, ring: 160 },
     // Charcos (puddle): range = hasta dónde lanza los frascos.
     { id: 'fire-pledge', name: 'Voto Fuego', type: 'fire', kind: 'puddle',
-      desc: 'Lanza frascos de fuego sobre los enemigos: dejan un mar de llamas que quema.',
+      desc: 'Mares de fuego que se combinan: con Planta arden más y con Agua sale un arcoíris que te ayuda.',
       cd: 2.2, dmg: 6, count: 2, radius: 36, dur: 3, burn: 1, range: 260 },
     { id: 'psychic-terrain', name: 'Campo Psíquico', type: 'psychic', kind: 'puddle',
       desc: 'Lanza un campo psíquico amplio sobre los enemigos que los daña y frena.',
@@ -884,7 +947,7 @@
 
   // -- ataques únicos: Lucha, Veneno, Tierra, Volador, Psíquico, Bicho (26-10-2026) --
   /*
-   * Cada uno con su mecánica propia (systems/combat.js, bloque del mismo nombre, UQ[id]):
+   * Cada uno con su mecánica propia (systems/combat.js, bloque del mismo nombre, MECH[id]):
    * la familia (kind) sigue mandando en pasivos, icono y animación. Aquí, su texto y los
    * números que lee su mecánica: crit2 (crítico de más, se suma), wave [amplitud, frecuencia],
    * conf [probabilidad, s de confusión]... (todos con tools/balance.cjs).
@@ -1175,6 +1238,12 @@
     'feather-dance': ['Aerochorro', 'spd'],  'astral-barrage': ['Rayo Umbrío', 'amt'],
     'springtide-storm': ['Furia Natural', 'rgn'], 'make-it-rain': ['Deseo Oculto', 'luck']
   };
+  // -- ataques únicos: Normal, Fuego, Agua, Planta, Eléctrico, Hielo (26-10-2026) --
+  // Los potenciadores también evolucionan (nombres oficiales de los juegos).
+  Object.assign(EVO, {
+    'swords-dance': ['Tambor', 'hp'], 'nasty-plot': ['Geocontrol', 'area'], 'agility': ['Cambio de Marcha', 'atk'],
+    'harden': ['Defensa Férrea', 'def'], 'aqua-ring': ['Gota Vital', 'rgn']
+  });
   // Lo que gana al evolucionar, según cómo funcione.
   // (23-10-2026, con tools/balance.cjs: ninguna suma más de +2 a la cantidad —el tope
   // con Réplica es +3, ver EXTRA_MAX— y se igualan las familias: las que se salían
@@ -1221,7 +1290,7 @@
   /*
    * Evolución POR MOVIMIENTO (26-10-2026): EVO[id][2] = { t: texto de la carta, mods }. Si la
    * tiene, sus mods van en lugar de los de la familia (EVO_MODS) y lo que cambia de verdad cómo
-   * funciona lo hace su mecánica (combat.js, UQ[id] o MECH3[id], con m.evolved). Así también
+   * funciona lo hace su mecánica (combat.js, MECH[id], con m.evolved). Así también
    * evolucionan los potenciadores que la lleven (Danza Dragón → Estruendo Escama).
    */
   // -- ataques únicos: evolución propia de Lucha, Veneno, Tierra, Volador, Psíquico, Bicho (26-10-2026) --
@@ -1372,6 +1441,125 @@
   EVO['dragon-dance'] = ['Estruendo Escama', 'spd'];          // (los potenciadores no tenían)
   for (const id in EVO_RFDSAH) if (EVO[id]) EVO[id][2] = EVO_RFDSAH[id];
   // -- fin de Roca, Fantasma, Dragón, Siniestro, Acero, Hada --
+
+  // -- ataques únicos: Normal, Fuego, Agua, Planta, Eléctrico, Hielo (26-10-2026) --
+  // (También evolucionan Danza Espada, Maquinación, Agilidad, Fortaleza y Acua Aro: ver EVO, arriba.)
+  const EVO_NFAPEH = {
+    // Normal
+    'tackle':        { t: '×1,35 daño y más alcance. Embistes 40 px hacia delante y los bolos estallan al chocar con otro enemigo (los jefes, que no ruedan, reciben ×1,5).',
+                       mods: { dmg: 1.35, radius: 1.2, arc: 1.4 } },
+    'quick-attack':  { t: '×2,4 daño y −15% de recarga. Si un enemigo o un disparo va a tocarte, cruzas solo a través de él con ×1,5 de daño (una vez cada 1,2 s).',
+                       mods: { dmg: 2.4, radius: 1.15, cd: 0.85 } },
+    'swords-dance':  { t: '+3 pilas máximas. Con más de la mitad de vida pagas un 15% y las pilas saltan al máximo de golpe; al máximo, cuatro espadas giran a tu alrededor.',
+                       mods: { stacks: 3 } },
+    'nasty-plot':    { t: 'Quieto 1,5 s, las runas del suelo te dan de golpe 3 pilas de at. esp., 2 de velocidad y 2 de defensa (moverte corta la carga).',
+                       mods: {} },
+    'agility':       { t: 'Mientras dure, cada 2% de velocidad de más te da un 1% más de daño (hasta +40%).',
+                       mods: {} },
+    'harden':        { t: '+2 pilas máximas y dos por uso. No caducan mientras no te golpeen y, con más de 3, el que te toca recibe un 25% de su golpe.',
+                       mods: { stacks: 2 } },
+    'body-slam':     { t: '×2,6 daño. Un salto enorme hasta el grupo: la onda es más grande y lanza a todos al aire (al caer dañan a los de al lado); después, 1 s más de recarga.',
+                       mods: { dmg: 2.6, radius: 1.1 } },
+    'hyper-voice':   { t: '×1,6 daño. Gritas 2,4 s sin parar: un anillo cada 0,4 s desde donde estés, y al tercer anillo el enemigo queda confuso.',
+                       mods: { dmg: 1.6, count: 2 } },
+    'substitute':    { t: '×2 daño. Dos copias de ti corren a tu alrededor atrayendo a los enemigos; al tocarlas estallan en un destello que aturde y vuelven 1 s después. Mientras haya alguna, esquivas el 15%.',
+                       mods: { dmg: 2 } },
+    'hyper-beam':    { t: '×2,3 daño, más ancho y carga antes. El rayo toma el tipo que más daño hace a su blanco y le pone el estado de ese tipo; ya no te quedas agotado.',
+                       mods: { dmg: 2.3, width: 1.3, charge: 0.8 } },
+    'rapid-spin':    { t: '×1,4 daño y +1 vuelta. En cada vuelta salen tres bolas en espiral: fuego que quema, hielo que enfría y electricidad que puede paralizar.',
+                       mods: { dmg: 1.4, count: 1, radius: 1.15 } },
+    'swift':         { t: '×1,5 daño y +1 estrella. Son estelares (nunca hacen menos de ×1) y cada una se parte al golpear en 3 estrellitas que buscan a otros 3.',
+                       mods: { dmg: 1.5, count: 1, stellar: 1 } },
+    'perish-song':   { t: '×2 daño, +20% de efecto y −15% de recarga. Al acabar el canto, un anillo dorado hasta el borde de la pantalla aparta y confunde a todos.',
+                       mods: { dmg: 2, pct: 0.2, cd: 0.85 } },
+    // Fuego
+    'ember':         { t: '×1,25 daño, +1 brasa y quema más. Donde impacta queda fuego en forma de 大 1,5 s; sobre un quemado, la quemadura sigue estallando y contagiándose.',
+                       mods: { dmg: 1.25, count: 1, size: 1.3, burn: 2 } },
+    'flamethrower':  { t: '×3,6 daño y un chorro de llama blanca más ancho y largo. A la 3.ª seguida se sobrecalienta: explota a tu alrededor y luego pasas 2 s enfriándote.',
+                       mods: { dmg: 3.6, count: 3, life: 1.15 } },
+    'fire-spin':     { t: '×1,7 daño y +1 llama. La jaula es dorada: cada quemado que cae dentro te cura un 1% y, al acabar, estalla en un pilar de fuego sagrado.',
+                       mods: { dmg: 1.7, count: 1, radius: 1.15 } },
+    'heat-wave':     { t: '×1,8 daño. En vez del frente de calor, caen rocas de lava sobre los enemigos cercanos y dejan lava: con la vida llena, 8 y más fuertes; con poca, 3.',
+                       mods: { dmg: 1.8 } },
+    'will-o-wisp':   { t: '×2 daño, +1 llama y salen más seguidas. Son rojas: si muere el que la lleva pegada, se parte y salta a los 2 más cercanos.',
+                       mods: { dmg: 2, count: 1, rate: 0.8 } },
+    'flame-wheel':   { t: '×2 daño y rastro más grande. Tras 2 s corriendo, la rueda a tope te convierte en un cometa: al chocar estalla (×3), lanza al enemigo y te cuesta un 3% de vida.',
+                       mods: { dmg: 2, radius: 1.2, dur: 1.2 } },
+    'flame-charge':  { t: '×2,3 daño, llegas más lejos y −15% de recarga. Arrastras a los pequeños delante de ti como un quitanieves y al final estallan; a los grandes, ×1,5.',
+                       mods: { dmg: 2.3, radius: 1.2, cd: 0.85 } },
+    'pyro-ball':     { t: '×1,7 daño y balón más grande. Al cuarto chut, dos rayos de fuego en V cruzan la pantalla y dejan el suelo ardiendo.',
+                       mods: { dmg: 1.7, size: 1.2 } },
+    'fire-pledge':   { t: '×1,5 daño y +1 mar. Cada mar de fuego es un volcancito que escupe lava al enemigo más cercano cada 0,6 s (y sigue reaccionando con Planta y Agua).',
+                       mods: { dmg: 1.5, count: 1 } },
+    // Agua
+    'water-gun':     { t: '×1,6 daño, +1 chorro y atraviesa a uno más. Agua hirviendo: quema y deja una nube de vapor que daña (y sigue empapando).',
+                       mods: { dmg: 1.6, count: 1, pierce: 1, burn: 1 } },
+    'bubble':        { t: '×2,2 daño. En vez de burbujas, una ola gigante sale de detrás de ti y barre 380 px hacia delante arrastrando y empapando a todos.',
+                       mods: { dmg: 2.2, size: 1.2 } },
+    'hydro-pump':    { t: '×3,4 daño. Una bala de agua gigante que lo atraviesa todo y estalla en una ola al chocar con una pared, con un jefe o al final.',
+                       mods: { dmg: 3.4, width: 1.2 } },
+    'aqua-ring':     { t: 'Cada 2 s, una lluvia de gotas te cura un 3% a ti y a los compañeros que tengas a menos de 140 px.',
+                       mods: {} },
+    'bubble-beam':   { t: '×1,8 daño y +2 burbujas. Medio segundo después das un coletazo de agua en abanico que empuja y revienta todas tus burbujas flotantes.',
+                       mods: { dmg: 1.8, count: 2 } },
+    'whirlpool':     { t: '×2,2 daño, más grande y atrae más. Hace ×2 a los que tienen menos de la mitad de vida y, al acabar, los escupe hacia fuera empapados.',
+                       mods: { dmg: 2.2, radius: 1.25, pull: 1.3 } },
+    'water-shuriken': { t: '×1,9 daño. Tres estrellas grandes que atraviesan a dos, son siempre críticas y al chocar con una pared se parten en 4 gotas.',
+                       mods: { dmg: 1.9, size: 1.3 } },
+    'waterfall':     { t: '×1,6 daño, más ancha y dura más. Cada golpe de la cascada dispara 8 rayos de agua en estrella.',
+                       mods: { dmg: 1.6, width: 1.2, life: 1.2 } },
+    // Planta
+    'vine-whip':     { t: '×1,6 daño. Cuatro lianas centinela brotan a tu alrededor 4 s: azotan al que se acerca y lo atraen hacia ti.',
+                       mods: { dmg: 1.6, radius: 1.1 } },
+    'razor-leaf':    { t: '×2,2 daño. Doce hojas en espiral rodean al blanco y se cierran sobre él cortando todo lo de dentro.',
+                       mods: { dmg: 2.2 } },
+    'leaf-storm':    { t: '×1,6 daño y +2 pétalos. Además, tres remolinos de pétalos bailan por el campo a tu alrededor y golpean lo que pillan.',
+                       mods: { count: 2, dmg: 1.6, radius: 1.1 } },
+    'giga-drain':    { t: '×1,6 daño y más radio. Cada 2 s, un anillo de raíces gigantes se abre desde ti y deja anclados 1 s a los que toca.',
+                       mods: { dmg: 1.6, radius: 1.2 } },
+    'seed-bomb':     { t: '×1,2 daño y +1 semilla. Del brote crece un tronco que cae hacia el grupo más cercano y aplasta todo lo de la línea.',
+                       mods: { dmg: 1.2, count: 1 } },
+    'energy-ball':   { t: '×1,6 daño y +1 bola. Al golpear, hilos verdes se enganchan a 5 enemigos cercanos 1,5 s: les quitan vida y te curan.',
+                       mods: { dmg: 1.6, count: 1 } },
+    'solar-beam':    { t: '×1,9 daño. Al soltar la carga, en vez del rayo, una espada de luz gigante barre 180° por delante de ti.',
+                       mods: { dmg: 1.9, width: 1.3 } },
+    'bullet-seed':   { t: '×1,6 daño, +1 semilla y −20% de recarga. Cada 4 s, todas tus semillas del suelo estallan en luz y les bajan la defensa a los de alrededor.',
+                       mods: { dmg: 1.6, count: 1, cd: 0.8 } },
+    'spiky-shield':  { t: '+1 escudo y ×1,8 daño. Cada escudo gastado te cura un 6%, te quita los frenazos y cura también a los compañeros cercanos.',
+                       mods: { count: 1, dmg: 1.8, heal: 0.06 } },
+    // Eléctrico
+    'thunder-shock': { t: '×3,4 daño. Caen rayos del cielo sobre tu blanco y los más cercanos (con lluvia, 2 más); por los empapados saltan a otros.',
+                       mods: { dmg: 3.4 } },
+    'discharge':     { t: '×1,7 daño y más radio. Cada descarga deja un campo eléctrico que te sigue 6 s: paraliza a los que entran, tus ataques eléctricos dentro hacen un 30% más y nada te frena.',
+                       mods: { dmg: 1.7, radius: 1.2 } },
+    'thunderbolt':   { t: '×1,8 daño. Una bola de electricidad lenta y enorme que atraviesa, paraliza a los que toca y lanza rayos a los 2 más cercanos.',
+                       mods: { dmg: 1.8 } },
+    'thunder-wave':  { t: '×2,6 daño. Te lanzas como un rayo 300 px hacia delante, invulnerable, y dejas una estela que paraliza.',
+                       mods: { dmg: 2.6 } },
+    'electro-ball':  { t: '×1,7 daño, +1 bola y +2 rebotes. Tras el último golpe vuelve a ti y te carga 2 s: lo que toques recibe daño y puede quedar paralizado.',
+                       mods: { dmg: 1.7, bounce: 2, count: 1, spread: 1.3 } },
+    'charge-beam':   { t: '×1,6 daño y +1 rayo. Si hace menos de 3 s que ha golpeado un ataque de Fuego (tuyo o de un compañero), ×2 y las puntas estallan.',
+                       mods: { dmg: 1.6, count: 1, radius: 1.15, stun: 1.3 } },
+    'aura-wheel':    { t: '×1,7 daño y +1 rueda. Cada 3 rebotes descarga un rayo en todos los enemigos de su caja (hasta 8).',
+                       mods: { dmg: 1.7, count: 1, size: 1.2 } },
+    // Hielo
+    'ice-beam':      { t: '×1,8 daño. En vez del rayo, un cono de ventisca que avanza y enfría a todos; con nieve congela siempre y hace ×1,5.',
+                       mods: { dmg: 1.8, radius: 1.2 } },
+    'powder-snow':   { t: '×1,7 daño y más radio. Cada 0,8 s sale una ráfaga helada en cono hacia donde andas que aparta y enfría mucho.',
+                       mods: { dmg: 1.7, radius: 1.3 } },
+    'hail':          { t: '×1,25 daño y más granizo. Cada vez que te golpean, el granizo pega ×1,5 durante 3 s y caen 6 bloques de hielo a tu alrededor.',
+                       mods: { dmg: 1.25, count: 2, radius: 1.15 } },
+    'ice-shard':     { t: '×1,6 daño. Tres carámbanos seguidos al mismo enemigo: si aciertan los tres, se congela 1 s.',
+                       mods: { dmg: 1.6, size: 1.2 } },
+    'freeze-dry':    { t: '×2 daño y más grande. Los congelados (por lo que sea) con menos del 25% de vida se hacen añicos; a los jefes les quita un 5%.',
+                       mods: { dmg: 2, radius: 1.3, stun: 1.3 } },
+    'icicle-crash':  { t: '×1,8 daño. Una lanza de hielo gigante cae en el centro del grupo y congela un círculo que crece hasta 120 px en 2 s.',
+                       mods: { dmg: 1.8, width: 1.3 } },
+    'aurora-beam':   { t: '×1,6 daño y +1 rayo. Tras cada vuelta, el círculo barrido se hiela 2 s: frena mucho y enfría a los que entran.',
+                       mods: { dmg: 1.6, count: 1, radius: 1.15, stun: 1.3 } }
+  };
+  for (const id in EVO_NFAPEH) if (EVO[id]) EVO[id][2] = EVO_NFAPEH[id];
+  // -- fin de Normal, Fuego, Agua, Planta, Eléctrico, Hielo --
 
   /** Lo que gana una instancia al evolucionar: lo suyo (EVO[id][2]) o lo de su familia. null si no evoluciona. */
   function evoMods(m) {

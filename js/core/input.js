@@ -203,7 +203,8 @@ G.Input = (() => {
     /** Cuándo se movió el ratón por última vez (performance.now). */
     get mouseMovedAt() { return movedAt; },
     /** Dónde apunta el ratón en el mundo (el lienzo ocupa toda la ventana). */
-    mouseWorld() { return { x: G.Camera.left() + mx / G.Camera.scale, y: G.Camera.top() + my / G.Camera.scale }; },
+    // (Ultra: con la perspectiva de la cámara, el punto del suelo que hay bajo el ratón.)
+    mouseWorld() { return G.Camera.persp ? G.Camera.toWorld(mx, my) : { x: G.Camera.left() + mx / G.Camera.scale, y: G.Camera.top() + my / G.Camera.scale }; },
     endFrame() { pressed.clear(); vkeys.clear(); vacts.clear(); }
   };
 })();

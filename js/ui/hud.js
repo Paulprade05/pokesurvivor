@@ -718,7 +718,8 @@ G.HUD = (() => {
     // Grieta: flecha grande que late en el borde si no se ve, y si se ve, una
     // flecha que bota encima.
     if (rift) {
-      const sx = (rift.x - cam.left()) * cam.scale, sy = (rift.y - 40 - cam.top()) * cam.scale;
+      // (Con G.Camera.toScreen: en Ultra, con la perspectiva, la flecha sigue encima de la grieta.)
+      const rp = cam.toScreen(rift.x, rift.y - 40), sx = rp.x, sy = rp.y;
       const now = performance.now() / 1000, beat = 0.5 + Math.sin(now * 7) * 0.5;
       const off = sx < 0 || sx > w || sy < 0 || sy > h;
       const col = beat > 0.5 ? '#E2D0FF' : '#A57BFF';
