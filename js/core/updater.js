@@ -43,6 +43,9 @@ G.Updater = (() => {
     if (G.DB.leaving) return false;                                       // cerrando sesión: que acabe antes
     if (!G.Game || G.Game.state !== 'ui') return false;                   // en partida o en el resumen
     if (['scr-gacha', 'scr-upgrades', 'scr-settings', 'scr-install'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
+    // Una pregunta o ventana propia abierta (G.UI.ask: «¿Salir?», «¿Empezar igualmente?», «¿Quitar a X de tus amigos?»; el
+    // apodo; un perfil): que se conteste antes. (Con confirm() la página se paraba y no se podía recargar; con G.UI.ask, sí.)
+    if (document.querySelector('.ask-scr, .scr.modal:not(.hidden)')) return false;
     const fx = document.getElementById('pull-fx');
     if (fx && !fx.classList.contains('hidden')) return false;             // tirada del gacha en marcha
     const a = document.activeElement;

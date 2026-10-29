@@ -1521,6 +1521,13 @@ html.rot .rotate { display: none !important; }
   .menu-item.tile .mi-ico { width: 32px; height: 32px; border-radius: 10px; }
   .menu-item.tile .mi-t { font-size: 12px; }
 }
+/* Y si ni a 11 px cabe la palabra más larga («Améliorations», «Potenziamenti»), menu.js (fitTiles) le pone .tight:
+   icono de 26 px y huecos de 2-3 px, unos 10 px más para el nombre (revisión 2, 29-10-2026). */
+.menu-item.tile.tight { gap: 2px; padding-left: 2px; padding-right: 3px; }
+.menu-item.tile.tight .mi-ico { width: 26px; height: 26px; border-radius: 9px; }
+.menu-item.tile.tight .mi-ico > img, .menu-item.tile.tight .mi-ico > svg { width: 24px; height: 24px; }
+/* (Mientras fitTiles mide: sin transiciones, ni las de 0,01 ms del «movimiento reducido».) */
+.menu-item.tile.fitting, .menu-item.tile.fitting * { transition: none !important; }
 @media (max-height: 400px) {
   .menu-left .logo .t1 { font-size: 24px; }
   .menu-item.play { min-height: 46px; }
@@ -4956,6 +4963,14 @@ body:has(> #scr-over:not(.hidden)) .ach-pop {
 }
 body:has(> #scr-over:not(.hidden)) .ach-pop b { font-size: var(--fs-s); -webkit-line-clamp: 3; }
 body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
+/* Tumbado, con una ventana que lleva sus pestañas arriba (Compendio, Gacha y Misiones; revisión 2, 29-10-2026): abajo en
+   medio. Arriba en medio tapaba «Ataques, Pasivas, Objetos», las regiones del Gacha o «Misiones, Logros, Perfil». */
+@media (max-height: 520px) {
+  body:has(> #scr-compendium:not(.hidden), > #scr-gacha:not(.hidden), > #scr-goals:not(.hidden)) .ach-pop {
+    top: auto; bottom: max(8px, var(--sa-b)); }
+  /* (En el Gacha, abajo en medio del cartel, entre sus flechas: en medio de la pantalla pisaba «Tirar ×10».) */
+  body:has(> #scr-gacha:not(.hidden)) .ach-pop { left: 30%; max-width: min(300px, 40vw); }
+}
 /* Móvil (de pie y tumbado), 23-10-2026: la pausa y el resumen se veían enormes.
    Tarjetas, filas y cifras mucho más compactas (letra de 11 px como poco y
    baldosas de icono de 28, el dibujo a 26): de un vistazo se ven tus ataques y

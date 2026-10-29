@@ -69,7 +69,12 @@ G.Spawner = (() => {
   const bossLate = t => (t < 1200 ? 90 : BOSS_LATE);
   // (29-10-2026) Con 2 jefes del mapa vivos, el siguiente del calendario espera a que caiga uno, aunque ya
   // lleve retraso: medido con tools/curve.cjs, se llegaban a juntar 4 (y con ellos, la partida se acababa).
+  // (Revisión 2: el tope cuenta el grupo entero; con 1 vivo, un dúo del final salía igual y quedaban 3. Ahora el dúo
+  //  espera a que no quede ninguno.)
   const MAP_BOSS_MAX = 2;
+  // (Revisión 2) Mientras dura un jefe salen 4 veces menos enemigos; para que no se atasque el nivel (un Garchomp
+  //  flojo seguía en el Nv. 23 en el minuto 10 y en el 31 en el 20), cada uno da FIGHT_XP veces su experiencia.
+  const FIGHT_XP = { xp: 2.5 };
   const mapBosses = () => { let n = 0; for (const e of G.EnemyMgr.bosses()) if (!e.legend && !e.judge) n++; return n; };
   // Oleadas: desde cuándo hay de las nuevas y cuánto pesa cada una (antes y después del minuto 18).
   const WAVE_FROM = 360, LATE = 1080;
@@ -181,7 +186,8 @@ G.Spawner = (() => {
     return e;
   }
 
-  function spawnOne(pl, t, angle) {
+  /** @param o  multiplicadores de make (FIGHT_XP durante un jefe) */
+  function spawnOne(pl, t, angle, o) {
     const bag = G.Enemies.bagAt(t);
     let def = G.U.pick(bag);
     if (SUPPORT.has(def.behavior)) {
@@ -194,7 +200,7 @@ G.Spawner = (() => {
     }
     const pt = freePoint(pl, angle == null ? Math.random() * 6.2832 : angle, isFlyer(def));
     if (!pt) return null;
-    return make(def, pt[0], pt[1], t);
+    return make(def, pt[0], pt[1], t, o);
   }
 
   /** @param angle  por dónde sale (los de un mismo grupo, repartidos alrededor) */
@@ -322,9 +328,9 @@ G.Spawner = (() => {
     // (al volver de una grieta larga salían dos en fotogramas seguidos). Los de
     // un mismo minuto (los dúos del final) salen juntos, por lados opuestos.
     const b = G.Enemies.BOSSES[bossIdx];
-    if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive()) && mapBosses() < MAP_BOSS_MAX) {
-      const group = [b];
-      while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
+    const group = b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive()) ? [b] : null;
+    if (group) while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
+    if (group && mapBosses() + group.length <= MAP_BOSS_MAX) {
       const pl = anchor(), a0 = Math.random() * 6.2832;
       const es = group.map((d, i) => spawnBoss(pl, t, d, a0 + i * 6.2832 / group.length));
       const nm = e => e.name + (e.shiny ? ' shiny' : '');
@@ -343,7 +349,7 @@ G.Spawner = (() => {
       acc += rate(t) * G.Coop.scaleRate(players.length) * (bossFight ? 0.25 : 1) * dt;
       let n = Math.floor(acc);
       acc -= n;
-      while (n-- > 0 && G.EnemyMgr.count < cap) spawnOne(anchor(), t);
+      while (n-- > 0 && G.EnemyMgr.count < cap) spawnOne(anchor(), t, null, bossFight ? FIGHT_XP : undefined);
     }
 
     // --- oleada ---

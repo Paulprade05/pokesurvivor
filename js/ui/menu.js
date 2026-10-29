@@ -73,23 +73,33 @@ G.MenuUI = (() => {
 
   /*
    * Móvil tumbado (29-10-2026): si una palabra del nombre de una baldosa no cabe en su sitio («Compendio»,
-   * «Leaderboard» a 667x375), su letra baja un poco (hasta 11 px) en vez de partirse a media palabra.
+   * «Leaderboard» a 667x375), su letra baja un poco (hasta 11 px) en vez de partirse a media palabra. Si ni a 11 px cabe
+   * («Améliorations», «Potenziamenti»), la baldosa pasa a .tight (icono y huecos más pequeños) y se vuelve a medir.
    */
   let fitProbe = null;
   function fitTiles() {
     const els = document.querySelectorAll('#scr-menu .menu-item.tile .mi-t'), on = matchMedia('(max-height: 520px)').matches;
     for (const el of els) {
       if (!el.clientWidth) continue;             // (sin dibujar, p. ej. tapado por otra pantalla: se queda como está)
-      if (!on) { el.style.fontSize = ''; continue; }
+      const tile = el.parentNode;
+      // (.fitting: sin transiciones mientras se mide. Con «movimiento reducido» todo cambio es una transición de 0,01 ms y,
+      //  medido justo después, el icono seguía con el tamaño de antes.)
+      tile.classList.add('fitting');
+      el.style.fontSize = ''; tile.classList.remove('tight');
+      if (!on) { void el.offsetWidth; tile.classList.remove('fitting'); continue; }
       // Cada palabra, medida aparte en una copia invisible (en una línea y con la letra de la regla, no la de ahora).
       if (!fitProbe) { fitProbe = document.createElement('span'); fitProbe.className = 'mi-t'; fitProbe.setAttribute('aria-hidden', 'true'); }
       fitProbe.style.cssText = 'position:absolute;left:0;top:0;display:inline;white-space:nowrap;visibility:hidden;pointer-events:none';
-      el.parentNode.appendChild(fitProbe);
+      tile.appendChild(fitProbe);
       let big = 0;
       for (const word of el.textContent.trim().split(/\s+/)) { fitProbe.textContent = word; big = Math.max(big, fitProbe.getBoundingClientRect().width); }
-      const px = parseFloat(getComputedStyle(fitProbe).fontSize), w = el.clientWidth;
+      const px = parseFloat(getComputedStyle(fitProbe).fontSize);
       fitProbe.remove();
-      el.style.fontSize = big > w + 0.5 ? Math.max(11, Math.floor(px * w / big * 10) / 10) + 'px' : '';
+      const size = () => { const w = el.clientWidth; return big > w + 0.5 ? px * w / big : 0; };
+      let k = size();
+      if (k && k < 11) { tile.classList.add('tight'); k = size(); }
+      el.style.fontSize = k ? Math.max(11, Math.floor(k * 10) / 10) + 'px' : '';
+      void el.offsetWidth; tile.classList.remove('fitting');
     }
   }
 

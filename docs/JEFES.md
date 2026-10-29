@@ -183,10 +183,13 @@ el comentario de `G.Enemies.eff` (`js/data/enemies.js`).
 Qué se cambió: la fuerza de los enemigos, jefes y legendarios va con un tiempo «efectivo» (`G.Enemies.eff`: más despacio al
 principio, más deprisa al final); los golpes empiezan más flojos y llegan a lo normal en el minuto 15 (`earlyK`) y la vida, en
 el 12 (`earlyHp`); el tramo final empieza en el 15 y llega a +80 % de vida y +55 % de daño; al principio caben menos a la vez
-(`capAt`: 28 al empezar, 50 en el minuto 6 y 64 en el 18); hasta el minuto 20 un jefe espera 90 s a que caiga el anterior y,
-con 2 jefes del mapa vivos, el siguiente espera siempre; los jefes de los minutos 3-12 y 15-21 tienen menos vida; el primer cerco
+(`capAt`: 28 al empezar, 50 en el minuto 6 y 64 en el 18); hasta el minuto 20 un jefe espera 90 s a que caiga el anterior y
+como mucho hay 2 jefes del mapa a la vez, contando el grupo entero (un dúo del final espera a que no quede ninguno; antes, con
+uno vivo, salía igual y quedaban 3); los jefes de los minutos 3-12 y 15-21 tienen menos vida (el del 9, 3000 PV); el primer cerco
 (hasta el 12) deja un hueco; las grietas se abren desde el minuto 4, y una de los primeros minutos es más floja (un 45 % menos en
-el 3, normal en el 10); y la experiencia sigue al reloj real (`xpLag`).
+el 3, normal en el 10); la experiencia sigue al reloj real (`xpLag`) y, mientras hay un jefe (salen 4 veces menos enemigos),
+cada enemigo da 2,5 veces la suya (`FIGHT_XP` en `spawner.js`); y los que empiezan la partida como preevolución (Gible,
+Charmander…) reciben un 25 % menos hasta el minuto 8, que vuelve a lo normal en el 14 (`youngK`, lo aplica `player.hurt`).
 
 Medido el 28-10-2026 (bot que esquiva y recoge, inmortal: apunta cuándo habría caído). «Muro» = primer minuto con 10 caídas o
 más, o con 5 dos minutos seguidos. Delibird (flojo), Charizard (medio, empieza de Charmander), Garchomp (empieza de Gible) y
@@ -200,7 +203,8 @@ golpes y la vida llegan a lo normal en el minuto 11 y el 10, en vez del 9 y el 8
 | 28-10 (ataques de antes) | Charizard 15 y 24, Garchomp 18 y 25, Delibird 19 y sin muro, Mewtwo 21 y sin muro | Charizard 11 y 12, Garchomp 11 y 12, Delibird 17 y 25, Mewtwo 19 y 19 | 0 / 29 / 174 · 8 / 86 / 224 |
 | Con los ataques finales (29-10), antes de ajustar | Charizard 19 y sin muro, Garchomp 16 y 19, Delibird 13 y 25, Mewtwo sin muro (2) | Charizard 3 y 5, Garchomp 3 y 9, Delibird 6 y 6, Mewtwo 9 y 16 | 0 / 11 / 61 · 33 / 174 / 459 |
 | 29-10: golpes y vida del principio más suaves hasta el minuto 10-11 | Charizard 16 y 20, Garchomp 15 y sin muro, Delibird 28 y sin muro, Mewtwo sin muro (2) | Charizard 9 y 17, Garchomp 13 y sin muro, Delibird 12 y 13, Mewtwo 28 y sin muro | 0 / 19 / 78 · 5 / 116 / 287 |
-| Ahora (29-10, revisión: tope de 2 jefes, grietas desde el 4, jefes del 3 al 12 más flojos, principio hasta el 12-15) | Charizard 23 y sin muro (2), Garchomp sin muro (3), Delibird 26, 27 y sin muro, Mewtwo sin muro | Charizard 13, Garchomp 7, Delibird 11, Mewtwo 20 | 0 / 1 / 20 · 12 / 88 / 579 |
+| 29-10, revisión: tope de 2 jefes, grietas desde el 4, jefes del 3 al 12 más flojos, principio hasta el 12-15 | Charizard 23 y sin muro (2), Garchomp sin muro (3), Delibird 26, 27 y sin muro, Mewtwo sin muro | Charizard 13, Garchomp 7, Delibird 11, Mewtwo 20 | 0 / 1 / 20 · 12 / 88 / 579 |
+| Ahora (29-10, revisión 2: preevoluciones protegidas hasta el 8-14, experiencia durante los jefes, jefe del 9 con 3000 PV, dúos dentro del tope; sólo Charizard y Garchomp) | Charizard 21, 22, 24 y sin muro, Garchomp sin muro (2) | Charizard 12 y 13, Garchomp 13 y 20 | 0 / 2 / 32 · 1 / 135 / 190 |
 
 Desde la revisión del 29-10 se decide también con la **primera caída** (cuándo habría acabado la partida de verdad), no sólo con
 el muro: el dueño se quejaba de no pasar del minuto 10 con todas las mejoras, y eso es la primera caída. Con todas las mejoras, antes
@@ -209,6 +213,15 @@ Garchomp tres veces y Mewtwo una): mediana en el 20,9, 8 en el 15 o más tarde y
 14,4; Delibird 20,4, 24,9 y 12,8; Garchomp 19,9, 21,4 y 26,0; Mewtwo sin caer). Sin mejoras, la primera caída sigue llegando pronto
 con los que empiezan flojos (Garchomp 3,0 desde Gible, Delibird 4,7, Mewtwo 5,9, Charizard 9,8): el primer jefe les dura varios
 minutos y mientras sale poca experiencia. El informe de `curve.cjs` da al final la mediana de la primera caída.
+
+Revisión 2 (29-10-2026): otra revisión midió 11 partidas con todas las mejoras y dio una mediana de 16,7, con 6 en el 15 o más
+tarde. Garchomp caía hacia el minuto 5 en 3 de 6 (4,7, 4,9 y 5,2, sin ningún jefe: toques y avisos en el suelo) y Charizard en el 11
+en 2 de 5; además, un Garchomp con ataques flojos seguía en el Nv. 23 en el minuto 10 porque los jefes del 6 y del 9 le duraban
+minutos y, mientras, salía poca experiencia. Con los cambios de arriba (`youngK`, `FIGHT_XP`, jefe del 9 con 3000 PV) y la protección
+hasta el minuto 12: Garchomp 19,6, 26,9, 16,1, 20,4, 19,1 y 20,2; Charizard 16,4, 19,5, 11,1 y 12,4 (mediana 19,3). Con la protección
+hasta el 14 (lo que queda): Charizard 17,9, 15,1, 16,8 y 21,9; Garchomp 16,8 y sin caer; las 6 en el 15 o más tarde, y en el minuto 10
+todas van entre el Nv. 43 y el 69. Sin mejoras: Garchomp 5,1 y 12,2, Charizard 5,6 y 8,7 (antes 3,0 y 9,8). En ninguna de estas 20
+partidas hay 3 jefes del mapa a la vez (antes, en 7 de 17, entre los minutos 24 y 29).
 
 El bot varía mucho de una partida a otra (sobre todo por las cartas que le salen: con ataques flojos se atasca de nivel y cae
 antes), así que conviene medir al menos dos de cada. Ejemplo: `node tools/curve.cjs --par 8 --out <carpeta> 6:max:2 6:zero:2

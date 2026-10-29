@@ -52,11 +52,12 @@ G.Enemies = (() => {
   //  se amontonaban hacia el 15.
   //  Además ahora traen su firma: G.BossSig.
   //  29-10-2026: los de los minutos 3 a 12, otra vez algo menos de vida y de daño (antes 1050/2400/4400/7600 PV y
-  //  26/34/42/50): con todas las mejoras, la primera caída solía llegar con el jefe del 9 o el del 12 en pantalla.)
+  //  26/34/42/50): con todas las mejoras, la primera caída solía llegar con el jefe del 9 o el del 12 en pantalla.
+  //  El del 9, otra vez (revisión 2: 3700 → 3000 PV): a un Garchomp que iba flojo le duraba hasta el minuto 16.)
   const BOSS_SLOTS = [
     { at: 180, hp: 720,   dmg: 20, xp: 220,  bst: [490, 545] },
     { at: 360, hp: 1700,  dmg: 26, xp: 420,  bst: [520, 580] },
-    { at: 540, hp: 3700,  dmg: 36, xp: 680,  bst: [540, 600] },
+    { at: 540, hp: 3000,  dmg: 36, xp: 680,  bst: [540, 600] },
     { at: 720, hp: 6400,  dmg: 43, xp: 1000, bst: [580, 700] },
     { at: 900, hp: 13000, dmg: 58, xp: 1800, bst: [600, 700] },
     // Tramo final (23-10-2026): n = cuántos salen a la vez (cada uno con esta vida).
@@ -231,6 +232,13 @@ G.Enemies = (() => {
    * principio y los jefes del 3 al 12 más flojos, como mucho 2 jefes del mapa a la vez (spawner.js) y grietas desde el minuto 4:
    * ahora, con todas las mejoras, primera caída mediana en el minuto 20,9 (10 partidas; ninguna antes del 12,8) y muro en el
    * 23-27 o ninguno; caídas 0 / 1 / 20. Sin mejoras: primera caída 3-10 y muro en el 7-20; caídas 12 / 88 / 579.
+   * 29-10-2026 (revisión 2): otra revisión midió 11 partidas con todas las mejoras (mediana 16,7; Garchomp caía hacia el
+   * minuto 5 en 3 de 6 y Charizard en el 11 en 2 de 5, y un Garchomp flojo seguía en el Nv. 23 en el minuto 10). Ahora los que
+   * empiezan como preevolución reciben menos al principio (youngK), mientras hay un jefe cada enemigo da 2,5 veces su
+   * experiencia (spawner.js, FIGHT_XP), el jefe del 9 tiene 3000 PV y los dúos del final cuentan para el tope de 2 jefes.
+   * Con todas las mejoras, primera caída: Garchomp 16,8 y sin caer; Charizard 15,1, 16,8, 17,9 y 21,9 (con la protección sólo
+   * hasta el 12: Garchomp 16,1-26,9 en 6 partidas y Charizard 11,1, 12,4, 16,4 y 19,5). Nivel en el minuto 10: 43-69.
+   * Sin mejoras: Garchomp 5,1 y 12,2; Charizard 5,6 y 8,7 (muro en el 12-20).
    */
   const EFF = [[0, 0], [120, 80], [300, 150], [600, 245], [900, 335], [1200, 525], [1500, 760], [1800, 1080]];
   function eff(t) {
@@ -282,6 +290,19 @@ G.Enemies = (() => {
   const EARLY_K = 0.45, EARLY_HP = 0.7;
   function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 840)); }
   function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 660)); }
+  /**
+   * Los que empiezan la partida como preevolución (29-10-2026, revisión 2): reciben un 25 % menos hasta el minuto 8 y
+   * vuelven a lo normal en el 14 (lo aplica player.hurt). Medido con tools/curve.cjs: con todas las mejoras, Garchomp (que
+   * empieza de Gible, con poca vida) caía hacia el minuto 5 en la mitad de las partidas, y Charizard hacia el 11; los que
+   * empiezan ya en su forma final (Delibird, Mewtwo) no tenían ese bache. pl: el jugador (pl.evo.plan: su línea).
+   */
+  const YOUNG_K = 0.75, YOUNG_T0 = 480, YOUNG_T1 = 840;
+  function youngK(pl, t) {
+    if (!pl || !(t < YOUNG_T1)) return 1;
+    const plan = pl.evo && pl.evo.plan;
+    const young = plan ? plan.length > 1 : !!(G.Fam && G.Fam.ready() && pl.form && !G.Fam.isFinal(pl.form));
+    return young ? YOUNG_K + (1 - YOUNG_K) * Math.min(1, Math.max(0, (t - YOUNG_T0) / (YOUNG_T1 - YOUNG_T0))) : 1;
+  }
 
   const NO_HORDE = new Set(['bomber', 'healer', 'shielder', 'summoner']);
   /** Tipos con bastantes Pokémon en el tramo actual para una horda (events.js). */
@@ -323,7 +344,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, earlyK, earlyHp, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

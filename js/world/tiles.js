@@ -1029,7 +1029,8 @@ G.Tiles = (() => {
       const P = Pix(22, 17);
       const R = ramp(B.rock);
       const look = variant >> 1, broken = variant & 1;
-      const mossy = B.prop === 'tree' && lum(B.leaf[1]) < 150;
+      // (Sin musgo sobre tablones o planchas: el Dojo Ancestral tiene prop 'tree' y le salía musgo verde, revisión 2.)
+      const mossy = B.prop === 'tree' && B.ground !== 'wood' && B.ground !== 'metal' && lum(B.leaf[1]) < 150;
       const moss = ramp(B.leaf);
       const shine = mixPack(sortHex(B.rock)[2], '#ffffff', 0.6);
       const deep = mixPack(sortHex(B.rock)[0], '#000000', 0.3);

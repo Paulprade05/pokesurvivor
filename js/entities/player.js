@@ -360,7 +360,8 @@ G.Player = class Player {
     }
     // Escudos (familia ward, combat.js): paran entero un golpe de un enemigo (no la lava, las trampas ni Arceus).
     if (!pure && (type || cat) && G.Combat.wardBlock(this)) return;
-    if (!pure) amount *= G.Stats.taken(this.mon, cat);
+    // (Y los que empiezan como preevolución, algo menos al principio: G.Enemies.youngK, 29-10-2026.)
+    if (!pure) amount *= G.Stats.taken(this.mon, cat) * G.Enemies.youngK(this, G.Game.st ? G.Game.st.time : 0);
     let eff = null;
     if (type) {
       const k = G.Types.mult(type, this.mon.types);
