@@ -262,12 +262,13 @@ G.Enemies = (() => {
 
   /**
    * Principio suave (28-10-2026): los golpes de los enemigos (también jefes y legendarios)
-   * empiezan en EARLY_K y llegan a 1 en el minuto 9; su vida, en EARLY_HP y a 1 en el 8. Medido con tools/curve.cjs: sin mejoras se
-   * caía en el minuto 1-4 (una marea o una grieta temprana), y ahí no hay tiempo de nada.
+   * empiezan en EARLY_K y llegan a 1 en el minuto 11; su vida, en EARLY_HP y a 1 en el 10. Medido con tools/curve.cjs: sin mejoras se
+   * caía en el minuto 1-4 (una marea o una grieta temprana), y ahí no hay tiempo de nada. (29-10-2026, con los ataques ya
+   * finales de los 18 tipos: sin mejoras el muro volvía al minuto 3-9; antes llegaban a 1 en el 9 y el 8, desde 0,55.)
    */
-  const EARLY_K = 0.55, EARLY_HP = 0.75;
-  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 480)); }
-  function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 420)); }
+  const EARLY_K = 0.5, EARLY_HP = 0.75;
+  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 600)); }
+  function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 540)); }
 
   const NO_HORDE = new Set(['bomber', 'healer', 'shielder', 'summoner']);
   /** Tipos con bastantes Pokémon en el tramo actual para una horda (events.js). */

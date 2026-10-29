@@ -2098,6 +2098,11 @@
     ["Magnitud {x}", "Ampleur {x}", "Magnitudo {x}", "Magnitude {x}", "震级 {x}", "震級 {x}"],
     ["+ATQ", "+ATT", "+ATT", "+ATQ", "+攻击", "+攻擊"],
     ["−DEF", "−DÉF", "−DIF", "−DEF", "−防御", "−防禦"],
+    // ---------------- Ronda 28-10: lista grande (la Pokédex en la tienda) ----------------
+    ["Ir a la Pokédex", "Aller au Pokédex", "Vai al Pokédex", "Ir para a Pokédex", "前往图鉴", "前往圖鑑"],
+    ["Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la Pokédex.", "Ce que tu achètes va dans ton Sac : utilise-le depuis la fiche de chaque Pokémon dans le Pokédex.", "Ciò che compri va nella tua Borsa: usalo dalla scheda di ogni Pokémon nel Pokédex.", "O que você comprar vai para a Mochila: use na ficha de cada Pokémon na Pokédex.", "购买的东西会放进背包：在图鉴中打开宝可梦的详情页使用。", "購買的東西會放進背包：在圖鑑中打開寶可夢的詳情頁使用。"],
+    ["Para usarlo, abre la Pokédex, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.", "Pour l’utiliser, ouvre le Pokédex, choisis un Pokémon et appuie sur Aromate, Capsule ou Apprendre CT sur sa fiche.", "Per usarlo, apri il Pokédex, scegli un Pokémon e premi Menta, Capsula o Insegna MT nella sua scheda.", "Para usar, abra a Pokédex, escolha um Pokémon e toque em Menta, Cápsula ou Ensinar TM na ficha dele.", "使用方法：打开图鉴，选择一只宝可梦，在它的页面里点“薄荷”“胶囊”或“教招式学习器”。", "使用方法：打開圖鑑，選擇一隻寶可夢，在牠的頁面裡點「薄荷」「膠囊」或「教招式學習器」。"],
+    ["¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la Pokédex.", "Bienvenue ! Aromates, Capsules et CT. Ce que tu achètes va dans ton Sac (dans le menu principal) ; utilise-le depuis la fiche de chaque Pokémon dans le Pokédex.", "Benvenuto! Mente, Capsule e MT. Quello che compri va nella tua Borsa (nel menu principale); usalo dalla scheda di ogni Pokémon nel Pokédex.", "Bem-vindo! Mentas, Cápsulas e TMs. O que você comprar vai para a sua Mochila (no menu principal); use na ficha de cada Pokémon na Pokédex.", "欢迎光临！薄荷、胶囊和招式学习器。买到的东西会放进背包（在主菜单里），在图鉴中每只宝可梦的页面里使用。", "歡迎光臨！薄荷、膠囊和招式學習器。買到的東西會放進背包（在主選單裡），在圖鑑中每隻寶可夢的頁面裡使用。"],
   ];
   languages.forEach((lang, i) => G.I18n.add(Object.fromEntries(rows.map(r => [r[0], r[i + 1]])), lang));
   G.I18n.add({

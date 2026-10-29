@@ -849,7 +849,9 @@ G.World = (() => {
     images = new Map();
   }
 
-  function biomeName() { return G.Tiles.BIOMES[biome].name; }
+  // (Pasado el minuto 12 el mapa se pinta también con las paletas de las grietas: fuera de una grieta
+  // su nombre va sin «Grieta · », que hacía creer que habías entrado en una.)
+  function biomeName() { const n = G.Tiles.BIOMES[biome].name; return G.Rift && G.Rift.inArena ? n : n.replace(/^Grieta · /, ''); }
 
   /*
    * Viñeta en coordenadas de pantalla (el degradado se guarda: sólo cambia con el

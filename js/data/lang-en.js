@@ -2169,5 +2169,10 @@ G.I18n.add({
   "¡Cancelado!": "Interrupted!",
   "Magnitud {x}": "Magnitude {x}",
   "+ATQ": "+ATK",
-  "−DEF": "−DEF"
+  "−DEF": "−DEF",
+  // ---------------- Ronda 28-10: lista grande (la Pokédex en la tienda) ----------------
+  "Ir a la Pokédex": "Go to the Pokédex",
+  "Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la Pokédex.": "What you buy goes to your Bag: use it from each Pokémon’s page in the Pokédex.",
+  "Para usarlo, abre la Pokédex, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.": "To use it, open the Pokédex, pick a Pokémon and press Mint, Capsule or Teach TM on its page.",
+  "¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la Pokédex.": "Welcome! Mints, Capsules and TMs. What you buy goes to your Bag (in the main menu); use it from each Pokémon’s page in the Pokédex."
 });

@@ -568,7 +568,7 @@ G.ShopUI = (() => {
     body.scrollTop = 0;
     $('bag-foot').classList.toggle('hidden', r.empty);
     const dex = $('bag-foot').querySelector('[data-go-dex]');
-    dex.innerHTML = `${G.Icons.html('book', 30)}<span>${G.T('Ir a la colección')}</span>`;
+    dex.innerHTML = `${G.Icons.html('book', 30)}<span>${G.T('Ir a la Pokédex')}</span>`;
     dex.onclick = () => G.MenuUI.openDex();
     const top = $('scr-bag').querySelector('.sheet-acts [data-go-shop]');
     if (!top.firstChild) top.innerHTML = G.Icons.html('shop', 30);
@@ -727,7 +727,7 @@ G.ShopUI = (() => {
   const mine = n => (n ? `<span class="shop-own">${G.I18n.f('tienes {x}', n)}</span>` : '');
 
   function itemsHtml() {
-    let h = note('Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la colección.') + '<div class="shop-grid">';
+    let h = note('Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la Pokédex.') + '<div class="shop-grid">';
     for (const id of G.Shop.ORDER) {
       const it = G.Shop.ITEMS[id];
       h += row(id, `<span class="ico-tile ${TINT[id] || ''}">${G.Icons.html(it.icon, 30)}</span>`, G.T(it.name), mine(G.Shop.count(id)), G.T(it.desc), it.price);
@@ -832,7 +832,7 @@ G.ShopUI = (() => {
       <div class="grow"><b>${title}</b>${tags ? `<span class="shop-tags">${tags}</span>` : ''}<small>${desc}</small></div></div>`;
     const count = n => `<span class="bag-n">×${n}</span>`;
     const head = (title, n) => `<h3 class="shop-h">${title}<span class="badge ghost">${n}</span></h3>`;
-    let h = items.length || tms.length ? `<p class="sub bag-hint">${G.T('Para usarlo, abre la colección, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.')}</p>` : '';
+    let h = items.length || tms.length ? `<p class="sub bag-hint">${G.T('Para usarlo, abre la Pokédex, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.')}</p>` : '';
     if (items.length) {
       h += `<section class="shop-sec">${head(G.T('Objetos'), items.reduce((a, id) => a + G.Shop.count(id), 0))}<div class="bag-grid">`;
       for (const id of items) {
