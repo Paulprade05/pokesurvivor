@@ -407,14 +407,15 @@ G.Game = (() => {
   G.onShinyCaught = e => {
     if (!G.DB.save || !pl) return;
     if (G.Coop.isHost) G.Coop.shinyCaught(e);
-    const isNew = G.DB.grantShiny(e.dex, 'wild');
+    const got = {}, isNew = G.DB.grantShiny(e.dex, 'wild', got);
     G.DB.save.stats.shinies++;
     G.DB.commit(true);
-    caught.push({ dex: e.dex, isNew });
-    // (Se guarda en la forma final de su familia, ver G.Fam: si sólo hay una, el aviso la nombra.)
-    const fins = G.Fam && G.Fam.finalsOf ? G.Fam.finalsOf(e.dex) : [];
-    const nm = fins.length === 1 && G.DEX_BY[fins[0]] ? G.DEX_BY[fins[0]].name : e.name;
-    G.Spawner.say(isNew ? '¡Has conseguido a ' + nm + ' shiny!' : '¡Otro ' + nm + ' shiny! (+300 monedas)', 4);
+    // (Se guarda en la forma final de su familia, ver G.Fam; en una rama, la que ha tocado: el aviso y el resumen
+    //  la nombran a ella, no a la preevolución. Cada uno ve su aviso: en grupo, el de cada jugador puede ser otra rama.)
+    const fd = G.DEX_BY[got.dex] ? got.dex : e.dex;
+    caught.push({ dex: fd, isNew });
+    const nm = (G.DEX_BY[fd] || {}).name || e.name;
+    G.Spawner.say(isNew ? '¡Has conseguido a ' + nm + ' shiny!' : '¡Otro ' + nm + ' shiny! (+300 monedas)', 4, true);
     if (!isNew) pl.coins += 300;
     G.Audio.sfx('shinyGet');
   };
@@ -446,6 +447,7 @@ G.Game = (() => {
       recogidas: pl.coins
     };
     const coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
+    const PART_NAME = { tiempo: 'Tiempo', derrotados: 'Derrotados', jefes: 'Jefes', recogidas: 'Recogidas' };
     const record = !!guard('DB', () => time > save.stats.bestTime);
 
     guard('DB', () => {
@@ -489,8 +491,9 @@ G.Game = (() => {
     overArgs = [{
       dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10, judge,
       moves: pl.moves, caught, dealt: pl.dmgDealt, taken: pl.dmgTaken, healed: pl.healed,
-      breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(' · ') +
-                 (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '')
+      // (Con los nombres traducidos, 29-10-2026: antes salían las claves, «recogidas» también en inglés o chino.)
+      breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${G.T(PART_NAME[k])} ${v}`).join(' · ') +
+                 (mul > 1 ? ` · ×${mul.toFixed(2)} ${G.T('Fortuna')}` : '')
     }, () => { pl = null; G.Flow.afterRun(); }];
     showResults();
   }
@@ -1212,7 +1215,8 @@ G.Game = (() => {
     }
     if (!G.Judgment.cinematic) G.HUD.draw(ctx, w, h, pl, st);
     G.Judgment.drawOverlay(ctx, w, h);
-    G.Touch.draw(ctx);
+    // (En el viaje por la grieta no hay HUD ni joystick: toda la pantalla es el botón de saltarlo.)
+    if (!G.Rift.traveling) G.Touch.draw(ctx);
     drawAimMark();
     if (G.Settings.get('fps')) {
       ctx.save();

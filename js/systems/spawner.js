@@ -37,7 +37,11 @@ G.Spawner = (() => {
   // (26-10-2026) Al principio caben menos (CAP_EARLY hasta el minuto 6, y sube hasta CAP en el 15): sin
   // mejoras te rodeaban ya hacia el minuto 5 y no había forma de salir. Del 15 en adelante, como antes.
   const CAP_EARLY = 50;
-  const capAt = t => (t < 1080 ? Math.round(CAP_EARLY + (CAP - CAP_EARLY) * G.U.clamp((t - 360) / 540, 0, 1))
+  // (29-10-2026) Y en los primeros 6 minutos, de CAP_START a CAP_EARLY: un Pokémon que empieza flojo (Gible, Charmander) y sin
+  // mejoras se veía rodeado de 50 en el minuto 2 y caía ahí.
+  const CAP_START = 28;
+  const capAt = t => (t < 360 ? Math.round(CAP_START + (CAP_EARLY - CAP_START) * G.U.clamp(t / 360, 0, 1)) :
+                      t < 1080 ? Math.round(CAP_EARLY + (CAP - CAP_EARLY) * G.U.clamp((t - 360) / 720, 0, 1))
                                : CAP + Math.round((CAP_LATE - CAP) * G.U.clamp((t - 1080) / 600, 0, 1)));
   // Menos Pokémon pero más fuertes (la pantalla no se satura): salen ~24% de
   // los de antes, cada uno con más vida, daño y experiencia.
@@ -63,6 +67,10 @@ G.Spawner = (() => {
   // (26-10-2026) Hasta el minuto 20 el siguiente jefe espera más al anterior (90 s): se juntaban dos o
   // tres jefes que no se podían tumbar y ahí acababa la partida (sin mejoras hacia el 6; con todas, hacia el 15).
   const bossLate = t => (t < 1200 ? 90 : BOSS_LATE);
+  // (29-10-2026) Con 2 jefes del mapa vivos, el siguiente del calendario espera a que caiga uno, aunque ya
+  // lleve retraso: medido con tools/curve.cjs, se llegaban a juntar 4 (y con ellos, la partida se acababa).
+  const MAP_BOSS_MAX = 2;
+  const mapBosses = () => { let n = 0; for (const e of G.EnemyMgr.bosses()) if (!e.legend && !e.judge) n++; return n; };
   // Oleadas: desde cuándo hay de las nuevas y cuánto pesa cada una (antes y después del minuto 18).
   const WAVE_FROM = 360, LATE = 1080;
   const WAVES = {
@@ -157,7 +165,8 @@ G.Spawner = (() => {
     // (xpLag: la experiencia sigue al reloj real aunque los tramos vayan con el efectivo,
     //  26-10-2026; si no, se subía de nivel mucho más despacio y se llegaba flojo al final.)
     e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (o.dmg || 1); e.xp = Math.max(1, Math.round(e.xp * XP_K * G.Enemies.xpLag(t) * (o.xp || 1)));
-    e.elite = !o.weak && G.EnemyMgr.count >= capAt(t) * ELITE_FROM;
+    // (Con el tope más bajo de los primeros minutos, la élite sigue saliendo a partir de los mismos que antes.)
+    e.elite = !o.weak && G.EnemyMgr.count >= Math.max(capAt(t), CAP_EARLY) * ELITE_FROM;
     if (e.elite) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
     if (!o.weak && !o.noChamp && !SUPPORT.has(def.behavior) && def.behavior !== 'bomber' && def.behavior !== 'runner' &&
         Math.random() < champChance(t) && champsAlive() < champMax(t)) e.makeChamp();
@@ -313,7 +322,7 @@ G.Spawner = (() => {
     // (al volver de una grieta larga salían dos en fotogramas seguidos). Los de
     // un mismo minuto (los dúos del final) salen juntos, por lados opuestos.
     const b = G.Enemies.BOSSES[bossIdx];
-    if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive())) {
+    if (b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive()) && mapBosses() < MAP_BOSS_MAX) {
       const group = [b];
       while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
       const pl = anchor(), a0 = Math.random() * 6.2832;

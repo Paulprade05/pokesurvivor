@@ -297,7 +297,10 @@
       const P = s.profile;
       const titles = G.Progress.titles();
       const name = G.Social.me ? G.Social.me.name : G.DB.guest ? G.T('Invitado') : (G.DB.user || '');
-      const ownedN = Object.keys(s.owned || {}).filter(d => G.DEX_BY[d]).length;
+      // (Por familias, como la Pokédex y los logros: cada familia cuenta una vez, por su forma final.)
+      const famOn = G.Fam && G.Fam.ready && G.Fam.ready();
+      const ownedN = famOn ? G.Fam.owned(s) : Object.keys(s.owned || {}).filter(d => G.DEX_BY[d]).length;
+      const dexN = famOn ? G.Fam.total() : G.DEX.length;
       const achN = G.AchDefs.LIST.filter(a => s.ach && s.ach[a.id]).length;
 
       const card = document.createElement('section');
@@ -349,7 +352,7 @@
           ${mk('fist', num(st.totalKills), 'Derrotados')}
           ${mk('crown', num(st.bossesTotal), 'Jefes')}
           ${mk('ball4', Object.keys(s.legends || {}).length, 'Legendarios')}
-          ${mk('book', `${num(ownedN)}<small> / ${num(G.DEX.length)}</small>`, 'Pokémon')}
+          ${mk('book', `${num(ownedN)}<small> / ${num(dexN)}</small>`, 'Pokémon')}
           ${mk('medal3', `${achN}<small> / ${G.AchDefs.LIST.length}</small>`, 'Logros')}
         </div>`;
       // Tus mejores medallas (las que salen en tu perfil público): el oro primero.

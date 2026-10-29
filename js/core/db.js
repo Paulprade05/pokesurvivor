@@ -378,7 +378,9 @@ G.DB = (() => {
       const u = s.pupg[d];
       if (!u || typeof u !== 'object') { delete s.pupg[d]; continue; }
       for (const id of Object.keys(u)) {
-        if (!G.Upgrades.BY[id]) delete u[id];
+        // Una mejora que esta versión no conoce (de una versión más nueva, abierta en otro aparato) se deja tal cual:
+        // perks() no la usa y así no se pierde lo comprado al juntar la partida (29-10-2026; antes se borraba).
+        if (!G.Upgrades.BY[id]) { if (/^[a-z][a-z0-9_]{0,15}$/i.test(id)) u[id] = Math.min(99, n(u[id])); else delete u[id]; }
         else u[id] = Math.min(G.Upgrades.BY[id].max, n(u[id]));
       }
     }
@@ -1355,9 +1357,13 @@ G.DB = (() => {
     return save.pupg[dex] || (save.pupg[dex] = {});
   }
 
-  /** Da la versión shiny (y la normal, si no la tenía). Devuelve true si es nueva. */
-  function grantShiny(dex, from) {
+  /**
+   * Da la versión shiny (y la normal, si no la tenía). Devuelve true si es nueva.
+   * @param out  si se da, out.dex = la forma final que se ha dado (en una rama, la que ha tocado)
+   */
+  function grantShiny(dex, from, out) {
     const d = famPick(dex, 'shiny');
+    if (out) out.dex = d;
     grant(d, from);
     if (save.shiny[d]) return false;
     save.shiny[d] = { at: Date.now(), from };

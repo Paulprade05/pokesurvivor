@@ -133,6 +133,39 @@ G.UI = (() => {
     return r;
   }
 
+  /**
+   * Pregunta de sí o no en una ventana del juego (29-10-2026; antes confirm() del sistema, que con el móvil de pie
+   * y la vista girada de rotate.js salía de lado). → Promise<boolean>
+   * @param text  la pregunta (en español; se traduce aquí, también con nombres: «¿Quitar a {x} de tus amigos?»)
+   * @param o     { yes: texto del botón de sí ('Aceptar'), no: el de no ('Cancelar'), danger: el de sí en rojo }
+   */
+  function ask(text, o = {}) {
+    return new Promise(done => {
+      const el = document.createElement('section');
+      el.className = 'scr dim modal ask-scr';
+      el.setAttribute('role', 'alertdialog');
+      el.setAttribute('aria-modal', 'true');
+      el.innerHTML = `<div class="box mcard">
+        <p class="mcard-txt"></p>
+        <div class="mcard-acts">
+          <button class="btn ${o.danger ? 'danger' : 'gold'} big block" type="button" data-a="yes"></button>
+          <button class="btn ghost block" type="button" data-a="no" data-back></button>
+        </div></div>`;
+      el.querySelector('.mcard-txt').textContent = G.T(text);
+      el.querySelector('[data-a=yes]').textContent = G.T(o.yes || 'Aceptar');
+      el.querySelector('[data-a=no]').textContent = G.T(o.no || 'Cancelar');
+      document.body.appendChild(el);
+      const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); end(false); } };
+      const end = v => { removeEventListener('keydown', onKey, true); el.remove(); done(v); };
+      addEventListener('keydown', onKey, true);
+      el.querySelector('[data-a=no]').onclick = () => end(false);
+      el.querySelector('[data-a=yes]').onclick = () => end(true);
+      el.addEventListener('click', e => { if (e.target === el) end(false); });
+      // (Si lo de sí no se puede deshacer, el foco va a «Cancelar».)
+      setTimeout(() => { const b = el.querySelector(o.danger ? '[data-a=no]' : '[data-a=yes]'); if (b) b.focus({ preventScroll: true }); }, 50);
+    });
+  }
+
   let toastEl = null, toastT = 0;
   function toast(msg, ms = 2200) {
     if (!toastEl) {
@@ -480,7 +513,7 @@ G.UI = (() => {
     return cv;
   }
 
-  return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, typeChips, stars, confirmDelete, saveNow, REPO,
+  return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, ask, typeChips, stars, confirmDelete, saveNow, REPO,
            sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap, otherTab, svg, icons,
            /** ¿Está puesto el aviso de «abierto en otra pestaña»? (bloquea teclado y mando) */
            tabBlocked: () => !!tabEl && !tabEl.classList.contains('hidden') };

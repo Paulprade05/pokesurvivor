@@ -322,6 +322,11 @@ G.Player = class Player {
     if (m.kind === 'trail') return;
     // No reinicies una animación que va por la mitad: se vería a tirones.
     if (this.anim.busy() && this.anim.progress() < 0.65) return;
+    // Andando, como mucho una animación de lanzar cada 0,6 s (29-10-2026: con un ataque rápido, como Ascuas, se veía
+    // todo el rato en postura de disparo y parecía que se deslizaba). Quieto, como antes.
+    const now = G.Game && G.Game.st ? G.Game.st.time || 0 : performance.now() / 1000;
+    if (this.walking && now - (this.castAt == null ? -9 : this.castAt) < 0.6) return;
+    this.castAt = now;
     const meta = G.Sprites.animMeta(this.form, anim);
     const len = meta ? meta.d.reduce((a, b) => a + b, 0) / 60 : 0.4;
     const cd = Math.max(0.12, m.cd * this.cdMul);
@@ -367,6 +372,8 @@ G.Player = class Player {
     const close = this.activeGroup().some(m => m.kind === 'melee') ? 0.75 : 1;
     const d = pure ? Math.max(1, amount) : Math.max(1, amount * (1 - this.reduction) * close);
     this.dmgTaken += Math.min(d, Math.max(0, this.hp));
+    // Golpes fuertes (de una vez, un 20 % de la vida o más): Puño Certero se cancela sólo con estos.
+    if (d >= this.maxHp * 0.2) this.bigHits = (this.bigHits || 0) + 1;
     this.hp -= d;
     this.invuln = 0.45;
     this.flash = 0.14;

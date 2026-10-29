@@ -19,7 +19,8 @@
  * El informe (--report, y al acabar una tanda) da por partida: primera caída, «muro» (primer minuto con ≥10 caídas,
  * o ≥5 dos minutos seguidos), caídas en los minutos 0-10 / 10-20 / 20-30 y nivel en los minutos 10, 20 y 29.
  * Objetivo (dueño, 26-10-2026): con mejoras al máximo se llega con esfuerzo al 20-30; sin mejoras se cae hacia el
- * 8-15; y los minutos 20-30 son los más duros.
+ * 8-15; y los minutos 20-30 son los más duros. Se decide con «primera» además de con el muro (29-10-2026): con todas las
+ * mejoras, la primera caída en el minuto 15 o más tarde en la mayoría de partidas (el resumen del final da la mediana).
  */
 'use strict';
 const path = require('path'), fs = require('fs'), http = require('http'), os = require('os');
@@ -32,6 +33,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 // ---------------------------------------------------------------- informe
 function report(dirs) {
+  const firsts = { max: [], zero: [] }, walls = { max: [], zero: [] };
   for (const dir of dirs) {
     console.log('== ' + dir);
     for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.txt')).sort()) {
@@ -43,10 +45,17 @@ function report(dirs) {
       for (let i = 0; i < rows.length; i++) { const r = rows[i], n = rows[i + 1]; if (r.d >= 10 || (r.d >= 5 && n && n.d >= 5)) { wall = r.m; break; } }
       const lv = m => { const r = rows.find(x => x.m === m) || rows.filter(x => x.m <= m).pop(); return r ? r.lv : '-'; };
       const first = res ? res[1] : '-';
+      const g = /-max-/.test(f) ? 'max' : /-zero-/.test(f) ? 'zero' : null;
+      if (g && res) { firsts[g].push(first === '-' ? 1860 : +first); walls[g].push(wall == null ? 31 : wall); }
       const sum = (a, b) => rows.filter(r => r.m >= a && r.m < b).reduce((t, r) => t + r.d, 0);
       console.log(`${f.replace('.txt', '').padEnd(12)} primera=${String(first === '-' ? '-' : (first / 60).toFixed(1) + 'min').padEnd(8)} muro=${wall == null ? 'no' : 'min ' + wall}`.padEnd(46) +
         ` caídas 0-10/10-20/20-30: ${sum(0, 10)}/${sum(10, 20)}/${sum(20, 99)}  Nv m10/m20/m29: ${lv(10)}/${lv(20)}/${lv(29)}  (llegó al ${rows[rows.length - 1].m})`);
     }
+  }
+  const med = a => { const b = a.slice().sort((x, y) => x - y); return b.length ? (b.length % 2 ? b[b.length >> 1] : (b[b.length / 2 - 1] + b[b.length / 2]) / 2) : null; };
+  for (const g of ['max', 'zero']) {
+    const a = firsts[g]; if (!a.length) continue;
+    console.log(`resumen ${g.padEnd(4)}: ${a.length} partidas · primera caída mediana ${(med(a) / 60).toFixed(1)} min (${a.filter(x => x >= 900).length} en el 15 o más tarde, ${a.filter(x => x >= 480).length} en el 8 o más) · muro mediano min ${med(walls[g])}`);
   }
 }
 
@@ -214,7 +223,7 @@ async function one(dex, upg, tag, speed, cap) {
       if (upg === 'max') for (const u of G.Upgrades.LIST) U[u.id] = u.max;
       S.owned[dex] = S.owned[dex] || { at: Date.now(), from: 'gacha' };
       S.partner = dex; S.partnerShiny = false;
-      // Daño recibido por origen: contacto, disparo, aviso en el suelo, firma de jefe.
+      // Daño recibido por origen: contacto (t), disparo enemigo (p), aviso en el suelo (h), firma de jefe (s).
       window.DMG = { touch: 0, proj: 0, hz: 0, sig: 0, other: 0, total: 0 };
       window.__src = 'other';
       const wrap = (obj, fn, src) => { if (!obj || !obj[fn]) return; const o = obj[fn].bind(obj); obj[fn] = function (...a) { const p = window.__src; window.__src = src; try { return o(...a); } finally { window.__src = p; } }; };
@@ -232,7 +241,9 @@ async function one(dex, upg, tag, speed, cap) {
         const out = h(a, ...r), d = Math.max(0, 1e9 - pl.hp);
         pl.hp = hp0; pl.dead = false; V.hp -= d;
         if (V.hp <= 0) { V.deaths.push(Math.round(G.Game.st.time)); V.hp = pl.maxHp; }
-        if (d > 0) { DMG[window.__src] = (DMG[window.__src] || 0) + d; DMG.total += d; }
+        // (G.Combat.resolve resuelve los toques y también los disparos enemigos: el toque lleva pl.touchHit.)
+        const src = window.__src === 'touch' && !pl.touchHit ? 'proj' : window.__src;
+        if (d > 0) { DMG[src] = (DMG[src] || 0) + d; DMG.total += d; }
         return out;
       };
       let last = G.Game.st.time;

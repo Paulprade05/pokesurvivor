@@ -54,20 +54,44 @@ G.MenuUI = (() => {
         fitQ = 0;
         if (G.UI.isOpen('scr-dex')) fitBig(false);
         else if (G.UI.isOpen('scr-upgrades')) fitUpg(false);
-        else if (G.UI.isOpen('scr-menu')) fitPartner(false);
+        else if (G.UI.isOpen('scr-menu')) { fitPartner(false); fitTiles(); }
       });
     });
+    // (Y cuando acaba de cargar la letra: con la de reserva, más estrecha, todo cabía.)
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { if (G.UI.isOpen('scr-menu')) fitTiles(); });
     // Móvil tumbado ↔ de pie: las casillas de la Pokédex cambian de tamaño (lienzos enteros, no estirados).
     const onCompact = () => { if (G.UI.isOpen('scr-dex')) { renderGrid(true); showDetail.last = null; showDetail(dexSel); } };
     if (COMPACT.addEventListener) COMPACT.addEventListener('change', onCompact); else if (COMPACT.addListener) COMPACT.addListener(onCompact);
-    $('btn-logout').onclick = () => {
-      if (G.DB.guest && !confirm('Eres invitado: se perderá todo el progreso. ¿Salir?')) return;
+    $('btn-logout').onclick = async () => {
+      if (G.DB.guest && !(await G.UI.ask('Eres invitado: se perderá todo el progreso. ¿Salir?', { yes: 'Salir', danger: true }))) return;
       G.Audio.music(null);
       G.DB.logout().then(() => G.Flow.toLogin());
     };
   }
 
   // ---------------- menú principal ----------------
+
+  /*
+   * Móvil tumbado (29-10-2026): si una palabra del nombre de una baldosa no cabe en su sitio («Compendio»,
+   * «Leaderboard» a 667x375), su letra baja un poco (hasta 11 px) en vez de partirse a media palabra.
+   */
+  let fitProbe = null;
+  function fitTiles() {
+    const els = document.querySelectorAll('#scr-menu .menu-item.tile .mi-t'), on = matchMedia('(max-height: 520px)').matches;
+    for (const el of els) {
+      if (!el.clientWidth) continue;             // (sin dibujar, p. ej. tapado por otra pantalla: se queda como está)
+      if (!on) { el.style.fontSize = ''; continue; }
+      // Cada palabra, medida aparte en una copia invisible (en una línea y con la letra de la regla, no la de ahora).
+      if (!fitProbe) { fitProbe = document.createElement('span'); fitProbe.className = 'mi-t'; fitProbe.setAttribute('aria-hidden', 'true'); }
+      fitProbe.style.cssText = 'position:absolute;left:0;top:0;display:inline;white-space:nowrap;visibility:hidden;pointer-events:none';
+      el.parentNode.appendChild(fitProbe);
+      let big = 0;
+      for (const word of el.textContent.trim().split(/\s+/)) { fitProbe.textContent = word; big = Math.max(big, fitProbe.getBoundingClientRect().width); }
+      const px = parseFloat(getComputedStyle(fitProbe).fontSize), w = el.clientWidth;
+      fitProbe.remove();
+      el.style.fontSize = big > w + 0.5 ? Math.max(11, Math.floor(px * w / big * 10) / 10) + 'px' : '';
+    }
+  }
 
   let partner = null;            // compañero del menú: { dex, shiny }
   /**
@@ -99,6 +123,7 @@ G.MenuUI = (() => {
     bagLine();
     partner = { dex: mon.dex, shiny };
     fitPartner(true);
+    requestAnimationFrame(fitTiles);
     $('menu-stage').style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[mon.types[0]]);
     $('menu-stage').classList.toggle('shiny', shiny);
     $('menu-partner-name').innerHTML = mon.name + (shiny ? ' ' + G.Icons.html('shiny', 24) : '');
@@ -863,7 +888,7 @@ G.MenuUI = (() => {
   let upgQuickIds = [];           // los de la fila a mano (se fija al abrir: no bailan al comprar)
   let upgInfo = null;             // mejora con su explicación abierta
   let upgBump = null;             // la que se acaba de comprar (destello en su fila)
-  const upgLv = d => Object.values((G.DB.save.pupg || {})[d] || {}).reduce((a, b) => a + (+b || 0), 0);
+  const upgLv = d => { const u = (G.DB.save.pupg || {})[d] || {}; let t = 0; for (const k in u) if (G.Upgrades.BY[k]) t += +u[k] || 0; return t; };
 
   /** Lo que no está en dev.html: la cara del selector, cómo se compra, «Elegir de compañero» y la fila a mano. */
   function upgShell() {
@@ -1269,5 +1294,5 @@ G.MenuUI = (() => {
     return el;
   }
 
-  return { init, open, openDex, GEN_NAMES };
+  return { init, open, openDex, fitTiles, GEN_NAMES };
 })();

@@ -3201,7 +3201,9 @@ G.BossSig = (() => {
       const e = G.EnemyMgr.get(m.id), x = e && !hides.has(e.id) ? e.x : m.x, y = e && !hides.has(e.id) ? e.y - e.bodyH - (e.jumpLift || 0) : m.y;
       const a = Math.min(1, m.t * 6, (m.dur - m.t) * 3), pop = 1 + Math.max(0, 0.18 - m.t) * 2.5;
       // (Dentro de la vista: con un jefe grande arriba del todo, el nombre se salía.)
-      const lx = G.U.clamp(x, cam.left() + 70, cam.left() + cam.w - 70), ly = G.U.clamp(y - 22 - m.t * 6, cam.top() + 34, cam.top() + cam.h - 20);
+      // (29-10-2026: y por debajo del HUD de arriba —reloj, monedas y barras de los jefes—, que si no se leía mal.)
+      const hudB = G.HUD && G.HUD.lay && G.HUD.lay.below > 0 ? G.Camera.toWorld(0, G.HUD.lay.below + 22).y : cam.top() + 34;
+      const lx = G.U.clamp(x, cam.left() + 70, cam.left() + cam.w - 70), ly = G.U.clamp(y - 22 - m.t * 6, Math.max(cam.top() + 34, hudB), cam.top() + cam.h - 20);
       F.label(ctx, lx, ly, m.txt, m.col || '#ffffff', a, pop);
     }
   }

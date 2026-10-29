@@ -186,7 +186,7 @@
             if (r.ok) G.LobbyUI.open();
           });
         }
-        add(svg('close'), 'icon-btn plain', 'Quitar', () => { if (confirm('¿Quitar a ' + f.name + ' de tus amigos?')) G.Social.remove(f.uid); });
+        add(svg('close'), 'icon-btn plain', 'Quitar', async () => { if (await G.UI.ask('¿Quitar a ' + f.name + ' de tus amigos?', { yes: 'Quitar', danger: true })) G.Social.remove(f.uid); });
       }
       el.appendChild(acts);
       return el;
@@ -411,12 +411,17 @@
       note.classList.toggle('warn', !!G.Net.noRtc || (room.isHost && failed));
     }
 
-    function start() {
-      const room = G.Social.room;
+    async function start() {
+      let room = G.Social.room;
       if (!room || !room.isHost || room.members.length < 2) return;
       // Alguien no ha dicho que está listo: se pregunta (el botón no se bloquea).
       const notReady = room.members.filter(m => m.uid !== room.host && readyBy.get(m.uid) === false).map(m => m.name);
-      if (notReady.length && !confirm('Sin pulsar «¡Estoy listo!»: ' + notReady.join(', ') + '. ¿Empezar igualmente?')) return;
+      if (notReady.length) {
+        if (!(await G.UI.ask('Sin pulsar «¡Estoy listo!»: ' + notReady.join(', ') + '. ¿Empezar igualmente?'))) return;
+        // (Mientras se contestaba, la sala ha podido cambiar.)
+        room = G.Social.room;
+        if (!room || !room.isHost || room.members.length < 2) return;
+      }
       const cfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny }))

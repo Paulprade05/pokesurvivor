@@ -2174,5 +2174,21 @@ G.I18n.add({
   "Ir a la Pokédex": "Go to the Pokédex",
   "Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la Pokédex.": "What you buy goes to your Bag: use it from each Pokémon’s page in the Pokédex.",
   "Para usarlo, abre la Pokédex, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.": "To use it, open the Pokédex, pick a Pokémon and press Mint, Capsule or Teach TM on its page.",
-  "¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la Pokédex.": "Welcome! Mints, Capsules and TMs. What you buy goes to your Bag (in the main menu); use it from each Pokémon’s page in the Pokédex."
+  "¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la Pokédex.": "Welcome! Mints, Capsules and TMs. What you buy goes to your Bag (in the main menu); use it from each Pokémon’s page in the Pokédex.",
+  // ---------------- Pokémon Paradoja (nombres oficiales en inglés; italiano y portugués los usan de reserva) ----------------
+  "Colmilargo": "Great Tusk",
+  "Colagrito": "Scream Tail",
+  "Melenaleteo": "Flutter Mane",
+  "Reptalada": "Slither Wing",
+  "Pelarena": "Sandy Shocks",
+  "Ferrosaco": "Iron Bundle",
+  "Ferropalmas": "Iron Hands",
+  "Ferropolilla": "Iron Moth",
+  "Ferropúas": "Iron Thorns",
+  "Bramaluna": "Roaring Moon",
+  "Ferropaladín": "Iron Valiant",
+  "Ondulagua": "Walking Wake",
+  "Ferroverdor": "Iron Leaves",
+  // ---------------- Arreglos de la revisión del 29-10 (1) ----------------
+  "Recogidas": "Collected"
 });

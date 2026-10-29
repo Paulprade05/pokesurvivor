@@ -531,6 +531,8 @@ function socialUi() {
     Net: { open_: true, on: fn => net.push(fn), onPeer: fn => peer.push(fn), toHost: m => toHost.push(m.on), mode: () => 'direct', viaTurn: () => false,
            noRtc: false, close: () => calls.push(['close']), open() {}, broadcast() {}, syncMembers: (u, keep) => calls.push(['sync', u, keep]) } };
   const confirm = q => { asked.push(q); return answers.shift(); };
+  // (29-10-2026: la pregunta va en una ventana del juego, G.UI.ask, que contesta con una promesa.)
+  G.UI.ask = q => Promise.resolve(confirm(q));
   new Function('G', 'document', 'confirm', source('js/ui/social-ui.js'))(G, { createElement: mk }, confirm);
   G.SocialUI.init();
   return { G, els, calls, handlers, net, peer, toHost, asked, answers };
@@ -553,7 +555,7 @@ test('#253: the room UI keeps the network during a game and closes it after', ()
   handlers.forEach(fn => fn('room-closed'));
   assert.deepEqual(calls, [['close'], ['toast', 'La sala se ha cerrado']]);
 });
-test('#97: "¡Estoy listo!" goes over the direct channel; the host can still start but is asked who is not ready', () => {
+test('#97: "¡Estoy listo!" goes over the direct channel; the host can still start but is asked who is not ready', async () => {
   const guest = socialUi();
   guest.G.Coop.active = false;
   guest.G.Social.room = { id: 'r', isHost: false, host: 'h', members: [{ uid: 'h', name: 'Hosty' }, { uid: 'me', name: 'Yo' }] };
@@ -574,10 +576,10 @@ test('#97: "¡Estoy listo!" goes over the direct channel; the host can still sta
   assert.equal(host.els['lobby-ready'].classList.contains('hidden'), true);
   host.net.forEach(fn => { fn('a', { k: 'rdy', on: 1 }); fn('b', { k: 'rdy', on: 0 }); });   // c: versión vieja, no dice nada
   host.answers.push(false);
-  host.els['lobby-start'].onclick();
+  await host.els['lobby-start'].onclick();
   assert.deepEqual(host.asked, ['Sin pulsar «¡Estoy listo!»: Bea. ¿Empezar igualmente?']);
   assert.ok(!host.calls.some(c => c[0] === 'start'));
-  host.answers.push(true); host.els['lobby-start'].onclick();
+  host.answers.push(true); await host.els['lobby-start'].onclick();
   assert.ok(host.calls.some(c => c[0] === 'start'));
 });
 

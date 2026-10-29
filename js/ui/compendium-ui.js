@@ -94,9 +94,19 @@ G.CompendiumUI = (() => {
   const isPass = id => (G.LevelUp.isPassive ? G.LevelUp.isPassive(id) : id !== 'heal');
   /** Ataques que evolucionan con la carta `id` (ids). */
   const evolvesWith = id => Object.keys(G.Moves.EVO || {}).filter(k => G.Moves.EVO[k][1] === id && G.Moves.BY_ID[k]);
+  /*
+   * Familias (29-10-2026, como la Pokédex: data/families.js): cada familia sale una vez, por su forma final
+   * (Charizard; Charmander y Charmeleon, en su ficha). Se encuentra también por el nombre o el número de sus
+   * preevoluciones, y «lo tienes» mira la forma final.
+   */
+  const famOn = () => !!(G.Fam && G.Fam.ready && G.Fam.ready());
+  const monList = () => (famOn() ? G.Fam.FINALS.map(d => G.DEX_BY[d]).filter(Boolean) : G.DEX);
+  /** La entrada de dex en la lista (si es una preevolución, su forma final). */
+  const entryOf = dex => (famOn() && G.DEX_BY[dex] && !G.Fam.isFinal(dex) ? G.Fam.finalsOf(dex)[0] : dex);
+  const lineOf = dex => (famOn() ? G.Fam.lineOf(dex) : [+dex]);
   /** Los Pokémon con el tipo t (todos con t = normal: el grupo Normal lo tienen todos). */
-  const monsOfType = t => (t === 'normal' ? G.DEX : G.DEX.filter(p => p.types.includes(t)));
-  const owned = d => !!(G.DB.save && G.DB.save.owned && G.DB.save.owned[d]);
+  const monsOfType = t => (t === 'normal' ? monList() : monList().filter(p => p.types.includes(t)));
+  const owned = d => !!(G.DB.save && (G.DB.owns ? G.DB.owns(d) : G.DB.save.owned && G.DB.save.owned[d]));
 
   // ---------------- piezas ----------------
   const typeChip = t => `<span class="tag-chip" style="background:${typeCol(t)}">${G.U.TYPE_NAME[t] || ''}</span>`;
@@ -196,7 +206,7 @@ G.CompendiumUI = (() => {
     if (k === 'm') { tab = 'moves'; SEL.moves = v; Object.assign(F.moves, { q: '', type: '', fam: '' }); }
     else if (k === 'p') { tab = 'passives'; SEL.passives = v; F.passives.q = ''; }
     else if (k === 'i') { tab = 'items'; SEL.items = v; F.items.q = ''; }
-    else if (k === 'd') { tab = 'mons'; SEL.mons = v; Object.assign(F.mons, { q: '', type: '', mine: false }); }
+    else if (k === 'd') { tab = 'mons'; SEL.mons = String(entryOf(+v)); Object.assign(F.mons, { q: '', type: '', mine: false }); }
     else if (k === 't') { tab = 'mons'; Object.assign(F.mons, { q: '', type: v === 'normal' ? '' : v, mine: false }); SEL.mons = null; }
     else if (k === 'f') { tab = 'moves'; Object.assign(F.moves, { q: '', type: '', fam: v }); SEL.moves = null; }
     else return;
@@ -260,8 +270,8 @@ G.CompendiumUI = (() => {
     if (tab === 'passives') return STATS().filter(s => !q || norm(G.T(s.title)).includes(q) || norm(s.title).includes(q));
     if (tab === 'items') return G.Items.LIST.filter(it => !q || norm(G.T(it.name)).includes(q) || norm(it.name).includes(q));
     const n = q.replace(/^#/, '');
-    return G.DEX.filter(p => (!f.type || p.types.includes(f.type)) && (!f.mine || owned(p.dex))
-      && (!q || norm(G.T(p.name)).includes(q) || norm(p.name).includes(q) || (/^\d+$/.test(n) && String(p.dex).startsWith(String(+n)))));
+    const hit = d => { const m = G.DEX_BY[d]; return !!m && (norm(G.T(m.name)).includes(q) || norm(m.name).includes(q) || (/^\d+$/.test(n) && String(d).startsWith(String(+n)))); };
+    return monList().filter(p => (!f.type || p.types.includes(f.type)) && (!f.mine || owned(p.dex)) && (!q || lineOf(p.dex).some(hit)));
   }
   const idOf = x => String(tab === 'mons' ? x.dex : x.id);
 
@@ -459,6 +469,11 @@ G.CompendiumUI = (() => {
     const st = G.Moves.startFor ? G.Moves.startFor(p) : null;
     const ab = G.Mons && G.Mons.abilityOf ? G.Mons.abilityOf(dex) : null;
     const fx = ab && ab.id && G.AbilityFX ? G.AbilityFX.of(ab.id, p) : null;
+    // Su línea evolutiva (las preevoluciones son con las que se empieza la partida).
+    const line = lineOf(dex);
+    if (line.length > 1) {
+      h += sec('Evolución', `<p class="cmp-note cmp-line">${line.map(d => `<b class="${d === +dex ? 'gold' : ''}">${esc(G.DEX_BY[d].name)}</b>`).join('<i class="evo-arr" aria-hidden="true"> → </i>')}</p>`);
+    }
     h += '<div class="cmp-kv">'
       + (st ? `<div><span class="cmp-k">Ataque inicial</span>${moveBtn(st)}</div>` : '')
       + (ab && ab.id ? `<div><span class="cmp-k">Habilidad</span><b translate="no">${esc(G.Mons.abilityName(ab.id))}</b>`

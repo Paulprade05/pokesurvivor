@@ -1509,9 +1509,17 @@ html.rot .rotate { display: none !important; }
   .menu-item.play small { font-size: var(--fs-xs); }
   .menu-item.tile { flex-direction: row; justify-content: flex-start; min-height: 40px; height: 100%; padding: 3px 8px 3px 4px; gap: 6px; border-radius: 13px; text-align: left; box-shadow: var(--sh-1); }
   .menu-item.tile .mi-ico { width: 36px; height: 36px; border-radius: 11px; }
-  .menu-item.tile .mi-t { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .menu-item.tile .mi-t { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; }
   .menu-item.tile small { display: none; }
   .menu-stats { display: none; }
+}
+/* Tumbado y estrecho (iPhone SE/8, 667x375): icono y hueco más pequeños para que quepan «Compendio» o
+   «Leaderboard» (29-10-2026: se cortaban a media palabra; si aun así no cabe, parte la palabra en dos líneas). */
+@media (max-height: 520px) and (max-width: 700px) {
+  .menu-item.tile { gap: 4px; padding: 3px 5px 3px 3px; }
+  .menu-item.tile .mi-ico { width: 32px; height: 32px; border-radius: 10px; }
+  .menu-item.tile .mi-t { font-size: 12px; }
 }
 @media (max-height: 400px) {
   .menu-left .logo .t1 { font-size: 24px; }
@@ -1630,9 +1638,14 @@ body.touch .touch-hint { display: block; }
   .box h3 { font-size: 16px; }
   .sub { font-size: 13px; margin-bottom: 8px; }
   .note { margin-top: 8px; font-size: 12px; }
-  /* Tumbado: arriba a la derecha, debajo de la barra (abajo pisaba los avisos y «Jugar»). */
-  .ach-pop { top: calc(var(--bar-h) + var(--sa-t) + 6px); bottom: auto; left: auto; right: max(12px, var(--sa-r));
-    transform: none; animation: pop .2s ease-out; max-width: min(320px, 46vw); }
+  /* Tumbado: arriba en medio, encima de la barra (en el hueco entre las monedas y los botones) y más pequeño
+     (29-10-2026: debajo de la barra, a la derecha, tapaba los filtros de la Pokédex, la cabecera del Compendio o las
+     pestañas de la Tienda; abajo pisaba los avisos y «Jugar»). No para los toques. */
+  .ach-pop { top: calc(var(--bar-top) + 1px); bottom: auto; left: 50%; right: auto; transform: translateX(-50%);
+    animation: pop-x .2s ease-out; width: max-content; max-width: min(300px, 38vw); padding: 4px 12px; gap: 8px; pointer-events: none; }
+  .ach-pop b { font-size: 13px; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ach-pop small { display: block; font-size: 11px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ach-pop > img, .ach-pop > canvas { flex: none; max-height: 30px; width: auto; }
 
   /* (Cartas de nivel, objeto, vínculo y resumen final: en «pantallas: partida», al final.) */
 }
@@ -2394,11 +2407,11 @@ body.touch .dx-tab { min-height: var(--tap); }
   .upg-stage { flex: none; width: 100%; height: 72px; border-radius: 10px; }
   /* Los tipos, pequeños, encima del escenario (arriba a la izquierda): una línea menos. */
   .upg-mon .upg-types { position: absolute; z-index: 1; top: 10px; left: 10px; right: 10px; gap: 3px; justify-content: flex-start; pointer-events: none; }
-  .upg-mon .upg-types .type { padding: 0 7px; font-size: 10px; line-height: 16px; }
+  .upg-mon .upg-types .type { padding: 0 7px; font-size: 11px; line-height: 16px; }
   .upg-who { flex: none; gap: 6px; }
   .upg-face { min-height: 36px; gap: 4px; padding: 2px 6px 2px 9px; border-radius: 11px; }
   .upg-fn > b { font-size: 14px; }
-  .upg-fn > small { font-size: 10px; line-height: 1.1; }
+  .upg-fn > small { font-size: 11px; line-height: 1.1; }
   .upg-sum { flex-direction: column; align-items: stretch; gap: 5px; }
   .upg-prog { flex: none; gap: 6px; }
   .upg-prog b { font-size: 13px; }
@@ -2406,11 +2419,11 @@ body.touch .dx-tab { min-height: var(--tap); }
   .upg-mode .seg button { padding: 5px 4px; }
   #upg-partner { padding: 5px 6px; font-size: 12px; line-height: 15px; }
   .upg-quick { flex: none; }
-  .upg-quick > .eyebrow { margin-bottom: 3px; font-size: 10px; }
+  .upg-quick > .eyebrow { margin-bottom: 3px; font-size: 11px; }
   .upg-qgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .upg-q { height: 42px; border-radius: 10px; }
   .upg-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 4px 6px; }
-  .upg-grid > h3.upg-h { margin-top: 4px; font-size: 10px; }
+  .upg-grid > h3.upg-h { margin-top: 4px; font-size: 11px; }
   .upg-grid > h3.upg-h:first-child { margin-top: 0; }
   .upg-card { column-gap: 8px; padding: 2px 4px 2px 2px; border-radius: 11px; }
   .upg-card > .ico-tile.s { --tile: 34px; border-radius: 10px; }
@@ -2446,7 +2459,7 @@ body.touch .dx-tab { min-height: var(--tap); }
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   #scr-bag .bag-tile { --tile: 46px; border-radius: 14px; }
   #scr-bag .bag-tile > img.pix { width: 30px; height: 30px; }
-  #scr-bag .bag-n { right: -4px; bottom: -4px; min-width: 20px; padding: 0 5px; font-size: 10px; }
+  #scr-bag .bag-n { right: -4px; bottom: -4px; min-width: 20px; padding: 0 5px; font-size: 11px; }
   #scr-bag .bag-empty { padding: 16px 12px; }
 }
 
@@ -3411,7 +3424,7 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   #scr-gacha .rate-row .ico-tile { grid-area: ico; --tile: 22px; background: none; box-shadow: none; overflow: visible; }
   #scr-gacha .rate-row .ico-tile img { margin: -4px; }
   #scr-gacha .rate-row > .grow { grid-area: name; min-width: 0; }
-  #scr-gacha .rate-row b { font-size: 10px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #scr-gacha .rate-row b { font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #scr-gacha .rate-row small { display: none; }
   #scr-gacha .rate-row .rate-pct { grid-area: pct; justify-self: end; font-size: 14px; line-height: 1.1; }
   /* Reglas: tras la «i», encima de las fichas. */
@@ -4928,6 +4941,21 @@ body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop small { font-
 @media (min-height: 521px) and (min-width: 600px) {
   body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop { top: 64px; right: 16px; }
 }
+/* En partida, con la pantalla baja (móvil tumbado), debajo de la línea de avisos del HUD (29-10-2026: tapaba el final
+   del aviso del clima, «Lluvia: el Agua se potencia y el Fuego se deb…»). */
+@media (max-height: 520px) {
+  /* (Con la pausa o las cartas abiertas, abajo a la derecha, como antes.) */
+  body:has(> #topbar.hidden) .ach-pop { left: auto; right: max(12px, var(--sa-r)); transform: none; animation-name: pop; }
+  body:has(> #topbar.hidden):not(:has(> .scr:not(.hidden))) .ach-pop { top: calc(max(8px, var(--sa-t)) + 118px); max-width: min(280px, 40vw); }
+}
+/* Resumen de la partida («Has caído…», 29-10-2026): arriba a la derecha y estrecho, al lado del título (abajo tapaba
+   «Volver al menú»). */
+body:has(> #scr-over:not(.hidden)) .ach-pop {
+  top: calc(max(6px, var(--sa-t)) + 4px); bottom: auto; left: auto; right: max(10px, var(--sa-r)); transform: none;
+  width: max-content; max-width: min(300px, 30vw); padding: 5px 10px; gap: 8px; pointer-events: none; animation-name: drop-in;
+}
+body:has(> #scr-over:not(.hidden)) .ach-pop b { font-size: var(--fs-s); -webkit-line-clamp: 3; }
+body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
 /* Móvil (de pie y tumbado), 23-10-2026: la pausa y el resumen se veían enormes.
    Tarjetas, filas y cifras mucho más compactas (letra de 11 px como poco y
    baldosas de icono de 28, el dibujo a 26): de un vistazo se ven tus ataques y
@@ -5585,6 +5613,11 @@ body.touch .cmp-pick { min-height: 36px; }
 .cmp-detail p.cmp-fam { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 4px; color: var(--muted); font-size: var(--fs-s); line-height: 1.45; }
 button.fam-chip { appearance: none; cursor: pointer; flex: none; }
 button.fam-chip:hover { border-color: var(--c-yellow); }
+/* En el móvil (29-10-2026): la ficha mide 18 px de alto; la zona de toque, 34 (sin cambiar cómo se ve). */
+@media (pointer: coarse) {
+  button.fam-chip { position: relative; }
+  button.fam-chip::after { content: ''; position: absolute; inset: -8px -4px; }
+}
 .cmp-sec { margin-top: 12px; padding: 12px 14px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); }
 .box .cmp-sec h4 { margin: 0 0 8px; font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .cmp-sec.evo { border-color: rgba(255, 203, 5, .4); background: linear-gradient(135deg, rgba(255, 203, 5, .1), rgba(255, 203, 5, .02)); }

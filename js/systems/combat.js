@@ -4024,9 +4024,17 @@ G.Combat = (() => {
     stAdd(e, 'bpoison', t, v);
   }
   /** Charco tóxico pequeño (gotas de Residuos, botes de Bomba Lodo): veneno y algo de daño cada 0,4 s. */
-  function toxPool(pl, m, gh, x, y, r, life, dmg) {
-    addField({ tag: 'pool', owner: pl, ghost: gh, m, x, y, r, life, pad: r + 20, tick: 0.1, dmg,
-      upd(f, dt) { if ((f.tick -= dt) <= 0) { f.tick = 0.4; areaHit(f.owner, f.m, f.x, f.y, f.r, f.dmg, { col: '#b45ec4' }); } return false; },
+  /** @param bp  si se da, también veneno grave (con este tic) a los que pisan el charco (Armadura Ácida) */
+  function toxPool(pl, m, gh, x, y, r, life, dmg, bp) {
+    addField({ tag: 'pool', owner: pl, ghost: gh, m, x, y, r, life, pad: r + 20, tick: 0.1, dmg, bp,
+      upd(f, dt) {
+        if ((f.tick -= dt) <= 0) {
+          f.tick = 0.4;
+          if (f.bp && !f.ghost) for (const e of inCircle(f.x, f.y, f.r)) badPoison(e, f.bp);
+          areaHit(f.owner, f.m, f.x, f.y, f.r, f.dmg, { col: '#b45ec4' });
+        }
+        return false;
+      },
       dg(ctx, f, own) {
         const a = Math.min(1, (f.life - f.t) * 2, f.t * 8);
         ctx.globalAlpha = 0.4 * a * own; ctx.fillStyle = '#7a2aa8';
@@ -4383,13 +4391,21 @@ G.Combat = (() => {
         G.Audio.sfx('ball');
         return;
       }
-      // Licuado: 0,6 s al doble de rápido, sin que te toquen, dejando ácido.
+      // Licuado: 0,6 s al doble de rápido, sin que te toquen, dejando charcos de ácido que envenenan grave.
+      // (29-10-2026: antes eran charquitos de 22 px sin veneno grave y la evolución pegaba menos que el
+      //  Búnker al máximo. Ahora te sigue el gas del Búnker, más ancho, y los charcos son de 40 px.)
       if (!pl.uqLock) { pl.uqLock = { k: 'slide', t: 0.6 }; pl.spdMul *= 2; }
       pl.invuln = Math.max(pl.invuln || 0, 0.65);
-      addField({ tag: 'acid', owner: pl, ghost: false, m, x: pl.x, y: pl.y, life: 0.65, pad: 60, next: 0, dmg,
+      addField({ tag: 'acid', owner: pl, ghost: false, m, x: pl.x, y: pl.y, life: 1.3, pad: 120, next: 0, tick: 0, dmg,
         upd(f, dt) {
           f.x = f.owner.x; f.y = f.owner.y;
-          if ((f.next -= dt) <= 0) { f.next = 0.1; toxPool(f.owner, f.m, false, f.x, f.y, 22, 2, f.dmg * 0.15); }
+          if (f.t < 0.65 && (f.next -= dt) <= 0) { f.next = 0.12; toxPool(f.owner, f.m, false, f.x, f.y, 40, 3, f.dmg * 0.15, f.dmg * 0.3); }
+          if ((f.tick -= dt) <= 0) {
+            f.tick = 0.3;
+            for (const e of inCircle(f.x, f.y, 95)) badPoison(e, f.dmg * 0.35);
+            areaHit(f.owner, f.m, f.x, f.y, 95, f.dmg * 0.15, { col: '#a043d0' });
+            if (G.Camera.sees(f.x, f.y, 95)) for (let i = 0; i < 3; i++) { const a = Math.random() * TAU; G.FX.sp('puff', 'poison', f.x + Math.cos(a) * 34, f.y + Math.sin(a) * 22 - 6, { vx: Math.cos(a) * 100, vy: Math.sin(a) * 66, life: 0.5 }); }
+          }
           return false;
         } });
       G.Audio.sfx('surge');
@@ -5722,7 +5738,7 @@ G.Combat = (() => {
   };
 
   // Gancho Alto: la columna mantiene en el aire a los de dentro y al acabar caen con daño;
-  // Puño Certero: cargas 1 s; si no te golpean, un puñetazo devastador en línea; si te golpean, recuperas la mitad de la recarga.
+  // Puño Certero: cargas 0,7 s; si no te golpean fuerte, un puñetazo devastador en línea; si te golpean, recuperas la mitad de la recarga.
   MECH['sky-uppercut'] = {
     field(f, dt) {
       if (f.kind !== 'column') return;
@@ -5747,14 +5763,15 @@ G.Combat = (() => {
     cast(pl, m) {
       if (!m.evolved) return false;
       const dmg = m.dmg * pl.atkFor(m), cd = cooldown(pl, m);
-      addField({ tag: 'focus', owner: pl, ghost, m, x: pl.x, y: pl.y, life: 0.85, pad: 200, hurt0: pl.dmgTaken || 0, done: false, dmg,
+      addField({ tag: 'focus', owner: pl, ghost, m, x: pl.x, y: pl.y, life: 0.85, pad: 200, big0: pl.bigHits || 0, done: false, dmg,
         upd(f) {
           const pl2 = f.owner;
           f.x = pl2.x; f.y = pl2.y;
           if (pl2.dead) return true;
           if (f.done) return false;
-          if (!f.ghost && (pl2.dmgTaken || 0) - f.hurt0 > pl2.maxHp * 0.08) {
-            // Te han golpeado: se cancela y recuperas la mitad de la recarga.
+          if (!f.ghost && (pl2.bigHits || 0) > f.big0) {
+            // Te han golpeado fuerte (un golpe de un 20 % de tu vida o más; 29-10-2026: antes bastaba con perder un 8 %
+            // en total, y en plena horda, con los toques, casi nunca salía): se cancela y recuperas la mitad de la recarga.
             f.done = true;
             f.m.t = Math.min(f.m.t, cd * 0.5);
             G.FX.dmgText(pl2.x, pl2.y - pl2.bodyH - 10, '¡Cancelado!', '#c9a0a8');

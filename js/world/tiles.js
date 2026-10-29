@@ -883,6 +883,8 @@ G.Tiles = (() => {
      * más estrecha); 2, árbol de copa redonda. Dibujo propio.
      */
     tree(B, variant = 0) {
+      // (29-10-2026) Sobre placas de metal o tablones no crecen pinos ni cristales: postes y columnas.
+      if (B.ground === 'metal' || B.ground === 'wood') return PAINT.post(B, variant);
       if (B.prop === 'crystal') return PAINT.crystal(B, variant);
       if (B.prop === 'dead') return PAINT.deadtree(B, variant);
       const look = variant % 3;
@@ -1071,6 +1073,9 @@ G.Tiles = (() => {
      */
     grass(B, variant = 0) {
       if (variant >= 9) variant -= 9;                    // (las variantes 9..17 eran las del Ultra de antes)
+      // (29-10-2026) La hierba alta, en suelo de metal: rejilla con cables; en madera: esteras de tatami.
+      if (B.ground === 'metal') return PAINT.grate(B, variant);
+      if (B.ground === 'wood') return PAINT.mats(B, variant);
       const P = Pix(18, 18);
       const Gc = ramp(B.grass);
       const out = pack(shade(sortHex(B.grass)[0], -0.58));
@@ -1108,6 +1113,126 @@ G.Tiles = (() => {
       const hb = [9, 10, 8][look], hf = [10, 9, 11][look];
       for (const x of [-3, 5, 13, 21]) tuft(x + 1, 10, hb);           // fila de detrás
       for (const x of [1, 9, 17]) tuft(x + 1, 15, hf - 1);             // fila de delante (abajo queda la base oscura)
+      return P.canvas();
+    },
+
+    /*
+     * La «hierba alta» de los suelos de metal (Central Voltio, Fortaleza de Acero; 29-10-2026): una rejilla
+     * del suelo con cables por encima. Como la hierba, rellena su casilla y se repite cada 16 px; pisada
+     * (estado 2), los cables se aplastan; con el viento (estado 1), en la central salta una chispa.
+     */
+    grate(B, variant = 0) {
+      const P = Pix(18, 18), st = variant % 3, look = Math.floor(variant / 3) % 3;
+      const F = sortHex(B.floor), f = F[1];
+      const rim = pack(shade(f, 0.22)), bar = pack(shade(f, -0.12)), hole = pack(shade(f, -0.62)), bolt = pack(shade(f, 0.38));
+      const spark = B.liquid === 'spark';
+      // Cables: en la central, amarillo y negro; en la fortaleza, rojo y azul (de su color, con luz y sombra).
+      const CAB = spark ? [['#3a3226', '#ffd23f', '#fff3a8'], ['#1d1d22', '#4a4a52', '#7a7a86']]
+                        : [['#5a1a1a', '#d0473a', '#ff8a7a'], ['#13284a', '#3a7bd5', '#8fc0ff']];
+      for (let y = 3; y < 18; y++) for (let x = 0; x < 18; x++) {
+        const tx = (x + 15) % 16, ty = y - 3;
+        let c = bar;
+        if (ty < 2) c = rim;                                                   // marco de arriba (con luz)
+        else if (tx === 0 || tx === 15) c = rim;                               // juntas entre rejillas
+        else if ((tx % 4 === 1 || tx % 4 === 2) && (ty % 4 === 3 || ty % 4 === 0)) c = hole;   // agujeros de la rejilla
+        P.set(x, y, c);
+      }
+      for (const x of [2, 14]) P.set(x, 5, bolt);
+      // Dos cables que cruzan la casilla haciendo ondas (cada aspecto, por otro sitio).
+      const flat = st === 2 ? 0.4 : 1;
+      CAB.forEach(([dk, md, hi], i) => {
+        const y0 = 8 + i * 4 + (look === 1 ? -1 : look === 2 ? 1 : 0), ph = i * 2.1 + look * 1.3;
+        for (let x = 0; x < 18; x++) {
+          const y = Math.round(y0 + Math.sin(((x + 15) % 16) / 16 * Math.PI * 2 + ph) * 1.6 * flat);
+          P.set(x, y + 2, pack(dk));                                           // sombra en la rejilla
+          P.set(x, y, pack(hi)); P.set(x, y + 1, pack(md));
+        }
+      });
+      if (spark && st === 1) { P.set(6 + look * 3, 6, pack('#ffffff')); P.set(7 + look * 3, 5, pack('#fff3a8')); P.set(5 + look * 3, 5, pack('#fff3a8')); }
+      return P.canvas();
+    },
+
+    /*
+     * La «hierba alta» de los suelos de madera (Dojo Ancestral; 29-10-2026): esteras de tatami, con su
+     * ribete oscuro y el trenzado de paja. Se repite cada 16 px; pisada (estado 2), algo hundida.
+     */
+    mats(B, variant = 0) {
+      const P = Pix(18, 18), st = variant % 3, look = Math.floor(variant / 3) % 3;
+      const straw = mixHex('#d6c27e', sortHex(B.grass)[1], 0.18);
+      const S = [pack(shade(straw, -0.16)), pack(straw), pack(shade(straw, 0.14))];
+      const edge = pack('#25362a'), edgeHi = pack('#3f5a44'), stitch = pack('#c9b06a');
+      const top = st === 2 ? 5 : 4;
+      for (let y = top; y < 18; y++) for (let x = 0; x < 18; x++) {
+        const tx = (x + 15) % 16, ty = y - top;
+        // Ribete: arriba y a la izquierda de cada estera (así se ve la cuadrícula de esteras).
+        if (ty < 2 || tx < 2) { P.set(x, y, (ty === 0 || tx === 0) ? edgeHi : edge); continue; }
+        // Trenzado: filas de 2 px, alternando el tono, con el corte cada pocos píxeles.
+        let c = S[1 + (((ty >> 1) + look) & 1)];
+        if (((tx + (ty >> 1) * 3 + look) % 7) === 0) c = S[0];
+        P.set(x, y, c);
+      }
+      // Puntadas en el ribete de arriba.
+      for (let x = 3; x < 18; x += 4) P.set(x, top + 1, stitch);
+      return P.canvas();
+    },
+
+    /*
+     * Postes en lugar de árboles (29-10-2026). Madera (Dojo): columna de madera sobre una basa de piedra,
+     * con su tejadillo (o un farol de papel, o más alta). Metal: farola de la central (luz amarilla) o
+     * columna de acero de la fortaleza, con remaches y franjas de aviso abajo.
+     */
+    post(B, variant = 0) {
+      const look = variant % 3, P = Pix(18, 42), cx = 9;
+      const R = ramp(B.rock), outlineCol = pack('#141018');
+      if (B.ground === 'wood') {
+        const Tr = ramp(B.trunk.concat(shade(sortHex(B.trunk)[1], 0.25)));
+        const roof = ramp([shade(B.wallTop[0], -0.35), B.wallTop[0], shade(B.wallTop[0], 0.25)]);
+        const topY = look === 2 ? 3 : look === 1 ? 9 : 6;
+        // Basa de piedra.
+        for (let y = 35; y < 41; y++) for (let x = 3; x < 15; x++) P.set(x, y, R[y === 35 ? 2 : x < 5 ? 1 : x > 12 ? 0 : 1]);
+        // Columna (luz a la izquierda, vetas).
+        for (let y = topY + 4; y < 35; y++) for (let x = cx - 3; x <= cx + 2; x++) {
+          let c = x === cx - 3 ? Tr[2] : x === cx + 2 ? Tr[0] : Tr[1];
+          if (x === cx && (y * 7 + look) % 9 < 2) c = Tr[0];
+          P.set(x, y, c);
+        }
+        // Tejadillo.
+        for (let y = topY; y < topY + 4; y++) {
+          const hw = 4 + (y - topY) * 1.5;
+          for (let x = Math.round(cx - hw); x <= Math.round(cx + hw - 1); x++) P.set(x, y, roof[y === topY ? 2 : y === topY + 3 ? 0 : 1]);
+        }
+        if (look === 1) {
+          // Farol de papel, encendido.
+          const pap = ramp(['#e0a24a', '#ffd27a', '#fff2c4']);
+          for (let y = 18; y < 26; y++) for (let x = cx - 4; x <= cx + 3; x++) {
+            if ((y === 18 || y === 25) && (x === cx - 4 || x === cx + 3)) continue;
+            P.set(x, y, y === 18 || y === 25 ? Tr[0] : x === cx - 4 ? pap[2] : x === cx + 3 ? pap[0] : pap[1]);
+          }
+          for (let x = cx - 3; x <= cx + 2; x++) P.set(x, 21, pap[0]);
+        }
+      } else {
+        const elec = B.liquid === 'spark';
+        const St = ramp([shade(B.floor[0], -0.35), shade(B.floor[0], 0.05), shade(B.floor[0], 0.4)]);
+        const lamp = ramp(elec ? ['#c08a10', '#ffd23f', '#fff6c0'] : ['#2a6fb0', '#8fd0ff', '#eaf7ff']);
+        const topY = look === 2 ? 2 : look === 1 ? 8 : 5;
+        // Placa de la base, con remaches.
+        for (let y = 36; y < 41; y++) for (let x = 2; x < 16; x++) P.set(x, y, St[y === 36 ? 2 : x === 15 || y === 40 ? 0 : 1]);
+        P.set(4, 38, St[2]); P.set(13, 38, St[2]);
+        // Poste (más grueso en la fortaleza) y franjas de aviso abajo.
+        const hw = elec ? 2 : 3;
+        for (let y = topY + 6; y < 36; y++) for (let x = cx - hw; x < cx + hw; x++) {
+          let c = x === cx - hw ? St[2] : x === cx + hw - 1 ? St[0] : St[1];
+          if (y >= 28 && y < 34) c = ((x + y) >> 1) & 1 ? pack('#1d1d22') : pack('#ffd23f');
+          else if (!elec && (y - topY) % 8 === 0) c = St[0];                    // juntas de la columna
+          P.set(x, y, c);
+        }
+        // Arriba: farola (central) o capitel con su luz (fortaleza).
+        for (let y = topY; y < topY + 6; y++) for (let x = cx - 4; x < cx + 4; x++) {
+          const edge = y === topY || y === topY + 5 || x === cx - 4 || x === cx + 3;
+          P.set(x, y, edge ? St[0] : x < cx - 1 ? lamp[2] : x > cx ? lamp[0] : lamp[1]);
+        }
+      }
+      outline(P, outlineCol);
       return P.canvas();
     },
 

@@ -50,12 +50,14 @@ G.Enemies = (() => {
   //  sin mejoras no se les podía tumbar, se juntaban dos o tres y ahí acababa la partida. Los de los minutos
   //  15, 18 y 21, también (28-10-2026): con todas las mejoras se tardaba 5-9 minutos en tumbar cada uno y
   //  se amontonaban hacia el 15.
-  //  Además ahora traen su firma: G.BossSig.)
+  //  Además ahora traen su firma: G.BossSig.
+  //  29-10-2026: los de los minutos 3 a 12, otra vez algo menos de vida y de daño (antes 1050/2400/4400/7600 PV y
+  //  26/34/42/50): con todas las mejoras, la primera caída solía llegar con el jefe del 9 o el del 12 en pantalla.)
   const BOSS_SLOTS = [
-    { at: 180, hp: 1050,  dmg: 26, xp: 220,  bst: [490, 545] },
-    { at: 360, hp: 2400,  dmg: 34, xp: 420,  bst: [520, 580] },
-    { at: 540, hp: 4400,  dmg: 42, xp: 680,  bst: [540, 600] },
-    { at: 720, hp: 7600,  dmg: 50, xp: 1000, bst: [580, 700] },
+    { at: 180, hp: 720,   dmg: 20, xp: 220,  bst: [490, 545] },
+    { at: 360, hp: 1700,  dmg: 26, xp: 420,  bst: [520, 580] },
+    { at: 540, hp: 3700,  dmg: 36, xp: 680,  bst: [540, 600] },
+    { at: 720, hp: 6400,  dmg: 43, xp: 1000, bst: [580, 700] },
     { at: 900, hp: 13000, dmg: 58, xp: 1800, bst: [600, 700] },
     // Tramo final (23-10-2026): n = cuántos salen a la vez (cada uno con esta vida).
     { at: 1080, hp: 18000, dmg: 64, xp: 2400, bst: [580, 720] },
@@ -224,8 +226,13 @@ G.Enemies = (() => {
    * 29-10-2026, con los ataques finales de los 18 tipos y el principio más suave (earlyK/earlyHp): con mejoras, muro en
    * los minutos 15-28 (la mitad de las partidas, sin muro); sin mejoras, en el 9-17 (Mewtwo, 28 o sin muro); caídas
    * 0 / 19 / 78 con mejoras y 5 / 116 / 287 sin ellas.
+   * 29-10-2026 (revisión): se decide también con la PRIMERA caída (la queja era «no paso del minuto 10»), que con todas las
+   * mejoras seguía en el 9-12 (mediana 11,7). Más suave del 5 al 20 (600→245, 900→335, 1200→525; antes 275, 390 y 540), con el
+   * principio y los jefes del 3 al 12 más flojos, como mucho 2 jefes del mapa a la vez (spawner.js) y grietas desde el minuto 4:
+   * ahora, con todas las mejoras, primera caída mediana en el minuto 20,9 (10 partidas; ninguna antes del 12,8) y muro en el
+   * 23-27 o ninguno; caídas 0 / 1 / 20. Sin mejoras: primera caída 3-10 y muro en el 7-20; caídas 12 / 88 / 579.
    */
-  const EFF = [[0, 0], [120, 80], [300, 155], [600, 275], [900, 390], [1200, 540], [1500, 760], [1800, 1080]];
+  const EFF = [[0, 0], [120, 80], [300, 150], [600, 245], [900, 335], [1200, 525], [1500, 760], [1800, 1080]];
   function eff(t) {
     if (!(t > 0)) return 0;
     for (let i = 1; i < EFF.length; i++) {
@@ -259,19 +266,22 @@ G.Enemies = (() => {
   function xpLag(t) {
     let ti = 0; TIERS.forEach((tr, i) => { if (t >= tr.from) ti = i; });
     // (28-10-2026: a la 0,75; con el cociente entero se llegaba al nivel 140 en el minuto 29 y con la raíz
-    //  los que van flojos se quedaban atascados en el nivel 10-20.)
-    return Math.pow(TIERS[ti].xp / TIERS[tierAt(t)].xp, 0.75);
+    //  los que van flojos se quedaban atascados en el nivel 10-20. 29-10-2026: a la 0,85, con los tramos aún más tarde;
+    //  un Pokémon que no mataba bastante se quedaba sin subir de nivel del minuto 10 al 20.)
+    return Math.pow(TIERS[ti].xp / TIERS[tierAt(t)].xp, 0.85);
   }
 
   /**
    * Principio suave (28-10-2026): los golpes de los enemigos (también jefes y legendarios)
-   * empiezan en EARLY_K y llegan a 1 en el minuto 11; su vida, en EARLY_HP y a 1 en el 10. Medido con tools/curve.cjs: sin mejoras se
+   * empiezan en EARLY_K y llegan a 1 (ver abajo las fechas); su vida, en EARLY_HP. Medido con tools/curve.cjs: sin mejoras se
    * caía en el minuto 1-4 (una marea o una grieta temprana), y ahí no hay tiempo de nada. (29-10-2026, con los ataques ya
    * finales de los 18 tipos: sin mejoras el muro volvía al minuto 3-9; antes llegaban a 1 en el 9 y el 8, desde 0,55.)
+   * 29-10-2026: los golpes, de 0,45 a 1 en el minuto 15; la vida, de 0,7 a 1 en el 12 (antes 0,5 en el 11 y 0,75 en el 10):
+   * los que empiezan flojos (Gible, Charmander) caían en los primeros minutos aun con todas las mejoras.
    */
-  const EARLY_K = 0.5, EARLY_HP = 0.75;
-  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 600)); }
-  function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 540)); }
+  const EARLY_K = 0.45, EARLY_HP = 0.7;
+  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 840)); }
+  function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 660)); }
 
   const NO_HORDE = new Set(['bomber', 'healer', 'shielder', 'summoner']);
   /** Tipos con bastantes Pokémon en el tramo actual para una horda (events.js). */

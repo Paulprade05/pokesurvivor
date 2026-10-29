@@ -38,7 +38,9 @@ G.Rift = (() => {
   // probable (20 %, 40 %, 60 %, 80 %, 100 %): como mucho 2,5 min sin grieta.
   // Desde 2 min antes de la Sentencia de Arceus (minuto 30) ya no se abren.
   const CHECK = 30, CHANCE = 0.2, TTL = 45;
-  const ARENA_R = 11, ARENA_TIME = 120, FROM = 75;
+  // (29-10-2026: desde el minuto 4, no desde el 1:15: medido con tools/curve.cjs, una grieta en el minuto 2 con el nivel 10
+  //  sólo quitaba 2 minutos de experiencia y ahí se caía.)
+  const ARENA_R = 11, ARENA_TIME = 120, FROM = 240;
   // Cuántos legendarios según el minuto y los jugadores; vida de cada uno (respecto a
   // uno solo) y segundos de arena según cuántos son.
   const legendsFor = (t, np) => G.U.clamp((t >= 1200 ? 3 : t >= 600 ? 2 : 1) + (np >= 3 ? 1 : 0), 1, 3);
@@ -49,7 +51,9 @@ G.Rift = (() => {
   // es ancha y baja: al norte, a 6 baldosas, no se veía nada). Vosotros, 1 baldosa al sur.
   // (28-10-2026: a 5,6 baldosas, no a 3,8: a 3,8 salía casi encima y te embestía nada más aparecer. Se sigue viendo
   //  en el móvil más pequeño tumbado: la vista tiene unas 12 baldosas de ancho a cada lado.)
-  const SPOTS_IN = [[], [[5.6, 0.6]], [[-5.6, 0.6], [5.6, 0.6]], [[-5.8, 0.6], [5.8, 0.6], [0, 3.6]]], PLAYERS_IN = 1;
+  //  29-10-2026: el tercero, abajo a la derecha y más lejos (debajo, a 3,6, salía justo bajo ti y el jefe de verdad, casi
+  //  encima; arriba lo tapaban las barras de los jefes en el móvil).
+  const SPOTS_IN = [[], [[5.6, 0.6]], [[-5.6, 0.6], [5.6, 0.6]], [[-5.8, 0.6], [5.8, 0.6], [3.4, 4.0]]], PLAYERS_IN = 1;
   const EXIT_GRACE = 2.5, EXIT_R = 140;     // al volver: segundos de gracia y hueco sin enemigos
   // Viaje por el túnel (s), cuándo se llega de verdad a la arena (tapado por el túnel) y lo que tarda el legendario.
   const TRAVEL = 2.0, T_PORT = 0.45, INTRO = 2.0;
@@ -316,7 +320,7 @@ G.Rift = (() => {
   function placeIntro(o, others) {
     const x0 = o.x, y0 = o.y, r = Math.min(o.r, 26), ps = G.Game.everyone();
     const ok = (x, y) => G.World.isFree(x, y, r) && others.every(q => G.U.dist2(x, y, q.x, q.y) > (q.r + o.r + 8) ** 2) &&
-                         ps.every(p => G.U.dist2(x, y, p.x, p.y) > (o.r + 70) ** 2);
+                         ps.every(p => G.U.dist2(x, y, p.x, p.y) > (o.r + 110) ** 2);
     for (let d = 0; d <= 112; d += 16) {
       for (let j = 0, m = d ? 10 : 1; j < m; j++) {
         const a = j / m * 6.2832, x = x0 + Math.cos(a) * d, y = y0 + Math.sin(a) * d * 0.8;
@@ -412,13 +416,20 @@ G.Rift = (() => {
     });
     ctx.restore();
     if (travel.canSkip && travel.t > 0.3 && travel.t < TRAVEL - 0.3) {
-      const sa = G.Touch.safeArea();
+      // (29-10-2026) En una chapa oscura, como los avisos del HUD, y casi opaco: en lila sobre los anillos del
+      // túnel, a 12 px y medio transparente, apenas se leía.
+      const sa = G.Touch.safeArea(), s = G.T(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar');
       ctx.save();
-      ctx.globalAlpha = 0.55 + Math.sin(travel.t * 4) * 0.2;
-      ctx.font = G.HUD.N(800, 12);
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#e8dcff';
-      ctx.fillText(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar', w - 16 - sa.right, h - 14 - Math.min(28, sa.bottom));
+      ctx.font = G.HUD.N(800, 13);
+      const tw = Math.min(ctx.measureText(s).width, w - 60), ph = 24, pw = tw + 22;
+      const x1 = w - 12 - sa.right, y0 = h - 12 - Math.min(28, sa.bottom) - ph;
+      ctx.globalAlpha = 0.85 + Math.sin(travel.t * 4) * 0.1;
+      ctx.fillStyle = 'rgba(14,10,34,.82)';
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x1 - pw, y0, pw, ph, ph / 2) : ctx.rect(x1 - pw, y0, pw, ph); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(201,166,255,.75)'; ctx.stroke();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(s, x1 - 11, y0 + ph / 2 + 1, w - 60);
       ctx.restore();
       // Toda la pantalla es un botón (móvil y ratón).
       G.Touch.addButton(0, 0, w, h, skipTravel, 0);

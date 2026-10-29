@@ -104,7 +104,7 @@ desde código (16 px por tile, ×2).
 | **Manantial** | Cura mientras estás encima; se agota y se recarga solo en ~45 s |
 | **Cofre con candado** | Quédate 3,5 s a su lado (aunque te ataquen): monedas, 1-3 tickets (15% un ×10) y experiencia para subir un nivel |
 | **Trampas** | Veneno, pegajosa (te frena) o explosiva; saltan al pisarlas, también con los enemigos |
-| **Grieta** | Rara (cada 30 s, 14% desde el minuto 1:15; dura 45 s). Te lleva a la arena de un legendario |
+| **Grieta** | Rara (cada 30 s, 20 % y más cada vez que no sale, desde el minuto 4; dura 45 s). Te lleva a la arena de un legendario |
 
 - **Voladores, fantasmas y jefes** ignoran el terreno.
 - **3 biomas** que rotan cada 4 minutos, cada uno con su música:
