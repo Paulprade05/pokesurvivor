@@ -712,6 +712,8 @@ G.Judgment = (() => {
   return {
     AT, reset, noteDmg, update, cineTick, skip, bossDown, drawable, drawAir, drawOverlay, onEvent, netState, netApply,
     get active() { return !!phase; }, capSpd,
+    /** DPS a un solo objetivo (media de los 6 mejores segundos de los últimos 30). */
+    singleDps,
     // (También mientras viajas por una grieta: el juego se para igual. Ver rift.js.)
     get cinematic() { return phase === 'cine' || G.Rift.traveling; },
     /** Lo que suena: nada en la animación hasta que aterriza (y la de la grieta en el viaje). */

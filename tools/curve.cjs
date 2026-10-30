@@ -21,6 +21,12 @@
  * Objetivo (dueño, 26-10-2026): con mejoras al máximo se llega con esfuerzo al 20-30; sin mejoras se cae hacia el
  * 8-15; y los minutos 20-30 son los más duros. Se decide con «primera» además de con el muro (29-10-2026): con todas las
  * mejoras, la primera caída en el minuto 15 o más tarde en la mayoría de partidas (el resumen del final da la mediana).
+ *
+ * Medidas de la 2.0 (bloque 0 de docs/PROMPT-2.0.md, 30-10-2026), detrás de «caídas=N» en cada línea de minuto: bajas,
+ * daño hecho, tiempo mediano para tumbar a un enemigo normal (ttk), DPS a un objetivo (sdps), director (dir), tickets
+ * (tk=t1/t10), ataques al 5 (m5), evolucionados (ev) y cartas cogidas. En RESULT, cada jefe y legendario (ttk, ataques,
+ * firmas, daño hecho mientras vivía) y cada grieta (ganada, ttk, nº de legendarios). El informe da sus medianas.
+ * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall).
  */
 'use strict';
 const path = require('path'), fs = require('fs'), http = require('http'), os = require('os');
@@ -34,11 +40,35 @@ const ROOT = path.resolve(__dirname, '..');
 // ---------------------------------------------------------------- informe
 function report(dirs) {
   const firsts = { max: [], zero: [] }, walls = { max: [], zero: [] };
+  const G2 = () => ({ lv: { 5: [], 10: [], 15: [], 20: [], 29: [] }, m5: [], ev: [], ttk: { 5: [], 10: [], 15: [], 20: [], 29: [] },
+                      boss: { '3-12': [], '15-21': [], '24-27': [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
+  const agg = { max: G2(), zero: G2() };
   for (const dir of dirs) {
     console.log('== ' + dir);
     for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.txt')).sort()) {
       const s = fs.readFileSync(path.join(dir, f), 'utf8');
       const rows = [...s.matchAll(/\[\s*(\d+):(\d+)\] Nv\.(\d+) .*?caídas=(\d+)/g)].map(m => ({ m: +m[1], lv: +m[3], d: +m[4] }));
+      // Campos de la 2.0 (bloque 0), si la partida los tiene.
+      const ext = [...s.matchAll(/\[\s*(\d+):\d+\] Nv\.(\d+) .*?ttk=(\S+) sdps=(\d+) dir=\S+ tk=(\d+)\/(\d+) m5=(\d+) ev=(\d+)/g)]
+        .map(m => ({ m: +m[1], lv: +m[2], ttk: +m[3], sdps: +m[4], t1: +m[5], t10: +m[6], m5: +m[7], ev: +m[8] }));
+      const gg = /-max-/.test(f) ? 'max' : /-zero-/.test(f) ? 'zero' : null;
+      if (gg && ext.length) {
+        const A = agg[gg], at = m => ext.filter(x => x.m <= m).pop();
+        for (const m of [5, 10, 15, 20, 29]) { const r = at(m); if (r && r.m >= m - 1) { A.lv[m].push(r.lv); if (!isNaN(r.ttk)) A.ttk[m].push(r.ttk); } }
+        for (const m of [5, 10, 15, 20, 25, 30]) { const r = at(m); if (r && r.m >= m - 1) A.tk[m].push(r.t1 + 10 * r.t10); }
+        const f5 = ext.find(x => x.m5 >= 4), fe = ext.find(x => x.ev >= 4);
+        A.m5.push(f5 ? f5.m : 31); A.ev.push(fe ? fe.m : 31);
+        const jb = /jefes=(\[.*?\]) grietas=(\[.*?\]) log=/.exec(s);
+        if (jb) {
+          for (const b of JSON.parse(jb[1])) {
+            if (b.l) { A.nl++; if (b.sig) A.legSig++; continue; }
+            A.nb++; if (b.sig >= 1) A.sig1++; if (b.sig >= 2) A.sig2++;
+            const k = b.min < 13.5 ? '3-12' : b.min < 22.5 ? '15-21' : '24-27';
+            if (b.ttk != null) A.boss[k].push(b.ttk);
+          }
+          for (const a of JSON.parse(jb[2])) { A.rn++; if (a.won) { A.rw++; (A.leg[a.n] = A.leg[a.n] || []).push(a.ttk); } }
+        }
+      }
       const res = /RESULT .*?primera=(\S+) caídas=\[([^\]]*)\]/.exec(s);
       if (!rows.length) { console.log(`${f.replace('.txt', '').padEnd(12)} (sin datos)`); continue; }
       let wall = null;
@@ -56,6 +86,18 @@ function report(dirs) {
   for (const g of ['max', 'zero']) {
     const a = firsts[g]; if (!a.length) continue;
     console.log(`resumen ${g.padEnd(4)}: ${a.length} partidas · primera caída mediana ${(med(a) / 60).toFixed(1)} min (${a.filter(x => x >= 900).length} en el 15 o más tarde, ${a.filter(x => x >= 480).length} en el 8 o más) · muro mediano min ${med(walls[g])}`);
+  }
+  // Medidas de la 2.0: medianas por grupo (max / zero).
+  const md = a => { const v = med(a); return v == null ? '-' : Math.round(v * 10) / 10; };
+  const pc = (n, d) => d ? Math.round(100 * n / d) + '%' : '-';
+  for (const g of ['max', 'zero']) {
+    const A = agg[g]; if (!A.m5.length) continue;
+    const per = o => Object.keys(o).map(k => `m${k}=${md(o[k])}`).join(' ');
+    console.log(`2.0 ${g.padEnd(4)}: nivel ${per(A.lv)} · ttk normal (s) ${per(A.ttk)}`);
+    console.log(`         4 ataques al 5: min ${md(A.m5)} (antes del 9: ${A.m5.filter(x => x < 9).length}/${A.m5.length}) · 4 evolucionados: min ${md(A.ev)}`);
+    console.log(`         jefes ttk (s) ${Object.keys(A.boss).map(k => k + '=' + md(A.boss[k]) + ' (' + A.boss[k].length + ')').join(' ')} · con 1 firma ${pc(A.sig1, A.nb)}, con 2 ${pc(A.sig2, A.nb)}`);
+    console.log(`         grietas ganadas ${pc(A.rw, A.rn)} (${A.rn}) · arena (s) ${Object.keys(A.leg).map(k => k + ' leg=' + md(A.leg[k]) + ' (' + A.leg[k].length + ')').join(' ') || '-'} · legendarios con firma ${pc(A.legSig, A.nl)}`);
+    console.log(`         tickets (tiradas acumuladas) ${per(A.tk)}`);
   }
 }
 
@@ -255,29 +297,96 @@ async function one(dex, upg, tag, speed, cap) {
       };
       let last = G.Game.st.time;
       setInterval(() => { const now = G.Game.st.time, k = Math.max(0, Math.min(3, now - last)); last = now; V.hp = Math.min(pl.maxHp, V.hp + (pl.regen || 0) * k + V.heal); V.heal = 0; }, 100);
+      // El director (bloque 2) lee la vida virtual, no la real (que el bot nunca pierde).
+      const dirHook = () => { if (G.Director) G.Director.hpFrac = () => V.hp / pl.maxHp; };
+      dirHook(); setInterval(dirHook, 1000);
+      const fall = V.deaths.push.bind(V.deaths);
+      V.deaths.push = (...a) => { if (G.Director && G.Director.noteFall) G.Director.noteFall(pl); return fall(...a); };
+      // Medidas de la 2.0 (bloque 0): tiempo para tumbar (ttk) enemigos normales, jefes y legendarios,
+      // ataques y firmas que usan los jefes, daño que hacen y grietas ganadas.
+      const now = () => G.Game.st.time;
+      window.M = { ttk: [], boss: [], arenas: [], arena: null };
+      const E = G.Enemy.prototype, hurt0 = E.hurt, die0 = E.die, start0 = E.bossStart;
+      E.hurt = function (...a) { if (!this.dead && !this.remote && this._t0 == null) this._t0 = now(); return hurt0.apply(this, a); };
+      E.die = function (...a) {
+        const was = this.dead, out = die0.apply(this, a);
+        if (!was && this.dead && !this.remote) {
+          const t = now();
+          if (this._b) { this._b.ttk = +(t - (this._t0 != null ? this._t0 : this._b.at)).toFixed(1); this._b.dead = Math.round(t); }
+          else if (this._t0 != null && !this.boss && !this.judge && !this.legend && !this.weak && this.behavior !== 'thief') M.ttk.push(t - this._t0);
+        }
+        return out;
+      };
+      E.bossStart = function (...a) { if (this._b) this._b.atk++; return start0.apply(this, a); };
+      const sig0 = G.BossSig.start;
+      G.BossSig.start = function (e, ...a) { if (e && e._b) e._b.sig++; return sig0.call(this, e, ...a); };
+      const add0 = G.EnemyMgr.add;
+      G.EnemyMgr.add = function (e, ...a) {
+        if (e && e.boss && !e.judge && !e.remote) {
+          e._b = { name: e.name, legend: !!e.legend, min: +(now() / 60).toFixed(1), at: now(), hp: Math.round(e.maxHp), ttk: null, atk: 0, sig: 0, dmg: 0 };
+          M.boss.push(e._b);
+          if (e.legend && !M.arena) M.arena = { min: +(now() / 60).toFixed(1), legs: [] };
+          if (e.legend) M.arena.legs.push(e._b);
+        }
+        return add0.call(this, e, ...a);
+      };
+      // Daño que hacen los jefes: lo que recibe el jugador mientras viven (repartido entre los vivos).
+      const vh = pl.hurt;
+      pl.hurt = function (a, ...r) {
+        const d0 = DMG.total, out = vh.call(pl, a, ...r), d = DMG.total - d0;
+        if (d > 0) { const al = M.boss.filter(b => b.dead == null && b.ttk == null); for (const b of al) b.dmg += d / al.length; }
+        return out;
+      };
+      setInterval(() => {
+        const inA = G.Rift.inArena;
+        if (inA && !M.arena) M.arena = { min: +(now() / 60).toFixed(1), legs: [] };
+        else if (!inA && M.arena) {
+          const a = M.arena; M.arena = null;
+          if (a.legs.length) {
+            a.won = a.legs.every(b => b.ttk != null);
+            const t0 = Math.min(...a.legs.map(b => b.at)), t1 = Math.max(...a.legs.map(b => b.dead || 0));
+            a.ttk = a.won ? Math.round(t1 - t0) : null; a.n = a.legs.length; delete a.legs; M.arenas.push(a);
+          }
+        }
+      }, 200);
     }, dex, upg);
     await page.evaluate(k => G.Game.debugSpeed(k), speed);
     const t0 = Date.now();
-    let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0;
+    let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0, lastKills = 0, lastDealt = 0, ttks = [], judgeAt = null;
     for (let i = 0; i < 6000; i++) {
       await new Promise(r => setTimeout(r, 1000));
       s = await page.evaluate(() => {
         const pl = G.Game.player;
         return { t: Math.round(G.Game.st.time), lv: pl.level, max: Math.round(pl.maxHp), form: (G.DEX_BY[pl.form] || {}).name, kills: pl.kills, en: G.EnemyMgr.count,
           boss: G.EnemyMgr.bosses().map(e => e.name + (e.legend ? '*' : '') + ':' + Math.round(100 * e.hp / e.maxHp) + '%').join(','), arena: G.Rift.inArena, judge: G.Judgment.active,
-          over: G.Game.state === 'over', moves: pl.moves.map(m => m.id + m.lvl + (m.evolved ? '*' : '')).join(' '), dmg: Object.assign({}, DMG), vhp: Math.round(V.hp), deaths: V.deaths.slice() };
+          over: G.Game.state === 'over', moves: pl.moves.map(m => m.id + m.lvl + (m.evolved ? '*' : '')).join(' '), dmg: Object.assign({}, DMG), vhp: Math.round(V.hp), deaths: V.deaths.slice(),
+          dealt: Math.round(pl.dmgDealt), ttk: M.ttk.splice(0), cards: Object.assign({}, pl.statsTaken), t1: pl.t1, t10: pl.t10,
+          sdps: Math.round(G.Judgment.singleDps ? G.Judgment.singleDps() : G.Judgment.debug.single),
+          dir: G.Director ? (+G.Director.hp()).toFixed(2) + '/' + (+G.Director.dmg()).toFixed(2) : '-',
+          m5: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.lvl >= 5).length,
+          ev: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.evolved).length };
       });
+      ttks.push(...s.ttk);
       if (s.t - lastLog >= 60 || s.over) {
         lastLog = s.t;
         const dm = s.dmg.total - lastDmg; lastDmg = s.dmg.total;
         const nd = s.deaths.length - lastDeaths; lastDeaths = s.deaths.length;
+        const med = a => { const b = a.slice().sort((x, y) => x - y); return b.length ? b[b.length >> 1] : 0; };
+        const cards = Object.entries(s.cards).map(([k, v]) => k + v).join(',');
+        // (Los campos nuevos van detrás de caídas=N: report() lee hasta ahí.)
         log(`${tag} [${String(Math.floor(s.t / 60)).padStart(2)}:${String(s.t % 60).padStart(2, '0')}] Nv.${s.lv} ${s.form} v${s.vhp}/${s.max} en=${s.en} dmg/min=${Math.round(dm)} (${(dm / s.max).toFixed(1)}x) caídas=${nd} ` +
+            `bajas=${s.kills - lastKills} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
             `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} | ${s.moves}`);
+        lastKills = s.kills; lastDealt = s.dealt; ttks = [];
       }
-      if (s.over || s.t >= cap || s.judge || Date.now() - t0 > 90 * 60 * 1000) break;
+      // (Al empezar la Sentencia, 2 s más para ver lo que pasa al llegar.)
+      if (s.judge && judgeAt == null) judgeAt = Date.now();
+      if (s.over || s.t >= cap || (judgeAt != null && Date.now() - judgeAt >= 2000) || Date.now() - t0 > 90 * 60 * 1000) break;
     }
     const blog = await page.evaluate(() => BOT.log.filter(l => /evolu|aviso: ¡|err/.test(l)).slice(-30).join(' | '));
-    log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} log=${blog}`);
+    const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas }));
+    log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} ` +
+        `jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
   } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
   finally { await browser.close(); server.close(); }
 }
