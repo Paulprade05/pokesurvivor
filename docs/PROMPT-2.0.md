@@ -36,7 +36,7 @@
    git config user.name "Paulprade05"
    ```
    ```bash
-   git config user.email "edulis2@gmail.com"
+   git config user.email "paulprade05@gmail.com"
    ```
 3. **Trabajar en una rama propia, nunca en `main`.** GitHub Pages publica `main` en
    https://paulprade05.github.io/pokesurvivor/: todo lo que llegue a `main` lo reciben los jugadores en unos
