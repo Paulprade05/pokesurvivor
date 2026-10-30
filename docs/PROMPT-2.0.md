@@ -135,8 +135,8 @@ Rama: version-2.0 · Último commit: <hash> · Fecha: <AAAA-MM-DD>
 ## 0. Decisiones del dueño (rellenar antes de pegar; si se deja así, se usa lo marcado)
 
 - **Tilesets del mundo**:
-  - [x] **A (recomendada).** Pintados en código con la «gramática visual» de Mundo Misterioso, sin copiar píxeles de Nintendo, y motor preparado para el formato DTEF por si algún día se cambia.
-  - [ ] **B.** Usar los tilesets extraídos de Exploradores del Cielo (PMDCollab/RawAsset `TileDtef`) en una carpeta aparte, con interruptor y el pintor en código como respaldo. Riesgo de DMCA: ver §11.2.
+  - [ ] **A (recomendada).** Pintados en código con la «gramática visual» de Mundo Misterioso, sin copiar píxeles de Nintendo, y motor preparado para el formato DTEF por si algún día se cambia.
+  - [x] **B.** Usar los tilesets extraídos de Exploradores del Cielo (PMDCollab/RawAsset `TileDtef`) en una carpeta aparte, con interruptor y el pintor en código como respaldo. Riesgo de DMCA: ver §11.2.
 - **Tamaño de casilla del mundo**:
   - [x] **24 px de arte (`TS = 48`)**, como en PMD: los Pokémon dejan de verse 1,5 veces más grandes que el suelo. Rompe el cooperativo con la versión anterior (se resuelve con `wv`, §11.9) y obliga a medir la dificultad otra vez.
   - [ ] Seguir con 16 px y cambiar sólo el dibujo (más fácil, pero la escala de los Pokémon sigue sin casar).
@@ -144,8 +144,8 @@ Rama: version-2.0 · Último commit: <hash> · Fecha: <AAAA-MM-DD>
   - [x] Escalar con la **fuerza real medida** (lo rápido que matas y tu DPS), que incluye nivel, fusiones y pasivas. Recomendado.
   - [ ] Además, un término pequeño por número de nivel. No se recomienda: castiga coger Aprendizaje o el Huevo Suerte, y tras el bloque 1 el nivel ya no significa lo mismo (§7.1).
 - **Protección del principiante** (cuentas o Pokémon sin mejoras, que hoy caen pronto; §7.3):
-  - [x] Sí.
-  - [ ] No.
+  - [ ] Sí.
+  - [x] No.
 - **Tickets** (§10.1):
   - [x] **A.** Sólo reloj y jefes.
   - [ ] **B.** También +1 por grieta ganada (como mucho 5 por partida).
@@ -162,8 +162,8 @@ Rama: version-2.0 · Último commit: <hash> · Fecha: <AAAA-MM-DD>
   - [x] Se respetan.
   - [ ] Se recortan una vez por cuenta.
 - **Misiones semanales** (hoy 2 tickets ×10 = 20 tiradas por semana):
-  - [x] Bajar a 5 tickets cada una.
-  - [ ] Dejarlas como están.
+  - [ ] Bajar a 5 tickets cada una.
+  - [x] Dejarlas como están.
 - **three.js**:
   - [x] No por ahora. El problema es de dirección de arte, no de 3D; ver §11.8.
   - [ ] Sí, sólo para el suelo.
@@ -202,7 +202,7 @@ Después de jugar un día entero y hacer pruebas:
 8. **Mundo**:
    - que se vea como **Pokémon Mundo Misterioso: Exploradores del Cielo**;
    - que sea homogéneo: hoy suelo, hierba y árboles no tienen nada que ver entre sí;
-   - quitar lo que se ve mal, como los «bosques frondosos» que no dejan pasar.
+   - quitar o modificar lo que se ve mal, como los «bosques frondosos» que no dejan pasar.
 
    Se pueden investigar tilesets de internet y usar librerías (three.js) si de verdad mejoran el resultado.
 
@@ -367,7 +367,7 @@ Los bloques dependen unos de otros. **Hay que seguir este orden y medir entre un
 
 0. **Medir** (ampliar `tools/curve.cjs`). Sin esto no se puede calibrar nada.
 1. **Topes de cartas y curva de experiencia.** Quitan el ×15-45 del jugador. Después de este bloque el jugador será **mucho más flojo** de lo que es hoy en los minutos 15-30.
-2. **Director de enemigos** (escalado adaptativo) y protección del principiante. Se calibra **después** del bloque 1, con la fuerza nueva del jugador.
+2. **Director de enemigos** (escalado adaptativo). Se calibra **después** del bloque 1, con la fuerza nueva del jugador.
 3. **Jefes y legendarios**: vida según el DPS, fases, tope de DPS, más amenaza y sitios al azar.
 4. **IA de enemigos**: primero el rendimiento, luego los campos por clase y tamaño, el desatasco, la puntería y el terreno por tipo.
 5. **Economía de tickets.** Va después del bloque 3, porque arenas más largas significan menos grietas por partida.
@@ -564,14 +564,6 @@ Se añade en `dev.html`, en el bloque `<!-- scripts:begin -->`, después de `spa
   - `BP = atkMul × (1 + critChance·(critMul−1)) × Σ (m.evolved ? 8.7 : 1 + 0.55·(m.lvl−1))` sobre los ataques del hueco activo.
   - Si se quiere que reaccione al momento de fusionar o evolucionar, usarlo como suelo: `hpMul ≥ clamp((BP/BP_REF(t))^0.5, 1, 2)`.
 
-### 7.3 Protección del principiante (pendiente de la versión anterior)
-- Hoy, con un Pokémon **sin mejoras compradas**, se cae pronto. En la última revisión (29-10, 4 partidas) la primera caída fue hacia el **minuto 3** de mediana (Charmander 1,6-4,7 y Gible 2,2-3,9). La cabecera de `enemies.js` da cifras más optimistas (5,1-12,2): hay mucha varianza, así que se toma como referencia la línea base del bloque 0. El objetivo del dueño es aguantar hasta el 8-15.
-- Añadir `G.Enemies.rookieK(pl, t)` según la fracción de mejoras compradas **del Pokémon elegido** (las mejoras son por Pokémon: `G.DB.upgradesOf(dex)` frente a `G.Upgrades.LIST[].max`, `db.js:1354-1357`; mirar la cuenta dejaría sin protección a un veterano con un Pokémon nuevo):
-  - ~0,6 del daño recibido con menos del 25 % de las mejoras, interpolando hasta 1 al subir las mejoras;
-  - vuelve a 1 hacia el minuto 10-12;
-  - se aplica en `player.hurt` junto a `youngK`;
-  - **continuo** (sin saltos al comprar una mejora) y **cada jugador con sus propias mejoras** (el daño a cada jugador lo resuelve su aparato).
-- Medir con `6:zero:3 445:zero:3 225:zero:2` (y `max` para que no cambie): mediana sin mejoras ≥ minuto 8 y ninguna caída antes del 5.
 
 ### 7.4 Objetivos y tests del bloque 2
 - **Con todas las mejoras**:
