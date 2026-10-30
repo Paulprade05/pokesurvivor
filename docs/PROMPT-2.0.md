@@ -5,11 +5,130 @@
 > Lo ha preparado el dueño a partir de sus pruebas, ampliado con un análisis del código actual.
 > Las referencias `archivo:línea` son de 4bbf8e10: compruébalas antes de tocar, pueden haberse movido.
 >
-> **Cómo usarlo**: es demasiado trabajo para un solo chat (cada bloque necesita tandas de medida de ~1 h).
-> Lo normal es **un chat por bloque** (o por pareja de bloques). En cada chat nuevo basta con escribir:
-> «Lee docs/PROMPT-2.0.md y docs/2.0-ESTADO.md y haz el bloque N».
-> `docs/2.0-ESTADO.md` lo crea el primer chat y lo actualiza cada uno al acabar: cifras de la línea base,
-> decisiones tomadas, lo hecho, lo que falta y las cifras de después.
+> **Cómo usarlo**: este documento basta para hacerlo **desde cero en cualquier ordenador y con cualquier
+> cuenta de Claude**, sólo con el repositorio de GitHub. Empieza por «Puesta en marcha» (justo abajo).
+> Es demasiado trabajo para un solo chat (cada bloque necesita tandas de medida de ~1 h): **un chat por
+> bloque** (o por pareja de bloques), y entre chats el estado se guarda en `docs/2.0-ESTADO.md`.
+
+---
+
+## Puesta en marcha desde cero (lo primero, en un ordenador nuevo)
+
+### Lo que necesita el ordenador
+| Programa | Para qué | Notas |
+|---|---|---|
+| Git | Bajar y subir el proyecto | Para subir hace falta entrar con la cuenta de GitHub del dueño (Paulprade05) la primera vez: `gh auth login` o el gestor de credenciales de Git |
+| Node.js 20 o más (24 recomendado) | Compilar, tests y herramientas | No hay `package.json` ni `node_modules`: todo usa módulos de Node. `tools/build.js` descarga solo `terser@5` y `javascript-obfuscator@4.1.1` con `npx --yes` (hace falta internet la primera vez) |
+| Python 3 | `tools/make_seo_pages.py` | Sólo biblioteca estándar. En Windows se llama `py` (es lo que dice CLAUDE.md); **en Mac o Linux, `python3`**: usa ese en su lugar |
+| Google Chrome (o Edge) | Medir la dificultad y sacar capturas | Las herramientas lo buscan en las rutas normales de Windows, Mac y Linux; si no, `--chrome <exe>` o la variable `CHROME` |
+| Claude Code | El chat que hace el trabajo | App de escritorio o terminal, abierto **dentro de la carpeta del proyecto** |
+
+### Primera vez
+1. Bajar el proyecto y entrar:
+   ```bash
+   git clone https://github.com/Paulprade05/pokesurvivor.git
+   ```
+   ```bash
+   cd pokesurvivor
+   ```
+2. Firmar los commits como el dueño (sin firmas de IA, regla de CLAUDE.md):
+   ```bash
+   git config user.name "Paulprade05"
+   ```
+   ```bash
+   git config user.email "edulis2@gmail.com"
+   ```
+3. **Trabajar en una rama propia, nunca en `main`.** GitHub Pages publica `main` en
+   https://paulprade05.github.io/pokesurvivor/: todo lo que llegue a `main` lo reciben los jugadores en unos
+   minutos (el juego se actualiza solo). La rama se sube a GitHub para no perder nada y para seguir desde otro
+   ordenador, pero no se publica.
+   ```bash
+   git checkout -b version-2.0
+   ```
+   ```bash
+   git push -u origin version-2.0
+   ```
+   Si la rama ya existe (otro ordenador ya empezó): `git fetch origin` y `git checkout version-2.0`.
+4. Carpeta de trabajo temporal **fuera del repositorio** (mediciones, capturas, puppeteer), al lado del
+   proyecto: `../pokesurvivor-tmp`. Nada de esa carpeta se sube.
+   ```bash
+   npm i --prefix ../pokesurvivor-tmp/pp puppeteer-core@23.11.1
+   ```
+5. Comprobar que todo funciona antes de tocar nada:
+   - `node --test "tests/*.test.cjs"` → 81 tests en verde (en 4bbf8e10). Con las comillas: `node --test tests/` no
+     funciona en Node 24. El test de idiomas reescribe `js/lang/*`: después, `git checkout -- js/lang`;
+   - `node tools/build.js && node tools/export_data.js && py tools/make_seo_pages.py` (o `python3`) termina sin
+     errores (la primera vez tarda unos minutos porque descarga terser y el ofuscador). Sin haber tocado nada,
+     sólo cambian `version.json` y `sitemap.xml` (fechas) y, en Windows, `js/lang/*` por los saltos de línea:
+     es normal; deshacerlo con `git checkout -- .`;
+   - `node tools/serve.cjs . 8765` y abrir http://localhost:8765/dev.html?dev → el juego carga sin errores de
+     consola. `dev.html` es la página fuente (cada script por separado, con `G` a la vista en la consola);
+     `index.html` es la compilada. Firebase acepta `localhost` y `127.0.0.1`.
+   - En la app de escritorio de Claude Code, para la vista previa, crear `.claude/launch.json` (no se sube):
+     `{"version":"0.0.1","configurations":[{"name":"pokesurvivor","runtimeExecutable":"node","runtimeArgs":["tools/serve.cjs",".","8765"],"port":8765}]}`
+6. **Pruebas en el navegador**: jugar siempre como **invitado**. Nunca crear cuentas, ni entrar con
+   contraseñas, ni tocar la consola de Firebase (plan gratis; ver §2).
+
+### Herramientas del repositorio que vas a usar
+| Herramienta | Para qué |
+|---|---|
+| `tools/curve.cjs` | Curva de dificultad con un bot que juega partidas enteras (§5). `--pp ../pokesurvivor-tmp/pp/node_modules` |
+| `tools/shot.cjs` | Capturas a cualquier tamaño: `node tools/shot.cjs . ../pokesurvivor-tmp/shots spec.json --pp ../pokesurvivor-tmp/pp/node_modules` (cabecera con ejemplos, también para Ultra) |
+| `tools/serve.cjs` | Servidor local para jugar y probar |
+| `tools/balance.cjs` | Equilibrio de los ataques (no debería cambiar: los ataques no se tocan) |
+| `tools/build_langs.js --faltan --todo` | Qué textos faltan por traducir |
+| `tools/changelog-add.cjs` | Entrada de novedades en los 7 idiomas (§2) |
+| `tests/*.test.cjs` | `node --test "tests/*.test.cjs"` |
+
+### El archivo de estado: `docs/2.0-ESTADO.md`
+Lo crea el primer chat (bloque 0) y **cada chat lo lee al empezar y lo actualiza al acabar**. Plantilla:
+```markdown
+# Versión 2.0: estado
+Rama: version-2.0 · Último commit: <hash> · Fecha: <AAAA-MM-DD>
+
+## Decisiones del dueño (copia de §0, con lo que haya marcado)
+## Línea base (bloque 0, sobre 4bbf8e10)
+<tabla: Pokémon × mejoras → primera caída, muro, nivel m5/10/15/20/29, TTK de jefes y grietas, tickets por tramo>
+## Bloques
+| Bloque | Estado | Commit | Cifras después | Pendiente |
+|---|---|---|---|---|
+| 0 Medir | hecho / a medias / sin empezar | | | |
+| ... | | | | |
+## Paradas con el dueño (qué ha dicho tras jugar)
+## Avisos para el siguiente chat
+```
+
+### Al empezar y al acabar cada chat
+- **Al empezar**: `git fetch origin`, `git checkout version-2.0`, `git pull`. Leer este documento y `docs/2.0-ESTADO.md`.
+- **Al acabar**: compilar, tests en verde, actualizar `docs/2.0-ESTADO.md`, commit (sin firma de IA) y
+  `git push origin version-2.0`. **Nunca `main`.**
+- No trabajar a la vez desde dos ordenadores.
+- Si `main` ha cambiado mientras tanto (arreglos publicados), traerlo a la rama con `git merge origin/main` y
+  volver a compilar.
+
+### Publicar al final (sólo cuando el dueño lo diga)
+1. En la rama: `git merge origin/main`, compilar, tests en verde, revisión independiente hecha (§13).
+2. `git checkout main`, `git pull`, `git merge --no-ff version-2.0`, compilar otra vez y commit si cambia algo.
+3. `git push origin main`. GitHub Pages publica en 1-2 minutos y los jugadores se actualizan solos (fuera de
+   partida, con aviso de 5 s; en partida, al acabar). **No usar `--forzar`** salvo que el dueño lo marque en §0.
+4. Comprobar `https://paulprade05.github.io/pokesurvivor/version.json`: tiene que salir la huella nueva.
+
+### Mensajes para pegar en el chat
+- **Primer chat**:
+  > Lee entero docs/PROMPT-2.0.md. Haz la «Puesta en marcha desde cero» y el bloque 0 (medir la línea base)
+  > en la rama version-2.0, crea docs/2.0-ESTADO.md y súbelo todo a esa rama. No toques main. Háblame en
+  > español sencillo y dime al acabar qué has medido.
+- **Los siguientes**:
+  > Lee docs/PROMPT-2.0.md y docs/2.0-ESTADO.md y haz el bloque N en la rama version-2.0. Súbela al acabar;
+  > no toques main.
+- **Para publicar**:
+  > Lee docs/2.0-ESTADO.md. Si todo está hecho y probado, junta version-2.0 con main y publícalo como dice
+  > «Publicar al final» de docs/PROMPT-2.0.md.
+
+### Preferencias del dueño que no están en CLAUDE.md
+- Hablarle en **español sencillo**, empezando por el resultado.
+- No guardar nada del proyecto fuera del repositorio (ni Obsidian ni otras bases de notas).
+- Commits sin «Co-Authored-By» ni ninguna firma de IA (sí está en CLAUDE.md, pero es importante).
 
 ---
 
@@ -96,7 +215,7 @@ Después de jugar un día entero y hacer pruebas:
 - **Archivos**: se edita `dev.html` y los `js/` y `css/`. **Nunca** `index.html`, `en/`, `js/app.min.js`, `version.json` ni `js/lang/*`: los genera el build.
 - **Compilar**: `node tools/build.js && node tools/export_data.js && py tools/make_seo_pages.py` (Python se llama `py`).
   - Los comandos con `&&`, en la herramienta Bash; en PowerShell 5.1 `&&` da error y hay que separar con `;`.
-  - **Tests**: `node --test tests/` (Node 24; no hay package.json).
+  - **Tests**: `node --test "tests/*.test.cjs"` (Node 24; no hay package.json).
 - **Commits**: **sin «Co-Authored-By» ni ninguna firma de IA**. `git push origin main` **sólo cuando el dueño lo pida**.
 - **Actualización automática**: no tocar `js/core/updater.js` ni la escritura de `version.json` en `tools/build.js`.
 - **Novedades**: cada cambio de juego va en `js/data/changelog.js`, en español e inglés (`new` / `chg` / `fix`), con sus filas para fr, it, pt-BR, zh-Hans y zh-Hant en `js/data/lang-updates.js`.
@@ -281,8 +400,8 @@ Un commit por bloque como mínimo, cada uno compilado, con los tests en verde y 
 ## 5. Bloque 0: medir primero
 
 Ampliar `tools/curve.cjs`:
-- **Preparar una vez** (el repositorio no trae puppeteer): `npm i --prefix <scratchpad>/pp puppeteer-core@23.11.1`.
-- **Tanda**: `node tools/curve.cjs --pp <scratchpad>/pp/node_modules --par 3 --speed 3 --out <scratchpad>/curva-base 6:max:3 445:max:3 225:zero:2 …`.
+- **Preparar una vez** (el repositorio no trae puppeteer; ver «Puesta en marcha»): `npm i --prefix ../pokesurvivor-tmp/pp puppeteer-core@23.11.1`.
+- **Tanda**: `node tools/curve.cjs --pp ../pokesurvivor-tmp/pp/node_modules --par 3 --speed 3 --out ../pokesurvivor-tmp/curva-base 6:max:3 445:max:3 225:zero:2 …`.
   - `--chrome <exe>` sólo si Chrome no está en `C:/Program Files/Google/Chrome/Application/chrome.exe`.
   - Pokémon de referencia: 225 Delibird (flojo), 6 Charizard (empieza como Charmander), 445 Garchomp (empieza como Gible) y 150 Mewtwo (fuerte).
   - Mejoras `max` o `zero` (las de ese Pokémon).
@@ -996,12 +1115,12 @@ Con esta variante, un jugador flojo puede bajar a 2 por tramo.
   - tests nuevos y todos los de `tests/` en verde (tras el de i18n, `git checkout -- js/lang` si lo cambia y volver a compilar);
   - `node --check` de lo tocado;
   - compilar y cargar `index.html` sin errores de consola;
-  - **capturas** en móvil horizontal (667×375, 932×430) y en escritorio (1280×800), en Normal y en Ultra, cuando cambie algo visible;
+  - **capturas** con `tools/shot.cjs` en móvil horizontal (667×375, 932×430) y en escritorio (1280×800), en Normal y en Ultra, cuando cambie algo visible;
   - entrada de novedades (una por fecha, con título corto; avisar en ella del cambio de tickets);
   - commit sin firma de IA.
 - **Estado compartido**: actualizar `docs/2.0-ESTADO.md` al acabar cada bloque (cifras de antes y después, decisiones, lo que falta), y `docs/MULTIPLAYER_PROTOCOL.md` si cambia algo de red.
 - **Revisión independiente**: al acabar todos los bloques, que otro agente revise sin fiarse (cooperativo con versión vieja, partidas de bot de 8 minutos en Normal y en Ultra, curva con y sin mejoras), y arreglar lo que encuentre.
-- **No hacer push**: el dueño dice cuándo se publica.
+- **Push sólo a la rama `version-2.0`**. A `main` sólo cuando el dueño lo diga, como en «Publicar al final».
 - **Al terminar**, resumir en lenguaje sencillo, en español:
   - qué ha cambiado para el jugador;
   - las cifras de antes y después (nivel por minuto, tiempo para tumbar jefes y legendarios, tickets por tramo, primera caída con y sin mejoras);

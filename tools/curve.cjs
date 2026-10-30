@@ -179,9 +179,16 @@ BOT.pick = function (cards, cardInfo) {
 async function one(dex, upg, tag, speed, cap) {
   const ppDir = opt('pp', process.env.PUPPETEER_CORE || '');
   let puppeteer;
-  try { puppeteer = require(ppDir ? (/puppeteer-core$/.test(ppDir) ? ppDir : path.join(ppDir, 'puppeteer-core')) : 'puppeteer-core'); }
+  // (path.resolve: una ruta relativa se lee desde la carpeta en la que se lanza, no desde tools/.)
+  try { puppeteer = require(ppDir ? path.resolve(/puppeteer-core$/.test(ppDir) ? ppDir : path.join(ppDir, 'puppeteer-core')) : 'puppeteer-core'); }
   catch (e) { console.error('Falta puppeteer-core: pasa --pp <carpeta node_modules> o PUPPETEER_CORE=<ruta>'); process.exit(2); }
-  const CHROME = opt('chrome', process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe');
+  // Chrome (o Edge) en las rutas normales de Windows, Mac y Linux, salvo que se diga otro con --chrome o CHROME.
+  const CHROME = opt('chrome', process.env.CHROME || [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser',
+  ].find(p => fs.existsSync(p)) || 'C:/Program Files/Google/Chrome/Application/chrome.exe');
   const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json',
     '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
   const server = http.createServer((req, res) => {
@@ -283,7 +290,8 @@ async function main() {
     const [dex, upg, tag] = args;
     return one(+dex, upg, tag, +opt('speed', 2), +opt('cap', 1860));
   }
-  const par = +opt('par', 6), speed = opt('speed', '2'), cap = opt('cap', '1860'), pp = opt('pp', process.env.PUPPETEER_CORE || ''), chrome = opt('chrome', '');
+  const par = +opt('par', 6), speed = opt('speed', '2'), cap = opt('cap', '1860'), chrome = opt('chrome', '');
+  const pp0 = opt('pp', process.env.PUPPETEER_CORE || ''), pp = pp0 && path.resolve(pp0);
   const out = path.resolve(opt('out', path.join(os.tmpdir(), 'ps-curve-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-'))));
   const jobs = args.filter(a => /^\d+:(max|zero)(:\d+)?$/.test(a));
   if (!jobs.length) { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 7).join('\n')); return; }
