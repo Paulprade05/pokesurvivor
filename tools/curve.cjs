@@ -26,7 +26,8 @@
  * daño hecho, tiempo mediano para tumbar a un enemigo normal (ttk), DPS a un objetivo (sdps), director (dir), tickets
  * (tk=t1/t10), ataques al 5 (m5), evolucionados (ev) y cartas cogidas. En RESULT, cada jefe y legendario (ttk, ataques,
  * firmas, daño hecho mientras vivía) y cada grieta (ganada, ttk, nº de legendarios). El informe da sus medianas.
- * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall).
+ * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall); «dir» = vida/daño/geo del director
+ * (geo: lo que tarda en caer un enemigo normal, ver systems/director.js) y el informe da sus medianas.
  */
 'use strict';
 const path = require('path'), fs = require('fs'), http = require('http'), os = require('os');
@@ -41,7 +42,7 @@ const ROOT = path.resolve(__dirname, '..');
 function report(dirs) {
   const firsts = { max: [], zero: [] }, walls = { max: [], zero: [] };
   const G2 = () => ({ lv: { 5: [], 10: [], 15: [], 20: [], 29: [] }, m5: [], ev: [], ttk: { 5: [], 10: [], 15: [], 20: [], 29: [] },
-                      boss: { '3-12': [], '15-21': [], '24-27': [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
+                      boss: { '3-12': [], '15-21': [], '24-27': [] }, dh: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dd: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dg: { 5: [], 10: [], 15: [], 20: [], 29: [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
   const agg = { max: G2(), zero: G2() };
   for (const dir of dirs) {
     console.log('== ' + dir);
@@ -49,12 +50,13 @@ function report(dirs) {
       const s = fs.readFileSync(path.join(dir, f), 'utf8');
       const rows = [...s.matchAll(/\[\s*(\d+):(\d+)\] Nv\.(\d+) .*?caídas=(\d+)/g)].map(m => ({ m: +m[1], lv: +m[3], d: +m[4] }));
       // Campos de la 2.0 (bloque 0), si la partida los tiene.
-      const ext = [...s.matchAll(/\[\s*(\d+):\d+\] Nv\.(\d+) .*?ttk=(\S+) sdps=(\d+) dir=\S+ tk=(\d+)\/(\d+) m5=(\d+) ev=(\d+)/g)]
-        .map(m => ({ m: +m[1], lv: +m[2], ttk: +m[3], sdps: +m[4], t1: +m[5], t10: +m[6], m5: +m[7], ev: +m[8] }));
+      const ext = [...s.matchAll(/\[\s*(\d+):\d+\] Nv\.(\d+) .*?ttk=(\S+) sdps=(\d+) dir=(\S+) tk=(\d+)\/(\d+) m5=(\d+) ev=(\d+)/g)]
+        .map(m => ({ m: +m[1], lv: +m[2], ttk: +m[3], sdps: +m[4], dir: m[5], t1: +m[6], t10: +m[7], m5: +m[8], ev: +m[9] }));
       const gg = /-max-/.test(f) ? 'max' : /-zero-/.test(f) ? 'zero' : null;
       if (gg && ext.length) {
         const A = agg[gg], at = m => ext.filter(x => x.m <= m).pop();
-        for (const m of [5, 10, 15, 20, 29]) { const r = at(m); if (r && r.m >= m - 1) { A.lv[m].push(r.lv); if (!isNaN(r.ttk)) A.ttk[m].push(r.ttk); } }
+        for (const m of [5, 10, 15, 20, 29]) { const r = at(m); if (r && r.m >= m - 1) { A.lv[m].push(r.lv); if (!isNaN(r.ttk)) A.ttk[m].push(r.ttk);
+          const dm = /^([\d.]+)\/([\d.]+)(?:\/([\d.]+))?$/.exec(r.dir); if (dm) { A.dh[m].push(+dm[1]); A.dd[m].push(+dm[2]); if (dm[3] && +dm[3] > 0) A.dg[m].push(+dm[3]); } } }
         for (const m of [5, 10, 15, 20, 25, 30]) { const r = at(m); if (r && r.m >= m - 1) A.tk[m].push(r.t1 + 10 * r.t10); }
         const f5 = ext.find(x => x.m5 >= 4), fe = ext.find(x => x.ev >= 4);
         A.m5.push(f5 ? f5.m : 31); A.ev.push(fe ? fe.m : 31);
@@ -98,6 +100,7 @@ function report(dirs) {
     console.log(`         jefes ttk (s) ${Object.keys(A.boss).map(k => k + '=' + md(A.boss[k]) + ' (' + A.boss[k].length + ')').join(' ')} · con 1 firma ${pc(A.sig1, A.nb)}, con 2 ${pc(A.sig2, A.nb)}`);
     console.log(`         grietas ganadas ${pc(A.rw, A.rn)} (${A.rn}) · arena (s) ${Object.keys(A.leg).map(k => k + ' leg=' + md(A.leg[k]) + ' (' + A.leg[k].length + ')').join(' ') || '-'} · legendarios con firma ${pc(A.legSig, A.nl)}`);
     console.log(`         tickets (tiradas acumuladas) ${per(A.tk)}`);
+    if (A.dh[5].length) console.log(`         director vida ${per(A.dh)} · daño ${per(A.dd)} · geo (s) ${per(A.dg)}`);
   }
 }
 
@@ -362,7 +365,7 @@ async function one(dex, upg, tag, speed, cap) {
           over: G.Game.state === 'over', moves: pl.moves.map(m => m.id + m.lvl + (m.evolved ? '*' : '')).join(' '), dmg: Object.assign({}, DMG), vhp: Math.round(V.hp), deaths: V.deaths.slice(),
           dealt: Math.round(pl.dmgDealt), ttk: M.ttk.splice(0), cards: Object.assign({}, pl.statsTaken), t1: pl.t1, t10: pl.t10,
           sdps: Math.round(G.Judgment.singleDps ? G.Judgment.singleDps() : G.Judgment.debug.single),
-          dir: G.Director ? (+G.Director.hp()).toFixed(2) + '/' + (+G.Director.dmg()).toFixed(2) : '-',
+          dir: G.Director ? (+G.Director.hp()).toFixed(2) + '/' + (+G.Director.dmg()).toFixed(2) + '/' + (+G.Director.geo || 0).toFixed(2) : '-',
           m5: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.lvl >= 5).length,
           ev: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.evolved).length };
       });

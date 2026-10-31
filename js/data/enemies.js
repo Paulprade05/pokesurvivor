@@ -259,6 +259,22 @@ G.Enemies = (() => {
   }
 
   /**
+   * Vida base de los enemigos normales en la 2.0 (bloque 2, 31-10-2026), por reloj: con los topes de cartas del
+   * bloque 1 el jugador hace entre 15 y 45 veces menos daño al final y un enemigo normal tardaba 13-22 s en caer
+   * desde el minuto 15 (con todas las mejoras). Esto devuelve la base a lo que tumba un jugador normal, y el director
+   * (systems/director.js) sube la vida encima según lo rápido que mates de verdad. Hasta el minuto 3, como antes.
+   */
+  const HP_BASE = [[0, 1], [180, 1], [300, 0.8], [600, 0.35], [900, 0.13], [1200, 0.045], [1500, 0.04], [1800, 0.045]];
+  function hpBase(t) {
+    if (!(t > HP_BASE[0][0])) return HP_BASE[0][1];
+    for (let i = 1; i < HP_BASE.length; i++) {
+      const [t1, v1] = HP_BASE[i];
+      if (t <= t1) { const [t0, v0] = HP_BASE[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
+    }
+    return HP_BASE[HP_BASE.length - 1][1];
+  }
+
+  /**
    * Los jefes ya traen su vida base creciente (1.400 ... 16.000), así que
    * escalan mucho más suave: con la curva normal el último llegaba a 168.000 PV.
    */
@@ -285,8 +301,9 @@ G.Enemies = (() => {
    * los minutos 0 / 5 / 10 / 20; ahora se sube bastante más despacio al principio. Desde el
    * minuto 15 da más (los enemigos tardan más en caer con las cartas con tope), para llegar
    * al nivel 42-46 en el 20 y 55-62 en el 29 con todas las mejoras.
+   * (Bloque 2: con la vida base más suave, hpBase, se vuelve a matar mucho más desde el 10; menos por enemigo.)
    */
-  const XP_AT = [[0, 20], [300, 37], [600, 71], [900, 180], [1200, 240], [1500, 330], [1800, 420]];
+  const XP_AT = [[0, 20], [300, 37], [600, 62], [900, 72], [1200, 66], [1500, 70], [1800, 76]];
   function xpAt(t) {
     if (t <= XP_AT[0][0]) return XP_AT[0][1];
     for (let i = 1; i < XP_AT.length; i++) {
@@ -361,7 +378,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

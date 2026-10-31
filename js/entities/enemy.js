@@ -171,6 +171,8 @@
       if (this.boss && this.sigK != null && this.sigK !== 1 && !this.remote) amount *= this.sigK;
       // (Expuesto después de su firma, 28-10-2026: Asalto Espadón, Hiperrayo, Sofoco...)
       if (this.boss && this.sigVulnK > 1 && !this.remote) amount *= this.sigVulnK;
+      // «Defensa» del director (2.0, bloque 2): parte de su vida extra va como menos daño recibido (sólo el anfitrión).
+      if (this.defK && this.defK !== 1 && !this.remote) amount *= this.defK;
       const d = Math.max(1, Math.round(amount));
       // Copia de un enemigo del anfitrión: el golpe se le manda a él, que es
       // quien decide si cae. Aquí sólo se ve (número, destello y animación).
@@ -181,6 +183,7 @@
         return;
       }
       if (this.boss) this.rd += d;
+      if (G.Director) G.Director.hit(this, d);
       // Escudo: absorbe primero.
       if (this.shield > 0) {
         const a = Math.min(this.shield, d);
@@ -406,7 +409,7 @@
       if (this.behavior === 'bomber' && this.phase === 'fuse') {
         this.pt -= dt;
         this.flash = Math.floor(this.pt * 10) % 2 ? 0.05 : 0;
-        if (this.pt <= 0) { this.hp = 0; this.die(); }
+        if (this.pt <= 0) { this.hp = 0; this.selfK = true; this.die(); }
         this.anim.loop('Idle');
         return;
       }
@@ -1299,6 +1302,7 @@
           pl.kills++;                                          // (del equipo: el anfitrión lo manda a todos)
           killHook(pl, players, e);
           if (e.boss && !e.judge) pl.bosses++;
+          if (G.Director) G.Director.kill(e);
           G.Progress.kill(e);
           corpses.push(e);
           list.splice(i, 1);

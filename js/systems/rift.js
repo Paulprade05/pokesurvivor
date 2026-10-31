@@ -460,6 +460,8 @@ G.Rift = (() => {
       const [sx, sy] = spots[i] || [0, -3.5];
       const e = new G.Enemy(def, arena.x + sx * ts, arena.y + sy * ts, { hp: 1, spd: 1, dmg: 1 }, true);
       e.legend = true;
+      // (2.0, bloque 2) Su daño, con el director; su vida no (va aparte, bloque 3).
+      if (G.Director) e.dmg *= G.Director.dmg();
       // Choca con las paredes y columnas como tú: si volara por encima de las
       // rocas, tus disparos no podrían alcanzarle (bug de Celebi).
       e.flying = false;

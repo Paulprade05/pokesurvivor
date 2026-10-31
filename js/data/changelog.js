@@ -6,6 +6,14 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-31', title: ["Versión 2.0 (2): enemigos que se adaptan a tu fuerza", "Version 2.0 (2): enemies that adapt to your strength"], new: [
+    ["Los enemigos se adaptan a tu fuerza: si los tumbas muy rápido, los siguientes salen con más vida y defensa, y si vas sobrado de vida, pegan algo más fuerte. Si vas apurado o caes, aflojan. Así una build muy fuerte se sigue notando, pero ya no arrasa sin esfuerzo.",
+     "Enemies now adapt to your strength: if you take them down very fast, the next ones come with more HP and defense, and if you have plenty of HP left, they hit a bit harder. If you're struggling or get knocked out, they ease off. A very strong build still shows, but it no longer steamrolls everything effortlessly."]],
+  chg: [
+    ["Los enemigos normales tienen menos vida desde el minuto 3 (mucha menos al final): con las cartas con tope tardaban demasiado en caer desde el minuto 15. Se da algo menos de experiencia por enemigo al final, porque ahora se tumban muchos más.",
+     "Regular enemies have less HP from minute 3 on (much less near the end): with capped cards they took far too long to go down after minute 15. Each enemy gives a bit less experience near the end, since you now take down many more."],
+    ["Ranking nuevo para la versión 2.0: con los cambios de dificultad los tiempos de antes no se pueden comparar, así que todas las tablas empiezan de cero.",
+     "New leaderboard for version 2.0: with the difficulty changes, earlier times can't be compared, so every board starts from zero."]] },
   { d: '2026-10-31', title: ["Versión 2.0 (1): cartas con tope y subir de nivel cuesta más", "Version 2.0 (1): capped cards and slower leveling"], new: [
     ["Descartar al subir de nivel: 2 veces por partida puedes descartar un ataque nuevo o una mejora que aún no llevas, y ya no vuelve a salir en esa partida (botón «Descartar», tecla X o X en el mando).",
      "Discard on level-up: twice per run you can discard a new move or an upgrade you don't have yet, and it won't show up again that run (\"Discard\" button, X key or X on the controller)."]],

@@ -166,9 +166,15 @@ G.Spawner = (() => {
    * o: { hp, dmg, xp } multiplicadores · weak (sin élite ni campeón) · noChamp
    */
   function make(def, x, y, t, o = {}) {
-    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) * (o.hp || 1)));
+    // (2.0, bloque 2) Vida base más suave desde el minuto 5 (hpBase) y, encima, lo que pida el director según lo rápido
+    //  que matas: una parte en vida y el resto como «defensa» (defK). Su daño, también con el director.
+    const D = G.Director;
+    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) *
+                                                                G.Enemies.hpBase(t) * (D ? D.hpPart() : 1) * (o.hp || 1)));
+    if (D) e.defK = D.defK();
+    if (o.weak) e.weak = true;
     // (Experiencia: de la tabla por reloj G.Enemies.xpAt desde la 2.0; antes tramo × XP_K × xpLag.)
-    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (o.dmg || 1);
+    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (D ? D.dmg() : 1) * (o.dmg || 1);
     e.xp = Math.max(1, Math.round(G.Enemies.xpAt(t) * (def.behavior === 'tank' ? 1.3 : 1) * (o.xp || 1)));
     // (Con el tope más bajo de los primeros minutos, la élite sigue saliendo a partir de los mismos que antes.)
     e.elite = !o.weak && G.EnemyMgr.count >= Math.max(capAt(t), CAP_EARLY) * ELITE_FROM;
@@ -207,7 +213,7 @@ G.Spawner = (() => {
   function spawnBoss(pl, t, b, angle = Math.random() * 6.2832) {
     const [x, y] = ringPoint(pl, angle);
     const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
-    e.dmg *= G.Enemies.earlyK(t);           // (principio suave, 28-10-2026)
+    e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1);   // (principio suave, 28-10-2026; director, 2.0)
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);
     G.Camera.kick(1.1);

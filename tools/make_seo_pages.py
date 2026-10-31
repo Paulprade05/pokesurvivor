@@ -485,6 +485,9 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-31', ('Versión 2.0 (2): enemigos que se adaptan a tu fuerza', 'Version 2.0 (2): enemies that adapt to your strength'),
+  ('Si tumbas a los enemigos muy rápido, los siguientes salen con más vida y defensa, y si vas sobrado de vida pegan algo más; si vas apurado, aflojan. Los enemigos normales tienen menos vida desde el minuto 3 y el ranking empieza de cero en la 2.0.',
+   'If you take enemies down very fast, the next ones come with more HP and defense, and if you have plenty of HP they hit a bit harder; if you’re struggling, they ease off. Regular enemies have less HP from minute 3 on, and the leaderboard starts from zero in 2.0.')),
  ('2026-10-31', ('Versión 2.0 (1): cartas con tope y subir de nivel cuesta más', 'Version 2.0 (1): capped cards and slower leveling'),
   ('Las cartas de mejora tienen tope (Potencia como mucho ×2, Vigor hasta 8 cartas…), se sube de nivel más despacio, cada partida sale sólo el 70 % de los ataques de tu Pokémon y puedes descartar 2 cartas por partida.',
    'Upgrade cards are capped (Power ×2 at most, Vigor up to 8 cards…), leveling up is slower, each run only 70% of your Pokémon\'s moves show up and you can discard 2 cards per run.')),

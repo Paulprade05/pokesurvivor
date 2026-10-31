@@ -603,7 +603,7 @@ test('ranking: a transaction clash is retried once; a mark that still cannot be 
   let r = ranking(['aborted']);
   assert.deepEqual((await r.R.submitSolo(run)).sort(), ['a', 'd', 'm', 'w']);
   assert.deepEqual(lost(r.toasts), []);
-  assert.ok(r.fs.docs.get('lbs/s_all3').top.me);
+  assert.ok(r.fs.docs.get('lbs/s_all4').top.me);
   r = ranking(Array(10).fill('aborted'));
   await r.R.submitSolo(run);
   assert.deepEqual(lost(r.toasts), ['Tu marca no se ha podido guardar en el ranking: el servidor estaba ocupado.']);
@@ -612,11 +612,11 @@ test('ranking: a transaction clash is retried once; a mark that still cannot be 
   assert.deepEqual(lost(r.toasts), ['Tu marca no se ha podido guardar en el ranking: el servidor la ha rechazado.']);
   // Rechazada porque la nube ya tenía una marca tuya mejor (de otro aparato): no es un fallo.
   r = ranking();
-  r.store['ps.rk.best2.me'] = JSON.stringify({ 's_all3:me': 300 });   // lo que sabía este navegador
-  r.fs.docs.set('lb/s_all3/e/me', { t: 900 }); r.fs.failSet['lb/s_all3/e/me'] = 'permission-denied';
+  r.store['ps.rk.best3.me'] = JSON.stringify({ 's_all4:me': 300 });   // lo que sabía este navegador
+  r.fs.docs.set('lb/s_all4/e/me', { t: 900 }); r.fs.failSet['lb/s_all4/e/me'] = 'permission-denied';
   await r.R.submitSolo(run);
   assert.deepEqual(lost(r.toasts), []);
-  assert.equal(JSON.parse(r.store['ps.rk.best2.me'])['s_all3:me'], 900);
+  assert.equal(JSON.parse(r.store['ps.rk.best3.me'])['s_all4:me'], 900);
   // Sin apodo no se sube: se dice una vez por sesión.
   r = ranking(); r.G.Social.me = null;
   await r.R.submitSolo(run); await r.R.submitSolo(run);
