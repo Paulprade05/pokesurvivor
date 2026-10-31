@@ -156,9 +156,11 @@ G.Player = class Player {
   /** Radio máximo contra el terreno (un tile mide 32). */
   static get WALL_R() { return 14; }
 
-  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido.)
+  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido. 2.0, bloque 1: del nivel 1 al 10
+  //  pasa de ×1 a ×3 y desde ahí +0,1 por nivel. Nv 1 = 62 como antes, 10 = 1.893, 20 = 6.888, 30 = 16.065.)
   static xpFor(level) {
-    return Math.floor((8 + level * 6 + Math.pow(level, 1.75) * 1.6) * 4);
+    const base = Math.floor((8 + level * 6 + Math.pow(level, 1.75) * 1.6) * 4);
+    return Math.floor(base * (1 + 2 * Math.min(1, (level - 1) / 9) + 0.1 * Math.max(0, level - 10)));
   }
 
   cy() { return this.y; }

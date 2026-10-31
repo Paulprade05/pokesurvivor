@@ -45,7 +45,7 @@ G.Spawner = (() => {
                                : CAP + Math.round((CAP_LATE - CAP) * G.U.clamp((t - 1080) / 600, 0, 1)));
   // Menos Pokémon pero más fuertes (la pantalla no se satura): salen ~24% de
   // los de antes, cada uno con más vida, daño y experiencia.
-  const DENSITY = 0.24, DMG_K = 2.4, XP_K = 5.6;
+  const DENSITY = 0.24, DMG_K = 2.4;
   // Tiempo «efectivo» de la fuerza de los enemigos (26-10-2026, ver G.Enemies.eff):
   // al principio corre más despacio que el reloj y al final, más deprisa.
   const eff = t => G.Enemies.eff(t);
@@ -167,9 +167,9 @@ G.Spawner = (() => {
    */
   function make(def, x, y, t, o = {}) {
     const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) * (o.hp || 1)));
-    // (xpLag: la experiencia sigue al reloj real aunque los tramos vayan con el efectivo,
-    //  26-10-2026; si no, se subía de nivel mucho más despacio y se llegaba flojo al final.)
-    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (o.dmg || 1); e.xp = Math.max(1, Math.round(e.xp * XP_K * G.Enemies.xpLag(t) * (o.xp || 1)));
+    // (Experiencia: de la tabla por reloj G.Enemies.xpAt desde la 2.0; antes tramo × XP_K × xpLag.)
+    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (o.dmg || 1);
+    e.xp = Math.max(1, Math.round(G.Enemies.xpAt(t) * (def.behavior === 'tank' ? 1.3 : 1) * (o.xp || 1)));
     // (Con el tope más bajo de los primeros minutos, la élite sigue saliendo a partir de los mismos que antes.)
     e.elite = !o.weak && G.EnemyMgr.count >= Math.max(capAt(t), CAP_EARLY) * ELITE_FROM;
     if (e.elite) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }

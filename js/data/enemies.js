@@ -278,6 +278,23 @@ G.Enemies = (() => {
     //  un Pokémon que no mataba bastante se quedaba sin subir de nivel del minuto 10 al 20.)
     return Math.pow(TIERS[ti].xp / TIERS[tierAt(t)].xp, 0.85);
   }
+  /*
+   * Experiencia de un enemigo normal según el reloj (2.0, bloque 1, 31-10-2026): sale de
+   * esta tabla y no del tramo × xpLag, para que al tocar la vida de los enemigos (EFF,
+   * tramos) no cambie sin querer la subida de nivel. Hoy daba 20 / 63 / 168 / 213 en
+   * los minutos 0 / 5 / 10 / 20; ahora se sube bastante más despacio al principio. Desde el
+   * minuto 15 da más (los enemigos tardan más en caer con las cartas con tope), para llegar
+   * al nivel 42-46 en el 20 y 55-62 en el 29 con todas las mejoras.
+   */
+  const XP_AT = [[0, 20], [300, 37], [600, 71], [900, 180], [1200, 240], [1500, 330], [1800, 420]];
+  function xpAt(t) {
+    if (t <= XP_AT[0][0]) return XP_AT[0][1];
+    for (let i = 1; i < XP_AT.length; i++) {
+      const [t1, v1] = XP_AT[i];
+      if (t <= t1) { const [t0, v0] = XP_AT[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
+    }
+    return XP_AT[XP_AT.length - 1][1];
+  }
 
   /**
    * Principio suave (28-10-2026): los golpes de los enemigos (también jefes y legendarios)
@@ -344,7 +361,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

@@ -4692,6 +4692,12 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 #lvl-reroll .rr-ico { display: inline-grid; place-items: center; width: 30px; height: 22px; }
 #lvl-reroll .rr-ico > img { margin: -4px 0; }
 #lvl-reroll kbd { font-size: 12px; }
+/* Descartar (2.0): pulsado, la siguiente carta que toques se descarta; las que no se pueden, apagadas. */
+#lvl-discard { gap: 8px; padding-left: 12px; }
+#lvl-discard kbd { font-size: 12px; }
+#lvl-discard[aria-pressed="true"] { color: #ff8a8a; border-color: #ff6b6b; box-shadow: 0 0 0 1px #ff6b6b inset; }
+.pick-cards.discarding .pick-card { border-color: #ff6b6b; }
+.pick-cards.discarding .pick-card.no-discard { opacity: .4; filter: saturate(.4); pointer-events: none; }
 .pick-wait {
   margin: 0; padding: 6px 14px; border-radius: var(--rad-pill);
   background: rgba(255, 203, 5, .12); border: 1px solid rgba(255, 203, 5, .45);
@@ -4728,6 +4734,7 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   .card.pick-card .ds { font-size: 13px; line-height: 1.36; }
   .card.pick-card .key { left: auto; right: 10px; }
   .pick-foot > .btn { flex: 1 1 100%; }
+  #scr-levelup .pick-foot > .btn { flex: 1 1 40%; }
 }
 /* Móviles altos de pie: sobra sitio, así que las cartas respiran un poco más. */
 @media (max-width: 599px) and (min-height: 760px) {
@@ -4758,6 +4765,10 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   .pick-box:has(#lvl-reroll:not(.hidden)):has(#lvl-wait:not(.hidden):not(:empty)) > .pick-foot {
     position: static; max-width: none; justify-content: center; }
   .pick-box:has(#lvl-reroll:not(.hidden)):has(#lvl-wait:not(.hidden):not(:empty)) > .pick-head { padding-right: 0; }
+  /* Con «Cambiar opciones» y «Descartar» a la vez, igual: el pie abajo. */
+  .pick-box:has(#lvl-reroll:not(.hidden)):has(#lvl-discard:not(.hidden)) > .pick-foot {
+    position: static; max-width: none; justify-content: center; }
+  .pick-box:has(#lvl-reroll:not(.hidden)):has(#lvl-discard:not(.hidden)) > .pick-head { padding-right: 0; }
   .pick-cards { gap: 8px; margin: -6px -12px -10px; padding: 8px 12px 12px; }
   .card.pick-card { gap: 6px; padding: 10px 8px; border-radius: 14px; }
   .pick-card .ico-tile.pc-ico { --tile: 64px; border-radius: 19px; }
@@ -4894,6 +4905,7 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 }
 .sl-lv { right: -4px; bottom: -4px; background: #0b1530; color: var(--ink); box-shadow: 0 0 0 1.5px var(--line-3); }
 .sl.evo > .sl-lv { color: var(--c-yellow); box-shadow: 0 0 0 1.5px rgba(255, 203, 5, .7); }
+.sl-lv.max { color: var(--c-yellow); }
 .sl-plus { left: -4px; top: -4px; background: var(--bond); color: #2a0f24; }
 /* Cabecera de las cartas de nivel: «Ataques 3/4 ▣▣▣□ · Pasivas 2/4 ▣▣□□», en una línea. */
 .lvl-slots { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 4px; }

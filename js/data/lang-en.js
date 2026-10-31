@@ -2190,5 +2190,10 @@ G.I18n.add({
   "Ondulagua": "Walking Wake",
   "Ferroverdor": "Iron Leaves",
   // ---------------- Arreglos de la revisión del 29-10 (1) ----------------
-  "Recogidas": "Collected"
+  "Recogidas": "Collected",
+  // ---------------- 2.0, bloque 1: cartas con tope ----------------
+  "Recupera el 20% de tu vida ahora mismo.": "Restores 20% of your HP right now.",
+  "Monedas": "Coins",
+  "+40 monedas al acabar la partida.": "+40 coins at the end of the run.",
+  "Descartar (": "Discard ("
 });

@@ -485,6 +485,9 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-31', ('Versión 2.0 (1): cartas con tope y subir de nivel cuesta más', 'Version 2.0 (1): capped cards and slower leveling'),
+  ('Las cartas de mejora tienen tope (Potencia como mucho ×2, Vigor hasta 8 cartas…), se sube de nivel más despacio, cada partida sale sólo el 70 % de los ataques de tu Pokémon y puedes descartar 2 cartas por partida.',
+   'Upgrade cards are capped (Power ×2 at most, Vigor up to 8 cards…), leveling up is slower, each run only 70% of your Pokémon\'s moves show up and you can discard 2 cards per run.')),
  ('2026-10-28', ('La lista grande', 'The big list'),
   ('Pokédex por familias (cada familia es su última evolución) y un Compendio con lo que hace cada ataque, pasiva y objeto. Ataques únicos para los 18 tipos con evoluciones que cambian cómo funcionan, mejoras nuevas de duración, velocidad de los proyectiles y cantidad, un ataque firma para cada jefe y un viaje por la grieta con la llegada de cada legendario. El mundo se parece más a Pokémon Platino y la calidad Ultra es una cámara 2,5D con perspectiva como en DS. Más animaciones de Mundo Misterioso, tienda y gacha más cómodas en el móvil (que se queda siempre en horizontal) y sin Ko-fi ni botón Guardar (queda en Ajustes).',
    'Pokédex by families (each family is its final evolution) and a Compendium with what every move, passive and item does. Unique moves for all 18 types with evolutions that change how they work, new upgrades for duration, projectile speed and amount, a signature attack for every boss and a trip through the rift with each legendary’s own arrival. The world looks more like Pokémon Platinum and Ultra quality is a 2.5D perspective camera like on the DS. More Mystery Dungeon animations, a handier shop and gacha on phones (which now always stay in landscape) and no more Ko-fi or Save button (it stays in Settings).')),

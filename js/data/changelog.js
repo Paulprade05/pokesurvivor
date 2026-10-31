@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-31', title: ["Versión 2.0 (1): cartas con tope y subir de nivel cuesta más", "Version 2.0 (1): capped cards and slower leveling"], new: [
+    ["Descartar al subir de nivel: 2 veces por partida puedes descartar un ataque nuevo o una mejora que aún no llevas, y ya no vuelve a salir en esa partida (botón «Descartar», tecla X o X en el mando).",
+     "Discard on level-up: twice per run you can discard a new move or an upgrade you don't have yet, and it won't show up again that run (\"Discard\" button, X key or X on the controller)."]],
+  chg: [
+    ["Las cartas de mejora tienen tope: Potencia hasta 10 (×2 de daño como mucho, antes ×45), Vigor hasta 8, Síntesis y Coraza hasta 5 (la reducción de daño de cartas y mejoras llega como mucho al 60 %), Reflejos hasta 6, Carrera hasta 5, Imán y Aprendizaje hasta 4. Potencia, Carrera, Imán y Aprendizaje ya suman en vez de multiplicarse. En la pausa ves cuántas llevas de cada una («3/8» o «Máx.»).",
+     "Upgrade cards now have caps: Power up to 10 (×2 damage at most, it used to be ×45), Vigor up to 8, Synthesis and Armor up to 5 (damage reduction from cards and upgrades tops out at 60%), Reflexes up to 6, Sprint up to 5, Magnet and Learning up to 4. Power, Sprint, Magnet and Learning now add up instead of multiplying. The pause screen shows how many you have of each (\"3/8\" or \"Max.\")."],
+    ["Con todas las cartas al tope ya no sale la Baya Zidra del 45 % en cada subida: sale una que cura el 20 % y, jugando solo, +40 monedas.",
+     "With every card maxed out, the 45% Sitrus Berry no longer shows up on every level-up: instead you get one that heals 20% and, when playing solo, +40 coins."],
+    ["Se sube de nivel más despacio: cada nivel pide más experiencia (a partir del 10, bastante más) y los enemigos dan menos entre los minutos 3 y 15. Así los 4 ataques ya no están al máximo y evolucionados antes del minuto 10.",
+     "Leveling up is slower: each level needs more experience (a lot more from level 10 on) and enemies give less between minutes 3 and 15. This way your 4 moves are no longer maxed out and evolved before minute 10."],
+    ["Más variedad de builds: en cada partida sólo sale en las cartas el 70 % de los ataques que puede aprender tu Pokémon (como mínimo 10), sorteado al empezar. Los iniciales, las MT que le enseñaste y los que le hacen evolucionar salen siempre.",
+     "More build variety: each run only 70% of the moves your Pokémon can learn show up on the cards (at least 10), drawn at the start. Starting moves, TMs you taught it and the moves that make it evolve always show up."]] },
   { d: '2026-10-28', title: ["La lista grande", "The big list"], new: [
     ["Pokédex (antes «Pokémon»): cada familia es una sola entrada, su última evolución (Charmander, Charmeleon y Charizard son Charizard). En su ficha ves sus preevoluciones con sus estadísticas, cómo evoluciona en partida, los ataques que puede llevar y lo que hace cada uno, sus MT y tus récords con él.",
      "Pokédex (formerly “Pokémon”): each family is a single entry, its last evolution (Charmander, Charmeleon and Charizard are Charizard). Its page shows its pre-evolutions with their stats, how it evolves in a run, the attacks it can use and what each one does, its TMs and your records with it."],

@@ -318,6 +318,7 @@ G.Pad = (() => {
       if (hit(BT.B) || hit(BT.BACK)) back();
       if (hit(BT.START)) G.Input.virtual('escape');
       if (hit(BT.Y)) G.Input.virtual('keyr');
+      if (hit(BT.X)) G.Input.virtual('keyx');
       const ry = axisR(p, 3);
       if (Math.abs(ry) > DEAD) scrollLists(ry, dt);
     } else {
