@@ -65,6 +65,25 @@
   };
   // Grupo de un ataque de varias marcas: golpea una sola vez aunque se solapen (ver hazards.js).
   let grpSeq = 0;
+  // (2.0, bloque 3) Golpe mínimo de los jefes según tu vida máxima (pct, hazards.js): entra del minuto 12 al 20. Antes
+  //  se saltaba lo suave del principio (earlyK) y los jefes de los minutos 3-12 tumbaban (medido).
+  const bossPct = p => p * Math.min(1, Math.max(0, ((G.Game && G.Game.st ? G.Game.st.time : 0) - 720) / 480));
+
+  /*
+   * (2.0, bloque 3) Tope blando de daño por segundo de jefes y legendarios: un depósito que se rellena a `rate` PV/s y
+   * guarda como mucho `max`; lo que pase de él cuenta ×0,15. En la arena, uno para todos los legendarios.
+   * c = { rate, max, pool, by }  (by: quién lo rellena, para que uno compartido no se rellene dos veces)
+   */
+  const CAP_OVER = 0.15;
+  function capHit(c, a) {
+    const take = Math.min(Math.max(0, c.pool), a);
+    c.pool -= take;
+    return take + (a - take) * CAP_OVER;
+  }
+  /** Lo que pone spawnBoss / spawnLegends. ttk: segundos objetivo (BOSS_TTK); share: tope ya hecho (arena). */
+  function makeCap(hp, ttk, share = null) {
+    return share || { rate: hp / (0.6 * ttk), max: hp * 0.1, pool: hp * 0.1, by: null };
+  }
 
   class Enemy {
     constructor(def, x, y, sc, boss = false) {
@@ -174,6 +193,15 @@
       if (this.boss && this.sigVulnK > 1 && !this.remote) amount *= this.sigVulnK;
       // «Defensa» del director (2.0, bloque 2): parte de su vida extra va como menos daño recibido (sólo el anfitrión).
       if (this.defK && this.defK !== 1 && !this.remote) amount *= this.defK;
+      // (2.0, bloque 3) Jefes y legendarios: entre fase y fase no se les puede dar; desgaste si la pelea se alarga
+      //  (jefes del mapa) y tope blando de daño por segundo (lo que pasa del depósito cuenta ×0,15). Sólo el anfitrión.
+      let capped = false;
+      if (this.boss && !this.remote && !this.judge) {
+        if (this.bossPhaseT > 0) return;
+        if (this.fightT == null) this.fightT = 0;
+        if (this.wearK > 1) amount *= this.wearK;
+        if (this.dmgCap) { const a = capHit(this.dmgCap, amount); capped = a < amount - 0.5; amount = a; }
+      }
       const d = Math.max(1, Math.round(amount));
       // Copia de un enemigo del anfitrión: el golpe se le manda a él, que es
       // quien decide si cae. Aquí sólo se ve (número, destello y animación).
@@ -192,9 +220,11 @@
         if (a >= d) { G.FX.dmgText(this.x, this.y - this.bodyH - 4, d, '#9fd8ff'); this.flash = 0.05; return; }
         amount = d - a;
       }
-      this.hp -= Math.max(1, Math.round(amount));
-      G.Judgment.noteDmg(this.defK ? raw : amount, this);
-      this.showHurt(d, color, dirX, dirY, eff);
+      const shift = this.loseHp(Math.max(1, Math.round(amount)));
+      // (Al medidor de DPS, el golpe en bruto: sin la defensa del director, el tope, las fases ni el escudo.)
+      G.Judgment.noteDmg(raw, this);
+      this.showHurt(d, color, dirX, dirY, capped ? 'weak' : eff);
+      if (shift) this.phaseShift();
       if (knock > 0 && !this.boss) {
         const [nx, ny] = G.U.norm(dirX, dirY);
         this.kx += nx * knock;
@@ -202,6 +232,71 @@
       }
       if (G.Coop.isHost) G.Coop.hurtShown(this, d, color);
       if (this.hp <= 0) this.die();
+    }
+
+    /**
+     * (2.0, bloque 3) Reglas de jefe: o = { phases: [0.66, 0.33], ttk: s objetivo, capTtk: s mínimos del tope (si no, ttk),
+     *  cap: tope compartido, wear: bool }.
+     * Sólo quien manda (nada nuevo por la red: la vida y el bit de furia ya viajan).
+     */
+    armBoss(o) {
+      this.phases = o.phases || null; this.phaseI = 0; this.bossPhaseT = 0;
+      this.dmgCap = makeCap(this.maxHp, o.capTtk || o.ttk, o.cap || null);
+      this.bossTtk = o.ttk; this.wear = !!o.wear; this.wearK = 1; this.fightT = null;
+      return this;
+    }
+
+    /** Quita vida; con fases, un golpe que cruza el umbral se queda en él. Devuelve true si toca cambiar de fase. */
+    loseHp(loss) {
+      let shift = false;
+      if (this.phases && this.phaseI < this.phases.length) {
+        const th = Math.ceil(this.maxHp * this.phases[this.phaseI]);
+        if (this.hp - loss <= th) { loss = Math.max(0, this.hp - th); shift = true; }
+      }
+      this.hp -= loss;
+      return shift;
+    }
+
+    bossTick(dt) {
+      if (this.bossPhaseT > 0) this.bossPhaseT -= dt;
+      const c = this.dmgCap;
+      if (c) {
+        if (c.by == null || c.by === this.id || !G.EnemyMgr.get(c.by)) c.by = this.id;
+        if (c.by === this.id) c.pool = Math.min(c.max, c.pool + c.rate * dt);
+      }
+      // Desgaste (jefes del mapa): desde 3/4 de su tiempo objetivo de pelea (contado desde el primer golpe), cada
+      //  vez recibe más daño (hasta ×4), ya no se aleja de ti y se va agotando solo (hasta un 2,4 % de su vida por
+      //  segundo). Que una pelea nunca dure minutos y minutos (medido: hasta 6 min; el jefe huía y casi no se le daba).
+      if (this.fightT != null) {
+        this.fightT += dt;
+        if (this.wear) {
+          this.wearK = Math.min(4, 1 + Math.max(0, this.fightT - this.bossTtk * 0.75) / this.bossTtk * 2.5);
+          if (this.wearK > 1 && !(this.bossPhaseT > 0) && !this.dead) {
+            if (this.ai) { this.ai.mode = 'close'; this.ai.modeT = Math.max(this.ai.modeT, 1); }
+            this.wearAcc = (this.wearAcc || 0) + this.maxHp * 0.008 * (this.wearK - 1) * dt;
+            if (this.wearAcc >= 1) {
+              const n = Math.floor(this.wearAcc); this.wearAcc -= n;
+              if (this.loseHp(Math.min(n, this.hp - 1))) this.phaseShift();
+              if (this.hp <= 1 && !(this.phases && this.phaseI < this.phases.length)) { this.hp = 0; this.die(); }
+            }
+          }
+        }
+      }
+    }
+
+    /** Cruza un umbral de fase: 2,1 s sin recibir daño, burbuja, empujón y firma obligatoria; la última, furia. */
+    phaseShift() {
+      if (!this.ai) this.bossInit();
+      this.phaseI++;
+      this.bossPhaseT = 2.1;
+      const last = this.phaseI >= this.phases.length;
+      if (G.BossSig.phase) G.BossSig.phase(this, 2.1);
+      this.ai.sigT = 0; this.ai.cd = 0;
+      if (last && !this.ai.fury) {
+        this.enrage();
+        if (this.legend && G.Spawner.minions) G.Spawner.minions(this.x, this.y, G.U.randInt(3, 4));
+      } else G.Spawner.say('¡' + this.name + ' cambia de fase!', 2.2);
+      G.Camera.kick(0.5);
     }
 
     /** Lo que se VE al recibir un golpe. */
@@ -334,6 +429,7 @@
       if (this.touchCd > 0) this.touchCd -= dt;
       if (this.rd > 0) this.rd *= Math.exp(-dt / RD_TAU);
       this.bob += dt * 6;
+      if (this.boss && !this.remote && !this.judge) this.bossTick(dt);
 
       // --- estados ---
       if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slow = 0; }
@@ -562,14 +658,16 @@
     bossMove(dt, pl, dist, dx, dy, spd) {
       if (!this.ai) this.bossInit();
       const ai = this.ai;
-      if (!ai.fury && this.hp < this.maxHp * 0.5) this.enrage();
+      // (Con fases, bloque 3, se enfurece al entrar en la última: phaseShift.)
+      if (!ai.fury && !this.phases && this.hp < this.maxHp * 0.5) this.enrage();
       const k = ai.fury ? (this.judge ? 1.25 : 1.3) : 1;
       if (ai.sumT > 0) ai.sumT -= dt;
       if (this.sig) G.BossSig.tickBoss(this, dt);
       if (ai.cast) return this.bossCast(dt, pl);
       // Su firma (G.BossSig) cuando le toca, antes que los demás ataques.
       if (G.BossSig.due(this, dt, k, dist)) { G.BossSig.start(this, pl); return [0, 0, 'Idle']; }
-      ai.modeT -= dt; ai.cd -= dt * k / (1 + 0.3 * (this.crowd() - 1));
+      // (En la arena, los legendarios se frenan menos entre ellos: bloque 3.)
+      ai.modeT -= dt; ai.cd -= dt * k / (1 + (this.legend ? 0.2 : 0.3) * (this.crowd() - 1));
       // Alterna siempre: en su distancia favorita está más rato (7-9 s) que en la otra (4-5 s).
       if (ai.modeT <= 0) {
         ai.mode = ai.mode === 'far' ? 'close' : 'far';
@@ -638,7 +736,7 @@
 
     dashHazard(c) {
       this.hazard({ kind: 'beam', x: this.x, y: this.y, angle: c.ang, len: c.len + this.r, w: this.r * 2 + 16,
-                    delay: c.wind + c.dur, dmg: this.dmg * 1.2, type: this.atkType, color: c.col });
+                    delay: c.wind + c.dur, dmg: this.dmg * 1.2, type: this.atkType, color: c.col, pct: this.judge ? 0 : bossPct(0.1) });
     }
 
     bossStart(id, pl, dist = 0) {
@@ -653,7 +751,7 @@
       switch (id) {
         case 'slam':       // pisotón: onda alrededor
           c.wind = 0.85 * f;
-          this.hazard({ kind: 'zone', x: this.x, y: this.y, r: 96 + this.r, delay: c.wind, dmg: this.dmg * 1.3, type, color: col });
+          this.hazard({ kind: 'zone', x: this.x, y: this.y, r: 96 + this.r, delay: c.wind, dmg: this.dmg * 1.3, type, color: col, pct: J ? 0 : bossPct(0.08) });
           this.anim.play('Charge', { speed: 1.2 });
           break;
         case 'dash':       // embestida en línea recta (enfurecido, tres seguidas)
@@ -663,7 +761,7 @@
           break;
         case 'leap':       // salto y caída sobre ti
           this.jump = { sx: this.x, sy: this.y, tx: pl.x, ty: pl.y, t: -0.5 * f, dur: 0.65 };
-          this.hazard({ kind: 'zone', x: pl.x, y: pl.y, r: 82, delay: 0.5 * f + 0.65, dmg: this.dmg * 1.25, type, color: col });
+          this.hazard({ kind: 'zone', x: pl.x, y: pl.y, r: 82, delay: 0.5 * f + 0.65, dmg: this.dmg * 1.25, type, color: col, pct: J ? 0 : bossPct(0.1) });
           this.anim.play('Charge', { speed: 1.4 });
           ai.cast = null; ai.cd = G.U.rand(1.4, 2) + 0.6;
           break;
@@ -1660,11 +1758,19 @@ G.BossSig = (() => {
   function init(e) {
     e.sig = forDex(e.dex, e.types);
     e.sigK = 1;
-    e.ai.sigT = G.U.rand(4.5, 6) + (e.legend ? (e.id % 3) * 2.5 : 0);
+    // (2.0, bloque 3: los legendarios, antes, y uno tras otro.)
+    e.ai.sigT = e.legend ? G.U.rand(2.5, 3.5) + (e.legI != null ? e.legI : e.id % 3) * 1.2 : G.U.rand(4.5, 6);
+  }
+  /** Cambio de fase (Enemy.phaseShift): burbuja y empujón; quien manda, también a los demás. */
+  function phase(e, dur) {
+    const col = G.U.TYPE_COLOR[e.atkType] || '#c9a6ff';
+    emit({ k: 'bubble', id: e.id, dur, col });
+    emit({ k: 'push', x: R(e.x), y: R(e.y), r: 300, rad: 1, f: 380, dur: 0.45, st: 'psy', col });
+    G.FX.ring(e.x, e.y, e.r, e.r * 5, col, 0.6, 5);
   }
   function interval(e) {
     const F = e.ai && e.ai.fury;
-    return (F ? G.U.rand(9.5, 11.5) : G.U.rand(13, 16)) * (1 + 0.45 * (e.crowd() - 1));
+    return (F ? G.U.rand(9.5, 11.5) : G.U.rand(13, 16)) * (1 + (e.legend ? 0.2 : 0.45) * (e.crowd() - 1));
   }
   /** ¿Le toca ya? (lo llama bossMove con su ritmo k). */
   function due(e, dt, k, dist) {
@@ -1718,7 +1824,8 @@ G.BossSig = (() => {
 
   // ---------------- ayudas (quien manda) ----------------
 
-  function hz(e, c, o) { e.hazard(Object.assign({ type: e.atkType, color: c.col }, o)); }
+  // (2.0, bloque 3) Golpe mínimo según tu vida (pct, hazards.js): con muchísima vida, una firma se sigue notando.
+  function hz(e, c, o) { e.hazard(Object.assign({ type: e.atkType, color: c.col }, e.judge || o.pct ? null : { pct: bossPct(e.legend ? SIG_PCT_LEG : SIG_PCT) }, o)); }
   function weather(kind) {
     const cur = G.Weather.current;
     if (cur && cur.kind === kind) return;
@@ -1740,6 +1847,8 @@ G.BossSig = (() => {
   }
   const ang = (e, p) => Math.atan2(p.y - e.y, p.x - e.x);
   const R = Math.round;
+  const SIG_PCT = 0.12, SIG_PCT_LEG = 0.15;
+  const bossPct = p => p * Math.min(1, Math.max(0, ((G.Game && G.Game.st ? G.Game.st.time : 0) - 720) / 480));   // (ver arriba)      // (golpe mínimo de las firmas: % de tu vida; bloque 3)
   /** Lo que te deja un golpe (dormido, congelado, confuso, quemado, con sueño, lanzado): ver zap. */
   function zap(o) { emit(Object.assign({ k: 'zap', dur: (o.delay || 0) + 0.2 }, o)); }
   /** Disparo de jefe desde otro sitio (esquirlas, copias de Gengar...). */
@@ -3260,7 +3369,7 @@ G.BossSig = (() => {
     return out;
   }
 
-  return { init, due, start, cast, tickBoss, update, clear, onNet, drawables, hidden, drawOn, botFields, forDex, flavorOf, SIG, BY_TYPE,
+  return { init, phase, due, start, cast, tickBoss, update, clear, onNet, drawables, hidden, drawOn, botFields, forDex, flavorOf, SIG, BY_TYPE,
            /** Para las pruebas: lo que le pasa a tu Pokémon. */
            get status() { return ps; },
            get fields() { return fields; }, get marks() { return marks; } };

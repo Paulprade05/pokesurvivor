@@ -44,7 +44,9 @@ G.Rift = (() => {
   // Cuántos legendarios según el minuto y los jugadores; vida de cada uno (respecto a
   // uno solo) y segundos de arena según cuántos son.
   const legendsFor = (t, np) => G.U.clamp((t >= 1200 ? 3 : t >= 600 ? 2 : 1) + (np >= 3 ? 1 : 0), 1, 3);
-  const HP_EACH = [1, 1, 0.8, 0.7], TIME_FOR = [ARENA_TIME, ARENA_TIME, 170, 215];
+  // (2.0, bloque 3: con 2 y 3 legendarios la arena duraba lo mismo que con uno, ~40 s; ahora ~30 / 55 / 70 s, ARENA_TTK,
+  //  que es también el objetivo del tope blando de daño compartido.)
+  const HP_EACH = [1, 0.65, 0.95, 0.8], TIME_FOR = [ARENA_TIME, ARENA_TIME, 170, 215], ARENA_TTK = [0, 32, 55, 72];
   // Dónde salen (en baldosas desde el centro; vosotros, 3 al sur).
   const SPOTS = [[], [[0, -3.5]], [[-2.6, -3.6], [2.6, -3.6]], [[-3.4, -2.6], [0, -4.6], [3.4, -2.6]]];
   // Con la llegada (26-10-2026) salen a tus lados, donde se ven en el móvil tumbado (la vista
@@ -58,6 +60,7 @@ G.Rift = (() => {
   // Viaje por el túnel (s), cuándo se llega de verdad a la arena (tapado por el túnel) y lo que tarda el legendario.
   const TRAVEL = 2.0, T_PORT = 0.45, INTRO = 2.0;
   let travel = null;        // { t, cfg, ported, canSkip, mons: [Animator] }
+  let pendingLgi = null;    // 'lgi' llegado antes que startIntro (bloque 3)
   let intro = null;         // { t, list: [{ dex, x, y, st, col, col2, an, sc, seed, at, cue }], done }
   let rift = null;          // { x, y, ttl, t }
   let arena = null;         // { tx, ty, r, dex, dexes, shiny, shinies, time, x, y, back, biome, t, phase, endT, bossIds }
@@ -66,7 +69,7 @@ G.Rift = (() => {
   const authority = () => !G.Coop.active || G.Coop.isHost;
   const TS = () => G.Tiles.T * G.Sprites.PX;
 
-  function reset() { rift = null; arena = null; zone = null; checkT = CHECK; asked = false; downT = 0; misses = 0; travel = null; intro = null; }
+  function reset() { rift = null; arena = null; zone = null; checkT = CHECK; asked = false; downT = 0; misses = 0; travel = null; intro = null; pendingLgi = null; }
 
   /**
    * ¿Sigue este jugador en la arena aunque aquí ya se haya vuelto al mapa?
@@ -297,7 +300,9 @@ G.Rift = (() => {
 
   /** Al llegar: dónde sale cada legendario y su animación (quien manda, también 'lgi' a los demás). */
   function startIntro() {
-    const ts = TS(), k = arena.dexes.length, spots = SPOTS_IN[k] || SPOTS_IN[1], placed = [];
+    const ts = TS(), k = arena.dexes.length, placed = [];
+    // (2.0, bloque 3) Quien manda los pone al azar (pickSpots); los demás, en SPOTS_IN hasta que llegue 'lgi'.
+    const spots = (authority() && pickSpots(k)) || SPOTS_IN[k] || SPOTS_IN[1];
     const list = arena.dexes.map((dex, i) => {
       const [sx, sy] = spots[i] || [0, -3.5], sc = G.Enemy.bossScaleOf ? G.Enemy.bossScaleOf(dex) : 1.5;
       const o = { x: arena.x + sx * ts, y: arena.y + sy * ts, r: G.Sprites.bodyRadius(dex, sc) };
@@ -311,6 +316,8 @@ G.Rift = (() => {
       return { dex, x: o.x, y: o.y, st, acc, col, col2: st === 'erupt' ? '#ffd25e' : col2 === col ? '#ffffff' : col2, an, sc, seed: dex * 7 + i, at: i * 0.25, cue: false };
     });
     intro = { t: 0, list };
+    // (Un 'lgi' que llegó antes que esto: se aplica ahora; antes se perdía.)
+    if (pendingLgi) { introAt(pendingLgi); pendingLgi = null; }
     arena.phase = 'intro';
     if (authority() && G.Coop.isHost) G.Coop.broadcast(['lgi', list.map(l => [l.dex, Math.round(l.x), Math.round(l.y)])]);
     G.Audio.sfx('rift');
@@ -330,9 +337,33 @@ G.Rift = (() => {
     place(o, others);
   }
 
+  /*
+   * (2.0, bloque 3) Sitios al azar para k legendarios (en baldosas desde vuestro punto de llegada): 12 ángulos y radios de
+   * 4,5, 5,5 y 6,5; dentro de la arena (ARENA_R − 2), libres, lejos de vosotros y entre sí (2,5 baldosas) y dentro de la
+   * franja que se ve en el móvil tumbado y en Ultra (3,5 hacia arriba, 4 hacia abajo). null si no caben todos.
+   */
+  function pickSpots(k, rnd = Math.random) {
+    const ts = TS(), py = PLAYERS_IN, ps = G.Game.everyone(), cand = [];
+    for (let j = 0; j < 12; j++) for (const d of [4.5, 5.5, 6.5]) {
+      const a = (j + rnd() * 0.6 - 0.3) / 12 * 6.2832, sx = Math.cos(a) * d, sy = py + Math.sin(a) * d;
+      if (Math.hypot(sx, sy) > ARENA_R - 2 || sy - py < -3.5 || sy - py > 4) continue;
+      const x = arena.x + sx * ts, y = arena.y + sy * ts;
+      if (!G.World.isFree(x, y, 26) || !ps.every(p => G.U.dist2(x, y, p.x, p.y) > (26 + 110) ** 2)) continue;
+      cand.push([sx, sy]);
+    }
+    for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+    const out = [];
+    for (const c of cand) {
+      if (out.every(o => Math.hypot(o[0] - c[0], o[1] - c[1]) > 2.5)) out.push(c);
+      if (out.length === k) return out;
+    }
+    return null;
+  }
+
   /** Invitado: dónde salen de verdad (lo dice el anfitrión). */
   function introAt(a) {
-    if (!intro || !Array.isArray(a)) return;
+    if (!Array.isArray(a)) return;
+    if (!intro) { pendingLgi = a; return; }
     for (const p of a) {
       if (!Array.isArray(p)) continue;
       const l = intro.list.find(q => q.dex === p[0]);
@@ -457,7 +488,10 @@ G.Rift = (() => {
                                                     G.Enemies.bossHp((4000 + t * 22) * soft, G.Game.st.time, 'leg'))
                                          : (3200 + t * 9) * soft * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1)) * HP_EACH[k]),
         spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
-        dmg: Math.round((36 + t / 20) * soft), xp: Math.round(500 + t * 1.2),
+        // (Bloque 3: de 36 + t/20 a 40 + t/10 entre los minutos 10 y 20; antes del 10, como siempre: medido, las grietas
+        //  de los minutos 5-8 tumbaban.)
+        dmg: Math.round((36 + t / 20 + Math.min(1, Math.max(0, (G.Game.st.time - 600) / 600)) * (4 + t / 20)) * soft),
+        xp: Math.round(500 + t * 1.2),
         behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',
         shotDmg: Math.round((18 + t / 40) * soft), shotCd: 0.9, range: 300
       };
@@ -472,12 +506,19 @@ G.Rift = (() => {
       const p = at && at.find(l => l.dex === dex);
       if (p) { e.x = p.x; e.y = p.y; } else place(e, placed);
       if ((arena.shinies || [arena.shiny])[i]) e.makeShiny();
-      // Que no ataquen todos a la vez nada más empezar.
+      // Que no ataquen todos a la vez nada más empezar (y la firma, uno tras otro: legI).
+      e.legI = i;
       e.bossInit(); e.ai.cd = 1.6 + i * 1.1;
       G.EnemyMgr.add(e);
       arena.bossIds.push(e.id);
       placed.push(e);
     });
+    // (2.0, bloque 3) Fases al 66 % y al 33 % y un tope blando de daño compartido por toda la arena.
+    if (placed[0] && placed[0].armBoss) {
+      const sum = placed.reduce((a, e) => a + e.maxHp, 0), T = ARENA_TTK[k] || ARENA_TTK[1];
+      const cap = { rate: sum / (0.6 * T), max: sum * 0.1, pool: sum * 0.1, by: null };
+      for (const e of placed) e.armBoss({ phases: [0.66, 0.33], ttk: T, cap });
+    }
     const nm = e => e.name + (e.shiny ? ' shiny' : '');
     if (placed.length === 3) G.Spawner.say('¡' + nm(placed[0]) + ', ' + nm(placed[1]) + ' y ' + nm(placed[2]) + ' te esperaban en la grieta!', 3.6);
     else if (placed.length === 2) G.Spawner.say('¡' + nm(placed[0]) + ' y ' + nm(placed[1]) + ' te esperaban en la grieta!', 3.4);
@@ -645,6 +686,8 @@ G.Rift = (() => {
     travelTick, skipTravel, drawTravel, get traveling() { return !!travel; },
     /** Cómo llega cada legendario (para las pruebas y docs/JEFES.md). */
     APPEAR, appearOf,
+    /** (Bloque 3, para las pruebas) sitios al azar de k legendarios y el 'lgi' de un invitado. */
+    pickSpots, introAt, SPOTS_IN, ARENA_R, PLAYERS_IN, get pendingLgi() { return pendingLgi; },
     /** Para las pruebas y las capturas: segundos de viaje y de llegada (-1 si no hay). */
     get travelT() { return travel ? travel.t : -1; }, get introT() { return intro && !intro.done ? intro.t : -1; },
     get rift() { return rift; }, get arena() { return arena; },

@@ -426,6 +426,7 @@ G.I18n.add({
   "¡{x} shiny te esperaba en la grieta!": "{x} shiny t'attendait dans la faille\u00a0!",
   "¡{x} te esperaba en la grieta!": "{x} t'attendait dans la faille\u00a0!",
   "¡Has vencido a {x}! Recoge el premio…": "Tu as vaincu {x}\u00a0! Récupère ta récompense…",
+  "¡{x} cambia de fase!": "{x} change de phase !", "Algo se acerca…": "Quelque chose approche…",
   "¡{x} se ha enfurecido!": "{x} est furieux\u00a0!",
   "¡Vínculo! {x} movimientos a la vez": "Lien\u00a0! {x} capacités à la fois",
   "¡Vínculo!": "Lien\u00a0!",

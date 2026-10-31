@@ -6,6 +6,21 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-31', title: ["Versión 2.0 (3): jefes y legendarios con fases", "Version 2.0 (3): bosses and legendaries with phases"], new: [
+    ["Jefes y legendarios con fases: los legendarios cambian de fase al 66 % y al 33 % de vida, y los jefes del mapa al 50 % (desde el minuto 12, al 66 % y al 33 %). Al cambiar se protegen 2 segundos en una burbuja, te empujan y usan su ataque firma; en la última fase se enfurecen (y los legendarios llaman a sus esbirros). Por mucho daño que hagas, siempre llegan a usar sus firmas.",
+     "Bosses and legendaries now have phases: legendaries change phase at 66% and 33% HP, and map bosses at 50% (from minute 12 on, at 66% and 33%). When they change, they shield themselves in a bubble for 2 seconds, push you back and use their signature move; in the last phase they get enraged (and legendaries call their minions). No matter how much damage you deal, they always get to use their signatures."],
+    ["Los jefes ya no se tumban de un golpe: si les haces muchísimo daño de golpe, lo que pase de lo normal cuenta mucho menos (números en gris). Y si una pelea contra un jefe del mapa se alarga demasiado, se va agotando y cada vez recibe más daño: ya no hay peleas de varios minutos.",
+     "Bosses can no longer be melted in one burst: if you deal a huge amount of damage at once, whatever goes past the usual counts for much less (grey numbers). And if a fight against a map boss drags on too long, it wears out and takes more and more damage: no more fights lasting several minutes."],
+    ["Los jefes del mapa ya no salen siempre por el borde de la pantalla: a veces aparecen junto a un altar o un manantial, y los de Agua salen del agua y los de Tierra, Roca y Acero, del suelo, a la vista (antes avisan: «Algo se acerca…»). En las grietas, los legendarios aparecen cada vez en un sitio distinto.",
+     "Map bosses no longer always come in from the edge of the screen: sometimes they show up next to an altar or a spring, and Water bosses rise from the water while Ground, Rock and Steel ones burst out of the ground in plain sight (with a warning first: “Something is coming…”). In rifts, legendaries appear in a different spot each time."]],
+  chg: [
+    ["Legendarios más peligrosos: usan su firma antes (a los ~3 s), desde el minuto 10 pegan más fuerte y, cuando hay varios, se estorban menos entre ellos. Con 2 o 3 legendarios la grieta dura más que con uno (antes duraba lo mismo).",
+     "Legendaries are more dangerous: they use their signature sooner (after ~3 s), hit harder from minute 10 on and, when there are several, get in each other's way less. With 2 or 3 legendaries the rift lasts longer than with one (it used to last the same)."],
+    ["Desde el minuto 12, los golpes fuertes de los jefes (pisotón, embestida, salto y firmas) quitan siempre como mínimo un poco de tu vida máxima (hasta un 8-15 % en el minuto 20), aunque tengas muchísima.",
+     "From minute 12 on, bosses' big hits (stomp, charge, leap and signatures) always take at least a small share of your max HP (up to 8-15% by minute 20), even if you have tons of it."]],
+  fix: [
+    ["Cooperativo: si el anfitrión decía dónde salían los legendarios antes de que llegaras a la arena, lo veías en otro sitio.",
+     "Co-op: if the host announced where the legendaries appear before you reached the arena, you saw them in the wrong place."]] },
   { d: '2026-10-31', title: ["Versión 2.0 (2): enemigos que se adaptan a tu fuerza", "Version 2.0 (2): enemies that adapt to your strength"], new: [
     ["Tu nivel también cuenta: por cada nivel que vayas por encima de lo normal en ese minuto, los enemigos (también jefes y legendarios) tienen un 3 % más de vida y pegan un 2 % más.",
      "Your level matters too: for every level you are above the usual for that minute, enemies (bosses and legendaries included) get 3% more HP and hit 2% harder."],

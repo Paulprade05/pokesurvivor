@@ -485,6 +485,9 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-31', ('Versión 2.0 (3): jefes y legendarios con fases', 'Version 2.0 (3): bosses and legendaries with phases'),
+  ('Jefes y legendarios cambian de fase (burbuja, empujón y su ataque firma) y se enfurecen en la última, así que siempre llegan a usar sus firmas. Ya no se tumban de una ráfaga ni hay peleas eternas: si se alarga, el jefe se agota. Los jefes del mapa salen en sitios nuevos (del agua, del suelo, junto a un altar) y los legendarios, cada vez en un sitio distinto.',
+   'Bosses and legendaries change phase (bubble, push and their signature move) and get enraged in the last one, so they always get to use their signatures. No more one-burst kills or endless fights: if it drags on, the boss wears out. Map bosses show up in new places (from water, from the ground, next to an altar) and legendaries in a different spot each time.')),
  ('2026-10-31', ('Versión 2.0 (2): enemigos que se adaptan a tu fuerza', 'Version 2.0 (2): enemies that adapt to your strength'),
   ('Si tumbas a los enemigos muy rápido, los siguientes salen con más vida y defensa, y si vas sobrado de vida pegan algo más; si vas apurado, aflojan. Tu nivel también los hace más fuertes, los ataques evolucionados y las fusiones pegan menos, los legendarios aguantan mucho más y el ranking empieza de cero en la 2.0.',
    'If you take enemies down very fast, the next ones come with more HP and defense, and if you have plenty of HP they hit a bit harder; if you’re struggling, they ease off. Your level also makes them stronger, evolved moves and fusions hit less hard, legendaries last much longer and the leaderboard starts from zero in 2.0.')),

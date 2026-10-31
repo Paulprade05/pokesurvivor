@@ -297,6 +297,8 @@ G.Enemies = (() => {
     const want = dps * 0.65 * tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t);
     return Math.max(floor, Math.min(floor * 6, floor * Math.pow(want / floor, 0.75))) * lv;
   }
+  /** Segundos que debería durar la pelea (tope blando de daño y desgaste del bloque 3). */
+  function bossTtk(t, kind = 'boss') { return tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t); }
   /**
    * Jefes del mapa (31-10-2026): con los ataques recortados duraban 3-4 min (medido). Su vida de siempre pasa a
    * ser un TECHO: se baja hasta lo que tardarías ~BOSS_TTK s con tu DPS (y tu nivel), como mucho al 35 %.
@@ -305,7 +307,9 @@ G.Enemies = (() => {
     const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
     if (!(dps > 0)) return cur;
     const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
-    return Math.max(cur * 0.35, Math.min(cur, dps * 0.65 * tab(BOSS_TTK, t) * lv));
+    // (Bloque 3: 0,4 y 30 %, antes 0,65 y 35 %: medido, contra un jefe que se mueve sólo se le hace una parte del
+    //  DPS a un objetivo y las peleas del minuto 15 en adelante seguían en ~95 s.)
+    return Math.max(cur * 0.3, Math.min(cur, dps * 0.4 * tab(BOSS_TTK, t) * lv));
   }
 
   /**
@@ -412,7 +416,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, bossTtk, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

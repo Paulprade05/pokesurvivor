@@ -1115,6 +1115,7 @@ G.I18n.add({
   "Sigue la flecha morada: dentro te espera un legendario": "Siga a seta roxa: lá dentro um lendário te espera",
   "GRIETA · {x} m · {x} s": "FENDA · {x} m · {x} s",
   "GRIETA · {x} s": "FENDA · {x} s",
+  "¡{x} cambia de fase!": "{x} mudou de fase!", "Algo se acerca…": "Algo se aproxima…",
   "¡{x} se ha enfurecido!": "{x} ficou furioso!",
   "Pulsa para empezar": "Toque para começar",
   "Sobrevive a las hordas con tu compañero Pokémon": "Sobreviva às hordas com seu parceiro Pokémon",

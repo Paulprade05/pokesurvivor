@@ -510,6 +510,7 @@ G.I18n.add({
   '¡SE HA ABIERTO UNA GRIETA!': 'SI È APERTA UNA FENDITURA!',
   'Sigue la flecha morada: dentro te espera un legendario': 'Segui la freccia viola: all\'interno ti aspetta un leggendario',
   'GRIETA · {x} m · {x} s': 'FENDITURA · {x} m · {x} s', 'GRIETA · {x} s': 'FENDITURA · {x} s',
+  '¡{x} cambia de fase!': '{x} cambia fase!', 'Algo se acerca…': 'Qualcosa si avvicina…',
   '¡{x} se ha enfurecido!': '{x} si è infuriato!', 'Pulsa para empezar': 'Premi per iniziare',
   'Sobrevive a las hordas con tu compañero Pokémon': 'Sopravvivi alle orde con il tuo Pokémon compagno', 'Huesomerang': 'Ossomerang',
   'Psicocorte': 'Psicottaglio', 'Púas': 'Punte', 'Púas Tóxicas': 'Fielepunte', 'Granizo': 'Grandine', 'Puño Meteoro': 'Meteorpugno',

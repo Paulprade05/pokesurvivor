@@ -422,3 +422,131 @@ test('rift: an "arena" from a previous host (no intro) goes straight in as befor
   solo.G.Rift.onEvent(['arena', { tx: 5000, ty: 5000, r: 11, dex: 383, shiny: false, type: 'ground', dexes: [383], shinies: [false], time: 120 }]);
   assert.equal(solo.log.spawned.length, 1);
 });
+
+// ---------------- 2.0, bloque 3: fases, tope blando de daño, vida por DPS y sitios al azar ----------------
+
+function realBoss(hp = 10000) {
+  const w = world();
+  w.G.Judgment = { noteDmg(d) { (w.log.noted = w.log.noted || []).push(d); } }; w.G.Coop.hurtShown = () => {};
+  w.G.Sprites.animMeta = () => ({ ay: 30 });
+  w.G.Stats = { sideOf: () => 'special' };
+  w.G.Sprites.hovers = () => false;
+  loadEnemy(w.G);
+  const e = new w.G.Enemy({ dex: 383, hp, spd: 50, dmg: 10, xp: 1, behavior: 'chase' }, 0, 0, { hp: 1, spd: 1, dmg: 1 }, true);
+  e.showHurt = () => {};
+  e.ai = { cd: 3, sigT: 6, fury: false, ranged: [], extra: null };
+  w.G.EnemyMgr.add(e);
+  return { w, e };
+}
+
+test('soft DPS cap: with the pool full, a 5,000 hit on a 10,000 HP boss takes 1,000 + 0.15·4,000 = 1,600', () => {
+  const { w, e } = realBoss();
+  e.armBoss({ phases: null, ttk: 30 });
+  e.hurt(5000);
+  assert.equal(e.hp, 8400);
+  assert.equal(w.log.noted.at(-1), 5000, 'el medidor de DPS recibe el golpe en bruto');
+  // Vacío: todo cuenta ×0,15; y se rellena a maxHp / (0,6·ttk) por segundo, hasta el 10 %.
+  e.hurt(1000); assert.equal(e.hp, 8250);
+  e.bossTick(1); assert.ok(Math.abs(e.dmgCap.pool - 10000 / 18) < 1);
+  e.bossTick(60); assert.equal(e.dmgCap.pool, 1000);
+  // Sin armBoss (el resto de enemigos y los jefes de antes), sin tope.
+  const b = realBoss().e; b.hurt(5000); assert.equal(b.hp, 5000);
+});
+
+test('phases: a huge hit stops at 66 %, starts the transition (no damage) and forces the signature; the last one enrages', () => {
+  const { w, e } = realBoss();
+  e.armBoss({ phases: [0.66, 0.33], ttk: 30 });
+  e.dmgCap.pool = e.dmgCap.max = 1e9;
+  e.hurt(9000);
+  assert.equal(e.hp, 6600);
+  assert.ok(e.bossPhaseT > 2 && e.ai.sigT === 0 && e.ai.cd === 0);
+  assert.ok(w.log.say.some(s => /cambia de fase/.test(s)));
+  e.hurt(9000); assert.equal(e.hp, 6600, 'en la transición no se le puede dar');
+  e.bossTick(2.2);
+  e.ai.sigT = 5;
+  e.hurt(9000); assert.equal(e.hp, 3300);
+  assert.ok(e.ai.fury, 'la última fase es la furia');
+  e.bossTick(2.2);
+  e.die = () => { e.dead = true; };
+  e.hurt(9000); assert.ok(e.dead);
+});
+
+test('wear: a map boss fight that drags on makes it take more and more damage (never a legendary)', () => {
+  const { e } = realBoss(1e6);
+  e.armBoss({ phases: [0.5], ttk: 30, wear: true });
+  e.dmgCap = null; e.die = () => { e.dead = true; };
+  e.hurt(100); assert.equal(e.hp, 1e6 - 100);
+  for (let i = 0; i < 22; i++) e.bossTick(1);
+  assert.equal(e.wearK, 1, 'hasta 3/4 de su tiempo objetivo, nada');
+  assert.equal(e.hp, 1e6 - 100);
+  for (let i = 0; i < 30; i++) e.bossTick(1);
+  assert.ok(e.wearK > 2 && e.wearK <= 4);
+  assert.ok(e.hp < 1e6 - 100, 'se agota solo');
+  assert.equal(e.ai.mode, 'close', 'y ya no se aleja');
+  let t = 0;
+  while (!e.dead && t < 200) { e.bossTick(0.5); t += 0.5; }
+  assert.ok(e.dead && e.phaseI === 1 && e.ai.fury, 'pasa por sus fases y acaba cayendo: ' + t);
+  assert.equal(e.wearK, 4);
+  const l = realBoss(1e6).e; l.armBoss({ phases: null, ttk: 30 }); l.hurt(1); for (let i = 0; i < 300; i++) l.bossTick(1);
+  assert.equal(l.wearK, 1);
+});
+
+test('HP by DPS: between the floor and 6× the floor, more DPS → more HP, and the level counts', () => {
+  const G = { Judgment: { longDps: () => 0 } };
+  vm.runInContext(source('js/data/enemies.js'), vm.createContext({ G, Math, console }));
+  const E = G.Enemies;
+  assert.equal(E.bossHp(5000, 600), 5000);
+  let last = 0;
+  for (const dps of [100, 1000, 5000, 20000, 1e6]) {
+    G.Judgment.longDps = () => dps;
+    const hp = E.bossHp(5000, 600);
+    assert.ok(hp >= 5000 && hp <= 30000 && hp >= last, dps + ' → ' + hp);
+    last = hp;
+  }
+  G.Director = { lvHp: () => 1.5 };
+  assert.equal(E.bossHp(5000, 600), 45000);
+  assert.ok(E.bossTtk(1500) > E.bossTtk(300) && E.bossTtk(600, 'leg') === 28);
+});
+
+test('rift: pickSpots, with 200 seeds, puts every legendary inside, free, away from you and apart, in ≥6 different places', () => {
+  const w = loadRift();
+  const R = w.G.Rift;
+  R.debugArena('ground', 3, 383);
+  for (let i = 0; i < 30; i++) R.travelTick(1 / 30);
+  const a = R.arena, ts = 32;
+  w.G.World.isFree = (x, y) => !(Math.abs(x - a.x - 5 * ts) < 40 && Math.abs(y - a.y) < 60);     // una columna a la derecha
+  const seen = new Set();
+  for (let s = 1; s <= 200; s++) {
+    let seed = s * 7919;
+    const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+    for (const k of [1, 2, 3]) {
+      const sp = R.pickSpots(k, rnd);
+      assert.ok(sp && sp.length === k);
+      for (const [sx, sy] of sp) {
+        const x = a.x + sx * ts, y = a.y + sy * ts;
+        assert.ok(Math.hypot(sx, sy) <= R.ARENA_R - 2);
+        assert.ok(w.G.World.isFree(x, y));
+        assert.ok(Math.hypot(x - w.me.x, y - w.me.y) > 110);
+        assert.ok(sy - R.PLAYERS_IN >= -3.5 && sy - R.PLAYERS_IN <= 4, 'se ve en el móvil tumbado');
+        seen.add(Math.round(sx * 2) + ',' + Math.round(sy * 2));
+      }
+      for (let i = 0; i < k; i++) for (let j = i + 1; j < k; j++) assert.ok(Math.hypot(sp[i][0] - sp[j][0], sp[i][1] - sp[j][1]) > 2.5);
+    }
+  }
+  assert.ok(seen.size >= 6, seen.size + ' sitios');
+});
+
+test('rift: an "lgi" that arrives before the guest reaches the arena is still applied', () => {
+  const host = loadRift({ host: true, uid: 'host' });
+  host.G.Rift.debugArena('water', 2, 382);
+  host.G.Rift.travelTick(0.5);
+  host.G.Rift.skipTravel();
+  const cfg = host.log.sent[0][1], lgi = host.log.sent.find(e => e[0] === 'lgi')[1];
+  const guest = loadRift({ uid: 'guest' });
+  guest.G.Coop.active = true; guest.G.Coop.isHost = false;
+  guest.G.Rift.onEvent(['arena', cfg]);
+  guest.G.Rift.onEvent(['lgi', lgi]);                 // antes que el 'rk'
+  assert.ok(guest.G.Rift.pendingLgi);
+  guest.G.Rift.onEvent(['rk']);
+  assert.equal(guest.G.Rift.pendingLgi, null, 'aplicado al llegar (startIntro)');
+});

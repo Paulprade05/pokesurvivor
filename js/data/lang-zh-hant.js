@@ -840,6 +840,7 @@ G.I18n.add({
   "Sigue la flecha morada: dentro te espera un legendario": "跟隨紫色箭頭，傳說寶可夢正在裡面等你",
   "GRIETA · {x} m · {x} s": "裂縫 · {x} 公尺 · {x} 秒",
   "GRIETA · {x} s": "裂縫 · {x} 秒",
+  "¡{x} cambia de fase!": "{x} 進入了新階段！", "Algo se acerca…": "有什麼東西正在靠近……",
   "¡{x} se ha enfurecido!": "{x} 發怒了！",
   "Pulsa para empezar": "點擊開始",
   "Sobrevive a las hordas con tu compañero Pokémon": "與夥伴寶可夢一起對抗大群敵人",

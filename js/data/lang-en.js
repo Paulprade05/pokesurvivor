@@ -654,6 +654,7 @@ G.I18n.add({
   // ---------------- 2026-10-10: grietas, jefes, pantalla de inicio, movimientos nuevos ----------------
   '¡SE HA ABIERTO UNA GRIETA!': 'A RIFT HAS OPENED!', 'Sigue la flecha morada: dentro te espera un legendario': 'Follow the purple arrow: a legendary awaits inside',
   'GRIETA · {x} m · {x} s': 'RIFT · {x} m · {x} s', 'GRIETA · {x} s': 'RIFT · {x} s',
+  '¡{x} cambia de fase!': '{x} is changing phase!', 'Algo se acerca…': 'Something is coming…',
   '¡{x} se ha enfurecido!': '{x} is enraged!',
   'Pulsa para empezar': 'Press to start',
   'Sobrevive a las hordas con tu compañero Pokémon': 'Survive the hordes with your Pokémon partner',
