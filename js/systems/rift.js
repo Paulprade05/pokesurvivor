@@ -40,6 +40,9 @@ G.Rift = (() => {
   const CHECK = 30, CHANCE = 0.2, TTL = 45;
   // (29-10-2026: desde el minuto 4, no desde el 1:15: medido con tools/curve.cjs, una grieta en el minuto 2 con el nivel 10
   //  sólo quitaba 2 minutos de experiencia y ahí se caía.)
+  // (2.0, casillas de 48) ARENA_R, SPOTS, SPOTS_IN y PLAYERS_IN van en baldosas de U = 32 unidades de mundo (las casillas
+  //  de antes): así las distancias no cambian. La arena se manda en casillas de verdad (cfg.r = ARENA_R·U/TS, ~7,3).
+  const U = 32;
   const ARENA_R = 11, ARENA_TIME = 120, FROM = 240;
   // Cuántos legendarios según el minuto y los jugadores; vida de cada uno (respecto a
   // uno solo) y segundos de arena según cuántos son.
@@ -67,7 +70,7 @@ G.Rift = (() => {
   let zone = null;          // dónde estaba la última arena { x, y, r } (ver leftBehind)
   let checkT = CHECK, asked = false, downT = 0, misses = 0;
   const authority = () => !G.Coop.active || G.Coop.isHost;
-  const TS = () => G.Tiles.T * G.Sprites.PX;
+  const TS = () => G.World.TS;
 
   function reset() { rift = null; arena = null; zone = null; checkT = CHECK; asked = false; downT = 0; misses = 0; travel = null; intro = null; pendingLgi = null; }
 
@@ -169,7 +172,7 @@ G.Rift = (() => {
     }
     const shinies = mons.map(p => G.Sprites.hasShiny(p.dex) && Math.random() < 1 / 512);
     const cfg = {
-      tx: 5000 + Math.floor(Math.random() * 3000), ty: 5000 + Math.floor(Math.random() * 3000), r: ARENA_R,
+      tx: 5000 + Math.floor(Math.random() * 3000), ty: 5000 + Math.floor(Math.random() * 3000), r: ARENA_R * U / TS(),
       // (dex y shiny: el primero, para los invitados de antes del 23-10-2026.)
       dex: mon.dex, shiny: shinies[0], type,
       dexes: mons.map(p => p.dex), shinies, time: TIME_FOR[mons.length],
@@ -234,7 +237,7 @@ G.Rift = (() => {
       x: cfg.tx * ts + ts / 2, y: cfg.ty * ts + ts / 2, dexes: dexes.length ? dexes : [cfg.dex], time,
       back: { x: pl.x, y: pl.y }, biome: G.World.biome, t: 0, phase: 'fight', endT: 0, bossIds: []
     });
-    zone = { x: arena.x, y: arena.y, r: (cfg.r + 10) * ts };
+    zone = { x: arena.x, y: arena.y, r: cfg.r * ts + 10 * U };
     rift = null; asked = false; downT = 0;
     if (authority()) G.EnemyMgr.stash(); else G.EnemyMgr.clearRemote();
     G.Projectiles.clear();
@@ -251,7 +254,7 @@ G.Rift = (() => {
     // invitado vuelve a donde estaba él, no adonde el anfitrión (ver clearExit).
     if (authority()) arena.backs = ps.map(p => ({ x: p.x, y: p.y }));
     const py = cfg.intro > 0 ? PLAYERS_IN : 3;
-    ps.forEach((p, i) => { p.x = arena.x + (i - (ps.length - 1) / 2) * 34; p.y = arena.y + ts * py; });
+    ps.forEach((p, i) => { p.x = arena.x + (i - (ps.length - 1) / 2) * 34; p.y = arena.y + U * py; });
     G.Camera.x = pl.x; G.Camera.y = pl.y;
     if (!quiet) { G.Game.flash('#c9a6ff', 0.9); G.Audio.sfx('rift'); }
     G.Spawner.say('Has entrado en la grieta…', 2.4, true);
@@ -300,7 +303,7 @@ G.Rift = (() => {
 
   /** Al llegar: dónde sale cada legendario y su animación (quien manda, también 'lgi' a los demás). */
   function startIntro() {
-    const ts = TS(), k = arena.dexes.length, placed = [];
+    const ts = U, k = arena.dexes.length, placed = [];
     // (2.0, bloque 3) Quien manda los pone al azar (pickSpots); los demás, en SPOTS_IN hasta que llegue 'lgi'.
     const spots = (authority() && pickSpots(k)) || SPOTS_IN[k] || SPOTS_IN[1];
     const list = arena.dexes.map((dex, i) => {
@@ -343,7 +346,7 @@ G.Rift = (() => {
    * franja que se ve en el móvil tumbado y en Ultra (3,5 hacia arriba, 4 hacia abajo). null si no caben todos.
    */
   function pickSpots(k, rnd = Math.random) {
-    const ts = TS(), py = PLAYERS_IN, ps = G.Game.everyone(), cand = [];
+    const ts = U, py = PLAYERS_IN, ps = G.Game.everyone(), cand = [];
     for (let j = 0; j < 12; j++) for (const d of [4.5, 5.5, 6.5]) {
       const a = (j + rnd() * 0.6 - 0.3) / 12 * 6.2832, sx = Math.cos(a) * d, sy = py + Math.sin(a) * d;
       if (Math.hypot(sx, sy) > ARENA_R - 2 || sy - py < -3.5 || sy - py > 4) continue;
@@ -475,7 +478,7 @@ G.Rift = (() => {
     //  de daño (y llega a lo normal en el 10). Medido: un Delibird sin mejoras caía diez veces en una grieta del minuto 3.
     const soft = 0.55 + 0.45 * Math.min(1, Math.max(0, (G.Game.st.time - 180) / 420));
     const n = G.Game.everyone().length;
-    const ts = TS();
+    const ts = U;
     const k = arena.dexes.length, spots = SPOTS[k] || SPOTS[1];
     const placed = [];
     arena.dexes.forEach((dex, i) => {
@@ -538,12 +541,12 @@ G.Rift = (() => {
       }
     }
     // (Si no hay sitio, al pasillo del centro, que siempre está libre.)
-    e.x = arena.x; e.y = arena.y - TS() * (2 + others.length * 1.6);
+    e.x = arena.x; e.y = arena.y - U * (2 + others.length * 1.6);
   }
 
   /** Nadie sale del círculo de la arena (por si algo empuja demasiado). */
   function keepInside() {
-    const ts = TS(), max = (arena.r - 1.4) * ts;
+    const max = arena.r * TS() - 1.4 * U;
     for (const e of G.EnemyMgr.all()) {
       if (e.remote) continue;
       const dx = e.x - arena.x, dy = e.y - arena.y, d = Math.hypot(dx, dy);

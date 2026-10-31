@@ -841,6 +841,7 @@ G.I18n.add({
   "GRIETA · {x} m · {x} s": "裂縫 · {x} 公尺 · {x} 秒",
   "GRIETA · {x} s": "裂縫 · {x} 秒",
   "¡{x} cambia de fase!": "{x} 進入了新階段！", "Algo se acerca…": "有什麼東西正在靠近……",
+  "{name} tiene otra versión del juego: que recargue la página para jugar juntos.": "{name} 的遊戲版本不同：請對方重新整理頁面後再一起玩。", "El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.": "房主的遊戲版本不同：請你們都重新整理頁面後再一起玩。",
   "¡{x} se ha enfurecido!": "{x} 發怒了！",
   "Pulsa para empezar": "點擊開始",
   "Sobrevive a las hordas con tu compañero Pokémon": "與夥伴寶可夢一起對抗大群敵人",

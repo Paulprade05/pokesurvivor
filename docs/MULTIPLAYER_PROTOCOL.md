@@ -136,6 +136,18 @@ clients ignore it; a guest that never sends it is not counted as "not ready".
 The `start` message is accepted only from the room's host (`from === room.host
 === cfg.host`) by a member listed in `cfg.members`, also from the results screen.
 
+# World version `wv` (2.0, 2026-10-31)
+
+The world tile grows from 32 to 48 units (`G.World.TS`), so terrain, broken props
+(`pb [tx,ty]`) and arena configs (`{tx,ty,r}`, now in 48-unit tiles) no longer match the
+previous version. `G.World.WV = 2` (the previous version, without the field, counts as 1):
+- guests send it with readiness: `{k:'rdy', on:0|1, wv}`;
+- the host will not start while any guest has another `wv` or has not sent one (older
+  clients), and tells who should reload the page;
+- `start` carries `wv`; a guest that receives a `start` without it or with another one
+  does not start, leaves the room and is told to reload.
+No `--forzar` publish: players already in a run with the old version keep playing together.
+
 # Player view size (2026-10-22)
 
 The player state array (`myState`, sent by every player 15 times per second)

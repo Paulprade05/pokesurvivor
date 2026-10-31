@@ -1116,6 +1116,7 @@ G.I18n.add({
   "GRIETA · {x} m · {x} s": "FENDA · {x} m · {x} s",
   "GRIETA · {x} s": "FENDA · {x} s",
   "¡{x} cambia de fase!": "{x} mudou de fase!", "Algo se acerca…": "Algo se aproxima…",
+  "{name} tiene otra versión del juego: que recargue la página para jugar juntos.": "{name} tem outra versão do jogo: precisa recarregar a página para jogarem juntos.", "El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.": "O anfitrião tem outra versão do jogo: recarreguem a página para jogarem juntos.",
   "¡{x} se ha enfurecido!": "{x} ficou furioso!",
   "Pulsa para empezar": "Toque para começar",
   "Sobrevive a las hordas con tu compañero Pokémon": "Sobreviva às hordas com seu parceiro Pokémon",

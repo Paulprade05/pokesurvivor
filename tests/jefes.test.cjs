@@ -33,7 +33,7 @@ function world(opts = {}) {
   G.Camera = { kick() {}, sees: () => true, x: 0, y: 0, left: () => -400, top: () => -200, w: 800, h: 400, scale: 2 };
   G.FX = { ring() {}, burst() {}, px() {}, dmgText() {} };
   G.Audio = { sfx() {} };
-  G.World = { isFree: () => true, collide() {}, setArena() {}, setBiome() {}, biome: 0 };
+  G.World = { TS: 48, WV: 2, isFree: () => true, collide() {}, setArena() {}, setBiome() {}, biome: 0 };
   G.Sprites = { PX: 2, hasShiny: () => false, dirFromAngle: () => 0, preload() {}, bodyRadius: () => 20, bodyHeight: () => 60, drawShadow() {},
                 Animator: class { constructor(d) { this.dex = d; this.dir = 0; } loop() {} update() {} play() {} draw() {} } };
   G.DEX = [{ dex: 383, name: 'Groudon', types: ['ground'], leg: true, spd: 100 }, { dex: 382, name: 'Kyogre', types: ['water'], leg: true, spd: 100 },
@@ -513,7 +513,7 @@ test('rift: pickSpots, with 200 seeds, puts every legendary inside, free, away f
   const R = w.G.Rift;
   R.debugArena('ground', 3, 383);
   for (let i = 0; i < 30; i++) R.travelTick(1 / 30);
-  const a = R.arena, ts = 32;
+  const a = R.arena, ts = 32;                                      // (baldosas de U = 32 de rift.js, no casillas de 48)
   w.G.World.isFree = (x, y) => !(Math.abs(x - a.x - 5 * ts) < 40 && Math.abs(y - a.y) < 60);     // una columna a la derecha
   const seen = new Set();
   for (let s = 1; s <= 200; s++) {

@@ -28,10 +28,21 @@
  * resolución de arte y sólo para los visibles).
  */
 G.World = (() => {
-  const T = G.Tiles.T;                     // px de arte por tile
+  /*
+   * (2.0) Casilla de 24 px de arte (TS = 48), como en Mundo Misterioso: un Pokémon ocupa
+   * una casilla (antes, 16 px de arte y TS = 32: se veían 1,5 veces más grandes que el
+   * suelo). Las distancias del mundo no cambian: lo que iba en casillas se ha pasado ×2/3.
+   * El pintor de respaldo (tiles.js) sigue pintando 16 px por casilla (PT): su imagen se
+   * dibuja a GS = 3 unidades de mundo por píxel (entero: no deforma el pixel art).
+   * WV: versión del generador del mundo. En cooperativo, todos tienen que tener la misma
+   * (social-ui.js): con otra, cada uno vería otras paredes y otra arena.
+   */
+  const PT = G.Tiles.T;                    // px del pintor por tile (16)
   const N = 16;                            // tiles por chunk
-  const TS = T * G.Sprites.PX;             // tamaño de tile en mundo (32)
-  const CW = N * TS;                       // tamaño de chunk en mundo (512)
+  const TS = 48;                           // tamaño de tile en mundo
+  const GS = TS / PT;                      // unidades de mundo por px del pintor (3)
+  const CW = N * TS;                       // tamaño de chunk en mundo (768)
+  const WV = 2;                            // versión del mundo (1: casillas de 32, sin `wv`)
   const FLOOR = 0, WALL = 1, LIQUID = 2;
   const KIND = ['floor', 'wall', 'liquid'];
 
@@ -70,12 +81,13 @@ G.World = (() => {
 
   /**
    * Pasillo libre de la arena: donde aparecéis (sur) y el legendario (norte).
-   * Con `clear` en el tema, además un claro donde aterriza Arceus (5 al norte).
+   * Con `clear` en el tema, además un claro donde aterriza Arceus (160 al norte; `clear`
+   * va en casillas de 32). (2.0: en casillas de 48; antes |lx| ≤ 2, ly en [-6, 5] y 2,5.)
    */
   function arenaSafe(tx, ty) {
     const lx = tx - arena.tx, ly = ty - arena.ty;
-    return (Math.abs(lx) <= 2 && ly >= -6 && ly <= 5) || Math.hypot(lx, ly) < 2.5 ||
-           (arena.th.clear > 0 && Math.hypot(lx, ly + 5) < arena.th.clear);
+    return (Math.abs(lx) <= 1 && ly >= -4 && ly <= 3) || Math.hypot(lx, ly) < 1.7 ||
+           (arena.th.clear > 0 && Math.hypot(lx, ly + 160 / TS) < arena.th.clear * 32 / TS);
   }
 
   function terrainRaw(tx, ty) {
@@ -85,8 +97,9 @@ G.World = (() => {
       if (arenaSafe(tx, ty)) return FLOOR;
       const th = arena.th;
       // Columnas de 2×2 (cobertura) y charcos según el tipo de la arena.
-      if (th.pillars && ad < arena.r - 2 && H(tx >> 1, ty >> 1, seed + 31 + arena.tx) < th.pillars) return WALL;
-      if (th.pools && ad < arena.r - 1.5 && fbm(tx / 3.2, ty / 3.2, seed + 37 + arena.tx) < th.pools) return LIQUID;
+      // (2.0: columnas de una casilla de 48, casi como las de 2×2 de 32.)
+      if (th.pillars && ad < arena.r - 1.3 && H(tx, ty, seed + 31 + arena.tx) < th.pillars) return WALL;
+      if (th.pools && ad < arena.r - 1 && fbm(tx / 2.13, ty / 2.13, seed + 37 + arena.tx) < th.pools) return LIQUID;
       return FLOOR;
     }
     return terrainBase(tx, ty);
@@ -95,10 +108,10 @@ G.World = (() => {
   /** Terreno sin la arena de la grieta (sólo semilla y coordenadas). */
   function terrainBase(tx, ty) {
     const d = Math.hypot(tx, ty);
-    if (d < 9) return FLOOR;                          // claro inicial
-    const ramp = G.U.clamp((d - 9) / 8, 0, 1);       // aparición suave
-    if (fbm(tx / 13, ty / 13, seed + 101) < 0.04 + 0.23 * ramp) return LIQUID;
-    if (fbm(tx / 8, ty / 8, seed + 202) > 1 - 0.27 * ramp) return WALL;
+    if (d < 6) return FLOOR;                          // claro inicial
+    const ramp = G.U.clamp((d - 6) / 5.33, 0, 1);    // aparición suave
+    if (fbm(tx / 8.67, ty / 8.67, seed + 101) < 0.04 + 0.23 * ramp) return LIQUID;
+    if (fbm(tx / 5.33, ty / 5.33, seed + 202) > 1 - 0.27 * ramp) return WALL;
     return FLOOR;
   }
 
@@ -129,7 +142,7 @@ G.World = (() => {
     return c.terr[(ty - cy * N) * N + (tx - cx * N)];
   }
 
-  const arena_outer = () => (arena ? arena.r + 7 : 0);
+  const arena_outer = () => (arena ? arena.r + 4.67 : 0);
 
   // ---------------- interactivos: un reparto justo ----------------
   /*
@@ -153,11 +166,12 @@ G.World = (() => {
    * grieta), nunca del orden en que se crean los chunks: en cooperativo todos ven lo
    * mismo, y un chunk que se olvida y se vuelve a crear sale igual.
    */
-  const BLK = 20, LOT = 3, MARGIN = 3, TRIES = 14, HOME_PICK = 8;
+  // (2.0, casillas de 48: BLK 20 → 13, MARGIN 3 → 2, START_CLEAR 14 → 9, ROOM/CLEAR 2 → 1; el mismo reparto por superficie.)
+  const BLK = 13, LOT = 3, MARGIN = 2, TRIES = 14, HOME_PICK = 8;
   const RATES = [['altar', 1.2], ['spring', 1], ['bigchest', 0.8], ['chest', 1.3]];
-  const ROOM = { altar: 2, spring: 2, bigchest: 2, chest: 1 };    // suelo libre alrededor (casillas)
-  const CLEAR = { altar: 2, spring: 2, bigchest: 2, chest: 1 };   // sin árboles, rocas, hierba ni trampas alrededor
-  const START_CLEAR = 14;                                          // nada de esto en el claro del principio
+  const ROOM = { altar: 1, spring: 1, bigchest: 1, chest: 1 };    // suelo libre alrededor (casillas)
+  const CLEAR = { altar: 1, spring: 1, bigchest: 1, chest: 1 };   // sin árboles, rocas, hierba ni trampas alrededor
+  const START_CLEAR = 9;                                           // nada de esto en el claro del principio
   const lots = new Map(), blocks = new Map();
   let offX = 0, offY = 0;
 
@@ -258,7 +272,7 @@ G.World = (() => {
     const X0 = c.cx * N, Y0 = c.cy * N;
     // Los interactivos de este chunk y de su borde (alrededor no crece nada).
     // (Dentro de la arena de la grieta no hay: allí manda su decoración.)
-    const near = specialsIn(X0 - 2, Y0 - 2, X0 + N + 1, Y0 + N + 1).filter(s => arenaDist(s.tx, s.ty) >= arena_outer() + 2);
+    const near = specialsIn(X0 - 2, Y0 - 2, X0 + N + 1, Y0 + N + 1).filter(s => arenaDist(s.tx, s.ty) >= arena_outer() + 1.33);
     for (const s of near) {
       if (s.tx < X0 || s.ty < Y0 || s.tx >= X0 + N || s.ty >= Y0 + N) continue;
       if (broken.has(s.tx + ',' + s.ty)) continue;
@@ -270,7 +284,7 @@ G.World = (() => {
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       if (c.terr[j * N + i] !== FLOOR) continue;
       const tx = c.cx * N + i, ty = c.cy * N + j;
-      if (Math.hypot(tx, ty) < 7) continue;
+      if (Math.hypot(tx, ty) < 4.67) continue;
       if (broken.has(tx + ',' + ty)) continue;
       let busy = false;
       for (const s of near) if (Math.abs(s.tx - tx) <= CLEAR[s.type] && Math.abs(s.ty - ty) <= CLEAR[s.type]) { busy = true; break; }
@@ -283,34 +297,36 @@ G.World = (() => {
 
       // Dentro de la arena: la decoración de su tipo (y nada en el pasillo).
       const ad = arenaDist(tx, ty);
-      if (ad < arena_outer() + 2) {
-        if (!arena || ad >= arena.r - 1.2 || arenaSafe(tx, ty)) continue;
+      if (ad < arena_outer() + 1.33) {
+        if (!arena || ad >= arena.r - 0.8 || arenaSafe(tx, ty)) continue;
         const pr = arena.th.props, hh = H(tx, ty, seed + 777);
         let at = null;
         if (open && hh < (pr.tree || 0)) at = 'tree';
         else if (open && hh < (pr.tree || 0) + (pr.rock || 0)) at = 'rock';
         // (La hierba alta, en manchas: el umbral deja más o menos la misma cantidad que antes.)
-        else if (pr.grass && fbm(tx / 4.5, ty / 4.5, seed + 717) > 0.8 - 0.9 * pr.grass) at = 'grass';
+        else if (pr.grass && fbm(tx / 3, ty / 3, seed + 717) > 0.8 - 0.9 * pr.grass) at = 'grass';
         if (at) { const p = makeProp(at, tx, ty); c.props.push(p); if (p.solid) c.propAt.set(tx + ',' + ty, p); }
         continue;
       }
 
       const h = H(tx, ty, seed + 404);
-      const grove = fbm(tx / 10, ty / 10, seed + 505) > 0.6;
+      const grove = fbm(tx / 6.67, ty / 6.67, seed + 505) > 0.6;
       let type = null, kind = 0;
       // Trampas: sueltas, como siempre, lejos del claro del principio. (Los demás
       // interactivos van repartidos por bloques: ver blockSpecial.)
+      // (2.0: rocas y trampas ×2,25 por casilla, para que haya las mismas por superficie con casillas de 48;
+      //  los árboles no: con casillas más grandes salen 2,25 veces menos, como pedía §11.3.)
       const hs = H(tx, ty, seed + 909);
-      if (open && Math.hypot(tx, ty) > 12 && hs >= 0.0011 && hs < 0.0032) {
+      if (open && Math.hypot(tx, ty) > 8 && hs >= 0.0011 && hs < 0.0058) {
         type = 'trap';
         kind = Math.floor(H(tx, ty, seed + 910) * 3);
       }
       if (type) { /* ya elegido */ }
       else if (open && h < (grove ? 0.07 : 0.006)) type = 'tree';
-      else if (open && h > 0.992) type = 'rock';
+      else if (open && h > 0.982) type = 'rock';
       // Hierba alta en manchas enteras, sin huecos (como en las rutas); antes, 0,66 y
       // una de cada cuatro casillas vacía al azar (se veían matas sueltas). Sale la misma cantidad.
-      else if (fbm(tx / 5, ty / 5, seed + 707) > 0.69) type = 'grass';
+      else if (fbm(tx / 3.33, ty / 3.33, seed + 707) > 0.69) type = 'grass';
       if (!type) continue;
 
       const p = makeProp(type, tx, ty, kind);
@@ -388,7 +404,7 @@ G.World = (() => {
   }
 
   /*
-   * Los objetos tienen los pies en y = ty·32+28 y un radio de hasta 14: su
+   * Los objetos tienen los pies en y = ty·TS+TS−4 y un radio de hasta 14: su
    * círculo baja hasta PROP_DIP u dentro del tile de debajo. collide e isFree
    * miran también la fila de arriba cuando el círculo llega a esa franja (si no,
    * al llegar desde el sur el árbol aparecía de golpe con mucho solape y temblabas).
@@ -645,9 +661,9 @@ G.World = (() => {
     return c.rows;
   }
 
-  /** a0..a1: sólo esas filas (px de arte) de la tira (game.js la pinta por tiras, cada una a su escala). */
+  /** a0..a1: sólo esas filas (px del pintor) de la tira (game.js la pinta por tiras, cada una a su escala). */
   function drawWallRow(ctx, r, a0 = 0, a1 = G.Tiles.CAP_H) {
-    const P = G.Sprites.PX, CH = G.Tiles.CAP_H, AH = a1 - a0;
+    const P = GS, CH = G.Tiles.CAP_H, AH = a1 - a0;
     const X = r.cx * CW, Y = (r.cy * N + r.j) * TS - G.Tiles.RAISE * P + a0 * P;
     const e = G.Camera.persp ? G.Camera._ext() : null, ex = e ? e.x : 0;     // (con perspectiva, arriba se ve más)
     const l = G.Camera.left() - 40 - ex, rr = G.Camera.left() + G.Camera.w + 40 + ex;
@@ -658,7 +674,7 @@ G.World = (() => {
       for (const [i0, i1] of r.runs) {
         const x0 = X + i0 * TS, w = (i1 - i0 + 1) * TS;
         if (x0 > rr || x0 + w < l) continue;
-        ctx.drawImage(img.caps, i0 * T, slot * CH + a0, (i1 - i0 + 1) * T, AH, x0, Y, w + (i1 === N - 1 ? 1 : 0), AH * P);
+        ctx.drawImage(img.caps, i0 * PT, slot * CH + a0, (i1 - i0 + 1) * PT, AH, x0, Y, w + (i1 === N - 1 ? 1 : 0), AH * P);
       }
     };
     if (k != null) {
@@ -702,7 +718,7 @@ G.World = (() => {
     const B = G.Tiles.BIOMES[biome];
     const lava = B.liquid === 'lava' || B.liquid === 'poison' || B.liquid === 'spark';
     ctx.fillStyle = B.foam;
-    const P = G.Sprites.PX;
+    const P = GS;
     for (const [cx, cy] of visibleChunks(cam)) {
       const c = chunkData(cx, cy);
       for (let i = 0; i < c.liquids.length; i += 2) {
@@ -745,7 +761,7 @@ G.World = (() => {
     switch (p.type) {
       case 'grass': {
         const pl = livePl;
-        if (pl && !pl.dead && Math.abs(pl.x - p.x) < 20 && pl.y > p.y - 30 && pl.y < p.y + 8) return (p.look % 3) * 3 + 2;
+        if (pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8) return (p.look % 3) * 3 + 2;
         return (p.look % 3) * 3 + (Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
       }
       case 'rock': return (p.look % 2) * 2 + (p.hp < p.maxHp * 0.5 ? 1 : 0);
@@ -759,7 +775,8 @@ G.World = (() => {
 
   function drawProp(ctx, p, t, a0, a1) {
     if (p.wallrow) { drawWallRow(ctx, p, a0, a1); return; }
-    const P = G.Sprites.PX;
+    // (2.0: la hierba alta llena su casilla, como el suelo: a la escala del pintor. Lo demás, como los Pokémon.)
+    const P = p.type === 'grass' ? GS : G.Sprites.PX;
     const variant = propVariant(p, t);
     const img = G.Tiles.propSprite(biome, p.type, variant);
     const w = img.width * P, h = img.height * P;
@@ -826,9 +843,9 @@ G.World = (() => {
   function reset(s) {
     seed = (s | 0) || 1;
     data.clear(); images.clear(); broken.clear(); lots.clear(); blocks.clear();
-    // La rejilla de los interactivos: el lote (0,0) centrado en el inicio, ±5 casillas (ver blockSpecial).
-    offX = BLK * LOT / 2 + Math.floor(H(3, 7, seed + 950) * 11) - 5;
-    offY = BLK * LOT / 2 + Math.floor(H(7, 3, seed + 951) * 11) - 5;
+    // La rejilla de los interactivos: el lote (0,0) centrado en el inicio, ±3 casillas (ver blockSpecial).
+    offX = Math.floor(BLK * LOT / 2) + Math.floor(H(3, 7, seed + 950) * 7) - 3;
+    offY = Math.floor(BLK * LOT / 2) + Math.floor(H(7, 3, seed + 951) * 7) - 3;
     fade = null; arena = null;
   }
 
@@ -871,7 +888,7 @@ G.World = (() => {
   }
 
   return {
-    TS, CW, reset, setBiome, biomeName, liquidKind, liquidEffect, walkable,
+    TS, GS, CW, WV, reset, setBiome, biomeName, liquidKind, liquidEffect, walkable,
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },
@@ -881,7 +898,7 @@ G.World = (() => {
       if (!a) return;
       a.th = G.Tiles.ARENA_THEMES[a.type] || G.Tiles.ARENA_THEMES.normal;
       // Olvida los chunks de esa zona (si se hubieran generado antes).
-      const R = a.r + 9;
+      const R = a.r + 6;
       for (const k of [...data.keys(), ...images.keys()]) {
         const [cx, cy] = k.split(',').map(Number);
         if (Math.abs(cx * N + N / 2 - a.tx) < R + N && Math.abs(cy * N + N / 2 - a.ty) < R + N) { data.delete(k); images.delete(k); }

@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-31', title: ["Versión 2.0 (TS): el mundo a escala de Mundo Misterioso", "Version 2.0 (TS): the world at Mystery Dungeon scale"], chg: [
+    ["El mundo, a la escala de Mundo Misterioso: cada casilla del suelo es más grande (24 px de dibujo), así que tu Pokémon ocupa una casilla en vez de verse 1,5 veces más grande que el suelo. Las distancias no cambian: el mapa tiene las mismas paredes, agua, rocas, cofres y torres por superficie; los árboles sueltos salen algo menos y los pasillos entre paredes son más anchos, así que los Pokémon grandes se atascan menos.",
+     "The world now uses Mystery Dungeon scale: each floor tile is bigger (24 px of art), so your Pokémon takes up one tile instead of looking 1.5 times bigger than the floor. Distances don't change: the map has the same walls, water, rocks, chests and towers per area; there are somewhat fewer lone trees and the gaps between walls are wider, so big Pokémon get stuck less."],
+    ["Cooperativo: sólo se puede jugar en grupo con la misma versión del mundo. Si un compañero tiene la versión anterior, el anfitrión no puede empezar y se avisa de que recargue la página.",
+     "Co-op: you can only play together with the same world version. If a friend still has the previous version, the host can't start and they are told to reload the page."]] },
   { d: '2026-10-31', title: ["Versión 2.0 (3): jefes y legendarios con fases", "Version 2.0 (3): bosses and legendaries with phases"], new: [
     ["Jefes y legendarios con fases: los legendarios cambian de fase al 66 % y al 33 % de vida, y los jefes del mapa al 50 % (desde el minuto 12, al 66 % y al 33 %). Al cambiar se protegen 2 segundos en una burbuja, te empujan y usan su ataque firma; en la última fase se enfurecen (y los legendarios llaman a sus esbirros). Por mucho daño que hagas, siempre llegan a usar sus firmas.",
      "Bosses and legendaries now have phases: legendaries change phase at 66% and 33% HP, and map bosses at 50% (from minute 12 on, at 66% and 33%). When they change, they shield themselves in a bubble for 2 seconds, push you back and use their signature move; in the last phase they get enraged (and legendaries call their minions). No matter how much damage you deal, they always get to use their signatures."],

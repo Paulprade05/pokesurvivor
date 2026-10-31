@@ -655,6 +655,7 @@ G.I18n.add({
   '¡SE HA ABIERTO UNA GRIETA!': 'A RIFT HAS OPENED!', 'Sigue la flecha morada: dentro te espera un legendario': 'Follow the purple arrow: a legendary awaits inside',
   'GRIETA · {x} m · {x} s': 'RIFT · {x} m · {x} s', 'GRIETA · {x} s': 'RIFT · {x} s',
   '¡{x} cambia de fase!': '{x} is changing phase!', 'Algo se acerca…': 'Something is coming…',
+  '{name} tiene otra versión del juego: que recargue la página para jugar juntos.': '{name} has another version of the game: they should reload the page to play together.', 'El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.': 'The host has another version of the game: reload the page, both of you, to play together.',
   '¡{x} se ha enfurecido!': '{x} is enraged!',
   'Pulsa para empezar': 'Press to start',
   'Sobrevive a las hordas con tu compañero Pokémon': 'Survive the hordes with your Pokémon partner',

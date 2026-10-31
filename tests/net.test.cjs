@@ -496,14 +496,20 @@ test('co-op: the host stops waiting for a guest who never entered the run or sto
   frame('a', 2, 1); assert.deepEqual(api.holds, ['Ana'], 'still choosing when he comes back');
 });
 
-test('co-op start: a guest still on the results screen joins; a start from someone else or without you is ignored', () => {
+test('co-op start: a guest still on the results screen joins; a start from someone else, without you or from another world version is ignored', () => {
   const stub = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => 0 : stub()), apply: () => stub() });
   const G = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (t[k] = stub())), set: (t, k, v) => { t[k] = v; return true; } });
   new Function('G', 'document', 'addEventListener', source('js/game.js'))(G, stub(), () => {});
   const started = [];
   G.Game = { state: 'over', startRun: cfg => started.push(cfg) };
-  G.Social = { room: { host: 'host' }, uid: 'me' }; G.LobbyUI = { close() {} };
-  const cfg = { k: 'start', host: 'host', members: [{ uid: 'host' }, { uid: 'me' }] };
+  let left = 0;
+  G.Social = { room: { host: 'host' }, uid: 'me', leaveRoom: () => { left++; return Promise.resolve(); } }; G.LobbyUI = { close() {} };
+  G.World = { WV: 2 };
+  const cfg = { k: 'start', host: 'host', members: [{ uid: 'host' }, { uid: 'me' }], wv: 2 };
+  // (2.0) Un anfitrión de antes (sin wv) o con otro mundo: no se empieza y se sale de la sala.
+  G.Flow.startCoop(Object.assign({}, cfg, { wv: undefined }), 'host');
+  G.Flow.startCoop(Object.assign({}, cfg, { wv: 1 }), 'host');
+  assert.equal(started.length, 0); assert.equal(left, 2);
   G.Flow.startCoop(cfg, 'host'); assert.deepEqual(started, [cfg]);
   G.Flow.startCoop(cfg, 'mallory');
   G.Flow.startCoop(Object.assign({}, cfg, { members: [{ uid: 'host' }] }), 'host');
@@ -523,12 +529,12 @@ function socialUi() {
                    toggle: (c, on) => ((on === undefined ? !s.has(c) : on) ? s.add(c) : s.delete(c)) } };
   };
   const el = id => els[id] || (els[id] = mk());
-  const G = { UI: { $: el, toast: t => calls.push(['toast', t]), isOpen: id => id === 'scr-lobby' && G.lobby, show() { G.lobby = true; }, hide() {}, spriteCanvas: mk },
+  const G = { World: { WV: 2 }, UI: { $: el, toast: t => calls.push(['toast', t]), isOpen: id => id === 'scr-lobby' && G.lobby, show() { G.lobby = true; }, hide() {}, spriteCanvas: mk },
     Coop: { active: true, COLORS: [] }, DEX_BY: {}, MenuUI: { open() { G.lobby = false; } }, Game: { state: 'playing' },
     Flow: { startCoop: cfg => calls.push(['start', cfg.members.length]) },
     Social: { room: null, invites: [], friends: [], MAX_PLAYERS: 4, uid: 'me', on: fn => handlers.push(fn),
               refreshMember() {}, ensureFriends: () => Promise.resolve(), setOpen() {} },
-    Net: { open_: true, on: fn => net.push(fn), onPeer: fn => peer.push(fn), toHost: m => toHost.push(m.on), mode: () => 'direct', viaTurn: () => false,
+    Net: { open_: true, on: fn => net.push(fn), onPeer: fn => peer.push(fn), toHost: m => { toHost.push(m.on); G.sentWv = m.wv; }, mode: () => 'direct', viaTurn: () => false,
            noRtc: false, close: () => calls.push(['close']), open() {}, broadcast() {}, syncMembers: (u, keep) => calls.push(['sync', u, keep]) } };
   const confirm = q => { asked.push(q); return answers.shift(); };
   // (29-10-2026: la pregunta va en una ventana del juego, G.UI.ask, que contesta con una promesa.)
@@ -566,6 +572,7 @@ test('#97: "¡Estoy listo!" goes over the direct channel; the host can still sta
   guest.peer.forEach(fn => fn('h', 'direct'));              // al reconectar se repite
   guest.els['lobby-menu'].onclick();                          // al irse al menú deja de estar listo
   assert.deepEqual(guest.toHost, [0, 1, 1, 0]);
+  assert.equal(guest.G.sentWv, 2, '2.0: el «listo» lleva la versión del mundo');
   guest.G.Social.room = { id: 'r2', isHost: false, host: 'h2', members: [] };
   guest.G.LobbyUI.open(); assert.equal(guest.toHost.at(-1), 0);
 
@@ -574,7 +581,14 @@ test('#97: "¡Estoy listo!" goes over the direct channel; the host can still sta
   host.G.Social.room = { id: 'r', isHost: true, host: 'me', members: [{ uid: 'me', name: 'Yo' }, { uid: 'a', name: 'Ana' }, { uid: 'b', name: 'Bea' }, { uid: 'c', name: 'Old' }] };
   host.G.LobbyUI.open();
   assert.equal(host.els['lobby-ready'].classList.contains('hidden'), true);
-  host.net.forEach(fn => { fn('a', { k: 'rdy', on: 1 }); fn('b', { k: 'rdy', on: 0 }); });   // c: versión vieja, no dice nada
+  host.net.forEach(fn => { fn('a', { k: 'rdy', on: 1, wv: 2 }); fn('b', { k: 'rdy', on: 0, wv: 2 }); });   // c: versión vieja, no dice nada
+  // (2.0) Con alguien de otra versión del mundo (o de antes, sin wv) no se empieza: se avisa.
+  await host.els['lobby-start'].onclick();
+  assert.ok(host.calls.some(c => c[0] === 'toast' && /Old/.test(c[1])) && !host.asked.length);
+  host.net.forEach(fn => fn('c', { k: 'rdy', on: 1, wv: 1 }));
+  await host.els['lobby-start'].onclick();
+  assert.ok(!host.asked.length && !host.calls.some(c => c[0] === 'start'));
+  host.net.forEach(fn => fn('c', { k: 'rdy', on: 1, wv: 2 }));
   host.answers.push(false);
   await host.els['lobby-start'].onclick();
   assert.deepEqual(host.asked, ['Sin pulsar «¡Estoy listo!»: Bea. ¿Empezar igualmente?']);

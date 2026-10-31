@@ -511,6 +511,7 @@ G.I18n.add({
   'Sigue la flecha morada: dentro te espera un legendario': 'Segui la freccia viola: all\'interno ti aspetta un leggendario',
   'GRIETA · {x} m · {x} s': 'FENDITURA · {x} m · {x} s', 'GRIETA · {x} s': 'FENDITURA · {x} s',
   '¡{x} cambia de fase!': '{x} cambia fase!', 'Algo se acerca…': 'Qualcosa si avvicina…',
+  '{name} tiene otra versión del juego: que recargue la página para jugar juntos.': '{name} ha un\'altra versione del gioco: deve ricaricare la pagina per giocare insieme.', 'El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.': 'L\'host ha un\'altra versione del gioco: ricaricate la pagina per giocare insieme.',
   '¡{x} se ha enfurecido!': '{x} si è infuriato!', 'Pulsa para empezar': 'Premi per iniziare',
   'Sobrevive a las hordas con tu compañero Pokémon': 'Sopravvivi alle orde con il tuo Pokémon compagno', 'Huesomerang': 'Ossomerang',
   'Psicocorte': 'Psicottaglio', 'Púas': 'Punte', 'Púas Tóxicas': 'Fielepunte', 'Granizo': 'Grandine', 'Puño Meteoro': 'Meteorpugno',

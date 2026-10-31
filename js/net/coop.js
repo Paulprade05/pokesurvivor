@@ -19,7 +19,7 @@
  *   anfitrión -> invitado  { k:'f', t, lv, xp, xn, ki, bo, co, p:{uid:[estado]},
  *                            e:[[id,x,y,vida,anim,dir,estados]], ev:[eventos],
  *                            ja:[x,y,anim,dir] (Arceus, sólo en la Sentencia) }
- *   anfitrión -> todos     { k:'start', seed, host, members:[{uid,name,dex,shiny}] }
+ *   anfitrión -> todos     { k:'start', seed, host, members:[{uid,name,dex,shiny}], wv }   (wv: versión del mundo, 2.0)
  *
  * [estado] de un jugador (myState / readState): posición, vida, ataque activo...
  * y en el 19.º (24-10-2026) su fase (dex del sprite: evoluciona en partida, ver

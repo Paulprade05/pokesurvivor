@@ -10,11 +10,11 @@
  *     El agua se puede cruzar (sólo frena).
  *   - Los que flotan (G.Sprites.hovers) no lo necesitan: van en línea recta.
  *
- * Coste: R=28 casillas de radio → 57×57 = 3.249 casillas por jugador, cada
+ * Coste: R=19 casillas de radio → 39×39 = 1.521 casillas por jugador, cada
  * 0,35 s. Los enemigos fuera del campo (muy lejos) van en línea recta.
  */
 G.Path = (() => {
-  const R = 28, N = R * 2 + 1, EVERY = 0.35;
+  const R = 19, N = R * 2 + 1, EVERY = 0.35;          // (2.0, casillas de 48: 19 ≈ las 28 de 32 de antes)
   const UNSEEN = 0x7fff;
   const fields = new Map();          // jugador -> { ox, oy, dist: Int16Array, t }
   const queue = new Int32Array(N * N);

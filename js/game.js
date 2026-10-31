@@ -1027,9 +1027,9 @@ G.Game = (() => {
    */
   const D3 = (() => {
     const PERSP = G.Camera.ULTRA;     // 0,12: arriba de la pantalla, un 12 % más pequeño; abajo, un 12 % más grande
-    const GB = 4;                     // franjas del suelo: 4 filas de mundo (2 de píxel de arte)
+    const GB = 2 * G.World.GS;        // franjas del suelo: 6 filas de mundo (2 px del pintor; 2.0, casillas de 48)
     const BAND = 8;                   // alto de las franjas de la capa de aire (px de pantalla)
-    const WS = 6;                     // tiras de las filas de pared (px de arte; CAP_H = 24, 4 tiras)
+    const WS = 6;                     // tiras de las filas de pared (px del pintor; CAP_H = 24, 4 tiras)
     let gcv = null, gx = null, acv = null, ax = null;
     const fit = (c, W, H) => { if (c.width !== W) c.width = W; if (c.height !== H) c.height = H; };
     // La vista del lienzo del suelo (lo que necesitan World.drawGround / visibleProps).
@@ -1044,8 +1044,8 @@ G.Game = (() => {
       const dvT = -hh / (1 - K) - 12 - Math.abs(shY), dvB = hh / (1 + K) + 12 + Math.abs(shY);
       const t = performance.now() / 1000;
 
-      // 1) Suelo, a 1 px por unidad de mundo y alineado a los píxeles de arte (de 2 en 2).
-      const ox = Math.floor((cx - ex) / 2) * 2, oy = Math.floor((cy + dvT) / 2) * 2;
+      // 1) Suelo, a 1 px por unidad de mundo y alineado a los píxeles del pintor (de GS en GS: 3).
+      const GS = G.World.GS, ox = Math.floor((cx - ex) / GS) * GS, oy = Math.floor((cy + dvT) / GS) * GS;
       const GW = Math.ceil(cx + ex - ox) + 2, GH = (Math.ceil((cy + dvB - oy) / GB) + 1) * GB;
       if (!gcv) { gcv = document.createElement('canvas'); }
       fit(gcv, GW, GH);
@@ -1086,7 +1086,7 @@ G.Game = (() => {
       if (arceus) items.push({ y: arceus.y, ent: arceus });
       if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
       items.sort((p, q) => p.y - q.y);
-      const TS = G.World.TS, PX = G.Sprites.PX, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
+      const TS = G.World.TS, PX = G.World.GS, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
       for (const it of items) {
         const o = it.prop || it.ent;
         // (Las filas de pared se apoyan en el borde de abajo de su fila y en vertical van
@@ -1447,6 +1447,12 @@ G.Flow = {
     if ((st !== 'ui' && st !== 'over') || !room) return;
     if (from !== undefined && (from !== room.host || cfg.host !== room.host)) return;
     if (!Array.isArray(cfg.members) || !cfg.members.some(m => m && m.uid === G.Social.uid)) return;
+    // (2.0) Anfitrión con otra versión del mundo (o de antes, sin `wv`): cada uno vería otras paredes. Se sale de la sala.
+    if (from !== undefined && cfg.wv !== G.World.WV) {
+      G.UI.toast('El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.', 5000);
+      G.Social.leaveRoom().finally(() => { G.Net.close(); if (G.Game.state === 'ui') G.MenuUI.open(); });
+      return;
+    }
     G.LobbyUI.close();
     G.Game.startRun(cfg);
   }
