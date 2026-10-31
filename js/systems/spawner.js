@@ -212,8 +212,11 @@ G.Spawner = (() => {
   /** @param angle  por dónde sale (los de un mismo grupo, repartidos alrededor) */
   function spawnBoss(pl, t, b, angle = Math.random() * 6.2832) {
     const [x, y] = ringPoint(pl, angle);
-    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
+    // (2.0: su vida también sube con tu nivel, G.Director.lvHp.)
+    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1) *
+                                                                  (G.Director ? G.Director.lvHp() : 1)), true);
     e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1);   // (principio suave, 28-10-2026; director, 2.0)
+    if (G.Enemies.bossCap) e.maxHp = e.hp = Math.round(G.Enemies.bossCap(e.maxHp, t));   // (antes de add: 'ne' lleva maxHp)
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);
     G.Camera.kick(1.1);

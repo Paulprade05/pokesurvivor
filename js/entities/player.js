@@ -173,8 +173,21 @@ G.Player = class Player {
    */
   atkFor(m) {
     const cat = m && m.cat, b = cat === 'physical' ? this.buffs.patk : cat === 'special' ? this.buffs.satk : null;
-    return this.atk * G.Stats.fit(this.mon, cat) * (b ? 1 + b.n * b.amount : 1) * (m && this.monoType(m.type) ? Player.MONO_K : 1);
+    return this.atk * G.Stats.fit(this.mon, cat) * (b ? 1 + b.n * b.amount : 1) * (m && this.monoType(m.type) ? Player.MONO_K : 1) * this.moveK(m);
   }
+  /**
+   * Revisión de los ataques (2.0, 31-10-2026, lo pidió el dueño tras jugar el bloque 2: «se sigue matando igual de
+   * rápido»): un ataque evolucionado pega EVO_K (de media ×8,7 un nivel 1; ahora ~×6) y, en un grupo de vínculo
+   * (fusión) de n ataques, cada uno pega FUSE_K[n] (el grupo entero, ×1,6 / ×2,1 / ×2,4 en vez de ×2 / ×3 / ×4).
+   */
+  moveK(m) {
+    if (!m) return 1;
+    let k = m.evolved ? Player.EVO_K : 1;
+    for (const g of this.slots) if (g.length > 1 && g.includes(m)) { k *= Player.FUSE_K[Math.min(g.length, 4)]; break; }
+    return k;
+  }
+  static get EVO_K() { return 0.7; }
+  static get FUSE_K() { return [1, 1, 0.8, 0.7, 0.6]; }
   /** Monotipo (19-10-2026): los de un solo tipo pegan un +20 % con los ataques de su tipo (tienen menos variedad). */
   static get MONO_K() { return 1.2; }
   monoType(type) { return this.mon.types.length === 1 && type === this.mon.types[0]; }

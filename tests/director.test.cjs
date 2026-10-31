@@ -110,3 +110,17 @@ test('no cuenta jefes, esbirros, estampidas ni los que explotan solos', () => {
     for (let i = 0; i < 20; i++) killOne(D, pl, 600, 0.05, o);
   assert.equal(D.kills, 0);
 });
+
+test('tu nivel por encima del típico de ese minuto sube la vida y el daño (y por debajo, nada)', () => {
+  const D = load(), pl = me();
+  pl.level = 50;
+  D.update(0.1, [pl], 1200);                 // LV_REF en el minuto 20: 38 → 12 niveles por encima
+  assert.ok(Math.abs(D.hp() - (1 + 0.03 * 12)) < 1e-6, 'vida: ' + D.hp());
+  assert.ok(Math.abs(D.dmg() - (1 + 0.02 * 12)) < 1e-6, 'daño: ' + D.dmg());
+  assert.ok(Math.abs(D.hpPart() / D.defK() - D.hp()) < 1e-9);
+  const E = load(), p2 = me();
+  p2.level = 20;
+  E.update(0.1, [p2], 1200);
+  assert.equal(E.hp(), 1);
+  assert.equal(E.dmg(), 1);
+});

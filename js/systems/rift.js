@@ -451,7 +451,11 @@ G.Rift = (() => {
       const mon = G.DEX_BY[dex];
       const def = {
         dex: mon.dex, name: mon.name,
-        hp: Math.round((3200 + t * 9) * soft * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1) * HP_EACH[k]),
+        // (2.0) Mínimo más alto (4000 + 22·eff; antes 3200 + 9·eff, menos que un enemigo normal en el minuto 20) y, encima,
+        //  según tu DPS medido (G.Enemies.bossHp). En grupo, el reparto sólo sobre el mínimo (el DPS ya es de todos).
+        hp: Math.round((G.Enemies.bossHp ? Math.max((4000 + t * 22) * soft * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1),
+                                                    G.Enemies.bossHp((4000 + t * 22) * soft, G.Game.st.time, 'leg'))
+                                         : (3200 + t * 9) * soft * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1)) * HP_EACH[k]),
         spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
         dmg: Math.round((36 + t / 20) * soft), xp: Math.round(500 + t * 1.2),
         behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',

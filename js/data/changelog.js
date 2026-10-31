@@ -7,9 +7,15 @@
  */
 G.CHANGELOG = [
   { d: '2026-10-31', title: ["Versión 2.0 (2): enemigos que se adaptan a tu fuerza", "Version 2.0 (2): enemies that adapt to your strength"], new: [
+    ["Tu nivel también cuenta: por cada nivel que vayas por encima de lo normal en ese minuto, los enemigos (también jefes y legendarios) tienen un 3 % más de vida y pegan un 2 % más.",
+     "Your level matters too: for every level you are above the usual for that minute, enemies (bosses and legendaries included) get 3% more HP and hit 2% harder."],
     ["Los enemigos se adaptan a tu fuerza: si los tumbas muy rápido, los siguientes salen con más vida y defensa, y si vas sobrado de vida, pegan algo más fuerte. Si vas apurado o caes, aflojan. Así una build muy fuerte se sigue notando, pero ya no arrasa sin esfuerzo.",
      "Enemies now adapt to your strength: if you take them down very fast, the next ones come with more HP and defense, and if you have plenty of HP left, they hit a bit harder. If you're struggling or get knocked out, they ease off. A very strong build still shows, but it no longer steamrolls everything effortlessly."]],
   chg: [
+    ["Los ataques evolucionados pegan un 30 % menos y, en un grupo de vínculo (fusión), cada ataque pega menos cuantos más lleve: con 2, un 20 % menos cada uno; con 3, un 30 %; con 4, un 40 %. Se mataba demasiado rápido.",
+     "Evolved moves deal 30% less damage, and in a bond group (fusion) each move deals less the more moves it has: with 2, 20% less each; with 3, 30%; with 4, 40%. Enemies were going down far too fast."],
+    ["Los legendarios de las grietas tienen mucha más vida (como mínimo más que un enemigo normal y, encima, según el daño que haces), así que les da tiempo a usar sus ataques firma. Los jefes del mapa, en cambio, ya no se alargan varios minutos: su vida se ajusta a tu daño.",
+     "Rift legendaries have much more HP (at least more than a regular enemy, and on top of that based on the damage you deal), so they have time to use their signature moves. Map bosses, on the other hand, no longer drag on for minutes: their HP adjusts to your damage."],
     ["Los enemigos normales tienen menos vida desde el minuto 3 (mucha menos al final): con las cartas con tope tardaban demasiado en caer desde el minuto 15. Se da algo menos de experiencia por enemigo al final, porque ahora se tumban muchos más.",
      "Regular enemies have less HP from minute 3 on (much less near the end): with capped cards they took far too long to go down after minute 15. Each enemy gives a bit less experience near the end, since you now take down many more."],
     ["Ranking nuevo para la versión 2.0: con los cambios de dificultad los tiempos de antes no se pueden comparar, así que todas las tablas empiezan de cero.",

@@ -165,6 +165,7 @@
     /** @param eff  'super' | 'weak' | null (tabla de tipos, sólo para enseñarlo) */
     hurt(amount, color = '#fff', dirX = 0, dirY = 0, knock = 0, eff = null) {
       if (this.dead) return;
+      const raw = amount;          // (para el medidor de DPS: sin la «defensa» del director)
       // Firma de jefe (G.BossSig, 26-10-2026): en el aire o bajo tierra no se le puede
       // dar; con su barrera recibe mucho menos (sigK) y dormido (Ausente), más.
       if (this.boss && (this.sigHide || G.BossSig.hidden(this))) return;
@@ -192,7 +193,7 @@
         amount = d - a;
       }
       this.hp -= Math.max(1, Math.round(amount));
-      G.Judgment.noteDmg(amount, this);
+      G.Judgment.noteDmg(this.defK ? raw : amount, this);
       this.showHurt(d, color, dirX, dirY, eff);
       if (knock > 0 && !this.boss) {
         const [nx, ny] = G.U.norm(dirX, dirY);

@@ -20,6 +20,7 @@
  *     del 80 % de vida (media móvil, τ 20 s) desde el minuto 3, hasta DMG_MAX(t) (×1,1 en el 10,
  *     ×1,5 en el 30); y baja ×0,9 con
  *     peligro (alguien por debajo del 30 % o caído en los últimos 25 s).
+ * Además, tu NIVEL: +3 % de vida y +2 % de daño por cada nivel por encima del típico de ese minuto (LV_REF).
  * Sólo se compensa una parte (exponente 0,4): con el doble de fuerza se sigue matando más
  * rápido, para que se note la build. Los multiplicadores nunca bajan de 1: el que va flojo
  * se encuentra la curva base de siempre (más suave desde la 2.0: ver hpBase en enemies.js).
@@ -37,21 +38,29 @@ G.Director = (() => {
     return tab[tab.length - 1][1];
   };
   // Tiempo objetivo para tumbar a un enemigo normal (s) y tope de la vida extra, por reloj.
-  const TTK_T = [[0, 0.45], [300, 0.7], [600, 0.9], [1200, 1.3], [1800, 1.6]];
-  // (Medido: con vida extra en los minutos 1-3 los que van sin mejoras caían antes; desde el 3. Y con ×2,2 en el 10
-  //  se caía justo después, con todas las mejoras: más suave hasta el 20.)
-  const HP_MAX = [[0, 1], [180, 1], [300, 1.15], [600, 1.5], [1200, 2.2], [1800, 3]];
+  // (Tras jugarlo el dueño, 31-10-2026: «se sigue matando igual de rápido»; objetivos ~1,5 veces más largos.)
+  const TTK_T = [[0, 0.5], [300, 0.9], [600, 1.3], [1200, 1.9], [1800, 2.4]];
+  // (Medido: con vida extra en los minutos 1-3 los que van sin mejoras caían antes; desde el 3.)
+  const HP_MAX = [[0, 1], [180, 1], [300, 1.2], [600, 1.8], [1200, 2.6], [1800, 3.5]];
+  /*
+   * Tu nivel también cuenta (lo pidió el dueño tras jugar: «que mi nivel influya en la vida y fuerza de los
+   * enemigos»): por cada nivel por encima de LV_REF(t) (el nivel típico sin mejoras en ese minuto, medido con
+   * tools/curve.cjs en el bloque 2), +LV_HP de vida y +LV_DMG de daño. Por debajo, nada (nunca < 1). Va aparte
+   * del control por TTK y no se frena con el peligro: es lo que «vales» por nivel.
+   */
+  const LV_REF = [[0, 1], [300, 10], [600, 20], [900, 30], [1200, 38], [1800, 57]];
+  const LV_HP = 0.03, LV_DMG = 0.02;
   // Tope del daño extra, también por reloj: medido, con ×1,5 ya en el minuto 4 se caía antes con todas las mejoras.
   const DMG_MAX = [[180, 1], [600, 1.1], [1200, 1.3], [1800, 1.5]];
   // Lo que sube la vida en cada paso (medido: con ×1,06 pasaba de 1 a 2,2 en medio minuto y luego caías).
   const HP_UP = 1.03;
   const DMG_UP = 1.02, TAU = 20, STEP = 2, MIN_KILLS = 8, DANGER_HP = 0.3, FALL_T = 25, COMFY = 0.8, DMG_FROM = 180;
 
-  let hpMul = 1, dmgMul = 1, lnSum = 0, wSum = 0, comfort = 1, stepT = STEP, now = 0, lastFall = -Infinity;
+  let hpMul = 1, dmgMul = 1, lnSum = 0, wSum = 0, comfort = 1, stepT = STEP, now = 0, lastFall = -Infinity, lvl = 1;
   const down = new Map();       // quién estaba caído en el último paso (para ver caídas nuevas)
 
   function reset() {
-    hpMul = 1; dmgMul = 1; lnSum = 0; wSum = 0; comfort = 1; stepT = STEP; now = 0; lastFall = -Infinity; worst = 1;
+    hpMul = 1; dmgMul = 1; lnSum = 0; wSum = 0; comfort = 1; stepT = STEP; now = 0; lastFall = -Infinity; worst = 1; lvl = 1;
     down.clear();
   }
 
@@ -92,6 +101,7 @@ G.Director = (() => {
     worst = 1;
     for (const p of list) {
       if (!p) continue;
+      if (p.level > lvl) lvl = p.level;           // (el nivel del equipo es el mismo para todos)
       const dn = isDown(p);
       if (dn && !down.get(p)) noteFall(p);
       down.set(p, dn);
@@ -120,13 +130,21 @@ G.Director = (() => {
     dmgMul = Math.max(1, Math.min(dmgMul, lerp(DMG_MAX, t)));
   }
 
+  /** Niveles por encima del de referencia de este minuto. */
+  const over = () => Math.max(0, lvl - lerp(LV_REF, now));
+  const lvHp = () => 1 + LV_HP * over(), lvDmg = () => 1 + LV_DMG * over();
+  const H = () => hpMul * lvHp();
+
   return {
-    reset, update, step, hit, kill, noteFall, hpFrac, TTK_T, HP_MAX,
-    hp: () => hpMul,
-    dmg: () => dmgMul,
+    reset, update, step, hit, kill, noteFall, hpFrac, TTK_T, HP_MAX, LV_REF,
+    /** Vida de los enemigos normales (TTK × nivel) y daño de todos (comodidad × nivel). */
+    hp: () => H(),
+    dmg: () => dmgMul * lvDmg(),
+    /** Sólo la parte del nivel (para la vida de los legendarios, enemies.js bossHp). */
+    lvHp,
     /** Lo que se reparte en vida y «defensa» (spawner.js). */
-    hpPart: () => Math.pow(hpMul, 0.6),
-    defK: () => Math.pow(hpMul, -0.4),
+    hpPart: () => Math.pow(H(), 0.6),
+    defK: () => Math.pow(H(), -0.4),
     ttkAt: t => lerp(TTK_T, t),
     hpMaxAt: t => lerp(HP_MAX, t),
     dmgMaxAt: t => lerp(DMG_MAX, t),
@@ -135,6 +153,6 @@ G.Director = (() => {
     get comfort() { return comfort; },
     get kills() { return wSum; },
     /** Para pruebas: fija los multiplicadores. */
-    debugSet(h, d) { if (h != null) hpMul = Math.max(1, h); if (d != null) dmgMul = Math.max(1, d); }
+    debugSet(h, d, lv) { if (h != null) hpMul = Math.max(1, h); if (d != null) dmgMul = Math.max(1, d); if (lv != null) lvl = lv; }
   };
 })();

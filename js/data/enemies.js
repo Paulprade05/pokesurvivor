@@ -264,7 +264,8 @@ G.Enemies = (() => {
    * desde el minuto 15 (con todas las mejoras). Esto devuelve la base a lo que tumba un jugador normal, y el director
    * (systems/director.js) sube la vida encima según lo rápido que mates de verdad. Hasta el minuto 3, como antes.
    */
-  const HP_BASE = [[0, 1], [180, 1], [300, 0.8], [600, 0.35], [900, 0.13], [1200, 0.045], [1500, 0.04], [1800, 0.045]];
+  // (Subida ~1,4 veces el 31-10-2026 tras jugarlo el dueño: «se sigue matando igual de rápido».)
+  const HP_BASE = [[0, 1], [180, 1], [300, 0.9], [600, 0.45], [900, 0.18], [1200, 0.065], [1500, 0.055], [1800, 0.06]];
   function hpBase(t) {
     if (!(t > HP_BASE[0][0])) return HP_BASE[0][1];
     for (let i = 1; i < HP_BASE.length; i++) {
@@ -272,6 +273,39 @@ G.Enemies = (() => {
       if (t <= t1) { const [t0, v0] = HP_BASE[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
     }
     return HP_BASE[HP_BASE.length - 1][1];
+  }
+
+  /**
+   * Vida de jefes y legendarios según tu DPS medido (2.0, §8.1 del plan; adelantado para los legendarios al
+   * pedirlo el dueño: «los legendarios mueren muy rápido»). Con el DPS a un objetivo de los últimos 120 s
+   * (G.Judgment.longDps) se busca que tarden ~TTK s, compensando sólo una parte (^0,75: con el doble de daño se
+   * sigue tardando menos) y entre el suelo y 6 veces el suelo.
+   */
+  const LEG_TTK = [[240, 20], [600, 28], [1200, 34]];
+  const BOSS_TTK = [[180, 15], [540, 22], [900, 32], [1260, 42], [1620, 45]];
+  const tab = (T, t) => {
+    if (t <= T[0][0]) return T[0][1];
+    for (let i = 1; i < T.length; i++) { const [t1, v1] = T[i]; if (t <= t1) { const [t0, v0] = T[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); } }
+    return T[T.length - 1][1];
+  };
+  /** @param kind 'leg' | 'boss' · floor: la vida mínima (sin el reparto entre varios) · t: reloj */
+  function bossHp(floor, t, kind = 'leg') {
+    const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
+    // (Y tu nivel, como en los enemigos normales: G.Director.lvHp; lo pidió el dueño.)
+    const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
+    if (!(dps > 0) || !(floor > 0)) return floor * lv;
+    const want = dps * 0.65 * tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t);
+    return Math.max(floor, Math.min(floor * 6, floor * Math.pow(want / floor, 0.75))) * lv;
+  }
+  /**
+   * Jefes del mapa (31-10-2026): con los ataques recortados duraban 3-4 min (medido). Su vida de siempre pasa a
+   * ser un TECHO: se baja hasta lo que tardarías ~BOSS_TTK s con tu DPS (y tu nivel), como mucho al 35 %.
+   */
+  function bossCap(cur, t) {
+    const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
+    if (!(dps > 0)) return cur;
+    const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
+    return Math.max(cur * 0.35, Math.min(cur, dps * 0.65 * tab(BOSS_TTK, t) * lv));
   }
 
   /**
@@ -378,7 +412,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };
