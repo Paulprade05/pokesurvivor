@@ -530,7 +530,7 @@ G.RunUI = (() => {
     // Tus cristales: cuántos ataques de su tipo llevas (de los 2 que hacen falta).
     const have = z.have.length ? `<div class="z-have">${z.have.map(h => `<span class="z-cr${h.t === z.type ? ' on' : h.n >= NEED ? ' ok' : !z.type && h.t === z.need ? ' near' : ''}" style="--z-c:${G.U.TYPE_COLOR[h.t]}" title="${G.T(G.Shop.Z_NAME[h.t])}">`
       + `${G.Icons.html('z:' + h.t, 30)}<b>${h.n >= NEED ? h.n + G.UI.svg('check', 12) : h.n + '/' + NEED}</b></span>`).join('')}</div>` : '';
-    const rule = `<small class="z-rule">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques.')}</small>`;
+    const rule = `<small class="z-rule">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques y, si empatan, el que elegiste en Mejoras.')}</small>`;
     if (!z.type) {
       const what = !z.need ? G.T('Tienes la Pulsera Z, pero ningún Cristal Z: cómpralos en la Tienda Kecleon.')
         : z.needN >= NEED - 1 ? G.I18n.f('Apagado: te falta 1 ataque {x}.', G.T(G.U.TYPE_NAME[z.need]))
