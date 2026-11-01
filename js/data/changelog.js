@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Versión 2.0: cooperativo × jugadores", "Version 2.0: co-op × players"], chg: [
+    ["Cooperativo: todo escala con los jugadores que sois. Con 2, subir de nivel cuesta el doble de experiencia y todos los enemigos (normales, jefes, legendarios de las grietas y de la Sentencia) tienen el doble de vida y de daño; con 3, el triple; con 4, el cuádruple. Solo no cambia nada. Si alguien se va o vuelve, los enemigos nuevos salen con los que quedáis.",
+     "Co-op: everything scales with the number of players. With 2, levelling up takes twice the experience and every enemy (regular ones, bosses, rift and Judgment legendaries) has twice the HP and damage; with 3, three times; with 4, four times. Solo is unchanged. If someone leaves or comes back, new enemies use the players still there."]] },
   { d: '2026-11-01', title: ["Versión 2.0 (6b): árboles, paredes y objetos de Mundo Misterioso", "Version 2.0 (6b): Mystery Dungeon trees, walls and objects"], new: [
     ["Los objetos del mundo, también al estilo de Mundo Misterioso: los árboles son trozos de pared del bioma (en los bosques, un árbol; en las cuevas, una roca o un cristal), el cofre con candado y las trampas son los de Exploradores del Cielo, y las rocas, la hierba alta, los cofres, las torres y los manantiales llevan los colores de cada bioma. Van con el mismo interruptor de Ajustes.",
      "World objects in Mystery Dungeon style too: trees are pieces of the biome's wall (a tree in forests, a rock or crystal in caves), the locked chest and the traps come from Explorers of Sky, and rocks, tall grass, chests, towers and springs use each biome's colours. They follow the same switch in Settings."]],

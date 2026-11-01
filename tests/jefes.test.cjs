@@ -27,7 +27,7 @@ function world(opts = {}) {
   G.Game = { player: me, everyone: () => [me, ...(opts.mates || [])], flash() { log.flash++; }, st: { time: 600 } };
   G.Spawner = { say: s => log.say.push(s) };
   G.Weather = { current: null, KINDS: { sun: {}, rain: {}, snow: {}, sand: {}, fog: {} }, debugStart: k => log.wx.push(k), force() {}, clear() {} };
-  G.Coop = { active: !!opts.host, isHost: !!opts.host, broadcast: ev => log.sent.push(ev), scaleHp: () => 1, toHost() {} };
+  G.Coop = { active: !!opts.host, isHost: !!opts.host, broadcast: ev => log.sent.push(ev), scale: () => 1, toHost() {} };
   G.EnemyMgr = { get: id => enemies.get(id), bosses: () => [...enemies.values()].filter(e => e.boss && !e.dead), add: e => { enemies.set(e.id, e); log.spawned.push(e); },
                  stash() {}, clearRemote() {}, restore() {}, all: () => [...enemies.values()] };
   G.Camera = { kick() {}, sees: () => true, x: 0, y: 0, left: () => -400, top: () => -200, w: 800, h: 400, scale: 2 };
@@ -549,4 +549,31 @@ test('rift: an "lgi" that arrives before the guest reaches the arena is still ap
   assert.ok(guest.G.Rift.pendingLgi);
   guest.G.Rift.onEvent(['rk']);
   assert.equal(guest.G.Rift.pendingLgi, null, 'aplicado al llegar (startIntro)');
+});
+
+// ---------------- cooperativo × jugadores (01-11-2026): legendarios de grieta ×N de vida y daño ----------------
+
+test('rift: in co-op the legendaries get ×N hp and damage (N = 1, 2, 4), with bossHp counting each one\'s DPS', () => {
+  const fight = n => {
+    const mates = Array.from({ length: n - 1 }, (_, i) => ({ x: 40 * (i + 1), y: 0, dead: false, uid: 'm' + i }));
+    const w = loadRift({ mates });
+    w.G.Coop.scale = k => Math.max(1, Math.floor(k) || 1);
+    const asked = [];
+    w.G.Enemies.bossHp = (floor, t, kind, k = 1) => { asked.push(k); return floor * 2 * k; };
+    const Base = w.G.Enemy;
+    w.G.Enemy = class extends Base { constructor(def, ...a) { super(def, ...a); this.dmg = def.dmg; } };
+    w.G.Rift.debugArena('ground', 1, 383);
+    for (let i = 0; i < 80; i++) w.G.Rift.travelTick(1 / 30);
+    for (let i = 0; i < 90 && !w.log.spawned.length; i++) w.G.Rift.update(1 / 30, w.me, 600);
+    assert.equal(w.log.spawned.length, 1, 'N=' + n);
+    assert.deepEqual(asked, [n]);
+    return w.log.spawned[0];
+  };
+  const one = fight(1);
+  for (const n of [2, 4]) {
+    const e = fight(n);
+    assert.ok(Math.abs(e.maxHp - one.maxHp * n) <= n, `vida N=${n}: ${e.maxHp} vs ${one.maxHp}`);
+    assert.ok(Math.abs(e.dmg - one.dmg * n) < 1e-9, `daño N=${n}`);
+    assert.equal(e.coopN, n);
+  }
 });

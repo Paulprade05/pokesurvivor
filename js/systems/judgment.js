@@ -62,7 +62,7 @@ G.Judgment = (() => {
   let ported = false, landed = false, canSkip = false, cues = {};
   let A = null;                       // Arceus
   let center = null;                  // centro de la arena (mundo)
-  let arenaT = 0, bossT = 0, bossN = 0, base = 0, downs = 0;
+  let arenaT = 0, bossT = 0, bossN = 0, base = 0, downs = 0, coopN = 1;
   // Daño a un solo enemigo por segundo (el que más recibe en cada segundo; con
   // ataques en área, sumar todo daría una vida enorme). Se guardan los últimos
   // 30 s y vale la media de los 6 mejores.
@@ -75,7 +75,7 @@ G.Judgment = (() => {
 
   function reset() {
     phase = null; ct = 0; cfg = null; ported = landed = canSkip = false; cues = {};
-    A = null; center = null; arenaT = bossT = 0; bossN = 0; base = 0; downs = 0;
+    A = null; center = null; arenaT = bossT = 0; bossN = 0; base = 0; downs = 0; coopN = 1;
     hits = new Map(); hitT = 0; samples = []; samplesL = []; embers = []; cam = null;
   }
 
@@ -189,10 +189,12 @@ G.Judgment = (() => {
     land(true);
     arenaT = 0; bossT = 1.2; bossN = 0; downs = 0;
     G.Progress.event('judge');
-    // Vida del primer legendario: unos 3 s de vuestro daño a un enemigo (y un mínimo).
-    const n = G.Game.everyone().length, t = G.Game.st.time;
-    const floor = (3200 + t * 9) * 0.35 * G.Coop.scaleHp(n);
+    // Vida del primer legendario: unos 3 s de vuestro daño a un enemigo (y un mínimo). En cooperativo, ×n sobre lo de
+    // solitario: el mínimo ×n y el DPS ya es del equipo (n × 3 s del de cada uno). Su daño, también ×n (spawnLeg).
+    const n = G.Coop.scale(G.Game.everyone().length), t = G.Game.st.time;
+    const floor = (3200 + t * 9) * 0.35 * n;
     base = Math.max(floor, singleDps() * 3);
+    coopN = n;
     G.Spawner.say('¡Huye de Arceus! Es invencible', 3, true);
   }
 
@@ -399,6 +401,7 @@ G.Judgment = (() => {
     };
     const e = new G.Enemy(def, x, y, { hp: 1, spd: 1, dmg: 1 }, true);
     e.judge = true;
+    e.dmg *= coopN; e.coopN = coopN;
     e.flying = false;
     G.EnemyMgr.add(e);
     bossN++;
