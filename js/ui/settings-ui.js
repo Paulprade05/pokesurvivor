@@ -11,7 +11,7 @@
 G.SettingsUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const VERSION = '1.2 · 2026-10-09';
+  const VERSION = '2.1 · 2026-11-01';
   const REPO = G.UI.REPO;
   let tab = 'sound';
 
