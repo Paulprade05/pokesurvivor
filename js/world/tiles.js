@@ -213,6 +213,7 @@ G.Tiles = (() => {
     const cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
     const c = cv.getContext('2d');
+    if (!c) { G.U.freeCanvas(cv); throw new Error('sin memoria de lienzos'); }   // (iPhone: world.js suelta y reintenta)
     const img = c.createImageData(w, h);
     const buf = new Uint32Array(img.data.buffer);
     return {

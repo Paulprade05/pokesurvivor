@@ -93,6 +93,7 @@ G.DB = (() => {
       pabil: {},              // dex -> [0|1|2, fecha]: la habilidad cambiada con Cápsula (2 = oculta)
       zc: {},                 // tipo -> fecha: Cristales Z comprados (24-10-2026; para siempre, se juntan al fusionar)
       pz: {},                 // dex -> fecha: Pulsera Z de ese Pokémon (movimientos Z por Pokémon; igual que zc)
+      pzt: {},                // dex -> tipo: el Z que va si empatan dos cristales (Mejoras → Pulsera Z, data/shop.js)
       pzDone: true,           // ya se regaló la Pulsera Z a quien tenía cristales de antes (migrate)
       prec: {},               // dex -> [mejor tiempo, mejor nivel, más derrotados, más jefes] con él (data/families.js)
       tickets: { t1: 0, t10: 0 },   // tickets del gacha (x1 y x10)
@@ -159,7 +160,7 @@ G.DB = (() => {
    * idempotente: si un aparato con la versión de antes vuelve a traer una preevolución,
    * se pasa otra vez y queda igual (por eso todo es «el mayor», no sumas).
    */
-  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pjudg', 'prec'];
+  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pzt', 'pjudg', 'prec'];
   const famOk = () => !!(G.Fam && G.Fam.ready());
   const isPre = d => !!G.DEX_BY[d] && !G.Fam.isFinal(+d);
 
@@ -233,8 +234,8 @@ G.DB = (() => {
     // si no, la preevolución con la que más has jugado (a igualdad, la fase más avanzada).
     const mine = before.has(f) ? f : list.filter(d => before.has(d))
       .sort((a, b) => used(b) - used(a) || G.Fam.lineOf(b).length - G.Fam.lineOf(a).length)[0];
-    // Movimiento inicial, atajos y vetos: los de la final; si no, los de «tu» Pokémon (o de quien los tenga).
-    for (const k of ['pstart', 'pstart2', 'pbind', 'pban']) {
+    // Movimiento inicial, atajos, vetos y tipo Z: los de la final; si no, los de «tu» Pokémon (o de quien los tenga).
+    for (const k of ['pstart', 'pstart2', 'pbind', 'pban', 'pzt']) {
       if (!isObj(s[k]) || s[k][f] != null) continue;
       const from = mine != null && s[k][mine] != null ? mine : list.find(d => s[k][d] != null);
       if (from != null) put(k, JSON.parse(JSON.stringify(s[k][from])));
@@ -311,6 +312,11 @@ G.DB = (() => {
       for (const d of Object.keys(s[k])) {
         if (typeof s[k][d] !== 'string' || (G.DEX_BY && !G.DEX_BY[d]) || (G.Moves && !G.Moves.BY_ID[s[k][d]])) delete s[k][d];
       }
+    }
+    // Tipo Z de los empates: un tipo con Cristal Z (aunque aún no lo tengas).
+    if (!isObj(s.pzt)) s.pzt = {};
+    for (const d of Object.keys(s.pzt)) {
+      if (typeof s.pzt[d] !== 'string' || (G.DEX_BY && !G.DEX_BY[d]) || (G.Shop && !G.Shop.Z_NAME[s.pzt[d]])) delete s.pzt[d];
     }
     // Mochila y MT: cuántas de cada cosa que exista (tope 999).
     for (const [k, ok] of [['bag', id => !G.Shop || G.Shop.ITEMS[id]], ['tms', id => !G.Moves || G.Moves.BY_ID[id]]]) {
@@ -521,8 +527,8 @@ G.DB = (() => {
       const x = Array.isArray(r.prec[d]) ? r.prec[d] : [], y = Array.isArray(older.prec[d]) ? older.prec[d] : [];
       r.prec[d] = [0, 1, 2, 3].map(i => Math.max(+x[i] || 0, +y[i] || 0));
     }
-    // Movimiento inicial: el de la versión más reciente; si no lo tenía elegido, el de la otra.
-    for (const k of ['pstart', 'pstart2']) {
+    // Movimiento inicial y tipo Z: el de la versión más reciente; si no lo tenía elegido, el de la otra.
+    for (const k of ['pstart', 'pstart2', 'pzt']) {
       r[k] = r[k] || {};
       for (const d in older[k] || {}) if (!(d in r[k])) r[k][d] = older[k][d];
     }

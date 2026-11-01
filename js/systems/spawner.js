@@ -26,7 +26,7 @@
  *
  * Cooperativo (sólo en el anfitrión): aparecen alrededor de un jugador vivo
  * al azar, fuera de la vista de TODOS, y hay más y más fuertes según cuántos
- * jugáis (ver G.Coop.scaleRate / scaleHp).
+ * jugáis (ver G.Coop.scaleRate / scale: vida y daño ×N).
  */
 G.Spawner = (() => {
   // Tope de enemigos a la vez (antes 420: con tantos se ralentizaba). Cuando
@@ -171,13 +171,15 @@ G.Spawner = (() => {
   function make(def, x, y, t, o = {}) {
     // (2.0, bloque 2) Vida base más suave desde el minuto 5 (hpBase) y, encima, lo que pida el director según lo rápido
     //  que matas: una parte en vida y el resto como «defensa» (defK). Su daño, también con el director.
-    const D = G.Director;
-    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) *
+    //  Cooperativo: vida y daño ×N (los que jugáis al crearlo, G.Coop.scale; el director lo descuenta al medir: coopN).
+    const D = G.Director, n = G.Coop.scale(players.length);
+    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), n * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) *
                                                                 G.Enemies.hpBase(t) * (D ? D.hpPart() : 1) * (o.hp || 1)));
     if (D) e.defK = D.defK();
+    e.coopN = n;
     if (o.weak) e.weak = true;
     // (Experiencia: de la tabla por reloj G.Enemies.xpAt desde la 2.0; antes tramo × XP_K × xpLag.)
-    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (D ? D.dmg() : 1) * (o.dmg || 1);
+    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (D ? D.dmg() : 1) * (o.dmg || 1) * n;
     e.xp = Math.max(1, Math.round(G.Enemies.xpAt(t) * (def.behavior === 'tank' ? 1.3 : 1) * (o.xp || 1)));
     // (Con el tope más bajo de los primeros minutos, la élite sigue saliendo a partir de los mismos que antes.)
     e.elite = !o.weak && G.EnemyMgr.count >= Math.max(capAt(t), CAP_EARLY) * ELITE_FROM;
@@ -215,11 +217,13 @@ G.Spawner = (() => {
   /** @param angle  por dónde sale (los de un mismo grupo, repartidos alrededor) */
   function spawnBoss(pl, t, b, angle = Math.random() * 6.2832, at = null) {
     const [x, y] = at || ringPoint(pl, angle);
-    // (2.0: su vida también sube con tu nivel, G.Director.lvHp.)
-    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1) *
-                                                                  (G.Director ? G.Director.lvHp() : 1)), true);
-    e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1);   // (principio suave, 28-10-2026; director, 2.0)
-    if (G.Enemies.bossCap) e.maxHp = e.hp = Math.round(G.Enemies.bossCap(e.maxHp, t));   // (antes de add: 'ne' lleva maxHp)
+    // (2.0: su vida también sube con tu nivel, G.Director.lvHp.) Cooperativo: vida y daño ×N respecto a solitario (el
+    //  techo de bossCap se calcula con la vida de solitario y el DPS de cada uno, y luego ×N; antes ×(1+0,3·(N-1))×1,4).
+    const n = G.Coop.scale(players.length);
+    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), (G.Director ? G.Director.lvHp() : 1)), true);
+    e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1) * n;   // (principio suave, 28-10-2026; director, 2.0)
+    e.coopN = n;
+    e.maxHp = e.hp = Math.round(G.Enemies.bossCap ? G.Enemies.bossCap(e.maxHp, t, n) : e.maxHp * n);   // (antes de add: 'ne' lleva maxHp)
     if (rollShiny(b.dex)) e.makeShiny();
     // (2.0, bloque 3) Fases (hasta el minuto 12, una al 50 %; desde el 12, al 66 % y al 33 %), tope blando de daño por
     //  segundo y desgaste si la pelea se alarga (enemy.js armBoss). El tope, sólo contra ráfagas enormes (no tumbarlo en
@@ -533,6 +537,8 @@ G.Spawner = (() => {
            debugForceShiny(n = 1) { forceShiny = n; },
            /** Para pruebas: una oleada ya ('surge' | 'ring' | 'stampede' | 'swarm'). */
            debugWave(kind) { players = G.Game.everyone(); wave(kind || pickWave(G.Game.st.time), G.Game.st.time); },
+           /** Para pruebas: un enemigo (o, con `boss`, un jefe) del minuto `t` con estos jugadores (×N en cooperativo). */
+           debugMake(def, t, who, boss) { players = who; return boss ? spawnBoss(who[0], t, def, 0, [0, 0]) : make(def, 0, 0, t, { noChamp: true }); },
            /** Para pruebas: el calendario de jefes salta al minuto `t` (los anteriores ya no salen). */
            debugBossesFrom(t) { bossIdx = 0; while (G.Enemies.BOSSES[bossIdx] && G.Enemies.BOSSES[bossIdx].at < t) bossIdx++; lastBossT = -Infinity; } };
 })();

@@ -1045,7 +1045,7 @@ G.MenuUI = (() => {
         if (u.id === 'start' && lvl > 0 && startOpen) box.appendChild(startPicker());
         if (u.id === 'start2' && lvl > 0 && start2Open) box.appendChild(start2Picker());
       }
-      if (g.id === 'moves') box.appendChild(ringCard(mon));
+      if (g.id === 'moves') { box.appendChild(ringCard(mon)); if (zTypeOpen && zTypeCan()) box.appendChild(zTypePicker(mon)); }
     }
     box.appendChild(bindPanel());
     if (body) body.scrollTop = top;
@@ -1119,10 +1119,13 @@ G.MenuUI = (() => {
    * Pulsera Z (24-10-2026): los movimientos Z son de cada Pokémon. Como una mejora
    * de un nivel (se compra una vez y es para siempre, data/shop.js); debajo, cuántos
    * Cristales Z tienes y el botón para ir a por ellos a la Tienda Kecleon. No cuenta
-   * en el progreso de mejoras de arriba.
+   * en el progreso de mejoras de arriba. Con la pulsera y 2 cristales o más, también
+   * «Si empatan»: el tipo Z que va si dos cristales empatan (zTypePicker).
    */
   function ringCard(mon) {
     const s = G.DB.save, has = G.Shop.ringHas(upgDex), price = G.Shop.RING_PRICE, n = G.Shop.zOwned().length;
+    const zt = G.Shop.zPref(upgDex);
+    const tie = zTypeCan() ? `<button class="btn small ic upg-pick${zTypeOpen ? ' on' : ''}" type="button" data-ztype aria-expanded="${zTypeOpen}">${zt ? G.Icons.html('z:' + zt, 30) : ''}<span>${G.I18n.f('Si empatan: {x}', zt ? G.T(G.U.TYPE_NAME[zt]) : G.T('Automático'))}</span></button>` : '';
     const el = document.createElement('div');
     el.className = 'upg-card upg-ring' + (has ? ' is-max' : '');
     el.innerHTML = `
@@ -1131,7 +1134,7 @@ G.MenuUI = (() => {
         <small>${G.T('Puede usar movimientos Z: con un Cristal Z y 2 ataques de su tipo en sus huecos')}</small>${upgPips(has ? 1 : 0, 1)}</div>
       <div class="upg-acts">${has ? `<span class="badge gold upg-maxed">${G.UI.svg('check', 14)}<span>${G.T('Máx.')}</span></span>`
         : `<button class="btn small gold ic upg-buy" type="button" data-buy data-sfx="none" ${s.coins < price ? 'disabled' : ''}>${G.Icons.html('coin', 30)}<span>${price.toLocaleString(G.I18n.locale)}</span></button>`}</div>
-      <div class="upg-more"><button class="btn small ghost ic upg-pick" type="button" data-zshop>${G.Icons.html('z:' + mon.types[0], 30)}<span>${G.I18n.f('Cristales Z: {x}', n + '/' + G.Shop.Z_TYPES.length)}</span></button></div>`;
+      <div class="upg-more"><button class="btn small ghost ic upg-pick" type="button" data-zshop>${G.Icons.html('z:' + mon.types[0], 30)}<span>${G.I18n.f('Cristales Z: {x}', n + '/' + G.Shop.Z_TYPES.length)}</span></button>${tie}</div>`;
     const b = el.querySelector('[data-buy]');
     if (b) b.onclick = () => {
       const r = G.Shop.buy('zr:' + upgDex);
@@ -1142,6 +1145,36 @@ G.MenuUI = (() => {
       renderUpgrades();
     };
     el.querySelector('[data-zshop]').onclick = () => G.ShopUI.open('z');
+    const tb = el.querySelector('[data-ztype]');
+    if (tb) tb.onclick = () => { zTypeOpen = !zTypeOpen; G.Audio.sfx('click'); renderUpgrades(); };
+    return el;
+  }
+
+  // ---------------- tipo del movimiento Z si empatan (01-11-2026) ----------------
+  // save.pzt[dex] (data/shop.js, zPref): con 2 ataques de un tipo y 2 de otro, y los dos
+  // cristales, va el elegido. Sin elegir («Automático»), el del ataque que aprendió antes.
+  let zTypeOpen = false;
+  const zTypeCan = () => G.Shop.ringHas(upgDex) && G.Shop.zOwned().length >= 2;
+  function zTypePicker(mon) {
+    const cur = G.Shop.zPref(upgDex), mine = mon.types || [];
+    // Tus cristales, primero los de sus tipos.
+    const ts = G.Shop.zOwned().sort((a, b) => mine.includes(b) - mine.includes(a));
+    const chip = (t, html) => `<button class="chip mv-chip zt-chip${(t || null) === cur ? ' on' : ''}" type="button" data-zt="${t}" aria-pressed="${(t || null) === cur}"${t ? ` style="--z-c:${G.U.TYPE_COLOR[t]}"` : ''}>${html}</button>`;
+    const el = movePanel(G.T('Si llevas 2 ataques de un tipo y 2 de otro (y los dos Cristales Z), elige qué movimiento Z usa. Sin empate, va el del tipo con más ataques. Lo puedes cambiar cuando quieras, gratis.'),
+      chip('', `<span>${G.T('Automático')}</span><small>${G.T('(el primero que aprenda)')}</small>`)
+      + ts.map(t => chip(t, `${G.Icons.html('z:' + t, 30)}<span>${G.T(G.U.TYPE_NAME[t])}</span><small>${G.T(G.Moves.Z[t] ? G.Moves.Z[t].name : G.Shop.Z_NAME[t])}</small>`)).join(''));
+    el.classList.add('upg-ztype');
+    el.querySelectorAll('[data-zt]').forEach(b => {
+      b.onclick = () => {
+        const t = b.dataset.zt || null;
+        G.Shop.zSetPref(upgDex, t);
+        G.DB.commit();
+        G.Audio.sfx('select');
+        G.UI.toast(t ? G.I18n.f('{x}: si empatan, movimiento Z de tipo {x}', mon.name, G.T(G.U.TYPE_NAME[t]))
+                     : G.I18n.f('{x}: si empatan, el del ataque que aprenda antes', mon.name));
+        renderUpgrades();
+      };
+    });
     return el;
   }
 

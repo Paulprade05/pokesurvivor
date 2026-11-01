@@ -288,14 +288,20 @@ G.Enemies = (() => {
     for (let i = 1; i < T.length; i++) { const [t1, v1] = T[i]; if (t <= t1) { const [t0, v0] = T[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); } }
     return T[T.length - 1][1];
   };
-  /** @param kind 'leg' | 'boss' · floor: la vida mínima (sin el reparto entre varios) · t: reloj */
-  function bossHp(floor, t, kind = 'leg') {
-    const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
+  /*
+   * Cooperativo (01-11-2026): con N jugadores, n × lo de solitario. El DPS medido es del equipo (G.Judgment), así que
+   * se cuenta el de cada uno (÷N) y la vida de solitario sale con ese; luego ×N. Así la N no se aplica dos veces.
+   */
+  const perOne = n => Math.max(1, Math.floor(n) || 1);
+  /** @param kind 'leg' | 'boss' · floor: la vida mínima de solitario · t: reloj · n: jugadores (×n) */
+  function bossHp(floor, t, kind = 'leg', n = 1) {
+    n = perOne(n);
+    const dps = (G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0) / n;
     // (Y tu nivel, como en los enemigos normales: G.Director.lvHp; lo pidió el dueño.)
     const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
-    if (!(dps > 0) || !(floor > 0)) return floor * lv;
+    if (!(dps > 0) || !(floor > 0)) return floor * lv * n;
     const want = dps * 0.65 * tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t);
-    return Math.max(floor, Math.min(floor * 6, floor * Math.pow(want / floor, 0.75))) * lv;
+    return Math.max(floor, Math.min(floor * 6, floor * Math.pow(want / floor, 0.75))) * lv * n;
   }
   /** Segundos que debería durar la pelea (tope blando de daño y desgaste del bloque 3). */
   function bossTtk(t, kind = 'boss') { return tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t); }
@@ -303,13 +309,14 @@ G.Enemies = (() => {
    * Jefes del mapa (31-10-2026): con los ataques recortados duraban 3-4 min (medido). Su vida de siempre pasa a
    * ser un TECHO: se baja hasta lo que tardarías ~BOSS_TTK s con tu DPS (y tu nivel), como mucho al 35 %.
    */
-  function bossCap(cur, t) {
-    const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
-    if (!(dps > 0)) return cur;
+  function bossCap(cur, t, n = 1) {
+    n = perOne(n);
+    const dps = (G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0) / n;   // (cur: la de solitario; ×n al final)
+    if (!(dps > 0)) return cur * n;
     const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
     // (Bloque 3: 0,4 y 30 %, antes 0,65 y 35 %: medido, contra un jefe que se mueve sólo se le hace una parte del
     //  DPS a un objetivo y las peleas del minuto 15 en adelante seguían en ~95 s.)
-    return Math.max(cur * 0.3, Math.min(cur, dps * 0.4 * tab(BOSS_TTK, t) * lv));
+    return Math.max(cur * 0.3, Math.min(cur, dps * 0.4 * tab(BOSS_TTK, t) * lv)) * n;
   }
 
   /**

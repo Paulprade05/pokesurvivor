@@ -32,20 +32,43 @@ G.Sprites = (() => {
    * Se hace una vez por hoja con composición "source-in": mucho más barato
    * que ctx.filter en cada dibujo, que era lo que más ralentizaba con muchos
    * enemigos a la vez.
+   *
+   * (iPhone: pantalla negra, 01-11-2026) Sólo el trozo que se dibuja (un fotograma),
+   * no la hoja entera, y con tope: antes era una copia blanca de cada hoja (~0,8 MB) que
+   * no se soltaba nunca a tiempo; con muchos enemigos distintos pasaba de 100 MB de
+   * lienzos y Safari en iOS dejaba de dibujar. Ahora, como mucho WHITE_MAX bytes; al
+   * pasarlo se sueltan los más viejos. white(img) (la imagen entera) sigue valiendo.
    */
-  const whites = new WeakMap();
-  function white(img) {
-    let c = whites.get(img);
-    if (c) return c;
+  const ids = new WeakMap();
+  let nextId = 1;
+  const whites = new Map();            // "id|sx|sy|w|h" -> lienzo blanco (orden: el último usado al final)
+  let whiteBytes = 0;
+  const WHITE_MAX = (G.U.IOS ? 8 : 24) * 1048576;
+  function white(img, sx = 0, sy = 0, w = img.width, h = img.height) {
+    let id = ids.get(img);
+    if (!id) { id = nextId++; ids.set(img, id); }
+    const k = id + '|' + sx + '|' + sy + '|' + w + '|' + h;
+    let c = whites.get(k);
+    if (c) { whites.delete(k); whites.set(k, c); return c; }
+    while (whiteBytes > WHITE_MAX && whites.size) {
+      const [ok, oc] = whites.entries().next().value;
+      whites.delete(ok); whiteBytes -= oc.width * oc.height * 4; G.U.freeCanvas(oc);
+    }
     c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
+    c.width = Math.max(1, w); c.height = Math.max(1, h);
     const x = c.getContext('2d');
-    x.drawImage(img, 0, 0);
+    if (!x) { purge(); return null; }   // sin memoria de lienzos: se suelta lo guardado y este fotograma va sin destello
+    x.drawImage(img, sx, sy, w, h, 0, 0, w, h);
     x.globalCompositeOperation = 'source-in';
     x.fillStyle = '#ffffff';
     x.fillRect(0, 0, c.width, c.height);
-    whites.set(img, c);
+    whites.set(k, c); whiteBytes += c.width * c.height * 4;
     return c;
+  }
+  /** Suelta todas las copias blancas (sin memoria, o al perder el lienzo). */
+  function purge() {
+    for (const c of whites.values()) G.U.freeCanvas(c);
+    whites.clear(); whiteBytes = 0;
   }
 
   /** ¿Tiene versión shiny? (assets/pokemon/{dex}/s/) */
@@ -124,6 +147,7 @@ G.Sprites = (() => {
           for (let i = (y * c.width + f * m.w) * 4 + 3, e = i + m.w * 4; i < e; i += 4) if (d[i] > 40) { out[f] = m.ay - y; break rows; }
         }
       }
+      G.U.freeCanvas(c);
     } catch (e) { /* abierto con doble clic (file://): no deja mirar los píxeles; el marco entero */ }
     tops.set(key, out);
     return out;
@@ -168,7 +192,8 @@ G.Sprites = (() => {
   // Hojas en memoria como mucho. Antes no se soltaba ninguna: en partidas de
   // más de una hora pasaban cientos de especies, se llenaba la memoria gráfica
   // y la pantalla se quedaba en negro hasta que el navegador recargaba la página.
-  const MAX_SHEETS = 200, IDLE_MS = 20000;   // ~0,66 MB cada una ya dibujada: ~130 MB
+  // (iPhone, 01-11-2026: ~0,5 MB cada una medido; en iOS menos, que Safari cierra la página antes.)
+  const MAX_SHEETS = G.U.IOS ? 120 : 200, IDLE_MS = 20000;   // ~0,66 MB cada una ya dibujada: ~130 MB
   function evict(now) {
     const old = [...sheets].filter(([, s]) => now - s.at > IDLE_MS).sort((a, b) => a[1].at - b[1].at);
     const drop = old.slice(0, Math.max(sheets.size - Math.floor(MAX_SHEETS * 0.75), 0));
@@ -402,7 +427,8 @@ G.Sprites = (() => {
       if (!opts.flash || opts.softFlash) ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
       if (opts.flash) {
         if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
-        ctx.drawImage(white(s.img), sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+        const wc = white(s.img, sx, sy, m.w, m.h);
+        if (wc) ctx.drawImage(wc, dx, dy, m.w * k, m.h * k);
       }
       ctx.globalAlpha = prev;
     }
@@ -466,7 +492,7 @@ G.Sprites = (() => {
     return a;
   }
 
-  return { PX, meta, hasShiny, hovers, white, animMeta, sheet, preload, dirFromAngle, bodyRadius, bodyHeight, playerScale, playerRadius,
+  return { PX, meta, hasShiny, hovers, white, purge, animMeta, sheet, preload, dirFromAngle, bodyRadius, bodyHeight, playerScale, playerRadius,
            drawShadow, Animator, ANIMS, get sheetCount() { return sheets.size; },
            // 26-10-2026: animaciones extra (ver arriba)
            can, ready, choose, warm, ownFaint, reach, reel };

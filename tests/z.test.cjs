@@ -106,3 +106,61 @@ test('quien ya tenía cristales recibe la Pulsera Z de su compañero y de sus Po
 
 /** Una partida guardada, como la carga el juego (G.DB.migrate: rellena, limpia y regala). */
 const migrateOf = s => G.DB.migrate(JSON.parse(JSON.stringify(s)), 't');
+
+// Tipo del movimiento Z si empatan (01-11-2026): save.pzt[dex], elegido en Mejoras.
+test('zState con tipo elegido: empate → el elegido; sin empate o elección inválida → como antes', () => {
+  const save = { zc: { fire: 1, water: 1, grass: 1 }, pz: { 6: 1 }, pzt: {} };
+  Object.defineProperty(G.DB, 'save', { get: () => save, configurable: true });
+  const tie = mv('water', 'fire', 'fire', 'water');
+  // Sin elegir: el del ataque que aprendiste antes (como siempre).
+  assert.equal(G.Shop.zPref(6), null);
+  assert.equal(G.Shop.zState(6, tie, []).type, 'water');
+  // Empate 2 y 2: va el elegido.
+  G.Shop.zSetPref(6, 'fire');
+  assert.equal(save.pzt[6], 'fire');
+  assert.equal(G.Shop.zPref(6), 'fire');
+  let s = G.Shop.zState(6, tie, []);
+  assert.equal(s.type, 'fire'); assert.equal(s.n, 2);
+  // Empate de 3 tipos: también el elegido.
+  assert.equal(G.Shop.zState(6, mv('grass', 'grass', 'water', 'water', 'fire', 'fire'), []).type, 'fire');
+  // Sin empate: manda el de más ataques aunque hayas elegido otro.
+  s = G.Shop.zState(6, mv('water', 'water', 'water', 'fire', 'fire'), []);
+  assert.equal(s.type, 'water'); assert.equal(s.n, 3);
+  // El elegido no llega a 2: el de siempre.
+  assert.equal(G.Shop.zState(6, mv('water', 'water', 'fire'), []).type, 'water');
+  // Elegido entre los empatados pero sin su cristal: no cuenta.
+  G.Shop.zSetPref(6, 'grass');
+  delete save.zc.grass;
+  assert.equal(G.Shop.zState(6, mv('water', 'grass', 'grass', 'water'), []).type, 'water');
+  // Elecciones inválidas: un tipo que no es cristal, basura... → el de siempre.
+  for (const bad of ['banana', 'constructor', 42, null, '']) {
+    save.pzt[6] = bad;
+    assert.equal(G.Shop.zPref(6), null, String(bad));
+    assert.equal(G.Shop.zState(6, tie, []).type, 'water', String(bad));
+  }
+  // zSetPref con algo que no es un cristal (o null): quita la elección.
+  save.pzt[6] = 'fire';
+  G.Shop.zSetPref(6, 'banana');
+  assert.equal(6 in save.pzt, false);
+  // Es de cada Pokémon: otro sin elegir va como siempre.
+  G.Shop.zSetPref(6, 'fire');
+  save.pz[25] = 1;
+  assert.equal(G.Shop.zState(25, tie, []).type, 'water');
+  // Pasarlo a mano gana a lo guardado (y null = sin elegir).
+  assert.equal(G.Shop.zState(6, tie, [], null).type, 'water');
+  // La pista con los dos a 1: el elegido.
+  assert.equal(G.Shop.zState(6, mv('water', 'fire'), []).need, 'fire');
+});
+
+test('tipo Z elegido: se limpia al cargar y se junta entre aparatos', () => {
+  const m = migrateOf({ v: 3, name: 'x', coins: 0, tickets: { t1: 0, t10: 0 }, stats: {}, upgrades: {}, pupgDone: true, pzDone: true,
+    owned: { 6: { at: 1 }, 25: { at: 1 } }, pzt: { 6: 'fire', 25: 'banana', 99999: 'water' } });
+  assert.deepEqual({ ...m.pzt }, { 6: 'fire' });
+  assert.deepEqual({ ...migrateOf({ v: 3, name: 'x', stats: {}, pzDone: true }).pzt }, {});
+  const base = { coins: 0, tickets: { t1: 0, t10: 0 }, owned: { 25: { at: 1 }, 6: { at: 1 } }, shiny: {}, stats: {}, upgrades: {}, pzDone: true };
+  const a = { ...base, updated: 2, pzt: { 6: 'fire' } };
+  const b = { ...base, updated: 1, pzt: { 6: 'water', 25: 'electric' } };
+  // La más reciente manda; lo que sólo tenía la otra, se queda.
+  assert.deepEqual({ ...G.DB.merge(a, b).pzt }, { 6: 'fire', 25: 'electric' });
+  assert.deepEqual({ ...G.DB.merge(b, a).pzt }, { 6: 'fire', 25: 'electric' });
+});

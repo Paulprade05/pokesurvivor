@@ -477,7 +477,7 @@ G.Rift = (() => {
     // (28-10-2026) Una grieta en los primeros minutos no puede ser un muro: hasta el minuto 3, un 45 % menos de vida y
     //  de daño (y llega a lo normal en el 10). Medido: un Delibird sin mejoras caía diez veces en una grieta del minuto 3.
     const soft = 0.55 + 0.45 * Math.min(1, Math.max(0, (G.Game.st.time - 180) / 420));
-    const n = G.Game.everyone().length;
+    const n = G.Coop.scale(G.Game.everyone().length);     // (cooperativo: vida y daño ×n, 01-11-2026)
     const ts = U;
     const k = arena.dexes.length, spots = SPOTS[k] || SPOTS[1];
     const placed = [];
@@ -486,10 +486,10 @@ G.Rift = (() => {
       const def = {
         dex: mon.dex, name: mon.name,
         // (2.0) Mínimo más alto (4000 + 22·eff; antes 3200 + 9·eff, menos que un enemigo normal en el minuto 20) y, encima,
-        //  según tu DPS medido (G.Enemies.bossHp). En grupo, el reparto sólo sobre el mínimo (el DPS ya es de todos).
-        hp: Math.round((G.Enemies.bossHp ? Math.max((4000 + t * 22) * soft * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1),
-                                                    G.Enemies.bossHp((4000 + t * 22) * soft, G.Game.st.time, 'leg'))
-                                         : (3200 + t * 9) * soft * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1)) * HP_EACH[k]),
+        //  según tu DPS medido (G.Enemies.bossHp). En grupo, ×n sobre lo de solitario (bossHp cuenta el DPS de cada uno;
+        //  antes el mínimo ×(1+0,3·(n-1))×1,4).
+        hp: Math.round((G.Enemies.bossHp ? G.Enemies.bossHp((4000 + t * 22) * soft, G.Game.st.time, 'leg', n)
+                                         : (3200 + t * 9) * soft * n) * HP_EACH[k]),
         spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
         // (Bloque 3: de 36 + t/20 a 40 + t/10 entre los minutos 10 y 20; antes del 10, como siempre: medido, las grietas
         //  de los minutos 5-8 tumbaban.)
@@ -501,8 +501,9 @@ G.Rift = (() => {
       const [sx, sy] = spots[i] || [0, -3.5];
       const e = new G.Enemy(def, arena.x + sx * ts, arena.y + sy * ts, { hp: 1, spd: 1, dmg: 1 }, true);
       e.legend = true;
-      // (2.0, bloque 2) Su daño, con el director; su vida no (va aparte, bloque 3).
+      // (2.0, bloque 2) Su daño, con el director; su vida no (va aparte, bloque 3). Y ×n en cooperativo.
       if (G.Director) e.dmg *= G.Director.dmg();
+      e.dmg *= n; e.coopN = n;
       // Choca con las paredes y columnas como tú: si volara por encima de las
       // rocas, tus disparos no podrían alcanzarle (bug de Celebi).
       e.flying = false;

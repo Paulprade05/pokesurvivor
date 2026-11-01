@@ -62,7 +62,15 @@ G.Coop = (() => {
   // ---------------- escalado de dificultad ----------------
 
   const scaleRate = n => 1 + 0.75 * Math.max(0, n - 1);
-  const scaleHp = n => 1 + 0.3 * Math.max(0, n - 1);
+  /*
+   * (01-11-2026, lo pidió el dueño: «si son dos, que cueste el doble subir de nivel y que los enemigos tengan el
+   * doble de vida y ataque, incluidos los legendarios de grieta») Con N jugadores, la vida y el daño de TODOS los
+   * enemigos (normales, jefes, legendarios de grieta y de la Sentencia, duende) van ×N respecto a solitario, y la
+   * experiencia que se gana, ÷N (xpFactor). Cuenta N al crear cada enemigo: si alguien se va o vuelve, los que ya
+   * están siguen igual y los nuevos salen con la N de ese momento. Antes: vida ×(1 + 0,3 por cada uno más), los
+   * jefes y legendarios ×1,4 encima, y el daño sin tocar.
+   */
+  const scale = n => Math.max(1, Math.floor(n) || 1);
 
   // ---------------- arranque / fin ----------------
 
@@ -130,13 +138,13 @@ G.Coop = (() => {
 
   /**
    * Multiplicador de la experiencia del equipo: la media de los bonus de
-   * cada uno, y repartida entre los que sois (en grupo cae mucho más, y si no
-   * se subiría de nivel el triple de rápido que en solitario).
+   * cada uno, y repartida entre los que sois: con N jugadores cada nivel
+   * cuesta N veces lo de solitario (antes ÷(1 + 0,6 por cada uno más)).
    */
   function xpFactor() {
     let s = local.xpMul, n = 1;
     for (const m of mates.values()) if (m.connected) { s += m.xpMul || 1; n++; }
-    return (s / n) / local.xpMul / (1 + 0.6 * (n - 1));
+    return (s / n) / local.xpMul / scale(n);
   }
 
   // ---------------- estado de un jugador ----------------
@@ -634,7 +642,7 @@ G.Coop = (() => {
   }
 
   return {
-    ANIMS, COLORS, begin, end, leave, keeps, tick, players, puppets, xpFactor, scaleRate, scaleHp,
+    ANIMS, COLORS, begin, end, leave, keeps, tick, players, puppets, xpFactor, scaleRate, scale,
     cast, hit, status, hurtShown, enemyAdded, enemyGone, enemyShot, pickupAdded, pickupGone, say,
     propBroken, collected, shinyCaught, levelStart, localPicked, over, holdStart, holdEnd,
     /** Anfitrión: evento para todos. Invitado: evento para el anfitrión. */
@@ -645,6 +653,8 @@ G.Coop = (() => {
     get members() { return members; },
     get active() { return active; },
     get isHost() { return active && host; },
+    /** Anfitrión: de quién es el golpe que se está aplicando (uid; el director cuenta quién pega a cada enemigo). */
+    get hitter() { return hitFrom || me; },
     get local() { return local; }
   };
 })();

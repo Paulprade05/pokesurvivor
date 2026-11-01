@@ -78,6 +78,8 @@ G.Director = (() => {
   function hit(e, d) {
     if (e.hitT0 == null) { e.hitT0 = now; e.dmgIn = 0; }
     e.dmgIn += d;
+    // (Cooperativo: quién le pega, para kill. G.Coop.hitter: el invitado cuyo golpe se aplica, o el anfitrión.)
+    if (e.coopN > 1 && G.Coop && G.Coop.active) (e.hitBy || (e.hitBy = new Set())).add(G.Coop.hitter);
   }
 
   /** Un enemigo ha caído: cuenta sólo los normales tumbados por los jugadores. */
@@ -85,7 +87,11 @@ G.Director = (() => {
     if (e.boss || e.legend || e.judge || e.weak || e.selfK || e.hitT0 == null || !(e.dmgIn > 0)) return;
     if (e.behavior === 'stampede' || e.behavior === 'thief') return;
     const ttk = now - e.hitT0;
-    const te = e.maxHp / (e.dmgIn / Math.max(0.25, ttk));
+    // (Cooperativo, 01-11-2026: su vida va ×coopN. Se mide lo que tardaría UNO en tumbar uno de solitario: vida ÷ coopN
+    //  y × cuántos le han pegado. Si le pegáis todos, cuenta como siempre; si cada uno va a lo suyo, tardar el doble
+    //  con dos es lo pedido y el director no lo deshace.)
+    const share = e.coopN > 1 ? Math.min(e.coopN, e.hitBy ? e.hitBy.size : 1) / e.coopN : 1;
+    const te = e.maxHp * share / (e.dmgIn / Math.max(0.25, ttk));
     if (!(te > 0) || !isFinite(te)) return;
     lnSum += Math.log(te); wSum += 1;
   }

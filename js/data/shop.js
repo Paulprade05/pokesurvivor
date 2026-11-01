@@ -16,7 +16,8 @@
  * En la partida el Z sólo se activa si tu Pokémon lleva la Pulsera Z, tienes el
  * Cristal Z de un tipo y llevas al menos Z_NEED (2) ataques de ese tipo en tus
  * huecos (zState). Si cumplen varios, el del tipo con más ataques; si empatan,
- * el del ataque que aprendiste antes. El movimiento es el del cristal
+ * el tipo que elegiste para ese Pokémon en Mejoras (save.pzt[dex], 01-11-2026) y,
+ * si no elegiste o el tuyo no está entre los empatados, el del ataque que aprendiste antes. El movimiento es el del cristal
  * (data/moves.js; se lanza en combat.js, zUse), aunque no sea un tipo del Pokémon.
  * Ni los cristales ni las pulseras van en la libreta como la Mochila: no se
  * gastan, así que al fusionar dos aparatos se juntan (unión, core/db.js) y nunca
@@ -118,26 +119,44 @@ G.Shop = (() => {
   const ringHas = dex => { const s = save(); return !!(s && s.pz && dex != null && s.pz[dex]); };
 
   /**
+   * El tipo Z que elegiste para este Pokémon (Mejoras → Pulsera Z), para cuando
+   * empatan dos cristales: save.pzt[dex] = tipo. → el tipo, o null (sin elegir o
+   * no es un cristal). Va con la partida a la nube, como el movimiento inicial.
+   */
+  const zPref = dex => { const s = save(), t = s && s.pzt && dex != null ? s.pzt[dex] : null; return typeof t === 'string' && Z_NAME[t] ? t : null; };
+  /** Elige (o, con null, quita) el tipo Z de este Pokémon. Sin guardar: lo hace quien llama. */
+  function zSetPref(dex, type) {
+    const s = save();
+    if (!s || dex == null) return;
+    s.pzt = s.pzt || {};
+    if (type && Z_NAME[type]) s.pzt[dex] = type; else delete s.pzt[dex];
+  }
+
+  /**
    * Cómo va el movimiento Z de una partida (lo usan combat.js, el HUD, la pausa y las cartas).
    *   dex    el Pokémon elegido (el de la Pulsera Z)
    *   moves  tus ataques en los huecos, en el orden en que los aprendiste (cada uno con .type)
    *   types  los tipos de tu fase (sólo para la pista: a igualdad, el cristal de tu tipo)
+   *   pref   el tipo elegido para los empates (si no se pasa, el de Mejoras: zPref)
    * → { ring, type: el tipo listo (o null), n: ataques de ese tipo,
    *     need: el cristal más cercano si no hay ninguno listo (o null: sin cristales), needN: los que llevas de él,
    *     have: [{ t, n }] cada cristal tuyo con los ataques que llevas de su tipo }
    * Regla: Pulsera Z + cristal del tipo T + al menos Z_NEED ataques de T. Si cumplen
-   * varios, el de más ataques; si empatan, el del ataque que aprendiste antes.
+   * varios, el de más ataques; si empatan, el elegido (pref) si es uno de los
+   * empatados y, si no, el del ataque que aprendiste antes.
    */
-  function zState(dex, moves, types) {
+  function zState(dex, moves, types, pref) {
+    if (pref === undefined) pref = zPref(dex);
     const own = zOwned(), have = own.map(t => ({ t, n: 0, first: Infinity }));
     (moves || []).forEach((m, i) => {
       const h = m && have.find(x => x.t === m.type);
       if (h) { h.n++; if (h.first === Infinity) h.first = i; }
     });
-    const best = have.filter(h => h.n >= Z_NEED).sort((a, b) => b.n - a.n || a.first - b.first)[0] || null;
+    const ok = have.filter(h => h.n >= Z_NEED).sort((a, b) => b.n - a.n || a.first - b.first);
+    const best = (ok.length && ok.find(h => h.t === pref && h.n === ok[0].n)) || ok[0] || null;
     const mine = types || [];
-    // La pista: el que tenga más ataques; a igualdad, uno de tu tipo y luego el orden de siempre.
-    const near = best ? null : have.slice().sort((a, b) => b.n - a.n || a.first - b.first
+    // La pista: el que tenga más ataques; a igualdad, el elegido, uno de tu tipo y luego el orden de siempre.
+    const near = best ? null : have.slice().sort((a, b) => b.n - a.n || (b.t === pref) - (a.t === pref) || a.first - b.first
       || (mine.includes(b.t) - mine.includes(a.t)) || own.indexOf(a.t) - own.indexOf(b.t))[0] || null;
     return { ring: ringHas(dex), type: best ? best.t : null, n: best ? best.n : 0,
              need: near ? near.t : null, needN: near ? near.n : 0, have: have.map(({ t, n }) => ({ t, n })) };
@@ -187,5 +206,5 @@ G.Shop = (() => {
   }
 
   return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today,
-           Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zState };
+           Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zPref, zSetPref, zState };
 })();

@@ -306,10 +306,15 @@ G.RunUI = (() => {
     const di = $('lvl-discard').querySelector('.dc-ico');
     if (di && !di.firstChild) di.innerHTML = G.UI.svg('close', 20);
     setDiscarding(false);
+    // Todo al máximo (curarte un poco o monedas): la casilla para que se elija sola desde ahora.
+    const full = list.length > 0 && list.every(c => c.full);
+    $('lvl-always').classList.toggle('hidden', !full);
+    $('lvl-always-cb').checked = false;
   }
 
-  function pick(i) {
-    if (!offers || !offers[i] || guarded()) return;
+  /** @param auto  la elige el juego (Ajustes → «Al subir con todo al máximo»): sin la espera anti-toques */
+  function pick(i, auto = false) {
+    if (!offers || !offers[i] || (!auto && guarded())) return;
     if (discarding) {
       const p = G.Game.player;
       if (!G.LevelUp.discard(p, offers[i])) return;
@@ -320,8 +325,14 @@ G.RunUI = (() => {
     }
     const c = offers[i], cb = offerCb;
     offers = null; offerCb = null;
+    // «Elegir siempre esta opción»: se guarda en Ajustes y ya no se pregunta.
+    if (c.full && !auto && $('lvl-always-cb').checked) {
+      G.Settings.set('maxPick', c.full);
+      G.UI.toast(G.T('Se elegirá sola a partir de ahora. Puedes cambiarlo en Ajustes.'), 3200);
+    }
     $('lvl-reroll').classList.add('hidden');
     $('lvl-discard').classList.add('hidden');
+    $('lvl-always').classList.add('hidden');
     if (coopMode) {
       // Se queda la carta elegida a la vista mientras eligen los demás.
       $('cards').querySelectorAll('.card').forEach((el, j) => el.classList.toggle('picked', j === i));
@@ -530,7 +541,7 @@ G.RunUI = (() => {
     // Tus cristales: cuántos ataques de su tipo llevas (de los 2 que hacen falta).
     const have = z.have.length ? `<div class="z-have">${z.have.map(h => `<span class="z-cr${h.t === z.type ? ' on' : h.n >= NEED ? ' ok' : !z.type && h.t === z.need ? ' near' : ''}" style="--z-c:${G.U.TYPE_COLOR[h.t]}" title="${G.T(G.Shop.Z_NAME[h.t])}">`
       + `${G.Icons.html('z:' + h.t, 30)}<b>${h.n >= NEED ? h.n + G.UI.svg('check', 12) : h.n + '/' + NEED}</b></span>`).join('')}</div>` : '';
-    const rule = `<small class="z-rule">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques.')}</small>`;
+    const rule = `<small class="z-rule">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques y, si empatan, el que elegiste en Mejoras.')}</small>`;
     if (!z.type) {
       const what = !z.need ? G.T('Tienes la Pulsera Z, pero ningún Cristal Z: cómpralos en la Tienda Kecleon.')
         : z.needN >= NEED - 1 ? G.I18n.f('Apagado: te falta 1 ataque {x}.', G.T(G.U.TYPE_NAME[z.need]))

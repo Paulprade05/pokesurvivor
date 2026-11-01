@@ -115,7 +115,8 @@ G.Events = (() => {
     if (!mon || !G.SPRITE_META[dex]) return;
     const pl = G.U.pick(players.filter(p => !p.dead).length ? players.filter(p => !p.dead) : players);
     G.Sprites.preload([dex]);
-    const def = { dex, name: mon.name, behavior: 'thief', hp: Math.round(60 * (1 + time / 95) * (gold ? 1.5 : 1)),
+    // (Cooperativo: vida ×N, como todos los enemigos; G.Coop.scale.)
+    const def = { dex, name: mon.name, behavior: 'thief', hp: Math.round(60 * (1 + time / 95) * (gold ? 1.5 : 1) * G.Coop.scale(players.length)),
                   spd: 92, dmg: 0, xp: 10, loot: gold ? 'gold' : 'coins' };
     for (let i = 0; i < 12; i++) {
       const a = Math.random() * 6.2832, d = G.U.rand(230, 300);

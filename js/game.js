@@ -44,6 +44,11 @@ G.Game = (() => {
     G.Touch.init(cv);
     // En móvil: al cambiar de app o al girarlo, la partida se pausa (ver checkOrientation).
     document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+    // (iPhone: pantalla negra, 01-11-2026) Si el navegador tira la memoria del lienzo (sin memoria, o al volver
+    // de otra app), el lienzo queda en negro hasta «contextrestored». Mientras, en pausa; al volver, todo lo
+    // horneado se suelta (se vuelve a hornear) y se reajusta el tamaño.
+    cv.addEventListener('contextlost', e => { e.preventDefault(); onCtxLost(); });
+    cv.addEventListener('contextrestored', onCtxBack);
     // Continuar: en grupo la pausa no para nada, sólo se cierra (sin saltarse
     // la espera si otro está eligiendo o el anfitrión no responde).
     G.RunUI.wirePause(() => { if (state === 'paused') state = 'playing'; G.UI.hideAll(); }, quitRun);
@@ -57,6 +62,24 @@ G.Game = (() => {
     last = performance.now();
     requestAnimationFrame(loop);
   }
+
+  /*
+   * (iPhone: pantalla negra, 01-11-2026) Safari en iOS tiene un tope de memoria para todos los lienzos
+   * juntos; al pasarlo, los nuevos salen sin dibujo y el fotograma fallaba antes de pintar nada (negro).
+   * Esto suelta todo lo que se puede volver a hacer: copias blancas, chunks horneados y los lienzos de Ultra.
+   */
+  let ctxLost = false, purgedAt = -1e9;
+  function purgeGfx() {
+    const now = performance.now();
+    if (now - purgedAt < 500) return;      // una vez cada medio segundo como mucho (si no, rehornear sin parar)
+    purgedAt = now;
+    G.Sprites.purge();
+    G.World.purge();
+    D3.free();
+  }
+
+  function onCtxLost() { if (ctxLost) return; ctxLost = true; autoPause(); purgedAt = -1e9; purgeGfx(); }
+  function onCtxBack() { if (!ctxLost) return; ctxLost = false; purgedAt = -1e9; purgeGfx(); dpr = 0; resize(); }
 
   function resize() {
     // Resolución interna como mucho ×1,5: en pantallas ×2 dibujar el doble de
@@ -338,11 +361,15 @@ G.Game = (() => {
       // no, los demás se quedaban esperándote para siempre.
       try {
         G.Audio.sfx('levelup');
-        G.RunUI.showLevelUp(level, G.LevelUp.offer(pl), card => {
-          try { G.Audio.sfx('confirm'); card.apply(pl); }
+        // Todo al máximo con la elección fijada en Ajustes: sale ya elegida (como si la
+        // hubieras pulsado) y esperas a los demás como siempre.
+        const auto = G.LevelUp.auto(pl);
+        G.RunUI.showLevelUp(level, auto ? [auto] : G.LevelUp.offer(pl), card => {
+          try { G.Audio.sfx('confirm'); if (card.full) fullFx(G.LevelUp.fullGain(pl, card), card.full); else card.apply(pl); }
           catch (e) { console.error('[Game] fallo al aplicar la carta:', e); }
           finally { G.Coop.localPicked(); }
         }, true);
+        if (auto) G.RunUI.pick(0, true);
       } catch (e) {
         console.error('[Game] no se pudieron abrir las cartas:', e);
         G.Coop.localPicked();          // esta vez sin carta; la partida sigue al elegir los demás
@@ -453,7 +480,8 @@ G.Game = (() => {
       tiempo: Math.floor(time / 5),
       derrotados: Math.floor(pl.kills * 0.25),
       jefes: pl.bosses * 80,
-      recogidas: pl.coins
+      // (+ las monedas de las cartas de todo al máximo: de cada jugador, también en cooperativo)
+      recogidas: pl.coins + (pl.bonusCoins || 0)
     };
     const coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
     const PART_NAME = { tiempo: 'Tiempo', derrotados: 'Derrotados', jefes: 'Jefes', recogidas: 'Recogidas' };
@@ -572,6 +600,12 @@ G.Game = (() => {
     // Nunca abras cartas con el Pokémon caído (morir y recoger XP en el mismo frame).
     if (pl.dead) return;
     pendingLevels--;
+    // Todo al máximo con la elección fijada en Ajustes («Siempre curar» / «Siempre monedas»):
+    // se aplica sola, con un aviso pequeño, sin parar la partida.
+    let auto = null;
+    try { auto = G.LevelUp.auto(pl); if (auto) { G.Audio.sfx('levelup'); fullFx(G.LevelUp.fullGain(pl, auto), auto.full); } }
+    catch (e) { console.error('[Game] fallo al aplicar la carta sola:', e); }
+    if (auto) return;
     state = 'levelup';
     // Si algo falla al abrir las cartas o al aplicar la elegida, se sigue
     // jugando (antes la partida se quedaba congelada sin cartas, #262).
@@ -587,6 +621,12 @@ G.Game = (() => {
       if (state === 'levelup') state = 'playing';
       G.RunUI.closeLevelUp();
     }
+  }
+
+  /** Aviso de lo que ha dado la carta de todo al máximo: «+12 PV» verde o «+50 monedas» dorado. */
+  function fullFx(txt, kind) {
+    G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, txt, kind === 'coin' ? '#ffd23f' : '#5fe08a', true);
+    if (kind !== 'coin') G.FX.ring(pl.x, pl.y, 6, 60, '#5fe08a', 0.4, 3);
   }
 
   // ---------------- vínculos ----------------
@@ -835,6 +875,7 @@ G.Game = (() => {
     catch (e) {
       if (loopErrs++ < 5) console.error('[Game] fallo en un fotograma:', e);
       G.Input.endFrame();
+      try { purgeGfx(); } catch (e2) { /* (por si el fallo es de memoria de lienzos: se suelta lo horneado) */ }
       if (++errRun === 180 && pl && state !== 'ui' && state !== 'over') {
         try {
           G.UI.hideAll();
@@ -857,6 +898,8 @@ G.Game = (() => {
     // de una grieta con el vínculo abierto, la pantalla se quedaba morada (#114).
     if (flashT > 0) flashT -= dt;
     watchdog(real);
+    // (Por si el navegador no avisa con el evento: se mira el lienzo, que es barato.)
+    if (ctx.isContextLost && ctx.isContextLost() !== ctxLost) (ctxLost ? onCtxBack : onCtxLost)();
     // Red de seguridad: si la ventana ha cambiado de tamaño (girar el móvil) y no ha
     // llegado el aviso de resize (pasa en algunos iPhone), se reajusta igual.
     if (innerWidth !== seenW || innerHeight !== seenH) { seenW = innerWidth; seenH = innerHeight; resizeSoon(); }
@@ -1076,6 +1119,7 @@ G.Game = (() => {
       if (!gcv) { gcv = document.createElement('canvas'); }
       fit(gcv, GW, GH);
       if (!gx) gx = gcv.getContext('2d', { alpha: false });
+      if (!gx) { purgeGfx(); return; }       // sin memoria de lienzos (iPhone): se suelta lo guardado y se reintenta
       view.l = ox; view.t = oy; view.w = GW; view.h = GH;
       gx.setTransform(1, 0, 0, 1, -ox, -oy);
       gx.imageSmoothingEnabled = false;
@@ -1151,6 +1195,7 @@ G.Game = (() => {
         if (!acv) { acv = document.createElement('canvas'); }
         fit(acv, AW, AH);
         if (!ax) ax = acv.getContext('2d');
+        if (!ax) { purgeGfx(); return; }
         ax.setTransform(1, 0, 0, 1, 0, 0);
         ax.clearRect(0, 0, AW, AH);
         ax.setTransform(Kd, 0, 0, Kd, -aox * Kd, -aoy * Kd);
@@ -1173,7 +1218,10 @@ G.Game = (() => {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    return { PERSP, draw };
+    /** Suelta sus dos lienzos (se vuelven a crear al dibujar). */
+    function free() { G.U.freeCanvas(gcv); G.U.freeCanvas(acv); gcv = gx = acv = ax = null; }
+
+    return { PERSP, draw, free };
   })();
 
   /*

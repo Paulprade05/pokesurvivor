@@ -131,6 +131,7 @@ G.Tileset = (() => {
     const cv = document.createElement('canvas');
     cv.width = cv.height = N * T;
     const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }   // sin memoria de lienzos (iPhone): world.js suelta y reintenta
     g.imageSmoothingEnabled = false;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const tx = cx * N + i, ty = cy * N + j, t = at(tx, ty), sec = SEC[t];
@@ -182,6 +183,7 @@ G.Tileset = (() => {
       cv = document.createElement('canvas');
       cv.width = cv.height = T;
       const g = cv.getContext('2d');
+      if (!g) { G.U.freeCanvas(cv); return null; }   // (sin memoria de lienzos: este fotograma, el de tiles.js)
       g.imageSmoothingEnabled = false;
       g.drawImage(src, (ISO % 6) * T, ((ISO / 6) | 0) * T, T, T, 0, 0, T, T);
       propCache.set(k, cv);

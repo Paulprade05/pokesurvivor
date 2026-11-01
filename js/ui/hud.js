@@ -391,7 +391,7 @@ G.HUD = (() => {
   function infoLine(ctx, w, y, k, tall, touch, sa, cardR, pl) {
     const fs = (cmp ? 12 : 13) * k, ic = (cmp ? 14 : 15) * k, gap = 3 * k, sep = (cmp ? 10 : 14) * k;
     ctx.font = F(600, fs);
-    const ks = String(pl.kills), cs = String(pl.coins);
+    const ks = String(pl.kills), cs = String(pl.coins + (pl.bonusCoins || 0));   // (+ las de todo al máximo)
     const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width;
     let bio = '', bw = 0;
     if (!cmp) {
