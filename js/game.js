@@ -76,6 +76,7 @@ G.Game = (() => {
     G.Sprites.purge();
     G.World.purge();
     D3.free();
+    G.Ultra3D.free();
   }
 
   function onCtxLost() { if (ctxLost) return; ctxLost = true; autoPause(); purgedAt = -1e9; purgeGfx(); }
@@ -1126,6 +1127,8 @@ G.Game = (() => {
       G.World.drawGround(gx, view, true);
       G.World.drawLiquid(gx, view, t);
       const props = G.World.visibleProps(view);
+      // (Ultra 3D, world/ultra3d.js) Paredes, rocas y cofres en 3D de verdad, si se puede; si no, este fotograma en 2D.
+      const u3 = G.Ultra3D.begin(cam, Kd, cv.width, Hd, props);
       for (const p of props) if (p.flat) G.World.drawProp(gx, p, t);
       G.EnemyAI.drawGround(gx);
       G.Hazards.draw(gx);
@@ -1148,7 +1151,14 @@ G.Game = (() => {
 
       // 2) De pie, por orden de Y; cada uno a la escala del sitio que pisa.
       const items = [];
-      for (const p of props) if (!p.flat) items.push({ y: p.y, prop: p });
+      for (const p of props) {
+        if (p.flat) continue;
+        if (!u3 || !G.Ultra3D.owns(p)) { items.push({ y: p.y, prop: p }); continue; }
+        items.push({ y: p.y, u3: p });
+        // (El aro de «abriendo» del cofre con candado, en 2D justo delante de él.)
+        if (p.type === 'bigchest' && p.open > 0) items.push({ y: p.y + 0.01, ent: { x: p.x, y: p.y, draw: c => G.World.drawChestRing(c, p, 30) } });
+      }
+      if (u3) G.Ultra3D.rows(items);
       for (const e of ens) if (Math.abs(e.y) < 1e8) items.push({ y: e.y, ent: e });
       for (const e of extra) items.push({ y: e.y, ent: e });
       const rift = G.Rift.drawable();
@@ -1158,8 +1168,9 @@ G.Game = (() => {
       if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
       items.sort((p, q) => p.y - q.y);
       const TS = G.World.TS, PX = G.World.GS, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
-      for (const it of items) {
-        const o = it.prop || it.ent;
+      // Dónde cae cada uno en la pantalla (P: sx, sy, k, ky, fx, fy) o null si no se ve.
+      const P = [0, 0, 0, 0, 0, 0];
+      const place = o => {
         // (Las filas de pared se apoyan en el borde de abajo de su fila y en vertical van
         // como el suelo, s²: así una fila empieza justo donde acaba la de detrás.)
         const fx = o.wallrow ? cx : o.x, fy = o.wallrow ? o.y - 1 + TS : o.y;
@@ -1167,7 +1178,33 @@ G.Game = (() => {
         // Dónde caen sus pies en la pantalla: lo que no se ve, ni se dibuja (lo alto
         // sube desde los pies: puede asomar aunque los pies queden por debajo).
         const sx = ((fx - cx) * s + hw + shX) * Kd, sy = (dv * s + hh + shY) * Kd;
-        if (sy < -60 * k || sy > Hd + 260 * k || sx < -200 * k || sx > cv.width + 200 * k) continue;
+        if (sy < -60 * k || sy > Hd + 260 * k || sx < -200 * k || sx > cv.width + 200 * k) return null;
+        P[0] = sx; P[1] = sy; P[2] = k; P[3] = ky; P[4] = fx; P[5] = fy;
+        return P;
+      };
+      // (Ultra 3D) Lo 3D va por lotes en el orden por Y: un lote acaba justo antes de lo 2D que se le cruza en la pantalla
+      //  (it.u3flush: se dibuja ahí). Todos se dibujan antes en el lienzo 3D, juntos (ultra3d.js), y luego se pegan.
+      let last = null;
+      if (u3) {
+        const batches = [];
+        for (const it of items) {
+          if (it.u3 || it.u3row) { last = G.Ultra3D.add(last, it); continue; }
+          if (!last) continue;
+          const q = place(it.prop || it.ent);
+          if (!q) continue;
+          const r = Math.max(70, ((it.prop || it.ent).r || 0) * 3) * q[2];      // (lo que puede ocupar un sprite: de sobra)
+          if (G.Ultra3D.hits(last, q[0] - r, q[1] - 2.4 * r, q[0] + r, q[1] + 0.4 * r)) { it.u3flush = last; batches.push(last); last = null; }
+        }
+        if (last) batches.push(last);
+        G.Ultra3D.render(batches);
+        G.Ultra3D.ground(ctx);                  // las sombras de lo 3D, en el suelo
+      }
+      for (const it of items) {
+        if (it.u3flush) G.Ultra3D.blit(ctx, it.u3flush);
+        if (it.u3 || it.u3row) continue;
+        const o = it.prop || it.ent;
+        if (!place(o)) continue;
+        const [sx, sy, k, ky, fx, fy] = P;
         if (o.wallrow) {
           // Fila de pared por tiras de WS px de arte: cada tira, a la escala del suelo a su
           // altura en la pantalla, así los lados de las paredes siguen las líneas del suelo
@@ -1187,6 +1224,7 @@ G.Game = (() => {
         ctx.setTransform(k, 0, 0, ky, sx - k * fx, sy - ky * fy);
         if (it.prop) G.World.drawProp(ctx, it.prop, t); else it.ent.draw(ctx);
       }
+      if (last) G.Ultra3D.blit(ctx, last);
 
       // 3) Aire: proyectiles y efectos, en su lienzo, y a la pantalla por franjas.
       if (air) {

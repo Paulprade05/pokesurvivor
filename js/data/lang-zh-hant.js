@@ -718,6 +718,7 @@ G.I18n.add({
   "Menos sacudidas y destellos": "減少震動與閃光",
   "La cámara tiembla menos y los fogonazos son suaves.": "減少鏡頭震動，讓閃光更柔和。",
   "Casillas de Mundo Misterioso": "不可思議迷宮圖塊", "El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "地面、牆壁、水、樹木、寶箱和陷阱使用《空之探險隊》的美術。關閉：使用遊戲自己的畫法。",
+  "Ultra en 3D (WebGL)": "Ultra 3D (WebGL)", "Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.": "\u958b\u555f Ultra \u6642\uff0c\u7246\u58c1\u3001\u5ca9\u77f3\u548c\u5bf6\u7bb1\u4ee5\u771f\u6b63\u7684 3D \u986f\u793a\uff0c\u5e36\u5149\u7167\u548c\u9670\u5f71\uff0c\u8868\u9762\u4ecd\u662f\u50cf\u7d20\u756b\u3002\u88dd\u7f6e\u4e0d\u652f\u63f4\u6642\u7167\u820a\u986f\u793a\u3002",
   "Mostrar FPS": "顯示 FPS",
   "Fotogramas por segundo, en la esquina de abajo.": "在下方角落顯示每秒影格數。",
   "Pantalla completa": "全螢幕",

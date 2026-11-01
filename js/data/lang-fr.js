@@ -1083,6 +1083,7 @@ G.I18n.add({
   "Menos sacudidas y destellos": "Moins de secousses et de flashs",
   "La cámara tiembla menos y los fogonazos son suaves.": "La caméra tremble moins et les flashs sont adoucis.",
   "Casillas de Mundo Misterioso": "Cases de Donjon Mystère", "El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "Le sol, les murs, l'eau, les arbres, les coffres et les pièges avec le dessin d'Explorateurs du Ciel. Désactivé : le dessin propre au jeu.",
+  "Ultra en 3D (WebGL)": "Ultra en 3D (WebGL)", "Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.": "Avec Ultra, les murs, les rochers et les coffres en vraie 3D, avec lumi\u00e8re et ombres et leur pixel art par-dessus. Si l'appareil ne peut pas, ils s'affichent comme avant.",
   "Mostrar FPS": "Afficher les FPS",
   "Fotogramas por segundo, en la esquina de abajo.": "Images par seconde, dans le coin en bas.",
   "Pantalla completa": "Plein écran",

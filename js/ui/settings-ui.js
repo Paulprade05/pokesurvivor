@@ -198,7 +198,9 @@ G.SettingsUI = (() => {
            `<button type="button" class="chip ${G.I18n.lang === v ? 'on' : ''}" data-lang="${v}" aria-pressed="${G.I18n.lang === v}">${l}</button>`).join('')}</div></div>`
       + section('Calidad', 'Cuántos efectos y partículas se dibujan. <b>Auto</b> la baja sola si el juego va a tirones (ahora: ' + auto + ').')
       + '<p class="set-sub">Ultra: el mapa en 2,5D como en los juegos de DS (cámara inclinada con perspectiva y relieve). Pide más al aparato.</p>'
-      + list(choice('quality', [['auto', 'Auto'], ['ultra', 'Ultra'], ['high', 'Alta'], ['mid', 'Media'], ['low', 'Baja']]))
+      + list(choice('quality', [['auto', 'Auto'], ['ultra', 'Ultra'], ['high', 'Alta'], ['mid', 'Media'], ['low', 'Baja']]),
+        // (Ultra 3D, 01-11-2026) Sólo cuenta con Ultra y las casillas de Mundo Misterioso.
+        G.TILESETS && G.TILESETS.length ? toggle('ultra3d', 'Ultra en 3D (WebGL)', 'Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.') : '')
       + section('Pantalla')
       + list(toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.'),
         toggle('calm', 'Menos sacudidas y destellos', 'La cámara tiembla menos y los fogonazos son suaves.'),

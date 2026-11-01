@@ -156,7 +156,7 @@ G.Tileset = (() => {
    * Hornea un chunk: N×N casillas de 24 px (world.js lo dibuja a su tamaño en el mundo, CW). at(tx, ty) -> terreno de
    * world.js (0 suelo, 1 pared, 2 líquido), también fuera del chunk (sin costuras).
    */
-  function paintChunk(cx, cy, N, at, bi, seed) {
+  function paintChunk(cx, cy, N, at, bi, seed, flat3d = false) {
     const s = st[bi], m = meta[bi];
     const cv = document.createElement('canvas');
     cv.width = cv.height = N * T;
@@ -166,6 +166,8 @@ G.Tileset = (() => {
     const face = cliffFace(bi);                     // (arte PixelLab) con ella, las paredes son una elevación del suelo
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const tx = cx * N + i, ty = cy * N + j, t = at(tx, ty), sec = SEC[t];
+      // (Ultra 3D) Las paredes las levanta ultra3d.js en 3D: aquí sólo el suelo (queda tapado) y sin sombras pintadas.
+      if (flat3d && t === 1) { g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T); continue; }
       if (t === 1 && face) { raised(g, at, tx, ty, i * T, j * T, s, m, seed, face); continue; }
       // Debajo, el suelo lleno (algunas casillas de pared o agua tienen huecos transparentes).
       if (sec !== 2) g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T);
@@ -173,6 +175,7 @@ G.Tileset = (() => {
       g.drawImage(srcOf(s, m, sec, cell, tx, ty, seed), (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
       // (6b) Sombra en el suelo al pie de una pared (al sur), para que la pared se lea como obstáculo; (arte PixelLab)
       //  más larga y, con la luz de arriba a la izquierda, también un poco al este de la pared.
+      if (flat3d) continue;
       if (t !== 1 && at(tx, ty - 1) === 1) {
         g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(i * T, j * T, T, 2);
         g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(i * T, j * T + 2, T, 2);
@@ -221,6 +224,59 @@ G.Tileset = (() => {
     g.fillStyle = edge;
     if (n && wo && !w(-1, -1)) g.fillRect(x, y, 1, 1);
     if (n && e && !w(1, -1)) g.fillRect(x + T - 1, y, 1, 1);
+  }
+
+  /**
+   * (Ultra 3D) Las texturas de las paredes en 3D (ultra3d.js), con el mismo dibujo que raised():
+   *  - top3d: las caras de arriba del chunk (N×N casillas de 24 px; transparente donde no hay pared): el suelo del bioma
+   *    más claro, contorno donde acaba la pared y luz en los bordes de arriba y de la izquierda;
+   *  - face3d: la cara de roca (cliff.png con los colores del bioma, FH px de alto) con su sombra arriba y su contorno abajo.
+   * null si no se puede (sin el arte o sin lienzo).
+   */
+  function top3d(cx, cy, N, at, bi, seed) {
+    const s = st[bi], m = meta[bi];
+    if (!s || !s.ok) return null;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = N * T;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    g.imageSmoothingEnabled = false;
+    const edge = (m.pal && m.pal.edge) || '#141414', lite = 'rgba(255,255,255,0.32)';
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const tx = cx * N + i, ty = cy * N + j;
+      if (at(tx, ty) !== 1) continue;
+      const w = (dx, dy) => at(tx + dx, ty + dy) === 1, x = i * T, y = j * T;
+      const n = w(0, -1), so = w(0, 1), e = w(1, 0), wo = w(-1, 0);
+      g.drawImage(srcOf(s, m, 2, FULL, tx, ty, seed), (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, x, y, T, T);
+      g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x, y, T, T);
+      if (!n) { g.fillStyle = edge; g.fillRect(x, y, T, 1); g.fillStyle = lite; g.fillRect(x, y + 1, T, 1); }
+      if (!so) { g.fillStyle = lite; g.fillRect(x, y + T - 2, T, 1); g.fillStyle = edge; g.fillRect(x, y + T - 1, T, 1); }
+      if (!wo) { g.fillStyle = lite; g.fillRect(x + 1, y + 1, 1, T - 2); g.fillStyle = edge; g.fillRect(x, y, 1, T); }
+      if (!e) { g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(x + T - 2, y, 1, T); g.fillStyle = edge; g.fillRect(x + T - 1, y, 1, T); }
+      g.fillStyle = edge;
+      if (n && wo && !w(-1, -1)) g.fillRect(x, y, 1, 1);
+      if (n && e && !w(1, -1)) g.fillRect(x + T - 1, y, 1, 1);
+      if (so && wo && !w(-1, 1)) g.fillRect(x, y + T - 1, 1, 1);
+      if (so && e && !w(1, 1)) g.fillRect(x + T - 1, y + T - 1, 1, 1);
+    }
+    return cv;
+  }
+  function face3d(bi) {
+    const k = 'face3d/' + bi;
+    if (propCache.has(k)) return propCache.get(k);
+    const face = ready(bi) ? cliffFace(bi) : null;
+    if (!face) return null;
+    const cv = document.createElement('canvas');
+    cv.width = face.width; cv.height = FH;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    const W = cv.width;
+    g.drawImage(face, 0, 0);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 0, W, 1);
+    g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(0, FH - 3, W, 2);
+    g.fillStyle = meta[bi].pal.edge; g.fillRect(0, FH - 1, W, 1);
+    propCache.set(k, cv);
+    return cv;
   }
 
   /**
@@ -326,5 +382,6 @@ G.Tileset = (() => {
     ctx.drawImage(s.liq, (f * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, size, size);
   }
 
-  return { T, RULE, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, set onReady(fn) { onReady = fn; } };
+  return { T, RULE, FH, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg,
+    set onReady(fn) { onReady = fn; } };
 })();

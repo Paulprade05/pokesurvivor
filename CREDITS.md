@@ -155,6 +155,12 @@ repiten con `tools/pixellab_gen.cjs`, que necesita una clave propia de PixelLab,
 Los colores de cada bioma los pone el juego. Los cofres en bloque (`chest.png`, `bigchest.png`) se dibujan con
 `tools/chest3d.py` (propios del proyecto). Si se borra `assets/objects-px/`, el juego vuelve a lo de antes (PMD o su dibujo).
 
+## three.js (Ultra 3D)
+
+[three.js](https://threejs.org/) r160 (`three@0.160.0`, `build/three.module.min.js`), © 2010-2023 three.js authors,
+licencia MIT (texto completo en `js/vendor/three/LICENSE`). Copia local en `js/vendor/three/` (sin CDN, para que la app
+funcione sin conexión); sólo se carga con la calidad Ultra y el ajuste «Ultra en 3D (WebGL)» (`js/world/ultra3d.js`).
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

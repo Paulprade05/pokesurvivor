@@ -985,6 +985,7 @@ G.I18n.add({
   "Menos sacudidas y destellos": "Menos tremores e clarões",
   "La cámara tiembla menos y los fogonazos son suaves.": "A câmera treme menos e os clarões são mais suaves.",
   "Casillas de Mundo Misterioso": "Blocos de Mystery Dungeon", "El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "O chão, as paredes, a água, as árvores, os baús e as armadilhas com a arte de Explorers of Sky. Desligado: o desenho próprio do jogo.",
+  "Ultra en 3D (WebGL)": "Ultra em 3D (WebGL)", "Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.": "Com Ultra, as paredes, as pedras e os ba\u00fas em 3D de verdade, com luz e sombras e o pixel art por cima. Se o aparelho n\u00e3o conseguir, aparecem como antes.",
   "Mostrar FPS": "Mostrar FPS",
   "Fotogramas por segundo, en la esquina de abajo.": "Quadros por segundo, no canto de baixo.",
   "Pantalla completa": "Tela cheia",

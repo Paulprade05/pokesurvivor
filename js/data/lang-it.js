@@ -435,6 +435,7 @@ G.I18n.add({
   'Menos sacudidas y destellos': 'Meno scosse e bagliori',
   'La cámara tiembla menos y los fogonazos son suaves.': 'La visuale trema meno e i lampi sono attenuati.',
   'Casillas de Mundo Misterioso': 'Caselle di Mystery Dungeon', 'El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Pavimento, muri, acqua, alberi, forzieri e trappole con la grafica di Esploratori del Cielo. Spento: il disegno del gioco.',
+  'Ultra en 3D (WebGL)': 'Ultra in 3D (WebGL)', 'Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.': 'Con Ultra, muri, rocce e forzieri in vero 3D, con luci e ombre e il loro pixel art sopra. Se il dispositivo non può, si vedono come prima.',
   'Mostrar FPS': 'Mostra FPS', 'Fotogramas por segundo, en la esquina de abajo.': 'Fotogrammi al secondo, nell\'angolo in basso.',
   'Pantalla completa': 'Schermo intero', 'Sin barras del navegador.': 'Senza barre del browser.', 'Activar': 'Attiva', 'Sí': 'Sì',
   'No': 'No', 'Idioma': 'Lingua', 'El juego se recarga al cambiarlo.': 'Il gioco si ricaricherà dopo la modifica.',

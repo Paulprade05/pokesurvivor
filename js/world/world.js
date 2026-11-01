@@ -698,12 +698,13 @@ G.World = (() => {
   function syncMode() {
     livePl = G.Game.state !== 'ui' ? G.Game.player : null;
     const u = G.Settings.get('quality') === 'ultra', p = !!(G.Tileset && G.Tileset.enabled());
-    if (u === ultra && p === pmd) return;
-    ultra = u; pmd = p;
+    const f = u && p && !!(G.Ultra3D && G.Ultra3D.on());      // (Ultra 3D) las paredes, en 3D (ultra3d.js): el suelo, plano
+    if (u === ultra && p === pmd && f === flat3d) return;
+    ultra = u; pmd = p; flat3d = f;
     dropImages(images); if (fade) dropImages(fade.images); fade = null;
   }
   // (Bloque 6) Tileset de Mundo Misterioso: ¿se usa ya para el bioma bi? Al acabar de cargar uno, se rehornea.
-  let pmd = false;
+  let pmd = false, flat3d = false;
   const pmdOn = bi => !!(G.Tileset && G.Tileset.ready(bi));
   if (G.Tileset) G.Tileset.onReady = bi => { if (bi === biome || (fade && bi === fade.from)) { dropImages(images); if (fade) dropImages(fade.images); } };
 
@@ -713,7 +714,7 @@ G.World = (() => {
     if (img) return img;
     // (Bloque 6) Con el tileset de Mundo Misterioso de este bioma, si está listo; si no, el pintor de tiles.js, ya sin
     //  caminos de tierra (PMD no los tiene: el campo de tierra a 0).
-    const paint = () => pmdOn(bi) ? G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed)
+    const paint = () => pmdOn(bi) ? G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed, flat3d)
       : G.Tiles.paintChunk(cx, cy, N, (tx, ty) => KIND[terrainAt(tx, ty)], () => 0, bi, seed, ultra);
     // (iPhone: pantalla negra, 01-11-2026) Con el tope de memoria de lienzos de Safari lleno, el lienzo nuevo sale
     //  sin dibujo (getContext da null) y fallaba todo el fotograma: negro. Se suelta lo guardado y se prueba otra
@@ -939,14 +940,7 @@ G.World = (() => {
       ctx.beginPath(); ctx.arc(p.x, p.y - h + 2 + 5.5 * P, 13, 0, 6.2832); ctx.fill();
       ctx.globalAlpha = 1;
     }
-    if (p.type === 'bigchest' && p.open > 0) {
-      ctx.save();
-      ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y - h / 2, 26, -Math.PI / 2, -Math.PI / 2 + 6.2832 * Math.min(1, p.open / G.Interact.CHEST_TIME));
-      ctx.stroke();
-      ctx.restore();
-    }
+    if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
     const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
     const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + dy);
     if (p.type !== 'grass' && !block) {
@@ -973,6 +967,16 @@ G.World = (() => {
     if (wc) { ctx.globalAlpha = 0.6; ctx.drawImage(wc, x, y, w, h); }
     // (Sin save/restore por objeto: sólo se toca la transparencia y aquí se deja como estaba.)
     ctx.globalAlpha = 1;
+  }
+
+  /** El aro de «abriendo» del cofre con candado, a dy por encima de sus pies (también lo usa el Ultra 3D). */
+  function drawChestRing(ctx, p, dy = 27) {
+    ctx.save();
+    ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - dy, 26, -Math.PI / 2, -Math.PI / 2 + 6.2832 * Math.min(1, p.open / G.Interact.CHEST_TIME));
+    ctx.stroke();
+    ctx.restore();
   }
 
   function update(dt, cam) {
@@ -1055,7 +1059,9 @@ G.World = (() => {
       for (const k of [...images.keys()]) { const [cx, cy] = k.split(',').map(Number); if (near(cx, cy)) { G.U.freeCanvas(images.get(k)); images.delete(k); } }
       lastC = null;
     },
-    get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette,
+    get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette, drawChestRing,
+    // (Ultra 3D, ultra3d.js) Los datos de un chunk (terreno y objetos), el terreno de una casilla y si el bioma va con tileset.
+    N, chunk: chunkData, terrainAt, pmdOn: bi => pmdOn(bi), get seed() { return seed; },
     /** Suelta los chunks horneados (se vuelven a hornear al dibujarlos): sin memoria de lienzos o al perder el lienzo. */
     purge() { dropImages(images); if (fade) dropImages(fade.images); },
     get biome() { return biome; }
