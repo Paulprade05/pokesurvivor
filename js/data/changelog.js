@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["iPhone: pantalla negra", "iPhone: black screen"], fix: [
+    ["En iPhone (sobre todo como app en la pantalla de inicio), con muchos enemigos distintos la pantalla se podía quedar en negro: el destello blanco de los golpes guardaba una copia de cada hoja de sprites y llenaba la memoria de dibujo que Safari deja. Ahora usa mucha menos y la suelta a tiempo; y si aun así se llena o el sistema borra el dibujo, el juego se pausa, lo vuelve a pintar y sigue.",
+     "On iPhone (especially as a home-screen app), with lots of different enemies the screen could go black: the white hit flash kept a copy of every sprite sheet and filled the drawing memory Safari allows. It now uses far less and frees it in time; and if it still fills up or the system wipes the drawing, the game pauses, redraws it and carries on."]] },
   { d: '2026-11-01', title: ["Versión 2.0: cooperativo × jugadores", "Version 2.0: co-op × players"], chg: [
     ["Cooperativo: todo escala con los jugadores que sois. Con 2, subir de nivel cuesta el doble de experiencia y todos los enemigos (normales, jefes, legendarios de las grietas y de la Sentencia) tienen el doble de vida y de daño; con 3, el triple; con 4, el cuádruple. Solo no cambia nada. Si alguien se va o vuelve, los enemigos nuevos salen con los que quedáis.",
      "Co-op: everything scales with the number of players. With 2, levelling up takes twice the experience and every enemy (regular ones, bosses, rift and Judgment legendaries) has twice the HP and damage; with 3, three times; with 4, four times. Solo is unchanged. If someone leaves or comes back, new enemies use the players still there."]] },
