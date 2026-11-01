@@ -2197,7 +2197,6 @@ G.I18n.add({
   // ---------------- 2.0, bloque 1: cartas con tope ----------------
   "Recupera el 20% de tu vida ahora mismo.": "Restores 20% of your HP right now.",
   "Monedas": "Coins",
-  "+40 monedas al acabar la partida.": "+40 coins at the end of the run.",
   "Descartar (": "Discard (",
   "Si empatan: {x}": "If tied: {x}",
   "Automático": "Automatic",
