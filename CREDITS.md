@@ -131,7 +131,9 @@ Las casillas del suelo, las paredes y el agua (`assets/tiles-pmd/`, desde la ver
 **Pokémon Mundo Misterioso: Exploradores del Cielo** (© Nintendo, Creatures, GAME FREAK, Spike Chunsoft), tal como los
 reúne en formato DTEF [PMDCollab/RawAsset](https://github.com/PMDCollab/RawAsset) (`TileDtef/`). No tienen licencia: son
 extracciones del juego, usadas sin ánimo de lucro. Se pueden quitar con el interruptor de Ajustes («Casillas de Mundo
-Misterioso») o borrando `assets/tiles-pmd/` y `js/data/tilesets.js`: el juego vuelve a su propio dibujo (`js/world/tiles.js`).
+Misterioso») o borrando la carpeta `assets/tiles-pmd/` (basta con eso; para quitar también la lista, borrar
+`js/data/tilesets.js` y su línea `<script>` de `dev.html`, o `tools/build.js` no la encuentra): el juego vuelve a su propio
+dibujo (`js/world/tiles.js`).
 La tabla de autotiling de `js/world/tileset.js` sale de la plantilla de la especificación DTEF de
 [SkyTemple](https://github.com/SkyTemple/skytemple-dtef) (sólo el formato; no se usa su código).
 

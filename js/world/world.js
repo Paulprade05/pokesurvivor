@@ -66,7 +66,9 @@ G.World = (() => {
   // Cambio de bioma: durante FADE segundos se funde la paleta vieja con la nueva.
   const FADE = 2.6;
   let fade = null;                         // { from, images, t }
-  const MAX_IMAGES = 48, MAX_DATA = 400;
+  // (Bloque 6, revisión: 24 como pide §11.3. Con el tileset cada imagen es de 384 px (576 KB) y en el fundido hay dos
+  //  cachés: con 48 eran hasta ~56 MB en el móvil. Se ven como mucho ~12 chunks, también en Ultra.)
+  const MAX_IMAGES = 24, MAX_DATA = 400;
   const broken = new Set();                // props destruidos: "tx,ty"
   let nextPropId = 1;
 
@@ -774,13 +776,21 @@ G.World = (() => {
     syncMode();
     ctx.imageSmoothingEnabled = false;
     const k = fadeK(), S = exact ? CW : CW + 1;
+    // (Revisión del bloque 6) En el fundido, los chunks del bioma nuevo se hornean poco a poco: uno por fotograma y
+    //  más mientras no pasen 2 ms (§11.4). Al empezar el fundido apenas se ven; antes se horneaban los 6-12 de golpe
+    //  (1-2 ms cada uno en el ordenador, varias veces más en el móvil: un tirón cada 4 minutos).
+    let one = true;
+    const until = k == null ? 0 : performance.now() + 2;
     for (const [cx, cy] of visibleChunks(cam)) {
       // +1 de solape: con escalas no enteras evita juntas entre chunks.
       if (k == null) { ctx.drawImage(chunkImage(cx, cy), cx * CW, cy * CW, S, S); continue; }
       // Fundido: el bioma viejo debajo y el nuevo apareciendo encima.
       ctx.drawImage(chunkImage(cx, cy, fade.from, fade.images), cx * CW, cy * CW, S, S);
+      let img = images.get(cx + ',' + cy);
+      if (!img && (one || performance.now() < until)) { one = false; img = chunkImage(cx, cy); }
+      if (!img) continue;
       ctx.globalAlpha = k;
-      ctx.drawImage(chunkImage(cx, cy), cx * CW, cy * CW, S, S);
+      ctx.drawImage(img, cx * CW, cy * CW, S, S);
       ctx.globalAlpha = 1;
     }
   }

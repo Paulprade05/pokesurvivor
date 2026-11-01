@@ -2,7 +2,8 @@
  * Opción B del dueño (docs/PROMPT-2.0.md §0 y §11): los tilesets de 24 px de Exploradores del Cielo (PMDCollab,
  * preparados por tools/fetch_tiles.py en assets/tiles-pmd/, datos en js/data/tilesets.js), con interruptor en
  * Ajustes > Gráficos («Casillas de Mundo Misterioso») y el pintor de tiles.js como respaldo: sin los datos, apagado o
- * mientras carga el PNG de un bioma, se pinta como antes. Retirarlos es borrar esa carpeta y tilesets.js.
+ * mientras carga el PNG de un bioma, se pinta como antes. Retirarlos es borrar esa carpeta (y, si se quiere, tilesets.js
+ * con su línea de dev.html).
  *
  * Formato DTEF: tileset_0 tiene 18×8 casillas de 24 px en tres secciones de 6×8 (pared, secundario, suelo); cada casilla
  * de una sección es una de las 47 «reglas» de autotiling. Cada vecino del mismo terreno pone un bit (N 1, NE 2, E 4, SE 8,
@@ -54,8 +55,30 @@ G.Tileset = (() => {
     return st[bi].ok;
   }
 
-  /** Precarga (el menú, en reposo): los del mapa y, poco a poco, el resto. */
+  /** Precarga: los de esta lista (los del mapa al empezar; el siguiente al cambiar de bioma). */
   function preload(list) { if (enabled()) for (const bi of list) load(bi); }
+
+  /**
+   * (Revisión del bloque 6) Con el menú en reposo: los PNG de todos los biomas a la caché (la de sw.js, o la del
+   * navegador), uno tras otro y sin decodificarlos (no gastan memoria). Así las grietas y los biomas que aún no se han
+   * visto cargan al momento en partida. Se para en partida y sigue al volver al menú. Una vez por sesión.
+   */
+  let warmQ = null;
+  function warm() {
+    if (warmQ || !enabled() || typeof fetch !== 'function' || location.protocol === 'file:') return;
+    warmQ = [];
+    for (const m of G.TILESETS) {
+      const dir = 'assets/tiles-pmd/' + m.key + '/';
+      warmQ.push(dir + 'sheet.png', ...m.vars.map(v => dir + v.file));
+      if (m.frames) warmQ.push(dir + 'liq.png');
+    }
+    const next = () => {
+      if (!warmQ.length) return;
+      if (G.Game.state !== 'ui') { setTimeout(next, 5000); return; }
+      fetch(warmQ.shift()).then(r => r.blob()).catch(() => {}).then(() => setTimeout(next, 250));
+    };
+    setTimeout(next, 4000);
+  }
 
   // Mismo hash que world.js (todos ven las mismas variaciones).
   function H(x, y, s) {
@@ -115,5 +138,5 @@ G.Tileset = (() => {
     ctx.drawImage(s.liq, (f * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, size, size);
   }
 
-  return { T, RULE, enabled, ready, preload, paintChunk, animated, drawLiquid, set onReady(fn) { onReady = fn; } };
+  return { T, RULE, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, set onReady(fn) { onReady = fn; } };
 })();

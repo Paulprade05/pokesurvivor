@@ -152,3 +152,32 @@ test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and gro
   }
   assert.ok(loose / walls < 0.02, 'paredes sueltas ' + (100 * loose / walls).toFixed(1) + ' %');
 });
+
+test('world 6: closed pockets (floor walled in by walls or liquid) are rare and never near the start (§11.10)', () => {
+  // (Revisión del bloque 6: en 8 semillas, 0,04 % del suelo en 29 bolsillos de 1-20 casillas, el más cercano a 31.)
+  const R = 60, S = 2 * R + 1;
+  let floor = 0, pocket = 0;
+  for (let s = 1; s <= 4; s++) {
+    const W = loadWorld(s * 97);
+    const k = new Uint8Array(S * S), seen = new Uint8Array(S * S), idx = (x, y) => (y + R) * S + (x + R);
+    for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) k[idx(x, y)] = W.kindAt(x * 48 + 24, y * 48 + 24) === 'floor' ? 0 : 1;
+    for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) {
+      if (k[idx(x, y)] || seen[idx(x, y)]) continue;
+      const st = [[x, y]]; seen[idx(x, y)] = 1;
+      let n = 0, edge = false, near = Infinity;
+      while (st.length) {
+        const [a, b] = st.pop(); n++;
+        if (Math.abs(a) === R || Math.abs(b) === R) edge = true;
+        near = Math.min(near, Math.hypot(a, b));
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const c = a + dx, d = b + dy;
+          if (Math.abs(c) > R || Math.abs(d) > R || k[idx(c, d)] || seen[idx(c, d)]) continue;
+          seen[idx(c, d)] = 1; st.push([c, d]);
+        }
+      }
+      floor += n;
+      if (!edge) { pocket += n; assert.ok(near > 20, 'bolsillo a ' + near.toFixed(0) + ' casillas del inicio (semilla ' + s * 97 + ')'); }
+    }
+  }
+  assert.ok(pocket / floor < 0.002, 'bolsillos ' + (100 * pocket / floor).toFixed(2) + ' % del suelo');
+});

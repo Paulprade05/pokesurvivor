@@ -8,7 +8,9 @@
 G.CHANGELOG = [
   { d: '2026-11-01', title: ["Versión 2.0: arreglos", "Version 2.0: fixes"], fix: [
     ["Los enemigos que van bajo tierra ya no se pueden marcar ni atraen tus ataques de lluvia, y golpearlos no cura ni cuenta como daño hecho. Los Pokémon confusos o con miedo ya no saltan de golpe a otro sitio.",
-     "Enemies moving underground can no longer be marked or draw your rain attacks, and hitting them no longer heals you or counts as damage dealt. Confused or frightened Pokémon no longer jump suddenly to another spot."]] },
+     "Enemies moving underground can no longer be marked or draw your rain attacks, and hitting them no longer heals you or counts as damage dealt. Confused or frightened Pokémon no longer jump suddenly to another spot."],
+    ["Los Pokémon que excavan ya no salen dentro de una pared: si no hay sitio cerca, salen junto a ti. Al cambiar de bioma, el suelo nuevo aparece poco a poco y el juego ya no da un tirón en el móvil.",
+     "Digging Pokémon no longer come out inside a wall: if there's no room nearby, they come out next to you. When the biome changes, the new floor fades in gradually and the game no longer stutters on mobile."]] },
   { d: '2026-11-01', title: ["Versión 2.0 (6): el mundo de Mundo Misterioso", "Version 2.0 (6): a Mystery Dungeon world"], new: [
     ["El mundo, con las casillas de Mundo Misterioso: Exploradores del Cielo: suelo, paredes, bosques y agua de cada bioma y de cada grieta con su propio estilo, y el agua y la lava se mueven. Se puede apagar en Ajustes > Gráficos («Casillas de Mundo Misterioso») para volver al dibujo de antes. En Ultra, las paredes van planas.",
      "The world now uses Mystery Dungeon: Explorers of Sky tiles: the floor, walls, forests and water of every biome and rift have their own style, and water and lava move. You can turn it off in Settings > Graphics (\"Mystery Dungeon tiles\") to go back to the previous drawing. In Ultra, walls are drawn flat."]],

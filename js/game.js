@@ -1278,6 +1278,7 @@ G.Game = (() => {
     function init() {
       G.World.reset(4242);
       G.World.setBiome(0, true);
+      if (G.Tileset) G.Tileset.warm();          // (bloque 6: los tilesets de todos los biomas a la caché, en reposo)
       G.Camera.x = 0; G.Camera.y = 0;
       wanderers = CAST.map(dex => spawn(dex, true));
       ready = true;

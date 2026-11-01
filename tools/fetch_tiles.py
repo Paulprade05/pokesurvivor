@@ -17,7 +17,7 @@ D = 1/60 s que dura cada uno): se cogen como mucho MAX_FRAMES, repartidos, y só
 Uso:  py tools/fetch_tiles.py            (descarga lo que falte)
       py tools/fetch_tiles.py --force    (todo otra vez)
 Sin licencia: son extracciones del juego (ver docs/PROMPT-2.0.md §11.2 y CREDITS.md). Para retirarlos basta con
-borrar assets/tiles-pmd/ y js/data/tilesets.js (el juego vuelve al pintor de tiles.js).
+borrar assets/tiles-pmd/ (y, si se quiere, js/data/tilesets.js con su línea de dev.html) y el juego vuelve al pintor de tiles.js.
 """
 import io, json, os, re, sys, urllib.request
 from PIL import Image

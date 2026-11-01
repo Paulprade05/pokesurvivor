@@ -249,14 +249,16 @@ G.EnemyAI = (() => {
       if (dd > 1) { const s = Math.min(dd, spd * 1.5 * dt); e.x += (tx - e.x) / dd * s; e.y += (ty - e.y) / dd * s; }
       if (Math.random() < dt * 14) dust(e, 1);
       if (dd < 60 || d.t <= 0) {
-        // Sólo sale donde quepa (si no, sigue un poco más: hasta 1 s).
+        // Sólo sale donde quepa: aquí o en anillos de 40-160 px; pasado 1 s, junto a ti (donde estás hay sitio). Si ni
+        //  así, sigue bajo tierra hasta 3 s. (Revisión del bloque 6: antes, pasado 1 s, salía dentro de la pared.)
         const r = Math.min(e.r * 0.8, G.World.TS * 0.45);
         let spot = G.World.isFree(e.x, e.y, r) ? [e.x, e.y] : null;
-        for (let i = 0; !spot && i < 8; i++) {
-          const a = i / 8 * TAU, x = e.x + Math.cos(a) * 40, y = e.y + Math.sin(a) * 40;
+        for (let i = 0; !spot && i < 48; i++) {
+          const a = (i % 12) / 12 * TAU, k = 40 * (1 + ((i / 12) | 0)), x = e.x + Math.cos(a) * k, y = e.y + Math.sin(a) * k;
           if (G.World.isFree(x, y, r)) spot = [x, y];
         }
-        if (spot || d.xt > 1) {
+        if (!spot && d.xt > 1 && G.World.isFree(pl.x, pl.y, r)) spot = [pl.x, pl.y];
+        if (spot || d.xt > 3) {
           if (spot) { e.x = spot[0]; e.y = spot[1]; }
           d.st = 'rise'; d.t = DIG_RISE;
           e.hazard({ kind: 'zone', x: e.x, y: e.y, r: 46, delay: DIG_RISE, dmg: e.dmg * 1.1, type: e.atkType, color: '#c8a060' });

@@ -216,6 +216,18 @@ test('ai dig: underground it is not found by queryCircle and takes no damage; it
   assert.ok(!under0, 'antes del minuto 2 no excavan');
 });
 
+test('ai dig: it never rises inside a wall, even far under a big wall block (block 6 review)', () => {
+  // Todo pared salvo un claro de 3×3 donde estás; el excavador, bajo tierra a 10 casillas y a punto de salir.
+  // (Antes, sin sitio a 40 px, pasado 1 s salía donde estuviera: dentro de la pared.)
+  const S = sim((tx, ty) => (Math.abs(tx) <= 1 && Math.abs(ty) <= 1 ? FLOOR : WALL), { time: 1500 });
+  const e = S.enemy(10.5 * TS, 0.5 * TS, { types: ['ground'], behavior: 'chase', r: 14 });
+  e.dig = { st: 'under', t: 0.05, xt: 0 }; e.under = true;
+  let rose = null;
+  S.run(6, () => { if (!rose && e.dig && e.dig.st === 'rise') rose = [e.x, e.y]; });
+  assert.ok(rose, 'ha salido');
+  assert.ok(S.G.World.isFree(rose[0], rose[1], 11), 'sale en el suelo, no en la pared (' + rose.map(Math.round) + ')');
+});
+
 test('ai: ranged enemies do not shoot without line of sight, and back off along the field (not into the wall)', () => {
   // Pared de x = 3 a 4, y de -6 a 6, entre tú y el tirador.
   const S = sim((tx, ty) => (tx >= 3 && tx <= 4 && Math.abs(ty) <= 6 ? WALL : FLOOR));
