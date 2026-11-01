@@ -19,6 +19,9 @@
  *                   (all3 y todas las demás con una "r" desde el 18-10-2026:
  *                    se acabó huir de Arceus corriendo y con veneno, y TODAS
  *                    las tablas empezaron de cero)
+ *                   (all4 y las demás con una "v" desde la 2.0: los enemigos
+ *                    escalan con tu fuerza y las cartas tienen tope, así que
+ *                    los tiempos de antes no son comparables; todas de cero)
  *   id = tu uid (solitario) o los uid del equipo ordenados y unidos con "_".
  *
  * Ahorros:
@@ -73,7 +76,7 @@ G.Ranking = (() => {
     return { year: t.getUTCFullYear(), week: Math.ceil(((t - y0) / 86400000 + 1) / 7) };
   }
 
-  const ALL = 'all3';                     // histórico (ver arriba)
+  const ALL = 'all4';                     // histórico (ver arriba)
   function periodIds(date = new Date()) {
     const { y, m, d } = madridDate(date);
     const w = isoWeek(y, m, d);
@@ -86,8 +89,9 @@ G.Ranking = (() => {
    * todas desde cero tras el arreglo de la Sentencia; antes semana y mes
    * llevaban una "j", del 14-10). periodIds() se queda igual porque también
    * lo usan las misiones (progress.js). El histórico ya cambia de nombre (ALL).
+   * Desde la 2.0, con una "v" (tablas nuevas: ver arriba).
    */
-  const GEN = 'r';
+  const GEN = 'v';
   function boardIds(date) {
     const p = periodIds(date);
     return Object.assign({}, p, { d: p.d + GEN, w: p.w + GEN, m: p.m + GEN, y: p.y + GEN });
@@ -133,8 +137,9 @@ G.Ranking = (() => {
 
   // Tus mejores marcas por tabla (para no leer antes de escribir).
   // (best2 desde 2026-10-12: se quitaron del ranking las marcas rotas; así quien
-  //  tenía una vuelve a mirar su marca real y puede volver a entrar.)
-  const bestKey = () => 'ps.rk.best2.' + (fbx() ? fbx().uid : '');
+  //  tenía una vuelve a mirar su marca real y puede volver a entrar.
+  //  best3 desde la 2.0, con las tablas nuevas.)
+  const bestKey = () => 'ps.rk.best3.' + (fbx() ? fbx().uid : '');
   function bests() { try { return JSON.parse(localStorage.getItem(bestKey()) || '{}'); } catch (e) { return {}; } }
   function saveBests(b) {
     // Sólo se conservan las tablas de los periodos actuales y las históricas.

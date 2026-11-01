@@ -862,6 +862,7 @@
     <div id="cards" class="cards pick-cards"></div>
     <footer class="pick-foot">
       <button id="lvl-reroll" class="btn ghost ic hidden" data-sfx="none"><span class="rr-ico" aria-hidden="true"></span><span>Cambiar opciones (<span id="lvl-rr-n">1</span>)</span><span class="kbd-hint"><kbd>R</kbd></span></button>
+      <button id="lvl-discard" class="btn ghost ic hidden" data-sfx="none" aria-pressed="false"><span class="dc-ico" aria-hidden="true"></span><span>Descartar (<span id="lvl-dc-n">2</span>)</span><span class="kbd-hint"><kbd>X</kbd></span></button>
       <p id="lvl-wait" class="pick-wait hidden"></p>
     </footer>
   </div>
@@ -972,6 +973,9 @@
 <script defer src="js/data/changelog.js"></script>
 <!-- mundo -->
 <script defer src="js/world/tiles.js"></script>
+<script defer src="js/data/tilesets.js"></script>
+<script defer src="js/data/objects-pmd.js"></script>
+<script defer src="js/world/tileset.js"></script>
 <script defer src="js/world/world.js"></script>
 <!-- entidades -->
 <script defer src="js/entities/vfx.js"></script>
@@ -986,14 +990,17 @@
 <script defer src="js/data/ability-fx.js"></script>
 <script defer src="js/systems/combat.js"></script>
 <script defer src="js/systems/spawner.js"></script>
+<script defer src="js/systems/director.js"></script>
 <script defer src="js/systems/levelup.js"></script>
 <script defer src="js/systems/gacha.js"></script>
 <script defer src="js/systems/interact.js"></script>
 <script defer src="js/systems/rift.js"></script>
 <script defer src="js/systems/judgment.js"></script>
+<script defer src="js/systems/tickets.js"></script>
 <script defer src="js/systems/events.js"></script>
 <script defer src="js/systems/weather.js"></script>
 <script defer src="js/systems/pathing.js"></script>
+<script defer src="js/systems/enemy-ai.js"></script>
 <script defer src="js/systems/progress.js"></script>
 <script defer src="js/systems/hazards.js"></script>
 <!-- red: amigos, salas, cooperativo y ranking -->

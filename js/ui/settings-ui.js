@@ -203,6 +203,7 @@ G.SettingsUI = (() => {
       + list(toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.'),
         toggle('calm', 'Menos sacudidas y destellos', 'La cámara tiembla menos y los fogonazos son suaves.'),
         toggle('fps', 'Mostrar FPS', 'Fotogramas por segundo, en la esquina de abajo.'),
+        G.TILESETS && G.TILESETS.length ? toggle('pmdTiles', 'Casillas de Mundo Misterioso', 'El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.') : '',
         toggle('hpUnder', 'Vida bajo tu Pokémon', 'Una barra pequeña bajo tu Pokémon (y bajo tus compañeros) con la vida que le queda.'),
         toggle('lowHpWarn', 'Aviso de poca vida', 'Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.'),
         toggle('eco', 'Ahorro de energía', 'Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.'),

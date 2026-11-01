@@ -232,12 +232,15 @@
     // versiones viejas no lo mandan y no cuentan.
     let ready = false, readyRoom = '';
     const readyBy = new Map();
+    // (2.0) Versión del mundo de cada invitado (`wv`, va con el «listo»): con otra, cada uno vería otras paredes y otra
+    //  arena (casillas de 48), así que el anfitrión no empieza. Las versiones de antes no la mandan: tampoco.
+    const wvBy = new Map();
 
     function sendReady() {
       const room = G.Social.room;
       if (!room || room.isHost) return;
       if (room.id !== readyRoom) { readyRoom = room.id; ready = false; }     // en otra sala, otra vez sin listo
-      G.Net.toHost({ k: 'rdy', on: ready ? 1 : 0 });
+      G.Net.toHost({ k: 'rdy', on: ready ? 1 : 0, wv: G.World.WV });
     }
     function setReady(on) {
       readyRoom = G.Social.room ? G.Social.room.id : '';
@@ -265,6 +268,7 @@
         const room = G.Social.room;
         if (!room || !room.isHost) return;
         readyBy.set(from, !!msg.on);
+        wvBy.set(from, msg.wv);
         if (G.UI.isOpen('scr-lobby')) render();
       });
       // Conecta / desconecta la red al entrar o salir de una sala.
@@ -310,6 +314,11 @@
 
     /** Empieza la partida: nadie sigue "listo" para la siguiente. */
     function close() { ready = false; readyBy.clear(); G.UI.hide('scr-lobby'); }
+
+    /** Invitados con otra versión del mundo (o de antes, sin `wv`), con su conexión directa ya hecha. */
+    function otherVersion(room) {
+      return room.members.filter(m => m.uid !== room.host && G.Net.mode(m.uid) === 'direct' && wvBy.has(m.uid) && wvBy.get(m.uid) !== G.World.WV);
+    }
 
     /** Estado de la conexión de un jugador: [texto, clase de color de su chip]. */
     function connState(m, room) {
@@ -408,12 +417,17 @@
         : ms.length < 2 ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
         : connecting ? 'Conectando con tus amigos…' : 'La partida empieza para todos a la vez.';
-      note.classList.toggle('warn', !!G.Net.noRtc || (room.isHost && failed));
+      const old = room.isHost && !connecting && !failed ? otherVersion(room) : [];
+      if (old.length) note.textContent = old.map(m => m.name).join(', ') + ' tiene otra versión del juego: que recargue la página para jugar juntos.';
+      note.classList.toggle('warn', !!G.Net.noRtc || (room.isHost && failed) || old.length > 0);
     }
 
     async function start() {
       let room = G.Social.room;
       if (!room || !room.isHost || room.members.length < 2) return;
+      // (2.0) Con otra versión del mundo, o sin decir cuál (de antes, o aún sin «listo»), no se empieza.
+      const odd = room.members.filter(m => m.uid !== room.host && wvBy.get(m.uid) !== G.World.WV);
+      if (odd.length) { G.UI.toast(odd.map(m => m.name).join(', ') + ' tiene otra versión del juego: que recargue la página para jugar juntos.', 4200); return; }
       // Alguien no ha dicho que está listo: se pregunta (el botón no se bloquea).
       const notReady = room.members.filter(m => m.uid !== room.host && readyBy.get(m.uid) === false).map(m => m.name);
       if (notReady.length) {
@@ -423,7 +437,7 @@
         if (!room || !room.isHost || room.members.length < 2) return;
       }
       const cfg = {
-        k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
+        k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host, wv: G.World.WV,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny }))
       };
       G.Social.setOpen(false);

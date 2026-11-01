@@ -4,8 +4,11 @@
  *   Attack al embestir o al golpearte · Shoot al disparar · Hurt al recibir ·
  *   Faint al caer (se queda en el suelo y se desvanece).
  *
- * Los voladores, los fantasma y los jefes ignoran el terreno. El resto choca
- * con paredes y objetos, va más lento en el agua y se quema en la lava.
+ * Los que flotan y los jefes del calendario ignoran el terreno. El resto choca
+ * con paredes y objetos, va más lento en el agua y se quema en la lava. Desde la
+ * 2.0 (bloque 4) lo que piensan (desatasco, puntería, flanqueo) y cómo usa cada
+ * tipo el terreno (e.mv: nadar, excavar, saltar, atravesar paredes los fantasma)
+ * está en systems/enemy-ai.js; el camino, en systems/pathing.js.
  *
  * El gestor mantiene una rejilla espacial (reconstruida cada frame) para la
  * separación entre enemigos y las colisiones de proyectiles.
@@ -65,6 +68,25 @@
   };
   // Grupo de un ataque de varias marcas: golpea una sola vez aunque se solapen (ver hazards.js).
   let grpSeq = 0;
+  // (2.0, bloque 3) Golpe mínimo de los jefes según tu vida máxima (pct, hazards.js): entra del minuto 12 al 20. Antes
+  //  se saltaba lo suave del principio (earlyK) y los jefes de los minutos 3-12 tumbaban (medido).
+  const bossPct = p => p * Math.min(1, Math.max(0, ((G.Game && G.Game.st ? G.Game.st.time : 0) - 720) / 480));
+
+  /*
+   * (2.0, bloque 3) Tope blando de daño por segundo de jefes y legendarios: un depósito que se rellena a `rate` PV/s y
+   * guarda como mucho `max`; lo que pase de él cuenta ×0,15. En la arena, uno para todos los legendarios.
+   * c = { rate, max, pool, by }  (by: quién lo rellena, para que uno compartido no se rellene dos veces)
+   */
+  const CAP_OVER = 0.15;
+  function capHit(c, a) {
+    const take = Math.min(Math.max(0, c.pool), a);
+    c.pool -= take;
+    return take + (a - take) * CAP_OVER;
+  }
+  /** Lo que pone spawnBoss / spawnLegends. ttk: segundos objetivo (BOSS_TTK); share: tope ya hecho (arena). */
+  function makeCap(hp, ttk, share = null) {
+    return share || { rate: hp / (0.6 * ttk), max: hp * 0.1, pool: hp * 0.1, by: null };
+  }
 
   class Enemy {
     constructor(def, x, y, sc, boss = false) {
@@ -109,8 +131,8 @@
       this.phase = 'walk'; this.pt = 0; this.dx = 0; this.dy = 0;
       // distancia
       this.shotCd = def.shotCd ? G.U.rand(0.3, def.shotCd) : 0;
-      // desatasco
-      this.stuckT = 0; this.sideT = 0; this.side = 1;
+      // estampida atascada (el desatasco de los demás: enemy-ai.js)
+      this.stuckT = 0;
       this.bob = Math.random() * 6.28;
       this.shiny = false;
       this.sparkT = 0;
@@ -124,6 +146,8 @@
       // Rezagados: si se quedan atrás, fuera de la vista, mientras huyes,
       // vuelven a salir por delante (ver EnemyMgr.update).
       this.lagT = 0;
+      // (2.0, bloque 4) Cómo usa el terreno: 'swim' | 'dig' | 'hop' | 'ghost' | null (los legendarios: 'lava', rift.js).
+      this.mv = G.EnemyAI ? G.EnemyAI.mvFor(this) : null;
     }
 
     cy() { return this.y; }
@@ -164,13 +188,25 @@
 
     /** @param eff  'super' | 'weak' | null (tabla de tipos, sólo para enseñarlo) */
     hurt(amount, color = '#fff', dirX = 0, dirY = 0, knock = 0, eff = null) {
-      if (this.dead) return;
+      if (this.dead || this.under) return;     // (bajo tierra: enemy-ai.js)
+      const raw = amount;          // (para el medidor de DPS: sin la «defensa» del director)
       // Firma de jefe (G.BossSig, 26-10-2026): en el aire o bajo tierra no se le puede
       // dar; con su barrera recibe mucho menos (sigK) y dormido (Ausente), más.
       if (this.boss && (this.sigHide || G.BossSig.hidden(this))) return;
       if (this.boss && this.sigK != null && this.sigK !== 1 && !this.remote) amount *= this.sigK;
       // (Expuesto después de su firma, 28-10-2026: Asalto Espadón, Hiperrayo, Sofoco...)
       if (this.boss && this.sigVulnK > 1 && !this.remote) amount *= this.sigVulnK;
+      // «Defensa» del director (2.0, bloque 2): parte de su vida extra va como menos daño recibido (sólo el anfitrión).
+      if (this.defK && this.defK !== 1 && !this.remote) amount *= this.defK;
+      // (2.0, bloque 3) Jefes y legendarios: entre fase y fase no se les puede dar; desgaste si la pelea se alarga
+      //  (jefes del mapa) y tope blando de daño por segundo (lo que pasa del depósito cuenta ×0,15). Sólo el anfitrión.
+      let capped = false;
+      if (this.boss && !this.remote && !this.judge) {
+        if (this.bossPhaseT > 0) return;
+        if (this.fightT == null) this.fightT = 0;
+        if (this.wearK > 1) amount *= this.wearK;
+        if (this.dmgCap) { const a = capHit(this.dmgCap, amount); capped = a < amount - 0.5; amount = a; }
+      }
       const d = Math.max(1, Math.round(amount));
       // Copia de un enemigo del anfitrión: el golpe se le manda a él, que es
       // quien decide si cae. Aquí sólo se ve (número, destello y animación).
@@ -181,6 +217,8 @@
         return;
       }
       if (this.boss) this.rd += d;
+      else this.aiHit = (this.aiHit || 0) + d;      // (lo que ha recibido hace poco: el que excava se esconde)
+      if (G.Director) G.Director.hit(this, d);
       // Escudo: absorbe primero.
       if (this.shield > 0) {
         const a = Math.min(this.shield, d);
@@ -188,9 +226,11 @@
         if (a >= d) { G.FX.dmgText(this.x, this.y - this.bodyH - 4, d, '#9fd8ff'); this.flash = 0.05; return; }
         amount = d - a;
       }
-      this.hp -= Math.max(1, Math.round(amount));
-      G.Judgment.noteDmg(amount, this);
-      this.showHurt(d, color, dirX, dirY, eff);
+      const shift = this.loseHp(Math.max(1, Math.round(amount)));
+      // (Al medidor de DPS, el golpe en bruto: sin la defensa del director, el tope, las fases ni el escudo.)
+      G.Judgment.noteDmg(raw, this);
+      this.showHurt(d, color, dirX, dirY, capped ? 'weak' : eff);
+      if (shift) this.phaseShift();
       if (knock > 0 && !this.boss) {
         const [nx, ny] = G.U.norm(dirX, dirY);
         this.kx += nx * knock;
@@ -198,6 +238,71 @@
       }
       if (G.Coop.isHost) G.Coop.hurtShown(this, d, color);
       if (this.hp <= 0) this.die();
+    }
+
+    /**
+     * (2.0, bloque 3) Reglas de jefe: o = { phases: [0.66, 0.33], ttk: s objetivo, capTtk: s mínimos del tope (si no, ttk),
+     *  cap: tope compartido, wear: bool }.
+     * Sólo quien manda (nada nuevo por la red: la vida y el bit de furia ya viajan).
+     */
+    armBoss(o) {
+      this.phases = o.phases || null; this.phaseI = 0; this.bossPhaseT = 0;
+      this.dmgCap = makeCap(this.maxHp, o.capTtk || o.ttk, o.cap || null);
+      this.bossTtk = o.ttk; this.wear = !!o.wear; this.wearK = 1; this.fightT = null;
+      return this;
+    }
+
+    /** Quita vida; con fases, un golpe que cruza el umbral se queda en él. Devuelve true si toca cambiar de fase. */
+    loseHp(loss) {
+      let shift = false;
+      if (this.phases && this.phaseI < this.phases.length) {
+        const th = Math.ceil(this.maxHp * this.phases[this.phaseI]);
+        if (this.hp - loss <= th) { loss = Math.max(0, this.hp - th); shift = true; }
+      }
+      this.hp -= loss;
+      return shift;
+    }
+
+    bossTick(dt) {
+      if (this.bossPhaseT > 0) this.bossPhaseT -= dt;
+      const c = this.dmgCap;
+      if (c) {
+        if (c.by == null || c.by === this.id || !G.EnemyMgr.get(c.by)) c.by = this.id;
+        if (c.by === this.id) c.pool = Math.min(c.max, c.pool + c.rate * dt);
+      }
+      // Desgaste (jefes del mapa): desde 3/4 de su tiempo objetivo de pelea (contado desde el primer golpe), cada
+      //  vez recibe más daño (hasta ×4), ya no se aleja de ti y se va agotando solo (hasta un 2,4 % de su vida por
+      //  segundo). Que una pelea nunca dure minutos y minutos (medido: hasta 6 min; el jefe huía y casi no se le daba).
+      if (this.fightT != null) {
+        this.fightT += dt;
+        if (this.wear) {
+          this.wearK = Math.min(4, 1 + Math.max(0, this.fightT - this.bossTtk * 0.75) / this.bossTtk * 2.5);
+          if (this.wearK > 1 && !(this.bossPhaseT > 0) && !this.dead) {
+            if (this.ai) { this.ai.mode = 'close'; this.ai.modeT = Math.max(this.ai.modeT, 1); }
+            this.wearAcc = (this.wearAcc || 0) + this.maxHp * 0.008 * (this.wearK - 1) * dt;
+            if (this.wearAcc >= 1) {
+              const n = Math.floor(this.wearAcc); this.wearAcc -= n;
+              if (this.loseHp(Math.min(n, this.hp - 1))) this.phaseShift();
+              if (this.hp <= 1 && !(this.phases && this.phaseI < this.phases.length)) { this.hp = 0; this.die(); }
+            }
+          }
+        }
+      }
+    }
+
+    /** Cruza un umbral de fase: 2,1 s sin recibir daño, burbuja, empujón y firma obligatoria; la última, furia. */
+    phaseShift() {
+      if (!this.ai) this.bossInit();
+      this.phaseI++;
+      this.bossPhaseT = 2.1;
+      const last = this.phaseI >= this.phases.length;
+      if (G.BossSig.phase) G.BossSig.phase(this, 2.1);
+      this.ai.sigT = 0; this.ai.cd = 0;
+      if (last && !this.ai.fury) {
+        this.enrage();
+        if (this.legend && G.Spawner.minions) G.Spawner.minions(this.x, this.y, G.U.randInt(3, 4));
+      } else G.Spawner.say('¡' + this.name + ' cambia de fase!', 2.2);
+      G.Camera.kick(0.5);
     }
 
     /** Lo que se VE al recibir un golpe. */
@@ -214,20 +319,24 @@
     /** Aturdido: se queda quieto y no ataca `dur` s (Onda Trueno, Tumba Rocas...). */
     applyStun(dur) {
       if (this.remote) { G.Coop.status(this, 't', dur); return; }
+      if (this.under) return;
       this.stunT = Math.max(this.stunT || 0, dur);
     }
 
     applySlow(factor, dur = 1.2) {
       if (this.remote) { G.Coop.status(this, 's', factor); return; }
+      if (this.under) return;
       this.slow = Math.max(this.slow, factor);
       this.slowT = Math.max(this.slowT, dur);
     }
     applyBurn(stacks = 1) {
       if (this.remote) { G.Coop.status(this, 'b', stacks); return; }
+      if (this.under) return;
       this.burn = Math.min(8, this.burn + stacks); this.burnT = 3;
     }
     applyPoison(stacks = 1) {
       if (this.remote) { G.Coop.status(this, 'p', stacks); return; }
+      if (this.under) return;
       this.poison = Math.min(8, this.poison + stacks); this.poisonT = 4;
     }
 
@@ -257,18 +366,18 @@
       G.Pickups.dropXp(this.x, this.y, this.xp, this.boss, !!this.legend, !!this.judge);
       if (this.golden && Math.random() < 0.35) G.Pickups.drop('coin', this.x + 6, this.y - 4, 3);
       if (this.champ) for (let i = 0; i < 3; i++) G.Pickups.drop('coin', this.x + G.U.rand(-20, 20), this.y + G.U.rand(-14, 14), 3);
-      // Duende del tesoro: Meowth suelta monedas; Gholdengo, un ticket ×10.
+      // Duende del tesoro: Meowth suelta monedas; Gholdengo, muchas más (2.0, bloque 5: antes un ticket ×10; los tickets
+      //  ya no salen del suelo, ver systems/tickets.js, y cada ticket que se daba son 25 monedas).
       if (this.behavior === 'thief') {
-        const n = this.def.loot === 'ticket10' ? 6 : 20;
+        const n = this.def.loot === 'gold' || this.def.loot === 'ticket10' ? 56 : 20;
         for (let i = 0; i < n; i++) G.Pickups.drop('coin', this.x + G.U.rand(-36, 36), this.y + G.U.rand(-26, 26), 5);
-        if (this.def.loot === 'ticket10') G.Pickups.drop('ticket10', this.x, this.y - 12, 1);
         G.FX.ring(this.x, this.y, this.r, this.r * 5, '#ffd23f', 0.6, 4);
       }
       if (this.legend) {
-        // El legendario de la grieta: tickets sueltos y monedas (el ×10, como
-        // la mitad de las veces; antes daba 2 siempre).
-        for (let i = 0; i < 3; i++) G.Pickups.drop('ticket', this.x + G.U.rand(-30, 30), this.y + G.U.rand(-20, 20), 1);
+        // El legendario de la grieta: monedas (2.0, bloque 5: antes 3 tickets y, la mitad de las veces, un ×10; ahora sus
+        //  ~8 tickets de media en monedas, 25 cada uno).
         for (let i = 0; i < 10; i++) G.Pickups.drop('coin', this.x + G.U.rand(-50, 50), this.y + G.U.rand(-35, 35), 8);
+        for (let i = 0; i < 40; i++) G.Pickups.drop('coin', this.x + G.U.rand(-60, 60), this.y + G.U.rand(-42, 42), 5);
       }
       G.Audio.sfx(this.boss ? 'bossDown' : 'faint');
       if (this.shiny) {
@@ -330,6 +439,7 @@
       if (this.touchCd > 0) this.touchCd -= dt;
       if (this.rd > 0) this.rd *= Math.exp(-dt / RD_TAU);
       this.bob += dt * 6;
+      if (this.boss && !this.remote && !this.judge) this.bossTick(dt);
 
       // --- estados ---
       if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slow = 0; }
@@ -348,14 +458,16 @@
       // --- terreno ---
       let terrainMul = 1;
       // (El legendario está en su casa: su arena no le afecta. Los de Arceus, tampoco.)
-      if (!this.flying && !this.legend && !this.judge && G.World.isLiquid(this.x, this.y)) {
+      if (!this.flying && !this.legend && !this.judge && !this.under && G.World.isLiquid(this.x, this.y)) {
         const le = G.World.liquidEffect(this.types);
+        const k = G.EnemyAI && G.EnemyAI.terrainK(this, le);    // (nadando ×1,5; en su lava ×1,3)
         if (le.dmg) {
           this.lavaTick -= dt;
           if (this.lavaTick <= 0) { this.lavaTick = le.every; this.hurt(6 + this.maxHp * 0.04, le.color); }
           if (this.dead) return;
-        } else if (le.slow) terrainMul = le.slow < 0.5 ? 0.45 : 0.55;
-      }
+        } else if (k) terrainMul = k;
+        else if (le.slow) terrainMul = le.slow < 0.5 ? 0.45 : 0.55;
+      } else this.swimming = false;
 
       if (this.stunT > 0) { this.stunT -= dt; this.anim.loop('Idle'); return; }
 
@@ -403,10 +515,12 @@
       // --- personalidad (escudos, saltos, explosión) ---
       if (this.shieldT > 0 && (this.shieldT -= dt) <= 0) this.shield = 0;
       if (this.jump) { this.updateJump(dt); return; }
+      // (2.0, bloque 4) Excavar y saltar obstáculos (enemy-ai.js): si se encargan, ya está.
+      if (G.EnemyAI && !this.boss && (G.EnemyAI.dig(this, dt, pl, dist, spd) || G.EnemyAI.hop(this, dt, pl, dist))) return;
       if (this.behavior === 'bomber' && this.phase === 'fuse') {
         this.pt -= dt;
         this.flash = Math.floor(this.pt * 10) % 2 ? 0.05 : 0;
-        if (this.pt <= 0) { this.hp = 0; this.die(); }
+        if (this.pt <= 0) { this.hp = 0; this.selfK = true; this.die(); }
         this.anim.loop('Idle');
         return;
       }
@@ -420,18 +534,9 @@
         }
       }
 
-      // Si lleva rato atascado contra algo, rodea por un lado.
-      if (this.sideT > 0) {
-        this.sideT -= dt;
-        const a = Math.atan2(dy, dx) + this.side * 1.25;
-        dx = Math.cos(a); dy = Math.sin(a);
-      }
-
-      // Camino alrededor de los obstáculos (los que no vuelan).
-      if (!this.flying && this.phase !== 'dash' && this.sideT <= 0) {
-        const pd = G.Path.dirFor(this, pl);
-        if (pd && !(this.keepsDistance() && dist < (this.def.range || 200) * 0.82)) { dx = pd[0]; dy = pd[1]; }
-      }
+      // Camino alrededor de los obstáculos (los que no vuelan), desatasco y flanqueo: enemy-ai.js.
+      const holding = this.keepsDistance() && dist < (this.def.range || 200) * 0.82;
+      if (this.phase !== 'dash') [dx, dy] = G.EnemyAI.steer(this, dt, pl, dist, dx, dy, spd, holding);
 
       let vx = dx * spd, vy = dy * spd;
       let animBase = 'Walk';
@@ -441,15 +546,16 @@
       } else if (this.behavior === 'charger') {
         this.pt -= dt;
         if (this.phase === 'walk') {
+          // (No embiste si la recta hasta ti choca con algo.)
           if (dist < 200 && this.pt <= 0) {
-            this.phase = 'aim'; this.pt = 0.55;
-            this.anim.play('Charge', { speed: 1.6 });
+            if (!G.EnemyAI.canCharge(this, pl)) this.pt = 0.4;
+            else { this.phase = 'aim'; this.pt = 0.55; this.anim.play('Charge', { speed: 1.6 }); }
           }
         } else if (this.phase === 'aim') {
           vx = vy = 0; animBase = 'Idle';
           if (this.pt <= 0) {
             this.phase = 'dash'; this.pt = 0.42;
-            this.dx = dx; this.dy = dy;
+            [this.dx, this.dy] = G.EnemyAI.chargeDir(this, pl);      // (a donde estarás, según lo listo que sea)
             this.anim.play('Attack', { speed: 1.4 });
             G.FX.ring(this.x, this.y, this.r, this.r * 2.4, '#ff6b6b', 0.25, 2);
           }
@@ -458,37 +564,21 @@
           if (this.pt <= 0) { this.phase = 'walk'; this.pt = 1.1; }
         }
       } else if (this.keepsDistance()) {
-        const range = this.def.range || 200;
-        const keep = range * 0.82;
-        // Recta hacia ti (no el camino) para alejarse.
-        const [ddx, ddy] = G.U.norm(pl.x - this.x, pl.y - this.y);
-        if (dist < keep * 0.75) { vx = -ddx * spd * 0.8; vy = -ddy * spd * 0.8; }
-        else if (dist < keep) { vx *= 0.1; vy *= 0.1; animBase = 'Idle'; }
-        this.shotCd -= dt;
-        if (this.shotCd <= 0 && dist < range) {
-          this.shotCd = this.def.shotCd || 2;
-          this.special(pl, ddx, ddy);
-        }
+        // Alejarse por el camino, rodear, disparar sólo con línea de vista y adelantado (enemy-ai.js).
+        [vx, vy, animBase] = G.EnemyAI.ranged(this, dt, pl, dist, spd, vx, vy);
       }
 
       // --- integración ---
-      const ox = this.x, oy = this.y;
       this.x += this.kx * dt; this.y += this.ky * dt;
       this.kx *= Math.pow(0.0015, dt); this.ky *= Math.pow(0.0015, dt);
       this.x += vx * dt; this.y += vy * dt;
 
-      if (!this.flying && G.World.collide(this)) {
-        // ¿Ha avanzado bastante menos de lo que quería?
-        const want = Math.hypot(vx, vy) * dt;
-        const got = Math.hypot(this.x - ox, this.y - oy);
-        if (want > 0.5 && got < want * 0.35) {
-          this.stuckT += dt;
-          if (this.stuckT > 0.35 && this.sideT <= 0) {
-            this.sideT = 0.7; this.stuckT = 0;
-            this.side = Math.random() < 0.5 ? -1 : 1;
-          }
-        } else this.stuckT = 0;
+      let hitN = null;
+      if (!this.flying && !this.noClip) {
+        const bx = this.x, by = this.y;
+        if (G.World.collide(this)) hitN = G.U.norm(this.x - bx, this.y - by);
       }
+      G.EnemyAI.after(this, dt, pl, dist, spd, hitN, holding);
 
       // --- animación ---
       const moving = Math.abs(vx) + Math.abs(vy) > 2;
@@ -558,14 +648,16 @@
     bossMove(dt, pl, dist, dx, dy, spd) {
       if (!this.ai) this.bossInit();
       const ai = this.ai;
-      if (!ai.fury && this.hp < this.maxHp * 0.5) this.enrage();
+      // (Con fases, bloque 3, se enfurece al entrar en la última: phaseShift.)
+      if (!ai.fury && !this.phases && this.hp < this.maxHp * 0.5) this.enrage();
       const k = ai.fury ? (this.judge ? 1.25 : 1.3) : 1;
       if (ai.sumT > 0) ai.sumT -= dt;
       if (this.sig) G.BossSig.tickBoss(this, dt);
       if (ai.cast) return this.bossCast(dt, pl);
       // Su firma (G.BossSig) cuando le toca, antes que los demás ataques.
       if (G.BossSig.due(this, dt, k, dist)) { G.BossSig.start(this, pl); return [0, 0, 'Idle']; }
-      ai.modeT -= dt; ai.cd -= dt * k / (1 + 0.3 * (this.crowd() - 1));
+      // (En la arena, los legendarios se frenan menos entre ellos: bloque 3.)
+      ai.modeT -= dt; ai.cd -= dt * k / (1 + (this.legend ? 0.2 : 0.3) * (this.crowd() - 1));
       // Alterna siempre: en su distancia favorita está más rato (7-9 s) que en la otra (4-5 s).
       if (ai.modeT <= 0) {
         ai.mode = ai.mode === 'far' ? 'close' : 'far';
@@ -634,7 +726,7 @@
 
     dashHazard(c) {
       this.hazard({ kind: 'beam', x: this.x, y: this.y, angle: c.ang, len: c.len + this.r, w: this.r * 2 + 16,
-                    delay: c.wind + c.dur, dmg: this.dmg * 1.2, type: this.atkType, color: c.col });
+                    delay: c.wind + c.dur, dmg: this.dmg * 1.2, type: this.atkType, color: c.col, pct: this.judge ? 0 : bossPct(0.1) });
     }
 
     bossStart(id, pl, dist = 0) {
@@ -649,7 +741,7 @@
       switch (id) {
         case 'slam':       // pisotón: onda alrededor
           c.wind = 0.85 * f;
-          this.hazard({ kind: 'zone', x: this.x, y: this.y, r: 96 + this.r, delay: c.wind, dmg: this.dmg * 1.3, type, color: col });
+          this.hazard({ kind: 'zone', x: this.x, y: this.y, r: 96 + this.r, delay: c.wind, dmg: this.dmg * 1.3, type, color: col, pct: J ? 0 : bossPct(0.08) });
           this.anim.play('Charge', { speed: 1.2 });
           break;
         case 'dash':       // embestida en línea recta (enfurecido, tres seguidas)
@@ -659,7 +751,7 @@
           break;
         case 'leap':       // salto y caída sobre ti
           this.jump = { sx: this.x, sy: this.y, tx: pl.x, ty: pl.y, t: -0.5 * f, dur: 0.65 };
-          this.hazard({ kind: 'zone', x: pl.x, y: pl.y, r: 82, delay: 0.5 * f + 0.65, dmg: this.dmg * 1.25, type, color: col });
+          this.hazard({ kind: 'zone', x: pl.x, y: pl.y, r: 82, delay: 0.5 * f + 0.65, dmg: this.dmg * 1.25, type, color: col, pct: J ? 0 : bossPct(0.1) });
           this.anim.play('Charge', { speed: 1.4 });
           ai.cast = null; ai.cd = G.U.rand(1.4, 2) + 0.6;
           break;
@@ -873,9 +965,10 @@
           this.anim.play('Charge', { speed: 1.2 });
           break;
         case 'zoner': {
-          const n = G.U.randInt(1, this.def.zones || 3);
+          // (La primera, donde vas a estar si es listo: aiAim, enemy-ai.js.)
+          const n = G.U.randInt(1, this.def.zones || 3), [zx, zy] = this.aiAim || [pl.x, pl.y];
           for (let i = 0; i < n; i++) {
-            this.hazard({ kind: 'zone', x: pl.x + (i ? G.U.rand(-70, 70) : 0), y: pl.y + (i ? G.U.rand(-55, 55) : 0), r: 44,
+            this.hazard({ kind: 'zone', x: i ? pl.x + G.U.rand(-70, 70) : zx, y: i ? pl.y + G.U.rand(-55, 55) : zy, r: 44,
                             delay: 1.2, dmg: this.shotDmg() * 0.95, type: this.atkType, color: col });
           }
           this.anim.play('Shoot');
@@ -954,7 +1047,7 @@
     }
 
     startJump(pl) {
-      const tx = pl.x, ty = pl.y;
+      const [tx, ty] = G.EnemyAI ? G.EnemyAI.jumpTo(this, pl) : [pl.x, pl.y];   // (cae donde vas a estar, si cabe)
       this.jump = { sx: this.x, sy: this.y, tx, ty, t: -0.45, dur: 0.6 };
       this.anim.play('Charge', { speed: 1.4 });
       this.hazard({ kind: 'zone', x: tx, y: ty, r: 50, delay: 1.05, dmg: this.dmg * 1.2, type: this.atkType,
@@ -1030,6 +1123,8 @@
       if (alpha <= 0) return;
       // Jefe en el aire o bajo tierra (su firma): se ve lo que dibuja G.BossSig.
       if (this.boss && !this.dead && G.BossSig.hidden(this)) return;
+      // Bajo tierra (enemy-ai.js): sólo el montículo, en la capa del suelo.
+      if (!this.dead && G.EnemyAI && G.EnemyAI.hidden(this)) return;
 
       const gold = this.golden || this.behavior === 'thief' || (this.remote && !this.boss && G.Events.golden);
       if ((this.boss || this.shiny || gold || this.champ) && !this.dead) {
@@ -1047,12 +1142,17 @@
       }
 
       ctx.save();
-      ctx.globalAlpha = alpha;
-      G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
+      // (2.0, bloque 4) Fantasma dentro de una pared: medio transparente. Nadando o hundiéndose para excavar: recortado.
+      const st = this.net ? this.net.st : 0;
+      const a = alpha * (this.inWall || st & 128 ? 0.45 : 1);
+      const sink = this.digSink > 0 ? this.digSink * this.bodyH * 0.8 : this.swimming || st & 64 ? Math.min(12, this.bodyH * 0.3) : 0;
+      ctx.globalAlpha = a;
+      if (!sink) G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
       // Los que flotan ya van en el aire en su sprite: sólo se mecen un poco.
       // (Y los que saltan, en arco.)
       const lift = (this.flying && !this.boss ? 1 + Math.sin(this.bob) * 1.5 : 0) + (this.jumpLift || 0);
-      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha });
+      if (sink) { ctx.beginPath(); ctx.rect(this.x - 200, this.y - 400, 400, 400 - sink + 2); ctx.clip(); ctx.translate(0, sink * 0.8); }
+      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha: a });
       ctx.restore();
 
       if (this.dead) return;
@@ -1114,7 +1214,7 @@
     const grid = new Map();
 
     const byId = new Map();
-    function clear() { list = []; corpses = []; grid.clear(); byId.clear(); G.BossSig.clear(); }
+    function clear() { list = []; corpses = []; grid.clear(); byId.clear(); G.BossSig.clear(); if (G.EnemyAI) G.EnemyAI.clear(); }
     function all() { return list; }
     function add(e) {
       list.push(e);
@@ -1183,7 +1283,7 @@
     function rebuildGrid() {
       grid.clear();
       for (const e of list) {
-        if (e.dead) continue;
+        if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e))) continue;     // (bajo tierra: nada lo encuentra)
         const k = key(Math.floor(e.x / CELL), Math.floor(e.y / CELL));
         let b = grid.get(k);
         if (!b) grid.set(k, b = []);
@@ -1212,7 +1312,7 @@
 
     function separate(dt) {
       for (const e of list) {
-        if (e.dead) continue;
+        if (e.dead || e.under) continue;
         const cx = Math.floor(e.x / CELL), cy = Math.floor(e.y / CELL);
         let px = 0, py = 0, n = 0;
         for (let j = -1; j <= 1; j++) {
@@ -1235,7 +1335,7 @@
         if (n) {
           e.x += px * 42 * dt;
           e.y += py * 42 * dt;
-          if (!e.flying) G.World.collide(e);
+          if (!e.flying && !e.noClip) G.World.collide(e);
         }
       }
     }
@@ -1299,6 +1399,8 @@
           pl.kills++;                                          // (del equipo: el anfitrión lo manda a todos)
           killHook(pl, players, e);
           if (e.boss && !e.judge) pl.bosses++;
+          if (e.boss && !e.judge && !e.legend) pl.cboss = (pl.cboss || 0) + 1;   // (tickets: systems/tickets.js)
+          if (G.Director) G.Director.kill(e);
           G.Progress.kill(e);
           corpses.push(e);
           list.splice(i, 1);
@@ -1379,8 +1481,11 @@
       return bossList;
     }
 
+    /** (2.0, bloque 4) { vivos, atascados, bajoTierra, nadando } (curve.cjs lo apunta cada minuto). */
+    function debugStats() { return G.EnemyAI.stats(list); }
+
     return { clear, all, add, get, addRemote, removeRemote, stash, restore, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, bosses, nearestPlayer,
-             get count() { return list.length; } };
+             debugStats, get count() { return list.length; } };
   })();
 })();
 
@@ -1655,11 +1760,19 @@ G.BossSig = (() => {
   function init(e) {
     e.sig = forDex(e.dex, e.types);
     e.sigK = 1;
-    e.ai.sigT = G.U.rand(4.5, 6) + (e.legend ? (e.id % 3) * 2.5 : 0);
+    // (2.0, bloque 3: los legendarios, antes, y uno tras otro.)
+    e.ai.sigT = e.legend ? G.U.rand(2.5, 3.5) + (e.legI != null ? e.legI : e.id % 3) * 1.2 : G.U.rand(4.5, 6);
+  }
+  /** Cambio de fase (Enemy.phaseShift): burbuja y empujón; quien manda, también a los demás. */
+  function phase(e, dur) {
+    const col = G.U.TYPE_COLOR[e.atkType] || '#c9a6ff';
+    emit({ k: 'bubble', id: e.id, dur, col });
+    emit({ k: 'push', x: R(e.x), y: R(e.y), r: 300, rad: 1, f: 380, dur: 0.45, st: 'psy', col });
+    G.FX.ring(e.x, e.y, e.r, e.r * 5, col, 0.6, 5);
   }
   function interval(e) {
     const F = e.ai && e.ai.fury;
-    return (F ? G.U.rand(9.5, 11.5) : G.U.rand(13, 16)) * (1 + 0.45 * (e.crowd() - 1));
+    return (F ? G.U.rand(9.5, 11.5) : G.U.rand(13, 16)) * (1 + (e.legend ? 0.2 : 0.45) * (e.crowd() - 1));
   }
   /** ¿Le toca ya? (lo llama bossMove con su ritmo k). */
   function due(e, dt, k, dist) {
@@ -1713,7 +1826,8 @@ G.BossSig = (() => {
 
   // ---------------- ayudas (quien manda) ----------------
 
-  function hz(e, c, o) { e.hazard(Object.assign({ type: e.atkType, color: c.col }, o)); }
+  // (2.0, bloque 3) Golpe mínimo según tu vida (pct, hazards.js): con muchísima vida, una firma se sigue notando.
+  function hz(e, c, o) { e.hazard(Object.assign({ type: e.atkType, color: c.col }, e.judge || o.pct ? null : { pct: bossPct(e.legend ? SIG_PCT_LEG : SIG_PCT) }, o)); }
   function weather(kind) {
     const cur = G.Weather.current;
     if (cur && cur.kind === kind) return;
@@ -1735,6 +1849,8 @@ G.BossSig = (() => {
   }
   const ang = (e, p) => Math.atan2(p.y - e.y, p.x - e.x);
   const R = Math.round;
+  const SIG_PCT = 0.12, SIG_PCT_LEG = 0.15;
+  const bossPct = p => p * Math.min(1, Math.max(0, ((G.Game && G.Game.st ? G.Game.st.time : 0) - 720) / 480));   // (ver arriba)      // (golpe mínimo de las firmas: % de tu vida; bloque 3)
   /** Lo que te deja un golpe (dormido, congelado, confuso, quemado, con sueño, lanzado): ver zap. */
   function zap(o) { emit(Object.assign({ k: 'zap', dur: (o.delay || 0) + 0.2 }, o)); }
   /** Disparo de jefe desde otro sitio (esquirlas, copias de Gengar...). */
@@ -3255,7 +3371,7 @@ G.BossSig = (() => {
     return out;
   }
 
-  return { init, due, start, cast, tickBoss, update, clear, onNet, drawables, hidden, drawOn, botFields, forDex, flavorOf, SIG, BY_TYPE,
+  return { init, phase, due, start, cast, tickBoss, update, clear, onNet, drawables, hidden, drawOn, botFields, forDex, flavorOf, SIG, BY_TYPE,
            /** Para las pruebas: lo que le pasa a tu Pokémon. */
            get status() { return ps; },
            get fields() { return fields; }, get marks() { return marks; } };

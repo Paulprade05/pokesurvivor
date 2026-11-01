@@ -74,7 +74,8 @@ enemigos tienen personalidad: curan, ponen escudos, llaman a su manada o atacan
 con aviso en el suelo.
 
 Las **mejoras** son de cada Pokémon. El **gacha** va con **tickets** que se
-ganan jugando (×1 de algunos Pokémon, ×10 de jefes y legendarios), y se tira
+ganan jugando (1 cada 100 s de partida y 1 por jefe, hasta 30 por partida; también
+con misiones y logros), y se tira
 en una tragaperras pixel art.
 
 **Próximamente, megaevoluciones:** cómo funcionarían dentro y fuera de la

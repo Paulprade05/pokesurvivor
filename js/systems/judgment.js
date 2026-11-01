@@ -30,7 +30,10 @@
  */
 G.Judgment = (() => {
   const AT = 30 * 60;
-  const ARENA_R = 24;                 // en tiles (la arena de la grieta: 11)
+  // (2.0, casillas de 48) ARENA_R y las distancias de aquí van en baldosas de U = 32 unidades de mundo (las casillas de
+  //  antes); a World.setArena va en casillas de verdad (ARENA_R·U/TS = 16).
+  const U = 32;
+  const ARENA_R = 24;                 // en baldosas de U (la arena de la grieta: 11)
   const BOSS_EVERY = 5;               // sin tope: siguen saliendo mientras aguantes
   const TOUCH = 0.4;                  // vida que quita tocar a Arceus
   /*
@@ -51,7 +54,7 @@ G.Judgment = (() => {
   const T_TITLE = 1.3, T_FLASH = 4.7, T_PORT = 5.1, T_DESC = 5.7, T_LAND = 7.9, T_BACK = 9.1, T_END = 10.1;
   const GOLD = '#ffd25e';
   const authority = () => !G.Coop.active || G.Coop.isHost;
-  const TS = () => G.Tiles.T * G.Sprites.PX;
+  const TS = () => G.World.TS;
 
   let phase = null;                   // null | 'cine' | 'fight'
   let ct = 0;                         // reloj de la animación
@@ -64,13 +67,16 @@ G.Judgment = (() => {
   // ataques en área, sumar todo daría una vida enorme). Se guardan los últimos
   // 30 s y vale la media de los 6 mejores.
   let hits = new Map(), hitT = 0, samples = [];
+  // (2.0) Y una memoria larga para la vida de los legendarios (enemies.js, bossHp): 120 s, media de los 8 mejores,
+  //  para que no se pueda «dejar de pegar» antes de entrar en una grieta.
+  let samplesL = [];
   let embers = [];
   let cineAnim = null;
 
   function reset() {
     phase = null; ct = 0; cfg = null; ported = landed = canSkip = false; cues = {};
     A = null; center = null; arenaT = bossT = 0; bossN = 0; base = 0; downs = 0;
-    hits = new Map(); hitT = 0; samples = []; embers = []; cam = null;
+    hits = new Map(); hitT = 0; samples = []; samplesL = []; embers = []; cam = null;
   }
 
   /** Daño hecho a un enemigo (lo llama Enemy.hurt en quien manda). */
@@ -83,10 +89,16 @@ G.Judgment = (() => {
     for (const v of hits.values()) if (v > best) best = v;
     samples.push(best / hitT);
     if (samples.length > 30) samples.shift();
+    samplesL.push(best / hitT);
+    if (samplesL.length > 120) samplesL.shift();
     hits.clear(); hitT = 0;
   }
   function singleDps() {
     const top = samples.slice().sort((a, b) => b - a).slice(0, 6);
+    return top.length ? top.reduce((a, b) => a + b, 0) / top.length : 0;
+  }
+  function longDps() {
+    const top = samplesL.slice().sort((a, b) => b - a).slice(0, 8);
     return top.length ? top.reduce((a, b) => a + b, 0) / top.length : 0;
   }
 
@@ -142,14 +154,14 @@ G.Judgment = (() => {
     G.Pickups.clear();
     G.Events.reset();
     G.Weather.clear();
-    G.World.setArena({ tx: cfg.tx, ty: cfg.ty, r: ARENA_R, type: 'judgment' });
+    G.World.setArena({ tx: cfg.tx, ty: cfg.ty, r: ARENA_R * U / ts, type: 'judgment' });
     G.World.setBiome(G.Tiles.arenaBiome('judgment'), true);
     center = { x: cfg.tx * ts + ts / 2, y: cfg.ty * ts + ts / 2 };
     const ps = G.Game.everyone();
-    ps.forEach((p, i) => { p.x = center.x + (i - (ps.length - 1) / 2) * 34; p.y = center.y + ts * 3; });
+    ps.forEach((p, i) => { p.x = center.x + (i - (ps.length - 1) / 2) * 34; p.y = center.y + U * 3; });
     G.Camera.x = pl.x; G.Camera.y = pl.y;
     const anim = new G.Sprites.Animator(ARCEUS, SCALE);
-    A = { x: center.x, y: center.y - ts * 5, lift: 900, anim, r: G.Sprites.bodyRadius(ARCEUS, SCALE) * 0.9,
+    A = { x: center.x, y: center.y - U * 5, lift: 900, anim, r: G.Sprites.bodyRadius(ARCEUS, SCALE) * 0.9,
           bodyH: G.Sprites.bodyHeight(ARCEUS, SCALE), cd: 2.2, cast: null, touchCd: 0, spin: 0,
           net: null, glow: 0 };
     anim.dir = 0;
@@ -352,7 +364,7 @@ G.Judgment = (() => {
 
   /** Nadie sale de la arena (Arceus, los legendarios y tú). */
   function keepInside() {
-    const ts = TS(), max = (ARENA_R - 1.4) * ts;
+    const max = (ARENA_R - 1.4) * U;
     const clampIn = o => {
       const dx = o.x - center.x, dy = o.y - center.y, d = Math.hypot(dx, dy);
       if (d > max) { o.x = center.x + dx / d * max; o.y = center.y + dy / d * max; }
@@ -367,7 +379,7 @@ G.Judgment = (() => {
     const dex = cfg.q[bossN % cfg.q.length];
     const mon = G.DEX_BY[dex];
     if (!mon) return;
-    const t = G.Game.st.time, ts = TS();
+    const t = G.Game.st.time, ts = U;
     // Lejos de todos (en el borde de la arena).
     let x = center.x, y = center.y;
     for (let i = 0; i < 16; i++) {
@@ -712,6 +724,8 @@ G.Judgment = (() => {
   return {
     AT, reset, noteDmg, update, cineTick, skip, bossDown, drawable, drawAir, drawOverlay, onEvent, netState, netApply,
     get active() { return !!phase; }, capSpd,
+    /** DPS a un solo objetivo (media de los 6 mejores segundos de los últimos 30). */
+    singleDps, longDps,
     // (También mientras viajas por una grieta: el juego se para igual. Ver rift.js.)
     get cinematic() { return phase === 'cine' || G.Rift.traveling; },
     /** Lo que suena: nada en la animación hasta que aterriza (y la de la grieta en el viaje). */

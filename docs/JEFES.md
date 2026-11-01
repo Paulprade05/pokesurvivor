@@ -8,6 +8,43 @@ No hay dos firmas iguales en la tabla (lo comprueba `tests/jefes.test.cjs`). Lo 
 (no te mueves un momento y luego un rato no te pasa otra vez), confundirte (vas al revés), quemarte (daño unos segundos),
 darte sueño (te duermes a los 2 s), hacerte resbalar (hielo), atraerte, empujarte o lanzarte. Se ve encima de tu Pokémon.
 
+## Versión 2.0: fases, tope de daño, desgaste y sitios (bloque 3, 31-10-2026)
+
+Todo lo decide quien manda (solitario o anfitrión); a la red no va nada nuevo (la vida, la burbuja, el empujón, la furia
+y los aros de aviso ya viajaban).
+
+- **Vida.** Legendarios: `G.Enemies.bossHp` (mínimo `(4000 + 22·eff)·soft` y, encima, según tu DPS de los últimos 120 s
+  con `LEG_TTK` 20/28/34 s y ^0,75, hasta 6 veces el mínimo) × tu nivel × `HP_EACH` (1 / 0,65 / 0,95 / 0,8 según cuántos haya:
+  la arena dura ~30 / 50 / 75 s con 1 / 2 / 3). Jefes del mapa: su vida de siempre es un techo que `G.Enemies.bossCap` baja a
+  ~`0,4 · DPS · BOSS_TTK` (× nivel), como mucho al 30 %.
+- **Fases.** Legendarios al 66 % y al 33 %; jefes del mapa al 50 % hasta el minuto 12 y al 66 % y 33 % desde el 12. Un golpe
+  que cruza el umbral se queda en él; 2,1 s sin recibir daño (`e.bossPhaseT`) en una burbuja, empujón (r 300) y firma
+  obligatoria. La última fase es la furia (`enrage`; ya no salta al 50 % si tiene fases) y los legendarios llaman 3-4
+  esbirros. Aviso «¡X cambia de fase!».
+- **Tope blando de daño por segundo** (`e.dmgCap`, sólo quien lo trae de `armBoss`): un depósito del 10 % de la vida que se
+  rellena a `vida / (0,6·T)` por segundo; lo que pasa de él cuenta ×0,15 (número en gris). En la arena, uno para todos los
+  legendarios con T = 32 / 55 / 72 s (`ARENA_TTK`). En los jefes del mapa, T = ¼ de su tiempo: sólo frena ráfagas enormes.
+- **Desgaste** (sólo jefes del mapa): desde ¾ de su tiempo objetivo (`BOSS_TTK`, contado desde el primer golpe) recibe cada
+  vez más daño (hasta ×4), deja de alejarse y pierde vida solo (hasta un 2,4 %/s), pasando por sus fases. Medido sin esto: un
+  jefe que huía podía durar 4-6 min.
+- **Más amenaza.** Legendarios: primera firma a los 2,5-3,5 s (uno tras otro, +1,2 s), se frenan menos entre ellos
+  (`crowd` ×0,2 en vez de ×0,3 y ×0,45) y daño base `(40 + eff/10)·soft` (entra del minuto 10 al 20; antes,
+  `(36 + eff/20)·soft` como siempre). Golpe mínimo según tu vida máxima (`pct`):
+  pisotón 8 %, embestida y salto 10 %, firmas 12 % (legendarios 15 %), que entra del minuto 12 al 20 (antes del 12
+  se saltaba lo suave del principio y los jefes de los minutos 3-12 tumbaban: medido). Los de la Sentencia, como antes.
+- **Sitios.** Grieta: `pickSpots(k)` (12 ángulos × 4,5/5,5/6,5 baldosas desde vuestro punto de llegada, dentro de la arena,
+  libres, lejos de vosotros y entre sí, dentro de lo que se ve en el móvil tumbado; si no, `SPOTS_IN`). Un `'lgi'` que llega
+  antes de la llegada se guarda (`pendingLgi`). Jefes del mapa (uno solo, no los dúos): 50 % fuera de la vista como siempre,
+  30 % junto a un sitio especial a 350-900 px, 20 % según su tipo (Agua del agua; Tierra, Roca y Acero del suelo, a la vista).
+  Si sale a la vista, antes 1,8 s de aros de su color y «Algo se acerca…».
+- **Consola**: `G.Judgment.debug.single` (DPS a un objetivo), `G.Judgment.longDps()`, `G.Rift.debugArena('fire', 3)`,
+  `G.Spawner.debugBossesFrom(1260)`.
+- Invitados: ven la barra bajar y volver a subir durante la burbuja (su copia resta en local); aceptado.
+- **Medido** (`tools/curve.cjs`, 9 partidas con todas las mejoras, 31-10-2026): jefes del mapa de los minutos 15-21 en 62 s de
+  mediana (antes 73 s, con colas de 4-10 min; ahora ninguno pasa de 2 min), el 92 % usa 2 firmas o más (antes 57 %); arenas de
+  1 / 2 / 3 legendarios en 28 / 52 / 102 s (antes 42 / 38 / 44) y el 100 % de los legendarios usa su firma. Cifras completas en
+  `docs/2.0-ESTADO.md` («Bloque 3»).
+
 ## Legendarios y singulares (grietas)
 
 La llegada: al entrar en la grieta tu Pokémon (y los demás, en grupo) viaja por un túnel 2 s (se salta tocando la pantalla o

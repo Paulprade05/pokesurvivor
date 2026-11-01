@@ -106,7 +106,10 @@ desde código (16 px por tile, ×2).
 | **Trampas** | Veneno, pegajosa (te frena) o explosiva; saltan al pisarlas, también con los enemigos |
 | **Grieta** | Rara (cada 30 s, 20 % y más cada vez que no sale, desde el minuto 4; dura 45 s). Te lleva a la arena de un legendario |
 
-- **Voladores, fantasmas y jefes** ignoran el terreno.
+- Los que **flotan en su sprite** y los **jefes del calendario** ignoran el terreno. Desde la 2.0 (bloque 4) cada tipo lo
+  usa a su manera: los **Agua** nadan (más rápidos en el agua), los **Tierra/Roca** excavan y salen bajo tus pies con
+  aviso, los **Volador** que caminan saltan los obstáculos y los **Fantasma** atraviesan paredes un rato
+  (`js/systems/enemy-ai.js`).
 - **3 biomas** que rotan cada 4 minutos, cada uno con su música:
   Bosque Umbrío, Cueva Cristal, Volcán Ceniza. El cambio es un **fundido**
   de 2,6 s entre la paleta vieja y la nueva (suelo y objetos).
@@ -176,7 +179,8 @@ amarillo cuando es muy eficaz; gris si no (sin texto, para no cargar la pantalla
   (pseudolegendarios, Slaking...) al azar, cada vez más fuertes; cada uno suelta
   un **ticket ×10**. Los legendarios sólo salen en las grietas. Durante un combate de jefe las oleadas bajan al 25%, no
   hay mareas y suena el tema de jefe.
-- Mareas cada ~45 s. Tope de **280** enemigos a la vez; al llegar al tope, los
+- Mareas cada ~45 s. Tope de enemigos a la vez (`capAt`, spawner.js): 28 al principio → 50 en el minuto 6 → 64 en el
+  15 → 78 al final, y hasta 20 más en las oleadas; al llegar al tope, los
   que siguen saliendo son élite (×1,6 vida y experiencia, ×1,25 daño).
 - **Pathfinding:** campo de distancias (BFS) alrededor de cada jugador; los que
   caminan rodean rocas, paredes y charcos peligrosos. Sólo vuelan por encima
@@ -471,7 +475,7 @@ guitarra punteada, bajo, pad, lead y batería, con reverb). Cero ficheros.
 - Rendimiento: el destello al golpear usaba `ctx.filter` (×95 más caro que una
   silueta blanca precalculada, que es lo que se usa ahora); tope de 70 números
   de daño; resolución interna ×1,5 como mucho; menos trabajo fuera de pantalla;
-  tope de 280 enemigos con élites al llegar al tope.
+  tope de enemigos con élites al llegar al tope (era de 280; hoy, 28-78: ver «Mareas» arriba).
 - Los enemigos rodean obstáculos; vuelan sólo los que flotan en su sprite.
 
 **2026-10-08 · misiones, logros, objetos, evoluciones y enemigos con personalidad**

@@ -6,7 +6,7 @@
  */
 G.RunUI = (() => {
   const $ = G.UI.$;
-  let offers = null, offerCb = null, coopMode = false;
+  let offers = null, offerCb = null, coopMode = false, discarding = false;
 
   /*
    * Al aparecer unas cartas (nivel, vínculo, objeto) no se pueden elegir
@@ -107,8 +107,10 @@ G.RunUI = (() => {
     for (let i = 0; i < Math.max(MAX, mine.length); i++) {
       const p = mine[i];
       if (!p) { pas.push(free); continue; }
+      // (2.0: con su tope, «3/5» o «Máx.».)
+      const cap = p.def.max, lv = cap && p.n >= cap ? G.T('Máx.') : cap ? p.n + '/' + cap : p.n;
       pas.push(`<span class="sl ico-tile ${PASSIVE.has(p.id) ? 't-purple' : 't-blue'}" title="${p.def.title}">`
-        + G.Icons.html(p.def.icon, SZ) + (mini ? '' : `<i class="sl-lv">${p.n}</i>`) + '</span>');
+        + G.Icons.html(p.def.icon, SZ) + (mini ? '' : `<i class="sl-lv${cap && p.n >= cap ? ' max' : ''}">${lv}</i>`) + '</span>');
     }
     const group = (lbl, used, max, tiles, cls) => `<div class="sl-group ${cls}${used >= max ? ' full' : ''}">`
       + `<span class="sl-lbl"><b>${lbl}</b><span class="sl-n">${used}/${max}</span></span><span class="sl-row">${tiles.join('')}</span></div>`;
@@ -178,6 +180,7 @@ G.RunUI = (() => {
     levelSlots();
     renderCards(list);
     $('lvl-reroll').onclick = reroll;
+    $('lvl-discard').onclick = toggleDiscard;
     G.UI.show('scr-levelup');
     fitCards($('cards'));
     guard($('cards'));
@@ -222,6 +225,22 @@ G.RunUI = (() => {
     G.Audio.sfx('select');
     renderCards(G.LevelUp.offer(p));
     fitCards($('cards'));
+  }
+
+  /*
+   * Descartar (2.0): 2 por partida. Se pulsa el botón (o X, también en el mando) y luego la
+   * carta: ese ataque o esa pasiva ya no sale en esta partida y las cartas se cambian.
+   */
+  function toggleDiscard() {
+    const p = G.Game.player;
+    if (!offers || !G.LevelUp.discardsLeft(p) || guarded()) return;
+    setDiscarding(!discarding);
+    G.Audio.sfx('select');
+  }
+  function setDiscarding(on) {
+    discarding = on;
+    $('lvl-discard').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('cards').classList.toggle('discarding', on);
   }
 
   /** El movimiento de una carta de nivel (definición o el tuyo), o null. */
@@ -274,16 +293,35 @@ G.RunUI = (() => {
     $('lvl-reroll').classList.toggle('hidden', left <= 0);
     const rr = $('lvl-reroll').querySelector('.rr-ico');
     if (rr && !rr.firstChild) rr.innerHTML = G.Icons.html('reroll', 30);
-    const box = $('cards');
+    const box = $('cards'), p = G.Game.player;
     box.innerHTML = '';
-    list.forEach((c, i) => box.appendChild(cardEl(levelCard(c), i, () => pick(i))));
+    list.forEach((c, i) => {
+      const el = cardEl(levelCard(c), i, () => pick(i));
+      if (!G.LevelUp.canDiscard(p, c)) el.classList.add('no-discard');
+      box.appendChild(el);
+    });
+    const dc = G.LevelUp.discardsLeft(p);
+    $('lvl-dc-n').textContent = dc;
+    $('lvl-discard').classList.toggle('hidden', !dc || !list.some(c => G.LevelUp.canDiscard(p, c)));
+    const di = $('lvl-discard').querySelector('.dc-ico');
+    if (di && !di.firstChild) di.innerHTML = G.UI.svg('close', 20);
+    setDiscarding(false);
   }
 
   function pick(i) {
     if (!offers || !offers[i] || guarded()) return;
+    if (discarding) {
+      const p = G.Game.player;
+      if (!G.LevelUp.discard(p, offers[i])) return;
+      G.Audio.sfx('select');
+      renderCards(G.LevelUp.offer(p));
+      fitCards($('cards'));
+      return;
+    }
     const c = offers[i], cb = offerCb;
     offers = null; offerCb = null;
     $('lvl-reroll').classList.add('hidden');
+    $('lvl-discard').classList.add('hidden');
     if (coopMode) {
       // Se queda la carta elegida a la vista mientras eligen los demás.
       $('cards').querySelectorAll('.card').forEach((el, j) => el.classList.toggle('picked', j === i));
@@ -598,5 +636,5 @@ G.RunUI = (() => {
     $('btn-quit').onclick = onQuit;
   }
 
-  return { showLevelUp, reroll, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME };
+  return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME };
 })();

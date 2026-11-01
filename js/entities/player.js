@@ -64,7 +64,8 @@ G.Player = class Player {
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
     this.bind = {};                          // movimiento -> hueco fijo (0-3), elegido en Mejoras
     this.coins = 0;            // monedas recogidas en esta run
-    this.t1 = 0; this.t10 = 0; // tickets del gacha recogidos en esta run
+    this.t1 = 0; this.t10 = 0; // tickets del gacha ganados en esta run (2.0: por reloj y jefes, systems/tickets.js)
+    this.cboss = 0;            // jefes del calendario vencidos (no legendarios: pl.bosses los cuenta todos)
     this.dmgDealt = 0;
     this.dmgTaken = 0;         // vida perdida por golpes (resumen final)
     this.healed = 0;           // vida recuperada (resumen final)
@@ -156,9 +157,11 @@ G.Player = class Player {
   /** Radio máximo contra el terreno (un tile mide 32). */
   static get WALL_R() { return 14; }
 
-  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido.)
+  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido. 2.0, bloque 1: del nivel 1 al 10
+  //  pasa de ×1 a ×3 y desde ahí +0,1 por nivel. Nv 1 = 62 como antes, 10 = 1.893, 20 = 6.888, 30 = 16.065.)
   static xpFor(level) {
-    return Math.floor((8 + level * 6 + Math.pow(level, 1.75) * 1.6) * 4);
+    const base = Math.floor((8 + level * 6 + Math.pow(level, 1.75) * 1.6) * 4);
+    return Math.floor(base * (1 + 2 * Math.min(1, (level - 1) / 9) + 0.1 * Math.max(0, level - 10)));
   }
 
   cy() { return this.y; }
@@ -171,8 +174,21 @@ G.Player = class Player {
    */
   atkFor(m) {
     const cat = m && m.cat, b = cat === 'physical' ? this.buffs.patk : cat === 'special' ? this.buffs.satk : null;
-    return this.atk * G.Stats.fit(this.mon, cat) * (b ? 1 + b.n * b.amount : 1) * (m && this.monoType(m.type) ? Player.MONO_K : 1);
+    return this.atk * G.Stats.fit(this.mon, cat) * (b ? 1 + b.n * b.amount : 1) * (m && this.monoType(m.type) ? Player.MONO_K : 1) * this.moveK(m);
   }
+  /**
+   * Revisión de los ataques (2.0, 31-10-2026, lo pidió el dueño tras jugar el bloque 2: «se sigue matando igual de
+   * rápido»): un ataque evolucionado pega EVO_K (de media ×8,7 un nivel 1; ahora ~×6) y, en un grupo de vínculo
+   * (fusión) de n ataques, cada uno pega FUSE_K[n] (el grupo entero, ×1,6 / ×2,1 / ×2,4 en vez de ×2 / ×3 / ×4).
+   */
+  moveK(m) {
+    if (!m) return 1;
+    let k = m.evolved ? Player.EVO_K : 1;
+    for (const g of this.slots) if (g.length > 1 && g.includes(m)) { k *= Player.FUSE_K[Math.min(g.length, 4)]; break; }
+    return k;
+  }
+  static get EVO_K() { return 0.7; }
+  static get FUSE_K() { return [1, 1, 0.8, 0.7, 0.6]; }
   /** Monotipo (19-10-2026): los de un solo tipo pegan un +20 % con los ataques de su tipo (tienen menos variedad). */
   static get MONO_K() { return 1.2; }
   monoType(type) { return this.mon.types.length === 1 && type === this.mon.types[0]; }
@@ -628,7 +644,7 @@ G.Player = class Player {
     let best = null, bd = 520 * 520;
     const ca = Math.cos(a), sa = Math.sin(a), cosMax = Math.cos(0.44);
     for (const e of all) {
-      if (e.dead) continue;
+      if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e))) continue;     // (bajo tierra: no vale de blanco)
       const dx = e.x - this.x, dy = e.y - this.y, d2 = dx * dx + dy * dy;
       if (d2 >= bd || d2 < 1) continue;
       if ((dx * ca + dy * sa) / Math.sqrt(d2) < cosMax) continue;

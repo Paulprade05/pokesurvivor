@@ -259,6 +259,60 @@ G.Enemies = (() => {
   }
 
   /**
+   * Vida base de los enemigos normales en la 2.0 (bloque 2, 31-10-2026), por reloj: con los topes de cartas del
+   * bloque 1 el jugador hace entre 15 y 45 veces menos daño al final y un enemigo normal tardaba 13-22 s en caer
+   * desde el minuto 15 (con todas las mejoras). Esto devuelve la base a lo que tumba un jugador normal, y el director
+   * (systems/director.js) sube la vida encima según lo rápido que mates de verdad. Hasta el minuto 3, como antes.
+   */
+  // (Subida ~1,4 veces el 31-10-2026 tras jugarlo el dueño: «se sigue matando igual de rápido».)
+  const HP_BASE = [[0, 1], [180, 1], [300, 0.9], [600, 0.45], [900, 0.18], [1200, 0.065], [1500, 0.055], [1800, 0.06]];
+  function hpBase(t) {
+    if (!(t > HP_BASE[0][0])) return HP_BASE[0][1];
+    for (let i = 1; i < HP_BASE.length; i++) {
+      const [t1, v1] = HP_BASE[i];
+      if (t <= t1) { const [t0, v0] = HP_BASE[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
+    }
+    return HP_BASE[HP_BASE.length - 1][1];
+  }
+
+  /**
+   * Vida de jefes y legendarios según tu DPS medido (2.0, §8.1 del plan; adelantado para los legendarios al
+   * pedirlo el dueño: «los legendarios mueren muy rápido»). Con el DPS a un objetivo de los últimos 120 s
+   * (G.Judgment.longDps) se busca que tarden ~TTK s, compensando sólo una parte (^0,75: con el doble de daño se
+   * sigue tardando menos) y entre el suelo y 6 veces el suelo.
+   */
+  const LEG_TTK = [[240, 20], [600, 28], [1200, 34]];
+  const BOSS_TTK = [[180, 15], [540, 22], [900, 32], [1260, 42], [1620, 45]];
+  const tab = (T, t) => {
+    if (t <= T[0][0]) return T[0][1];
+    for (let i = 1; i < T.length; i++) { const [t1, v1] = T[i]; if (t <= t1) { const [t0, v0] = T[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); } }
+    return T[T.length - 1][1];
+  };
+  /** @param kind 'leg' | 'boss' · floor: la vida mínima (sin el reparto entre varios) · t: reloj */
+  function bossHp(floor, t, kind = 'leg') {
+    const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
+    // (Y tu nivel, como en los enemigos normales: G.Director.lvHp; lo pidió el dueño.)
+    const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
+    if (!(dps > 0) || !(floor > 0)) return floor * lv;
+    const want = dps * 0.65 * tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t);
+    return Math.max(floor, Math.min(floor * 6, floor * Math.pow(want / floor, 0.75))) * lv;
+  }
+  /** Segundos que debería durar la pelea (tope blando de daño y desgaste del bloque 3). */
+  function bossTtk(t, kind = 'boss') { return tab(kind === 'leg' ? LEG_TTK : BOSS_TTK, t); }
+  /**
+   * Jefes del mapa (31-10-2026): con los ataques recortados duraban 3-4 min (medido). Su vida de siempre pasa a
+   * ser un TECHO: se baja hasta lo que tardarías ~BOSS_TTK s con tu DPS (y tu nivel), como mucho al 35 %.
+   */
+  function bossCap(cur, t) {
+    const dps = G.Judgment && G.Judgment.longDps ? G.Judgment.longDps() : 0;
+    if (!(dps > 0)) return cur;
+    const lv = G.Director && G.Director.lvHp ? G.Director.lvHp() : 1;
+    // (Bloque 3: 0,4 y 30 %, antes 0,65 y 35 %: medido, contra un jefe que se mueve sólo se le hace una parte del
+    //  DPS a un objetivo y las peleas del minuto 15 en adelante seguían en ~95 s.)
+    return Math.max(cur * 0.3, Math.min(cur, dps * 0.4 * tab(BOSS_TTK, t) * lv));
+  }
+
+  /**
    * Los jefes ya traen su vida base creciente (1.400 ... 16.000), así que
    * escalan mucho más suave: con la curva normal el último llegaba a 168.000 PV.
    */
@@ -278,6 +332,24 @@ G.Enemies = (() => {
     //  un Pokémon que no mataba bastante se quedaba sin subir de nivel del minuto 10 al 20.)
     return Math.pow(TIERS[ti].xp / TIERS[tierAt(t)].xp, 0.85);
   }
+  /*
+   * Experiencia de un enemigo normal según el reloj (2.0, bloque 1, 31-10-2026): sale de
+   * esta tabla y no del tramo × xpLag, para que al tocar la vida de los enemigos (EFF,
+   * tramos) no cambie sin querer la subida de nivel. Hoy daba 20 / 63 / 168 / 213 en
+   * los minutos 0 / 5 / 10 / 20; ahora se sube bastante más despacio al principio. Desde el
+   * minuto 15 da más (los enemigos tardan más en caer con las cartas con tope), para llegar
+   * al nivel 42-46 en el 20 y 55-62 en el 29 con todas las mejoras.
+   * (Bloque 2: con la vida base más suave, hpBase, se vuelve a matar mucho más desde el 10; menos por enemigo.)
+   */
+  const XP_AT = [[0, 20], [300, 37], [600, 62], [900, 72], [1200, 66], [1500, 70], [1800, 76]];
+  function xpAt(t) {
+    if (t <= XP_AT[0][0]) return XP_AT[0][1];
+    for (let i = 1; i < XP_AT.length; i++) {
+      const [t1, v1] = XP_AT[i];
+      if (t <= t1) { const [t0, v0] = XP_AT[i - 1]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
+    }
+    return XP_AT[XP_AT.length - 1][1];
+  }
 
   /**
    * Principio suave (28-10-2026): los golpes de los enemigos (también jefes y legendarios)
@@ -286,9 +358,12 @@ G.Enemies = (() => {
    * finales de los 18 tipos: sin mejoras el muro volvía al minuto 3-9; antes llegaban a 1 en el 9 y el 8, desde 0,55.)
    * 29-10-2026: los golpes, de 0,45 a 1 en el minuto 15; la vida, de 0,7 a 1 en el 12 (antes 0,5 en el 11 y 0,75 en el 10):
    * los que empiezan flojos (Gible, Charmander) caían en los primeros minutos aun con todas las mejoras.
+   * (2.0, bloque 4) Los golpes, de 0,35 en el minuto 2 a 1 en el 17 (antes 0,45 en el 1 → 1 en el 15): con la IA nueva
+   * llegan a tocarte todos (antes se atascaban) y los tiradores no se quedan contra las paredes, y con todas las mejoras
+   * la primera caída bajó del minuto 11,5 al 6,4 (más golpes de contacto y disparos en los minutos 3-8; curva-b4).
    */
-  const EARLY_K = 0.45, EARLY_HP = 0.7;
-  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 840)); }
+  const EARLY_K = 0.35, EARLY_HP = 0.7;
+  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 120) / 900)); }
   function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 660)); }
   /**
    * Los que empiezan la partida como preevolución (29-10-2026, revisión 2): reciben un 25 % menos hasta el minuto 8 y
@@ -344,7 +419,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, bossTtk, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

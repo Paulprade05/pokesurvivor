@@ -53,7 +53,7 @@ const SECS = opt('rapido') ? 10 : 20;
  * venenos, un % de la vida del enemigo) y ataque típico en ese momento.
  * Vida: la de spawner.js (tramo 6 × (1 + t/95) × hpK) y la de un jefe del minuto 15.
  */
-const REF = { min: 15, atk: 6, level: 45, hp: 13000, bossHp: 40000 };
+const REF = { min: 15, atk: 6, level: 45, hp: 13000, bossHp: 60000 };   // (bossHp: 40.000 hasta el bloque 3 de la 2.0)
 
 // ---------------- azar con semilla ----------------
 function mulberry32(a) {

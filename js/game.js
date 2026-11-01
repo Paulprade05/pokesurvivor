@@ -135,6 +135,7 @@ G.Game = (() => {
     G.EnemyMgr.clear();
     G.Pickups.clear();
     G.Spawner.reset();
+    G.Director.reset();
     G.Rift.reset();
     G.Judgment.reset();
     G.Events.reset();
@@ -145,7 +146,7 @@ G.Game = (() => {
     G.World.setBiome(0, true);
     biome = 0;
     time = 0; pendingLevels = 0;
-    runReal = performance.now(); tampered = false;
+    runReal = performance.now(); tampered = false; ticketT = 0;
 
     pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(chosen));
     G.Evo.start(pl, chosen);
@@ -286,7 +287,7 @@ G.Game = (() => {
   function flash(col, dur) { flashCol = col; flashDur = dur; flashT = dur; }
 
   function teamState() {
-    return { time, level: pl.level, xp: pl.xp, xpNext: pl.xpNext, kills: pl.kills, bosses: pl.bosses, coins: pl.coins, t1: pl.t1, t10: pl.t10 };
+    return { time, level: pl.level, xp: pl.xp, xpNext: pl.xpNext, kills: pl.kills, bosses: pl.bosses, coins: pl.coins, t1: pl.t1, t10: pl.t10, cboss: pl.cboss };
   }
   function summary() { return { t: time, ki: pl.kills, bo: pl.bosses, co: pl.coins, lv: pl.level, t1: pl.t1, t10: pl.t10 }; }
 
@@ -300,6 +301,8 @@ G.Game = (() => {
   function bankTickets(save_ = true) {
     const sv = G.DB.save;
     if (!sv || !pl) return;
+    // (2.0, bloque 5) Red de seguridad: nunca más de los que da el reloj de tickets ni ningún ×10 en partida.
+    pl.t1 = Math.min(pl.t1, G.Tickets.RUN_MAX); pl.t10 = 0;
     sv.tickets = sv.tickets || { t1: 0, t10: 0 };
     const d1 = Math.max(0, pl.t1 - banked.t1), d10 = Math.max(0, pl.t10 - banked.t10);
     if (!d1 && !d10) return;
@@ -317,8 +320,12 @@ G.Game = (() => {
       if (t.level > pl.level) G.Audio.sfx('xp');
       pl.level = t.level; pl.xp = t.xp; pl.xpNext = t.xpNext;
       pl.kills = t.kills; pl.bosses = t.bosses; pl.coins = t.coins;
-      if (t.t1 > pl.t1 || t.t10 > pl.t10) G.Audio.sfx('shiny');
-      pl.t1 = t.t1 || 0; pl.t10 = t.t10 || 0;
+      // (2.0, bloque 5) Cada uno cobra lo mismo que en solitario: lo que diga el reloj de tickets con los jefes del
+      //  calendario vencidos (cb; un anfitrión viejo no lo manda: sus jefes, algo más, pero con el mismo tope de 30).
+      pl.cboss = t.cboss != null ? t.cboss | 0 : t.bosses | 0;
+      const want = G.Tickets.fromHost(t.t1, ticketClock(), pl.cboss, G.Judgment.active);
+      if (want > pl.t1) ticketFx(want - pl.t1);
+      pl.t1 = Math.max(pl.t1, want); pl.t10 = 0;
       bankTickets();
     },
     levelStart(level) {
@@ -354,7 +361,9 @@ G.Game = (() => {
     inLevelUp() { return state === 'levelup'; },
     shiny(dex) { G.onShinyCaught({ dex, name: (G.DEX_BY[dex] || {}).name || '' }); },
     over(d) {
-      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1), t1: d.t1 || pl.t1, t10: d.t10 || pl.t10 });
+      // (Tickets: nunca más de lo que da el reloj de este jugador con los jefes que diga el anfitrión: revisión de la 2.0.)
+      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1),
+                                 t1: Math.max(pl.t1, G.Tickets.fromHost(d.t1, ticketClock(), pl.cboss, G.Judgment.active)), t10: 0 });
       if (d && d.t) time = d.t;
       if (d && d.why === 'host') G.UI.toast('El anfitrión ha terminado la partida', 3200);
       endRun(!(d && d.why === 'host'));
@@ -518,12 +527,34 @@ G.Game = (() => {
    * Si algo salta, esa partida no sube al ranking (sin avisar) y nada más.
    */
   let runReal = 0, tampered = false;
+
+  // ---------------- tickets (2.0, bloque 5: systems/tickets.js) ----------------
+  // Reloj que cuenta para los tickets: el de la partida, pero nunca más que el real + 10 s (saltar el reloj o acelerar no
+  // regala nada); con ?dev, el bot puede pedir que no se mire (G.Tickets.debugIgnoreTamper).
+  function ticketClock() { return G.Tickets.debugIgnoreTamper ? time : Math.min(time, (performance.now() - runReal) / 1000 + 10); }
+  let ticketT = 0;
+  function ticketFx(n) {
+    for (let i = 0; i < Math.min(n, 3); i++) G.FX.dmgText(pl.x, pl.y - pl.bodyH - 8 - i * 14, '+1 ticket', '#ffd23f', true);
+    G.FX.ring(pl.x, pl.y, 6, 50, '#ffd23f', 0.4, 3);
+    G.Audio.sfx('shiny');
+  }
+  /** Una vez por segundo (solitario o anfitrión): lo que diga el reloj de tickets. */
+  function tickTickets(dt) {
+    if ((ticketT += dt) < 1) return;
+    ticketT = 0;
+    const want = G.Tickets.forRun(ticketClock(), pl.cboss, G.Judgment.active);
+    if (want <= pl.t1) return;
+    ticketFx(want - pl.t1);
+    pl.t1 = want;
+    bankTickets();
+  }
+
   function clean() {
     if (tampered) return false;
     if (time > (performance.now() - runReal) / 1000 + 10) return false;
     for (const k of ['hurt', 'update', 'heal', 'gainXp']) if (Object.prototype.hasOwnProperty.call(pl, k)) return false;
     if (!isFinite(pl.hp) || !isFinite(pl.maxHp) || pl.hp > pl.maxHp + 1 || pl.maxHp > 50000) return false;
-    if (pl.atkMul > 2000 || pl.spdMul > 25 || pl.cdMul < 0.03 || pl.level > 20 + time / 3) return false;
+    if (pl.atkMul > 200 || pl.spdMul > 25 || pl.cdMul < 0.03 || pl.level > 20 + time / 3) return false;
     return true;
   }
 
@@ -686,13 +717,8 @@ G.Game = (() => {
       if (mine) offerItem(p.value);
       return;
     }
-    if (p.kind === 'ticket' || p.kind === 'ticket10') {
-      if (p.kind === 'ticket') pl.t1++; else pl.t10++;
-      bankTickets();
-      G.FX.dmgText(who.x, who.y - who.bodyH - 8, p.kind === 'ticket' ? '+1 ticket' : '¡Ticket ×10!', p.kind === 'ticket' ? '#ffd23f' : '#d9a6ff', true);
-      G.FX.ring(who.x, who.y, 6, 50, p.kind === 'ticket' ? '#ffd23f' : '#c47bff', 0.4, 3);
-      return;
-    }
+    // (2.0, bloque 5) Un ticket del suelo sólo puede venir de un anfitrión de antes: no cuenta (los tickets salen del reloj).
+    if (p.kind === 'ticket' || p.kind === 'ticket10') return;
     if (p.kind === 'heal') {
       if (mine) pl.heal(pl.maxHp * 0.3);
       G.FX.ring(who.x, who.y, 6, 60, '#5fe08a', 0.4, 3);
@@ -730,6 +756,7 @@ G.Game = (() => {
         if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) G.RunUI.pick(i);
       }
       if (G.Input.tap('keyr')) G.RunUI.reroll();
+      if (G.Input.tap('keyx')) G.RunUI.toggleDiscard();
       return;
     }
     if (G.UI.isOpen('scr-bond')) {
@@ -933,7 +960,7 @@ G.Game = (() => {
     G.World.update(dt, G.Camera);
 
     const all = everyone();
-    if (!coop || G.Coop.isHost) { G.Path.update(dt, all); G.Spawner.update(dt, all, time); }
+    if (!coop || G.Coop.isHost) { G.Path.update(dt, all); G.Spawner.update(dt, all, time); G.Director.update(dt, all, time); tickTickets(dt); }
     else G.Spawner.tickBanner(dt);
     G.EnemyMgr.update(dt, all);
     G.EnemyMgr.rebuildGrid();
@@ -980,6 +1007,7 @@ G.Game = (() => {
     const t = performance.now() / 1000;
     G.World.drawGround(ctx, cam);
     G.World.drawLiquid(ctx, cam, t);
+    G.EnemyAI.drawGround(ctx);           // (los que van bajo tierra: su montículo)
     G.Hazards.draw(ctx);
     G.Combat.drawGroundFields(ctx);
     G.Pickups.draw(ctx);
@@ -1025,9 +1053,9 @@ G.Game = (() => {
    */
   const D3 = (() => {
     const PERSP = G.Camera.ULTRA;     // 0,12: arriba de la pantalla, un 12 % más pequeño; abajo, un 12 % más grande
-    const GB = 4;                     // franjas del suelo: 4 filas de mundo (2 de píxel de arte)
+    const GB = 2 * G.World.GS;        // franjas del suelo: 6 filas de mundo (2 px del pintor; 2.0, casillas de 48)
     const BAND = 8;                   // alto de las franjas de la capa de aire (px de pantalla)
-    const WS = 6;                     // tiras de las filas de pared (px de arte; CAP_H = 24, 4 tiras)
+    const WS = 6;                     // tiras de las filas de pared (px del pintor; CAP_H = 24, 4 tiras)
     let gcv = null, gx = null, acv = null, ax = null;
     const fit = (c, W, H) => { if (c.width !== W) c.width = W; if (c.height !== H) c.height = H; };
     // La vista del lienzo del suelo (lo que necesitan World.drawGround / visibleProps).
@@ -1042,8 +1070,8 @@ G.Game = (() => {
       const dvT = -hh / (1 - K) - 12 - Math.abs(shY), dvB = hh / (1 + K) + 12 + Math.abs(shY);
       const t = performance.now() / 1000;
 
-      // 1) Suelo, a 1 px por unidad de mundo y alineado a los píxeles de arte (de 2 en 2).
-      const ox = Math.floor((cx - ex) / 2) * 2, oy = Math.floor((cy + dvT) / 2) * 2;
+      // 1) Suelo, a 1 px por unidad de mundo y alineado a los píxeles del pintor (de GS en GS: 3).
+      const GS = G.World.GS, ox = Math.floor((cx - ex) / GS) * GS, oy = Math.floor((cy + dvT) / GS) * GS;
       const GW = Math.ceil(cx + ex - ox) + 2, GH = (Math.ceil((cy + dvB - oy) / GB) + 1) * GB;
       if (!gcv) { gcv = document.createElement('canvas'); }
       fit(gcv, GW, GH);
@@ -1055,6 +1083,7 @@ G.Game = (() => {
       G.World.drawLiquid(gx, view, t);
       const props = G.World.visibleProps(view);
       for (const p of props) if (p.flat) G.World.drawProp(gx, p, t);
+      G.EnemyAI.drawGround(gx);
       G.Hazards.draw(gx);
       G.Combat.drawGroundFields(gx);
       G.Pickups.draw(gx);
@@ -1084,7 +1113,7 @@ G.Game = (() => {
       if (arceus) items.push({ y: arceus.y, ent: arceus });
       if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
       items.sort((p, q) => p.y - q.y);
-      const TS = G.World.TS, PX = G.Sprites.PX, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
+      const TS = G.World.TS, PX = G.World.GS, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
       for (const it of items) {
         const o = it.prop || it.ent;
         // (Las filas de pared se apoyan en el borde de abajo de su fila y en vertical van
@@ -1249,6 +1278,7 @@ G.Game = (() => {
     function init() {
       G.World.reset(4242);
       G.World.setBiome(0, true);
+      if (G.Tileset) G.Tileset.warm();          // (bloque 6: los tilesets de todos los biomas a la caché, en reposo)
       G.Camera.x = 0; G.Camera.y = 0;
       wanderers = CAST.map(dex => spawn(dex, true));
       ready = true;
@@ -1445,6 +1475,12 @@ G.Flow = {
     if ((st !== 'ui' && st !== 'over') || !room) return;
     if (from !== undefined && (from !== room.host || cfg.host !== room.host)) return;
     if (!Array.isArray(cfg.members) || !cfg.members.some(m => m && m.uid === G.Social.uid)) return;
+    // (2.0) Anfitrión con otra versión del mundo (o de antes, sin `wv`): cada uno vería otras paredes. Se sale de la sala.
+    if (from !== undefined && cfg.wv !== G.World.WV) {
+      G.UI.toast('El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.', 5000);
+      G.Social.leaveRoom().finally(() => { G.Net.close(); if (G.Game.state === 'ui') G.MenuUI.open(); });
+      return;
+    }
     G.LobbyUI.close();
     G.Game.startRun(cfg);
   }

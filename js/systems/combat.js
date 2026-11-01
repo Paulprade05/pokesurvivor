@@ -908,7 +908,7 @@ G.Combat = (() => {
   function wipe(pl, m) {
     const col = G.U.TYPE_COLOR[m.type], vis = G.VFX.forMove(m), exec = m.mode !== 'cut';
     const delay = m.delay || 2, marked = [];
-    if (exec) for (const e of G.EnemyMgr.all()) if (!e.dead && inWipeBox(pl, e) && marked.length < 80) marked.push(e);
+    if (exec) for (const e of G.EnemyMgr.all()) if (!e.dead && !(G.EnemyAI && G.EnemyAI.hidden(e)) && inWipeBox(pl, e) && marked.length < 80) marked.push(e);
     fields.push({ kind: 'wipe', owner: pl, ghost, m, col, vis, exec, x: pl.x, y: pl.y, t: 0, delay,
                   life: delay + (exec ? 0.5 : (m.stun || 1) + 0.3), marked, hit: null, ring: 0,
                   pad: 600, dmg: m.dmg * pl.atkFor(m) });
@@ -922,7 +922,7 @@ G.Combat = (() => {
     // Topes: el umbral nunca pasa de 0,65 ni la vida quitada de 0,55.
     const pct = Math.min(cut ? 0.55 : 0.65, m.pct || 0);
     const list = cut ? [] : f.marked;
-    if (cut) for (const e of G.EnemyMgr.all()) if (!e.dead && inWipeBox(pl, e) && list.length < 120) list.push(e);
+    if (cut) for (const e of G.EnemyMgr.all()) if (!e.dead && !(G.EnemyAI && G.EnemyAI.hidden(e)) && inWipeBox(pl, e) && list.length < 120) list.push(e);
     f.hit = list;
     if (G.Camera.sees(pl.x, pl.y, 200)) {
       G.Audio.sfx(cut ? 'break' : 'judge');
@@ -936,7 +936,8 @@ G.Combat = (() => {
     if (f.ghost) return;
     G.Camera.kick(0.35);
     const pure = (e, d) => {
-      // Daño tal cual (sin tipos ni crítico): cuenta como un golpe tuyo.
+      // Daño tal cual (sin tipos ni crítico): cuenta como un golpe tuyo. (Bajo tierra, nada: bloque 4.)
+      if (G.EnemyAI && G.EnemyAI.hidden(e)) return;
       e.hurt(d, f.col, e.x - pl.x, e.y - pl.y, 0, null);
       pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; pl.onDealt(d);
     };
@@ -1152,7 +1153,7 @@ G.Combat = (() => {
   function rainTarget(pl) {
     let pick = null, n = 0;
     for (const e of G.EnemyMgr.all()) {
-      if (e.dead || Math.abs(e.x - pl.x) > RAIN_W || Math.abs(e.y - pl.y) > RAIN_H) continue;
+      if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e)) || Math.abs(e.x - pl.x) > RAIN_W || Math.abs(e.y - pl.y) > RAIN_H) continue;
       if (Math.random() * ++n < 1) pick = e;
     }
     return pick;
@@ -1932,6 +1933,8 @@ G.Combat = (() => {
    * los ganchos k / crit / after de su MECH (el daño de una zona no vuelve a detonar Ascuas).
    */
   function hit(pl, e, dmg, col, dx, dy, knock, m, o) {
+    // (2.0, bloque 4) Bajo tierra no se le puede dar: ni daño, ni curas por golpe, ni lo que cuenta para el resumen.
+    if (G.EnemyAI && G.EnemyAI.hidden(e)) return;
     const type = (o && o.type) || m.castType || m.type, cat = (o && o.cat) || m.cat;
     const M = o && o.raw ? null : MECH[m.id];
     let k = typeKm(type, e, m) * G.Stats.taken(e.mon, cat) * abilOut(pl, m, e);
@@ -2576,7 +2579,7 @@ G.Combat = (() => {
   const WIND = new Set(['volley', 'nova', 'spiral', 'burst', 'waves', 'summon']);
   /** Pone (o alarga) un estado. → su entrada, o null si no le afecta. */
   function stAdd(e, kind, dur, v, o) {
-    if (!e || e.dead || !(dur > 0)) return null;
+    if (!e || e.dead || e.under || !(dur > 0)) return null;      // (bajo tierra, enemy-ai.js: nada)
     const isBig = big(e);
     if (CTRL[kind]) {
       if (e.behavior === 'thief' || e.behavior === 'stampede') return null;
@@ -3142,6 +3145,7 @@ G.Combat = (() => {
     let best = null, bd = 380 * 380;
     for (const e of MARKED) {
       if (e.dead || !stHas(e, 'mark')) { MARKED.delete(e); continue; }
+      if ((G.EnemyAI && G.EnemyAI.hidden(e))) continue;
       const d = G.U.dist2(pl.x, pl.y, e.x, e.y);
       if (d < bd) { bd = d; best = e; }
     }
@@ -6406,7 +6410,7 @@ G.Combat = (() => {
     cast(pl, m) {
       let tg = null, best = -1;
       for (const e of G.EnemyMgr.all()) {
-        if (e.dead || Math.abs(e.x - pl.x) > RAIN_W || Math.abs(e.y - pl.y) > RAIN_H) continue;
+        if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e)) || Math.abs(e.x - pl.x) > RAIN_W || Math.abs(e.y - pl.y) > RAIN_H) continue;
         if (e.hp > best) { best = e.hp; tg = e; }
       }
       if (!tg) { shower(pl, m); return; }

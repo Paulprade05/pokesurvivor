@@ -136,6 +136,40 @@ clients ignore it; a guest that never sends it is not counted as "not ready".
 The `start` message is accepted only from the room's host (`from === room.host
 === cfg.host`) by a member listed in `cfg.members`, also from the results screen.
 
+# World version `wv` (2.0, 2026-10-31)
+
+The world tile grows from 32 to 48 units (`G.World.TS`), so terrain, broken props
+(`pb [tx,ty]`) and arena configs (`{tx,ty,r}`, now in 48-unit tiles) no longer match the
+previous version. `G.World.WV = 2` (the previous version, without the field, counts as 1):
+- guests send it with readiness: `{k:'rdy', on:0|1, wv}`;
+- the host will not start while any guest has another `wv` or has not sent one (older
+  clients), and tells who should reload the page;
+- `start` carries `wv`; a guest that receives a `start` without it or with another one
+  does not start, leaves the room and is told to reload.
+No `--forzar` publish: players already in a run with the old version keep playing together.
+
+Block 5 (2026-11-01) adds an optional trailing field `cb` to the host frame `f`: the calendar bosses beaten (not
+legendaries). Guests earn tickets with the same clock as solo (`G.Tickets.fromHost(tk[0], their clock, cb)`, never ×10), and
+also cap the `t1` that comes in `ov` at the end of the run the same way. A host without `cb` is treated as having `bo`.
+
+`G.World.WV = 3` since block 6 (2026-11-01): the terrain is cleaned (no loose walls outside a 2×2 wall block) and grove
+trees only stand on one colour of a checkerboard, so walls, trees and their `pb [tx,ty]` differ from WV 2. The tilesets
+(`world/tileset.js`) only change the drawing and do not affect the network.
+
+# Enemy state bits (2.0, block 4, 2026-10-31)
+
+Enemy AI runs only on the host. Nothing new is sent per frame except three new bits in the
+7th field of each `enemyList` entry (the status bits: 1 burning, 2 poisoned, 4 shielded,
+8 slowed, 16 enraged boss); the number and order of the fields do not change:
+- `32` underground (a digging enemy): a guest does not draw its sprite (only a mound on
+  the ground layer) and leaves it out of its own grid, so it cannot touch or target it;
+- `64` swimming (drawn half sunk);
+- `128` a ghost inside a wall (drawn at 45 % alpha).
+A guest of the previous 2.0 version ignores them: it sees the underground enemy walking
+and may get its contact hit (decided by the guest's own device), as already happened with
+bit 16. Hazards created by the new AI (a digger rising, a hop over an obstacle) are plain
+`zone` hazards, which every version knows. No `wv` change: the terrain is the same.
+
 # Player view size (2026-10-22)
 
 The player state array (`myState`, sent by every player 15 times per second)

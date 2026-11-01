@@ -6,25 +6,47 @@
  */
 G.LevelUp = (() => {
 
+  /*
+   * Topes de la 2.0 (bloque 1, 31-10-2026): antes Potencia llegaba a ×45 (×1,1 compuesto,
+   * 40 veces) y Vigor y Síntesis no tenían tope (vida casi infinita). Ahora las que
+   * multiplicaban suman (+10 % de lo de partida cada una, no del total) y todas tienen tope.
+   * `add(k, id, key)`: multiplica pl[key] para que, con n cartas, quede ×(1 + k·n);
+   * statsTaken se suma después de apply, así que aquí n = las que ya llevabas.
+   */
+  const add = (k, id, key) => pl => { const n = (pl.statsTaken && pl.statsTaken[id]) || 0; pl[key] *= (1 + k * (n + 1)) / (1 + k * n); };
+  /** Techo de la reducción de daño con cartas y mejoras (los potenciadores llegan a 0,8: Player.reduction). */
+  const DEF_CAP = 0.6;
   const STATS = [
     { id: 'hp',   icon: 'hpup', title: 'Vigor',        desc: '+20 de vida máxima (y la recupera).',
-      apply: pl => pl.addMaxHp(20) },
+      apply: pl => pl.addMaxHp(20), max: 8 },
     { id: 'atk',  icon: 'fist', title: 'Potencia',     desc: '+10% de daño con todos los movimientos.',
-      apply: pl => pl.atkMul *= 1.10, max: 40 },
+      apply: add(0.10, 'atk', 'atkMul'), max: 10 },
     { id: 'spd',  icon: 'boot', title: 'Carrera',      desc: '+7% de velocidad de movimiento.',
-      apply: pl => pl.spdMul *= 1.07, max: 8 },
+      apply: add(0.07, 'spd', 'spdMul'), max: 5 },
     { id: 'cd',   icon: 'clock', title: 'Reflejos',     desc: '-8% de recarga en todos los movimientos.',
-      apply: pl => pl.cdMul *= 0.92, max: 10 },
+      apply: pl => pl.cdMul *= 0.92, max: 6 },
     { id: 'def',  icon: 'shield', title: 'Coraza',       desc: '+6% de reducción de daño recibido.',
-      apply: pl => pl.dmgReduce = Math.min(0.7, pl.dmgReduce + 0.06), max: 12 },
+      apply: pl => pl.dmgReduce = Math.min(DEF_CAP, pl.dmgReduce + 0.06), max: 5 },
     { id: 'rgn',  icon: 'sprout', title: 'Síntesis',     desc: '+0.9 de vida regenerada por segundo.',
-      apply: pl => pl.regenFlat += 0.9 },
+      apply: pl => pl.regenFlat += 0.9, max: 5 },
     { id: 'mag',  icon: 'magnet', title: 'Imán',         desc: '+30% de radio de recogida de experiencia.',
-      apply: pl => pl.magnet *= 1.30, max: 6 },
+      apply: add(0.30, 'mag', 'magnet'), max: 4 },
     { id: 'xp',   icon: 'exp', title: 'Aprendizaje',  desc: '+12% de experiencia ganada.',
-      apply: pl => pl.xpMul *= 1.12, max: 8 },
+      apply: add(0.12, 'xp', 'xpMul'), max: 4 },
     { id: 'heal', icon: 'berry', title: 'Baya Zidra',   desc: 'Recupera el 45% de tu vida ahora mismo.',
       apply: pl => pl.heal(pl.maxHp * 0.45) }
+  ];
+  /*
+   * Con todo al tope sólo quedaría la Baya Zidra del 45 % en cada subida (casi inmortal
+   * del minuto 22 en adelante): entonces salen una Baya Zidra que cura el 20 % y, sólo
+   * en solitario, monedas (en cooperativo el anfitrión pisa las monedas del invitado).
+   */
+  const FULL_COINS = 40;
+  const FULL_CARDS = [
+    { id: 'heal', icon: 'berry', title: 'Baya Zidra', desc: 'Recupera el 20% de tu vida ahora mismo.',
+      apply: pl => pl.heal(pl.maxHp * 0.20) },
+    { id: 'coin', icon: 'coin', title: 'Monedas', desc: '+40 monedas al acabar la partida.', solo: true,
+      apply: pl => { pl.coins += FULL_COINS; } }
   ];
 
   // Pasivos al estilo de Vampire Survivors (22-10-2026): valen para TODOS los
@@ -73,6 +95,44 @@ G.LevelUp = (() => {
   /** ¿Puede coger esta carta de mejora? (una pasiva nueva necesita un hueco libre) */
   const canTake = (pl, id) => !isPassive(id) || (pl.statsTaken[id] || 0) > 0 || passivesOf(pl).length < MAX_PASSIVES;
 
+  /*
+   * Repertorio sorteado por partida (2.0, bloque 1): de los ataques que puede aprender tu
+   * Pokémon sólo salen en las cartas el 70 % (como mínimo 10), para que no sean siempre
+   * las mismas builds. Cada ataque recibe un número al azar la primera vez que se mira
+   * (pl.poolRank), así el sorteo aguanta aunque tu Pokémon evolucione en plena partida.
+   * Entran siempre los iniciales (los que llevas la primera vez), las MT compradas y los
+   * que hacen evolucionar a tu Pokémon (esos se añaden aparte, en candidates). Sólo local.
+   */
+  const POOL_K = 0.7, POOL_MIN = 10;
+  function runPool(pl) {
+    const ids = G.Moves.poolFor(pl.mon);
+    if (!pl.poolRank) { pl.poolRank = {}; pl.poolKeep = new Set(pl.moves.map(m => m.id)); }
+    const r = pl.poolRank;
+    for (const id of ids) if (!(id in r)) r[id] = Math.random();
+    const keep = new Set(ids.filter(id => pl.poolKeep.has(id) || pl.hasMove(id)));
+    if (G.Mons && G.Mons.taught && pl.mon.dex) for (const id of G.Mons.taught(pl.mon.dex)) if (ids.includes(id)) keep.add(id);
+    const n = Math.max(POOL_MIN, Math.ceil(ids.length * POOL_K));
+    for (const id of ids.slice().sort((a, b) => r[a] - r[b])) { if (keep.size >= n) break; keep.add(id); }
+    return ids.filter(id => keep.has(id));
+  }
+
+  /*
+   * Descartar en partida (2.0, bloque 1): 2 por partida. Un ataque descartado va a
+   * pl.banned (como el Veto de Mejoras) y una pasiva a pl.bannedStats: no vuelven a salir.
+   */
+  const DISCARDS = 2;
+  const discardsLeft = pl => pl ? Math.max(0, DISCARDS - (pl.discards || 0)) : 0;
+  /** ¿Se puede descartar esta carta? Los ataques nuevos y las mejoras que aún no llevas. */
+  const canDiscard = (pl, c) => !!c && (c.type === 'new' || (c.type === 'stat' && STATS.some(s => s.id === c.key.slice(5) && !ONE_SHOT.has(s.id)) && !(pl.statsTaken[c.key.slice(5)] > 0)));
+  function discard(pl, c) {
+    if (!discardsLeft(pl) || !canDiscard(pl, c)) return false;
+    const id = c.key.slice(c.key.indexOf(':') + 1);
+    if (c.type === 'new') { if (!pl.banned) pl.banned = new Set(); pl.banned.add(id); }
+    else { if (!pl.bannedStats) pl.bannedStats = new Set(); pl.bannedStats.add(id); }
+    pl.discards = (pl.discards || 0) + 1;
+    return true;
+  }
+
   /** n elementos distintos de list, cada uno con probabilidad según weight(x). */
   function pickWeighted(list, n, weight) {
     const rest = list.map(x => [x, weight(x)]), out = [];
@@ -114,7 +174,7 @@ G.LevelUp = (() => {
     const E = G.Moves.EVO, mine = [], more = [], first = !(pl.statsTaken && pl.statsTaken[id]);
     for (const m of pl.moves) if (!m.evolved && E[m.id] && E[m.id][1] === id) mine.push({ id: m.id, name: m.name, ready: first && m.lvl >= m.def.maxLvl });
     if (pl.slots.length < pl.maxMoves) {
-      for (const mid of G.Moves.poolFor(pl.mon)) {
+      for (const mid of runPool(pl)) {
         if (E[mid] && E[mid][1] === id && !pl.hasMove(mid) && !(pl.banned && pl.banned.has(mid))) more.push(mid);
       }
     }
@@ -166,7 +226,7 @@ G.LevelUp = (() => {
       // Evolución por movimiento pendiente (Tangela → Poder Pasado...): ese movimiento entra
       // en las cartas aunque no sea de sus tipos, y sale mucho más (G.Evo.wantedMoves).
       const wm = G.Evo ? G.Evo.wantedMoves(pl) : null, want = wm ? wm.ids : [];
-      const pool = [...new Set(G.Moves.poolFor(pl.mon).concat(want))].filter(id =>
+      const pool = [...new Set(runPool(pl).concat(want))].filter(id =>
         !pl.hasMove(id) && !(pl.banned && pl.banned.has(id)) && !(buffs >= 2 && G.Moves.nonAttacking(G.Moves.BY_ID[id].kind)));
       // Los de su lado bueno (y los empatados y mejoras) salen el doble; los que le hacen
       // evolucionar, entre todos como 4 de los de su lado bueno (uno solo: casi siempre entre los 6).
@@ -228,7 +288,9 @@ G.LevelUp = (() => {
     // juego acababa colgándose. Las que piden una evolución salen siempre.
     // Con los 4 huecos de pasiva llenos, sólo las que ya llevas (canTake).
     // (Réplica cuenta también la permanente de Mejoras, que ya va en pl.pass.amt: con ella, la 3.ª carta no sumaba nada.)
-    const room = s => (s.id === 'amt' ? ((pl.pass && pl.pass.amt) || 0) < s.max : !s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id);
+    // (Una pasiva descartada en esta partida, pl.bannedStats, ya no sale.)
+    const room = s => (s.id === 'amt' ? ((pl.pass && pl.pass.amt) || 0) < s.max : !s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id) &&
+                      !(pl.bannedStats && pl.bannedStats.has(s.id));
     // Las pasivas que piden tus ataques para evolucionar (aunque aún no estén al máximo) y que
     // no llevas: mientras queden huecos de pasiva salen siempre y mucho más (24-10-2026: antes
     // los huecos se llenaban de pasivas al azar y luego no cabía la que hacía falta).
@@ -248,6 +310,16 @@ G.LevelUp = (() => {
         title: s.title, desc: s.desc, evolves: evolvesWith(s.id, pl),
         apply: p => { s.apply(p); p.statsTaken[s.id] = (p.statsTaken[s.id] || 0) + 1; }
       });
+    }
+
+    // Todo al tope (sólo queda la Baya Zidra): la del 20 % y monedas (ver FULL_CARDS).
+    if (out.every(c => c.key === 'stat:heal')) {
+      out.length = 0;
+      for (const s of FULL_CARDS) {
+        if (s.solo && G.Coop && G.Coop.active) continue;
+        out.push({ w: 10, type: 'stat', key: 'stat:' + s.id, icon: s.icon, color: '#8fa3c4', tag: 'Mejora',
+                   title: s.title, desc: s.desc, evolves: { mine: [], more: [] }, apply: p => s.apply(p) });
+      }
     }
 
     // Cualquier carta (aprender, mejorar, evolucionar o un pasivo) rehace los
@@ -277,5 +349,5 @@ G.LevelUp = (() => {
     return picked;
   }
 
-  return { offer, STATS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake };
+  return { offer, STATS, FULL_CARDS, DEF_CAP, runPool, discard, discardsLeft, canDiscard, DISCARDS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake };
 })();

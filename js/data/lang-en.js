@@ -298,7 +298,7 @@ G.I18n.add({
   '· A las {x} tiradas sin Legendaria en un banner, la siguiente lo es.': '· After {x} pulls without a Legendary on a banner, the next one is.',
   '· La tirada ×10 garantiza al menos una Épica.': '· The ×10 pull guarantees at least one Epic.',
   '· Los repetidos dan Pokémonedas. Los shiny no se repiten.': '· Duplicates give PokéCoins. Shinies never repeat.',
-  '· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas, a veces, tickets ×10.': '· Tickets are earned by playing: some Pokémon drop them when defeated, and bosses and rift legendaries sometimes give ×10 tickets.',
+  '· Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.': '· Tickets are earned by playing: 1 every 100 s of a run, 1 more for each boss defeated and another when you reach Arceus (30 per run at most). Also from missions and achievements.',
   'Tirar ×1 ·': 'Pull ×1 ·', 'Tirar ×10 ·': 'Pull ×10 ·', 'tickets ×10': '×10 tickets', 'tickets y {x}': 'tickets and {x}',
   'No tienes tickets suficientes: consíguelos jugando': 'Not enough tickets: earn them by playing', '¡NUEVO!': 'NEW!', '¡SHINY NUEVO!': 'NEW SHINY!',
   'Repetido ·': 'Duplicate ·', '· {x} {x} shiny': '· {x} {x} shiny', '{x} Shiny': '{x} Shiny', 'Clic para acelerar': 'Click to speed up',
@@ -408,6 +408,7 @@ G.I18n.add({
   'alta': 'high', 'media': 'medium', 'baja': 'low',
   'Pantalla': 'Display', 'Números de daño': 'Damage numbers', 'Los números que salen al golpear y al recibir daño.': 'The numbers that pop up when you hit or get hit.',
   'Menos sacudidas y destellos': 'Less shaking and flashing', 'La cámara tiembla menos y los fogonazos son suaves.': 'The camera shakes less and flashes are softer.',
+  'Casillas de Mundo Misterioso': 'Mystery Dungeon tiles', 'El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Floor, walls, water, trees, chests and traps with Explorers of Sky art. Off: the game\'s own drawing.',
   'Mostrar FPS': 'Show FPS', 'Fotogramas por segundo, en la esquina de abajo.': 'Frames per second, in the bottom corner.',
   'Pantalla completa': 'Fullscreen', 'Sin barras del navegador.': 'Without browser bars.', 'Activar': 'Turn on', 'Sí': 'Yes', 'No': 'No',
   'Idioma': 'Language', 'El juego se recarga al cambiarlo.': 'The game reloads when you change it.',
@@ -654,6 +655,8 @@ G.I18n.add({
   // ---------------- 2026-10-10: grietas, jefes, pantalla de inicio, movimientos nuevos ----------------
   '¡SE HA ABIERTO UNA GRIETA!': 'A RIFT HAS OPENED!', 'Sigue la flecha morada: dentro te espera un legendario': 'Follow the purple arrow: a legendary awaits inside',
   'GRIETA · {x} m · {x} s': 'RIFT · {x} m · {x} s', 'GRIETA · {x} s': 'RIFT · {x} s',
+  '¡{x} cambia de fase!': '{x} is changing phase!', 'Algo se acerca…': 'Something is coming…',
+  '{name} tiene otra versión del juego: que recargue la página para jugar juntos.': '{name} has another version of the game: they should reload the page to play together.', 'El anfitrión tiene otra versión del juego: recargad la página para jugar juntos.': 'The host has another version of the game: reload the page, both of you, to play together.',
   '¡{x} se ha enfurecido!': '{x} is enraged!',
   'Pulsa para empezar': 'Press to start',
   'Sobrevive a las hordas con tu compañero Pokémon': 'Survive the hordes with your Pokémon partner',
@@ -2190,5 +2193,10 @@ G.I18n.add({
   "Ondulagua": "Walking Wake",
   "Ferroverdor": "Iron Leaves",
   // ---------------- Arreglos de la revisión del 29-10 (1) ----------------
-  "Recogidas": "Collected"
+  "Recogidas": "Collected",
+  // ---------------- 2.0, bloque 1: cartas con tope ----------------
+  "Recupera el 20% de tu vida ahora mismo.": "Restores 20% of your HP right now.",
+  "Monedas": "Coins",
+  "+40 monedas al acabar la partida.": "+40 coins at the end of the run.",
+  "Descartar (": "Discard ("
 });

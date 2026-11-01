@@ -125,6 +125,27 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+## Tilesets del mundo
+
+Las casillas del suelo, las paredes y el agua (`assets/tiles-pmd/`, desde la versión 2.0) son los tilesets de
+**Pokémon Mundo Misterioso: Exploradores del Cielo** (© Nintendo, Creatures, GAME FREAK, Spike Chunsoft), tal como los
+reúne en formato DTEF [PMDCollab/RawAsset](https://github.com/PMDCollab/RawAsset) (`TileDtef/`). No tienen licencia: son
+extracciones del juego, usadas sin ánimo de lucro. Se pueden quitar con el interruptor de Ajustes («Casillas de Mundo
+Misterioso») o borrando la carpeta `assets/tiles-pmd/` (basta con eso; para quitar también la lista, borrar
+`js/data/tilesets.js` y su línea `<script>` de `dev.html`, o `tools/build.js` no la encuentra): el juego vuelve a su propio
+dibujo (`js/world/tiles.js`).
+La tabla de autotiling de `js/world/tileset.js` sale de la plantilla de la especificación DTEF de
+[SkyTemple](https://github.com/SkyTemple/skytemple-dtef) (sólo el formato; no se usa su código).
+
+Desde el bloque 6b de la 2.0, con el mismo interruptor:
+- **Árboles**: la pieza de pared suelta de cada uno de esos tilesets (no es un archivo aparte).
+- **Cofre con candado y trampas** (`assets/objects-pmd/`): `Chest`, `Trap_Poison`, `Trap_Sticky` y `Trap_Explosion` de la
+  carpeta `Object/` de [PMDCollab/RawAsset](https://github.com/PMDCollab/RawAsset), del mismo juego y también sin licencia;
+  el cofre con candado es `Chest` recoloreado en dorado (`tools/fetch_objects.py`). Se quitan borrando `assets/objects-pmd/`
+  (y, si se quiere, `js/data/objects-pmd.js` con su línea de `dev.html`).
+- **Rocas, hierba alta, cofres pequeños, torres y manantiales**: dibujo propio en código (`js/world/tiles.js`) con los colores sacados de cada
+  tileset (`tools/fetch_tiles.py`, campo `pal` de `js/data/tilesets.js`).
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

@@ -166,7 +166,7 @@ FAQ = {
   ('¿Está en inglés?', 'Sí: el juego sale en español o en inglés según el idioma de tu navegador, y se puede cambiar en Ajustes.'),
   ('¿Puedo jugar con mis amigos?', 'Sí: el modo cooperativo online admite hasta 4 jugadores. Añade a tus amigos por su apodo, invítalos a tu sala y empezad la partida. La experiencia se comparte y podéis revivir a un compañero caído quedándoos a su lado.'),
   ('¿Cuántos Pokémon hay?', f'{N} Pokémon de las 9 regiones (de Kanto a Paldea), todos jugables como compañero y con su versión shiny cuando existe.'),
-  ('¿Cómo consigo más Pokémon?', 'Con el gacha, que funciona con tickets que se ganan jugando: los Pokémon normales sueltan tickets de vez en cuando, y los jefes y los legendarios de las grietas, a veces, tickets ×10. No se pueden comprar con dinero real.'),
+  ('¿Cómo consigo más Pokémon?', 'Con el gacha, que funciona con tickets que se ganan jugando: 1 cada 100 segundos de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (hasta 30 por partida), y también con las misiones y los logros. No se pueden comprar con dinero real.'),
   ('¿Qué son las grietas?', 'Portales misteriosos que aparecen muy de vez en cuando. Si entras, luchas contra un Pokémon legendario en una arena de su tipo (hay 18 distintas). Si ganas, te llevas premio; si caes, vuelves al mapa.'),
   ('¿Se guarda mi progreso?', 'Con una cuenta (nombre y contraseña o Google) tu partida se guarda en la nube y la puedes seguir en cualquier dispositivo. Como invitado se juega al momento, pero no se guarda.'),
   ('¿Es un juego oficial de Pokémon?', 'No. Es un proyecto hecho por fans, gratuito y sin ánimo de lucro, sin relación con Nintendo, GAME FREAK ni The Pokémon Company.')],
@@ -177,7 +177,7 @@ FAQ = {
   ('Is it in English?', 'Yes: the game shows up in English or Spanish depending on your browser language, and you can change it in Settings.'),
   ('Can I play with my friends?', 'Yes: online co-op supports up to 4 players. Add your friends by nickname, invite them to your room and start the game. Experience is shared and you can revive a fallen teammate by standing next to them.'),
   ('How many Pokémon are there?', f'{N} Pokémon from all 9 regions (Kanto to Paldea), all playable as your partner, with their shiny form when one exists.'),
-  ('How do I get more Pokémon?', 'From the gacha, which uses tickets you earn by playing: regular Pokémon drop tickets now and then, and bosses and rift legendaries sometimes drop ×10 tickets. They can\'t be bought with real money.'),
+  ('How do I get more Pokémon?', 'From the gacha, which uses tickets you earn by playing: 1 every 100 seconds of a run, 1 more for each boss defeated and another when you reach Arceus (up to 30 per run), plus missions and achievements. They can\'t be bought with real money.'),
   ('What are rifts?', 'Mysterious portals that open very rarely. If you go in, you fight a legendary Pokémon in an arena of its type (there are 18). Win and you get a reward; fall and you\'re sent back to the map.'),
   ('Is my progress saved?', 'With an account (name and password, or Google) your game is saved in the cloud and you can continue on any device. Guests can play right away, but nothing is saved.'),
   ('Is this an official Pokémon game?', 'No. It\'s a free, non-profit fan project, unrelated to Nintendo, GAME FREAK or The Pokémon Company.')]}
@@ -313,7 +313,7 @@ def legends(lang):
     if lang == 'es':
         h1 = 'Legendarios y grietas: las 18 arenas de PokéSurvivor'
         intro = ('<p class="lead">De vez en cuando se abre una <b>grieta misteriosa</b> en el mapa. Si entras, te enfrentas a un <b>Pokémon legendario</b> '
-                 'en una arena de su tipo, con su propio terreno y clima. Si ganas te llevas un <b>ticket ×10</b> para el gacha; si caes, vuelves al mapa sin premio. '
+                 'en una arena de su tipo, con su propio terreno y clima. Si ganas te llevas un <b>vínculo</b> para fusionar ataques y monedas; si caes, vuelves al mapa sin premio. '
                  'En grupo, entráis todos juntos.</p>')
         h2a, h2b = '18 arenas, una por tipo', f'Los {len(LEG)} legendarios'
         tip = '<p>Los legendarios de dos tipos eligen uno al azar para la arena. El terreno cuenta: hay lava que quema, hielo que resbala, agua que frena…</p>'
@@ -321,7 +321,7 @@ def legends(lang):
     else:
         h1 = 'Legendaries and rifts: PokéSurvivor\'s 18 arenas'
         intro = ('<p class="lead">Every now and then a <b>mysterious rift</b> opens on the map. Step inside and you face a <b>legendary Pokémon</b> in an arena '
-                 'of its type, with its own terrain and weather. Win and you get a <b>×10 ticket</b> for the gacha; fall and you\'re sent back to the map with no reward. '
+                 'of its type, with its own terrain and weather. Win and you get a <b>bond</b> to fuse moves, plus coins; fall and you\'re sent back to the map with no reward. '
                  'In a group, you all go in together.</p>')
         h2a, h2b = '18 arenas, one per type', f'The {len(LEG)} legendaries'
         tip = '<p>Dual-type legendaries pick one of their types at random for the arena. Terrain matters: lava burns, ice is slippery, water slows you down…</p>'
@@ -485,6 +485,15 @@ def ach_page(lang):
 
 # ================= novedades =================
 NEWS = [
+ ('2026-10-31', ('Versión 2.0 (3): jefes y legendarios con fases', 'Version 2.0 (3): bosses and legendaries with phases'),
+  ('Jefes y legendarios cambian de fase (burbuja, empujón y su ataque firma) y se enfurecen en la última, así que siempre llegan a usar sus firmas. Ya no se tumban de una ráfaga ni hay peleas eternas: si se alarga, el jefe se agota. Los jefes del mapa salen en sitios nuevos (del agua, del suelo, junto a un altar) y los legendarios, cada vez en un sitio distinto.',
+   'Bosses and legendaries change phase (bubble, push and their signature move) and get enraged in the last one, so they always get to use their signatures. No more one-burst kills or endless fights: if it drags on, the boss wears out. Map bosses show up in new places (from water, from the ground, next to an altar) and legendaries in a different spot each time.')),
+ ('2026-10-31', ('Versión 2.0 (2): enemigos que se adaptan a tu fuerza', 'Version 2.0 (2): enemies that adapt to your strength'),
+  ('Si tumbas a los enemigos muy rápido, los siguientes salen con más vida y defensa, y si vas sobrado de vida pegan algo más; si vas apurado, aflojan. Tu nivel también los hace más fuertes, los ataques evolucionados y las fusiones pegan menos, los legendarios aguantan mucho más y el ranking empieza de cero en la 2.0.',
+   'If you take enemies down very fast, the next ones come with more HP and defense, and if you have plenty of HP they hit a bit harder; if you’re struggling, they ease off. Your level also makes them stronger, evolved moves and fusions hit less hard, legendaries last much longer and the leaderboard starts from zero in 2.0.')),
+ ('2026-10-31', ('Versión 2.0 (1): cartas con tope y subir de nivel cuesta más', 'Version 2.0 (1): capped cards and slower leveling'),
+  ('Las cartas de mejora tienen tope (Potencia como mucho ×2, Vigor hasta 8 cartas…), se sube de nivel más despacio, cada partida sale sólo el 70 % de los ataques de tu Pokémon y puedes descartar 2 cartas por partida.',
+   'Upgrade cards are capped (Power ×2 at most, Vigor up to 8 cards…), leveling up is slower, each run only 70% of your Pokémon\'s moves show up and you can discard 2 cards per run.')),
  ('2026-10-28', ('La lista grande', 'The big list'),
   ('Pokédex por familias (cada familia es su última evolución) y un Compendio con lo que hace cada ataque, pasiva y objeto. Ataques únicos para los 18 tipos con evoluciones que cambian cómo funcionan, mejoras nuevas de duración, velocidad de los proyectiles y cantidad, un ataque firma para cada jefe y un viaje por la grieta con la llegada de cada legendario. El mundo se parece más a Pokémon Platino y la calidad Ultra es una cámara 2,5D con perspectiva como en DS. Más animaciones de Mundo Misterioso, tienda y gacha más cómodas en el móvil (que se queda siempre en horizontal) y sin Ko-fi ni botón Guardar (queda en Ajustes).',
    'Pokédex by families (each family is its final evolution) and a Compendium with what every move, passive and item does. Unique moves for all 18 types with evolutions that change how they work, new upgrades for duration, projectile speed and amount, a signature attack for every boss and a trip through the rift with each legendary’s own arrival. The world looks more like Pokémon Platinum and Ultra quality is a 2.5D perspective camera like on the DS. More Mystery Dungeon animations, a handier shop and gacha on phones (which now always stay in landscape) and no more Ko-fi or Save button (it stays in Settings).')),

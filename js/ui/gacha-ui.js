@@ -232,8 +232,7 @@ G.GachaUI = (() => {
       <p class="gacha-rules">· La tirada ×10 garantiza al menos una Épica.<br>
        · A las ${G.Gacha.PITY_5} tiradas sin Legendaria en un banner, la siguiente lo es.<br>
        · Los repetidos dan Pokémonedas. Los shiny no se repiten.<br>
-       · Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y
-         los jefes y los legendarios de las grietas, a veces, tickets ×10.</p>`;
+       · Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.</p>`;
     rates.classList.toggle('rules-on', rulesOn);
     rates.querySelector('.gr-info').onclick = () => {
       rulesOn = !rulesOn;

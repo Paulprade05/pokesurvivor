@@ -19,7 +19,7 @@
  *   anfitrión -> invitado  { k:'f', t, lv, xp, xn, ki, bo, co, p:{uid:[estado]},
  *                            e:[[id,x,y,vida,anim,dir,estados]], ev:[eventos],
  *                            ja:[x,y,anim,dir] (Arceus, sólo en la Sentencia) }
- *   anfitrión -> todos     { k:'start', seed, host, members:[{uid,name,dex,shiny}] }
+ *   anfitrión -> todos     { k:'start', seed, host, members:[{uid,name,dex,shiny}], wv }   (wv: versión del mundo, 2.0)
  *
  * [estado] de un jugador (myState / readState): posición, vida, ataque activo...
  * y en el 19.º (24-10-2026) su fase (dex del sprite: evoluciona en partida, ver
@@ -207,7 +207,10 @@ G.Coop = (() => {
       const a = ANIMS.indexOf(e.anim.cur);
       out.push([e.id, r1(e.x), r1(e.y), Math.ceil(e.hp), a < 0 ? 0 : a, e.anim.dir,
                 (e.burn > 0 ? 1 : 0) | (e.poison > 0 ? 2 : 0) | (e.shield > 0 ? 4 : 0) | (e.slow > 0 ? 8 : 0) |
-                (e.ai && e.ai.fury ? 16 : 0)]);       // 16: jefe enfurecido (fase 2, aura roja; una versión vieja no lo mira)
+                (e.ai && e.ai.fury ? 16 : 0) |        // 16: jefe enfurecido (fase 2, aura roja; una versión vieja no lo mira)
+                // (2.0, bloque 4) 32 bajo tierra (no se dibuja ni entra en la rejilla del invitado), 64 nadando (medio
+                // hundido), 128 fantasma dentro de una pared (medio transparente). Una versión vieja no los mira.
+                (e.under ? 32 : 0) | (e.swimming ? 64 : 0) | (e.inWall ? 128 : 0)]);
     }
     return out;
   }
@@ -220,7 +223,7 @@ G.Coop = (() => {
     }
     const ev = m.q; m.q = [];
     const f = { k: 'f', t: r2(st.time), lv: st.level, xp: r2(st.xp), xn: st.xpNext, ki: st.kills, bo: st.bosses, co: st.coins, tk: [st.t1, st.t10],
-                p, e: enemyList(viewOf(m)), ev };
+                p, e: enemyList(viewOf(m)), ev, cb: st.cboss | 0 };     // (cb: jefes del calendario vencidos, para el reloj de tickets)
     const ja = G.Judgment.netState();       // Arceus en la Sentencia
     if (ja) f.ja = ja;
     // Siempre: quién está eligiendo y, si hay cartas de nivel, cuáles (ver arriba).
@@ -438,7 +441,7 @@ G.Coop = (() => {
       else if (!msg.lu && showing) api.resume();
     }
     api.syncTeam({ time: msg.t, level: msg.lv, xp: msg.xp, xpNext: msg.xn, kills: msg.ki, bosses: msg.bo, coins: msg.co,
-                   t1: (msg.tk || [])[0], t10: (msg.tk || [])[1] });
+                   t1: (msg.tk || [])[0], t10: (msg.tk || [])[1], cboss: msg.cb });
     for (const u in msg.p || {}) {
       const m = mates.get(u);
       if (m) m.pl.net = readState(msg.p[u]);

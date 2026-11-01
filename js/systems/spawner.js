@@ -45,7 +45,7 @@ G.Spawner = (() => {
                                : CAP + Math.round((CAP_LATE - CAP) * G.U.clamp((t - 1080) / 600, 0, 1)));
   // Menos Pokémon pero más fuertes (la pantalla no se satura): salen ~24% de
   // los de antes, cada uno con más vida, daño y experiencia.
-  const DENSITY = 0.24, DMG_K = 2.4, XP_K = 5.6;
+  const DENSITY = 0.24, DMG_K = 2.4;
   // Tiempo «efectivo» de la fuerza de los enemigos (26-10-2026, ver G.Enemies.eff):
   // al principio corre más despacio que el reloj y al final, más deprisa.
   const eff = t => G.Enemies.eff(t);
@@ -88,6 +88,7 @@ G.Spawner = (() => {
   let forceShiny = 0;           // para pruebas: los N próximos salen shiny
 
   function reset() {
+    arriving = [];
     acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0; lastBossT = -Infinity; lastWave = null;
     queue.length = 0; annPrio = 1; annAge = 0; annCol = null;
     G.Enemies.rollRun();
@@ -119,13 +120,15 @@ G.Spawner = (() => {
       return Math.abs(x - o.x) < w / 2 + 40 && y > o.y - h / 2 - 40 && y < o.y + h / 2 + 90; });
   }
 
-  /** Punto del anillo donde quepa: no dentro de paredes ni en el agua. */
+  /** Punto del anillo donde quepa: no dentro de paredes ni en el agua; y (2.0, bloque 4) con camino hasta ti, nunca
+   *  en una bolsa cerrada (si el punto está fuera del campo de pathing.js, como antes). */
   function freePoint(pl, angle, flying) {
     for (let i = 0; i < 8; i++) {
       const a = angle + (i === 0 ? 0 : G.U.rand(-0.9, 0.9));
       const [x, y] = ringPoint(pl, a);
       if (players.length > 1 && seenByAnyone(x, y)) continue;
-      if (flying || G.World.isFree(x, y, 14)) return [x, y];
+      if (flying) return [x, y];
+      if (G.World.isFree(x, y, 14) && G.Path.reachable(x, y, pl) !== false) return [x, y];
     }
     return null;
   }
@@ -166,10 +169,16 @@ G.Spawner = (() => {
    * o: { hp, dmg, xp } multiplicadores · weak (sin élite ni campeón) · noChamp
    */
   function make(def, x, y, t, o = {}) {
-    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) * (o.hp || 1)));
-    // (xpLag: la experiencia sigue al reloj real aunque los tramos vayan con el efectivo,
-    //  26-10-2026; si no, se subía de nivel mucho más despacio y se llegaba flojo al final.)
-    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (o.dmg || 1); e.xp = Math.max(1, Math.round(e.xp * XP_K * G.Enemies.xpLag(t) * (o.xp || 1)));
+    // (2.0, bloque 2) Vida base más suave desde el minuto 5 (hpBase) y, encima, lo que pida el director según lo rápido
+    //  que matas: una parte en vida y el resto como «defensa» (defK). Su daño, también con el director.
+    const D = G.Director;
+    const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) *
+                                                                G.Enemies.hpBase(t) * (D ? D.hpPart() : 1) * (o.hp || 1)));
+    if (D) e.defK = D.defK();
+    if (o.weak) e.weak = true;
+    // (Experiencia: de la tabla por reloj G.Enemies.xpAt desde la 2.0; antes tramo × XP_K × xpLag.)
+    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (D ? D.dmg() : 1) * (o.dmg || 1);
+    e.xp = Math.max(1, Math.round(G.Enemies.xpAt(t) * (def.behavior === 'tank' ? 1.3 : 1) * (o.xp || 1)));
     // (Con el tope más bajo de los primeros minutos, la élite sigue saliendo a partir de los mismos que antes.)
     e.elite = !o.weak && G.EnemyMgr.count >= Math.max(capAt(t), CAP_EARLY) * ELITE_FROM;
     if (e.elite) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
@@ -204,15 +213,78 @@ G.Spawner = (() => {
   }
 
   /** @param angle  por dónde sale (los de un mismo grupo, repartidos alrededor) */
-  function spawnBoss(pl, t, b, angle = Math.random() * 6.2832) {
-    const [x, y] = ringPoint(pl, angle);
-    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
-    e.dmg *= G.Enemies.earlyK(t);           // (principio suave, 28-10-2026)
+  function spawnBoss(pl, t, b, angle = Math.random() * 6.2832, at = null) {
+    const [x, y] = at || ringPoint(pl, angle);
+    // (2.0: su vida también sube con tu nivel, G.Director.lvHp.)
+    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1) *
+                                                                  (G.Director ? G.Director.lvHp() : 1)), true);
+    e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1);   // (principio suave, 28-10-2026; director, 2.0)
+    if (G.Enemies.bossCap) e.maxHp = e.hp = Math.round(G.Enemies.bossCap(e.maxHp, t));   // (antes de add: 'ne' lleva maxHp)
     if (rollShiny(b.dex)) e.makeShiny();
+    // (2.0, bloque 3) Fases (hasta el minuto 12, una al 50 %; desde el 12, al 66 % y al 33 %), tope blando de daño por
+    //  segundo y desgaste si la pelea se alarga (enemy.js armBoss). El tope, sólo contra ráfagas enormes (no tumbarlo en
+    //  menos de 1/4 de su tiempo): su vida ya va con tu DPS (bossCap) y con el tope al 60 % frenaba siempre (medido).
+    if (e.armBoss && G.Enemies.bossTtk) {
+      const ttk = G.Enemies.bossTtk(t);
+      e.armBoss({ phases: t < 720 ? [0.5] : [0.66, 0.33], ttk, capTtk: ttk * 0.25, wear: true });
+    }
     G.EnemyMgr.add(e);
     G.Camera.kick(1.1);
     G.Audio.sfx('boss');
     return e;
+  }
+
+  /*
+   * (2.0, bloque 3) Dónde sale un jefe del mapa: la mitad de las veces fuera de la vista, como siempre; un 30 % junto a
+   * un sitio especial (altar, manantial...) a 350-900 px; y un 20 % según su tipo: los de Agua salen del agua y los de
+   * Tierra, Roca y Acero, del suelo, a la vista. Si sale a la vista, antes avisa (arrive): ver tickArrive.
+   * Devuelve [x, y] o null (= como siempre).
+   */
+  const FROM_GROUND = new Set(['ground', 'rock', 'steel']);
+  function bossSpot(pl, b) {
+    const r = Math.random(), m = G.DEX_BY[b.dex], types = (m && m.types) || [];
+    if (r < 0.5) return null;
+    if (r < 0.8) {
+      const sp = G.World.specialsNear(pl.x, pl.y, 900).filter(p => G.U.dist2(p.x, p.y, pl.x, pl.y) >= 350 * 350);
+      if (!sp.length) return null;
+      const s = G.U.pick(sp);
+      for (let i = 0; i < 8; i++) {
+        const a = Math.random() * 6.2832, d = G.U.rand(70, 130), x = s.x + Math.cos(a) * d, y = s.y + Math.sin(a) * d;
+        if (G.World.isFree(x, y, 22) && G.U.dist2(x, y, pl.x, pl.y) > 300 * 300) return [x, y];
+      }
+      return null;
+    }
+    const water = types.includes('water'), ground = types.some(x => FROM_GROUND.has(x));
+    if (!water && !ground) return null;
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * 6.2832, d = G.U.rand(260, 420), x = pl.x + Math.cos(a) * d, y = pl.y + Math.sin(a) * d * 0.7;
+      if (water ? G.World.isLiquid(x, y) : G.World.isFree(x, y, 22)) return [x, y];
+    }
+    return null;
+  }
+
+  // Jefes que van a salir a la vista: primero 1,8 s de aviso (aros de su color, también en los invitados con 'fxr').
+  const ARRIVE = 1.8;
+  let arriving = [];      // [{ t, pl, tm, b, x, y, col, ringT }]
+  function tickArrive(dt) {
+    for (const a of arriving) {
+      a.t -= dt; a.ringT -= dt;
+      if (a.ringT <= 0 && a.t > 0) {
+        a.ringT = 0.3;
+        G.FX.ring(a.x, a.y, 8, 90, a.col, 0.5, 4);
+        if (G.Coop.isHost) G.Coop.broadcast(['fxr', Math.round(a.x), Math.round(a.y), 90, a.col]);
+      }
+    }
+    const done = arriving.filter(a => a.t <= 0);
+    if (!done.length) return;
+    arriving = arriving.filter(a => a.t > 0);
+    const es = done.map(a => spawnBoss(a.pl, a.tm, a.b, 0, [a.x, a.y]));
+    announceBosses(es);
+  }
+  function announceBosses(es) {
+    const nm = e => e.name + (e.shiny ? ' shiny' : '');
+    if (es.length > 1) say('¡' + nm(es[0]) + ' y ' + nm(es[1]) + ' salvajes aparecieron!', 3.2, false, BOSS);
+    else say('¡' + nm(es[0]) + ' salvaje apareció!', 3, false, BOSS);
   }
 
   // ---------------- oleadas ----------------
@@ -318,6 +390,8 @@ G.Spawner = (() => {
     // En la Sentencia de Arceus, sólo sus legendarios (systems/judgment.js).
     if (G.Rift.inArena || G.Judgment.active) return;
 
+    if (arriving.length) tickArrive(dt);
+
     // Precarga lo que va a salir en el próximo minuto.
     preloadT -= dt;
     if (preloadT <= 0) { preloadT = 10; G.Sprites.preload(G.Enemies.upcomingDex(t, 60)); }
@@ -332,10 +406,14 @@ G.Spawner = (() => {
     if (group) while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
     if (group && mapBosses() + group.length <= MAP_BOSS_MAX) {
       const pl = anchor(), a0 = Math.random() * 6.2832;
-      const es = group.map((d, i) => spawnBoss(pl, t, d, a0 + i * 6.2832 / group.length));
-      const nm = e => e.name + (e.shiny ? ' shiny' : '');
-      if (es.length > 1) say('¡' + nm(es[0]) + ' y ' + nm(es[1]) + ' salvajes aparecieron!', 3.2, false, BOSS);
-      else say('¡' + nm(es[0]) + ' salvaje apareció!', 3, false, BOSS);
+      // (Bloque 3: uno solo puede salir en otro sitio; si se ve, avisa antes. Los dúos, como siempre.)
+      const spot = group.length === 1 ? bossSpot(pl, group[0]) : null;
+      if (spot && seenByAnyone(spot[0], spot[1])) {
+        const m = G.DEX_BY[group[0].dex];
+        arriving.push({ t: ARRIVE, pl, tm: t, b: group[0], x: spot[0], y: spot[1], ringT: 0,
+                        col: (m && G.U.TYPE_COLOR[m.types[0]]) || '#ffd95e' });
+        say('Algo se acerca…', ARRIVE, false, BOSS);
+      } else announceBosses(group.map((d, i) => spawnBoss(pl, t, d, a0 + i * 6.2832 / group.length, i === 0 ? spot : null)));
       bossIdx += group.length; lastBossT = t;
     }
 
@@ -374,7 +452,7 @@ G.Spawner = (() => {
     for (let i = 0; i < n; i++) {
       const a = i / n * 6.2832 + G.U.rand(-0.3, 0.3), d = G.U.rand(60, 90);
       const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 0.8;
-      if (!fly && !G.World.isFree(px, py, 14)) continue;
+      if (!fly && (!G.World.isFree(px, py, 14) || G.Path.reachable(px, py, G.EnemyMgr.nearestPlayer(players, px, py) || G.Game.player) === false)) continue;
       out.push(make(def, px, py, t, { weak: true, hp: 0.6, xp: 0.5 }));
     }
     return out;
