@@ -905,7 +905,8 @@ G.World = (() => {
     SPR.pmd = false;
     if (pmdOn(bi)) {
       const o = G.Tileset.prop(bi, type, variant);
-      if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'tree' || type === 'trap'; return SPR; }
+      // (Arte PixelLab: los árboles generados no son una pieza de pared: llevan su sombra, como los cofres.)
+      if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'trap' || (type === 'tree' && !G.Tileset.isPx(o)); return SPR; }
       const pal = G.Tileset.pal(bi), g24 = !!pal && (type !== 'grass' || G.Tiles.grass24(bi));
       SPR.img = G.Tiles.propSprite(bi, type, variant, g24 ? pal : null);
       SPR.P = type === 'grass' ? (g24 ? TS / G.Tileset.T : GS) : G.Sprites.PX;

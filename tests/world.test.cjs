@@ -123,8 +123,10 @@ test('tileset: the 256 neighbour masks map onto the 47 DTEF rules (the red cell 
 test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and animates the liquid; off → not ready', () => {
   const { T, draws, images } = loadTileset(true);
   assert.equal(T.ready(0), false, 'cargando');
-  assert.equal(images.length, 3, 'hoja, variación y líquido');
-  for (const im of images) im.onload();
+  assert.equal(images.length, 4, 'hoja, variación, líquido y (arte PixelLab) la roca de las paredes');
+  for (const im of images.slice(0, 3)) im.onload();
+  assert.equal(T.ready(0), false, 'esperando también a la roca');
+  images[3].onerror();                                           // sin la roca: las paredes de antes
   assert.equal(T.ready(0), true);
   assert.equal(T.ready(5), false, 'un bioma sin datos: el pintor de siempre');
   const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
@@ -135,6 +137,31 @@ test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and
   T.drawLiquid({ drawImage: (...a) => draws.push(a) }, 0, terr, 5, 5, 0, 0, 48, 0.6);
   assert.equal(draws[draws.length - 1][1] >= 6 * 24, true, 'segundo fotograma del líquido');
   assert.equal(loadTileset(false).T.ready(0), false, 'apagado en Ajustes');
+});
+
+test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile); generated chests, traps and trees', () => {
+  const { T, draws, images } = loadTileset(true);
+  T.ready(0);
+  for (const im of images) { im.width = 64; im.height = 16; im.onload(); }
+  assert.equal(T.ready(0), true);
+  const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
+  T.paintChunk(0, 0, 16, terr, 0, 7);              // (la primera vez también recolorea la roca)
+  draws.length = 0;
+  T.paintChunk(0, 0, 16, terr, 0, 7);
+  // La pared (3,3): el suelo lleno de la hoja y la cara de roca (un lienzo recoloreado), nada de la sección de pared.
+  const face = draws.filter(d => d[0] && d[0].pxArt);
+  assert.equal(face.length, 1, 'la cara de roca, de un trozo');
+  assert.equal(face[0][8], 16, 'de 16 px de alto');
+  assert.equal(draws.length, 256 + 1 + 1, 'una por casilla, el suelo debajo del agua y la cara');
+  assert.ok(draws.every(d => d[0].pxArt || d[1] >= 6 * 24), 'ninguna casilla de la sección de pared');
+  // Cofres y trampas: los generados en cuanto cargan.
+  T.preload([0]);
+  const n = images.length;
+  for (const im of images.slice(n - 9)) im.onload();
+  assert.ok(/objects-px\/chest\.png$/.test(T.prop(0, 'chest', 0)._src));
+  assert.ok(/objects-px\/trap2\.png$/.test(T.prop(0, 'trap', 4 * 2)._src));
+  // Árboles generados sólo en los biomas de árboles (recoloreados: lienzo nuevo con pxArt).
+  assert.equal(T.prop(0, 'tree', 0).width, 24, 'sin G.Tiles: la pieza de pared de siempre');
 });
 
 test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and grove trees always leave a gap', () => {

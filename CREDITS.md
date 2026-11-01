@@ -146,6 +146,15 @@ Desde el bloque 6b de la 2.0, con el mismo interruptor:
 - **Rocas, hierba alta, cofres pequeños, torres y manantiales**: dibujo propio en código (`js/world/tiles.js`) con los colores sacados de cada
   tileset (`tools/fetch_tiles.py`, campo `pal` de `js/data/tilesets.js`).
 
+## Arte generado con PixelLab
+
+Arte generado con [PixelLab](https://www.pixellab.ai/) para PokéSurvivor (01-11-2026), en `assets/objects-px/`, con el
+mismo interruptor de Ajustes: los cofres (normal y con candado), las trampas (charco de veneno, telaraña, setas
+explosivas), los árboles sueltos de los biomas de árboles y la textura de roca de la cara de las paredes elevadas. Los
+originales y los pedidos con que se hicieron están en `tools/pixellab/` (`pedidos.json`; se repiten con
+`tools/pixellab_gen.cjs`, que necesita una clave propia de PixelLab, y se preparan con `tools/pixellab_art.py`). Los
+colores de cada bioma los pone el juego. Si se borra `assets/objects-px/`, el juego vuelve a lo de antes (PMD o su dibujo).
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

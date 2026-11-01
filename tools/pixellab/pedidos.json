@@ -1,0 +1,140 @@
+{
+ "tree0": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "one round leafy deciduous tree, game asset, 3/4 view from above, short brown trunk with roots visible at the bottom, big round dark green canopy, bright highlights on top, dark shadow at the underside of the canopy, black outline, 16-bit RPG style",
+   "image_size": {
+    "width": 48,
+    "height": 48
+   },
+   "no_background": true,
+   "view": "low top-down",
+   "outline": "single color black outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "tree1": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "one bushy broadleaf tree with a wide lumpy round canopy made of several leaf clumps, game asset, 3/4 view from above, short thick brown trunk visible at the bottom, light on top of the leaves, dark shadow under the canopy, black outline, 16-bit RPG style",
+   "image_size": {
+    "width": 48,
+    "height": 48
+   },
+   "no_background": true,
+   "view": "low top-down",
+   "outline": "single color black outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "tree2": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "one tall leafy oak tree, game asset, 3/4 view from above, wide dense green canopy, thick short brown trunk at the bottom, highlights on top, deep shade underneath, black outline, 16-bit RPG style",
+   "image_size": {
+    "width": 48,
+    "height": 48
+   },
+   "no_background": true,
+   "view": "low top-down",
+   "outline": "single color black outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "chest": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "small closed wooden treasure chest with dark iron bands and a gold latch in the middle, seen straight from the front, facing the camera, symmetrical, lid on top slightly visible, black outline, 16-bit RPG style",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "no_background": true,
+   "view": "side",
+   "direction": "south",
+   "outline": "single color black outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "bigchest": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "large closed ornate treasure chest, dark red wood with gold trims and a big golden padlock in the middle, seen straight from the front, facing the camera, symmetrical, lid on top slightly visible, black outline, 16-bit RPG style",
+   "image_size": {
+    "width": 40,
+    "height": 40
+   },
+   "no_background": true,
+   "view": "side",
+   "direction": "south",
+   "outline": "single color black outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "trap0": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "a single irregular puddle of bubbling toxic purple poison goo with a few bubbles, isolated game object, seen from above, nothing else",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "no_background": true,
+   "view": "high top-down",
+   "outline": "selective outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "trap1": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "a single sticky white spider web lying flat in an irregular shape, isolated game object, seen from above, nothing else",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "no_background": true,
+   "view": "high top-down",
+   "outline": "selective outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "trap2": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "description": "a single cluster of small red and orange explosive mushrooms with glowing caps, isolated game object, seen from above, nothing else",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "no_background": true,
+   "view": "high top-down",
+   "outline": "selective outline",
+   "shading": "medium shading",
+   "detail": "medium detail"
+  }
+ },
+ "cliff_v2": {
+  "endpoint": "create-image-pixflux",
+  "note": "se usan las filas 8-23 (tools/pixellab_art.py)",
+  "request": {
+   "description": "texture of a natural rocky mountain cliff face seen from the front, rough irregular boulders and deep vertical cracks, earthy grey-brown rock, bright top edge, darker toward the bottom, seamless, fills the entire image edge to edge, no bricks, no sky, no grass",
+   "image_size": {
+    "width": 64,
+    "height": 32
+   },
+   "no_background": false,
+   "view": "side",
+   "outline": "lineless",
+   "shading": "detailed shading",
+   "detail": "medium detail"
+  }
+ }
+}
