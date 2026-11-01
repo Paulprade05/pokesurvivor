@@ -2205,5 +2205,21 @@ G.I18n.add({
   "Si llevas 2 ataques de un tipo y 2 de otro (y los dos Cristales Z), elige qué movimiento Z usa. Sin empate, va el del tipo con más ataques. Lo puedes cambiar cuando quieras, gratis.": "If you carry 2 moves of one type and 2 of another (and both Z-Crystals), choose which Z-Move it uses. With no tie, the type with the most moves is used. You can change it whenever you like, for free.",
   "{x}: si empatan, movimiento Z de tipo {x}": "{x}: if tied, {x}-type Z-Move",
   "{x}: si empatan, el del ataque que aprenda antes": "{x}: if tied, the type of the move it learned first",
-  "Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques y, si empatan, el que elegiste en Mejoras.": "It turns on with a type’s Z-Crystal and 2 moves of that type in your slots. If several qualify, the type with the most moves is used and, if tied, the one you chose in Upgrades."
+  "Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques y, si empatan, el que elegiste en Mejoras.": "It turns on with a type’s Z-Crystal and 2 moves of that type in your slots. If several qualify, the type with the most moves is used and, if tied, the one you chose in Upgrades.",
+  // ---------------- 2.0: al máximo, curar o monedas (1-11-2026) ----------------
+  "Curarte un poco": "Heal a little",
+  "+{x} monedas al acabar la partida.": "+{x} coins at the end of the run.",
+  "+{x} monedas": "+{x} coins",
+  "+{x} PV": "+{x} HP",
+  "Elegir siempre esta opción": "Always choose this option",
+  "Se elegirá sola a partir de ahora. Puedes cambiarlo en Ajustes.": "It will be chosen automatically from now on. You can change it in Settings.",
+  "En la partida": "During a run",
+  "Preguntar": "Ask",
+  "Siempre curar": "Always heal",
+  "Siempre monedas": "Always coins",
+  "Al subir con todo al máximo": "Levelling up with everything maxed",
+  "Con todos tus ataques y pasivas al máximo, cada nivel te deja elegir entre curarte un poco o monedas. Si eliges una para siempre, se aplica sola y la partida no se para.": "With all your attacks and passives maxed, each level lets you choose between healing a little or coins. If you pick one for good, it's applied automatically and the run doesn't pause.",
+  "Versión 2.1: al máximo, curar o monedas": "Version 2.1: maxed out, heal or coins",
+  "Con todos tus ataques y pasivas al máximo, al subir de nivel eliges entre «Curarte un poco» (20 % de la vida) o «Monedas» (más cuanto más dura la partida: 50 en el minuto 20, 65 en el 30), también en cooperativo, cada uno lo suyo. Marca «Elegir siempre esta opción» (o ve a Ajustes > Accesibilidad > En la partida) y se elegirá sola sin parar la partida, con un aviso pequeño.": "With all your attacks and passives maxed, levelling up lets you choose between \"Heal a little\" (20% HP) or \"Coins\" (more the longer the run lasts: 50 at minute 20, 65 at minute 30), in co-op too, each player their own. Tick \"Always choose this option\" (or go to Settings > Accessibility > During a run) and it will be picked automatically without pausing the run, with a small notice.",
+  "Descartar (": "Discard ("
 });

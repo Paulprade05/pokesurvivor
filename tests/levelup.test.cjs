@@ -1,5 +1,5 @@
 // Cartas de subida de nivel de la 2.0 (bloque 1, 31-10-2026): topes de las cartas,
-// Potencia y compañía aditivas, la Baya Zidra del 20 % y las monedas con todo al tope,
+// Potencia y compañía aditivas, «Curarte un poco» (20 %) y «Monedas» con todo al tope (y el ajuste que las elige solas),
 // el repertorio sorteado por partida y los descartes. node tests/levelup.test.cjs
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -78,19 +78,89 @@ test('Potencia, Carrera, Imán y Aprendizaje suman: ×(1 + k·n)', () => {
   assert.ok(Math.abs(p2.atkMul - 2.8) < 1e-9);
 });
 
-test('todo al tope: Baya Zidra del 20 % y monedas sólo en solitario', () => {
+/** Pokémon con todo al máximo: 4 ataques a nivel 5 y 4 pasivas con su tope. */
+function maxed(G) {
+  const pl = player(G, ['m0', 'm1', 'm2', 'm3']);
+  for (const m of pl.moves) m.lvl = 5;
+  for (const id of ['atk', 'hp', 'cd', 'def']) pl.statsTaken[id] = G.LevelUp.STATS.find(s => s.id === id).max;
+  return pl;
+}
+
+test('todo al máximo: salen «Curarte un poco» (20 %) y «Monedas», también en cooperativo', () => {
   for (const coop of [false, true]) {
     const G = boot(coop);
-    const pl = player(G, ['m0', 'm1', 'm2', 'm3']);
-    for (const m of pl.moves) m.lvl = 5;
-    for (const id of ['atk', 'hp', 'cd', 'def']) pl.statsTaken[id] = G.LevelUp.STATS.find(s => s.id === id).max;
+    const pl = maxed(G);
     const cards = G.LevelUp.offer(pl);
-    assert.equal(cards.map(c => c.key).sort().join(), coop ? 'stat:heal' : 'stat:coin,stat:heal');
+    assert.equal(cards.map(c => c.key).sort().join(), 'stat:coin,stat:heal');
+    assert.equal(cards.find(c => c.full === 'heal').title, 'Curarte un poco');
+    assert.equal(cards.find(c => c.full === 'coin').title, 'Monedas');
     pl.hp = 10;
     cards.find(c => c.key === 'stat:heal').apply(pl);
     assert.equal(pl.hp, 30);
-    if (!coop) { cards.find(c => c.key === 'stat:coin').apply(pl); assert.equal(pl.coins, 40); }
+    // Las monedas van aparte (pl.bonusCoins): en cooperativo el anfitrión pisa pl.coins.
+    pl.coins = 7;
+    cards.find(c => c.key === 'stat:coin').apply(pl);
+    assert.equal(pl.coins, 7);
+    assert.equal(pl.bonusCoins, 20);
   }
+});
+
+test('monedas de todo al máximo: suben con el minuto, de 5 en 5', () => {
+  const G = boot();
+  assert.deepEqual([0, 10, 20, 30, 40].map(m => G.LevelUp.fullCoins(m * 60)), [20, 35, 50, 65, 80]);
+  G.Game = { st: { time: 30 * 60 } };
+  const pl = maxed(G);
+  const c = G.LevelUp.offer(pl).find(x => x.full === 'coin');
+  assert.equal(c.desc, '+65 monedas al acabar la partida.');
+  assert.equal(G.LevelUp.fullGain(pl, c), '+65 monedas');
+  assert.equal(pl.bonusCoins, 65);
+});
+
+test('ajuste fijado: la carta se aplica sola; Preguntar o sin todo al máximo, no', () => {
+  for (const coop of [false, true]) {
+    const G = boot(coop);
+    const store = { maxPick: 'ask' };
+    G.Settings = { get: k => store[k], set: (k, v) => { store[k] = v; } };
+    const pl = maxed(G);
+    assert.equal(G.LevelUp.auto(pl), null, 'Preguntar: salen las cartas');
+    G.Settings.set('maxPick', 'heal');
+    const h = G.LevelUp.auto(pl);
+    assert.equal(h && h.full, 'heal');
+    pl.hp = 50;
+    assert.equal(G.LevelUp.fullGain(pl, h), '+20 PV');
+    assert.equal(pl.hp, 70);
+    // Cambiar el ajuste después (Ajustes → «Al subir con todo al máximo»).
+    G.Settings.set('maxPick', 'coin');
+    const c = G.LevelUp.auto(pl);
+    assert.equal(c && c.full, 'coin');
+    G.LevelUp.fullGain(pl, c);
+    assert.equal(pl.bonusCoins, 20);
+    G.Settings.set('maxPick', 'raro');
+    assert.equal(G.LevelUp.maxPick(), 'ask');
+    assert.equal(G.LevelUp.auto(pl), null);
+    // Sin todo al máximo, aunque esté fijado, salen las cartas de siempre.
+    G.Settings.set('maxPick', 'heal');
+    const fresh = player(G);
+    assert.equal(G.LevelUp.auto(fresh), null);
+    assert.ok(G.LevelUp.offer(fresh).every(x => !x.full));
+  }
+});
+
+test('Ajustes: maxPick es «Preguntar» de serie y se guarda en el navegador', () => {
+  const mem = {};
+  const ctx = { G: {}, console, localStorage: { getItem: k => mem[k] || null, setItem: (k, v) => { mem[k] = v; } },
+                matchMedia: () => ({ matches: false }) };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(source('js/core/settings.js'), ctx);
+  assert.equal(ctx.G.Settings.get('maxPick'), 'ask');
+  ctx.G.Settings.set('maxPick', 'coin');
+  assert.equal(JSON.parse(mem['ps.settings']).maxPick, 'coin');
+  const ctx2 = { G: {}, console, localStorage: ctx.localStorage, matchMedia: ctx.matchMedia };
+  ctx2.window = ctx2;
+  vm.createContext(ctx2);
+  vm.runInContext(source('js/core/settings.js'), ctx2);
+  assert.equal(ctx2.G.Settings.get('maxPick'), 'coin');
 });
 
 test('repertorio por partida: el 70 % (mínimo 10), con los iniciales, y fijo', () => {

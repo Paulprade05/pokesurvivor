@@ -38,15 +38,23 @@ G.LevelUp = (() => {
   ];
   /*
    * Con todo al tope sólo quedaría la Baya Zidra del 45 % en cada subida (casi inmortal
-   * del minuto 22 en adelante): entonces salen una Baya Zidra que cura el 20 % y, sólo
-   * en solitario, monedas (en cooperativo el anfitrión pisa las monedas del invitado).
+   * del minuto 22 en adelante): entonces salen dos cartas, «Curarte un poco» (el 20 % de la
+   * vida máxima: a ~2 niveles por minuto al final son ~0,7 % por segundo, menos que una sola
+   * Síntesis) y «Monedas» (20 + 1,5 por minuto, de 5 en 5: 50 en el minuto 20, 65 en el 30,
+   * 80 en el 40; se suman a «Recogidas», así que también las multiplica Fortuna).
+   * (1-11-2026) Antes eran 40 fijas y sólo en solitario: en cooperativo el anfitrión pisa
+   * pl.coins del invitado, así que ahora van aparte, en pl.bonusCoins (de cada uno, no se
+   * sincroniza) y se suman al acabar. Ajustes → «Al subir con todo al máximo» (maxPick:
+   * 'ask' | 'heal' | 'coin') las elige solas sin abrir las cartas (ver auto).
    */
-  const FULL_COINS = 40;
+  const FULL_HEAL = 0.20;
+  const fmt = (t, x) => G.I18n ? G.I18n.f(t, x) : t.replace('{x}', x);
+  const fullCoins = (t = (G.Game && G.Game.st ? G.Game.st.time : 0)) => 5 * Math.round((20 + 1.5 * t / 60) / 5);
   const FULL_CARDS = [
-    { id: 'heal', icon: 'berry', title: 'Baya Zidra', desc: 'Recupera el 20% de tu vida ahora mismo.',
-      apply: pl => pl.heal(pl.maxHp * 0.20) },
-    { id: 'coin', icon: 'coin', title: 'Monedas', desc: '+40 monedas al acabar la partida.', solo: true,
-      apply: pl => { pl.coins += FULL_COINS; } }
+    { id: 'heal', icon: 'berry', title: 'Curarte un poco', desc: () => 'Recupera el 20% de tu vida ahora mismo.',
+      apply: pl => pl.heal(pl.maxHp * FULL_HEAL) },
+    { id: 'coin', icon: 'coin', title: 'Monedas', desc: () => fmt('+{x} monedas al acabar la partida.', fullCoins()),
+      apply: pl => { pl.bonusCoins = (pl.bonusCoins || 0) + fullCoins(); } }
   ];
 
   // Pasivos al estilo de Vampire Survivors (22-10-2026): valen para TODOS los
@@ -312,13 +320,12 @@ G.LevelUp = (() => {
       });
     }
 
-    // Todo al tope (sólo queda la Baya Zidra): la del 20 % y monedas (ver FULL_CARDS).
+    // Todo al tope (sólo queda la Baya Zidra): curarte un poco o monedas (ver FULL_CARDS).
     if (out.every(c => c.key === 'stat:heal')) {
       out.length = 0;
       for (const s of FULL_CARDS) {
-        if (s.solo && G.Coop && G.Coop.active) continue;
-        out.push({ w: 10, type: 'stat', key: 'stat:' + s.id, icon: s.icon, color: '#8fa3c4', tag: 'Mejora',
-                   title: s.title, desc: s.desc, evolves: { mine: [], more: [] }, apply: p => s.apply(p) });
+        out.push({ w: 10, type: 'stat', key: 'stat:' + s.id, full: s.id, icon: s.icon, color: '#8fa3c4', tag: 'Mejora',
+                   title: s.title, desc: s.desc(), evolves: { mine: [], more: [] }, apply: p => s.apply(p) });
       }
     }
 
@@ -349,5 +356,24 @@ G.LevelUp = (() => {
     return picked;
   }
 
-  return { offer, STATS, FULL_CARDS, DEF_CAP, runPool, discard, discardsLeft, canDiscard, DISCARDS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake };
+  /** Ajuste «Al subir con todo al máximo»: 'ask' (sacar las cartas), 'heal' o 'coin'. */
+  const maxPick = () => { const v = G.Settings && G.Settings.get('maxPick'); return v === 'heal' || v === 'coin' ? v : 'ask'; };
+  /**
+   * Con todo al máximo y el ajuste fijado: la carta que se aplica sola (sin abrir la
+   * pantalla), o null si hay que sacar las cartas como siempre.
+   */
+  function auto(pl) {
+    const pick = maxPick();
+    if (pick === 'ask') return null;
+    const list = candidates(pl);
+    return list.length && list.every(c => c.full) ? list.find(c => c.full === pick) || null : null;
+  }
+  /** Lo que ha dado una carta de las de todo al máximo, para el aviso: «+12 PV» / «+50 monedas». */
+  function fullGain(pl, c) {
+    const hp = pl.hp, co = pl.bonusCoins || 0;
+    c.apply(pl);
+    return c.full === 'coin' ? fmt('+{x} monedas', (pl.bonusCoins || 0) - co) : fmt('+{x} PV', Math.round(pl.hp - hp));
+  }
+
+  return { offer, auto, fullGain, maxPick, fullCoins, FULL_HEAL, STATS, FULL_CARDS, DEF_CAP, runPool, discard, discardsLeft, canDiscard, DISCARDS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake };
 })();
