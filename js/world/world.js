@@ -950,6 +950,8 @@ G.World = (() => {
     const n = G.Tiles.BIOMES.length;
     const b = ((i % n) + n) % n;
     if (b === biome) return;
+    // (Bloque 6) El tileset del siguiente, ya cargando (así no se ve antes el dibujo de respaldo).
+    if (G.Tileset) G.Tileset.preload([b, (b + 1) % n]);
     // El terreno es el mismo: sólo cambia la paleta, fundiéndose poco a poco.
     fade = instant ? null : { from: biome, images, t: 0 };
     biome = b;

@@ -124,6 +124,8 @@ G.EnemyAI = (() => {
    */
   function after(e, dt, pl, dist, spd, n, holding) {
     if (e.flying || e.under || e.jump || e.behavior === 'thief' || e.behavior === 'stampede') return;
+    // (Confuso, con miedo, marioneta...: va a un punto de mentira (combat.js fakeAt), no a ti: no se le desatasca hacia él.)
+    if (pl === e.uqFt) { e.aiW = null; e.aiStuckT = 0; return; }
     if (n) e.aiN = n;
     else if (e.aiN && !e.aiWall) e.aiN = null;
     // Rodeando a un tirador contra una pared: al otro lado.
@@ -208,7 +210,8 @@ G.EnemyAI = (() => {
    * Empieza a la vista y a 140-420 px, o si recibe el 25 % de su vida en 1 s; con probabilidad iq.
    */
   const diggers = new Set();
-  function digCount() { for (const e of diggers) if (e.dead || !e.dig) diggers.delete(e); return diggers.size; }
+  // (Fuera también los que ya no están en la lista: un rezagado sin sitio que se quita, o los guardados durante la grieta.)
+  function digCount() { for (const e of diggers) if (e.dead || !e.dig || G.EnemyMgr.get(e.id) !== e) diggers.delete(e); return diggers.size; }
 
   /** true si se ha encargado del fotograma (enemy.js no lo mueve). */
   function dig(e, dt, pl, dist, spd) {

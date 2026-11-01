@@ -361,7 +361,9 @@ G.Game = (() => {
     inLevelUp() { return state === 'levelup'; },
     shiny(dex) { G.onShinyCaught({ dex, name: (G.DEX_BY[dex] || {}).name || '' }); },
     over(d) {
-      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1), t1: Math.min(G.Tickets.RUN_MAX, Math.max(pl.t1, d.t1 || 0)), t10: 0 });
+      // (Tickets: nunca más de lo que da el reloj de este jugador con los jefes que diga el anfitrión: revisión de la 2.0.)
+      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1),
+                                 t1: Math.max(pl.t1, G.Tickets.fromHost(d.t1, ticketClock(), pl.cboss, G.Judgment.active)), t10: 0 });
       if (d && d.t) time = d.t;
       if (d && d.why === 'host') G.UI.toast('El anfitrión ha terminado la partida', 3200);
       endRun(!(d && d.why === 'host'));

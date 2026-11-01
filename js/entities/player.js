@@ -644,7 +644,7 @@ G.Player = class Player {
     let best = null, bd = 520 * 520;
     const ca = Math.cos(a), sa = Math.sin(a), cosMax = Math.cos(0.44);
     for (const e of all) {
-      if (e.dead) continue;
+      if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e))) continue;     // (bajo tierra: no vale de blanco)
       const dx = e.x - this.x, dy = e.y - this.y, d2 = dx * dx + dy * dy;
       if (d2 >= bd || d2 < 1) continue;
       if ((dx * ca + dy * sa) / Math.sqrt(d2) < cosMax) continue;

@@ -148,6 +148,10 @@ previous version. `G.World.WV = 2` (the previous version, without the field, cou
   does not start, leaves the room and is told to reload.
 No `--forzar` publish: players already in a run with the old version keep playing together.
 
+Block 5 (2026-11-01) adds an optional trailing field `cb` to the host frame `f`: the calendar bosses beaten (not
+legendaries). Guests earn tickets with the same clock as solo (`G.Tickets.fromHost(tk[0], their clock, cb)`, never ×10), and
+also cap the `t1` that comes in `ov` at the end of the run the same way. A host without `cb` is treated as having `bo`.
+
 `G.World.WV = 3` since block 6 (2026-11-01): the terrain is cleaned (no loose walls outside a 2×2 wall block) and grove
 trees only stand on one colour of a checkerboard, so walls, trees and their `pb [tx,ty]` differ from WV 2. The tilesets
 (`world/tileset.js`) only change the drawing and do not affect the network.
