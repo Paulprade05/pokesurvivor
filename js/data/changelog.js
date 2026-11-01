@@ -6,6 +6,12 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Cofres en bloque y agua sin rayas", "Block chests and water without lines"], chg: [
+    ["Los cofres (el normal y el del candado) ahora son bloques como las paredes: la tapa vista desde arriba, el frente debajo, la misma luz y su sombra en el suelo. Pegan con el mapa también en Gráficos Ultra.",
+     "Chests (the normal one and the padlocked one) are now blocks like the walls: the lid seen from above, the front below, the same light and their shadow on the ground. They fit the map in Ultra graphics too."]],
+  fix: [
+    ["Junto al agua (sobre todo en Gráficos Ultra) salían rayas finas de color agua sobre la tierra. Ya no.",
+     "Next to water (especially in Ultra graphics) thin water-colored lines showed up on the ground. Not anymore."]] },
   { d: '2026-11-01', title: ["Arte nuevo: paredes elevadas, cofres y trampas", "New art: raised walls, chests and traps"], chg: [
     ["Paredes, cofres y trampas con arte nuevo hecho con PixelLab: las paredes son una elevación del suelo (arriba el suelo del bioma, delante una cara de roca y su sombra), los cofres miran de frente y caben en su casilla, y las trampas parecen parte del suelo (un charco de veneno, una telaraña y unas setas explosivas). Van con el interruptor de Ajustes > Gráficos.",
      "Walls, chests and traps with new art made with PixelLab: walls are a raised ground (the biome's floor on top, a rock face in front and its shadow), chests face the screen and fit their tile, and traps look like part of the ground (a poison puddle, a spider web and explosive mushrooms). They follow the switch in Settings > Graphics."]] },

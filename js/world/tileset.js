@@ -26,7 +26,8 @@
  *   - las paredes son una elevación del suelo (como una meseta o un monte bajo): arriba, el suelo del bioma más claro,
  *     con el borde iluminado; al sur, una cara de roca (cliff.png, con los colores de roca del tileset) y su sombra en el
  *     suelo. Se lee como un bloque sólido con altura y no como baldosas planas;
- *   - los cofres (chest.png, bigchest.png) con su sombra, del tamaño de su casilla;
+ *   - los cofres (chest.png, bigchest.png, de tools/chest3d.py) en bloque como las paredes: la tapa vista desde arriba,
+ *     el frente debajo, la misma luz y su sombra en el suelo;
  *   - las trampas, como algo del suelo: un charco de veneno, una telaraña y unas setas explosivas (trap0-2.png).
  * Si falta alguno de esos archivos, lo de antes (PMD o tiles.js).
  */
@@ -282,7 +283,7 @@ G.Tileset = (() => {
    */
   function prop(bi, type, variant = 0) {
     if (!ready(bi)) return null;
-    // (Arte PixelLab) Cofres, trampas y árboles generados; si faltan, los de PMD.
+    // (Arte PixelLab) Cofres y trampas nuevos; si faltan, los de PMD.
     const x = pxProp(bi, type, variant);
     if (x) return x;
     if (type === 'bigchest') return obj('bigchest');            // (el pequeño de PMD no cabe en su casilla: tiles.js)

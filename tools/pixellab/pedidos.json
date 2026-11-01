@@ -1,36 +1,4 @@
 {
- "chest": {
-  "endpoint": "create-image-pixflux",
-  "request": {
-   "description": "small closed wooden treasure chest with dark iron bands and a gold latch in the middle, seen straight from the front, facing the camera, symmetrical, lid on top slightly visible, black outline, 16-bit RPG style",
-   "image_size": {
-    "width": 32,
-    "height": 32
-   },
-   "no_background": true,
-   "view": "side",
-   "direction": "south",
-   "outline": "single color black outline",
-   "shading": "medium shading",
-   "detail": "medium detail"
-  }
- },
- "bigchest": {
-  "endpoint": "create-image-pixflux",
-  "request": {
-   "description": "large closed ornate treasure chest, dark red wood with gold trims and a big golden padlock in the middle, seen straight from the front, facing the camera, symmetrical, lid on top slightly visible, black outline, 16-bit RPG style",
-   "image_size": {
-    "width": 40,
-    "height": 40
-   },
-   "no_background": true,
-   "view": "side",
-   "direction": "south",
-   "outline": "single color black outline",
-   "shading": "medium shading",
-   "detail": "medium detail"
-  }
- },
  "trap0": {
   "endpoint": "create-image-pixflux",
   "request": {

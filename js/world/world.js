@@ -820,7 +820,8 @@ G.World = (() => {
   /** Brillos animados sobre el agua / burbujas de la lava (y del veneno y la electricidad). */
   function drawLiquid(ctx, cam, t) {
     // (Bloque 6) Con el tileset: cada casilla de líquido con su fotograma (el ciclo de color de PMD); en el fundido de
-    //  bioma, como antes.
+    //  bioma, como antes. Cada casilla, justo de su tamaño: con medio px de más (antes) se colaba en la de al lado una
+    //  fila de la casilla vecina de la hoja (rayas de agua en la tierra, sobre todo en Ultra); debajo ya está el chunk.
     if (!fade && pmdOn(biome)) {
       if (!G.Tileset.animated(biome)) return;
       ctx.imageSmoothingEnabled = false;
@@ -829,7 +830,7 @@ G.World = (() => {
         for (let i = 0; i < c.liquids.length; i += 2) {
           const tx = c.liquids[i], ty = c.liquids[i + 1];
           if (!cam.sees(tx * TS + TS / 2, ty * TS + TS / 2, TS)) continue;
-          G.Tileset.drawLiquid(ctx, biome, terrainAt, tx, ty, tx * TS, ty * TS, TS + 0.5, t);
+          G.Tileset.drawLiquid(ctx, biome, terrainAt, tx, ty, tx * TS, ty * TS, TS, t);
         }
       }
       return;
@@ -905,7 +906,8 @@ G.World = (() => {
     SPR.pmd = false;
     if (pmdOn(bi)) {
       const o = G.Tileset.prop(bi, type, variant);
-      if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'tree' || type === 'trap'; return SPR; }
+      // (Los cofres en bloque, como las paredes, llevan su sombra dibujada: como los árboles de PMD.)
+      if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'tree' || type === 'trap' || (type !== 'rock' && G.Tileset.isPx(o)); return SPR; }
       const pal = G.Tileset.pal(bi), g24 = !!pal && (type !== 'grass' || G.Tiles.grass24(bi));
       SPR.img = G.Tiles.propSprite(bi, type, variant, g24 ? pal : null);
       SPR.P = type === 'grass' ? (g24 ? TS / G.Tileset.T : GS) : G.Sprites.PX;

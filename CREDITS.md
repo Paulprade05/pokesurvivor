@@ -149,11 +149,11 @@ Desde el bloque 6b de la 2.0, con el mismo interruptor:
 ## Arte generado con PixelLab
 
 Arte generado con [PixelLab](https://www.pixellab.ai/) para PokéSurvivor (01-11-2026), en `assets/objects-px/`, con el
-mismo interruptor de Ajustes: los cofres (normal y con candado), las trampas (charco de veneno, telaraña, setas
-explosivas) y la textura de roca de la cara de las paredes elevadas. Los
-originales y los pedidos con que se hicieron están en `tools/pixellab/` (`pedidos.json`; se repiten con
-`tools/pixellab_gen.cjs`, que necesita una clave propia de PixelLab, y se preparan con `tools/pixellab_art.py`). Los
-colores de cada bioma los pone el juego. Si se borra `assets/objects-px/`, el juego vuelve a lo de antes (PMD o su dibujo).
+mismo interruptor de Ajustes: las trampas (charco de veneno, telaraña, setas explosivas) y la textura de roca de la cara
+de las paredes elevadas. Los originales y los pedidos con que se hicieron están en `tools/pixellab/` (`pedidos.json`; se
+repiten con `tools/pixellab_gen.cjs`, que necesita una clave propia de PixelLab, y se preparan con `tools/pixellab_art.py`).
+Los colores de cada bioma los pone el juego. Los cofres en bloque (`chest.png`, `bigchest.png`) se dibujan con
+`tools/chest3d.py` (propios del proyecto). Si se borra `assets/objects-px/`, el juego vuelve a lo de antes (PMD o su dibujo).
 
 ## Datos
 
