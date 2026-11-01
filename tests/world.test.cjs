@@ -139,7 +139,7 @@ test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and
   assert.equal(loadTileset(false).T.ready(0), false, 'apagado en Ajustes');
 });
 
-test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile); generated chests, traps and trees', () => {
+test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile); generated chests and traps', () => {
   const { T, draws, images } = loadTileset(true);
   T.ready(0);
   for (const im of images) { im.width = 64; im.height = 16; im.onload(); }
@@ -157,11 +157,11 @@ test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile);
   // Cofres y trampas: los generados en cuanto cargan.
   T.preload([0]);
   const n = images.length;
-  for (const im of images.slice(n - 9)) im.onload();
+  for (const im of images.slice(n - 6)) im.onload();
   assert.ok(/objects-px\/chest\.png$/.test(T.prop(0, 'chest', 0)._src));
   assert.ok(/objects-px\/trap2\.png$/.test(T.prop(0, 'trap', 4 * 2)._src));
-  // Árboles generados sólo en los biomas de árboles (recoloreados: lienzo nuevo con pxArt).
-  assert.equal(T.prop(0, 'tree', 0).width, 24, 'sin G.Tiles: la pieza de pared de siempre');
+  // Los árboles, como antes: la pieza de pared suelta.
+  assert.equal(T.prop(0, 'tree', 0).width, 24, 'la pieza de pared de siempre');
 });
 
 test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and grove trees always leave a gap', () => {

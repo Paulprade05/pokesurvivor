@@ -26,8 +26,6 @@
  *   - las paredes son una elevación del suelo (como una meseta o un monte bajo): arriba, el suelo del bioma más claro,
  *     con el borde iluminado; al sur, una cara de roca (cliff.png, con los colores de roca del tileset) y su sombra en el
  *     suelo. Se lee como un bloque sólido con altura y no como baldosas planas;
- *   - los árboles sueltos de los biomas de árboles: árboles en vista 3/4 con tronco (tree0-2.png, con los verdes del
- *     tileset) y su sombra;
  *   - los cofres (chest.png, bigchest.png) con su sombra, del tamaño de su casilla;
  *   - las trampas, como algo del suelo: un charco de veneno, una telaraña y unas setas explosivas (trap0-2.png).
  * Si falta alguno de esos archivos, lo de antes (PMD o tiles.js).
@@ -50,7 +48,7 @@ G.Tileset = (() => {
   const objs = {};                                  // (6b) cofres y trampas de PMD: tipo -> Image (o null si falló)
   const propCache = new Map();                      // "bi/variante" -> lienzo del árbol
   // (Arte PixelLab) Archivos de assets/objects-px/; px[k]: Image, null mientras carga, false si falló.
-  const PX_FILES = ['tree0', 'tree1', 'tree2', 'chest', 'bigchest', 'trap0', 'trap1', 'trap2', 'cliff'];
+  const PX_FILES = ['chest', 'bigchest', 'trap0', 'trap1', 'trap2', 'cliff'];
   const px = {};
   const FH = 16;                                    // alto de la cara de roca de una pared (px de arte; cliff.png)
 
@@ -225,11 +223,10 @@ G.Tileset = (() => {
   }
 
   /**
-   * (Arte PixelLab) Recolorea una imagen con una rampa de colores (oscuro → claro) según lo clara que es cada píxel, sólo
-   * en los que elige pick(r, g, b); los demás, igual. Los tramos de la rampa se reparten por cuantiles (de cada tono hay
+   * (Arte PixelLab) Recolorea una imagen con una rampa de colores (oscuro → claro) según lo clara que es cada píxel. Los tramos de la rampa se reparten por cuantiles (de cada tono hay
    * más o menos lo mismo que en el original). null si no se puede (sin lienzo).
    */
-  function recolor(img, ramp, pick) {
+  function recolor(img, ramp) {
     const cv = document.createElement('canvas');
     cv.width = img.width; cv.height = img.height;
     const g = cv.getContext('2d');
@@ -240,11 +237,11 @@ G.Tileset = (() => {
     try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { return cv; }   // (file://: tal cual)
     const a = d.data, L = [], C = ramp.map(h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
     const lum = i => a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11;
-    for (let i = 0; i < a.length; i += 4) if (a[i + 3] && pick(a[i], a[i + 1], a[i + 2])) L.push(lum(i));
+    for (let i = 0; i < a.length; i += 4) if (a[i + 3]) L.push(lum(i));
     L.sort((p, q) => p - q);
     const cut = C.map((_, k) => L[Math.max(0, Math.floor(L.length * (k + 1) / C.length) - 1)]);
     for (let i = 0; i < a.length; i += 4) {
-      if (!a[i + 3] || !pick(a[i], a[i + 1], a[i + 2])) continue;
+      if (!a[i + 3]) continue;
       const l = lum(i);
       let k = 0;
       while (k < C.length - 1 && l > cut[k]) k++;
@@ -259,7 +256,7 @@ G.Tileset = (() => {
     const im = pxImg('cliff'), m = meta[bi];
     if (!im || !m.pal) return null;
     const k = 'cliff/' + bi;
-    if (!propCache.has(k)) propCache.set(k, recolor(im, [m.pal.edge, ...m.pal.rock], () => true));
+    if (!propCache.has(k)) propCache.set(k, recolor(im, [m.pal.edge, ...m.pal.rock]));
     return propCache.get(k);
   }
 
@@ -308,23 +305,11 @@ G.Tileset = (() => {
     return cv;
   }
 
-  /**
-   * (Arte PixelLab) El dibujo generado de un objeto (ya cargado), o null: cofres, trampas y, en los biomas de árboles,
-   * los árboles (la copa con los verdes del tileset; el tronco y el contorno, como están).
-   */
+  /** (Arte PixelLab) El dibujo generado de un objeto (ya cargado), o null: cofres y trampas (los árboles, como antes). */
   function pxProp(bi, type, variant) {
     if (type === 'chest' || type === 'bigchest') return pxImg(type) || null;
     if (type === 'trap') return pxImg('trap' + ((variant >> 2) % 3)) || null;
-    const B = G.Tiles && G.Tiles.BIOMES[bi];
-    if (type !== 'tree' || !B || B.prop !== 'tree') return null;
-    const v = variant % 3, im = pxImg('tree' + v), m = meta[bi];
-    if (!im) return null;
-    const k = 'pxtree/' + bi + '/' + v;
-    if (!propCache.has(k)) {
-      const leaf = (r, g, b) => g > r + 8 && g >= b && r + g + b > 90;
-      propCache.set(k, m.pal && m.pal.grass ? recolor(im, m.pal.grass, leaf) || im : im);
-    }
-    return propCache.get(k);
+    return null;
   }
   /** (Arte PixelLab) ¿Es un dibujo generado? (lleva su sombra y va a la escala de los Pokémon) */
   const isPx = img => !!img && (img.pxArt === true || (img instanceof Image && img.src.indexOf('/objects-px/') >= 0));

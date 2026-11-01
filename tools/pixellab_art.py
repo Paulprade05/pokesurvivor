@@ -28,7 +28,7 @@ def trim(im):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    for k in ('tree0', 'tree1', 'tree2', 'chest', 'bigchest', 'trap0', 'trap1', 'trap2'):
+    for k in ('chest', 'bigchest', 'trap0', 'trap1', 'trap2'):
         im = trim(Image.open(os.path.join(SRC, k + '.png')).convert('RGBA'))
         im.save(os.path.join(OUT, k + '.png'), optimize=True)
         print(k, im.size)

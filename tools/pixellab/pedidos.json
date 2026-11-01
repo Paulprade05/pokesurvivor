@@ -1,49 +1,4 @@
 {
- "tree0": {
-  "endpoint": "create-image-pixflux",
-  "request": {
-   "description": "one round leafy deciduous tree, game asset, 3/4 view from above, short brown trunk with roots visible at the bottom, big round dark green canopy, bright highlights on top, dark shadow at the underside of the canopy, black outline, 16-bit RPG style",
-   "image_size": {
-    "width": 48,
-    "height": 48
-   },
-   "no_background": true,
-   "view": "low top-down",
-   "outline": "single color black outline",
-   "shading": "medium shading",
-   "detail": "medium detail"
-  }
- },
- "tree1": {
-  "endpoint": "create-image-pixflux",
-  "request": {
-   "description": "one bushy broadleaf tree with a wide lumpy round canopy made of several leaf clumps, game asset, 3/4 view from above, short thick brown trunk visible at the bottom, light on top of the leaves, dark shadow under the canopy, black outline, 16-bit RPG style",
-   "image_size": {
-    "width": 48,
-    "height": 48
-   },
-   "no_background": true,
-   "view": "low top-down",
-   "outline": "single color black outline",
-   "shading": "medium shading",
-   "detail": "medium detail"
-  }
- },
- "tree2": {
-  "endpoint": "create-image-pixflux",
-  "request": {
-   "description": "one tall leafy oak tree, game asset, 3/4 view from above, wide dense green canopy, thick short brown trunk at the bottom, highlights on top, deep shade underneath, black outline, 16-bit RPG style",
-   "image_size": {
-    "width": 48,
-    "height": 48
-   },
-   "no_background": true,
-   "view": "low top-down",
-   "outline": "single color black outline",
-   "shading": "medium shading",
-   "detail": "medium detail"
-  }
- },
  "chest": {
   "endpoint": "create-image-pixflux",
   "request": {
