@@ -26,6 +26,10 @@
  * fantasma atraviesan paredes un rato, los Tierra/Roca excavan, los Agua nadan):
  * ver systems/enemy-ai.js.
  *
+ * (2.0, bloque 6) Dibujo: con los tilesets de Mundo Misterioso (world/tileset.js) si están y el interruptor de
+ * Ajustes está encendido; si no, el pintor de tiles.js. El terreno se limpia (sin paredes sueltas: cada pared es
+ * parte de un bloque de 2×2), las arboledas dejan paso entre troncos y ya no hay caminos de tierra (WV 3).
+ *
  * Coordenadas: (x, y) de una entidad = sus PIES, en el plano del suelo.
  * Los chunks se separan en DATOS (baratos, siempre) e IMAGEN (horneada a
  * resolución de arte y sólo para los visibles).
@@ -45,7 +49,8 @@ G.World = (() => {
   const TS = 48;                           // tamaño de tile en mundo
   const GS = TS / PT;                      // unidades de mundo por px del pintor (3)
   const CW = N * TS;                       // tamaño de chunk en mundo (768)
-  const WV = 2;                            // versión del mundo (1: casillas de 32, sin `wv`)
+  const WV = 3;                            // versión del mundo (1: casillas de 32, sin `wv`; 2: casillas de 48; 3: terreno
+                                           //  limpio y arboledas con paso, bloque 6)
   const FLOOR = 0, WALL = 1, LIQUID = 2;
   const KIND = ['floor', 'wall', 'liquid'];
 
@@ -114,8 +119,22 @@ G.World = (() => {
     return terrainBase(tx, ty);
   }
 
-  /** Terreno sin la arena de la grieta (sólo semilla y coordenadas). */
+  /**
+   * (2.0, bloque 6) Terreno sin la arena de la grieta, limpio: una pared que no es parte de ningún bloque de 2×2 de pared
+   * es suelo (antes un 6 % de las paredes iban sueltas o en tiras de una casilla: con el tileset se ven como manchas y
+   * hacían pasillos de una casilla). Sólo semilla y coordenadas: todos ven lo mismo.
+   */
   function terrainBase(tx, ty) {
+    const t = terrainNoise(tx, ty);
+    if (t !== WALL) return t;
+    const w = (a, b) => terrainNoise(tx + a, ty + b) === WALL;
+    const n = w(0, -1), s = w(0, 1), e = w(1, 0), o = w(-1, 0);
+    if ((n && e && w(1, -1)) || (n && o && w(-1, -1)) || (s && e && w(1, 1)) || (s && o && w(-1, 1))) return WALL;
+    return FLOOR;
+  }
+
+  /** El ruido del terreno, sin limpiar. */
+  function terrainNoise(tx, ty) {
     const d = Math.hypot(tx, ty);
     if (d < 6) return FLOOR;                          // claro inicial
     const ramp = G.U.clamp((d - 6) / 5.33, 0, 1);    // aparición suave
@@ -346,7 +365,9 @@ G.World = (() => {
         kind = Math.floor(H(tx, ty, seed + 910) * 3);
       }
       if (type) { /* ya elegido */ }
-      else if (open && h < (grove ? 0.07 : 0.006)) type = 'tree';
+      // (Bloque 6: en las arboledas, sólo en casillas de un mismo color de un tablero de ajedrez: entre dos troncos queda
+      //  siempre paso en diagonal; antes, pegados, parecía que se podía pasar entre ellos y no.)
+      else if (open && h < (grove ? 0.07 : 0.006) && (!grove || ((tx + ty) & 1) === 0)) type = 'tree';
       else if (open && h > 0.982) type = 'rock';
       // Hierba alta en manchas enteras, sin huecos (como en las rutas); antes, 0,66 y
       // una de cada cuatro casillas vacía al azar (se veían matas sueltas). Sale la misma cantidad.
@@ -662,22 +683,24 @@ G.World = (() => {
   let livePl = null;                                        // tu Pokémon en partida (en el menú, ninguno)
   function syncMode() {
     livePl = G.Game.state !== 'ui' ? G.Game.player : null;
-    const u = G.Settings.get('quality') === 'ultra';
-    if (u === ultra) return;
-    ultra = u;
+    const u = G.Settings.get('quality') === 'ultra', p = !!(G.Tileset && G.Tileset.enabled());
+    if (u === ultra && p === pmd) return;
+    ultra = u; pmd = p;
     images.clear(); fade = null;
   }
+  // (Bloque 6) Tileset de Mundo Misterioso: ¿se usa ya para el bioma bi? Al acabar de cargar uno, se rehornea.
+  let pmd = false;
+  const pmdOn = bi => !!(G.Tileset && G.Tileset.ready(bi));
+  if (G.Tileset) G.Tileset.onReady = bi => { if (bi === biome || (fade && bi === fade.from)) { images.clear(); if (fade) fade.images.clear(); } };
 
   function chunkImage(cx, cy, bi = biome, cache = images) {
     const k = cx + ',' + cy;
     let img = cache.get(k);
     if (img) return img;
-    const at = (tx, ty) => KIND[terrainAt(tx, ty)];
-    // Campo continuo de "tierra"; tiles.js lo muestrea en rejilla y lo
-    // interpola por píxel para que las manchas tengan bordes orgánicos.
-    const S = 6 * G.Tiles.T;
-    const dirtField = (gx, gy) => fbm(gx / S, gy / S, seed + 303);
-    img = G.Tiles.paintChunk(cx, cy, N, at, dirtField, bi, seed, ultra);
+    // (Bloque 6) Con el tileset de Mundo Misterioso de este bioma, si está listo; si no, el pintor de tiles.js, ya sin
+    //  caminos de tierra (PMD no los tiene: el campo de tierra a 0).
+    if (pmdOn(bi)) img = G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed);
+    else img = G.Tiles.paintChunk(cx, cy, N, (tx, ty) => KIND[terrainAt(tx, ty)], () => 0, bi, seed, ultra);
     if (cache.size > MAX_IMAGES) cache.delete(cache.keys().next().value);
     cache.set(k, img);
     return img;
@@ -764,6 +787,21 @@ G.World = (() => {
 
   /** Brillos animados sobre el agua / burbujas de la lava (y del veneno y la electricidad). */
   function drawLiquid(ctx, cam, t) {
+    // (Bloque 6) Con el tileset: cada casilla de líquido con su fotograma (el ciclo de color de PMD); en el fundido de
+    //  bioma, como antes.
+    if (!fade && pmdOn(biome)) {
+      if (!G.Tileset.animated(biome)) return;
+      ctx.imageSmoothingEnabled = false;
+      for (const [cx, cy] of visibleChunks(cam)) {
+        const c = chunkData(cx, cy);
+        for (let i = 0; i < c.liquids.length; i += 2) {
+          const tx = c.liquids[i], ty = c.liquids[i + 1];
+          if (!cam.sees(tx * TS + TS / 2, ty * TS + TS / 2, TS)) continue;
+          G.Tileset.drawLiquid(ctx, biome, terrainAt, tx, ty, tx * TS, ty * TS, TS + 0.5, t);
+        }
+      }
+      return;
+    }
     const B = G.Tiles.BIOMES[biome];
     const lava = B.liquid === 'lava' || B.liquid === 'poison' || B.liquid === 'spark';
     ctx.fillStyle = B.foam;
@@ -794,7 +832,7 @@ G.World = (() => {
     for (const [cx, cy] of visibleChunks(cam, 60)) {
       const c = chunkData(cx, cy);
       for (const p of c.props) if (cam.sees(p.x, p.y, 70)) out.push(p);
-      if (ultra && cx * CW < r && cx * CW + CW > l) for (const w of wallRows(c)) if (w.y + TS > top && w.y - 18 < bot) out.push(w);
+      if (ultra && !pmdOn(biome) && cx * CW < r && cx * CW + CW > l) for (const w of wallRows(c)) if (w.y + TS > top && w.y - 18 < bot) out.push(w);
     }
     return out;
   }
@@ -893,6 +931,7 @@ G.World = (() => {
   function reset(s, terr = null) {
     seed = (s | 0) || 1;
     gen = terr; lastC = null;
+    if (G.Tileset) G.Tileset.preload([0, 1, 2]);
     data.clear(); images.clear(); broken.clear(); lots.clear(); blocks.clear();
     // La rejilla de los interactivos: el lote (0,0) centrado en el inicio, ±3 casillas (ver blockSpecial).
     offX = Math.floor(BLK * LOT / 2) + Math.floor(H(3, 7, seed + 950) * 7) - 3;

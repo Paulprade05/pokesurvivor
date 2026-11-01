@@ -6,6 +6,12 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Versión 2.0 (6): el mundo de Mundo Misterioso", "Version 2.0 (6): a Mystery Dungeon world"], new: [
+    ["El mundo, con las casillas de Mundo Misterioso: Exploradores del Cielo: suelo, paredes, bosques y agua de cada bioma y de cada grieta con su propio estilo, y el agua y la lava se mueven. Se puede apagar en Ajustes > Gráficos («Casillas de Mundo Misterioso») para volver al dibujo de antes. En Ultra, las paredes van planas.",
+     "The world now uses Mystery Dungeon: Explorers of Sky tiles: the floor, walls, forests and water of every biome and rift have their own style, and water and lava move. You can turn it off in Settings > Graphics (\"Mystery Dungeon tiles\") to go back to the previous drawing. In Ultra, walls are drawn flat."]],
+  chg: [
+    ["Mapa más limpio: ya no hay paredes sueltas ni pasillos de una casilla entre rocas, entre los árboles de las arboledas siempre se puede pasar y no hay caminos de tierra. Cooperativo: hay que tener la misma versión del juego (si no, se avisa de que recargue la página).",
+     "Cleaner map: no more loose walls or one-tile corridors between rocks, you can always walk between the trees of a grove, and there are no dirt paths. Co-op: everyone needs the same game version (otherwise they are told to reload the page)."]] },
   { d: '2026-11-01', title: ["Versión 2.0 (5): tickets por tiempo y jefes", "Version 2.0 (5): tickets from time and bosses"], chg: [
     ["Los tickets del gacha ahora se ganan por tiempo y por jefes: 1 cada 100 segundos de partida, 1 más por cada jefe vencido y otro al llegar a Arceus, como mucho 30 por partida (de 3 a 8 cada 5 minutos). Ya no salen del suelo ni hay tickets ×10 en partida: lo que soltaban los enemigos, los jefes, los legendarios, los cofres con candado, Gholdengo y los Pokémon perdidos ahora son monedas. Los tickets que ya tenías, las misiones y los logros no cambian.",
      "Gacha tickets are now earned by time and by bosses: 1 every 100 seconds of a run, 1 more for each boss defeated and another when you reach Arceus, 30 per run at most (3 to 8 every 5 minutes). They no longer drop on the ground and there are no ×10 tickets during runs: what enemies, bosses, legendaries, locked chests, Gholdengo and lost Pokémon used to drop is now coins. The tickets you already have, missions and achievements don't change."],

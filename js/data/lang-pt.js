@@ -984,6 +984,7 @@ G.I18n.add({
   "Los números que salen al golpear y al recibir daño.": "Os números que aparecem ao acertar e ao receber dano.",
   "Menos sacudidas y destellos": "Menos tremores e clarões",
   "La cámara tiembla menos y los fogonazos son suaves.": "A câmera treme menos e os clarões são mais suaves.",
+  "Casillas de Mundo Misterioso": "Blocos de Mystery Dungeon", "El suelo, las paredes y el agua con las casillas de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "O chão, as paredes e a água com os blocos de Explorers of Sky. Desligado: o desenho próprio do jogo.",
   "Mostrar FPS": "Mostrar FPS",
   "Fotogramas por segundo, en la esquina de abajo.": "Quadros por segundo, no canto de baixo.",
   "Pantalla completa": "Tela cheia",

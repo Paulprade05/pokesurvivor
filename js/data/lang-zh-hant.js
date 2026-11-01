@@ -717,6 +717,7 @@ G.I18n.add({
   "Los números que salen al golpear y al recibir daño.": "攻擊或受傷時顯示的數字。",
   "Menos sacudidas y destellos": "減少震動與閃光",
   "La cámara tiembla menos y los fogonazos son suaves.": "減少鏡頭震動，讓閃光更柔和。",
+  "Casillas de Mundo Misterioso": "不可思議迷宮圖塊", "El suelo, las paredes y el agua con las casillas de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "地面、牆壁和水使用《空之探險隊》的圖塊。關閉：使用遊戲自己的畫法。",
   "Mostrar FPS": "顯示 FPS",
   "Fotogramas por segundo, en la esquina de abajo.": "在下方角落顯示每秒影格數。",
   "Pantalla completa": "全螢幕",

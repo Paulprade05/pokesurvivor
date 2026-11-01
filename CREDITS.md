@@ -125,6 +125,16 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+## Tilesets del mundo
+
+Las casillas del suelo, las paredes y el agua (`assets/tiles-pmd/`, desde la versión 2.0) son los tilesets de
+**Pokémon Mundo Misterioso: Exploradores del Cielo** (© Nintendo, Creatures, GAME FREAK, Spike Chunsoft), tal como los
+reúne en formato DTEF [PMDCollab/RawAsset](https://github.com/PMDCollab/RawAsset) (`TileDtef/`). No tienen licencia: son
+extracciones del juego, usadas sin ánimo de lucro. Se pueden quitar con el interruptor de Ajustes («Casillas de Mundo
+Misterioso») o borrando `assets/tiles-pmd/` y `js/data/tilesets.js`: el juego vuelve a su propio dibujo (`js/world/tiles.js`).
+La tabla de autotiling de `js/world/tileset.js` sale de la plantilla de la especificación DTEF de
+[SkyTemple](https://github.com/SkyTemple/skytemple-dtef) (sólo el formato; no se usa su código).
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

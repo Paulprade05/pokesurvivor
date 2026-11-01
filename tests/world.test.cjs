@@ -19,12 +19,12 @@ function loadWorld(seed = 1234) {
   return G.World;
 }
 
-test('world: 48-unit tiles, 768-unit chunks, world version 2', () => {
+test('world: 48-unit tiles, 768-unit chunks, world version 3 (block 6)', () => {
   const W = loadWorld();
   assert.equal(W.TS, 48);
   assert.equal(W.GS, 3);
   assert.equal(W.CW, 768);
-  assert.equal(W.WV, 2);
+  assert.equal(W.WV, 3);
 });
 
 test('world: the same seed gives the same terrain; the starting clearing stays free (≈ 290 units, like before)', () => {
@@ -91,4 +91,64 @@ test('co-op: the host sends wv in "start"; the guest sends wv with "ready"; neit
   assert.match(ui, /k: 'start', seed: [^\n]*wv: G\.World\.WV/);
   assert.match(ui, /wvBy\.get\(m\.uid\) !== G\.World\.WV[^\n]*\n\s*if \(odd\.length\) \{[^\n]*return; \}/);
   assert.match(game, /cfg\.wv !== G\.World\.WV\) \{[\s\S]{0,300}leaveRoom\(\)[\s\S]{0,120}return;/);
+});
+
+// ---------------- bloque 6: tileset de Mundo Misterioso, terreno limpio y arboledas con paso (01-11-2026) ----------------
+
+function loadTileset(on = true) {
+  const G = { Settings: { get: k => (k === 'pmdTiles' ? on : undefined) } };
+  G.TILESETS = [{ bi: 0, key: 'forest', src: 'X', vars: [{ file: 'var1.png', cells: [1, 0, 2 ** 47] }], frames: 2, dur: 0.5 }];
+  const draws = [];
+  const ctx = { drawImage: (...a) => draws.push(a), set imageSmoothingEnabled(v) {} };
+  const images = [];
+  class Img { set src(v) { this._src = v; images.push(this); } }
+  const document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
+  vm.runInContext(source('js/world/tileset.js'), vm.createContext({ G, Math, Image: Img, document }), { filename: 'tileset.js' });
+  return { T: G.Tileset, draws, images };
+}
+
+test('tileset: the 256 neighbour masks map onto the 47 DTEF rules (the red cell is never used)', () => {
+  const { T } = loadTileset();
+  const used = new Set(T.RULE);
+  assert.equal(T.RULE.length, 256);
+  assert.equal(used.size, 47);
+  assert.ok(!used.has(17), 'la casilla roja de la plantilla (columna 5, fila 2) no se usa');
+  // Una diagonal sólo cuenta con sus dos cardinales: N+NE sin E es lo mismo que N solo.
+  assert.equal(T.RULE[1 | 2], T.RULE[1]);
+  assert.notEqual(T.RULE[1 | 2 | 4], T.RULE[1 | 4]);
+});
+
+test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and animates the liquid; off → not ready', () => {
+  const { T, draws, images } = loadTileset(true);
+  assert.equal(T.ready(0), false, 'cargando');
+  assert.equal(images.length, 3, 'hoja, variación y líquido');
+  for (const im of images) im.onload();
+  assert.equal(T.ready(0), true);
+  assert.equal(T.ready(5), false, 'un bioma sin datos: el pintor de siempre');
+  const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
+  const cv = T.paintChunk(0, 0, 16, terr, 0, 7);
+  assert.ok(cv.pmd);
+  assert.equal(draws.length, 256 + 2, 'una por casilla y el suelo debajo de la pared y del agua');
+  assert.ok(T.animated(0));
+  T.drawLiquid({ drawImage: (...a) => draws.push(a) }, 0, terr, 5, 5, 0, 0, 48, 0.6);
+  assert.equal(draws[draws.length - 1][1] >= 6 * 24, true, 'segundo fotograma del líquido');
+  assert.equal(loadTileset(false).T.ready(0), false, 'apagado en Ajustes');
+});
+
+test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and grove trees always leave a gap', () => {
+  let walls = 0, loose = 0;
+  for (let s = 1; s <= 4; s++) {
+    const W = loadWorld(s * 211);
+    const isW = (tx, ty) => W.kindAt(tx * 48 + 1, ty * 48 + 1) === 'wall';
+    for (let ty = -50; ty < 50; ty++) for (let tx = -50; tx < 50; tx++) {
+      if (!isW(tx, ty)) continue;
+      walls++;
+      const b = (a, c) => isW(tx + a, ty) && isW(tx, ty + c) && isW(tx + a, ty + c);
+      if (!(b(1, 1) || b(1, -1) || b(-1, 1) || b(-1, -1))) loose++;
+    }
+    // Árboles: nunca dos en casillas vecinas en recto (entre troncos pegados no se pasa).
+    const trees = new Set(W.propsInCircle(0, 0, 2400).filter(p => p.type === 'tree').map(p => p.tx + ',' + p.ty));
+    for (const k of trees) { const [x, y] = k.split(',').map(Number); assert.ok(!trees.has((x + 1) + ',' + y) && !trees.has(x + ',' + (y + 1)), 'árboles pegados en ' + k); }
+  }
+  assert.ok(loose / walls < 0.02, 'paredes sueltas ' + (100 * loose / walls).toFixed(1) + ' %');
 });

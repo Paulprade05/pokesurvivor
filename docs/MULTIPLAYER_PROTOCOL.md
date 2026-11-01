@@ -148,6 +148,10 @@ previous version. `G.World.WV = 2` (the previous version, without the field, cou
   does not start, leaves the room and is told to reload.
 No `--forzar` publish: players already in a run with the old version keep playing together.
 
+`G.World.WV = 3` since block 6 (2026-11-01): the terrain is cleaned (no loose walls outside a 2×2 wall block) and grove
+trees only stand on one colour of a checkerboard, so walls, trees and their `pb [tx,ty]` differ from WV 2. The tilesets
+(`world/tileset.js`) only change the drawing and do not affect the network.
+
 # Enemy state bits (2.0, block 4, 2026-10-31)
 
 Enemy AI runs only on the host. Nothing new is sent per frame except three new bits in the
