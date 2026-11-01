@@ -2367,6 +2367,9 @@ body.touch .dx-tab { min-height: var(--tap); }
 #scr-upgrades .mv-chip { padding-left: 8px; }
 #scr-upgrades .mv-chip.ban { background: rgba(238, 59, 59, .2); border-color: var(--c-red); color: var(--err); }
 #scr-upgrades .mv-chip.ban > span { text-decoration: line-through; }
+/* Tipo Z si empatan: cada cristal con el color de su tipo (una franja a la izquierda; elegido, todo de su color). */
+#scr-upgrades .zt-chip[style] { border-left: 4px solid var(--z-c); }
+#scr-upgrades .zt-chip.on[style] { border-color: var(--z-c); color: #fff; background: color-mix(in srgb, var(--z-c) 32%, var(--card)); }
 .upg-binds { margin-top: 4px; background: var(--card); border-color: var(--line-1); animation: none; }
 .upg-ph { display: flex; align-items: center; gap: 10px; }
 .upg-ph b { font: 600 var(--fs-l)/1.2 var(--font-display); }

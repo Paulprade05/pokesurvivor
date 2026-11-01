@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Movimiento Z: eliges el tipo si empatan", "Z-Moves: choose the type when tied"], new: [
+    ["Movimiento Z: si llevas 2 ataques de un tipo y 2 de otro y tienes los dos Cristales Z, ahora eliges antes de la partida cuál de los dos movimientos Z usa tu Pokémon. Se elige en sus Mejoras, en la Pulsera Z («Si empatan»), y se recuerda para ese Pokémon en todos tus aparatos. Sin elegir, va como antes: el del ataque que aprendió primero. Sin empate, sigue mandando el tipo con más ataques. En grupo, cada uno usa el suyo.",
+     "Z-Moves: if you carry 2 moves of one type and 2 of another and own both Z-Crystals, you now choose before the run which of the two Z-Moves your Pokémon uses. Pick it in its Upgrades, on the Z-Ring («If tied»), and it’s remembered for that Pokémon on all your devices. If you don’t choose, it works as before: the type of the move it learned first. With no tie, the type with the most moves still wins. In co-op, everyone uses their own."]] },
   { d: '2026-11-01', title: ["Versión 2.0: cooperativo × jugadores", "Version 2.0: co-op × players"], chg: [
     ["Cooperativo: todo escala con los jugadores que sois. Con 2, subir de nivel cuesta el doble de experiencia y todos los enemigos (normales, jefes, legendarios de las grietas y de la Sentencia) tienen el doble de vida y de daño; con 3, el triple; con 4, el cuádruple. Solo no cambia nada. Si alguien se va o vuelve, los enemigos nuevos salen con los que quedáis.",
      "Co-op: everything scales with the number of players. With 2, levelling up takes twice the experience and every enemy (regular ones, bosses, rift and Judgment legendaries) has twice the HP and damage; with 3, three times; with 4, four times. Solo is unchanged. If someone leaves or comes back, new enemies use the players still there."]] },

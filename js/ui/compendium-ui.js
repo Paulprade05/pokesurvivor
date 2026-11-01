@@ -422,7 +422,7 @@ G.CompendiumUI = (() => {
   /** Movimiento Z: cómo se activa, cuánto dura y su recarga. */
   function zInfo(def) {
     const rows = ROWS.filter(([k]) => typeof def[k] === 'number').map(([k, label, f]) => `<tr><th>${label}</th><td>${f(def[k])}</td></tr>`).join('');
-    return sec('Cómo se usa', `<p class="cmp-note">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques.')}</p>`
+    return sec('Cómo se usa', `<p class="cmp-note">${G.T('Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques y, si empatan, el que elegiste en Mejoras.')}</p>`
         + `<div class="cmp-chips"><span class="chip static">${G.Icons.html('zring', 30)}<span>${G.I18n.f('Activo: {x}', G.U.mmss(G.Moves.Z_DUR || 60))}</span></span>`
         + `<span class="chip static">${G.Icons.html('clock', 30)}<span>${G.I18n.f('Se recarga: {x}', G.U.mmss(G.Moves.Z_CD || 240))}</span></span></div>`)
       + (rows ? sec('Números', `<table class="cmp-stats one"><tbody>${rows}</tbody></table><p class="cmp-note">Su daño crece con tu nivel en la partida.</p>`) : '');

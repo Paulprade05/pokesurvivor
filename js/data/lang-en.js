@@ -2198,5 +2198,12 @@ G.I18n.add({
   "Recupera el 20% de tu vida ahora mismo.": "Restores 20% of your HP right now.",
   "Monedas": "Coins",
   "+40 monedas al acabar la partida.": "+40 coins at the end of the run.",
-  "Descartar (": "Discard ("
+  "Descartar (": "Discard (",
+  "Si empatan: {x}": "If tied: {x}",
+  "Automático": "Automatic",
+  "(el primero que aprenda)": "(the first one it learns)",
+  "Si llevas 2 ataques de un tipo y 2 de otro (y los dos Cristales Z), elige qué movimiento Z usa. Sin empate, va el del tipo con más ataques. Lo puedes cambiar cuando quieras, gratis.": "If you carry 2 moves of one type and 2 of another (and both Z-Crystals), choose which Z-Move it uses. With no tie, the type with the most moves is used. You can change it whenever you like, for free.",
+  "{x}: si empatan, movimiento Z de tipo {x}": "{x}: if tied, {x}-type Z-Move",
+  "{x}: si empatan, el del ataque que aprenda antes": "{x}: if tied, the type of the move it learned first",
+  "Se activa con el Cristal Z de un tipo y 2 ataques de ese tipo en tus huecos. Si cumplen varios, va el del tipo con más ataques y, si empatan, el que elegiste en Mejoras.": "It turns on with a type’s Z-Crystal and 2 moves of that type in your slots. If several qualify, the type with the most moves is used and, if tied, the one you chose in Upgrades."
 });
