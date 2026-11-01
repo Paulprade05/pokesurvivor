@@ -73,6 +73,11 @@ G.World = (() => {
   // (Bloque 6, revisión: 24 como pide §11.3. Con el tileset cada imagen es de 384 px (576 KB) y en el fundido hay dos
   //  cachés: con 48 eran hasta ~56 MB en el móvil. Se ven como mucho ~12 chunks, también en Ultra.)
   const MAX_IMAGES = 24, MAX_DATA = 400;
+  // (iPhone: pantalla negra, 01-11-2026) Los chunks que se tiran se sueltan ya (G.U.freeCanvas): Safari cuenta
+  //  la memoria de un lienzo hasta que el recolector pasa, y con su tope lleno los nuevos salen en negro.
+  const EMPTY = typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: 1, height: 1 }) : null;
+  let bakeWait = 0;
+  function dropImages(m) { if (!m) return; for (const c of m.values()) G.U.freeCanvas(c); m.clear(); }
   const broken = new Set();                // props destruidos: "tx,ty"
   let nextPropId = 1;
 
@@ -695,12 +700,12 @@ G.World = (() => {
     const u = G.Settings.get('quality') === 'ultra', p = !!(G.Tileset && G.Tileset.enabled());
     if (u === ultra && p === pmd) return;
     ultra = u; pmd = p;
-    images.clear(); fade = null;
+    dropImages(images); if (fade) dropImages(fade.images); fade = null;
   }
   // (Bloque 6) Tileset de Mundo Misterioso: ¿se usa ya para el bioma bi? Al acabar de cargar uno, se rehornea.
   let pmd = false;
   const pmdOn = bi => !!(G.Tileset && G.Tileset.ready(bi));
-  if (G.Tileset) G.Tileset.onReady = bi => { if (bi === biome || (fade && bi === fade.from)) { images.clear(); if (fade) fade.images.clear(); } };
+  if (G.Tileset) G.Tileset.onReady = bi => { if (bi === biome || (fade && bi === fade.from)) { dropImages(images); if (fade) dropImages(fade.images); } };
 
   function chunkImage(cx, cy, bi = biome, cache = images) {
     const k = cx + ',' + cy;
@@ -708,9 +713,19 @@ G.World = (() => {
     if (img) return img;
     // (Bloque 6) Con el tileset de Mundo Misterioso de este bioma, si está listo; si no, el pintor de tiles.js, ya sin
     //  caminos de tierra (PMD no los tiene: el campo de tierra a 0).
-    if (pmdOn(bi)) img = G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed);
-    else img = G.Tiles.paintChunk(cx, cy, N, (tx, ty) => KIND[terrainAt(tx, ty)], () => 0, bi, seed, ultra);
-    if (cache.size > MAX_IMAGES) cache.delete(cache.keys().next().value);
+    const paint = () => pmdOn(bi) ? G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed)
+      : G.Tiles.paintChunk(cx, cy, N, (tx, ty) => KIND[terrainAt(tx, ty)], () => 0, bi, seed, ultra);
+    // (iPhone: pantalla negra, 01-11-2026) Con el tope de memoria de lienzos de Safari lleno, el lienzo nuevo sale
+    //  sin dibujo (getContext da null) y fallaba todo el fotograma: negro. Se suelta lo guardado y se prueba otra
+    //  vez; si aún no, este chunk va vacío este fotograma (sin guardarlo: el siguiente lo vuelve a intentar).
+    if (performance.now() < bakeWait) return EMPTY;
+    try { img = paint(); } catch (e) { img = null; }
+    if (!img) {
+      if (G.Sprites) G.Sprites.purge(); dropImages(images); if (fade) dropImages(fade.images);
+      try { img = paint(); } catch (e) { img = null; }
+      if (!img) { bakeWait = performance.now() + 300; return EMPTY; }   // (un rato sin intentarlo: sin crear lienzos en vano)
+    }
+    if (cache.size > MAX_IMAGES) { const k0 = cache.keys().next().value; G.U.freeCanvas(cache.get(k0)); cache.delete(k0); }
     cache.set(k, img);
     return img;
   }
@@ -952,13 +967,14 @@ G.World = (() => {
       ctx.globalAlpha = k * a;
     } else if (a < 1) ctx.globalAlpha = a;
     ctx.drawImage(img, x, y, w, h);
-    if (p.flash > 0) { ctx.globalAlpha = 0.6; ctx.drawImage(G.Sprites.white(img), x, y, w, h); }
+    const wc = p.flash > 0 && G.Sprites.white(img);
+    if (wc) { ctx.globalAlpha = 0.6; ctx.drawImage(wc, x, y, w, h); }
     // (Sin save/restore por objeto: sólo se toca la transparencia y aquí se deja como estaba.)
     ctx.globalAlpha = 1;
   }
 
   function update(dt, cam) {
-    if (fade && (fade.t += dt) >= FADE) fade = null;
+    if (fade && (fade.t += dt) >= FADE) { dropImages(fade.images); fade = null; }
     // (Ultra: con la perspectiva se ve más por arriba y por los lados.)
     for (const [cx, cy] of visibleChunks(cam, G.Camera.persp ? 150 : 60)) {
       for (const p of chunkData(cx, cy).props) if (p.flash > 0) p.flash -= dt;
@@ -972,7 +988,7 @@ G.World = (() => {
     seed = (s | 0) || 1;
     gen = terr; lastC = null;
     if (G.Tileset) G.Tileset.preload([0, 1, 2]);
-    data.clear(); images.clear(); broken.clear(); lots.clear(); blocks.clear();
+    data.clear(); dropImages(images); if (fade) dropImages(fade.images); broken.clear(); lots.clear(); blocks.clear();
     // La rejilla de los interactivos: el lote (0,0) centrado en el inicio, ±3 casillas (ver blockSpecial).
     offX = Math.floor(BLK * LOT / 2) + Math.floor(H(3, 7, seed + 950) * 7) - 3;
     offY = Math.floor(BLK * LOT / 2) + Math.floor(H(7, 3, seed + 951) * 7) - 3;
@@ -993,6 +1009,8 @@ G.World = (() => {
     // (Bloque 6) El tileset del siguiente, ya cargando (así no se ve antes el dibujo de respaldo).
     if (G.Tileset) G.Tileset.preload([b, (b + 1) % n]);
     // El terreno es el mismo: sólo cambia la paleta, fundiéndose poco a poco.
+    if (fade) dropImages(fade.images);
+    if (instant) dropImages(images);
     fade = instant ? null : { from: biome, images, t: 0 };
     biome = b;
     images = new Map();
@@ -1032,10 +1050,12 @@ G.World = (() => {
       // Olvida los chunks de esa zona (si se hubieran generado antes).
       const R = a.r + 6, near = (cx, cy) => Math.abs(cx * N + N / 2 - a.tx) < R + N && Math.abs(cy * N + N / 2 - a.ty) < R + N;
       for (const [k, c] of [...data]) if (near(c.cx, c.cy)) data.delete(k);
-      for (const k of [...images.keys()]) { const [cx, cy] = k.split(',').map(Number); if (near(cx, cy)) images.delete(k); }
+      for (const k of [...images.keys()]) { const [cx, cy] = k.split(',').map(Number); if (near(cx, cy)) { G.U.freeCanvas(images.get(k)); images.delete(k); } }
       lastC = null;
     },
     get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette,
+    /** Suelta los chunks horneados (se vuelven a hornear al dibujarlos): sin memoria de lienzos o al perder el lienzo. */
+    purge() { dropImages(images); if (fade) dropImages(fade.images); },
     get biome() { return biome; }
   };
 })();

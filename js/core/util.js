@@ -48,6 +48,20 @@ G.U = {
     return (h >>> 0) / 4294967296;
   },
 
+  /**
+   * iPhone/iPad. Safari en iOS tiene un tope de memoria para todos los lienzos juntos:
+   * al pasarlo, los nuevos salen sin dibujo (getContext da null) y la pantalla se queda en negro.
+   */
+  IOS: typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)),
+
+  /**
+   * Suelta ya la memoria de un lienzo que no se va a usar más. Sin esto Safari la
+   * sigue contando para su tope hasta que el recolector pasa (puede tardar mucho).
+   */
+  freeCanvas(c) {
+    if (c && c.width !== undefined) { c.width = 0; c.height = 0; }
+  },
+
   /** "3:07" a partir de segundos. */
   mmss(s) {
     const m = Math.floor(s / 60);
