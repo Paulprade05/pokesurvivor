@@ -358,9 +358,12 @@ G.Enemies = (() => {
    * finales de los 18 tipos: sin mejoras el muro volvía al minuto 3-9; antes llegaban a 1 en el 9 y el 8, desde 0,55.)
    * 29-10-2026: los golpes, de 0,45 a 1 en el minuto 15; la vida, de 0,7 a 1 en el 12 (antes 0,5 en el 11 y 0,75 en el 10):
    * los que empiezan flojos (Gible, Charmander) caían en los primeros minutos aun con todas las mejoras.
+   * (2.0, bloque 4) Los golpes, de 0,35 en el minuto 2 a 1 en el 17 (antes 0,45 en el 1 → 1 en el 15): con la IA nueva
+   * llegan a tocarte todos (antes se atascaban) y los tiradores no se quedan contra las paredes, y con todas las mejoras
+   * la primera caída bajó del minuto 11,5 al 6,4 (más golpes de contacto y disparos en los minutos 3-8; curva-b4).
    */
-  const EARLY_K = 0.45, EARLY_HP = 0.7;
-  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 60) / 840)); }
+  const EARLY_K = 0.35, EARLY_HP = 0.7;
+  function earlyK(t) { return EARLY_K + (1 - EARLY_K) * Math.min(1, Math.max(0, (t - 120) / 900)); }
   function earlyHp(t) { return EARLY_HP + (1 - EARLY_HP) * Math.min(1, Math.max(0, (t - 60) / 660)); }
   /**
    * Los que empiezan la partida como preevolución (29-10-2026, revisión 2): reciben un 25 % menos hasta el minuto 8 y

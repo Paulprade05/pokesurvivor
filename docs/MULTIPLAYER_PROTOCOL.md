@@ -148,6 +148,20 @@ previous version. `G.World.WV = 2` (the previous version, without the field, cou
   does not start, leaves the room and is told to reload.
 No `--forzar` publish: players already in a run with the old version keep playing together.
 
+# Enemy state bits (2.0, block 4, 2026-10-31)
+
+Enemy AI runs only on the host. Nothing new is sent per frame except three new bits in the
+7th field of each `enemyList` entry (the status bits: 1 burning, 2 poisoned, 4 shielded,
+8 slowed, 16 enraged boss); the number and order of the fields do not change:
+- `32` underground (a digging enemy): a guest does not draw its sprite (only a mound on
+  the ground layer) and leaves it out of its own grid, so it cannot touch or target it;
+- `64` swimming (drawn half sunk);
+- `128` a ghost inside a wall (drawn at 45 % alpha).
+A guest of the previous 2.0 version ignores them: it sees the underground enemy walking
+and may get its contact hit (decided by the guest's own device), as already happened with
+bit 16. Hazards created by the new AI (a digger rising, a hop over an obstacle) are plain
+`zone` hazards, which every version knows. No `wv` change: the terrain is the same.
+
 # Player view size (2026-10-22)
 
 The player state array (`myState`, sent by every player 15 times per second)

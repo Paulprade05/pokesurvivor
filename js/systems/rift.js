@@ -506,6 +506,8 @@ G.Rift = (() => {
       // Choca con las paredes y columnas como tú: si volara por encima de las
       // rocas, tus disparos no podrían alcanzarle (bug de Celebi).
       e.flying = false;
+      // (2.0, bloque 4) Campo «lava» (su arena no le frena ni le quema) y siempre el de los grandes (enemy-ai.js).
+      e.mv = 'lava'; e.aiBig = true;
       const p = at && at.find(l => l.dex === dex);
       if (p) { e.x = p.x; e.y = p.y; } else place(e, placed);
       if ((arena.shinies || [arena.shiny])[i]) e.makeShiny();

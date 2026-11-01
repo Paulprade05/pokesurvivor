@@ -207,7 +207,10 @@ G.Coop = (() => {
       const a = ANIMS.indexOf(e.anim.cur);
       out.push([e.id, r1(e.x), r1(e.y), Math.ceil(e.hp), a < 0 ? 0 : a, e.anim.dir,
                 (e.burn > 0 ? 1 : 0) | (e.poison > 0 ? 2 : 0) | (e.shield > 0 ? 4 : 0) | (e.slow > 0 ? 8 : 0) |
-                (e.ai && e.ai.fury ? 16 : 0)]);       // 16: jefe enfurecido (fase 2, aura roja; una versión vieja no lo mira)
+                (e.ai && e.ai.fury ? 16 : 0) |        // 16: jefe enfurecido (fase 2, aura roja; una versión vieja no lo mira)
+                // (2.0, bloque 4) 32 bajo tierra (no se dibuja ni entra en la rejilla del invitado), 64 nadando (medio
+                // hundido), 128 fantasma dentro de una pared (medio transparente). Una versión vieja no los mira.
+                (e.under ? 32 : 0) | (e.swimming ? 64 : 0) | (e.inWall ? 128 : 0)]);
     }
     return out;
   }

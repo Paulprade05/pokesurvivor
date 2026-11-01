@@ -160,7 +160,7 @@ G.Projectiles = (() => {
   function nearest(enemies, x, y, maxDist) {
     let best = null, bd = maxDist * maxDist;
     for (const e of enemies) {
-      if (e.dead) continue;
+      if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e))) continue;      // (bajo tierra: no vale de blanco)
       const d = G.U.dist2(x, y, e.x, e.cy());
       if (d < bd) { bd = d; best = e; }
     }

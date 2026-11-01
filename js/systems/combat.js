@@ -2576,7 +2576,7 @@ G.Combat = (() => {
   const WIND = new Set(['volley', 'nova', 'spiral', 'burst', 'waves', 'summon']);
   /** Pone (o alarga) un estado. → su entrada, o null si no le afecta. */
   function stAdd(e, kind, dur, v, o) {
-    if (!e || e.dead || !(dur > 0)) return null;
+    if (!e || e.dead || e.under || !(dur > 0)) return null;      // (bajo tierra, enemy-ai.js: nada)
     const isBig = big(e);
     if (CTRL[kind]) {
       if (e.behavior === 'thief' || e.behavior === 'stampede') return null;

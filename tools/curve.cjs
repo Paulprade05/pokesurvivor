@@ -26,6 +26,7 @@
  * daño hecho, tiempo mediano para tumbar a un enemigo normal (ttk), DPS a un objetivo (sdps), director (dir), tickets
  * (tk=t1/t10), ataques al 5 (m5), evolucionados (ev) y cartas cogidas. En RESULT, cada jefe y legendario (ttk, ataques,
  * firmas, daño hecho mientras vivía) y cada grieta (ganada, ttk, nº de legendarios). El informe da sus medianas.
+ * (Bloque 4) «ia=A%/B/C»: enemigos atascados (% de los vivos, muestreado cada 0,2 s), media bajo tierra y nadando.
  * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall); «dir» = vida/daño/geo del director
  * (geo: lo que tarda en caer un enemigo normal, ver systems/director.js) y el informe da sus medianas.
  */
@@ -41,7 +42,7 @@ const ROOT = path.resolve(__dirname, '..');
 // ---------------------------------------------------------------- informe
 function report(dirs) {
   const firsts = { max: [], zero: [] }, walls = { max: [], zero: [] };
-  const G2 = () => ({ lv: { 5: [], 10: [], 15: [], 20: [], 29: [] }, m5: [], ev: [], ttk: { 5: [], 10: [], 15: [], 20: [], 29: [] },
+  const G2 = () => ({ ia: [], lv: { 5: [], 10: [], 15: [], 20: [], 29: [] }, m5: [], ev: [], ttk: { 5: [], 10: [], 15: [], 20: [], 29: [] },
                       boss: { '3-12': [], '15-21': [], '24-27': [] }, dh: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dd: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dg: { 5: [], 10: [], 15: [], 20: [], 29: [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
   const agg = { max: G2(), zero: G2() };
   for (const dir of dirs) {
@@ -58,6 +59,7 @@ function report(dirs) {
         for (const m of [5, 10, 15, 20, 29]) { const r = at(m); if (r && r.m >= m - 1) { A.lv[m].push(r.lv); if (!isNaN(r.ttk)) A.ttk[m].push(r.ttk);
           const dm = /^([\d.]+)\/([\d.]+)(?:\/([\d.]+))?$/.exec(r.dir); if (dm) { A.dh[m].push(+dm[1]); A.dd[m].push(+dm[2]); if (dm[3] && +dm[3] > 0) A.dg[m].push(+dm[3]); } } }
         for (const m of [5, 10, 15, 20, 25, 30]) { const r = at(m); if (r && r.m >= m - 1) A.tk[m].push(r.t1 + 10 * r.t10); }
+        for (const m of s.matchAll(/ia=([\d.]+)%/g)) A.ia.push(+m[1]);
         const f5 = ext.find(x => x.m5 >= 4), fe = ext.find(x => x.ev >= 4);
         A.m5.push(f5 ? f5.m : 31); A.ev.push(fe ? fe.m : 31);
         const jb = /jefes=(\[.*?\]) grietas=(\[.*?\]) log=/.exec(s);
@@ -100,6 +102,7 @@ function report(dirs) {
     console.log(`         jefes ttk (s) ${Object.keys(A.boss).map(k => k + '=' + md(A.boss[k]) + ' (' + A.boss[k].length + ')').join(' ')} · con 1 firma ${pc(A.sig1, A.nb)}, con 2 ${pc(A.sig2, A.nb)}`);
     console.log(`         grietas ganadas ${pc(A.rw, A.rn)} (${A.rn}) · arena (s) ${Object.keys(A.leg).map(k => k + ' leg=' + md(A.leg[k]) + ' (' + A.leg[k].length + ')').join(' ') || '-'} · legendarios con firma ${pc(A.legSig, A.nl)}`);
     console.log(`         tickets (tiradas acumuladas) ${per(A.tk)}`);
+    if (A.ia.length) console.log(`         IA: atascados ${md(A.ia)} % de mediana por minuto (máx. ${Math.max(...A.ia)} %, ${A.ia.filter(x => x > 1).length}/${A.ia.length} minutos > 1 %)`);
     if (A.dh[5].length) console.log(`         director vida ${per(A.dh)} · daño ${per(A.dd)} · geo (s) ${per(A.dg)}`);
   }
 }
@@ -340,7 +343,12 @@ async function one(dex, upg, tag, speed, cap) {
         if (d > 0) { const al = M.boss.filter(b => b.dead == null && b.ttk == null); for (const b of al) b.dmg += d / al.length; }
         return out;
       };
+      // (2.0, bloque 4) IA: vivos, atascados, bajo tierra y nadando, muestreados cada 0,2 s (G.EnemyMgr.debugStats).
+      window.AI = { n: 0, live: 0, stuck: 0, under: 0, swim: 0 };
       setInterval(() => {
+        if (G.EnemyMgr.debugStats && G.Game.state === 'playing') {
+          const d = G.EnemyMgr.debugStats(); AI.n++; AI.live += d.vivos; AI.stuck += d.atascados; AI.under += d.bajoTierra; AI.swim += d.nadando;
+        }
         const inA = G.Rift.inArena;
         if (inA && !M.arena) M.arena = { min: +(now() / 60).toFixed(1), legs: [] };
         else if (!inA && M.arena) {
@@ -355,7 +363,7 @@ async function one(dex, upg, tag, speed, cap) {
     }, dex, upg);
     await page.evaluate(k => G.Game.debugSpeed(k), speed);
     const t0 = Date.now();
-    let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0, lastKills = 0, lastDealt = 0, ttks = [], judgeAt = null;
+    let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0, lastKills = 0, lastDealt = 0, ttks = [], judgeAt = null, lastAi = { n: 0, live: 0, stuck: 0, under: 0, swim: 0 };
     for (let i = 0; i < 6000; i++) {
       await new Promise(r => setTimeout(r, 1000));
       s = await page.evaluate(() => {
@@ -367,7 +375,8 @@ async function one(dex, upg, tag, speed, cap) {
           sdps: Math.round(G.Judgment.singleDps ? G.Judgment.singleDps() : G.Judgment.debug.single),
           dir: G.Director ? (+G.Director.hp()).toFixed(2) + '/' + (+G.Director.dmg()).toFixed(2) + '/' + (+G.Director.geo || 0).toFixed(2) : '-',
           m5: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.lvl >= 5).length,
-          ev: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.evolved).length };
+          ev: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.evolved).length,
+          ai: Object.assign({}, AI) };
       });
       ttks.push(...s.ttk);
       if (s.t - lastLog >= 60 || s.over) {
@@ -379,8 +388,9 @@ async function one(dex, upg, tag, speed, cap) {
         // (Los campos nuevos van detrás de caídas=N: report() lee hasta ahí.)
         log(`${tag} [${String(Math.floor(s.t / 60)).padStart(2)}:${String(s.t % 60).padStart(2, '0')}] Nv.${s.lv} ${s.form} v${s.vhp}/${s.max} en=${s.en} dmg/min=${Math.round(dm)} (${(dm / s.max).toFixed(1)}x) caídas=${nd} ` +
             `bajas=${s.kills - lastKills} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
+            `ia=${s.ai.live > lastAi.live ? (100 * (s.ai.stuck - lastAi.stuck) / (s.ai.live - lastAi.live)).toFixed(1) : '-'}%/${s.ai.n > lastAi.n ? ((s.ai.under - lastAi.under) / (s.ai.n - lastAi.n)).toFixed(1) : '-'}/${s.ai.n > lastAi.n ? ((s.ai.swim - lastAi.swim) / (s.ai.n - lastAi.n)).toFixed(1) : '-'} ` +
             `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} | ${s.moves}`);
-        lastKills = s.kills; lastDealt = s.dealt; ttks = [];
+        lastKills = s.kills; lastDealt = s.dealt; ttks = []; lastAi = s.ai;
       }
       // (Al empezar la Sentencia, 2 s más para ver lo que pasa al llegar.)
       if (s.judge && judgeAt == null) judgeAt = Date.now();

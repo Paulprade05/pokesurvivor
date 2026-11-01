@@ -4,8 +4,11 @@
  *   Attack al embestir o al golpearte · Shoot al disparar · Hurt al recibir ·
  *   Faint al caer (se queda en el suelo y se desvanece).
  *
- * Los voladores, los fantasma y los jefes ignoran el terreno. El resto choca
- * con paredes y objetos, va más lento en el agua y se quema en la lava.
+ * Los que flotan y los jefes del calendario ignoran el terreno. El resto choca
+ * con paredes y objetos, va más lento en el agua y se quema en la lava. Desde la
+ * 2.0 (bloque 4) lo que piensan (desatasco, puntería, flanqueo) y cómo usa cada
+ * tipo el terreno (e.mv: nadar, excavar, saltar, atravesar paredes los fantasma)
+ * está en systems/enemy-ai.js; el camino, en systems/pathing.js.
  *
  * El gestor mantiene una rejilla espacial (reconstruida cada frame) para la
  * separación entre enemigos y las colisiones de proyectiles.
@@ -128,8 +131,8 @@
       this.phase = 'walk'; this.pt = 0; this.dx = 0; this.dy = 0;
       // distancia
       this.shotCd = def.shotCd ? G.U.rand(0.3, def.shotCd) : 0;
-      // desatasco
-      this.stuckT = 0; this.sideT = 0; this.side = 1;
+      // estampida atascada (el desatasco de los demás: enemy-ai.js)
+      this.stuckT = 0;
       this.bob = Math.random() * 6.28;
       this.shiny = false;
       this.sparkT = 0;
@@ -143,6 +146,8 @@
       // Rezagados: si se quedan atrás, fuera de la vista, mientras huyes,
       // vuelven a salir por delante (ver EnemyMgr.update).
       this.lagT = 0;
+      // (2.0, bloque 4) Cómo usa el terreno: 'swim' | 'dig' | 'hop' | 'ghost' | null (los legendarios: 'lava', rift.js).
+      this.mv = G.EnemyAI ? G.EnemyAI.mvFor(this) : null;
     }
 
     cy() { return this.y; }
@@ -183,7 +188,7 @@
 
     /** @param eff  'super' | 'weak' | null (tabla de tipos, sólo para enseñarlo) */
     hurt(amount, color = '#fff', dirX = 0, dirY = 0, knock = 0, eff = null) {
-      if (this.dead) return;
+      if (this.dead || this.under) return;     // (bajo tierra: enemy-ai.js)
       const raw = amount;          // (para el medidor de DPS: sin la «defensa» del director)
       // Firma de jefe (G.BossSig, 26-10-2026): en el aire o bajo tierra no se le puede
       // dar; con su barrera recibe mucho menos (sigK) y dormido (Ausente), más.
@@ -212,6 +217,7 @@
         return;
       }
       if (this.boss) this.rd += d;
+      else this.aiHit = (this.aiHit || 0) + d;      // (lo que ha recibido hace poco: el que excava se esconde)
       if (G.Director) G.Director.hit(this, d);
       // Escudo: absorbe primero.
       if (this.shield > 0) {
@@ -313,20 +319,24 @@
     /** Aturdido: se queda quieto y no ataca `dur` s (Onda Trueno, Tumba Rocas...). */
     applyStun(dur) {
       if (this.remote) { G.Coop.status(this, 't', dur); return; }
+      if (this.under) return;
       this.stunT = Math.max(this.stunT || 0, dur);
     }
 
     applySlow(factor, dur = 1.2) {
       if (this.remote) { G.Coop.status(this, 's', factor); return; }
+      if (this.under) return;
       this.slow = Math.max(this.slow, factor);
       this.slowT = Math.max(this.slowT, dur);
     }
     applyBurn(stacks = 1) {
       if (this.remote) { G.Coop.status(this, 'b', stacks); return; }
+      if (this.under) return;
       this.burn = Math.min(8, this.burn + stacks); this.burnT = 3;
     }
     applyPoison(stacks = 1) {
       if (this.remote) { G.Coop.status(this, 'p', stacks); return; }
+      if (this.under) return;
       this.poison = Math.min(8, this.poison + stacks); this.poisonT = 4;
     }
 
@@ -448,14 +458,16 @@
       // --- terreno ---
       let terrainMul = 1;
       // (El legendario está en su casa: su arena no le afecta. Los de Arceus, tampoco.)
-      if (!this.flying && !this.legend && !this.judge && G.World.isLiquid(this.x, this.y)) {
+      if (!this.flying && !this.legend && !this.judge && !this.under && G.World.isLiquid(this.x, this.y)) {
         const le = G.World.liquidEffect(this.types);
+        const k = G.EnemyAI && G.EnemyAI.terrainK(this, le);    // (nadando ×1,5; en su lava ×1,3)
         if (le.dmg) {
           this.lavaTick -= dt;
           if (this.lavaTick <= 0) { this.lavaTick = le.every; this.hurt(6 + this.maxHp * 0.04, le.color); }
           if (this.dead) return;
-        } else if (le.slow) terrainMul = le.slow < 0.5 ? 0.45 : 0.55;
-      }
+        } else if (k) terrainMul = k;
+        else if (le.slow) terrainMul = le.slow < 0.5 ? 0.45 : 0.55;
+      } else this.swimming = false;
 
       if (this.stunT > 0) { this.stunT -= dt; this.anim.loop('Idle'); return; }
 
@@ -503,6 +515,8 @@
       // --- personalidad (escudos, saltos, explosión) ---
       if (this.shieldT > 0 && (this.shieldT -= dt) <= 0) this.shield = 0;
       if (this.jump) { this.updateJump(dt); return; }
+      // (2.0, bloque 4) Excavar y saltar obstáculos (enemy-ai.js): si se encargan, ya está.
+      if (G.EnemyAI && !this.boss && (G.EnemyAI.dig(this, dt, pl, dist, spd) || G.EnemyAI.hop(this, dt, pl, dist))) return;
       if (this.behavior === 'bomber' && this.phase === 'fuse') {
         this.pt -= dt;
         this.flash = Math.floor(this.pt * 10) % 2 ? 0.05 : 0;
@@ -520,18 +534,9 @@
         }
       }
 
-      // Si lleva rato atascado contra algo, rodea por un lado.
-      if (this.sideT > 0) {
-        this.sideT -= dt;
-        const a = Math.atan2(dy, dx) + this.side * 1.25;
-        dx = Math.cos(a); dy = Math.sin(a);
-      }
-
-      // Camino alrededor de los obstáculos (los que no vuelan).
-      if (!this.flying && this.phase !== 'dash' && this.sideT <= 0) {
-        const pd = G.Path.dirFor(this, pl);
-        if (pd && !(this.keepsDistance() && dist < (this.def.range || 200) * 0.82)) { dx = pd[0]; dy = pd[1]; }
-      }
+      // Camino alrededor de los obstáculos (los que no vuelan), desatasco y flanqueo: enemy-ai.js.
+      const holding = this.keepsDistance() && dist < (this.def.range || 200) * 0.82;
+      if (this.phase !== 'dash') [dx, dy] = G.EnemyAI.steer(this, dt, pl, dist, dx, dy, spd, holding);
 
       let vx = dx * spd, vy = dy * spd;
       let animBase = 'Walk';
@@ -541,15 +546,16 @@
       } else if (this.behavior === 'charger') {
         this.pt -= dt;
         if (this.phase === 'walk') {
+          // (No embiste si la recta hasta ti choca con algo.)
           if (dist < 200 && this.pt <= 0) {
-            this.phase = 'aim'; this.pt = 0.55;
-            this.anim.play('Charge', { speed: 1.6 });
+            if (!G.EnemyAI.canCharge(this, pl)) this.pt = 0.4;
+            else { this.phase = 'aim'; this.pt = 0.55; this.anim.play('Charge', { speed: 1.6 }); }
           }
         } else if (this.phase === 'aim') {
           vx = vy = 0; animBase = 'Idle';
           if (this.pt <= 0) {
             this.phase = 'dash'; this.pt = 0.42;
-            this.dx = dx; this.dy = dy;
+            [this.dx, this.dy] = G.EnemyAI.chargeDir(this, pl);      // (a donde estarás, según lo listo que sea)
             this.anim.play('Attack', { speed: 1.4 });
             G.FX.ring(this.x, this.y, this.r, this.r * 2.4, '#ff6b6b', 0.25, 2);
           }
@@ -558,37 +564,21 @@
           if (this.pt <= 0) { this.phase = 'walk'; this.pt = 1.1; }
         }
       } else if (this.keepsDistance()) {
-        const range = this.def.range || 200;
-        const keep = range * 0.82;
-        // Recta hacia ti (no el camino) para alejarse.
-        const [ddx, ddy] = G.U.norm(pl.x - this.x, pl.y - this.y);
-        if (dist < keep * 0.75) { vx = -ddx * spd * 0.8; vy = -ddy * spd * 0.8; }
-        else if (dist < keep) { vx *= 0.1; vy *= 0.1; animBase = 'Idle'; }
-        this.shotCd -= dt;
-        if (this.shotCd <= 0 && dist < range) {
-          this.shotCd = this.def.shotCd || 2;
-          this.special(pl, ddx, ddy);
-        }
+        // Alejarse por el camino, rodear, disparar sólo con línea de vista y adelantado (enemy-ai.js).
+        [vx, vy, animBase] = G.EnemyAI.ranged(this, dt, pl, dist, spd, vx, vy);
       }
 
       // --- integración ---
-      const ox = this.x, oy = this.y;
       this.x += this.kx * dt; this.y += this.ky * dt;
       this.kx *= Math.pow(0.0015, dt); this.ky *= Math.pow(0.0015, dt);
       this.x += vx * dt; this.y += vy * dt;
 
-      if (!this.flying && G.World.collide(this)) {
-        // ¿Ha avanzado bastante menos de lo que quería?
-        const want = Math.hypot(vx, vy) * dt;
-        const got = Math.hypot(this.x - ox, this.y - oy);
-        if (want > 0.5 && got < want * 0.35) {
-          this.stuckT += dt;
-          if (this.stuckT > 0.35 && this.sideT <= 0) {
-            this.sideT = 0.7; this.stuckT = 0;
-            this.side = Math.random() < 0.5 ? -1 : 1;
-          }
-        } else this.stuckT = 0;
+      let hitN = null;
+      if (!this.flying && !this.noClip) {
+        const bx = this.x, by = this.y;
+        if (G.World.collide(this)) hitN = G.U.norm(this.x - bx, this.y - by);
       }
+      G.EnemyAI.after(this, dt, pl, dist, spd, hitN, holding);
 
       // --- animación ---
       const moving = Math.abs(vx) + Math.abs(vy) > 2;
@@ -975,9 +965,10 @@
           this.anim.play('Charge', { speed: 1.2 });
           break;
         case 'zoner': {
-          const n = G.U.randInt(1, this.def.zones || 3);
+          // (La primera, donde vas a estar si es listo: aiAim, enemy-ai.js.)
+          const n = G.U.randInt(1, this.def.zones || 3), [zx, zy] = this.aiAim || [pl.x, pl.y];
           for (let i = 0; i < n; i++) {
-            this.hazard({ kind: 'zone', x: pl.x + (i ? G.U.rand(-70, 70) : 0), y: pl.y + (i ? G.U.rand(-55, 55) : 0), r: 44,
+            this.hazard({ kind: 'zone', x: i ? pl.x + G.U.rand(-70, 70) : zx, y: i ? pl.y + G.U.rand(-55, 55) : zy, r: 44,
                             delay: 1.2, dmg: this.shotDmg() * 0.95, type: this.atkType, color: col });
           }
           this.anim.play('Shoot');
@@ -1056,7 +1047,7 @@
     }
 
     startJump(pl) {
-      const tx = pl.x, ty = pl.y;
+      const [tx, ty] = G.EnemyAI ? G.EnemyAI.jumpTo(this, pl) : [pl.x, pl.y];   // (cae donde vas a estar, si cabe)
       this.jump = { sx: this.x, sy: this.y, tx, ty, t: -0.45, dur: 0.6 };
       this.anim.play('Charge', { speed: 1.4 });
       this.hazard({ kind: 'zone', x: tx, y: ty, r: 50, delay: 1.05, dmg: this.dmg * 1.2, type: this.atkType,
@@ -1132,6 +1123,8 @@
       if (alpha <= 0) return;
       // Jefe en el aire o bajo tierra (su firma): se ve lo que dibuja G.BossSig.
       if (this.boss && !this.dead && G.BossSig.hidden(this)) return;
+      // Bajo tierra (enemy-ai.js): sólo el montículo, en la capa del suelo.
+      if (!this.dead && G.EnemyAI && G.EnemyAI.hidden(this)) return;
 
       const gold = this.golden || this.behavior === 'thief' || (this.remote && !this.boss && G.Events.golden);
       if ((this.boss || this.shiny || gold || this.champ) && !this.dead) {
@@ -1149,12 +1142,17 @@
       }
 
       ctx.save();
-      ctx.globalAlpha = alpha;
-      G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
+      // (2.0, bloque 4) Fantasma dentro de una pared: medio transparente. Nadando o hundiéndose para excavar: recortado.
+      const st = this.net ? this.net.st : 0;
+      const a = alpha * (this.inWall || st & 128 ? 0.45 : 1);
+      const sink = this.digSink > 0 ? this.digSink * this.bodyH * 0.8 : this.swimming || st & 64 ? Math.min(12, this.bodyH * 0.3) : 0;
+      ctx.globalAlpha = a;
+      if (!sink) G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
       // Los que flotan ya van en el aire en su sprite: sólo se mecen un poco.
       // (Y los que saltan, en arco.)
       const lift = (this.flying && !this.boss ? 1 + Math.sin(this.bob) * 1.5 : 0) + (this.jumpLift || 0);
-      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha });
+      if (sink) { ctx.beginPath(); ctx.rect(this.x - 200, this.y - 400, 400, 400 - sink + 2); ctx.clip(); ctx.translate(0, sink * 0.8); }
+      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha: a });
       ctx.restore();
 
       if (this.dead) return;
@@ -1216,7 +1214,7 @@
     const grid = new Map();
 
     const byId = new Map();
-    function clear() { list = []; corpses = []; grid.clear(); byId.clear(); G.BossSig.clear(); }
+    function clear() { list = []; corpses = []; grid.clear(); byId.clear(); G.BossSig.clear(); if (G.EnemyAI) G.EnemyAI.clear(); }
     function all() { return list; }
     function add(e) {
       list.push(e);
@@ -1285,7 +1283,7 @@
     function rebuildGrid() {
       grid.clear();
       for (const e of list) {
-        if (e.dead) continue;
+        if (e.dead || (G.EnemyAI && G.EnemyAI.hidden(e))) continue;     // (bajo tierra: nada lo encuentra)
         const k = key(Math.floor(e.x / CELL), Math.floor(e.y / CELL));
         let b = grid.get(k);
         if (!b) grid.set(k, b = []);
@@ -1314,7 +1312,7 @@
 
     function separate(dt) {
       for (const e of list) {
-        if (e.dead) continue;
+        if (e.dead || e.under) continue;
         const cx = Math.floor(e.x / CELL), cy = Math.floor(e.y / CELL);
         let px = 0, py = 0, n = 0;
         for (let j = -1; j <= 1; j++) {
@@ -1337,7 +1335,7 @@
         if (n) {
           e.x += px * 42 * dt;
           e.y += py * 42 * dt;
-          if (!e.flying) G.World.collide(e);
+          if (!e.flying && !e.noClip) G.World.collide(e);
         }
       }
     }
@@ -1482,8 +1480,11 @@
       return bossList;
     }
 
+    /** (2.0, bloque 4) { vivos, atascados, bajoTierra, nadando } (curve.cjs lo apunta cada minuto). */
+    function debugStats() { return G.EnemyAI.stats(list); }
+
     return { clear, all, add, get, addRemote, removeRemote, stash, restore, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, bosses, nearestPlayer,
-             get count() { return list.length; } };
+             debugStats, get count() { return list.length; } };
   })();
 })();
 

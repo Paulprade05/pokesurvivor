@@ -120,13 +120,15 @@ G.Spawner = (() => {
       return Math.abs(x - o.x) < w / 2 + 40 && y > o.y - h / 2 - 40 && y < o.y + h / 2 + 90; });
   }
 
-  /** Punto del anillo donde quepa: no dentro de paredes ni en el agua. */
+  /** Punto del anillo donde quepa: no dentro de paredes ni en el agua; y (2.0, bloque 4) con camino hasta ti, nunca
+   *  en una bolsa cerrada (si el punto está fuera del campo de pathing.js, como antes). */
   function freePoint(pl, angle, flying) {
     for (let i = 0; i < 8; i++) {
       const a = angle + (i === 0 ? 0 : G.U.rand(-0.9, 0.9));
       const [x, y] = ringPoint(pl, a);
       if (players.length > 1 && seenByAnyone(x, y)) continue;
-      if (flying || G.World.isFree(x, y, 14)) return [x, y];
+      if (flying) return [x, y];
+      if (G.World.isFree(x, y, 14) && G.Path.reachable(x, y, pl) !== false) return [x, y];
     }
     return null;
   }
@@ -450,7 +452,7 @@ G.Spawner = (() => {
     for (let i = 0; i < n; i++) {
       const a = i / n * 6.2832 + G.U.rand(-0.3, 0.3), d = G.U.rand(60, 90);
       const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 0.8;
-      if (!fly && !G.World.isFree(px, py, 14)) continue;
+      if (!fly && (!G.World.isFree(px, py, 14) || G.Path.reachable(px, py, G.EnemyMgr.nearestPlayer(players, px, py) || G.Game.player) === false)) continue;
       out.push(make(def, px, py, t, { weak: true, hp: 0.6, xp: 0.5 }));
     }
     return out;

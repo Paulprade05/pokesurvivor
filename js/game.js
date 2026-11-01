@@ -982,6 +982,7 @@ G.Game = (() => {
     const t = performance.now() / 1000;
     G.World.drawGround(ctx, cam);
     G.World.drawLiquid(ctx, cam, t);
+    G.EnemyAI.drawGround(ctx);           // (los que van bajo tierra: su montículo)
     G.Hazards.draw(ctx);
     G.Combat.drawGroundFields(ctx);
     G.Pickups.draw(ctx);
@@ -1057,6 +1058,7 @@ G.Game = (() => {
       G.World.drawLiquid(gx, view, t);
       const props = G.World.visibleProps(view);
       for (const p of props) if (p.flat) G.World.drawProp(gx, p, t);
+      G.EnemyAI.drawGround(gx);
       G.Hazards.draw(gx);
       G.Combat.drawGroundFields(gx);
       G.Pickups.draw(gx);
