@@ -221,7 +221,11 @@ G.SettingsUI = (() => {
       + section('Ver mejor el combate')
       + list(choice('ownFx', [[1, 'Normal'], [0.6, 'Suaves'], [0.35, 'Muy suaves']], 'Transparencia de tus ataques',
           'Tus ataques se ven más transparentes para que veas mejor los disparos y avisos de los enemigos.'),
-        toggle('hazardHi', 'Avisos de alto contraste', 'Los avisos de ataques enemigos en el suelo salen en blanco y negro con rayas en vez del color del tipo, y los disparos enemigos llevan un aro amarillo. Para daltónicos.'));
+        toggle('hazardHi', 'Avisos de alto contraste', 'Los avisos de ataques enemigos en el suelo salen en blanco y negro con rayas en vez del color del tipo, y los disparos enemigos llevan un aro amarillo. Para daltónicos.'))
+      // (1-11-2026) Con todos los ataques y pasivas al máximo, cada nivel da a elegir curarte un poco o monedas.
+      + section('En la partida')
+      + list(choice('maxPick', [['ask', 'Preguntar'], ['heal', 'Siempre curar'], ['coin', 'Siempre monedas']], 'Al subir con todo al máximo',
+          'Con todos tus ataques y pasivas al máximo, cada nivel te deja elegir entre curarte un poco o monedas. Si eliges una para siempre, se aplica sola y la partida no se para.'));
   }
 
   function aboutTab() {

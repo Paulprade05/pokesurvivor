@@ -338,11 +338,15 @@ G.Game = (() => {
       // no, los demás se quedaban esperándote para siempre.
       try {
         G.Audio.sfx('levelup');
-        G.RunUI.showLevelUp(level, G.LevelUp.offer(pl), card => {
-          try { G.Audio.sfx('confirm'); card.apply(pl); }
+        // Todo al máximo con la elección fijada en Ajustes: sale ya elegida (como si la
+        // hubieras pulsado) y esperas a los demás como siempre.
+        const auto = G.LevelUp.auto(pl);
+        G.RunUI.showLevelUp(level, auto ? [auto] : G.LevelUp.offer(pl), card => {
+          try { G.Audio.sfx('confirm'); if (card.full) fullFx(G.LevelUp.fullGain(pl, card), card.full); else card.apply(pl); }
           catch (e) { console.error('[Game] fallo al aplicar la carta:', e); }
           finally { G.Coop.localPicked(); }
         }, true);
+        if (auto) G.RunUI.pick(0, true);
       } catch (e) {
         console.error('[Game] no se pudieron abrir las cartas:', e);
         G.Coop.localPicked();          // esta vez sin carta; la partida sigue al elegir los demás
@@ -453,7 +457,8 @@ G.Game = (() => {
       tiempo: Math.floor(time / 5),
       derrotados: Math.floor(pl.kills * 0.25),
       jefes: pl.bosses * 80,
-      recogidas: pl.coins
+      // (+ las monedas de las cartas de todo al máximo: de cada jugador, también en cooperativo)
+      recogidas: pl.coins + (pl.bonusCoins || 0)
     };
     const coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
     const PART_NAME = { tiempo: 'Tiempo', derrotados: 'Derrotados', jefes: 'Jefes', recogidas: 'Recogidas' };
@@ -572,6 +577,12 @@ G.Game = (() => {
     // Nunca abras cartas con el Pokémon caído (morir y recoger XP en el mismo frame).
     if (pl.dead) return;
     pendingLevels--;
+    // Todo al máximo con la elección fijada en Ajustes («Siempre curar» / «Siempre monedas»):
+    // se aplica sola, con un aviso pequeño, sin parar la partida.
+    let auto = null;
+    try { auto = G.LevelUp.auto(pl); if (auto) { G.Audio.sfx('levelup'); fullFx(G.LevelUp.fullGain(pl, auto), auto.full); } }
+    catch (e) { console.error('[Game] fallo al aplicar la carta sola:', e); }
+    if (auto) return;
     state = 'levelup';
     // Si algo falla al abrir las cartas o al aplicar la elegida, se sigue
     // jugando (antes la partida se quedaba congelada sin cartas, #262).
@@ -587,6 +598,12 @@ G.Game = (() => {
       if (state === 'levelup') state = 'playing';
       G.RunUI.closeLevelUp();
     }
+  }
+
+  /** Aviso de lo que ha dado la carta de todo al máximo: «+12 PV» verde o «+50 monedas» dorado. */
+  function fullFx(txt, kind) {
+    G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, txt, kind === 'coin' ? '#ffd23f' : '#5fe08a', true);
+    if (kind !== 'coin') G.FX.ring(pl.x, pl.y, 6, 60, '#5fe08a', 0.4, 3);
   }
 
   // ---------------- vínculos ----------------

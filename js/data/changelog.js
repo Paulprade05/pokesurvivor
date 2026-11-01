@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Versión 2.0: al máximo, curar o monedas", "Version 2.0: maxed out, heal or coins"], new: [
+    ["Con todos tus ataques y pasivas al máximo, al subir de nivel eliges entre «Curarte un poco» (20 % de la vida) o «Monedas» (más cuanto más dura la partida: 50 en el minuto 20, 65 en el 30), también en cooperativo, cada uno lo suyo. Marca «Elegir siempre esta opción» (o ve a Ajustes > Accesibilidad > En la partida) y se elegirá sola sin parar la partida, con un aviso pequeño.",
+     "With all your attacks and passives maxed, levelling up lets you choose between \"Heal a little\" (20% HP) or \"Coins\" (more the longer the run lasts: 50 at minute 20, 65 at minute 30), in co-op too, each player their own. Tick \"Always choose this option\" (or go to Settings > Accessibility > During a run) and it will be picked automatically without pausing the run, with a small notice."]] },
   { d: '2026-11-01', title: ["Versión 2.0: cooperativo × jugadores", "Version 2.0: co-op × players"], chg: [
     ["Cooperativo: todo escala con los jugadores que sois. Con 2, subir de nivel cuesta el doble de experiencia y todos los enemigos (normales, jefes, legendarios de las grietas y de la Sentencia) tienen el doble de vida y de daño; con 3, el triple; con 4, el cuádruple. Solo no cambia nada. Si alguien se va o vuelve, los enemigos nuevos salen con los que quedáis.",
      "Co-op: everything scales with the number of players. With 2, levelling up takes twice the experience and every enemy (regular ones, bosses, rift and Judgment legendaries) has twice the HP and damage; with 3, three times; with 4, four times. Solo is unchanged. If someone leaves or comes back, new enemies use the players still there."]] },

@@ -129,6 +129,8 @@ BOT.pick = function (cards, cardInfo) {
     if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 : 12; }
     if (/is-new/.test(c.cls)) return atk ? (attacks < 2 ? 75 : attacks < 3 ? 48 : 22) : 4;
     if (c.title === 'Baya Zidra') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
+    // Todo al máximo (1-11-2026): curarte un poco (20 %) si va mal de vida; si no, «Monedas» (15, abajo).
+    if (c.title === 'Curarte un poco') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
     return STAT[c.title] != null ? STAT[c.title] : 15;
   };
   let idx = 0, best = -1;

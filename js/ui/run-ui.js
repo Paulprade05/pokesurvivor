@@ -306,10 +306,15 @@ G.RunUI = (() => {
     const di = $('lvl-discard').querySelector('.dc-ico');
     if (di && !di.firstChild) di.innerHTML = G.UI.svg('close', 20);
     setDiscarding(false);
+    // Todo al máximo (curarte un poco o monedas): la casilla para que se elija sola desde ahora.
+    const full = list.length > 0 && list.every(c => c.full);
+    $('lvl-always').classList.toggle('hidden', !full);
+    $('lvl-always-cb').checked = false;
   }
 
-  function pick(i) {
-    if (!offers || !offers[i] || guarded()) return;
+  /** @param auto  la elige el juego (Ajustes → «Al subir con todo al máximo»): sin la espera anti-toques */
+  function pick(i, auto = false) {
+    if (!offers || !offers[i] || (!auto && guarded())) return;
     if (discarding) {
       const p = G.Game.player;
       if (!G.LevelUp.discard(p, offers[i])) return;
@@ -320,8 +325,14 @@ G.RunUI = (() => {
     }
     const c = offers[i], cb = offerCb;
     offers = null; offerCb = null;
+    // «Elegir siempre esta opción»: se guarda en Ajustes y ya no se pregunta.
+    if (c.full && !auto && $('lvl-always-cb').checked) {
+      G.Settings.set('maxPick', c.full);
+      G.UI.toast(G.T('Se elegirá sola a partir de ahora. Puedes cambiarlo en Ajustes.'), 3200);
+    }
     $('lvl-reroll').classList.add('hidden');
     $('lvl-discard').classList.add('hidden');
+    $('lvl-always').classList.add('hidden');
     if (coopMode) {
       // Se queda la carta elegida a la vista mientras eligen los demás.
       $('cards').querySelectorAll('.card').forEach((el, j) => el.classList.toggle('picked', j === i));
