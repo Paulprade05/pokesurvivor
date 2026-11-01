@@ -419,7 +419,7 @@ G.I18n.add({
   "· A las {x} tiradas sin Legendaria en un banner, la siguiente lo es.": "· 同一卡池連續 {x} 抽未獲得傳說，下次必定獲得。",
   "· La tirada ×10 garantiza al menos una Épica.": "· 十連抽保證至少獲得一隻史詩寶可夢。",
   "· Los repetidos dan Pokémonedas. Los shiny no se repiten.": "· 重複寶可夢會換成寶可幣，異色寶可夢不會重複。",
-  "· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas, a veces, tickets ×10.": "· 遊玩即可獲得抽獎券：部分寶可夢被擊敗時會掉落，首領與裂縫中的傳說寶可夢有時會掉落十連抽獎券。",
+  "· Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.": "· 遊玩即可獲得抽取券：對局中每100秒獲得1張，每擊敗一個首領再得1張，抵達阿爾宙斯時再得1張（每局最多30張）。完成任務和成就也能獲得。",
   "Tirar ×1 ·": "抽 1 次 ·",
   "Tirar ×10 ·": "抽 10 次 ·",
   "tickets ×10": "十連抽獎券",

@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Versión 2.0 (5): tickets por tiempo y jefes", "Version 2.0 (5): tickets from time and bosses"], chg: [
+    ["Los tickets del gacha ahora se ganan por tiempo y por jefes: 1 cada 100 segundos de partida, 1 más por cada jefe vencido y otro al llegar a Arceus, como mucho 30 por partida (de 3 a 8 cada 5 minutos). Ya no salen del suelo ni hay tickets ×10 en partida: lo que soltaban los enemigos, los jefes, los legendarios, los cofres con candado, Gholdengo y los Pokémon perdidos ahora son monedas. Los tickets que ya tenías, las misiones y los logros no cambian.",
+     "Gacha tickets are now earned by time and by bosses: 1 every 100 seconds of a run, 1 more for each boss defeated and another when you reach Arceus, 30 per run at most (3 to 8 every 5 minutes). They no longer drop on the ground and there are no ×10 tickets during runs: what enemies, bosses, legendaries, locked chests, Gholdengo and lost Pokémon used to drop is now coins. The tickets you already have, missions and achievements don't change."],
+    ["Cooperativo: cada jugador gana los mismos tickets que jugando solo (antes cada uno se llevaba los que recogía todo el equipo).",
+     "Co-op: each player earns the same tickets as when playing solo (before, everyone got the tickets the whole team picked up)."]] },
   { d: '2026-11-01', title: ["Versión 2.0 (4): enemigos más listos", "Version 2.0 (4): smarter enemies"], new: [
     ["Enemigos más listos según avanza la partida (desde el minuto 2 y del todo hacia el 20): los que disparan apuntan a donde vas a estar, no disparan a través de las paredes y te rodean en vez de quedarse quietos; los de cuerpo a cuerpo se adelantan y llegan por los lados en vez de en fila. Los avisos en el suelo duran lo mismo que antes.",
      "Enemies get smarter as the run goes on (from minute 2, fully by minute 20): shooters aim where you're going to be, don't shoot through walls and circle around you instead of standing still; melee enemies cut you off and come at you from the sides instead of in a line. Ground warnings last as long as before."],

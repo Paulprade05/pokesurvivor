@@ -64,7 +64,8 @@ G.Player = class Player {
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
     this.bind = {};                          // movimiento -> hueco fijo (0-3), elegido en Mejoras
     this.coins = 0;            // monedas recogidas en esta run
-    this.t1 = 0; this.t10 = 0; // tickets del gacha recogidos en esta run
+    this.t1 = 0; this.t10 = 0; // tickets del gacha ganados en esta run (2.0: por reloj y jefes, systems/tickets.js)
+    this.cboss = 0;            // jefes del calendario vencidos (no legendarios: pl.bosses los cuenta todos)
     this.dmgDealt = 0;
     this.dmgTaken = 0;         // vida perdida por golpes (resumen final)
     this.healed = 0;           // vida recuperada (resumen final)

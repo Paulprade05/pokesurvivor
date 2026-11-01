@@ -223,7 +223,7 @@ G.Coop = (() => {
     }
     const ev = m.q; m.q = [];
     const f = { k: 'f', t: r2(st.time), lv: st.level, xp: r2(st.xp), xn: st.xpNext, ki: st.kills, bo: st.bosses, co: st.coins, tk: [st.t1, st.t10],
-                p, e: enemyList(viewOf(m)), ev };
+                p, e: enemyList(viewOf(m)), ev, cb: st.cboss | 0 };     // (cb: jefes del calendario vencidos, para el reloj de tickets)
     const ja = G.Judgment.netState();       // Arceus en la Sentencia
     if (ja) f.ja = ja;
     // Siempre: quién está eligiendo y, si hay cartas de nivel, cuáles (ver arriba).
@@ -441,7 +441,7 @@ G.Coop = (() => {
       else if (!msg.lu && showing) api.resume();
     }
     api.syncTeam({ time: msg.t, level: msg.lv, xp: msg.xp, xpNext: msg.xn, kills: msg.ki, bosses: msg.bo, coins: msg.co,
-                   t1: (msg.tk || [])[0], t10: (msg.tk || [])[1] });
+                   t1: (msg.tk || [])[0], t10: (msg.tk || [])[1], cboss: msg.cb });
     for (const u in msg.p || {}) {
       const m = mates.get(u);
       if (m) m.pl.net = readState(msg.p[u]);

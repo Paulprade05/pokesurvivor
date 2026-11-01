@@ -631,14 +631,13 @@ G.World = (() => {
       return;
     }
     if (p.type === 'bigchest') {
-      // Botín grande: monedas, tickets y experiencia para subir un nivel.
+      // Botín grande: monedas y experiencia para subir un nivel. (2.0, bloque 5: antes 1-3 tickets y, 15 %, un ×10;
+      //  ahora esos ~3,5 tickets en monedas, 25 cada uno: systems/tickets.js.)
       G.FX.burst(p.x, p.y - 12, '#f2c443', 34, 220);
       G.FX.ring(p.x, p.y - 8, 6, 80, '#f2c443', 0.6, 5);
       G.Camera.kick(0.4);
       for (let i = 0; i < 9; i++) G.Pickups.drop('coin', p.x + G.U.rand(-22, 22), p.y + G.U.rand(-14, 14), 4);
-      const tk = G.U.randInt(1, 3);
-      for (let i = 0; i < tk; i++) G.Pickups.drop('ticket', p.x + G.U.rand(-16, 16), p.y + G.U.rand(-10, 10), 1);
-      if (Math.random() < 0.15) G.Pickups.drop('ticket10', p.x, p.y - 10, 1);
+      for (let i = 0; i < 18; i++) G.Pickups.drop('coin', p.x + G.U.rand(-26, 26), p.y + G.U.rand(-16, 16), 5);
       if (Math.random() < 0.5) G.Pickups.drop('item', p.x + 14, p.y - 14, G.Items.roll());
       G.Pickups.dropXp(p.x, p.y, G.Game.levelXp());
       G.Progress.event('chest');

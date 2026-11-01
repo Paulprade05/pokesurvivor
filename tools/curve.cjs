@@ -285,6 +285,8 @@ async function one(dex, upg, tag, speed, cap) {
       wrap(G.Hazards, 'update', 'hz'); wrap(G.Projectiles, 'update', 'proj'); wrap(G.Combat, 'resolve', 'touch'); wrap(G.BossSig, 'update', 'sig');
       await home();
       BOT.on = true;
+      // (2.0, bloque 5) --speed marca la partida como acelerada y el reloj de tickets no contaría: con ?dev se le dice que sí.
+      if (G.Tickets) G.Tickets.debugIgnoreTamper = true;
       G.Flow.play();
       await sleep(1500);
       // Vida «virtual»: no cae nunca, pero apunta cuándo habría caído.

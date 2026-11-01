@@ -288,7 +288,7 @@ G.I18n.add({
   '· A las {x} tiradas sin Legendaria en un banner, la siguiente lo es.': '· Dopo {x} lanci senza un Leggendario in un banner, il successivo lo è per certo.',
   '· La tirada ×10 garantiza al menos una Épica.': '· Il lancio ×10 garantisce almeno un\'Epica.',
   '· Los repetidos dan Pokémonedas. Los shiny no se repiten.': '· I doppi forniscono Pokémonete. I cromatici non si ripetono.',
-  '· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas, a veces, tickets ×10.': '· I biglietti si ottengono giocando: alcuni Pokémon li rilasciano quando sconfitti, e i boss e i leggendari delle fenditure rilasciano a volte biglietti ×10.',
+  '· Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.': '· I biglietti si ottengono giocando: 1 ogni 100 s di partita, 1 in più per ogni boss sconfitto e un altro quando arrivi ad Arceus (al massimo 30 per partita). Anche con missioni e obiettivi.',
   'Tirar ×1 ·': 'Lancia ×1 ·', 'Tirar ×10 ·': 'Lancia ×10 ·', 'tickets ×10': 'biglietti ×10', 'tickets y {x}': 'biglietti e {x}',
   'No tienes tickets suficientes: consíguelos jugando': 'Non hai abbastanza biglietti: ottienili giocando', '¡NUEVO!': 'NUOVO!',
   '¡SHINY NUEVO!': 'NUOVO CROMATICO!', 'Repetido ·': 'Doppione ·', '· {x} {x} shiny': '· {x} {x} cromatico',

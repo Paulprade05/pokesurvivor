@@ -146,7 +146,7 @@ G.Game = (() => {
     G.World.setBiome(0, true);
     biome = 0;
     time = 0; pendingLevels = 0;
-    runReal = performance.now(); tampered = false;
+    runReal = performance.now(); tampered = false; ticketT = 0;
 
     pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(chosen));
     G.Evo.start(pl, chosen);
@@ -287,7 +287,7 @@ G.Game = (() => {
   function flash(col, dur) { flashCol = col; flashDur = dur; flashT = dur; }
 
   function teamState() {
-    return { time, level: pl.level, xp: pl.xp, xpNext: pl.xpNext, kills: pl.kills, bosses: pl.bosses, coins: pl.coins, t1: pl.t1, t10: pl.t10 };
+    return { time, level: pl.level, xp: pl.xp, xpNext: pl.xpNext, kills: pl.kills, bosses: pl.bosses, coins: pl.coins, t1: pl.t1, t10: pl.t10, cboss: pl.cboss };
   }
   function summary() { return { t: time, ki: pl.kills, bo: pl.bosses, co: pl.coins, lv: pl.level, t1: pl.t1, t10: pl.t10 }; }
 
@@ -301,6 +301,8 @@ G.Game = (() => {
   function bankTickets(save_ = true) {
     const sv = G.DB.save;
     if (!sv || !pl) return;
+    // (2.0, bloque 5) Red de seguridad: nunca más de los que da el reloj de tickets ni ningún ×10 en partida.
+    pl.t1 = Math.min(pl.t1, G.Tickets.RUN_MAX); pl.t10 = 0;
     sv.tickets = sv.tickets || { t1: 0, t10: 0 };
     const d1 = Math.max(0, pl.t1 - banked.t1), d10 = Math.max(0, pl.t10 - banked.t10);
     if (!d1 && !d10) return;
@@ -318,8 +320,12 @@ G.Game = (() => {
       if (t.level > pl.level) G.Audio.sfx('xp');
       pl.level = t.level; pl.xp = t.xp; pl.xpNext = t.xpNext;
       pl.kills = t.kills; pl.bosses = t.bosses; pl.coins = t.coins;
-      if (t.t1 > pl.t1 || t.t10 > pl.t10) G.Audio.sfx('shiny');
-      pl.t1 = t.t1 || 0; pl.t10 = t.t10 || 0;
+      // (2.0, bloque 5) Cada uno cobra lo mismo que en solitario: lo que diga el reloj de tickets con los jefes del
+      //  calendario vencidos (cb; un anfitrión viejo no lo manda: sus jefes, algo más, pero con el mismo tope de 30).
+      pl.cboss = t.cboss != null ? t.cboss | 0 : t.bosses | 0;
+      const want = G.Tickets.fromHost(t.t1, ticketClock(), pl.cboss, G.Judgment.active);
+      if (want > pl.t1) ticketFx(want - pl.t1);
+      pl.t1 = Math.max(pl.t1, want); pl.t10 = 0;
       bankTickets();
     },
     levelStart(level) {
@@ -355,7 +361,7 @@ G.Game = (() => {
     inLevelUp() { return state === 'levelup'; },
     shiny(dex) { G.onShinyCaught({ dex, name: (G.DEX_BY[dex] || {}).name || '' }); },
     over(d) {
-      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1), t1: d.t1 || pl.t1, t10: d.t10 || pl.t10 });
+      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1), t1: Math.min(G.Tickets.RUN_MAX, Math.max(pl.t1, d.t1 || 0)), t10: 0 });
       if (d && d.t) time = d.t;
       if (d && d.why === 'host') G.UI.toast('El anfitrión ha terminado la partida', 3200);
       endRun(!(d && d.why === 'host'));
@@ -519,6 +525,28 @@ G.Game = (() => {
    * Si algo salta, esa partida no sube al ranking (sin avisar) y nada más.
    */
   let runReal = 0, tampered = false;
+
+  // ---------------- tickets (2.0, bloque 5: systems/tickets.js) ----------------
+  // Reloj que cuenta para los tickets: el de la partida, pero nunca más que el real + 10 s (saltar el reloj o acelerar no
+  // regala nada); con ?dev, el bot puede pedir que no se mire (G.Tickets.debugIgnoreTamper).
+  function ticketClock() { return G.Tickets.debugIgnoreTamper ? time : Math.min(time, (performance.now() - runReal) / 1000 + 10); }
+  let ticketT = 0;
+  function ticketFx(n) {
+    for (let i = 0; i < Math.min(n, 3); i++) G.FX.dmgText(pl.x, pl.y - pl.bodyH - 8 - i * 14, '+1 ticket', '#ffd23f', true);
+    G.FX.ring(pl.x, pl.y, 6, 50, '#ffd23f', 0.4, 3);
+    G.Audio.sfx('shiny');
+  }
+  /** Una vez por segundo (solitario o anfitrión): lo que diga el reloj de tickets. */
+  function tickTickets(dt) {
+    if ((ticketT += dt) < 1) return;
+    ticketT = 0;
+    const want = G.Tickets.forRun(ticketClock(), pl.cboss, G.Judgment.active);
+    if (want <= pl.t1) return;
+    ticketFx(want - pl.t1);
+    pl.t1 = want;
+    bankTickets();
+  }
+
   function clean() {
     if (tampered) return false;
     if (time > (performance.now() - runReal) / 1000 + 10) return false;
@@ -687,13 +715,8 @@ G.Game = (() => {
       if (mine) offerItem(p.value);
       return;
     }
-    if (p.kind === 'ticket' || p.kind === 'ticket10') {
-      if (p.kind === 'ticket') pl.t1++; else pl.t10++;
-      bankTickets();
-      G.FX.dmgText(who.x, who.y - who.bodyH - 8, p.kind === 'ticket' ? '+1 ticket' : '¡Ticket ×10!', p.kind === 'ticket' ? '#ffd23f' : '#d9a6ff', true);
-      G.FX.ring(who.x, who.y, 6, 50, p.kind === 'ticket' ? '#ffd23f' : '#c47bff', 0.4, 3);
-      return;
-    }
+    // (2.0, bloque 5) Un ticket del suelo sólo puede venir de un anfitrión de antes: no cuenta (los tickets salen del reloj).
+    if (p.kind === 'ticket' || p.kind === 'ticket10') return;
     if (p.kind === 'heal') {
       if (mine) pl.heal(pl.maxHp * 0.3);
       G.FX.ring(who.x, who.y, 6, 60, '#5fe08a', 0.4, 3);
@@ -935,7 +958,7 @@ G.Game = (() => {
     G.World.update(dt, G.Camera);
 
     const all = everyone();
-    if (!coop || G.Coop.isHost) { G.Path.update(dt, all); G.Spawner.update(dt, all, time); G.Director.update(dt, all, time); }
+    if (!coop || G.Coop.isHost) { G.Path.update(dt, all); G.Spawner.update(dt, all, time); G.Director.update(dt, all, time); tickTickets(dt); }
     else G.Spawner.tickBanner(dt);
     G.EnemyMgr.update(dt, all);
     G.EnemyMgr.rebuildGrid();

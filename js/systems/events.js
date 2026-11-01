@@ -12,7 +12,7 @@
  *           5 veces, se une a tu colección.
  *
  * Duendes del tesoro (1-2 por partida, ver Enemy behavior 'thief'): un
- * Meowth cargado de monedas (o, 1 de cada 4, un Gholdengo con un ticket ×10)
+ * Meowth cargado de monedas (o, 1 de cada 4, un Gholdengo con muchas más; antes de la 2.0, un ticket ×10)
  * que huye y se escapa a los 15 s si no lo atrapas.
  *
  * Cooperativo: decide el anfitrión y avisa con 'ev' (ver coop.js). Todos ven lo
@@ -116,7 +116,7 @@ G.Events = (() => {
     const pl = G.U.pick(players.filter(p => !p.dead).length ? players.filter(p => !p.dead) : players);
     G.Sprites.preload([dex]);
     const def = { dex, name: mon.name, behavior: 'thief', hp: Math.round(60 * (1 + time / 95) * (gold ? 1.5 : 1)),
-                  spd: 92, dmg: 0, xp: 10, loot: gold ? 'ticket10' : 'coins' };
+                  spd: 92, dmg: 0, xp: 10, loot: gold ? 'gold' : 'coins' };
     for (let i = 0; i < 12; i++) {
       const a = Math.random() * 6.2832, d = G.U.rand(230, 300);
       const x = pl.x + Math.cos(a) * d, y = pl.y + Math.sin(a) * d * 0.8;
@@ -125,8 +125,7 @@ G.Events = (() => {
       e.life = THIEF_LIFE;
       G.EnemyMgr.add(e);
       G.FX.ring(x, y, 4, 40, '#ffd23f', 0.5, 3);
-      G.Spawner.say(gold ? '¡Un ' + mon.name + ' con un ticket ×10! ¡Atrápalo antes de que huya!'
-                         : '¡Un ' + mon.name + ' cargado de monedas! ¡Atrápalo antes de que huya!', 3, false, THIEF);
+      G.Spawner.say('¡Un ' + mon.name + ' cargado de monedas! ¡Atrápalo antes de que huya!', 3, false, THIEF);
       G.Audio.sfx('shiny');
       return;
     }
@@ -211,7 +210,8 @@ G.Events = (() => {
   function rescued() {
     const L = lost;
     for (let i = 0; i < 12; i++) G.Pickups.drop('coin', L.tx + G.U.rand(-40, 40), L.ty + G.U.rand(-30, 30), 5);
-    G.Pickups.drop('ticket', L.tx, L.ty - 12, 1);
+    // (2.0, bloque 5: antes también un ticket; ahora sus 25 monedas, systems/tickets.js.)
+    for (let i = 0; i < 5; i++) G.Pickups.drop('coin', L.tx + G.U.rand(-30, 30), L.ty + G.U.rand(-22, 22), 5);
     if (G.Coop.isHost) G.Coop.broadcast(['ev', 'rw', L.dex, L.grant ? 1 : 0]);
     reward(L.dex, L.grant);
     lost = null;

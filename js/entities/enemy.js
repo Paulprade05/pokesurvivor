@@ -366,18 +366,18 @@
       G.Pickups.dropXp(this.x, this.y, this.xp, this.boss, !!this.legend, !!this.judge);
       if (this.golden && Math.random() < 0.35) G.Pickups.drop('coin', this.x + 6, this.y - 4, 3);
       if (this.champ) for (let i = 0; i < 3; i++) G.Pickups.drop('coin', this.x + G.U.rand(-20, 20), this.y + G.U.rand(-14, 14), 3);
-      // Duende del tesoro: Meowth suelta monedas; Gholdengo, un ticket ×10.
+      // Duende del tesoro: Meowth suelta monedas; Gholdengo, muchas más (2.0, bloque 5: antes un ticket ×10; los tickets
+      //  ya no salen del suelo, ver systems/tickets.js, y cada ticket que se daba son 25 monedas).
       if (this.behavior === 'thief') {
-        const n = this.def.loot === 'ticket10' ? 6 : 20;
+        const n = this.def.loot === 'gold' || this.def.loot === 'ticket10' ? 56 : 20;
         for (let i = 0; i < n; i++) G.Pickups.drop('coin', this.x + G.U.rand(-36, 36), this.y + G.U.rand(-26, 26), 5);
-        if (this.def.loot === 'ticket10') G.Pickups.drop('ticket10', this.x, this.y - 12, 1);
         G.FX.ring(this.x, this.y, this.r, this.r * 5, '#ffd23f', 0.6, 4);
       }
       if (this.legend) {
-        // El legendario de la grieta: tickets sueltos y monedas (el ×10, como
-        // la mitad de las veces; antes daba 2 siempre).
-        for (let i = 0; i < 3; i++) G.Pickups.drop('ticket', this.x + G.U.rand(-30, 30), this.y + G.U.rand(-20, 20), 1);
+        // El legendario de la grieta: monedas (2.0, bloque 5: antes 3 tickets y, la mitad de las veces, un ×10; ahora sus
+        //  ~8 tickets de media en monedas, 25 cada uno).
         for (let i = 0; i < 10; i++) G.Pickups.drop('coin', this.x + G.U.rand(-50, 50), this.y + G.U.rand(-35, 35), 8);
+        for (let i = 0; i < 40; i++) G.Pickups.drop('coin', this.x + G.U.rand(-60, 60), this.y + G.U.rand(-42, 42), 5);
       }
       G.Audio.sfx(this.boss ? 'bossDown' : 'faint');
       if (this.shiny) {
@@ -1399,6 +1399,7 @@
           pl.kills++;                                          // (del equipo: el anfitrión lo manda a todos)
           killHook(pl, players, e);
           if (e.boss && !e.judge) pl.bosses++;
+          if (e.boss && !e.judge && !e.legend) pl.cboss = (pl.cboss || 0) + 1;   // (tickets: systems/tickets.js)
           if (G.Director) G.Director.kill(e);
           G.Progress.kill(e);
           corpses.push(e);

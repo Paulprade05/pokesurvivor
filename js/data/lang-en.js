@@ -298,7 +298,7 @@ G.I18n.add({
   '· A las {x} tiradas sin Legendaria en un banner, la siguiente lo es.': '· After {x} pulls without a Legendary on a banner, the next one is.',
   '· La tirada ×10 garantiza al menos una Épica.': '· The ×10 pull guarantees at least one Epic.',
   '· Los repetidos dan Pokémonedas. Los shiny no se repiten.': '· Duplicates give PokéCoins. Shinies never repeat.',
-  '· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas, a veces, tickets ×10.': '· Tickets are earned by playing: some Pokémon drop them when defeated, and bosses and rift legendaries sometimes give ×10 tickets.',
+  '· Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.': '· Tickets are earned by playing: 1 every 100 s of a run, 1 more for each boss defeated and another when you reach Arceus (30 per run at most). Also from missions and achievements.',
   'Tirar ×1 ·': 'Pull ×1 ·', 'Tirar ×10 ·': 'Pull ×10 ·', 'tickets ×10': '×10 tickets', 'tickets y {x}': 'tickets and {x}',
   'No tienes tickets suficientes: consíguelos jugando': 'Not enough tickets: earn them by playing', '¡NUEVO!': 'NEW!', '¡SHINY NUEVO!': 'NEW SHINY!',
   'Repetido ·': 'Duplicate ·', '· {x} {x} shiny': '· {x} {x} shiny', '{x} Shiny': '{x} Shiny', 'Clic para acelerar': 'Click to speed up',

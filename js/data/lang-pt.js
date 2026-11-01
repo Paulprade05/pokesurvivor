@@ -653,7 +653,7 @@ G.I18n.add({
   "· A las {x} tiradas sin Legendaria en un banner, la siguiente lo es.": "· Após {x} giros sem Lendário em um banner, o próximo é garantido.",
   "· La tirada ×10 garantiza al menos una Épica.": "· O giro ×10 garante pelo menos um Épico.",
   "· Los repetidos dan Pokémonedas. Los shiny no se repiten.": "· Repetidos dão Pokémoedas. Shinies não se repetem.",
-  "· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas, a veces, tickets ×10.": "· Os tickets são conseguidos jogando: alguns Pokémon soltam ao serem derrotados, e os chefes e os lendários das fendas, às vezes, dão tickets ×10.",
+  "· Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.": "· Os tickets são ganhos jogando: 1 a cada 100 s de partida, mais 1 por chefe derrotado e outro ao chegar ao Arceus (no máximo 30 por partida). Também com missões e conquistas.",
   "Tirar ×1 ·": "Girar ×1 ·",
   "Tirar ×10 ·": "Girar ×10 ·",
   "tickets ×10": "tickets ×10",
