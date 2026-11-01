@@ -8,7 +8,7 @@
  * duro que si fuera solo, la arena dura más y cada uno suelta su premio; se
  * gana al vencerlos a todos.
  *
- *   ganas    cada legendario suelta tickets (el ×10, la mitad de las veces) y monedas, y cada uno se lleva un
+ *   ganas    cada legendario suelta monedas (2.0: ya no tickets, ver tickets.js), y cada uno se lleva un
  *            VÍNCULO (fusiona movimientos, ver Player.fuse); a los pocos
  *            segundos volvéis al mapa donde estabais y se elige la fusión
  *   pierdes  (caéis todos o se acaba el tiempo) volvéis sin premio, con algo
