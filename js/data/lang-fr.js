@@ -1082,7 +1082,7 @@ G.I18n.add({
   "Los números que salen al golpear y al recibir daño.": "Les chiffres qui s'affichent quand tu frappes ou que tu es touché.",
   "Menos sacudidas y destellos": "Moins de secousses et de flashs",
   "La cámara tiembla menos y los fogonazos son suaves.": "La caméra tremble moins et les flashs sont adoucis.",
-  "Casillas de Mundo Misterioso": "Cases de Donjon Mystère", "El suelo, las paredes y el agua con las casillas de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "Le sol, les murs et l'eau avec les cases d'Explorateurs du Ciel. Désactivé : le dessin propre au jeu.",
+  "Casillas de Mundo Misterioso": "Cases de Donjon Mystère", "El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.": "Le sol, les murs, l'eau, les arbres, les coffres et les pièges avec le dessin d'Explorateurs du Ciel. Désactivé : le dessin propre au jeu.",
   "Mostrar FPS": "Afficher les FPS",
   "Fotogramas por segundo, en la esquina de abajo.": "Images par seconde, dans le coin en bas.",
   "Pantalla completa": "Plein écran",

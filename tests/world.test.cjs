@@ -19,12 +19,12 @@ function loadWorld(seed = 1234) {
   return G.World;
 }
 
-test('world: 48-unit tiles, 768-unit chunks, world version 3 (block 6)', () => {
+test('world: 48-unit tiles, 768-unit chunks, world version 4 (block 6b)', () => {
   const W = loadWorld();
   assert.equal(W.TS, 48);
   assert.equal(W.GS, 3);
   assert.equal(W.CW, 768);
-  assert.equal(W.WV, 3);
+  assert.equal(W.WV, 4);
 });
 
 test('world: the same seed gives the same terrain; the starting clearing stays free (≈ 290 units, like before)', () => {
@@ -97,9 +97,11 @@ test('co-op: the host sends wv in "start"; the guest sends wv with "ready"; neit
 
 function loadTileset(on = true) {
   const G = { Settings: { get: k => (k === 'pmdTiles' ? on : undefined) } };
-  G.TILESETS = [{ bi: 0, key: 'forest', src: 'X', vars: [{ file: 'var1.png', cells: [1, 0, 2 ** 47] }], frames: 2, dur: 0.5 }];
+  G.TILESETS = [{ bi: 0, key: 'forest', src: 'X', vars: [{ file: 'var1.png', cells: [1, 0, 2 ** 47] }], frames: 2, dur: 0.5,
+    pal: { floor: ['#111111', '#222222', '#333333', '#444444'], wall: ['#000000', '#005500', '#007700', '#00aa00'], edge: '#000000', rock: ['#1', '#2', '#3', '#4'], grass: ['#1', '#2', '#3', '#4'] } }];
+  G.OBJECTS_PMD = { bigchest: { file: 'bigchest.png', w: 32, h: 31 }, trap0: { file: 'trap0.png', w: 24, h: 24 } };
   const draws = [];
-  const ctx = { drawImage: (...a) => draws.push(a), set imageSmoothingEnabled(v) {} };
+  const ctx = { drawImage: (...a) => draws.push(a), fillRect() {}, fillStyle: '', set imageSmoothingEnabled(v) {} };
   const images = [];
   class Img { set src(v) { this._src = v; images.push(this); } }
   const document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
@@ -136,7 +138,7 @@ test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and
 });
 
 test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and grove trees always leave a gap', () => {
-  let walls = 0, loose = 0;
+  let walls = 0, loose = 0, near = 0, nTrees = 0;
   for (let s = 1; s <= 4; s++) {
     const W = loadWorld(s * 211);
     const isW = (tx, ty) => W.kindAt(tx * 48 + 1, ty * 48 + 1) === 'wall';
@@ -146,11 +148,43 @@ test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and gro
       const b = (a, c) => isW(tx + a, ty) && isW(tx, ty + c) && isW(tx + a, ty + c);
       if (!(b(1, 1) || b(1, -1) || b(-1, 1) || b(-1, -1))) loose++;
     }
-    // Árboles: nunca dos en casillas vecinas en recto (entre troncos pegados no se pasa).
-    const trees = new Set(W.propsInCircle(0, 0, 2400).filter(p => p.type === 'tree').map(p => p.tx + ',' + p.ty));
-    for (const k of trees) { const [x, y] = k.split(',').map(Number); assert.ok(!trees.has((x + 1) + ',' + y) && !trees.has(x + ',' + (y + 1)), 'árboles pegados en ' + k); }
+    // Árboles: (6b) nunca dos en casillas vecinas, ni en recto ni en diagonal: con el tileset cada árbol llena su casilla
+    //  como un trozo de pared y dos en diagonal se tocan por la esquina (parece cerrado). (Antes se miraba con
+    //  propsInCircle, que sólo da los que se rompen: los árboles no salían y no se comprobaba nada.)
+    const cam = { left: () => -2400, top: () => -2400, w: 4800, h: 4800, sees: () => true };
+    const trees = new Set(W.visibleProps(cam).filter(p => p.type === 'tree').map(p => p.tx + ',' + p.ty));
+    for (const k of trees) {
+      const [x, y] = k.split(',').map(Number);
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [-1, 1]]) if (trees.has((x + dx) + ',' + (y + dy))) near++;
+    }
+    nTrees += trees.size;
   }
   assert.ok(loose / walls < 0.02, 'paredes sueltas ' + (100 * loose / walls).toFixed(1) + ' %');
+  assert.ok(nTrees > 300, 'hay árboles: ' + nTrees);
+  assert.equal(near, 0, 'árboles pegados');
+});
+
+test('tileset 6b: objects in PMD style only when the tileset is ready (tree = the loose wall piece; big chest, traps); off → tiles.js', () => {
+  const { T, draws, images } = loadTileset(true);
+  assert.equal(T.prop(0, 'tree', 0), null, 'cargando: lo pinta tiles.js');
+  assert.equal(T.pal(0), null);
+  for (const im of images) im.onload();
+  const tree = T.prop(0, 'tree', 0);
+  assert.ok(tree && tree.width === 24, 'el árbol es una casilla de 24 px');
+  const d = draws[draws.length - 1];
+  assert.deepEqual([d[1], d[2]], [(T.RULE[0] % 6) * 24, ((T.RULE[0] / 6) | 0) * 24], 'la pieza de pared suelta (sección de pared)');
+  assert.equal(T.prop(0, 'tree', 0), tree, 'guardado');
+  assert.equal(T.prop(0, 'chest', 0), null, 'el cofre pequeño, de tiles.js');
+  assert.equal(T.prop(0, 'rock', 0), null);
+  assert.equal(T.prop(0, 'bigchest', 0), null, 'el PNG del cofre aún cargando');
+  const n = images.length;
+  images[n - 1].onload();
+  assert.equal(T.prop(0, 'bigchest', 0), images[n - 1]);
+  assert.equal(T.prop(0, 'trap', 4 * 2), null, 'trampa sin datos (la explosiva): tiles.js');
+  assert.equal(T.pal(0).rock.length, 4);
+  const off = loadTileset(false).T;
+  assert.equal(off.prop(0, 'tree', 0), null, 'apagado');
+  assert.equal(off.pal(0), null);
 });
 
 test('world 6: closed pockets (floor walled in by walls or liquid) are rare and never near the start (§11.10)', () => {

@@ -6,6 +6,12 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-01', title: ["Versión 2.0 (6b): árboles, paredes y objetos de Mundo Misterioso", "Version 2.0 (6b): Mystery Dungeon trees, walls and objects"], new: [
+    ["Los objetos del mundo, también al estilo de Mundo Misterioso: los árboles son trozos de pared del bioma (en los bosques, un árbol; en las cuevas, una roca o un cristal), el cofre con candado y las trampas son los de Exploradores del Cielo, y las rocas, la hierba alta, los cofres, las torres y los manantiales llevan los colores de cada bioma. Van con el mismo interruptor de Ajustes.",
+     "World objects in Mystery Dungeon style too: trees are pieces of the biome's wall (a tree in forests, a rock or crystal in caves), the locked chest and the traps come from Explorers of Sky, and rocks, tall grass, chests, towers and springs use each biome's colours. They follow the same switch in Settings."]],
+  chg: [
+    ["Las paredes llevan una sombra corta al pie y se ven como obstáculo de un vistazo. Entre dos árboles queda siempre una casilla libre: lo que parece paso es paso. La hierba alta es más baja y deja ver el suelo. Cooperativo: hay que tener todos la misma versión (se avisa).",
+     "Walls cast a short shadow at their base and read as obstacles at a glance. There's always a free tile between two trees: if it looks like a way through, it is. Tall grass is shorter and lets the floor show. Co-op: everyone needs the same version (you'll be told)."]] },
   { d: '2026-11-01', title: ["Versión 2.0: arreglos", "Version 2.0: fixes"], fix: [
     ["Los enemigos que van bajo tierra ya no se pueden marcar ni atraen tus ataques de lluvia, y golpearlos no cura ni cuenta como daño hecho. Los Pokémon confusos o con miedo ya no saltan de golpe a otro sitio.",
      "Enemies moving underground can no longer be marked or draw your rain attacks, and hitting them no longer heals you or counts as damage dealt. Confused or frightened Pokémon no longer jump suddenly to another spot."],

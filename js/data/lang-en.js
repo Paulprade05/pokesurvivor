@@ -408,7 +408,7 @@ G.I18n.add({
   'alta': 'high', 'media': 'medium', 'baja': 'low',
   'Pantalla': 'Display', 'Números de daño': 'Damage numbers', 'Los números que salen al golpear y al recibir daño.': 'The numbers that pop up when you hit or get hit.',
   'Menos sacudidas y destellos': 'Less shaking and flashing', 'La cámara tiembla menos y los fogonazos son suaves.': 'The camera shakes less and flashes are softer.',
-  'Casillas de Mundo Misterioso': 'Mystery Dungeon tiles', 'El suelo, las paredes y el agua con las casillas de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Floor, walls and water with Explorers of Sky tiles. Off: the game\'s own drawing.',
+  'Casillas de Mundo Misterioso': 'Mystery Dungeon tiles', 'El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Floor, walls, water, trees, chests and traps with Explorers of Sky art. Off: the game\'s own drawing.',
   'Mostrar FPS': 'Show FPS', 'Fotogramas por segundo, en la esquina de abajo.': 'Frames per second, in the bottom corner.',
   'Pantalla completa': 'Fullscreen', 'Sin barras del navegador.': 'Without browser bars.', 'Activar': 'Turn on', 'Sí': 'Yes', 'No': 'No',
   'Idioma': 'Language', 'El juego se recarga al cambiarlo.': 'The game reloads when you change it.',

@@ -29,6 +29,9 @@
  * (2.0, bloque 6) Dibujo: con los tilesets de Mundo Misterioso (world/tileset.js) si están y el interruptor de
  * Ajustes está encendido; si no, el pintor de tiles.js. El terreno se limpia (sin paredes sueltas: cada pared es
  * parte de un bloque de 2×2), las arboledas dejan paso entre troncos y ya no hay caminos de tierra (WV 3).
+ * (Bloque 6b) Los objetos, con el mismo interruptor: los árboles son la pieza de pared suelta del tileset, cofres y
+ * trampas los de PMD y lo demás con la paleta del tileset a 24 px por casilla; en las arboledas, entre dos árboles
+ * queda siempre una casilla libre (WV 4): como cada árbol se ve como un trozo de pared, lo que parece paso es paso.
  *
  * Coordenadas: (x, y) de una entidad = sus PIES, en el plano del suelo.
  * Los chunks se separan en DATOS (baratos, siempre) e IMAGEN (horneada a
@@ -49,8 +52,9 @@ G.World = (() => {
   const TS = 48;                           // tamaño de tile en mundo
   const GS = TS / PT;                      // unidades de mundo por px del pintor (3)
   const CW = N * TS;                       // tamaño de chunk en mundo (768)
-  const WV = 3;                            // versión del mundo (1: casillas de 32, sin `wv`; 2: casillas de 48; 3: terreno
-                                           //  limpio y arboledas con paso, bloque 6)
+  const WV = 4;                            // versión del mundo (1: casillas de 32, sin `wv`; 2: casillas de 48; 3: terreno
+                                           //  limpio y arboledas con paso, bloque 6; 4: arboledas con una casilla libre
+                                           //  entre árboles, bloque 6b)
   const FLOOR = 0, WALL = 1, LIQUID = 2;
   const KIND = ['floor', 'wall', 'liquid'];
 
@@ -369,7 +373,10 @@ G.World = (() => {
       if (type) { /* ya elegido */ }
       // (Bloque 6: en las arboledas, sólo en casillas de un mismo color de un tablero de ajedrez: entre dos troncos queda
       //  siempre paso en diagonal; antes, pegados, parecía que se podía pasar entre ellos y no.)
-      else if (open && h < (grove ? 0.07 : 0.006) && (!grove || ((tx + ty) & 1) === 0)) type = 'tree';
+      // (Bloque 6b: todos, también los sueltos, sólo en casillas pares en x y en y, con más probabilidad para que salgan
+      //  los mismos: entre dos árboles queda siempre una casilla entera libre. Con el tileset cada árbol llena su casilla
+      //  como un trozo de pared, y dos en diagonal se tocaban por la esquina: parecía cerrado y se pasaba.)
+      else if (open && h < (grove ? 0.14 : 0.024) && ((tx | ty) & 1) === 0) type = 'tree';
       else if (open && h > 0.982) type = 'rock';
       // Hierba alta en manchas enteras, sin huecos (como en las rutas); antes, 0,66 y
       // una de cada cuatro casillas vacía al azar (se veían matas sueltas). Sale la misma cantidad.
@@ -870,16 +877,38 @@ G.World = (() => {
     }
   }
 
+  /*
+   * (Bloque 6b) El dibujo de un objeto en el bioma bi y su escala (unidades de mundo por px de arte):
+   *   - con el tileset de Mundo Misterioso listo: árboles, cofres y trampas de PMD (G.Tileset.prop) y lo demás pintado
+   *     por tiles.js con la paleta del tileset; todo a 24 px por casilla (×2), también la hierba alta;
+   *   - si no: tiles.js como antes (la hierba alta llena su casilla a la escala del pintor, ×3; lo demás, como los Pokémon).
+   * pmd: si es un dibujo de PMD que va justo en su casilla (el árbol, que es la pieza de pared: sin sombra y con la
+   * base en el borde de abajo; las trampas, centradas).
+   */
+  const SPR = { img: null, P: 2, pmd: false };
+  function spriteOf(bi, type, variant) {
+    SPR.pmd = false;
+    if (pmdOn(bi)) {
+      const o = G.Tileset.prop(bi, type, variant);
+      if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'tree' || type === 'trap'; return SPR; }
+      const pal = G.Tileset.pal(bi), g24 = !!pal && (type !== 'grass' || G.Tiles.grass24(bi));
+      SPR.img = G.Tiles.propSprite(bi, type, variant, g24 ? pal : null);
+      SPR.P = type === 'grass' ? (g24 ? TS / G.Tileset.T : GS) : G.Sprites.PX;
+      return SPR;
+    }
+    SPR.img = G.Tiles.propSprite(bi, type, variant);
+    SPR.P = type === 'grass' ? GS : G.Sprites.PX;
+    return SPR;
+  }
+
   function drawProp(ctx, p, t, a0, a1) {
     if (p.wallrow) { drawWallRow(ctx, p, a0, a1); return; }
-    // (2.0: la hierba alta llena su casilla, como el suelo: a la escala del pintor. Lo demás, como los Pokémon.)
-    const P = p.type === 'grass' ? GS : G.Sprites.PX;
     const variant = propVariant(p, t);
-    const img = G.Tiles.propSprite(biome, p.type, variant);
+    const { img, P, pmd: block } = spriteOf(biome, p.type, variant);
     const w = img.width * P, h = img.height * P;
     if (p.flat) {
-      // Planos (manantial, trampa): pegados al suelo, centrados en su casilla.
-      ctx.drawImage(img, Math.round(p.x - w / 2), Math.round(p.y - 8 - h / 2), w, h);
+      // Planos (manantial, trampa): pegados al suelo, centrados en su casilla (las trampas de PMD, en toda la casilla).
+      ctx.drawImage(img, Math.round(p.x - w / 2), Math.round((block ? p.y + 4 - TS / 2 : p.y - 8) - h / 2), w, h);
       if (p.type === 'spring' && p.charge >= 0.15 && Math.sin(t * 3 + p.wiggle) > 0.92) {
         G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 + G.U.rand(-6, 6));
       }
@@ -901,8 +930,9 @@ G.World = (() => {
       ctx.stroke();
       ctx.restore();
     }
-    const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + (p.type === 'grass' ? 4 : 2));
-    if (p.type !== 'grass') {
+    const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
+    const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + dy);
+    if (p.type !== 'grass' && !block) {
       // Sombra suave debajo (como en los juegos de DS): imagen guardada.
       const sh = G.Tiles.shadow(p.type), sw = sh.width * P, shh = sh.height * P;
       ctx.drawImage(sh, Math.round(p.x - sw / 2), Math.round(p.y - shh / 2), sw, shh);
@@ -916,9 +946,9 @@ G.World = (() => {
     const k = fadeK();
     if (k != null) {
       // El objeto viejo se desvanece mientras aparece el nuevo.
-      const old = G.Tiles.propSprite(fade.from, p.type, variant);
+      const o = spriteOf(fade.from, p.type, variant), old = o.img, OP = o.P, ody = o.pmd || p.type === 'grass' ? 4 : 2;
       ctx.globalAlpha = (1 - k) * a;
-      ctx.drawImage(old, Math.round(p.x - old.width * P / 2), Math.round(p.y - old.height * P + (p.type === 'grass' ? 4 : 2)), old.width * P, old.height * P);
+      ctx.drawImage(old, Math.round(p.x - old.width * OP / 2), Math.round(p.y - old.height * OP + ody), old.width * OP, old.height * OP);
       ctx.globalAlpha = k * a;
     } else if (a < 1) ctx.globalAlpha = a;
     ctx.drawImage(img, x, y, w, h);

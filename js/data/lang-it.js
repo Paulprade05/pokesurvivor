@@ -434,7 +434,7 @@ G.I18n.add({
   'Los números que salen al golpear y al recibir daño.': 'I numeri mostrati quando colpisci o subisci danni.',
   'Menos sacudidas y destellos': 'Meno scosse e bagliori',
   'La cámara tiembla menos y los fogonazos son suaves.': 'La visuale trema meno e i lampi sono attenuati.',
-  'Casillas de Mundo Misterioso': 'Caselle di Mystery Dungeon', 'El suelo, las paredes y el agua con las casillas de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Pavimento, muri e acqua con le caselle di Esploratori del Cielo. Spento: il disegno del gioco.',
+  'Casillas de Mundo Misterioso': 'Caselle di Mystery Dungeon', 'El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Pavimento, muri, acqua, alberi, forzieri e trappole con la grafica di Esploratori del Cielo. Spento: il disegno del gioco.',
   'Mostrar FPS': 'Mostra FPS', 'Fotogramas por segundo, en la esquina de abajo.': 'Fotogrammi al secondo, nell\'angolo in basso.',
   'Pantalla completa': 'Schermo intero', 'Sin barras del navegador.': 'Senza barre del browser.', 'Activar': 'Attiva', 'Sí': 'Sì',
   'No': 'No', 'Idioma': 'Lingua', 'El juego se recarga al cambiarlo.': 'Il gioco si ricaricherà dopo la modifica.',

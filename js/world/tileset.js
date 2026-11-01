@@ -12,6 +12,14 @@
  * (SkyTemple/skytemple-dtef, docs), no su código (GPL). Las variaciones (tileset_1, _2) se eligen con un hash de la
  * casilla y la semilla (todos ven lo mismo en cooperativo); el líquido se anima con los fotogramas de liq.png.
  * Con el tileset, el modo Ultra pinta las paredes planas (world.js no levanta filas de pared).
+ *
+ * (Bloque 6b) Los objetos del mundo, con el mismo interruptor y la misma escala (24 px de arte por casilla):
+ *   - árboles: la pieza de pared suelta del tileset (en los bosques, un árbol; en las cuevas, una roca o un cristal):
+ *     un árbol se lee como un trozo de pared, con su contorno y su cara, como en PMD («un bosque es pared»);
+ *   - el cofre con candado y las trampas: los de PMD (tools/fetch_objects.py → assets/objects-pmd/, js/data/objects-pmd.js);
+ *   - rocas, hierba alta, cofres, torres y manantiales: tiles.js con la paleta corta del bioma (pal, sacada del tileset).
+ * Sin esos archivos, o mientras cargan, los pinta tiles.js como antes. Al pie de las paredes, una sombra corta en el
+ * suelo para que se lean como obstáculo de un vistazo.
  */
 G.Tileset = (() => {
   const T = 24;
@@ -27,6 +35,9 @@ G.Tileset = (() => {
   for (const m of G.TILESETS || []) meta[m.bi] = m;
   const st = {};                                    // bi -> { sheet, vars: [img], liq, left, ok, fail }
   let onReady = null;
+  const ISO = RULE[0];                              // la pieza de pared suelta (sin vecinos de pared)
+  const objs = {};                                  // (6b) cofres y trampas de PMD: tipo -> Image (o null si falló)
+  const propCache = new Map();                      // "bi/variante" -> lienzo del árbol
 
   /** ¿Se usan? (hay datos y el interruptor de Ajustes está encendido) */
   function enabled() { return !!(G.TILESETS && G.TILESETS.length) && G.Settings.get('pmdTiles') !== false; }
@@ -56,7 +67,11 @@ G.Tileset = (() => {
   }
 
   /** Precarga: los de esta lista (los del mapa al empezar; el siguiente al cambiar de bioma). */
-  function preload(list) { if (enabled()) for (const bi of list) load(bi); }
+  function preload(list) {
+    if (!enabled()) return;
+    for (const bi of list) load(bi);
+    for (const k in G.OBJECTS_PMD || {}) obj(k);                 // (6b) los cofres y las trampas, una vez
+  }
 
   /**
    * (Revisión del bloque 6) Con el menú en reposo: los PNG de todos los biomas a la caché (la de sw.js, o la del
@@ -72,6 +87,7 @@ G.Tileset = (() => {
       warmQ.push(dir + 'sheet.png', ...m.vars.map(v => dir + v.file));
       if (m.frames) warmQ.push(dir + 'liq.png');
     }
+    for (const k in G.OBJECTS_PMD || {}) warmQ.push('assets/objects-pmd/' + G.OBJECTS_PMD[k].file);
     const next = () => {
       if (!warmQ.length) return;
       if (G.Game.state !== 'ui') { setTimeout(next, 5000); return; }
@@ -122,8 +138,54 @@ G.Tileset = (() => {
       if (sec !== 2) g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T);
       const cell = cellOf(at, tx, ty, t);
       g.drawImage(srcOf(s, m, sec, cell, tx, ty, seed), (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
+      // (6b) Sombra corta en el suelo al pie de una pared (al sur), para que la pared se lea como obstáculo.
+      if (t !== 1 && at(tx, ty - 1) === 1) {
+        g.fillStyle = 'rgba(0,0,0,0.26)'; g.fillRect(i * T, j * T, T, 2);
+        g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(i * T, j * T + 2, T, 2);
+      }
     }
     cv.pmd = true;
+    return cv;
+  }
+
+  /** (6b) Paleta corta del bioma (suelo, pared, contorno, roca, hierba), si su tileset está listo; si no, null. */
+  function pal(bi) { return ready(bi) && meta[bi].pal ? meta[bi].pal : null; }
+
+  /** (6b) Un cofre o una trampa de PMD (la imagen ya cargada), o null mientras carga, si falló o sin datos. */
+  function obj(key) {
+    const m = G.OBJECTS_PMD && G.OBJECTS_PMD[key];
+    if (!m) return null;
+    if (!(key in objs)) {
+      const im = new Image();
+      objs[key] = null;
+      im.onload = () => { objs[key] = im; };
+      im.src = 'assets/objects-pmd/' + m.file;
+    }
+    return objs[key];
+  }
+
+  /**
+   * (6b) El dibujo de PMD de un objeto del mundo para el bioma bi (24 px de arte por casilla), o null si no lo hay y lo
+   * pinta tiles.js: árboles (la pieza de pared suelta, con las variaciones del tileset según el aspecto), cofres y trampas.
+   */
+  function prop(bi, type, variant = 0) {
+    if (!ready(bi)) return null;
+    if (type === 'bigchest') return obj('bigchest');            // (el pequeño de PMD no cabe en su casilla: tiles.js)
+    if (type === 'trap') return obj('trap' + ((variant >> 2) % 3));
+    if (type !== 'tree') return null;
+    const k = bi + '/' + (variant % 3);
+    let cv = propCache.get(k);
+    if (!cv) {
+      const s = st[bi], m = meta[bi], v = variant % 3 - 1;
+      let src = s.sheet;
+      if (v >= 0 && m.vars[v] && s.vars[v] && (m.vars[v].cells[0] / Math.pow(2, ISO)) % 2 >= 1) src = s.vars[v];
+      cv = document.createElement('canvas');
+      cv.width = cv.height = T;
+      const g = cv.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(src, (ISO % 6) * T, ((ISO / 6) | 0) * T, T, T, 0, 0, T, T);
+      propCache.set(k, cv);
+    }
     return cv;
   }
 
@@ -138,5 +200,5 @@ G.Tileset = (() => {
     ctx.drawImage(s.liq, (f * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, size, size);
   }
 
-  return { T, RULE, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, set onReady(fn) { onReady = fn; } };
+  return { T, RULE, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, set onReady(fn) { onReady = fn; } };
 })();

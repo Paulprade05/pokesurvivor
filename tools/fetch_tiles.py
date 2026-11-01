@@ -9,7 +9,9 @@ para el juego, que nunca lee píxeles (getImageData falla con file://):
   assets/tiles-pmd/<clave>/var1.png     tileset_1 y tileset_2 (variaciones), si las hay
   assets/tiles-pmd/<clave>/liq.png      el secundario (agua, lava...) animado: K fotogramas de 6×8 casillas en fila
   js/data/tilesets.js                   G.TILESETS: por bioma, carpeta, variaciones (qué casillas tienen),
-                                        fotogramas del líquido y su duración, y créditos
+                                        fotogramas del líquido y su duración, créditos y (bloque 6b) la paleta
+                                        corta del bioma (pal) con la que se pintan rocas, hierba alta, torres y
+                                        manantiales para que casen con el suelo y las paredes
 
 La animación del agua en DTEF es un ciclo de paleta; RawAsset ya la trae en fotogramas RGBA (tileset_0_frame0_N.D.png,
 D = 1/60 s que dura cada uno): se cogen como mucho MAX_FRAMES, repartidos, y sólo la sección del secundario.
@@ -19,7 +21,7 @@ Uso:  py tools/fetch_tiles.py            (descarga lo que falte)
 Sin licencia: son extracciones del juego (ver docs/PROMPT-2.0.md §11.2 y CREDITS.md). Para retirarlos basta con
 borrar assets/tiles-pmd/ (y, si se quiere, js/data/tilesets.js con su línea de dev.html) y el juego vuelve al pintor de tiles.js.
 """
-import io, json, os, re, sys, urllib.request
+import colorsys, io, json, os, re, sys, urllib.request
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -90,6 +92,57 @@ def cells(im):
     return out
 
 
+def hexc(c):
+    return '#%02x%02x%02x' % tuple(max(0, min(255, round(v))) for v in c[:3])
+
+
+def lum(c):
+    return c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11
+
+
+def tone(c, dv=0.0, ds=1.0, h=None):
+    """Mismo color con otro brillo (dv, -1..1), otra saturación (×ds) y, si se da, otro tono."""
+    hh, s, v = colorsys.rgb_to_hsv(*(x / 255 for x in c[:3]))
+    v = max(0, min(1, v + dv if dv < 0 else v + (1 - v) * dv * 0.6 + dv * 0.4))
+    r = colorsys.hsv_to_rgb(hh if h is None else h, max(0, min(1, s * ds)), v)
+    return tuple(x * 255 for x in r)
+
+
+def quant(px, qs):
+    px = sorted(px, key=lum)
+    return [px[min(len(px) - 1, int(q * len(px)))] for q in qs]
+
+
+def palette(base):
+    """
+    (Bloque 6b) La paleta corta del bioma, sacada del tileset: suelo (4 tonos, de oscuro a claro), pared (4, de la
+    pieza de pared suelta), el contorno (lo más oscuro de la pared), y de ahí las rocas (el suelo, más oscuro y menos
+    saturado) y la hierba alta (la pared si es verde, como en los bosques; si no, el suelo más saturado).
+    """
+    def cell(sec, c):
+        x0, y0 = (sec * 6 + c % 6) * T, (c // 6) * T
+        return [p for p in base.crop((x0, y0, x0 + T, y0 + T)).getdata() if p[3] > 200]
+    floor = quant(cell(2, 7), (0.08, 0.4, 0.7, 0.95))
+    wallpx = cell(0, 10) or cell(0, 7)
+    wall = quant(wallpx, (0.15, 0.45, 0.72, 0.95))
+    edge = min(wallpx, key=lum)
+    fm = floor[1]
+    hf, sf, vf = colorsys.rgb_to_hsv(*(x / 255 for x in fm[:3]))
+    hsv = lambda h, s_, v: tuple(x * 255 for x in colorsys.hsv_to_rgb(h, max(0, min(1, s_)), max(0, min(1, v))))
+    # Rocas: casi grises, con un poco del tono del suelo y su mismo brillo (se distinguen por el contorno y la luz).
+    rock = [hsv(hf, sf * 0.35, vf * k) for k in (0.62, 0.84, 1.04, 1.22)]
+    # Hierba: verde si en la pared hay verde (bosques, selvas: el tono de ese verde); si no, del tono del suelo,
+    # más saturada y más oscura que él (se lee como mata sobre el suelo, no como pared).
+    greens = [c for c in wall if c[1] > c[0] * 1.15 and c[1] > c[2] * 1.15]
+    if greens:
+        hg = colorsys.rgb_to_hsv(*(x / 255 for x in greens[0][:3]))[0]
+        grass = [hsv(hg, 0.62, vf * k) for k in (0.62, 0.86, 1.08)] + [hsv(hg, 0.45, min(1, vf * 1.3))]
+    else:
+        grass = [hsv(hf, sf * 1.3 + 0.08, vf * k) for k in (0.6, 0.8, 1.0)] + [hsv(hf, sf * 1.1, min(1, vf * 1.2))]
+    return {'floor': [hexc(c) for c in floor], 'wall': [hexc(c) for c in wall], 'edge': hexc(tone(edge, -0.25)),
+            'rock': [hexc(c) for c in rock], 'grass': [hexc(c) for c in grass]}
+
+
 def main():
     force = '--force' in sys.argv
     os.makedirs(OUT, exist_ok=True)
@@ -138,7 +191,8 @@ def main():
                 strip.save(liq, optimize=True)
         elif os.path.exists(liq):
             os.remove(liq)
-        meta.append({'bi': bi, 'key': key, 'src': dun if ldun == dun else dun + '+' + ldun, 'vars': vars_, 'frames': nf, 'dur': dur})
+        meta.append({'bi': bi, 'key': key, 'src': dun if ldun == dun else dun + '+' + ldun, 'vars': vars_, 'frames': nf, 'dur': dur,
+                     'pal': palette(base)})
         print('%-9s %-18s variaciones %d, fotogramas del líquido %d (%.2f s)' % (key, dun, len(vars_), nf, dur))
     js = ('/* GENERADO por tools/fetch_tiles.py: no editar a mano.\n'
           ' * Tilesets DTEF de 24 px de PMD: Exploradores del Cielo (PMDCollab/RawAsset, TileDtef), uno por bioma.\n'

@@ -809,12 +809,28 @@ G.Tiles = (() => {
 
   const propCache = new Map();          // "bioma/tipo/variante" -> canvas
 
-  function propSprite(bi, type, variant = 0) {
-    const k = bi + '/' + type + '/' + variant;
+  /*
+   * (2.0, bloque 6b) pal: la paleta corta del bioma sacada de su tileset de Mundo Misterioso (G.Tileset.pal). Con ella,
+   * rocas, hierba alta, torres y manantiales salen con los colores del suelo y la pared del tileset, y la hierba alta a
+   * 24 px por casilla (la escala del tileset y de los Pokémon; world.js la dibuja ×2 en vez de ×3).
+   */
+  function propSprite(bi, type, variant = 0, pal = null) {
+    const k = (pal ? 'p' : '') + bi + '/' + type + '/' + variant;
     let cv = propCache.get(k);
-    if (!cv) { cv = PAINT[type](BIOMES[bi], variant); propCache.set(k, cv); }
+    if (!cv) { cv = PAINT[type](pal ? pmdBiome(bi, pal) : BIOMES[bi], variant, pal ? 24 : T); propCache.set(k, cv); }
     return cv;
   }
+  const pmdCache = new Map();
+  function pmdBiome(bi, pal) {
+    let B = pmdCache.get(bi);
+    if (!B) {
+      B = Object.assign({}, BIOMES[bi], { floor: pal.floor, rock: pal.rock.slice(0, 3), grass: pal.grass.slice(0, 3), leaf: pal.wall });
+      pmdCache.set(bi, B);
+    }
+    return B;
+  }
+  /** (6b) ¿La hierba alta de este bioma es de 24 px con la paleta del tileset? (las rejillas y esteras siguen a 16) */
+  const grass24 = bi => BIOMES[bi].ground !== 'metal' && BIOMES[bi].ground !== 'wood';
 
   /*
    * Sombras de los objetos, en píxeles de arte (radio x, radio y) y guardadas:
@@ -1072,12 +1088,14 @@ G.Tiles = (() => {
      * campo sin huecos; sobresale 2 px por arriba y tapa la mitad de abajo de quien
      * está dentro. Estado: 0 quieta · 1 viento · 2 la pisan.
      */
-    grass(B, variant = 0) {
+    grass(B, variant = 0, S = T) {
       if (variant >= 9) variant -= 9;                    // (las variantes 9..17 eran las del Ultra de antes)
       // (29-10-2026) La hierba alta, en suelo de metal: rejilla con cables; en madera: esteras de tatami.
       if (B.ground === 'metal') return PAINT.grate(B, variant);
       if (B.ground === 'wood') return PAINT.mats(B, variant);
-      const P = Pix(18, 18);
+      // (6b) S: px por casilla (16 el pintor; 24 con el tileset de Mundo Misterioso: las matas, ×1,5 más altas).
+      const k = S / 16;
+      const P = Pix(S + 2, S + 2);
       const Gc = ramp(B.grass);
       const out = pack(shade(sortHex(B.grass)[0], -0.58));
       const base = mixPack(sortHex(B.grass)[0], shade(sortHex(B.grass)[0], -0.58), 0.45);
@@ -1085,7 +1103,8 @@ G.Tiles = (() => {
       const look = Math.floor(variant / 3) % 3, st = variant % 3;
       const wind = st === 1 ? 1 : 0, open = st === 2 ? 1.4 : 0, low = st === 2 ? 2 : 0;
       // Base oscura que llena el tile por debajo de las puntas: el campo se ve entero.
-      for (let y = 3; y < 18; y++) for (let x = 0; x < 18; x++) P.set(x, y, base);
+      // (Con 24 px, sin la base: entre las matas se ve el suelo y un campo de hierba no parece un bloque de pared.)
+      if (k === 1) for (let y = 3; y < 18; y++) for (let x = 0; x < 18; x++) P.set(x, y, base);
       // Una mata: tres hojas que se afilan hasta la punta, claras a la izquierda,
       // con UN contorno alrededor (así cada mata se lee entera).
       const tuft = (bx, by, h) => {
@@ -1093,7 +1112,7 @@ G.Tiles = (() => {
         const blade = (cx0, hh, lean) => {
           for (let i = 0; i < hh; i++) {
             const t = i / (hh - 1), cx = cx0 + lean * t * t * 2.2;
-            const half = 1.9 * (1 - t) + 0.3;
+            const half = (1.9 * (1 - t) + 0.3) * (k > 1 ? 1.15 : 1);
             for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) {
               const right = x > cx + 0.3;
               const c = t > 0.62 ? (right ? Gc[2] : tip) : t > 0.25 ? (right ? Gc[1] : Gc[2]) : (right ? Gc[0] : Gc[1]);
@@ -1110,10 +1129,11 @@ G.Tiles = (() => {
         }
         for (const [k, c] of px) { const [x, y] = k.split(',').map(Number); P.set(x, y, c); }
       };
-      // El dibujo se repite cada 16 px (el sprite empieza 1 px antes del tile).
-      const hb = [9, 10, 8][look], hf = [10, 9, 11][look];
-      for (const x of [-3, 5, 13, 21]) tuft(x + 1, 10, hb);           // fila de detrás
-      for (const x of [1, 9, 17]) tuft(x + 1, 15, hf - 1);             // fila de delante (abajo queda la base oscura)
+      // El dibujo se repite cada S px (el sprite empieza 1 px antes del tile; con 24, tres filas de matas).
+      const hb = Math.round([9, 10, 8][look] * (k > 1 ? 1.15 : 1)), hf = Math.round([10, 9, 11][look] * (k > 1 ? 1.15 : 1));
+      //  Con 24, matas cada 12 px y al tresbolillo: entre ellas se ve el suelo.
+      for (const x of k > 1 ? [-5, 7, 19, 31] : [-3, 5, 13, 21]) tuft(x + 1, Math.round(10 * k), hb);   // fila de detrás
+      for (const x of k > 1 ? [1, 13, 25] : [1, 9, 17]) tuft(x + 1, Math.round(15 * k), hf - 1);   // fila de delante
       return P.canvas();
     },
 
@@ -1498,7 +1518,7 @@ G.Tiles = (() => {
 
   function clearProps() { propCache.clear(); }
 
-  return { T, RAISE, CAP_H, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, shadow, clearProps,
+  return { T, RAISE, CAP_H, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, grass24, shadow, clearProps,
            /** Índice de bioma de la arena de un tipo. */
            arenaBiome: type => ARENA + Math.max(0, ARENA_TYPES.indexOf(type)) };
 })();
