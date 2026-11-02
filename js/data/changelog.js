@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-02', title: ["Legendarios de las grietas: daño ajustado", "Rift legendaries: damage adjusted"], chg: [
+    ["Los legendarios de las grietas pegan algo menos que con el cambio de esta mañana: con las mejoras compradas, cada golpe o disparo suyo te quita unos 20-30 de vida (antes unos 45) y su ataque firma unos 60-70 (antes unos 80). Su firma sigue doliendo bastante más que un golpe normal, y en cooperativo se sigue multiplicando por los jugadores que sois.",
+     "Rift legendaries hit a bit less than after this morning's change: with upgrades bought, each of their hits or shots takes about 20-30 HP (about 45 before) and their signature move about 60-70 (about 80 before). Their signature still hurts much more than a normal hit, and in co-op it's still multiplied by the number of players."]] },
   { d: '2026-11-02', title: ["Cofres sin borde negro y enteros al abrirlos", "Chests without a black border and whole when opened"], fix: [
     ["Los cofres ya no tienen un borde negro muy gordo: el contorno es del tono más oscuro de su madera y la sombra es más suave (en Gráficos Ultra en 3D, además, ya no llevan un segundo contorno negro encima).",
      "Chests no longer have a very thick black border: the outline uses the darkest shade of their wood and the shadow is softer (in Ultra 3D graphics they also no longer get a second black outline on top)."],

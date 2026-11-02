@@ -1852,7 +1852,8 @@ G.BossSig = (() => {
   const SIG_PCT = 0.12, SIG_PCT_LEG = 0.15;
   // (02-11-2026) La firma de un legendario de grieta pega SIG_LEG veces más que su daño de siempre (lo que cae de golpe;
   //  los charcos y quemaduras que deja, no). Medido: sus golpes normales ~45 y la firma ~85 (rift.js, LEG_HIT).
-  const SIG_LEG = 1.7;
+  //  (Tarde: LEG_HIT 70 → 39 y SIG_LEG 1,7 → 2,4; golpe ~26 y firma ~68 con tipo neutro, la firma ~2,5 veces un golpe.)
+  const SIG_LEG = 2.4;
   const sigK = e => (e.legend && !e.judge ? SIG_LEG : 1);
   const sd = e => e.shotDmg() * sigK(e), dm = e => e.dmg * sigK(e);
   const bossPct = p => p * Math.min(1, Math.max(0, ((G.Game && G.Game.st ? G.Game.st.time : 0) - 720) / 480));   // (ver arriba)      // (golpe mínimo de las firmas: % de tu vida; bloque 3)

@@ -2280,6 +2280,14 @@
      "Os lendários das fendas batem muito mais forte: com as melhorias compradas, cada golpe ou tiro deles tira uns 40-50 de vida (antes 13-15 nas primeiras fendas) e o ataque assinatura uns 80-90. O dano deles quase não sobe mais com os minutos, então as fendas do final não te derrubam de um golpe. No cooperativo continua multiplicado pelo número de jogadores.",
      "裂隙中的传说宝可梦攻击力大幅提升：购买强化后，它们每次攻击或射击会让你损失约 40-50 HP（以前在早期裂隙中为 13-15），招牌招式约 80-90。它们的伤害几乎不再随时间增长，所以后期裂隙不会一击打倒你。合作模式中仍会按玩家人数倍增。",
      "裂隙中的傳說寶可夢攻擊力大幅提升：購買強化後，牠們每次攻擊或射擊會讓你損失約 40-50 HP（以前在早期裂隙中為 13-15），招牌招式約 80-90。牠們的傷害幾乎不再隨時間增長，所以後期裂隙不會一擊打倒你。合作模式中仍會按玩家人數倍增。"],
+    // ---------------- 2026-11-02: Legendarios de las grietas: daño ajustado (novedades) ----------------
+    ["Legendarios de las grietas: daño ajustado", "Légendaires des failles : dégâts ajustés", "Leggendari delle fenditure: danni regolati", "Lendários das fendas: dano ajustado", "裂隙传说宝可梦：伤害调整", "裂隙傳說寶可夢：傷害調整"],
+    ["Los legendarios de las grietas pegan algo menos que con el cambio de esta mañana: con las mejoras compradas, cada golpe o disparo suyo te quita unos 20-30 de vida (antes unos 45) y su ataque firma unos 60-70 (antes unos 80). Su firma sigue doliendo bastante más que un golpe normal, y en cooperativo se sigue multiplicando por los jugadores que sois.",
+     "Les légendaires des failles frappent un peu moins fort qu’après le changement de ce matin : avec les améliorations achetées, chacun de leurs coups ou tirs t’enlève environ 20-30 PV (environ 45 avant) et leur attaque signature environ 60-70 (environ 80 avant). Leur attaque signature fait toujours bien plus mal qu’un coup normal, et en coopération, ils restent multipliés par le nombre de joueurs.",
+     "I leggendari delle fenditure colpiscono un po’ meno rispetto al cambio di stamattina: con i potenziamenti comprati, ogni loro colpo o tiro ti toglie circa 20-30 PS (prima circa 45) e la loro mossa firma circa 60-70 (prima circa 80). La mossa firma fa ancora molto più male di un colpo normale, e in cooperativa restano moltiplicati per il numero di giocatori.",
+     "Os lendários das fendas batem um pouco menos do que depois da mudança de hoje de manhã: com as melhorias compradas, cada golpe ou tiro deles tira uns 20-30 de vida (antes uns 45) e o ataque assinatura uns 60-70 (antes uns 80). O ataque assinatura ainda dói bem mais que um golpe normal, e no cooperativo continua multiplicado pelo número de jogadores.",
+     "裂隙中的传说宝可梦比今天早上的改动稍弱一些：购买强化后，它们每次攻击或射击会让你损失约 20-30 HP（之前约 45），招牌招式约 60-70（之前约 80）。招牌招式仍比普通攻击痛得多，合作模式中仍会按玩家人数倍增。",
+     "裂隙中的傳說寶可夢比今天早上的改動稍弱一些：購買強化後，牠們每次攻擊或射擊會讓你損失約 20-30 HP（之前約 45），招牌招式約 60-70（之前約 80）。招牌招式仍比普通攻擊痛得多，合作模式中仍會按玩家人數倍增。"],
   ];
   languages.forEach((lang, i) => G.I18n.add(Object.fromEntries(rows.map(r => [r[0], r[i + 1]])), lang));
   G.I18n.add({
