@@ -1369,7 +1369,7 @@
     'u-turn':         { t: 'Te cura un poco por cada enemigo que atraviesas.', mods: { dmg: 2.1 } },
     'pin-missile':    { t: 'Si una aguja o su estallido debilita a un enemigo, tu ataque físico sube para toda la partida (hasta 10 veces).', mods: { dmg: 1.65, count: 1 } },
     'attack-order':   { t: 'Además, una colmena en el suelo que suelta una abeja cada segundo.', mods: { dmg: 1.5, count: 1 } },
-    'karate-chop':    { t: 'Una ráfaga de 6 golpes rapidísimos al frente, con mucho crítico.', mods: { dmg: 0.5 } },
+    'karate-chop':    { t: 'Una ráfaga de 6 golpes rapidísimos al frente, con mucho crítico.', mods: { dmg: 3 } },
     'aura-sphere':    { t: '×3 daño. Una esfera enorme y lenta que atrae a los enemigos a su paso y estalla en el blanco, más fuerte cuanto más lejos ha ido.', mods: { dmg: 3 } },
     'rolling-kick':   { t: '×1,85 daño. Avanzas girando a patadas como siempre y, al acabar, saltas al enemigo más grande y caes sobre él con un rodillazo enorme.', mods: { dmg: 1.85 } },
     'vacuum-wave':    { t: 'Cada enemigo golpeado te sube el ataque físico un rato (hasta 6 veces).', mods: { dmg: 2.0, radius: 1.2 } },

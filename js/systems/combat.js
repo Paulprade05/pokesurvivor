@@ -5449,7 +5449,8 @@ G.Combat = (() => {
     cast(pl, m) {
       const col = colOf(m), L = m.radius * 1.12, dmg = m.dmg * pl.atkFor(m);
       if (m.evolved) {
-        addField({ tag: 'cc', owner: pl, ghost, m, x: pl.x, y: pl.y, k: 0, life: 0.45, pad: 120, dmg,
+        // (El daño de la evolución es el de toda la ráfaga: cada golpe, la sexta parte.)
+        addField({ tag: 'cc', owner: pl, ghost, m, x: pl.x, y: pl.y, k: 0, life: 0.45, pad: 120, dmg: dmg / 6,
           upd(f) {
             const pl2 = f.owner;
             if (pl2.dead) return true;
