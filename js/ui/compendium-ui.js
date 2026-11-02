@@ -15,6 +15,11 @@
  * A la izquierda, la lista con su buscador y sus filtros; a la derecha, la ficha. En una
  * ventana estrecha y alta (de pie) la ficha tapa la lista y «Volver» la cierra.
  * Se inicia sola la primera vez que se abre (menú principal: G.CompendiumUI.open()).
+ * (2-11-2026) También desde la pausa de la partida (G.CompendiumUI.openInPause()): va ENCIMA de
+ * la pausa, que se queda abierta debajo, así la partida sigue igual que en pausa (en solitario,
+ * parada; en grupo, como con la pausa: los demás siguen). «Volver» y Esc la cierran y queda la
+ * pausa. Si la pausa se cierra por otra cosa (Continuar con el mando, cartas de nivel en grupo,
+ * fin de la partida...), el compendio se cierra con ella: no tapa nada que haya que elegir.
  */
 G.CompendiumUI = (() => {
   const $ = id => document.getElementById(id);
@@ -72,6 +77,7 @@ G.CompendiumUI = (() => {
 
   // ---------------- estado ----------------
   let tab = 'moves', ready = false;
+  let inPause = false;                         // abierto encima de la pausa de la partida
   const F = {                                  // filtros de cada pestaña
     moves: { q: '', type: '', fam: '' },
     passives: { q: '' },
@@ -145,7 +151,7 @@ G.CompendiumUI = (() => {
     });
     // «Volver»: con la ficha tapando la lista (ventana estrecha), la cierra; si no, al menú.
     const back = document.querySelector('#scr-compendium .sheet-head [data-back]');
-    back.onclick = () => { if (detailOn()) detail(false); else G.MenuUI.open(); };
+    back.onclick = () => { if (detailOn()) detail(false); else if (inPause) closePause(); else G.MenuUI.open(); };
     // Esc hace lo mismo que «Volver» (si no hay otra ventana encima ni se está escribiendo).
     addEventListener('keydown', e => {
       if (e.key !== 'Escape' || !isOpen() || !onTop()) return;
@@ -170,6 +176,9 @@ G.CompendiumUI = (() => {
     // Al girar el móvil o cambiar de tamaño, deja de tapar la lista si ya cabe al lado.
     const onNarrow = () => { if (!NARROW.matches) detail(false); };
     if (NARROW.addEventListener) NARROW.addEventListener('change', onNarrow); else if (NARROW.addListener) NARROW.addListener(onNarrow);
+    // Encima de la pausa: si se cierra la pausa (o algo tapa el compendio), fuera también.
+    const watch = new MutationObserver(() => { if (inPause && (!isOpen() || !G.UI.isOpen('scr-pause'))) closePause(); });
+    for (const id of ['scr-pause', 'scr-compendium']) watch.observe($(id), { attributes: true, attributeFilter: ['class'] });
   }
 
   const isOpen = () => !$('scr-compendium').classList.contains('hidden');
@@ -192,12 +201,34 @@ G.CompendiumUI = (() => {
   /** Abre el compendio (t: pestaña; id: lo que se enseña en ella). */
   function open(t, id) {
     init();
+    if (inPause) closePause();
     if (t && F[t]) tab = t;
     G.UI.show('scr-compendium', true);
     detail(false);
     // Con algo concreto (p. ej. desde los logros): sin filtros, para que salga en la lista.
     if (id != null) go({ moves: 'm', passives: 'p', items: 'i', mons: 'd' }[tab] + ':' + id);
     else render();
+  }
+
+  /** Desde la pausa: encima de ella (sin el hueco de la barra de arriba, que en la partida no está). */
+  function openInPause() {
+    if (!G.UI.isOpen('scr-pause')) return;
+    init();
+    inPause = true;
+    const scr = $('scr-compendium');
+    scr.classList.remove('under-bar');
+    scr.classList.add('in-pause');
+    scr.classList.remove('hidden');
+    detail(false);
+    render();
+  }
+  /** Cierra el compendio de la pausa (la pausa, si sigue abierta, queda como estaba). */
+  function closePause() {
+    inPause = false;
+    const scr = $('scr-compendium');
+    scr.classList.add('hidden');
+    scr.classList.remove('in-pause', 'detail-open');
+    scr.classList.add('under-bar');
   }
 
   /** De la ficha a otra: m:ataque, p:pasiva, i:objeto, d:Pokémon, t:tipo (Pokémon de ese tipo), f:familia. */
@@ -503,5 +534,5 @@ G.CompendiumUI = (() => {
     box.appendChild(G.UI.spriteCanvas(dex, low ? 96 : 112, low ? 80 : 96, { scale: 2, hero: true, lively: true, shiny: G.DB.ownsShiny && G.DB.ownsShiny(dex) && !!(G.DB.save && G.DB.save.partnerShiny && G.DB.save.partner === dex) }));
   }
 
-  return { open, go, get isOpen() { return isOpen(); } };
+  return { open, openInPause, go, get isOpen() { return isOpen(); } };
 })();
