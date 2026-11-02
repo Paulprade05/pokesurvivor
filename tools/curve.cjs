@@ -122,6 +122,12 @@ BOT.pick = function (cards, cardInfo) {
   const attacks = pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind))).length;
   const STAT = { 'Potencia': 42, 'Réplica': 40, 'Reflejos': 36, 'Amplitud': 30, 'Coraza': 30, 'Vigor': 26, 'Puntería': 24, 'Síntesis': 24,
                  'Persistencia': 20, 'Propulsión': 16, 'Carrera': 18, 'Imán': 12, 'Aprendizaje': 10 };
+  // (2-11-2026) La pasiva que hace evolucionar a uno de sus ataques, si aún no la tiene (basta cogerla una vez).
+  const taken = pl.statsTaken || {}, needs = new Set();
+  for (const m of pl.moves) {
+    const e = G.Moves.EVO[m.id];
+    if (e && !m.evolved && !taken[e[1]] && !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind))) needs.add(G.Moves.NEED_NAME[e[1]]);
+  }
   const score = c => {
     if (/\bevo\b/.test(c.cls)) return 100;
     if (/unlocks/.test(c.cls)) return 90;
@@ -131,6 +137,7 @@ BOT.pick = function (cards, cardInfo) {
     if (c.title === 'Baya Zidra') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
     // Todo al máximo (1-11-2026): curarte un poco (20 %) si va mal de vida; si no, «Monedas» (15, abajo).
     if (c.title === 'Curarte un poco') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
+    if (needs.has(c.title)) return 58;
     return STAT[c.title] != null ? STAT[c.title] : 15;
   };
   let idx = 0, best = -1;
