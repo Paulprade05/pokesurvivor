@@ -382,6 +382,9 @@ G.Tileset = (() => {
     ctx.drawImage(s.liq, (f * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, size, size);
   }
 
-  return { T, RULE, FH, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg,
+  /** Suelta los árboles, rocas y caras repintados (Safari los ha vaciado, game.js gfxCheck); se rehacen al dibujar. */
+  function purge() { for (const c of propCache.values()) G.U.freeCanvas(c); propCache.clear(); }
+
+  return { T, RULE, FH, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
     set onReady(fn) { onReady = fn; } };
 })();

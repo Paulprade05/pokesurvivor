@@ -43,7 +43,7 @@ G.Game = (() => {
     if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(cv);
     G.Touch.init(cv);
     // En móvil: al cambiar de app o al girarlo, la partida se pausa (ver checkOrientation).
-    document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); else gfxCheckT = 0; });
     // (iPhone: pantalla negra, 01-11-2026) Si el navegador tira la memoria del lienzo (sin memoria, o al volver
     // de otra app), el lienzo queda en negro hasta «contextrestored». Mientras, en pausa; al volver, todo lo
     // horneado se suelta (se vuelve a hornear) y se reajusta el tamaño.
@@ -69,7 +69,7 @@ G.Game = (() => {
    * Esto suelta todo lo que se puede volver a hacer: copias blancas, chunks horneados y los lienzos de Ultra.
    */
   let ctxLost = false, purgedAt = -1e9;
-  function purgeGfx() {
+  function purgeGfx(emptied = false) {
     const now = performance.now();
     if (now - purgedAt < 500) return;      // una vez cada medio segundo como mucho (si no, rehornear sin parar)
     purgedAt = now;
@@ -77,6 +77,23 @@ G.Game = (() => {
     G.World.purge();
     D3.free();
     G.Ultra3D.free();
+    // (iPhone: ataques invisibles, 02-11-2026) También los sprites guardados de ataques y avisos.
+    G.VFX.purge();
+    G.Hazards.purge();
+    G.Combat.purgeWebs();
+    if (emptied) G.Tileset.purge();        // (vaciados por Safari: también árboles y rocas repintados)
+  }
+
+  // (iPhone: ataques invisibles, 02-11-2026) Safari puede vaciar los lienzos guardados sin avisar (sin el
+  // evento contextlost): un testigo de 1×1 se mira cada 1,5 s y al volver a la app; si se ha vaciado,
+  // se suelta todo lo guardado y se vuelve a pintar.
+  let gfxCheckT = 0;
+  function gfxCheck(real) {
+    if ((gfxCheckT -= real) > 0) return;
+    gfxCheckT = 1.5;
+    if (G.U.canvasAlive()) return;
+    console.warn('[Game] Safari ha vaciado los lienzos guardados: se vuelven a pintar');
+    purgedAt = -1e9; purgeGfx(true); Backdrop.stale();
   }
 
   function onCtxLost() { if (ctxLost) return; ctxLost = true; autoPause(); purgedAt = -1e9; purgeGfx(); }
@@ -899,6 +916,7 @@ G.Game = (() => {
     // de una grieta con el vínculo abierto, la pantalla se quedaba morada (#114).
     if (flashT > 0) flashT -= dt;
     watchdog(real);
+    gfxCheck(real);
     // (Por si el navegador no avisa con el evento: se mira el lienzo, que es barato.)
     if (ctx.isContextLost && ctx.isContextLost() !== ctxLost) (ctxLost ? onCtxBack : onCtxLost)();
     // Red de seguridad: si la ventana ha cambiado de tamaño (girar el móvil) y no ha
@@ -1101,7 +1119,13 @@ G.Game = (() => {
     const BAND = 8;                   // alto de las franjas de la capa de aire (px de pantalla)
     const WS = 6;                     // tiras de las filas de pared (px del pintor; CAP_H = 24, 4 tiras)
     let gcv = null, gx = null, acv = null, ax = null;
-    const fit = (c, W, H) => { if (c.width !== W) c.width = W; if (c.height !== H) c.height = H; };
+    // (iPhone: tirones, 02-11-2026) A saltos de 64 px y sin encoger por poco: con la cámara temblando (muchos
+    // golpes) el tamaño cambiaba en cada fotograma y Safari volvía a reservar los dos lienzos grandes cada vez.
+    const fit = (c, W, H) => {
+      const w = Math.ceil(W / 64) * 64, h = Math.ceil(H / 64) * 64;
+      if (c.width < W || c.width > w + 128) c.width = w;
+      if (c.height < H || c.height > h + 128) c.height = h;
+    };
     // La vista del lienzo del suelo (lo que necesitan World.drawGround / visibleProps).
     const view = { l: 0, t: 0, w: 0, h: 0, left() { return this.l; }, top() { return this.t; },
       sees(x, y, p = 60) { return x > this.l - p && x < this.l + this.w + p && y > this.t - p && y < this.t + this.h + p; } };
@@ -1120,7 +1144,7 @@ G.Game = (() => {
       if (!gcv) { gcv = document.createElement('canvas'); }
       fit(gcv, GW, GH);
       if (!gx) gx = gcv.getContext('2d', { alpha: false });
-      if (!gx) { purgeGfx(); return; }       // sin memoria de lienzos (iPhone): se suelta lo guardado y se reintenta
+      if (!gx) { purgeGfx(); return false; } // sin memoria de lienzos (iPhone): se suelta lo guardado y este fotograma va en 2D
       view.l = ox; view.t = oy; view.w = GW; view.h = GH;
       gx.setTransform(1, 0, 0, 1, -ox, -oy);
       gx.imageSmoothingEnabled = false;
@@ -1233,9 +1257,22 @@ G.Game = (() => {
         if (!acv) { acv = document.createElement('canvas'); }
         fit(acv, AW, AH);
         if (!ax) ax = acv.getContext('2d');
-        if (!ax) { purgeGfx(); return; }
+        if (!ax) {
+          // (iPhone: ataques invisibles, 02-11-2026) Sin memoria para el lienzo del aire: antes no se dibujaba
+          // ningún ataque; ahora van directamente a la pantalla, sin la perspectiva (sólo mientras dure).
+          purgeGfx();
+          ctx.setTransform(Kd, 0, 0, Kd, (hw + shX - cx) * Kd, (hh + shY - cy) * Kd);
+          ctx.imageSmoothingEnabled = false;
+          G.Projectiles.draw(ctx);
+          G.Combat.drawAirFields(ctx);
+          G.FX.draw(ctx);
+          G.Judgment.drawAir(ctx);
+          for (const e of ens) if (e.y >= 1e8) e.draw(ctx);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          return true;
+        }
         ax.setTransform(1, 0, 0, 1, 0, 0);
-        ax.clearRect(0, 0, AW, AH);
+        ax.clearRect(0, 0, acv.width, acv.height);
         ax.setTransform(Kd, 0, 0, Kd, -aox * Kd, -aoy * Kd);
         ax.imageSmoothingEnabled = false;
         G.Projectiles.draw(ax);
@@ -1254,6 +1291,7 @@ G.Game = (() => {
         }
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return true;
     }
 
     /** Suelta sus dos lienzos (se vuelven a crear al dibujar). */
@@ -1298,8 +1336,10 @@ G.Game = (() => {
     const ents = G.Coop.active ? [pl, ...G.Coop.puppets()] : [pl];
     const stone = G.EvoUI.drawable();     // la piedra de su evolución, en el suelo
     if (stone) ents.push(stone);
-    if (G.Camera.persp) D3.draw(G.Camera, ents, true);
-    else {
+    // (iPhone: ataques invisibles, 02-11-2026) Ultra sin memoria para su lienzo del suelo: antes el fotograma
+    // salía vacío (ni ataques); ahora ese fotograma va en 2D, como sin Ultra.
+    if (!G.Camera.persp || !D3.draw(G.Camera, ents, true)) {
+      if (G.Camera.persp) ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.scale(G.Camera.scale, G.Camera.scale);
       G.Camera.apply(ctx);

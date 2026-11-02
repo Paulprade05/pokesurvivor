@@ -3537,15 +3537,17 @@ G.Combat = (() => {
     cv = document.createElement('canvas');
     cv.width = R * 2 + 4; cv.height = Math.ceil(R * 1.2) + 4;
     const c = cv.getContext('2d'), cx = R + 2, cy = R * 0.6 + 2;
+    if (!c) { G.U.freeCanvas(cv); return null; }      // sin memoria de lienzos (iPhone): este fotograma, sin red
     for (let k = 0; k < 8; k++) { const b = k * TAU / 8; pxLine(c, cx, cy, cx + Math.cos(b) * R, cy + Math.sin(b) * R * 0.6, 1.2, '#e2e2ea'); }
     for (const rr of [0.35, 0.65, 0.95]) for (let k = 0; k < 8; k++) {
       const b0 = k * TAU / 8, b1 = (k + 1) * TAU / 8;
       pxLine(c, cx + Math.cos(b0) * R * rr, cy + Math.sin(b0) * R * rr * 0.6, cx + Math.cos(b1) * R * rr, cy + Math.sin(b1) * R * rr * 0.6, 1.2, '#f8f8ff');
     }
-    if (WEB.size > 8) WEB.clear();
+    if (WEB.size > 8) purgeWebs();
     WEB.set(R, cv);
     return cv;
   }
+  function purgeWebs() { for (const c of WEB.values()) G.U.freeCanvas(c); WEB.clear(); }
   /** Un rayo a bloques de (x0, y0) a (x1, y1) (láseres, el de los espejos, la luz lunar). */
   function drawRay3(ctx, x0, y0, x1, y1, hw, pal, alpha) {
     const P = G.VFX.PAL[pal] || G.VFX.PAL.normal, L = Math.hypot(x1 - x0, y1 - y0);
@@ -5287,6 +5289,7 @@ G.Combat = (() => {
             // (La red se pinta una vez en su lienzo y luego sólo se copia.)
             const a = Math.min(1, (f.life - f.t) * 2, f.t * 5), R = Math.round(f.r);
             const cv = webCanvas(R);
+            if (!cv) return;
             ctx.globalAlpha = 0.6 * a * own;
             ctx.drawImage(cv, Math.round(f.x - R - 2), Math.round(f.y - R * 0.6 - 2));
           } });
@@ -10478,7 +10481,7 @@ G.Combat = (() => {
   const AURORA_VIS = ['aurora', 'ice', 'fairy', 'aurora2'].map(pal => Object.freeze({ beam: 'shard', proj: 'shard', pal }));
   /* ---------------- fin de los ataques únicos: Normal, Fuego, Agua, Planta, Eléctrico, Hielo ---------------- */
 
-  return { tick, resolve, ghostCast, ghostOrbit, updateFields, drawGroundFields, drawAirFields, clearFields,
+  return { tick, resolve, ghostCast, ghostOrbit, updateFields, drawGroundFields, drawAirFields, clearFields, purgeWebs,
            reach, cooldown, wardBlock, zOf, zUse, mx: MXT,
            get fieldCount() { return fields.length; } };
 })();

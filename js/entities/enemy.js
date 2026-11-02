@@ -985,7 +985,7 @@
       // pegabas), y más cuanto más fuerte pegas, pero cada vez menos: con el
       // doble de ataque cura un 27 % más, con 10 veces más un 124 %, y como
       // mucho ×2,5. (Como los enemigos que tienen más vida si haces más daño.)
-      const pow = Math.max(1, ...G.Game.everyone().map(p => (p.atk > 0 && p.baseAtk > 0 ? p.atk / p.baseAtk : 1)));
+      const pow = Math.max(1, ...G.Game.everyone().map(p => (p && p.atk > 0 && p.baseAtk > 0 ? p.atk / p.baseAtk : 1)));
       const k = 0.07 * Math.min(2.5, Math.pow(pow, 0.35));
       const now = G.Game.st.time;
       let n = 0;

@@ -42,7 +42,7 @@ G.Sprites = (() => {
   const ids = new WeakMap();
   let nextId = 1;
   const whites = new Map();            // "id|sx|sy|w|h" -> lienzo blanco (orden: el último usado al final)
-  let whiteBytes = 0;
+  let whiteBytes = 0, whiteFailUntil = 0;
   const WHITE_MAX = (G.U.IOS ? 8 : 24) * 1048576;
   function white(img, sx = 0, sy = 0, w = img.width, h = img.height) {
     let id = ids.get(img);
@@ -50,6 +50,7 @@ G.Sprites = (() => {
     const k = id + '|' + sx + '|' + sy + '|' + w + '|' + h;
     let c = whites.get(k);
     if (c) { whites.delete(k); whites.set(k, c); return c; }
+    if (Date.now() < whiteFailUntil) return null;   // (sin memoria hace nada: no se crean lienzos en vano)
     while (whiteBytes > WHITE_MAX && whites.size) {
       const [ok, oc] = whites.entries().next().value;
       whites.delete(ok); whiteBytes -= oc.width * oc.height * 4; G.U.freeCanvas(oc);
@@ -57,7 +58,7 @@ G.Sprites = (() => {
     c = document.createElement('canvas');
     c.width = Math.max(1, w); c.height = Math.max(1, h);
     const x = c.getContext('2d');
-    if (!x) { purge(); return null; }   // sin memoria de lienzos: se suelta lo guardado y este fotograma va sin destello
+    if (!x) { G.U.freeCanvas(c); purge(); whiteFailUntil = Date.now() + 1000; return null; }   // sin memoria de lienzos: sin destello un rato
     x.drawImage(img, sx, sy, w, h, 0, 0, w, h);
     x.globalCompositeOperation = 'source-in';
     x.fillStyle = '#ffffff';
