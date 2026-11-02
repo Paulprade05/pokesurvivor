@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-02', title: ["Legendarios de las grietas más peligrosos", "Deadlier rift legendaries"], chg: [
+    ["Los legendarios de las grietas pegan mucho más fuerte: con las mejoras compradas, cada golpe o disparo suyo te quita unos 40-50 de vida (antes 13-15 en las primeras grietas) y su ataque firma unos 80-90. Su daño ya casi no sube con los minutos, así que las grietas del final no te tumban de un golpe. En cooperativo se sigue multiplicando por los jugadores que sois.",
+     "Rift legendaries hit much harder: with upgrades bought, each of their hits or shots takes about 40-50 HP (13-15 before in early rifts) and their signature move about 80-90. Their damage barely grows with the minutes now, so late rifts don't one-shot you. In co-op it's still multiplied by the number of players."]] },
   { d: '2026-11-01', title: ["Ultra en 3D: paredes, rocas y cofres con volumen", "Ultra in 3D: walls, rocks and chests with real volume"], new: [
     ["Con los gráficos en Ultra, las paredes, las rocas y los cofres ahora son 3D de verdad: tienen volumen, luz de arriba a la izquierda y sombras reales en el suelo, y siguen siendo pixel art (se dibujan a la escala del arte, con sus texturas de siempre). Un Pokémon detrás de una pared queda tapado por ella, y el cofre con candado levanta la tapa mientras lo abres. Se puede apagar en Ajustes > Gráficos > «Ultra en 3D (WebGL)»; si tu aparato no puede, se ve como antes.",
      "With Ultra graphics, walls, rocks and chests are now real 3D: they have volume, light from the top left and real shadows on the ground, and they're still pixel art (drawn at the art's scale, with their usual textures). A Pokémon behind a wall is hidden by it, and the padlocked chest lifts its lid while you open it. You can turn it off in Settings > Graphics > \"Ultra in 3D (WebGL)\"; if your device can't do it, it looks like before."]] },
