@@ -473,8 +473,8 @@ G.Rift = (() => {
   // (02-11-2026) Los legendarios pegan mucho más (pedido del dueño): un golpe suyo ~45 de lo que ves con las mejoras compradas
   //  (antes 13-15) y su firma ~85 (SIG_LEG, enemy.js). Daño de un golpe, igual toda la partida: lo que ves sube solo con los
   //  minutos (al principio, youngK y menos nivel). Medido con tools/curve.cjs: ver
-  //  docs/2.0-ESTADO.md.
-  const LEG_HIT = 70;
+  //  docs/2.0-ESTADO.md. (Tarde del 02-11-2026: algo menos, 70 → 39; golpe ~26 y firma ~68 con tipo neutro.)
+  const LEG_HIT = 39;
 
   /** @param at  dónde sale cada uno (la llegada: startIntro); si no, en su sitio de SPOTS. */
   function spawnLegends(at = null) {

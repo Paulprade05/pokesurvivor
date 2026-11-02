@@ -581,6 +581,38 @@ select.field, .dex-tools select {
   background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
 }
 select option { background: var(--bg-2); color: var(--ink); }
+/* La lista de un desplegable (js/ui/dropdown.js): sustituye a la del navegador, que en
+   el iPhone salía de pie con el juego girado. Va en <body>, encima de todo. */
+.dd-pop {
+  position: fixed; z-index: calc(var(--z-block) + 1); box-sizing: border-box; overflow-x: hidden; overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;
+  padding: 6px; border-radius: var(--rad-m);
+  background: var(--surface-float); border: 1px solid var(--line-2); box-shadow: var(--sh-pop);
+  font: 600 15px/1.25 var(--font); color: var(--ink);
+  animation: dd-in .12s var(--ease);
+  scrollbar-width: thin; scrollbar-color: var(--line-3) transparent;
+}
+.dd-pop.up { animation-name: dd-up; }
+@keyframes dd-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes dd-up { from { opacity: 0; transform: translateY(4px); } }
+.dd-pop::-webkit-scrollbar { width: 8px; }
+.dd-pop::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+.dd-opt {
+  display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px 12px 8px 30px; border-radius: var(--rad-s);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; position: relative;
+}
+.dd-opt.act { background: var(--card-hi); }
+.dd-opt:active { background: var(--card-press); }
+.dd-opt.on { color: var(--c-yellow); }
+.dd-opt.on::before {
+  content: ''; position: absolute; left: 10px; top: 50%; width: 12px; height: 12px; margin-top: -6px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffcb05' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.dd-opt[aria-disabled] { color: var(--muted); opacity: .55; cursor: default; }
+.dd-group { padding: 8px 12px 4px; font: 800 var(--fs-xs)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+@media (pointer: coarse) { .dd-opt { min-height: 44px; font-size: 16px; } }
+@media (max-height: 520px) { .dd-opt { min-height: 36px; padding-top: 6px; padding-bottom: 6px; } }
+@media (max-height: 520px) and (pointer: coarse) { .dd-opt { min-height: 40px; } }
 .err { color: var(--err); min-height: 20px; font-size: 14px; font-weight: 600; margin: 8px 0 0; }
 .note { color: var(--muted); font-size: var(--fs-s); margin-top: 14px; line-height: 1.45; }
 .note a, .sub a { color: var(--link); }
@@ -4844,7 +4876,7 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
 .pause-acts .btn .ui-svg { width: 20px; height: 20px; }
 /* (Abandonar lejos de Continuar, que va a la derecha.) */
 #btn-quit { order: 1; }
-#btn-pause-settings { order: 2; }
+#btn-pause-cmp, #btn-pause-settings { order: 2; }
 #btn-resume { order: 3; }
 .pause-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .pause-hint p { margin: 0; color: var(--muted); font-size: var(--fs-s); line-height: 1.45; }
@@ -5059,20 +5091,21 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   }
   #scr-pause .pause-hint { order: 1; flex: none; padding: 0 max(12px, var(--sa-r)) 6px max(12px, var(--sa-l)); border-bottom: 1px solid var(--line-1); }
   #scr-pause .pause-body { order: 2; padding-bottom: 10px; }   /* (la zona segura de abajo la salvan los botones) */
-  /* Los tres botones en una fila (antes, dos): Abandonar a la izquierda y Continuar a
-     la derecha, con Ajustes (sólo la rueda; el nombre sigue ahí para el lector de pantalla) en medio. */
+  /* Los cuatro botones en una fila: Abandonar a la izquierda y Continuar a la derecha, con
+     Compendio y Ajustes (sólo el icono; el nombre sigue ahí para el lector de pantalla) en medio. */
   #scr-pause .pause-acts {
     order: 3; flex: none; margin: 0;
-    display: grid; grid-template-columns: auto auto minmax(96px, 1fr); grid-template-areas: "quit set go"; gap: 8px;
+    display: grid; grid-template-columns: auto auto auto minmax(96px, 1fr); grid-template-areas: "quit cmp set go"; gap: 8px;
     padding: 8px max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l));
     border-top: 1px solid var(--line-1); background: rgba(6, 12, 30, .45);
   }
   #btn-quit { grid-area: quit; }
+  #btn-pause-cmp { grid-area: cmp; }
   #btn-pause-settings { grid-area: set; }
   #btn-resume { grid-area: go; }
   #scr-pause .pause-acts .btn { min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; }
-  #scr-pause #btn-pause-settings { width: var(--tap); padding-left: 0; padding-right: 0; justify-content: center; }
-  #btn-pause-settings > span {
+  #scr-pause :is(#btn-pause-cmp, #btn-pause-settings) { width: var(--tap); padding-left: 0; padding-right: 0; justify-content: center; }
+  :is(#btn-pause-cmp, #btn-pause-settings) > span {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @media (max-height: 520px) {
@@ -5568,6 +5601,9 @@ body:has(> .scr:not(.hidden)) .evo-toast.on { opacity: 0; visibility: hidden; tr
 .menu-item[data-go=compendium] { --tint: rgba(154, 230, 255, .16); --tint-hi: rgba(190, 240, 255, .5); }
 /* Ajustes: fuera del menú «Más», siempre a la vista en la barra (su baldosa es ahora el Compendio). */
 .topbar #btn-settings .lbl { display: none; }
+/* (2-11-2026) Abierto desde la pausa: por delante de ella (que sigue abierta debajo) y sin
+   el hueco de la barra de arriba, que en la partida no está. */
+#scr-compendium.in-pause { z-index: var(--z-modal); }
 
 @media (min-width: 600px) and (min-height: 521px) {
   .cmp-box.sheet-box { width: min(1120px, 100%); }

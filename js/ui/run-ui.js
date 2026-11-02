@@ -645,6 +645,7 @@ G.RunUI = (() => {
   function wirePause(onResume, onQuit) {
     $('btn-resume').onclick = onResume;
     $('btn-quit').onclick = onQuit;
+    $('btn-pause-cmp').onclick = () => G.CompendiumUI.openInPause();
   }
 
   return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME };
