@@ -4811,7 +4811,7 @@ G.Combat = (() => {
         const a = Math.min(1, (f.life - f.t) * 3);
         ctx.globalAlpha = own * a;
         // De pie y girando (como una hélice vista de lado).
-        G.VFX.draw(ctx, 'bone', f.m.evolved ? 'ghostfire' : 'ground', f.x, f.y - 14, { angle: f.t * 14, scale: 1.5 });
+        G.VFX.draw(ctx, f.m.evolved ? 'bone' : 'px:bone-club', f.m.evolved ? 'ghostfire' : 'ground', f.x, f.y - 14, { angle: f.t * 14, scale: 1.5 });
       } });
     mxTrim(o, 'post', 4, m.id);
     return true;
@@ -5836,7 +5836,7 @@ G.Combat = (() => {
   function stoneDg3(ctx, f, own) { ell3(ctx, f.x, f.y, f.r * 1.1, f.r * 0.45, '#000', 0.25 * own); }
   function stoneDa3(ctx, f, own) {
     const k = Math.min(1, f.t / 0.12), a = Math.min(1, (f.dur - f.t) * 4);
-    G.VFX.draw(ctx, f.shards ? 'spike' : 'rock', 'rock', f.x, f.y - 7 - (1 - k) * 14, { scale: 1.5 * f.r / 10, alpha: a, frame: 1 });
+    G.VFX.draw(ctx, f.shards ? 'spike' : 'px:rock-throw', 'rock', f.x, f.y - 7 - (1 - k) * 14, { scale: 1.5 * f.r / 10, alpha: a, frame: 1 });
   }
 
   // Avalancha → Trampa Rocas: caen y ruedan pantalla abajo; evolucionadas, se quedan de trampa.
@@ -10244,7 +10244,7 @@ G.Combat = (() => {
       if (sees(f.x, f.y)) { G.FX.burst(f.x, f.y - 4, '#d8f6ff', 4, 80); if (Math.random() < 0.3) G.Audio.sfx('hover'); }
       areaHit(pl, m, f.x, f.y, (m.radius || 40) * 0.5, atk(pl, m) * rage, { ghost: f.ghost });
     }, { ghost: g, pad: 40, fall,
-      da(ctx, f, own) { const k = Math.min(1, f.t / f.fall); G.VFX.draw(ctx, 'shard', 'ice', f.x + (1 - k) * 18, f.y - (1 - k) * 140 - 4, { angle: 1.45, alpha: own }); } });
+      da(ctx, f, own) { const k = Math.min(1, f.t / f.fall); G.VFX.draw(ctx, 'px:hail', 'ice', f.x + (1 - k) * 18, f.y - (1 - k) * 140 - 4, { angle: f.t * 9, alpha: own }); } });
   }
   function avalanche(pl, m) {
     // Alud: caen 6 bloques de hielo en anillo a tu alrededor.
@@ -10372,7 +10372,7 @@ G.Combat = (() => {
         dg(ctx, z, own) {
           ctx.globalAlpha = 0.25 * own; ctx.fillStyle = '#bff3ff';
           ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.5, 0, 0, 6.2832); ctx.fill();
-          G.VFX.draw(ctx, 'shard', 'ice', z.x, z.y - 6, { angle: -Math.PI / 2, alpha: own * Math.min(1, (z.life - z.t) * 3) });
+          G.VFX.draw(ctx, 'px:icicle-crash', 'ice', z.x, z.y - 6, { angle: -Math.PI / 2, alpha: own * Math.min(1, (z.life - z.t) * 3) });
         } });
     }
   }
