@@ -365,7 +365,7 @@ const fam = kinds.map(k => [k, median(rows.filter(r => r.kind === k && r.stage =
 for (const [k, a, b, n] of fam) console.log(`${pad(k, 10)} ${lpad(r1(a), 5)} · ${lpad(r1(b), 5)}   (${n})`);
 
 // ---------------- pasivos ----------------
-const report = { ref: REF, secs: SECS, med: MED, rows: rows.map(r => ({ id: r.id, stage: r.stage, jefe: r1(r.jefe.dps), horda: r1(r.horda.dps), dot: [r1(r.jefe.dot), r1(r.horda.dot)], valor: r.valor && r1(r.valor), m: r.m })) };
+const report = { ref: REF, secs: SECS, med: MED, rows: rows.map(r => ({ id: r.id, stage: r.stage, jefe: r1(r.jefe.dps), horda: r1(r.horda.dps), dot: [r1(r.jefe.dot), r1(r.horda.dot)], psn: [r1(r.jefe.psn || 0), r1(r.horda.psn || 0)], valor: r.valor && r1(r.valor), m: r.m })) };
 if (opt('pasivos')) {
   console.log(`\n=== PASIVOS: lo que gana cada carta (media geométrica de todos los que pegan, nivel máximo y evolucionado) ===`);
   console.log('(Potencia: +10 % por carta; Reflejos: +8,7 % por carta, para comparar)');

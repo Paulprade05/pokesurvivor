@@ -236,7 +236,7 @@ los normales (8%). Si ya llevas uno, eliges (en solitario el juego se para).
 
 ### 7.2c Evolución de movimientos
 Un movimiento al nivel máximo evoluciona si en esa run has cogido su mejora de
-condición (Ascuas + Potencia → Llamarada, Burbuja + Carrera → Surf...): sale
+condición (Ascuas + Propulsión → Llamarada, Burbuja + Carrera → Surf...): sale
 una **carta dorada** (siempre, si está lista). Los 47 de ataque evolucionan.
 
 ### 7.2d Misiones, logros y perfil

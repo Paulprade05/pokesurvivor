@@ -178,17 +178,19 @@ G.Player = class Player {
   }
   /**
    * Revisión de los ataques (2.0, 31-10-2026, lo pidió el dueño tras jugar el bloque 2: «se sigue matando igual de
-   * rápido»): un ataque evolucionado pega EVO_K (de media ×8,7 un nivel 1; ahora ~×6) y, en un grupo de vínculo
-   * (fusión) de n ataques, cada uno pega FUSE_K[n] (el grupo entero, ×1,6 / ×2,1 / ×2,4 en vez de ×2 / ×3 / ×4).
+   * rápido»): un ataque evolucionado pega EVO_K (de media ×8,7 un nivel 1; ahora ~×6).
+   * (2-11-2026) Ya no hay recorte por fusión (FUSE_K: cada ataque de un grupo de 2/3/4 pegaba ×0,8/0,7/0,6): el
+   * dueño lo quitó porque los fusionados no valían para el final. Cada ataque del grupo pega lo suyo.
+   * Ese día se bajaron los ataques que se salían (DMG_K en data/moves.js): la media de todos cayó un 8 % al nivel
+   * máximo y un 5 % evolucionados (tools/equilibrio.cjs), y se devuelve igual a todos con MOVE_K y EVO_K 0,7 → 0,74.
+   * (Los movimientos Z, no: van aparte.)
    */
   moveK(m) {
-    if (!m) return 1;
-    let k = m.evolved ? Player.EVO_K : 1;
-    for (const g of this.slots) if (g.length > 1 && g.includes(m)) { k *= Player.FUSE_K[Math.min(g.length, 4)]; break; }
-    return k;
+    if (!m || m.z) return 1;
+    return m.evolved ? Player.EVO_K : Player.MOVE_K;
   }
-  static get EVO_K() { return 0.7; }
-  static get FUSE_K() { return [1, 1, 0.8, 0.7, 0.6]; }
+  static get EVO_K() { return 0.74; }
+  static get MOVE_K() { return 1.08; }
   /** Monotipo (19-10-2026): los de un solo tipo pegan un +20 % con los ataques de su tipo (tienen menos variedad). */
   static get MONO_K() { return 1.2; }
   monoType(type) { return this.mon.types.length === 1 && type === this.mon.types[0]; }
