@@ -11,6 +11,9 @@
  *   node tools/equilibrio.cjs --propone ahora.json --ref antes.json
  *                                                            otra vuelta: corrige los que se quedaron lejos
  *   node tools/equilibrio.cjs antes.json despues.json        tabla antes/después (Markdown)
+ *   --norma                                                  (revisión de ataques, 2-11-2026) además, la evolución
+ *                                                            pega al menos NORMA veces lo del nivel máximo contra el
+ *                                                            jefe Y contra la horda (con MOVE_K y EVO_K del jugador)
  *
  * Regla (la pidió el dueño: «baja los que están muy fuertes para que todos estén a la par;
  * no subas los flojos salvo que se queden muy por debajo y no valgan para el final»):
@@ -30,6 +33,9 @@ const files = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1
 const ALTO = 1.15, OBJ = 1.1, BAJO = 0.65, SUBE = 0.75;
 // Nivel 1: sólo los que se salen mucho (el arranque sin mejoras ya es duro: no se quiere tocar).
 const ALTO1 = 1.25, OBJ1 = 1.15;
+// Norma del dueño (2-11-2026): la evolución SIEMPRE mejor que el ataque a su nivel máximo, en los dos escenarios.
+// EK = lo que el jugador aplica al evolucionado frente al de nivel máximo (Player.EVO_K / MOVE_K).
+const NORMA = 1.2, EK = 0.74 / 1.08;
 const STAGES = ['n1', 'max', 'evo'];
 const UTIL = new Set(['buff', 'ward', 'wipe']);
 
@@ -67,7 +73,11 @@ if (val('propone')) {
     const want = v => v > ALTO ? OBJ : v < BAJO && !psn ? SUBE : v;
     const k1 = t.n1 && t.n1.v > ALTO1 ? OBJ1 / t.n1.v : 1;
     const km = want(t.max.v) / t.max.v;
-    const ke = t.evo ? want(t.evo.v) / (t.evo.v * km) : 1;
+    let ke = t.evo ? want(t.evo.v) / (t.evo.v * km) : 1;
+    if (t.evo && argv.includes('--norma')) {
+      const low = Math.min(t.evo.j / Math.max(0.1, t.max.j), t.evo.h / Math.max(0.1, t.max.h)) * EK;
+      ke = Math.max(ke, NORMA / low);
+    }
     const r = [r2(k1), r2(km), r2(ke)];
     if (r.some(x => Math.abs(x - 1) >= 0.03)) res[id] = r;
   }
