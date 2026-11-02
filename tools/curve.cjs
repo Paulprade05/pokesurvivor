@@ -43,7 +43,7 @@ const ROOT = path.resolve(__dirname, '..');
 function report(dirs) {
   const firsts = { max: [], zero: [] }, walls = { max: [], zero: [] };
   const G2 = () => ({ ia: [], lv: { 5: [], 10: [], 15: [], 20: [], 29: [] }, m5: [], ev: [], ttk: { 5: [], 10: [], 15: [], 20: [], 29: [] },
-                      boss: { '3-12': [], '15-21': [], '24-27': [] }, dh: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dd: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dg: { 5: [], 10: [], 15: [], 20: [], 29: [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
+                      boss: { '3-12': [], '15-21': [], '24-27': [] }, dh: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dd: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dg: { 5: [], 10: [], 15: [], 20: [], 29: [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, hn: [], hs: [], tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
   const agg = { max: G2(), zero: G2() };
   for (const dir of dirs) {
     console.log('== ' + dir);
@@ -70,7 +70,7 @@ function report(dirs) {
             const k = b.min < 13.5 ? '3-12' : b.min < 22.5 ? '15-21' : '24-27';
             if (b.ttk != null) A.boss[k].push(b.ttk);
           }
-          for (const a of JSON.parse(jb[2])) { A.rn++; if (a.won) { A.rw++; (A.leg[a.n] = A.leg[a.n] || []).push(a.ttk); } }
+          for (const a of JSON.parse(jb[2])) { A.rn++; A.hn.push(...(a.hn || [])); A.hs.push(...(a.hs || [])); if (a.won) { A.rw++; (A.leg[a.n] = A.leg[a.n] || []).push(a.ttk); } }
         }
       }
       const res = /RESULT .*?primera=(\S+) caídas=\[([^\]]*)\]/.exec(s);
@@ -100,7 +100,7 @@ function report(dirs) {
     console.log(`2.0 ${g.padEnd(4)}: nivel ${per(A.lv)} · ttk normal (s) ${per(A.ttk)}`);
     console.log(`         4 ataques al 5: min ${md(A.m5)} (antes del 9: ${A.m5.filter(x => x < 9).length}/${A.m5.length}) · 4 evolucionados: min ${md(A.ev)}`);
     console.log(`         jefes ttk (s) ${Object.keys(A.boss).map(k => k + '=' + md(A.boss[k]) + ' (' + A.boss[k].length + ')').join(' ')} · con 1 firma ${pc(A.sig1, A.nb)}, con 2 ${pc(A.sig2, A.nb)}`);
-    console.log(`         grietas ganadas ${pc(A.rw, A.rn)} (${A.rn}) · arena (s) ${Object.keys(A.leg).map(k => k + ' leg=' + md(A.leg[k]) + ' (' + A.leg[k].length + ')').join(' ') || '-'} · legendarios con firma ${pc(A.legSig, A.nl)}`);
+    console.log(`         grietas ganadas ${pc(A.rw, A.rn)} (${A.rn}) · arena (s) ${Object.keys(A.leg).map(k => k + ' leg=' + md(A.leg[k]) + ' (' + A.leg[k].length + ')').join(' ') || '-'} · legendarios con firma ${pc(A.legSig, A.nl)} · golpe en grieta normal ${md(A.hn)} (${A.hn.length}) firma ${md(A.hs)} (${A.hs.length})`);
     console.log(`         tickets (tiradas acumuladas) ${per(A.tk)}`);
     if (A.ia.length) console.log(`         IA: atascados ${md(A.ia)} % de mediana por minuto (máx. ${Math.max(...A.ia)} %, ${A.ia.filter(x => x > 1).length}/${A.ia.length} minutos > 1 %)`);
     if (A.dh[5].length) console.log(`         director vida ${per(A.dh)} · daño ${per(A.dd)} · geo (s) ${per(A.dg)}`);
@@ -345,8 +345,17 @@ async function one(dex, upg, tag, speed, cap) {
       pl.hurt = function (a, ...r) {
         const d0 = DMG.total, out = vh.call(pl, a, ...r), d = DMG.total - d0;
         if (d > 0) { const al = M.boss.filter(b => b.dead == null && b.ttk == null); for (const b of al) b.dmg += d / al.length; }
+        // (Grietas, 02-11-2026) Cada golpe recibido en la arena: de una firma (mientras un legendario la usa o hasta 1,2 s
+        //  después) o normal. Los de menos de 5 (quemaduras, esbirros) no cuentan.
+        if (d >= 5 && G.Rift.inArena && M.arena) {
+          const sig = G.EnemyMgr.bosses().some(e => e.legend && ((e.ai && e.ai.cast && e.ai.cast.id === 'sig') || (e._sigEnd != null && now() - e._sigEnd < 1.2)));
+          (M.arena[sig ? 'hs' : 'hn'] = M.arena[sig ? 'hs' : 'hn'] || []).push(Math.round(d));
+        }
         return out;
       };
+      setInterval(() => {
+        for (const e of G.EnemyMgr.bosses()) if (e.legend) { const c = e.ai && e.ai.cast; if (c && c.id === 'sig') e._wasSig = true; else if (e._wasSig) { e._wasSig = false; e._sigEnd = now(); } }
+      }, 50);
       // (2.0, bloque 4) IA: vivos, atascados, bajo tierra y nadando, muestreados cada 0,2 s (G.EnemyMgr.debugStats).
       window.AI = { n: 0, live: 0, stuck: 0, under: 0, swim: 0 };
       setInterval(() => {
