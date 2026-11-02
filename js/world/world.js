@@ -919,7 +919,13 @@ G.World = (() => {
     return SPR;
   }
 
+  // (iPhone: ataques invisibles, 02-11-2026) Sin memoria de lienzos para pintar un árbol o una roca (tiles.js Pix),
+  // ese no sale este fotograma; antes el error cortaba el fotograma entero (sin ataques) y, seguido, cerraba la partida.
   function drawProp(ctx, p, t, a0, a1) {
+    try { drawProp0(ctx, p, t, a0, a1); }
+    catch (e) { if (!/sin memoria de lienzos/.test(e && e.message)) throw e; ctx.globalAlpha = 1; }
+  }
+  function drawProp0(ctx, p, t, a0, a1) {
     if (p.wallrow) { drawWallRow(ctx, p, a0, a1); return; }
     const variant = propVariant(p, t);
     const { img, P, pmd: block } = spriteOf(biome, p.type, variant);

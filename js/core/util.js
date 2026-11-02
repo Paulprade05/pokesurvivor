@@ -62,6 +62,31 @@ G.U = {
     if (c && c.width !== undefined) { c.width = 0; c.height = 0; }
   },
 
+  /**
+   * (iPhone: ataques invisibles, 02-11-2026) ¿Siguen con su dibujo los lienzos guardados? Safari en iOS
+   * puede vaciarlos sin avisar (memoria justa, al volver de otra app, si se reinicia su proceso de
+   * gráficos): los sprites guardados de los ataques salían transparentes y no se veía ningún ataque.
+   * Un lienzo testigo de 1×1 pintado una vez: si ya no tiene su píxel, se han vaciado todos.
+   * Devuelve false si se han vaciado (y prepara otro testigo).
+   */
+  canvasAlive() {
+    const U = G.U;
+    try {
+      if (!U._probe) {
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        const x = c.getContext('2d', { willReadFrequently: true });
+        if (!x) return true;                       // (sin memoria ahora mismo: se mira la próxima vez)
+        x.fillStyle = '#ff0000'; x.fillRect(0, 0, 1, 1);
+        U._probe = x;
+        return true;
+      }
+      if (U._probe.getImageData(0, 0, 1, 1).data[3] === 255) return true;
+    } catch (e) { return true; }                   // (file://: no deja leer; se da por bueno)
+    U.freeCanvas(U._probe.canvas); U._probe = null;
+    return false;
+  },
+
   /** "3:07" a partir de segundos. */
   mmss(s) {
     const m = Math.floor(s / 60);

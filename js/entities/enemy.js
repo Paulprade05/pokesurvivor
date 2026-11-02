@@ -985,7 +985,7 @@
       // pegabas), y más cuanto más fuerte pegas, pero cada vez menos: con el
       // doble de ataque cura un 27 % más, con 10 veces más un 124 %, y como
       // mucho ×2,5. (Como los enemigos que tienen más vida si haces más daño.)
-      const pow = Math.max(1, ...G.Game.everyone().map(p => (p.atk > 0 && p.baseAtk > 0 ? p.atk / p.baseAtk : 1)));
+      const pow = Math.max(1, ...G.Game.everyone().map(p => (p && p.atk > 0 && p.baseAtk > 0 ? p.atk / p.baseAtk : 1)));
       const k = 0.07 * Math.min(2.5, Math.pow(pow, 0.35));
       const now = G.Game.st.time;
       let n = 0;
@@ -1850,6 +1850,11 @@ G.BossSig = (() => {
   const ang = (e, p) => Math.atan2(p.y - e.y, p.x - e.x);
   const R = Math.round;
   const SIG_PCT = 0.12, SIG_PCT_LEG = 0.15;
+  // (02-11-2026) La firma de un legendario de grieta pega SIG_LEG veces más que su daño de siempre (lo que cae de golpe;
+  //  los charcos y quemaduras que deja, no). Medido: sus golpes normales ~45 y la firma ~85 (rift.js, LEG_HIT).
+  const SIG_LEG = 1.7;
+  const sigK = e => (e.legend && !e.judge ? SIG_LEG : 1);
+  const sd = e => e.shotDmg() * sigK(e), dm = e => e.dmg * sigK(e);
   const bossPct = p => p * Math.min(1, Math.max(0, ((G.Game && G.Game.st ? G.Game.st.time : 0) - 720) / 480));   // (ver arriba)      // (golpe mínimo de las firmas: % de tu vida; bloque 3)
   /** Lo que te deja un golpe (dormido, congelado, confuso, quemado, con sueño, lanzado): ver zap. */
   function zap(o) { emit(Object.assign({ k: 'zap', dur: (o.delay || 0) + 0.2 }, o)); }
@@ -1857,7 +1862,7 @@ G.BossSig = (() => {
   function shotAt(e, x, y, a, sp, k, r = 8, life = 2.4) {
     if (G.Projectiles.count > 480) return;
     const type = e.atkType;
-    const shot = G.Projectiles.spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: e.shotDmg() * k, r, life, friendly: false, color: '#ff7a9e',
+    const shot = G.Projectiles.spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: sd(e) * k, r, life, friendly: false, color: '#ff7a9e',
                                        mtype: type, cat: e.cat, vis: G.VFX.forType(type) });
     if (G.Coop.isHost) G.Coop.enemyShot(shot, type);
   }
@@ -1896,7 +1901,7 @@ G.BossSig = (() => {
     const as = [];
     for (let i = 0; i < n; i++) {
       const a = a0 + i * TAU / n; as.push(a);
-      hz(e, c, { kind: 'beam', x, y, angle: a, len, w: 30, delay: 1.0 + i * 0.05, dmg: e.shotDmg() * 1.15, grp: g });
+      hz(e, c, { kind: 'beam', x, y, angle: a, len, w: 30, delay: 1.0 + i * 0.05, dmg: sd(e) * 1.15, grp: g });
     }
     at(c, 1.1, () => {
       e.anim.play('Attack', { speed: 1.3 }); G.Camera.kick(0.5);
@@ -1969,7 +1974,7 @@ G.BossSig = (() => {
       const t0 = 0.8 + i * 1.05;
       at(c, t0, () => {
         const p = nearest(e.x, e.y) || pl, x = R(p.x), y = R(p.y);
-        hz(e, c, { kind: 'zone', x, y, r, delay: 0.85, dmg: e.shotDmg() * 1.35, grp: nextGrp() });
+        hz(e, c, { kind: 'zone', x, y, r, delay: 0.85, dmg: sd(e) * 1.35, grp: nextGrp() });
         emit({ k: 'dive', x, y, at: 0.85, dex: e.dex, sc: e.scale, sh: e.shiny ? 1 : 0, col: c.col, dur: 1.3 });
         at(c, t0 + 0.85, () => {
           [e.x, e.y] = freeNear(e, x, y);
@@ -1978,7 +1983,7 @@ G.BossSig = (() => {
                               dot: o.trail === 'fire' ? R(e.shotDmg() * 0.2) : 0, slow: o.trail === 'dark' ? 1 : 0, type: e.atkType, cat: e.cat });
           // Moltres: de cada caída sale un anillo de fuego con un hueco.
           if (o.ring) emit({ k: 'wave', x, y, r0: R(r * 0.6), spd: 190, th: 18, gaps: [Math.round(Math.random() * 628) / 100], gw: 0.5, delay: 0.1,
-                             dur: 2.2, dmg: R(e.shotDmg() * 0.8), st: 'fire', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+                             dur: 2.2, dmg: R(sd(e) * 0.8), st: 'fire', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
           // Yveltal: se cura con cada caída.
           if (o.drain) heal(e, 0.025);
         });
@@ -2065,7 +2070,7 @@ G.BossSig = (() => {
     const Rr = pts.map(() => r);
     if (o.big) { pts.push([pl.x, pl.y, Math.max(...pts.map(q => q[2])) + 0.5]); Rr.push(r * 1.8); }
     const k = o.pat === 'rows' || o.pat === 'lanes' || o.pat === 'rings' ? 0.9 : 1.05;
-    pts.forEach(([x, y, d], i) => hz(e, c, { kind: 'zone', x, y, r: Rr[i], delay: d, dmg: e.shotDmg() * (Rr[i] > r ? 1.6 : k), grp: g, vis: st === 'pillar' ? 'pillar' : undefined }));
+    pts.forEach(([x, y, d], i) => hz(e, c, { kind: 'zone', x, y, r: Rr[i], delay: d, dmg: sd(e) * (Rr[i] > r ? 1.6 : k), grp: g, vis: st === 'pillar' ? 'pillar' : undefined }));
     emit({ k: 'sky', st, col: c.col, col2: c.col2, pts: pts.slice(0, 48).map(([x, y, d]) => [R(x), R(y), R(d * 100) / 100]), dur: Math.max(...pts.map(q => q[2])) + 0.5 });
     // Lo que deja cada uno al caer.
     pts.forEach(([x, y, d], i) => {
@@ -2078,7 +2083,7 @@ G.BossSig = (() => {
       if (o.shards) job(e, d + 0.05, () => { for (let j = 0; j < 6; j++) shotAt(e, X, Y, j / 6 * TAU + i, 150, 0.55, 7, 1.6); });
       if (o.split) job(e, d, () => {
         const g2 = nextGrp(), sub = [];
-        for (let j = 0; j < 4; j++) { const a = j / 4 * TAU + 0.6, sx = X + Math.cos(a) * 70, sy = Y + Math.sin(a) * 56; sub.push([R(sx), R(sy), 0.6]); hz(e, c, { kind: 'zone', x: sx, y: sy, r: 30, delay: 0.6, dmg: e.shotDmg() * 0.7, grp: g2 }); }
+        for (let j = 0; j < 4; j++) { const a = j / 4 * TAU + 0.6, sx = X + Math.cos(a) * 70, sy = Y + Math.sin(a) * 56; sub.push([R(sx), R(sy), 0.6]); hz(e, c, { kind: 'zone', x: sx, y: sy, r: 30, delay: 0.6, dmg: sd(e) * 0.7, grp: g2 }); }
         emit({ k: 'sky', st: 'rock', col: c.col, col2: c.col2, pts: sub, dur: 1.1 });
       });
     });
@@ -2098,7 +2103,7 @@ G.BossSig = (() => {
     for (let i = 0; i < n; i++) at(c, 0.3 + i * 0.3, () => {
       for (const p of living()) {
         const x = R(p.x), y = R(p.y);
-        hz(e, c, { kind: 'zone', x, y, r: 42, delay: 1.5, dmg: e.shotDmg() * 0.95, grp: g });
+        hz(e, c, { kind: 'zone', x, y, r: 42, delay: 1.5, dmg: sd(e) * 0.95, grp: g });
         emit({ k: 'sky', st: 'time', col: c.col, col2: c.col2, pts: [[x, y, 1.5]], dur: 1.9 });
       }
     });
@@ -2118,7 +2123,7 @@ G.BossSig = (() => {
       clouds.forEach((m, i) => {
         if (!m || (j + i) % 2 && j < 5) return;            // (de una en una, alternas; la última vez, todas)
         const x = R(m.x), y = R(m.y);
-        hz(e, c, { kind: 'zone', x, y, r: 46, delay: 0.55, dmg: e.shotDmg() * 1.05, grp: g });
+        hz(e, c, { kind: 'zone', x, y, r: 46, delay: 0.55, dmg: sd(e) * 1.05, grp: g });
         emit({ k: 'sky', st: 'bolt', col: c.col, col2: c.col2, pts: [[x, y, 0.55]], dur: 1 });
       });
     });
@@ -2136,7 +2141,7 @@ G.BossSig = (() => {
       const gs = []; for (let j = 0; j < gaps; j++) gs.push(R((g0 + j * TAU / gaps) * 100) / 100);
       const life = o.back ? 2.8 : 560 / spd;
       emit({ k: 'wave', x: R(e.x), y: R(e.y), r0: R(e.r + 6), spd, th: 22, gaps: gs, gw: 0.36, delay: 0.7 + i * 0.8, back: o.back ? 1.4 : 0,
-             dur: 0.7 + i * 0.8 + life, dmg: R(e.shotDmg() * 1.1), slow: o.slow || 0, eff, st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+             dur: 0.7 + i * 0.8 + life, dmg: R(sd(e) * 1.1), slow: o.slow || 0, eff, st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
       g0 += G.U.rand(1.4, 2.4) * (Math.random() < 0.5 ? -1 : 1);
     }
     at(c, 0.7, () => e.anim.play('Attack'));
@@ -2162,7 +2167,7 @@ G.BossSig = (() => {
       // Empieza detrás de ti visto desde el jefe... no: detrás del jefe, y cruza hasta pasarte.
       const sx = p.x - ax * back, sy = p.y - ay * back, gap = R(G.U.rand(-150, 150));
       emit({ k: 'sweep', x: R(sx), y: R(sy), ax: R(ax * 100) / 100, ay: R(ay * 100) / 100, spd: 210, L: 560, th: 36, gap, gw: 52,
-             delay: 0.8 + i * 1.3, dur: 0.8 + i * 1.3 + 3.1, dmg: R(e.shotDmg() * 1.25), slow: 1, st: 'water', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+             delay: 0.8 + i * 1.3, dur: 0.8 + i * 1.3 + 3.1, dmg: R(sd(e) * 1.25), slow: 1, st: 'water', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
       a += Math.PI * (i % 2 ? 0.5 : 1) + G.U.rand(-0.3, 0.3);
     }
     at(c, 0.8, () => e.anim.play('Attack'));
@@ -2176,8 +2181,8 @@ G.BossSig = (() => {
     e.anim.play('Charge', { speed: 0.8 });
     at(c, 0.6, () => {
       const a = ang(e, nearest(e.x, e.y) || pl), g = nextGrp();
-      hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a, len: 760, w: 64, delay: 1.4, dmg: e.shotDmg() * 1.9, grp: g });
-      if (c.F) for (const s of [-0.6, 0.6]) hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a + s, len: 760, w: 40, delay: 1.7, dmg: e.shotDmg() * 1.4, grp: g });
+      hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a, len: 760, w: 64, delay: 1.4, dmg: sd(e) * 1.9, grp: g });
+      if (c.F) for (const s of [-0.6, 0.6]) hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a + s, len: 760, w: 40, delay: 1.7, dmg: sd(e) * 1.4, grp: g });
     });
     at(c, 2.0, () => { e.anim.play('Shoot'); G.Camera.kick(0.6); });
     c.end = 2.5;
@@ -2219,7 +2224,7 @@ G.BossSig = (() => {
     }
     for (const [x, y, an, L, d, ci, w] of list) {
       const dv = o.st === 'drive' ? DRIVE[(ci || 0) % 4] : null;
-      hz(e, c, { kind: 'beam', x, y, angle: an, len: L, w: w || o.w || 26, delay: d, dmg: e.shotDmg() * 1.2, grp: g,
+      hz(e, c, { kind: 'beam', x, y, angle: an, len: L, w: w || o.w || 26, delay: d, dmg: sd(e) * 1.2, grp: g,
                  type: dv ? dv[0] : e.atkType, color: dv ? dv[1] : c.col });
       // Corte Vacío: los cortes se quedan abiertos (queman) unos segundos.
       if (o.open) job(e, d, () => emit({ k: 'band', x: R(x), y: R(y), x2: R(x + Math.cos(an) * L), y2: R(y + Math.sin(an) * L), w: 22, dur: 3.2, st: 'psy',
@@ -2237,7 +2242,7 @@ G.BossSig = (() => {
   P.whirl = (e, pl, c, o) => {
     const a0 = ang(e, pl) + Math.PI * 0.6, dir = Math.random() < 0.5 ? -1 : 1, n = 18, g = nextGrp(), x = e.x, y = e.y;
     e.anim.play('Charge', { speed: 1.2 }); e.tell(c.col, e.r * 3, 0.7);
-    for (let i = 0; i < n; i++) hz(e, c, { kind: 'beam', x, y, angle: a0 + dir * i / n * TAU, len: 330, w: 34, delay: 0.95 + i * 0.07, dmg: e.shotDmg() * 1.2, grp: g });
+    for (let i = 0; i < n; i++) hz(e, c, { kind: 'beam', x, y, angle: a0 + dir * i / n * TAU, len: 330, w: 34, delay: 0.95 + i * 0.07, dmg: sd(e) * 1.2, grp: g });
     at(c, 0.9, () => e.anim.play('Attack', { speed: 1.5 }));
     c.end = 0.95 + n * 0.07 + 0.2;
   };
@@ -2257,7 +2262,7 @@ G.BossSig = (() => {
       });
       at(c, t0 + chase, () => {
         c.lurk = false;
-        hz(e, c, { kind: 'zone', x: c.lx, y: c.ly, r: 84, delay: 0.5, dmg: e.shotDmg() * 1.45, grp: nextGrp() });
+        hz(e, c, { kind: 'zone', x: c.lx, y: c.ly, r: 84, delay: 0.5, dmg: sd(e) * 1.45, grp: nextGrp() });
         emit({ k: 'stop', x: R(c.lx), y: R(c.ly), dur: 0.1 });
         // Robasombra (Marshadow): te roba la velocidad un rato.
         if (o.steal) zap({ x: R(c.lx), y: R(c.ly), r: 90, delay: 0.5, eff: 'slow', p: 2.2 });
@@ -2272,7 +2277,7 @@ G.BossSig = (() => {
         // Giratina: deja su sombra (frena).  Garchomp: el suelo tiembla en anillos.
         if (o.puddle) emit({ k: 'pool', x: R(e.x), y: R(e.y), r: 96, dur: 5, st: 'shadow', col: c.col, col2: c.col2, slow: 1 });
         if (o.quake) for (let k = 0; k < 2; k++) emit({ k: 'ring', x: R(e.x), y: R(e.y), r1: 90 + k * 90, r2: 180 + k * 90, delay: 0.7 + k * 0.5, dur: 1.4 + k * 0.5,
-                                                        dmg: R(e.shotDmg() * 1.1), st: 'sand', col: '#e0bf73', col2: '#fff2cc', type: e.atkType, cat: e.cat });
+                                                        dmg: R(sd(e) * 1.1), st: 'sand', col: '#e0bf73', col2: '#fff2cc', type: e.atkType, cat: e.cat });
       });
       t = t0 + chase + 0.8;
     }
@@ -2295,7 +2300,7 @@ G.BossSig = (() => {
       emit({ k: 'pool', x: R(p.x + Math.cos(aa) * d), y: R(p.y + Math.sin(aa) * d), r: 38, dur: 5.5, delay: 0.5, st: 'wind', col: c.col, col2: c.col2,
              dot: R(e.shotDmg() * 0.3), vx: R(G.U.rand(-45, 45)), vy: R(G.U.rand(-35, 35)), tw: 1, pull: o.lure ? 1 : 0, type: e.atkType, cat: e.cat });
     }
-    if (o.beam) at(c, 1.0, () => { const p = nearest(e.x, e.y) || pl; hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: ang(e, p), len: 660, w: 46, delay: 1.0, dmg: e.shotDmg() * 1.6, grp: nextGrp() }); });
+    if (o.beam) at(c, 1.0, () => { const p = nearest(e.x, e.y) || pl; hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: ang(e, p), len: 660, w: 46, delay: 1.0, dmg: sd(e) * 1.6, grp: nextGrp() }); });
     at(c, 2.0, () => e.anim.play('Shoot'));
     c.end = 2.4;
   };
@@ -2310,7 +2315,7 @@ G.BossSig = (() => {
     }
     if (o.sweep) at(c, 0.9, () => {
       const p = nearest(e.x, e.y) || pl, a = ang(e, p), dir = Math.random() < 0.5 ? -1 : 1, g = nextGrp();
-      for (let i = 0; i < 12; i++) at(c, 0.9 + i * 0.1, () => hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a - dir * 0.8 + dir * 1.6 * i / 11, len: 700, w: 48, delay: 0.9, dmg: e.shotDmg() * 1.25, grp: g }));
+      for (let i = 0; i < 12; i++) at(c, 0.9 + i * 0.1, () => hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a - dir * 0.8 + dir * 1.6 * i / 11, len: 700, w: 48, delay: 0.9, dmg: sd(e) * 1.25, grp: g }));
     });
     e.anim.play('Charge', { speed: 0.9 });
     c.end = o.sweep ? 2.6 : 1.4;
@@ -2322,7 +2327,7 @@ G.BossSig = (() => {
     e.anim.play('Charge', { speed: 0.8 });
     let end = 2.0;
     at(c, 0.25, () => {
-      const p = nearest(e.x, e.y) || pl, a = ang(e, p), D = 1.35, d = e.shotDmg(), g = nextGrp();
+      const p = nearest(e.x, e.y) || pl, a = ang(e, p), D = 1.35, d = sd(e), g = nextGrp();
       const B = (an, len, w, delay, k, x = e.x, y = e.y) => hz(e, c, { kind: 'beam', x, y, angle: an, len, w, delay, dmg: d * k, grp: g });
       switch (o.kind) {
         case 'prism': {
@@ -2379,7 +2384,7 @@ G.BossSig = (() => {
         G.FX.ring(e.x, e.y, 6, 60, c.col, 0.3, 3);
       }
       c.ang = ang(e, tg); c.sx = e.x; c.sy = e.y;
-      hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: c.ang, len: len + e.r, w, delay: c.pt + dur, dmg: e.dmg * (big ? 1.6 : o.short ? 0.95 : 1.15), grp: nextGrp() });
+      hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: c.ang, len: len + e.r, w, delay: c.pt + dur, dmg: dm(e) * (big ? 1.6 : o.short ? 0.95 : 1.15), grp: nextGrp() });
       // Megacuerno (Heracross): te lanza por los aires.
       if (o.toss) zap({ x: R(e.x), y: R(e.y), ang: R(c.ang * 100) / 100, len: R(len + e.r), w, delay: c.pt + dur * 0.6, eff: 'knock', p: 520 });
       if (o.ghost) emit({ k: 'glint', id: e.id, x: R(e.x), y: R(e.y), dur: c.pt + dur + 0.1, col: c.col });
@@ -2401,9 +2406,9 @@ G.BossSig = (() => {
           if (o.recoil) { e.hp = Math.max(1, e.hp - e.maxHp * 0.02); G.FX.dmgText(e.x, e.y - e.bodyH - 4, R(e.maxHp * 0.02), '#ff9a3c'); }
           if (++c.k >= n) {
             c.ph = 'done';
-            if (o.beam) { const p = nearest(e.x, e.y) || pl; hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: ang(e, p), len: 620, w: 50, delay: 1.0, dmg: e.shotDmg() * 1.6, grp: nextGrp() }); e.anim.play('Charge'); }
+            if (o.beam) { const p = nearest(e.x, e.y) || pl; hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: ang(e, p), len: 620, w: 50, delay: 1.0, dmg: sd(e) * 1.6, grp: nextGrp() }); e.anim.play('Charge'); }
             // Puños Plasma (Zeraora): su rastro eléctrico estalla.
-            if (o.live) { const g = nextGrp(); for (const t of c.trails) hz(e, c, { kind: 'beam', x: t.x, y: t.y, angle: Math.atan2(t.y2 - t.y, t.x2 - t.x), len: Math.hypot(t.x2 - t.x, t.y2 - t.y) + 10, w: 34, delay: 0.8, dmg: e.shotDmg() * 1.1, grp: g }); }
+            if (o.live) { const g = nextGrp(); for (const t of c.trails) hz(e, c, { kind: 'beam', x: t.x, y: t.y, angle: Math.atan2(t.y2 - t.y, t.x2 - t.x), len: Math.hypot(t.x2 - t.x, t.y2 - t.y) + 10, w: 34, delay: 0.8, dmg: sd(e) * 1.1, grp: g }); }
             if (o.ghost) hide(e, false);
             // Asalto Espadón (Baxcalibur): queda expuesto.
             if (o.exposed) expose(e, 2, 2.6);
@@ -2441,7 +2446,7 @@ G.BossSig = (() => {
         c.ph = 2;
         // Y te atraviesa por el centro.
         const q = nearest(e.x, e.y) || pl, b = ang(e, q);
-        hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: b, len: Rr * 2.2, w: R(e.r * 2 + 30), delay: 0.5, dmg: e.dmg * 1.4, grp: nextGrp() });
+        hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: b, len: Rr * 2.2, w: R(e.r * 2 + 30), delay: 0.5, dmg: dm(e) * 1.4, grp: nextGrp() });
         at(c, c.t + 0.5, () => { c.ph = 3; c.ang = b; c.go = 0.36; e.anim.play('Attack', { speed: 1.6 }); });
         return [0, 0, 'Idle'];
       }
@@ -2464,7 +2469,7 @@ G.BossSig = (() => {
       if (c.t < 0.6) return [0, 0, 'Idle'];
       const q = nearest(e.x, e.y) || pl, a = ang(e, q), sp = Math.max(150, e.spd * 2.6);
       e.anim.dir = G.Sprites.dirFromAngle(a);
-      if (Math.random() < dt * 3) hz(e, c, { kind: 'zone', x: e.x + Math.cos(a) * 40, y: e.y + Math.sin(a) * 40, r: 50, delay: 0.45, dmg: e.shotDmg() * 0.8, grp: nextGrp() });
+      if (Math.random() < dt * 3) hz(e, c, { kind: 'zone', x: e.x + Math.cos(a) * 40, y: e.y + Math.sin(a) * 40, r: 50, delay: 0.45, dmg: sd(e) * 0.8, grp: nextGrp() });
       return [Math.cos(a) * sp, Math.sin(a) * sp, 'Walk'];
     };
     c.end = 3.6; c.face = false;
@@ -2481,7 +2486,7 @@ G.BossSig = (() => {
       for (let i = 0; i < n; i++) {
         const a = i / n * TAU + (o.big ? ang(e, pl) : 0), tg = ps2[i % ps2.length];
         emit({ k: 'orb', x: R(e.x + Math.cos(a) * e.r * 1.6), y: R(e.y - e.bodyH * 0.4 + Math.sin(a) * e.r), vx: R(Math.cos(a) * 120), vy: R(Math.sin(a) * 120),
-               spd: o.big ? 128 : o.fast ? 150 : 100, turn: o.big ? 2.8 : o.fast ? 3 : 2.2, tg: uidOf(tg), dur: o.big ? 6.5 : 5.5, dmg: R(e.shotDmg() * (o.big ? 1.9 : 0.95)), r: o.big ? 16 : 9,
+               spd: o.big ? 128 : o.fast ? 150 : 100, turn: o.big ? 2.8 : o.fast ? 3 : 2.2, tg: uidOf(tg), dur: o.big ? 6.5 : 5.5, dmg: R(sd(e) * (o.big ? 1.9 : 0.95)), r: o.big ? 16 : 9,
                eff: o.conf ? 'conf' : '', ret: o.back ? 1 : 0, st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
       }
     });
@@ -2498,7 +2503,7 @@ G.BossSig = (() => {
         const a0 = Math.random() * TAU;
         for (let i = 0; i < n; i++) {
           const a = a0 + i / n * TAU, x = p.x + Math.cos(a) * 430, y = p.y + Math.sin(a) * 300;
-          emit({ k: 'orb', x: R(x), y: R(y), vx: R(-Math.cos(a) * 60), vy: R(-Math.sin(a) * 60), spd: 120 + (i % 3) * 18, turn: 0.7, tg: uidOf(p), dur: 5, dmg: R(e.shotDmg() * 0.85),
+          emit({ k: 'orb', x: R(x), y: R(y), vx: R(-Math.cos(a) * 60), vy: R(-Math.sin(a) * 60), spd: 120 + (i % 3) * 18, turn: 0.7, tg: uidOf(p), dur: 5, dmg: R(sd(e) * 0.85),
                  r: 9, st: 'ghost', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat, wall: 1 });
         }
       }
@@ -2515,7 +2520,7 @@ G.BossSig = (() => {
       const ps2 = living();
       for (let i = 0; i < n; i++) { const a = i / n * TAU, tg = ps2[i % ps2.length];
         emit({ k: 'orb', x: R(e.x + Math.cos(a) * 30), y: R(e.y - 20 + Math.sin(a) * 20), vx: R(Math.cos(a) * 70), vy: R(Math.sin(a) * 70), spd: 52 + (i % 3) * 8, turn: 1.1,
-               tg: uidOf(tg), dur: 8, dmg: R(e.shotDmg() * 0.8), r: 11, st: 'bubble', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat }); }
+               tg: uidOf(tg), dur: 8, dmg: R(sd(e) * 0.8), r: 11, st: 'bubble', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat }); }
     });
     for (let i = 1; i <= 5; i++) job(e, i * 1.2, () => { const w = G.Weather.current; if (w && w.kind === 'rain') heal(e, 0.012); });
     c.end = 1.0;
@@ -2529,7 +2534,7 @@ G.BossSig = (() => {
       const ps2 = living();
       for (let i = 0; i < n; i++) { const a = i / n * TAU, tg = ps2[i % ps2.length];
         emit({ k: 'orb', x: R(e.x + Math.cos(a) * e.r * 1.4), y: R(e.y - e.bodyH * 0.4), vx: R(Math.cos(a) * 90), vy: R(Math.sin(a) * 90), spd: 84, turn: 1.8, tg: uidOf(tg), dur: 6,
-               dmg: R(e.shotDmg() * 0.6), r: 10, eff: 'yawn', st: 'dream', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat }); }
+               dmg: R(sd(e) * 0.6), r: 10, eff: 'yawn', st: 'dream', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat }); }
       for (const p of living()) for (let i = 0; i < 2; i++) { const a = Math.random() * TAU, d = G.U.rand(80, 150);
         emit({ k: 'pool', x: R(p.x + Math.cos(a) * d), y: R(p.y + Math.sin(a) * d * 0.8), r: 48, dur: 6, delay: 0.6, st: 'dream', col: c.col, col2: c.col2, slow: 1 }); }
     });
@@ -2544,7 +2549,7 @@ G.BossSig = (() => {
       emit({ k: 'swap', tg: uidOf(p), x: ox, y: oy, x2: tx, y2: ty, at: 1.1, dur: 1.5, col: c.col });
       at(c, 1.8, () => {
         [e.x, e.y] = freeNear(e, tx, ty);
-        hz(e, c, { kind: 'zone', x: tx, y: ty, r: 70, delay: 0.25, dmg: e.shotDmg() * 1.1, grp: nextGrp() });
+        hz(e, c, { kind: 'zone', x: tx, y: ty, r: 70, delay: 0.25, dmg: sd(e) * 1.1, grp: nextGrp() });
         G.FX.ring(e.x, e.y, 6, 80, c.col, 0.4, 4);
       });
     });
@@ -2557,10 +2562,10 @@ G.BossSig = (() => {
     e.anim.play('Charge', { speed: 1.1 }); e.tell(c.col, e.r * 3, 0.6);
     if (o.around) {
       for (const p of living().slice(0, 2)) emit({ k: 'spin', tg: uidOf(p), x: R(p.x), y: R(p.y), arms, per: 2, r0: 230, r1: 26, av: 1.5 * dir, a0: R(Math.random() * 628) / 100,
-                                                    delay: 0.6, dur: 4.2, dmg: R(e.shotDmg() * 0.9), st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+                                                    delay: 0.6, dur: 4.2, dmg: R(sd(e) * 0.9), st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
     } else {
       emit({ k: 'spin', id: e.id, x: R(e.x), y: R(e.y), arms, per: 3, r0: 40, r1: 300, av: 1.2 * dir, a0: R(Math.random() * 628) / 100,
-             delay: 0.5, dur: 4.8, dmg: R(e.shotDmg() * 0.9), st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+             delay: 0.5, dur: 4.8, dmg: R(sd(e) * 0.9), st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
     }
     if (o.heal) at(c, 1.6, () => heal(e, o.heal));
     at(c, 0.5, () => e.anim.play('Shoot'));
@@ -2580,7 +2585,7 @@ G.BossSig = (() => {
     });
     for (let k = 0; k < 3; k++) at(c, 0.9 + k * 0.75, () => {
       const q = nearest(e.x, e.y) || pl;
-      spots.forEach(([x, y]) => emit({ k: 'orb', x: R(x), y: R(y - 30), vx: 0, vy: 0, spd: 105, turn: 1.6, tg: uidOf(q), dur: 4.5, dmg: R(e.shotDmg() * 0.75), r: 9,
+      spots.forEach(([x, y]) => emit({ k: 'orb', x: R(x), y: R(y - 30), vx: 0, vy: 0, spd: 105, turn: 1.6, tg: uidOf(q), dur: 4.5, dmg: R(sd(e) * 0.75), r: 9,
                                        st: 'ghost', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat }));
       e.anim.play('Shoot');
     });
@@ -2610,7 +2615,7 @@ G.BossSig = (() => {
       at(c, 0.5, () => hide(e, true));
       pts.forEach(([x, y], i) => at(c, 0.9 + i * 0.35, () => {
         const p = nearest(x, y) || pl;
-        hz(e, c, { kind: 'zone', x: p.x, y: p.y, r: 70, delay: 0.6, dmg: e.shotDmg() * 1.2, grp: nextGrp() });
+        hz(e, c, { kind: 'zone', x: p.x, y: p.y, r: 70, delay: 0.6, dmg: sd(e) * 1.2, grp: nextGrp() });
         emit({ k: 'sky', st: 'fist', col: c.col, col2: c.col2, pts: [[R(p.x), R(p.y), 0.6]], dur: 1 });
       }));
       at(c, 2.2, () => { const [x, y] = pts[Math.floor(Math.random() * 3)]; [e.x, e.y] = freeNear(e, x, y); hide(e, false); e.anim.play('Attack'); });
@@ -2627,7 +2632,7 @@ G.BossSig = (() => {
       G.FX.ring(x, y, 6, 70, c.col, 0.4, 4);
     });
     at(c, 0.6, () => { const m = R(12 * c.less); for (let i = 0; i < m; i++) e.fire(i / m * TAU, 160, 0.7); e.anim.play('Shoot'); });
-    at(c, 0.7, () => hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 80, delay: 0.7, dmg: e.shotDmg() * 1.2, grp: nextGrp() }));
+    at(c, 0.7, () => hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 80, delay: 0.7, dmg: sd(e) * 1.2, grp: nextGrp() }));
     c.end = 1.6;
   };
 
@@ -2640,7 +2645,7 @@ G.BossSig = (() => {
     for (let i = 0; i < n; i++) at(c, 0.8 + i * 1.0, () => {
       const p = nearest(e.x, e.y) || pl, a = Math.random() * TAU, L = 560;
       const sx = p.x - Math.cos(a) * L, sy = p.y - Math.sin(a) * L * 0.8, ex = p.x + Math.cos(a) * L, ey = p.y + Math.sin(a) * L * 0.8;
-      hz(e, c, { kind: 'beam', x: sx, y: sy, angle: Math.atan2(ey - sy, ex - sx), len: Math.hypot(ex - sx, ey - sy), w: R(e.r * 2 + 34), delay: 0.85, dmg: e.dmg * 1.35, grp: nextGrp() });
+      hz(e, c, { kind: 'beam', x: sx, y: sy, angle: Math.atan2(ey - sy, ex - sx), len: Math.hypot(ex - sx, ey - sy), w: R(e.r * 2 + 34), delay: 0.85, dmg: dm(e) * 1.35, grp: nextGrp() });
       emit({ k: 'streak', dex: e.dex, sc: e.scale, sh: e.shiny ? 1 : 0, x: R(sx), y: R(sy), x2: R(ex), y2: R(ey), at: 0.72, dur: 1.2, col: c.col });
       lx = p.x + Math.cos(a) * 160; ly = p.y + Math.sin(a) * 130;
     });
@@ -2662,7 +2667,7 @@ G.BossSig = (() => {
     // Psicoataque: una zona enorme donde estás.
     at(c, 0.4, () => {
       const p = nearest(e.x, e.y) || pl;
-      hz(e, c, { kind: 'zone', x: p.x, y: p.y, r: 112, delay: 1.2, dmg: e.shotDmg() * (f === 'attack' ? 2.2 : 1.6), grp: nextGrp() });
+      hz(e, c, { kind: 'zone', x: p.x, y: p.y, r: 112, delay: 1.2, dmg: sd(e) * (f === 'attack' ? 2.2 : 1.6), grp: nextGrp() });
       emit({ k: 'sky', st: 'meteor', col: c.col, col2: c.col2, pts: [[R(p.x), R(p.y), 1.2]], dur: 1.7 });
     });
     c.end = 1.8;
@@ -2690,7 +2695,7 @@ G.BossSig = (() => {
       let px, py;
       if (p && (p.x - x) ** 2 + (p.y - y) ** 2 < Rr * Rr) { px = p.x + G.U.rand(-40, 40); py = p.y + G.U.rand(-30, 30); }
       else { const a = Math.random() * TAU, d = Math.random() * Rr; px = x + Math.cos(a) * d; py = y + Math.sin(a) * d * 0.8; }
-      hz(e, c, { kind: 'zone', x: px, y: py, r: 46, delay: 0.85, dmg: e.shotDmg() });
+      hz(e, c, { kind: 'zone', x: px, y: py, r: 46, delay: 0.85, dmg: sd(e) });
       emit({ k: 'sky', st: TERR_SKY[o.st] || 'bolt', col: c.col, col2: c.col2, pts: [[R(px), R(py), 0.85]], dur: 1.3 });
       // Campo de Hierba (Tapu Bulu): se cura mientras está dentro de su campo.
       if (o.heal && (e.x - x) ** 2 + (e.y - y) ** 2 < Rr * Rr) heal(e, 0.012);
@@ -2715,7 +2720,7 @@ G.BossSig = (() => {
     if (o.grip) emit({ k: 'push', x: R(e.x), y: R(e.y), r: 640, rad: 1, f: -95, dur: 1.9, delay: 0.2, st: 'normal', col: c.col });
     e.anim.play('Charge', { speed: 1.1 });
     const ring = (j, i) => emit({ k: 'ring', x: R(e.x), y: R(e.y), r1: Rs[j], r2: Rs[j + 1], delay: t0 + i * 0.55, dur: t0 + i * 0.55 + 0.4, eff: o.freeze ? 'freeze' : '',
-                                  dmg: R(e.shotDmg() * 1.25), slow: o.slow || 0, st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+                                  dmg: R(sd(e) * 1.25), slow: o.slow || 0, st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
     for (let i = 0; i < n; i++) {
       if (dir === 'both') { ring(i, i); if (n - 1 - i !== i) ring(n - 1 - i, i); }
       else ring(dir === 'out' ? i : n - 1 - i, i);
@@ -2728,7 +2733,7 @@ G.BossSig = (() => {
   /** Jaula que se cierra a tu alrededor: cruzarla quema un poco; dentro al cerrarse, mucho. */
   P.cage = (e, pl, c, o) => {
     for (const p of living().slice(0, 2)) {
-      emit({ k: 'cage', x: R(p.x), y: R(p.y), R0: 165, R1: 30, dur: 3.2, dmg: R(e.shotDmg()), st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+      emit({ k: 'cage', x: R(p.x), y: R(p.y), R0: 165, R1: 30, dur: 3.2, dmg: R(sd(e)), st: o.st, col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
       if (o.lava) { const x = R(p.x), y = R(p.y); job(e, 3.2, () => emit({ k: 'pool', x, y, r: 60, dur: 4, st: 'lava', col: '#ff6a1f', col2: '#ffd25e', dot: R(e.shotDmg() * 0.22), type: e.atkType, cat: e.cat })); }
     }
     e.anim.play('Charge', { speed: 1.2 });
@@ -2738,7 +2743,7 @@ G.BossSig = (() => {
 
   /** Regieleki: Electrojaula, una jaula CUADRADA de electricidad que se cierra. */
   P.box = (e, pl, c, o) => {
-    for (const p of living().slice(0, 2)) emit({ k: 'box', x: R(p.x), y: R(p.y), R0: 175, R1: 26, dur: 3.0, dmg: R(e.shotDmg()), st: 'elec', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
+    for (const p of living().slice(0, 2)) emit({ k: 'box', x: R(p.x), y: R(p.y), R0: 175, R1: 26, dur: 3.0, dmg: R(sd(e)), st: 'elec', col: c.col, col2: c.col2, type: e.atkType, cat: e.cat });
     emit({ k: 'braille', id: e.id, dur: 2.4, col: c.col });
     e.anim.play('Charge', { speed: 1.4 });
     at(c, 0.4, () => e.anim.play('Shoot'));
@@ -2761,7 +2766,7 @@ G.BossSig = (() => {
     }
     if (o.kind === 'leaf') { P.wave(e, pl, c, { n: 2, gaps: 2, st: 'leaf', spd: 190 }); return; }
     emit({ k: 'pool', x: R(e.x), y: R(e.y), r: 215, dur: 1.5, st: 'grass', col: c.col, col2: c.col2 });
-    hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 215, delay: 1.35, dmg: e.shotDmg() * 1.7, grp: nextGrp() });
+    hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 215, delay: 1.35, dmg: sd(e) * 1.7, grp: nextGrp() });
     e.anim.play('Charge', { speed: 0.9 });
     at(c, 1.35, () => { e.anim.play('Attack'); G.Camera.kick(0.6); G.FX.ring(e.x, e.y, 10, 230, '#e0ffc8', 0.5, 6); });
     c.end = 1.8;
@@ -2775,7 +2780,7 @@ G.BossSig = (() => {
       emit({ k: 'pool', x: R(p.x + Math.cos(a) * d), y: R(p.y + Math.sin(a) * d * 0.8), r: 52, dur: 6, delay: 0.9, st: o.st, col: c.col, col2: c.col2,
              dot: tox ? R(e.shotDmg() * 0.22) : 0, slow: tox ? 0 : 1.2, type: e.atkType, cat: e.cat });
     }
-    if (o.chain) at(c, 0.3, () => { const a = ang(e, pl), g = nextGrp(); for (const s of [-0.3, 0, 0.3]) hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a + s, len: 480, w: 22, delay: 1.0, dmg: e.shotDmg() * 1.1, grp: g }); });
+    if (o.chain) at(c, 0.3, () => { const a = ang(e, pl), g = nextGrp(); for (const s of [-0.3, 0, 0.3]) hz(e, c, { kind: 'beam', x: e.x, y: e.y, angle: a + s, len: 480, w: 22, delay: 1.0, dmg: sd(e) * 1.1, grp: g }); });
     e.anim.play('Charge', { speed: 1.1 });
     c.end = 1.3;
   };
@@ -2796,7 +2801,7 @@ G.BossSig = (() => {
     emit({ k: 'push', x, y, r: 200, rad: 1, f: -58, dur: 4.2, delay: 0.5, st: 'water', col: c.col });
     e.anim.play('Charge', { speed: 1 });
     at(c, 1.2, () => { const a = ang(e, { x, y }), g = nextGrp();
-      for (let i = -1; i <= 1; i++) hz(e, c, { kind: 'beam', x: e.x - Math.sin(a) * i * 46, y: e.y + Math.cos(a) * i * 46, angle: a, len: 640, w: 30, delay: 1.0, dmg: e.shotDmg() * 1.2, grp: g }); });
+      for (let i = -1; i <= 1; i++) hz(e, c, { kind: 'beam', x: e.x - Math.sin(a) * i * 46, y: e.y + Math.cos(a) * i * 46, angle: a, len: 640, w: 30, delay: 1.0, dmg: sd(e) * 1.2, grp: g }); });
     at(c, 2.2, () => e.anim.play('Shoot'));
     c.end = 2.6;
   };
@@ -2811,7 +2816,7 @@ G.BossSig = (() => {
       if (c.ph !== 1) return null;
       if ((c.go -= dt) <= 0) {
         c.ph = 2;
-        hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 150, delay: 0.95, dmg: e.shotDmg() * 2.0, grp: nextGrp(), boom: true });
+        hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 150, delay: 0.95, dmg: sd(e) * 2.0, grp: nextGrp(), boom: true });
         at(c, c.t + 0.95, () => { G.Camera.kick(0.9); G.FX.burst(e.x, e.y - 20, '#ffd25e', 30, 260); });
         return [0, 0, 'Idle'];
       }
@@ -2851,7 +2856,7 @@ G.BossSig = (() => {
     at(c, 3.6, () => {
       e.sigK = 1;
       label(e, o.name2 || 'Gigaimpacto', c.col);
-      hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 160, delay: 1.0, dmg: e.shotDmg() * 2.4, grp: nextGrp() });
+      hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 160, delay: 1.0, dmg: sd(e) * 2.4, grp: nextGrp() });
       e.anim.play('Charge', { speed: 0.9 });
     });
     at(c, 4.6, () => { e.anim.play('Attack', { speed: 1.2 }); G.Camera.kick(0.9); });
@@ -2864,7 +2869,7 @@ G.BossSig = (() => {
       const p = nearest(e.x, e.y) || pl;
       e.jump = { sx: e.x, sy: e.y, tx: p.x, ty: p.y, t: -0.35, dur: 0.75 };
       emit({ k: 'hop', id: e.id, dur: 1.1, big: 1 });
-      hz(e, c, { kind: 'zone', x: p.x, y: p.y, r: 105, delay: 1.1, dmg: e.shotDmg() * 1.5, grp: nextGrp() });
+      hz(e, c, { kind: 'zone', x: p.x, y: p.y, r: 105, delay: 1.1, dmg: sd(e) * 1.5, grp: nextGrp() });
       e.anim.play('Charge', { speed: 1.4 });
     });
     if (o.rest) {
@@ -2881,7 +2886,7 @@ G.BossSig = (() => {
     if (fl === 'bulk') { e.sigK = Math.min(e.sigK, 0.6); emit({ k: 'bubble', id: e.id, dur: Math.min(3, c.end), col: '#b8c6d8' }); }
     else if (fl === 'fast') c.onEnd = (f => () => { if (f) f(); haste(e, 1.25, 5); })(c.onEnd);
     else if (fl === 'spec') at(c, Math.min(c.end, 3) - 0.05, () => { const m = R(12 * c.less); for (let i = 0; i < m; i++) e.fire(i / m * TAU + 0.26, 150, 0.6); });
-    else if (fl === 'phys') at(c, Math.min(c.end, 3) - 0.05, () => hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 92, delay: 0.7, dmg: e.shotDmg() * 1.1, grp: nextGrp() }));
+    else if (fl === 'phys') at(c, Math.min(c.end, 3) - 0.05, () => hz(e, c, { kind: 'zone', x: e.x, y: e.y, r: 92, delay: 0.7, dmg: sd(e) * 1.1, grp: nextGrp() }));
   }
 
   // ---------------- campos y marcas (en cada ordenador) ----------------

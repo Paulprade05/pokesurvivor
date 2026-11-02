@@ -125,6 +125,7 @@ G.Hazards = (() => {
       const c = document.createElement('canvas');
       c.width = c.height = 12;
       const g = c.getContext('2d');
+      if (!g) return '#fff';                       // (sin memoria de lienzos: liso este fotograma)
       g.strokeStyle = '#fff'; g.lineWidth = 3;
       g.beginPath();
       g.moveTo(-3, 15); g.lineTo(15, -3);
@@ -151,10 +152,13 @@ G.Hazards = (() => {
     const n = parseInt(s.length === 3 ? s.split('').map(c => c + c).join('') : s.slice(0, 6), 16) || 0xffffff;
     return [n >> 16 & 255, n >> 8 & 255, n & 255];
   }
+  let failUntil = 0;
   function decalCanvas(w, h) {
+    if (Date.now() < failUntil) return null;
     const c = document.createElement('canvas');
     c.width = Math.max(1, w); c.height = Math.max(1, h);
     const g = c.getContext('2d');
+    if (!g) { G.U.freeCanvas(c); failUntil = Date.now() + 1000; return null; }   // sin memoria de lienzos (iPhone): sin marca un rato
     const img = g.createImageData(c.width, c.height);
     return { c, g, img, d: img.data };
   }
@@ -168,7 +172,9 @@ G.Hazards = (() => {
     d[o + 3] = Math.round(oa * 255);
   }
   function hash(a, b) { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
-  function remember(k, v) { if (decals.size > 64) decals.clear(); decals.set(k, v); return v; }
+  function remember(k, v) { if (decals.size > 64) purge(); decals.set(k, v); return v; }
+  /** Suelta las marcas guardadas (se vuelven a pintar al dibujar). */
+  function purge() { for (const c of decals.values()) G.U.freeCanvas(c); decals.clear(); }
 
   /** Zona: suelo oscurecido y agrietado con un aro de runas. R = radio en mundo. */
   function zoneDecal(color, R) {
@@ -177,6 +183,7 @@ G.Hazards = (() => {
     if (got) return got;
     const r = Math.max(3, Math.round(R / PX)), S = r * 2 + 3, c0 = (S - 1) / 2;
     const D = decalCanvas(S, S);
+    if (!D) return null;
     const col = rgbOf(color), dark = col.map(v => v * 0.35), black = [8, 6, 14], light = col.map(v => v + (255 - v) * 0.55);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
       const dx = x - c0, dy = y - c0, d = Math.hypot(dx, dy);
@@ -214,6 +221,7 @@ G.Hazards = (() => {
     if (got) return got;
     const r = Math.max(3, Math.round(R / PX)), S = r * 2 + 1, c0 = r;
     const D = decalCanvas(S, S);
+    if (!D) return null;
     const col = rgbOf(color), light = col.map(v => v + (255 - v) * 0.6);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
       const d = Math.hypot(x - c0, y - c0);
@@ -233,6 +241,7 @@ G.Hazards = (() => {
     if (got) return got;
     const S = W * 2 + 3;
     const D = decalCanvas(L + 2, S);
+    if (!D) return null;
     const col = rgbOf(color), black = [8, 6, 14];
     for (let y = 0; y < S; y++) for (let x = 0; x < L + 2; x++) {
       const e = Math.abs(y - (S - 1) / 2);
@@ -268,14 +277,16 @@ G.Hazards = (() => {
           // (Tamaños de 8 en 8 para guardar pocas imágenes; se estiran al radio exacto.)
           const R = h.r + r * 0.6, Rq = Math.max(8, Math.round(R / 8) * 8);
           const dec = zoneDecal(h.color, Rq), fill = zoneFill(h.color, Rq), q = R / Rq;
-          const s = dec.width * PX * q, f = fill.width * PX * q * k;
-          ctx.drawImage(dec, -s / 2, -s / 2, s, s);
-          if (f >= 2) ctx.drawImage(fill, -f / 2, -f / 2, f, f);
+          if (dec && fill) {
+            const s = dec.width * PX * q, f = fill.width * PX * q * k;
+            ctx.drawImage(dec, -s / 2, -s / 2, s, s);
+            if (f >= 2) ctx.drawImage(fill, -f / 2, -f / 2, f, f);
+          }
         } else {
           const hw = h.w / 2 + r * 0.6, L = h.len + 2 * r;
           const dec = beamDecal(h.color, Math.max(16, Math.round(L / 16) * 16), Math.max(4, Math.round(hw / 4) * 4));
           const bw = L + 2 * PX, bh = (hw + PX) * 2;
-          ctx.drawImage(dec, -r - PX, -bh / 2, bw, bh);
+          if (dec) ctx.drawImage(dec, -r - PX, -bh / 2, bw, bh);
           ctx.globalAlpha = 0.3; ctx.fillStyle = h.color;
           ctx.fillRect(-r, -hw * k, h.len + 2 * r, hw * 2 * k);
           ctx.globalAlpha = 1;
@@ -302,5 +313,5 @@ G.Hazards = (() => {
     }
   }
 
-  return { add, clear, update, draw, inside, get all() { return list; }, get count() { return list.length; } };
+  return { add, clear, update, draw, purge, inside, get all() { return list; }, get count() { return list.length; } };
 })();

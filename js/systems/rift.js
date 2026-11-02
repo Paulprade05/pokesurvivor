@@ -470,6 +470,12 @@ G.Rift = (() => {
     }
   }
 
+  // (02-11-2026) Los legendarios pegan mucho más (pedido del dueño): un golpe suyo ~45 de lo que ves con las mejoras compradas
+  //  (antes 13-15) y su firma ~85 (SIG_LEG, enemy.js). Daño de un golpe, igual toda la partida: lo que ves sube solo con los
+  //  minutos (al principio, youngK y menos nivel). Medido con tools/curve.cjs: ver
+  //  docs/2.0-ESTADO.md.
+  const LEG_HIT = 70;
+
   /** @param at  dónde sale cada uno (la llegada: startIntro); si no, en su sitio de SPOTS. */
   function spawnLegends(at = null) {
     // (Su fuerza va con el tiempo «efectivo» de los enemigos, 26-10-2026: ver G.Enemies.eff.)
@@ -477,6 +483,8 @@ G.Rift = (() => {
     // (28-10-2026) Una grieta en los primeros minutos no puede ser un muro: hasta el minuto 3, un 45 % menos de vida y
     //  de daño (y llega a lo normal en el 10). Medido: un Delibird sin mejoras caía diez veces en una grieta del minuto 3.
     const soft = 0.55 + 0.45 * Math.min(1, Math.max(0, (G.Game.st.time - 180) / 420));
+    // (02-11-2026) El daño, menos rebajado al principio: un 15 % menos hasta el minuto 3.
+    const hitSoft = 0.85 + 0.15 * Math.min(1, Math.max(0, (G.Game.st.time - 180) / 420));
     const n = G.Coop.scale(G.Game.everyone().length);     // (cooperativo: vida y daño ×n, 01-11-2026)
     const ts = U;
     const k = arena.dexes.length, spots = SPOTS[k] || SPOTS[1];
@@ -491,12 +499,12 @@ G.Rift = (() => {
         hp: Math.round((G.Enemies.bossHp ? G.Enemies.bossHp((4000 + t * 22) * soft, G.Game.st.time, 'leg', n)
                                          : (3200 + t * 9) * soft * n) * HP_EACH[k]),
         spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
-        // (Bloque 3: de 36 + t/20 a 40 + t/10 entre los minutos 10 y 20; antes del 10, como siempre: medido, las grietas
-        //  de los minutos 5-8 tumbaban.)
-        dmg: Math.round((36 + t / 20 + Math.min(1, Math.max(0, (G.Game.st.time - 600) / 600)) * (4 + t / 20)) * soft),
+        // (02-11-2026) Daño igual toda la partida (antes 36 + t/20 hasta 40 + t/10: 7-16 en las grietas de los minutos
+        //  5-9 y hasta 121 en el 18, con ~200 de vida) y los disparos como un golpe (antes la mitad). Ver LEG_HIT.
+        dmg: Math.round(LEG_HIT * hitSoft),
         xp: Math.round(500 + t * 1.2),
         behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',
-        shotDmg: Math.round((18 + t / 40) * soft), shotCd: 0.9, range: 300
+        shotDmg: Math.round(LEG_HIT * hitSoft), shotCd: 0.9, range: 300
       };
       const [sx, sy] = spots[i] || [0, -3.5];
       const e = new G.Enemy(def, arena.x + sx * ts, arena.y + sy * ts, { hp: 1, spd: 1, dmg: 1 }, true);

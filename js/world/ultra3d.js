@@ -260,7 +260,7 @@ G.Ultra3D = (() => {
   }
 
   // ---------------- rocas y cofres ----------------
-  /** Las piezas que no cambian: 2 rocas de pocos polígonos, 2 cofres (texturas de PixelLab recortadas) y el contorno. */
+  /** Las piezas que no cambian: 2 rocas de pocos polígonos (con su contorno) y 2 cofres (texturas de chest.png recortadas). */
   function sharedParts() {
     if (shared) return shared;
     const chest = G.Tileset.pxImg('chest'), big = G.Tileset.pxImg('bigchest');
@@ -299,7 +299,7 @@ G.Ultra3D = (() => {
       hull.translate(0, 0, -6); hull.scale(1.13, 1.18, 1.12); hull.translate(0, 0, 6);
       s.rocks.push({ g, hull });
     }
-    // Cofres: tapa (arriba y su frente), cuerpo (su frente) y lados, del dibujo de PixelLab (chest.png 21×21, bigchest 29×27).
+    // Cofres: tapa (arriba y su frente), cuerpo (su frente) y lados, del dibujo de tools/chest3d.py (chest.png 21×21, bigchest 29×27).
     s.chest = chestParts(chest, { w: 20, lidTop: [0, 8], lidFront: [8, 12], body: [12, 18] });
     s.big = chestParts(big, { w: 28, lidTop: [0, 11], lidFront: [11, 16], body: [16, 24] });
     return (shared = s);
@@ -310,7 +310,26 @@ G.Ultra3D = (() => {
     cv.width = w; cv.height = h;
     const g = cv.getContext('2d');
     if (!g) return null;
+    // (Las esquinas transparentes del dibujo, en 3D, salían negras: debajo va el dibujo corrido 1 px, que las rellena.)
+    g.drawImage(img, x + 1, y, w, h, 0, 0, w, h);
+    g.drawImage(img, x - 1, y, w, h, 0, 0, w, h);
     g.drawImage(img, x, y, w, h, 0, 0, w, h);
+    return cv;
+  }
+
+  /** Lo de dentro del cofre (se ve al levantar la tapa): la tapa vista desde arriba, a oscuras, con el borde y (en el
+   *  cuerpo) unas monedas. */
+  function chestInside(img, w, D, coins) {
+    const cv = crop(img, 0, 0, w, D);
+    const g = cv && cv.getContext('2d');
+    if (!g) return cv;
+    g.fillStyle = 'rgba(16,8,6,0.78)';
+    g.fillRect(1, 1, w - 2, D - 2);
+    if (!coins) return cv;
+    g.fillStyle = '#ecc04a';
+    for (let i = 0; i < 7; i++) g.fillRect(3 + ((i * 7) % (w - 6)), 2 + ((i * 3) % Math.max(1, D - 4)), 2, 1);
+    g.fillStyle = '#fff0a8';
+    for (let i = 0; i < 3; i++) g.fillRect(5 + ((i * 11) % (w - 8)), 3 + ((i * 2) % Math.max(1, D - 5)), 1, 1);
     return cv;
   }
 
@@ -320,7 +339,8 @@ G.Ultra3D = (() => {
     const mat = cv => lambert(tex(cv));
     const m = {
       top: mat(crop(img, 0, L.lidTop[0], w, D)), lidF: mat(crop(img, 0, L.lidFront[0], w, hl)), body: mat(crop(img, 0, L.body[0], w, hb)),
-      lidS: mat(crop(img, 0, L.lidFront[0], Math.min(D, w), hl)), bodyS: mat(crop(img, 0, L.body[0], Math.min(D, w), hb))
+      lidS: mat(crop(img, 0, L.lidFront[0], Math.min(D, w), hl)), bodyS: mat(crop(img, 0, L.body[0], Math.min(D, w), hb)),
+      inside: mat(chestInside(img, w, D, true)), under: mat(chestInside(img, w, D, false))
     };
     const X = w, Y = D * 2, Zb = hb * 2, Zl = hl * 2;   // (mundo) ancho, fondo, alto del cuerpo y de la tapa
     const x0 = -X, x1 = X, y0 = -Y, y1 = 0, U = rect(0, 0, 1, 1);
@@ -328,7 +348,10 @@ G.Ultra3D = (() => {
     box(B, x0, y0, 0, x1, y1, Zb, { front: U });
     const nf = B.pos.length / 3;
     box(B, x0, y0, 0, x1, y1, Zb, { west: U, east: U, back: U });
-    const body = geo(B, [[0, nf, 0], [nf, B.pos.length / 3 - nf, 1]]);
+    const ns = B.pos.length / 3;
+    // Arriba del cuerpo, lo de dentro: con la tapa levantada se ve (antes, un hueco negro: el cofre parecía partido).
+    box(B, x0, y0, 0, x1, y1, Zb - 0.05, { top: U });
+    const body = geo(B, [[0, nf, 0], [nf, ns - nf, 1], [ns, B.pos.length / 3 - ns, 2]]);
     // La tapa, con el giro en el borde de atrás (y = y0, z = Zb): el cofre con candado la levanta al abrirse.
     const Lg = { pos: [], nor: [], uv: [] };
     box(Lg, x0, 0, 0, x1, Y, Zl, { top: U });
@@ -336,11 +359,12 @@ G.Ultra3D = (() => {
     box(Lg, x0, 0, 0, x1, Y, Zl, { front: U });
     const n2 = Lg.pos.length / 3;
     box(Lg, x0, 0, 0, x1, Y, Zl, { west: U, east: U, back: U });
-    const lid = geo(Lg, [[0, n1, 0], [n1, n2 - n1, 1], [n2, Lg.pos.length / 3 - n2, 2]]);
-    const HB = { pos: [], nor: [], uv: [] };
-    const o = 1.6;
-    box(HB, x0 - o, y0 - o, -o, x1 + o, y1 + o, Zb + Zl + o, { top: U, front: U, west: U, east: U, back: U });
-    return { m, body, lid, hull: geo(HB), Y, Zb, Zl, X };
+    const n3 = Lg.pos.length / 3;
+    // Por debajo, su cara de dentro: la tapa levantada queda de pie detrás del cofre, mirándote.
+    quad(Lg, [x0, 0, 0], [x1, 0, 0], [x1, Y, 0], [x0, Y, 0], [0, 0, -1], U);
+    const lid = geo(Lg, [[0, n1, 0], [n1, n2 - n1, 1], [n2, n3 - n2, 2], [n3, Lg.pos.length / 3 - n3, 3]]);
+    // (Sin el contorno negro de las rocas: el dibujo ya lleva el suyo y, con los dos, el borde salía muy gordo.)
+    return { m, body, lid, Y, Zb, Zl, X };
   }
 
   function makeProp(p) {
@@ -355,14 +379,12 @@ G.Ultra3D = (() => {
       it = { obj: o, mesh, kind: 'rock', h: 26 };
     } else {
       const c = p.type === 'bigchest' ? s.big : s.chest;
-      const body = new T.Mesh(c.body, [c.m.body, c.m.bodyS]);
+      const body = new T.Mesh(c.body, [c.m.body, c.m.bodyS, c.m.inside]);
       const pivot = new T.Group();
       pivot.position.set(0, -c.Y, c.Zb);
-      const lid = new T.Mesh(c.lid, [c.m.top, c.m.lidF, c.m.lidS]);
+      const lid = new T.Mesh(c.lid, [c.m.top, c.m.lidF, c.m.lidS, c.m.under]);
       pivot.add(lid);
-      const hull = new T.Mesh(c.hull, s.hullMat);
-      hull.hull = true;
-      o.add(body, pivot, hull);
+      o.add(body, pivot);
       it = { obj: o, mesh: body, lid, pivot, kind: p.type, h: c.Zb + c.Zl + 14, c };
     }
     // Donde está: centrado en su casilla, apoyado en el suelo (los pies del objeto, p.y, están 4 por encima del borde).
@@ -387,11 +409,12 @@ G.Ultra3D = (() => {
       const want = p.flash > 0;
       if (want !== !!it.flashing) {
         it.flashing = want;
-        it.mesh.material = want ? [flashOf(c.m.body), flashOf(c.m.bodyS)] : [c.m.body, c.m.bodyS];
-        it.lid.material = want ? [flashOf(c.m.top), flashOf(c.m.lidF), flashOf(c.m.lidS)] : [c.m.top, c.m.lidF, c.m.lidS];
+        it.mesh.material = want ? [flashOf(c.m.body), flashOf(c.m.bodyS), flashOf(c.m.inside)] : [c.m.body, c.m.bodyS, c.m.inside];
+        it.lid.material = want ? [flashOf(c.m.top), flashOf(c.m.lidF), flashOf(c.m.lidS), flashOf(c.m.under)] : [c.m.top, c.m.lidF, c.m.lidS, c.m.under];
       }
-      // El cofre con candado levanta la tapa mientras lo abres.
-      const a = it.kind === 'bigchest' ? 0.55 * Math.min(1, p.open / G.Interact.CHEST_TIME) : 0;
+      // El cofre con candado levanta la tapa mientras lo abres, hasta dejarla de pie detrás (con 0,55 rad se veía casi sólo
+      // su canto: parecía que al cofre le faltaba un trozo).
+      const a = it.kind === 'bigchest' ? 1.9 * Math.min(1, p.open / G.Interact.CHEST_TIME) : 0;
       if (it.pivot.rotation.x !== a) { it.pivot.rotation.x = a; it.obj.updateMatrixWorld(true); shadowDirty = true; }
     }
     return it;
@@ -419,7 +442,7 @@ G.Ultra3D = (() => {
     faceMats.clear(); rockMats.clear(); flashMats.clear();
     if (shared) {
       for (const r of shared.rocks) { r.g.dispose(); r.hull.dispose(); }
-      for (const c of [shared.chest, shared.big]) { c.body.dispose(); c.lid.dispose(); c.hull.dispose(); for (const k in c.m) kill(c.m[k]); }
+      for (const c of [shared.chest, shared.big]) { c.body.dispose(); c.lid.dispose(); for (const k in c.m) kill(c.m[k]); }
       shared.hullMat.dispose();
       shared = null;
     }

@@ -438,33 +438,67 @@ G.VFX = (() => {
 
   // ---------------- caché y dibujo ----------------
 
-  const cache = new Map();
+  // (iPhone: ataques invisibles, 02-11-2026) Safari en iOS, al llegar a su tope de memoria de lienzos, da
+  // getContext = null: antes eso lanzaba un error a mitad del fotograma y no se dibujaba ningún ataque (y el
+  // fotograma fallido soltaba y volvía a hornear el suelo: tirones). Ahora, sin lienzo, el sprite se pinta
+  // directamente cuadrado a cuadrado (se ve igual) y se vuelve a intentar al rato. Con tope (LRU) y purge().
+  const cache = new Map();             // "forma|paleta|fotograma" -> lienzo (orden: el último usado al final)
+  const CACHE_MAX = 400;
+  const grids = new Map();             // lo mismo, sin lienzo: la rejilla ya calculada (para pintar a mano)
+  let noCanvasUntil = 0;               // sin memoria de lienzos: no se intenta crear otro hasta entonces
 
   function rgba(hex, a) {
     const n = parseInt(hex.slice(1), 16);
     return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
   }
 
-  function sprite(shape, pal, frame = 0) {
-    const S = SHAPES[shape] || SHAPES.ball;
-    const f = (frame | 0) % (S.frames || 1);
-    const k = shape + '|' + pal + '|' + f;
-    let cv = cache.get(k);
-    if (cv) return cv;
-    const P = grid(S.w, S.h);
+  function gridOf(S, shape, f, k) {
+    let P = grids.get(k);
+    if (P) return P;
+    P = grid(S.w, S.h);
     S.gen(P, f);
-    cv = document.createElement('canvas');
-    cv.width = S.w; cv.height = S.h;
-    const c = cv.getContext('2d');
+    if (grids.size >= CACHE_MAX) grids.delete(grids.keys().next().value);
+    grids.set(k, P);
+    return P;
+  }
+
+  function paint(c, P, S, pal, ox, oy, k) {
     const colors = PAL[pal] || PAL.normal;
     for (let y = 0; y < S.h; y++) for (let x = 0; x < S.w; x++) {
       const ch = P.g[y][x];
       if (!ch) continue;
       c.fillStyle = ch === 'L' ? rgba(colors[3], 0.5) : colors[IDX[ch]];
-      c.fillRect(x, y, 1, 1);
+      c.fillRect(ox + x * k, oy + y * k, k, k);
+    }
+  }
+
+  /** El lienzo del sprite, o null si ahora no se puede crear (sin memoria de lienzos). */
+  function sprite(shape, pal, frame = 0) {
+    const S = SHAPES[shape] || SHAPES.ball;
+    const f = (frame | 0) % (S.frames || 1);
+    const k = shape + '|' + pal + '|' + f;
+    let cv = cache.get(k);
+    if (cv) { cache.delete(k); cache.set(k, cv); return cv; }
+    if (Date.now() < noCanvasUntil) return null;
+    const P = gridOf(S, shape, f, k);
+    cv = document.createElement('canvas');
+    cv.width = S.w; cv.height = S.h;
+    const c = cv.getContext('2d');
+    if (!c) { G.U.freeCanvas(cv); noCanvasUntil = Date.now() + 1000; return null; }
+    paint(c, P, S, pal, 0, 0, 1);
+    while (cache.size >= CACHE_MAX) {
+      const [ok, oc] = cache.entries().next().value;
+      cache.delete(ok); G.U.freeCanvas(oc);
     }
     cache.set(k, cv);
     return cv;
+  }
+
+  /** Suelta los lienzos guardados (sin memoria, o si Safari los ha vaciado); se rehacen al dibujar. */
+  function purge() {
+    for (const c of cache.values()) G.U.freeCanvas(c);
+    cache.clear();
+    noCanvasUntil = 0;
   }
 
   /** Dibuja centrado en (x, y). opts: angle, scale (1 = píxel de juego), frame, alpha, flip (mirando a la izquierda). */
@@ -482,7 +516,11 @@ G.VFX = (() => {
       ctx.rotate(a);
     }
     if (o.flip) ctx.scale(-1, 1);
-    ctx.drawImage(cv, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k);
+    if (cv) ctx.drawImage(cv, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k);
+    else {
+      const f = ((o.frame || 0) | 0) % (S.frames || 1);
+      paint(ctx, gridOf(S, shape, f, shape + '|' + pal + '|' + f), S, pal, -S.w * k / 2, -S.h * k / 2, k);
+    }
     ctx.restore();
   }
 
@@ -1083,7 +1121,7 @@ G.VFX = (() => {
   }
   function forType(type) { return { proj: TYPE_SHAPE[type] || 'ball', pal: PAL[type] ? type : 'normal' }; }
 
-  return { PAL, SHAPES, draw, sprite, forMove, forType, isDir, spins, frames };
+  return { PAL, SHAPES, draw, sprite, purge, forMove, forType, isDir, spins, frames };
 })();
 
 /* ============ firmas de los jefes y grietas: lo que se ve (26-10-2026) ============
