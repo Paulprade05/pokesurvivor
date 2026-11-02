@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-02', title: ["Desplegables con el estilo del juego", "Dropdowns in the game's style"], fix: [
+    ["En iPhone, los desplegables (como los filtros «Tipo» y «Familia» del Compendio, la región y el orden de la Pokédex o los huecos de ataques de Mejoras) abrían la rueda de iOS, que salía de pie aunque el juego estuviera girado. Ahora todos abren una lista propia con el estilo del juego, tumbada como el resto, que se desplaza si hay muchas opciones y se cierra al tocar fuera. Va con ratón, táctil y teclado.",
+     "On iPhone, dropdowns (like the Compendium's “Type” and “Family” filters, the Pokédex region and sort, or the move slots in Upgrades) opened the iOS wheel, which showed up upright even with the game turned sideways. Now they all open the game's own list, in its style and sideways like everything else, scrollable when there are many options and closed by tapping outside. It works with mouse, touch and keyboard."]] },
   { d: '2026-11-02', title: ["Cofres sin borde negro y enteros al abrirlos", "Chests without a black border and whole when opened"], fix: [
     ["Los cofres ya no tienen un borde negro muy gordo: el contorno es del tono más oscuro de su madera y la sombra es más suave (en Gráficos Ultra en 3D, además, ya no llevan un segundo contorno negro encima).",
      "Chests no longer have a very thick black border: the outline uses the darkest shade of their wood and the shadow is softer (in Ultra 3D graphics they also no longer get a second black outline on top)."],
