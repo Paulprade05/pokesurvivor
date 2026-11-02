@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-02', title: ["Compendio desde la pausa", "Compendium from the pause menu"], new: [
+    ["Compendio en la pausa: en plena partida, pulsa Compendio en la pausa para ver todos los ataques, evoluciones, pasivas, objetos y Pokémon. Al cerrarlo vuelves a la pausa tal como estaba, sin perder nada (en grupo, el juego sigue para los demás igual que con la pausa).",
+     "Compendium in the pause menu: mid-run, tap Compendium in the pause menu to see every attack, evolution, passive, item and Pokémon. Closing it takes you back to the pause just as it was, without losing anything (in co-op the game keeps going for the others, same as with the pause)."]] },
   { d: '2026-11-02', title: ["Cofres sin borde negro y enteros al abrirlos", "Chests without a black border and whole when opened"], fix: [
     ["Los cofres ya no tienen un borde negro muy gordo: el contorno es del tono más oscuro de su madera y la sombra es más suave (en Gráficos Ultra en 3D, además, ya no llevan un segundo contorno negro encima).",
      "Chests no longer have a very thick black border: the outline uses the darkest shade of their wood and the shadow is softer (in Ultra 3D graphics they also no longer get a second black outline on top)."],
