@@ -1729,6 +1729,21 @@
     return true;
   }
 
+  /**
+   * (2-11-2026, revisión de ataques) Qué números cambia el pasivo `id` en esta familia, para contarlo
+   * (compendio, tools/estudio.cjs): ['radius', 'size'...]; 'half:radius' = la mitad (largo de los rayos);
+   * 'code:pspd' / 'code:amt' = lo lee su mecánica (caen antes, ondas más seguidas, más zonas); 'count' = +1.
+   */
+  function passiveKeys(kind, id) {
+    const r = PASSIVE_RULES[kind];
+    if (!r) return [];
+    if (id === 'area') return (r.a || []).concat((r.ah || []).map(k => 'half:' + k));
+    if (id === 'dur') return (r.d || []).slice();
+    if (id === 'amt') return (r.n ? ['count'] : []).concat(r.code === 'amt' ? ['code:amt'] : []);
+    if (id === 'pspd') return (r.s || []).concat(r.s2 || [], (r.si || []).map(k => 'inv:' + k), r.code === 'pspd' ? ['code:pspd'] : []);
+    return [];
+  }
+
   /** Familias que no hacen (casi) daño: como mucho 2 entre todas (ver levelup.js). */
   function nonAttacking(kind) { return kind === 'buff' || kind === 'ward' || kind === 'wipe'; }
 
@@ -1859,6 +1874,6 @@
 
   G.Moves = { ALL: RAW, BY_ID, POOL, poolFor, instance, levelUp, nextUpText, startFor,
               EVO, NEED_NAME, evoInfo, evolve,
-              PASSIVE_RULES, NO_PASS, EXTRA_MAX, levelCount, applyPassives, rebake, rebakeAll, passiveAffects, nonAttacking,
+              PASSIVE_RULES, NO_PASS, EXTRA_MAX, levelCount, applyPassives, rebake, rebakeAll, passiveAffects, passiveKeys, nonAttacking,
               Z: Z_BY_TYPE, Z_BY_ID, Z_DUR, Z_CD, zPower, zInstance, get };
 })();
