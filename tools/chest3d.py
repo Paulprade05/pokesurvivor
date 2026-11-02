@@ -1,7 +1,7 @@
 """Los cofres en bloque, como las paredes elevadas (assets/objects-px/chest.png y bigchest.png).
 
 Mismo dibujo que una pared de js/world/tileset.js: arriba la tapa vista desde arriba (más clara, con luz arriba y a la
-izquierda), delante la cara del cofre (más oscura, con el labio de luz en el borde), contorno oscuro, sombra a la
+izquierda), delante la cara del cofre (más oscura, con el labio de luz en el borde), contorno del tono más oscuro de la madera, sombra a la
 derecha y, en el suelo, la sombra al sur y al este. Pixel art a 24 px por casilla (el juego lo pinta ×2).
 
   py tools/chest3d.py
@@ -33,11 +33,11 @@ def chest(W, TOP, FRONT, wood, metal, big):
 
     # Sombra en el suelo (como la de las paredes: más fuerte pegada al cofre).
     for y in range(SH):
-        a = (110, 70, 35)[y]
+        a = (80, 50, 25)[y]
         for x in range(1, W + 1):
             put(x, H + y, (0, 0, 0, a))
     for y in range(2, H):
-        put(W, y, (0, 0, 0, 55))
+        put(W, y, (0, 0, 0, 40))
 
     band = [3, W - 4] if not big else [4, W // 2, W - 5]   # flejes de metal (verticales)
     # Tapa (vista desde arriba): tablas a lo largo, luz arriba e izquierda.
@@ -100,16 +100,15 @@ def chest(W, TOP, FRONT, wood, metal, big):
         for x in range(cx - 2, cx + 2):            # el arco del candado, encima
             put(x, ly - 2, mt[1])
         put(cx - 2, ly - 1, mt[1]); put(cx + 1, ly - 1, mt[0])
-    # Contorno.
-    sil = [[px[x, y][3] == 255 and y < H for y in range(im.height)] for x in range(im.width)]
+    # Contorno: del tono más oscuro de la madera, como el de las paredes (con casi negro, y en 3D además el contorno de
+    # las rocas, el borde se veía muy gordo).
     for x in range(W):
-        put(x, 0, OUT_C)
-        put(x, H - 1, OUT_C)
+        put(x, 0, wd[0])
+        put(x, H - 1, wd[0])
     for y in range(H):
-        put(0, y, OUT_C)
-        put(W - 1, y, OUT_C)
+        put(0, y, wd[0])
+        put(W - 1, y, wd[0])
     put(0, 0, (0, 0, 0, 0)); put(W - 1, 0, (0, 0, 0, 0))
-    del sil
     return im
 
 
