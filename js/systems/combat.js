@@ -4949,10 +4949,13 @@ G.Combat = (() => {
             f.next = 0.13;
             let best = null, bd = 170 * 170;
             for (const o of G.EnemyMgr.queryCircle(pl2.x, pl2.y, 170)) { if (o.dead || f.done.has(o.id)) continue; const d = G.U.dist2(pl2.x, pl2.y, o.x, o.y); if (d < bd) { bd = d; best = o; } }
+            // (Revisión 2-11-2026) Sin nadie más cerca, vuelve a por el último (un jefe solo también recibe los saltos).
+            if (!best && f.last && !f.last.dead && G.U.dist2(pl2.x, pl2.y, f.last.x, f.last.y) < 170 * 170) best = f.last;
             if (!best) return true;
+            f.last = best;
             f.done.add(best.id); f.hops++;
             const sx = pl2.x, sy = pl2.y;
-            blinkBehind(pl2, best); xSlash(pl2, f.m, best, f.dmg); invul(pl2, 0.2);
+            blinkBehind(pl2, best); xSlash(pl2, f.m, best, f.dmg * 0.45); invul(pl2, 0.2);      // (cada salto de más, algo menos)
             for (let d = 0; d < 1; d += 0.2) G.FX.sp('feather', 'flying', sx + (pl2.x - sx) * d, sy + (pl2.y - sy) * d - G.LIFT * 0.5, { life: 0.3, angle: Math.atan2(pl2.y - sy, pl2.x - sx) });
             return false;
           } });
@@ -5494,7 +5497,7 @@ G.Combat = (() => {
       G.Projectiles.spawn(Object.assign({
         x: pl.x, y: pl.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, r: m.size * 3, ds: 3.5, life: 2.8, pierce: 0, color: '#ff8a2e',
         homing: 3, air: true, hits: new Set(), vis: { proj: 'ball', pal: 'focus', trail: 'spark' }, ghost, owner: pl, trav: 0,
-        upd: focusUpd, end: focusBoom, onHit: focusBoom
+        upd: focusUpd, end: focusBoom, onHit: focusHit
       }, payload(m)));
       G.Audio.sfx('shot', { kind: 'beam', type: 'fighting' });
       return true;
@@ -5511,6 +5514,11 @@ G.Combat = (() => {
     }
     if (Math.random() < 0.5 && G.Camera.sees(p.x, p.y, 40)) { const a = Math.random() * TAU; G.FX.px(p.x + Math.cos(a) * 60, p.y + Math.sin(a) * 40 - G.LIFT, '#90d2ff', { vx: -Math.cos(a) * 200, vy: -Math.sin(a) * 140, life: 0.3, size: 2 }); }
     return false;
+  }
+  /** (Revisión 2-11-2026) Al que alcanza, además del estallido, el golpe de la esfera (como la Esfera Aural). */
+  function focusHit(p, e) {
+    if (!p.boomed && !p.ghost && !p.owner.dead && e && !e.dead) hit(p.owner, e, p.dmg * Math.min(2.5, 1 + 0.5 * (p.trav || 0) / 100), '#ff8a2e', p.vx, p.vy, 0, p.src);
+    focusBoom(p);
   }
   function focusBoom(p) {
     if (p.boomed) return;
@@ -9453,7 +9461,7 @@ G.Combat = (() => {
             const last = f.log.get(e.id);
             if (last !== undefined && f.t - last < 0.3) continue;
             f.log.set(e.id, f.t);
-            hit(pl, e, atk(pl, m) * 1.2, col, f.x - e.x, f.y - e.y, 0, m);
+            hit(pl, e, atk(pl, m) * 0.7, col, f.x - e.x, f.y - e.y, 0, m);
           }
         }
         return false;
