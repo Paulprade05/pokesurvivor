@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-02', title: ["Cofres sin borde negro y enteros al abrirlos", "Chests without a black border and whole when opened"], fix: [
+    ["Los cofres ya no tienen un borde negro muy gordo: el contorno es del tono más oscuro de su madera y la sombra es más suave (en Gráficos Ultra en 3D, además, ya no llevan un segundo contorno negro encima).",
+     "Chests no longer have a very thick black border: the outline uses the darkest shade of their wood and the shadow is softer (in Ultra 3D graphics they also no longer get a second black outline on top)."],
+    ["En Gráficos Ultra en 3D, al abrir el cofre con candado ya no desaparece un trozo: la tapa se levanta hasta quedar de pie detrás y se ve el cofre entero, con su interior y las monedas, en vez de un hueco negro.",
+     "In Ultra 3D graphics, opening the padlocked chest no longer makes part of it vanish: the lid lifts until it stands up behind and you see the whole chest, with its inside and the coins, instead of a black gap."]] },
   { d: '2026-11-01', title: ["Ultra en 3D: paredes, rocas y cofres con volumen", "Ultra in 3D: walls, rocks and chests with real volume"], new: [
     ["Con los gráficos en Ultra, las paredes, las rocas y los cofres ahora son 3D de verdad: tienen volumen, luz de arriba a la izquierda y sombras reales en el suelo, y siguen siendo pixel art (se dibujan a la escala del arte, con sus texturas de siempre). Un Pokémon detrás de una pared queda tapado por ella, y el cofre con candado levanta la tapa mientras lo abres. Se puede apagar en Ajustes > Gráficos > «Ultra en 3D (WebGL)»; si tu aparato no puede, se ve como antes.",
      "With Ultra graphics, walls, rocks and chests are now real 3D: they have volume, light from the top left and real shadows on the ground, and they're still pixel art (drawn at the art's scale, with their usual textures). A Pokémon behind a wall is hidden by it, and the padlocked chest lifts its lid while you open it. You can turn it off in Settings > Graphics > \"Ultra in 3D (WebGL)\"; if your device can't do it, it looks like before."]] },
