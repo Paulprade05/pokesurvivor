@@ -46,7 +46,7 @@ G.Interact = (() => {
             // mucho, #71). Cada ordenador lleva su cuenta; al abrirse se rompe para
             // todos como siempre (World.breakProp) y el botín sale una vez.
             p.open += dt * (G.Coop.active && mateAt(p) ? CHEST_DUO : 1);
-            if (p.open >= CHEST_TIME) { p.open = 0; G.World.breakProp(p); }
+            if (p.open >= CHEST_TIME) { p.open = 0; G.Reg.ev('cofre'); G.World.breakProp(p); }
           } else if (p.open > 0) p.open = Math.max(0, p.open - dt * 1.5);
           break;
         case 'trap':
@@ -76,6 +76,7 @@ G.Interact = (() => {
     pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.14 * dt);
     healAcc += pl.hp - before;
     pl.healed += pl.hp - before;          // curación del resumen final
+    G.Reg.heal(pl, pl.hp - before, 'manantial');
     p.charge = Math.max(0, p.charge - dt * 0.09);
     if (Math.random() < dt * 14) G.FX.px(pl.x + G.U.rand(-pl.r, pl.r), pl.y - G.U.rand(0, pl.bodyH), '#7dffb0', { vy: -50, life: 0.5 });
     healShown -= dt;
@@ -95,6 +96,7 @@ G.Interact = (() => {
     p.used = true;
     const pw = POWERS[p.kind];
     pl.addPower(pw, POWER_TIME);
+    G.Reg.ev('altar', pw.id);
     G.FX.ring(p.x, p.y - 20, 8, 90, pw.color, 0.6, 5);
     G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, pw.color, 24, 200);
     G.Audio.sfx('legend');
@@ -134,9 +136,9 @@ G.Interact = (() => {
     const ab = (pl && pl.abil) || {};
     if (pl && !pl.dead && G.U.dist2(x, y, pl.x, pl.y) < (TRAP_R * 0.7) ** 2 && !ab.levitate && !ab.trapProof && !(k === 1 && ab.steady)) {
       pl.invuln = 0;
-      if (k === 0) pl.hurt(pl.maxHp * 0.1);
+      if (k === 0) pl.hurt(pl.maxHp * 0.1, null, false, null, 'x:trampa', 'veneno');
       else if (k === 1) { pl.slowT = 3.5; G.FX.dmgText(pl.x, pl.y - pl.bodyH - 6, '¡Pegajoso!', '#8bd94a'); }
-      else pl.hurt(pl.maxHp * 0.2);
+      else pl.hurt(pl.maxHp * 0.2, null, false, null, 'x:trampa', 'explosiva');
     }
   }
 

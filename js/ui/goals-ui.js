@@ -367,6 +367,13 @@
       prev.innerHTML = G.UI.svg('user', 18) + '<span>Ver mi perfil público</span>';
       prev.onclick = () => G.ProfileUI.showData(G.Social.profileData());
       side.appendChild(prev);
+      // Historial de partidas (core/registro.js): las de este aparato, con su detalle y para exportarlas.
+      const runs = document.createElement('button');
+      runs.type = 'button';
+      runs.className = 'btn small ghost ic prof-preview';
+      runs.innerHTML = G.UI.svg('refresh', 18) + '<span>Historial de partidas</span>';
+      runs.onclick = () => G.RunsUI.open();
+      side.appendChild(runs);
       box.appendChild(side);
     }
 

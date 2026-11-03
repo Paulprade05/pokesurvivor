@@ -129,8 +129,8 @@
 }
 </script>
 
-<link rel="stylesheet" href="css/style.css?v=92d36e4638">
-<script src="js/core/locales.js?v=847f7894fd"></script>
+<link rel="stylesheet" href="css/style.css?v=fd900f5851">
+<script src="js/core/locales.js?v=0f4613ca56"></script>
 <script src="js/noframe.js"></script>
 </head>
 <body>
@@ -298,6 +298,19 @@
       <h2 id="news-title">Novedades</h2>
     </header>
     <div id="news-body" class="sheet-body news-body"></div>
+  </div>
+</section>
+
+<!-- ====== Historial de partidas: las que guarda core/registro.js en este aparato (runs-ui.js) ====== -->
+<section id="scr-runs" class="scr dim modal hidden" role="dialog" aria-labelledby="runs-title">
+  <div class="box sheet-box runs-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="runs-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <span class="ico-tile s" id="runs-ico" aria-hidden="true"></span>
+      <h2 id="runs-title">Historial de partidas</h2>
+      <div class="sheet-acts"><button class="btn small ic" id="runs-export" type="button" data-ico="download" title="Exportar todas a un archivo"><span>Exportar</span></button></div>
+    </header>
+    <div id="runs-body" class="sheet-body runs-body"></div>
   </div>
 </section>
 
@@ -937,6 +950,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=62d7e853c6"></script>
+<script defer src="js/app.min.js?v=1c371cc62b"></script>
 </body>
 </html>

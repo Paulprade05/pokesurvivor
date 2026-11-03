@@ -302,6 +302,19 @@
   </div>
 </section>
 
+<!-- ====== Historial de partidas: las que guarda core/registro.js en este aparato (runs-ui.js) ====== -->
+<section id="scr-runs" class="scr dim modal hidden" role="dialog" aria-labelledby="runs-title">
+  <div class="box sheet-box runs-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="runs-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <span class="ico-tile s" id="runs-ico" aria-hidden="true"></span>
+      <h2 id="runs-title">Historial de partidas</h2>
+      <div class="sheet-acts"><button class="btn small ic" id="runs-export" type="button" data-ico="download" title="Exportar todas a un archivo"><span>Exportar</span></button></div>
+    </header>
+    <div id="runs-body" class="sheet-body runs-body"></div>
+  </div>
+</section>
+
 <!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery): ventana pequeña ====== -->
 <section id="scr-recover" class="scr dim hidden" role="dialog" aria-labelledby="rec-title">
   <div class="box mcard">
@@ -949,6 +962,7 @@
 <!-- núcleo -->
 <script defer src="js/core/firebase-config.js"></script>
 <script defer src="js/core/db.js"></script>
+<script defer src="js/core/registro.js"></script>
 <script defer src="js/core/audio.js"></script>
 <script defer src="js/core/input.js"></script>
 <script defer src="js/core/touch.js"></script>
@@ -1033,6 +1047,7 @@
 <script defer src="js/ui/settings-ui.js"></script>
 <script defer src="js/ui/layout-ui.js"></script>
 <script defer src="js/ui/news-ui.js"></script>
+<script defer src="js/ui/runs-ui.js"></script>
 <script defer src="js/ui/install-ui.js"></script>
 <script defer src="js/core/updater.js"></script>
 <!-- juego -->

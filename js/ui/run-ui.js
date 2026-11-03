@@ -288,6 +288,7 @@ G.RunUI = (() => {
 
   function renderCards(list) {
     offers = list;
+    G.Reg.offered(list);              // (registro de la partida: qué cartas salieron y cuál elegiste)
     const left = rerollsLeft();
     $('lvl-rr-n').textContent = left;
     $('lvl-reroll').classList.toggle('hidden', left <= 0);
@@ -325,6 +326,7 @@ G.RunUI = (() => {
     }
     const c = offers[i], cb = offerCb;
     offers = null; offerCb = null;
+    G.Reg.picked(c);
     // «Elegir siempre esta opción»: se guarda en Ajustes y ya no se pregunta.
     if (c.full && !auto && $('lvl-always-cb').checked) {
       G.Settings.set('maxPick', c.full);
