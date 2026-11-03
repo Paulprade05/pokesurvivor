@@ -5742,6 +5742,14 @@ button.ico-tile:hover { filter: brightness(1.2); }
 .cmp-go > span { flex: 1 1 auto; min-width: 0; }
 .cmp-go > b { color: var(--c-yellow); font-variant-numeric: tabular-nums; }
 .cmp-go > .ui-svg { color: var(--muted); }
+/* Qué cambia cada carta (revisión de ataques, 2-11-2026): una fila por pasiva. */
+.cmp-pass { list-style: none; display: grid; gap: 6px; margin: 0; padding: 0; }
+.cmp-pass li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cmp-pass li .chip { flex: none; min-width: 132px; }
+.cmp-pass .cmp-how { flex: 1 1 auto; min-width: 0; color: var(--ink); font-size: var(--fs-s); line-height: 1.35; }
+.cmp-pass .cmp-how i { font-style: normal; color: var(--muted); }
+.cmp-pass li.evo .chip { box-shadow: inset 0 0 0 2px var(--c-yellow); }
+.cmp-pass .badge { flex: none; }
 .cmp-facts { list-style: none; display: grid; gap: 4px; margin: 4px 0 0; padding: 0; }
 .cmp-facts li { display: flex; align-items: baseline; gap: 6px; color: var(--muted); font-size: var(--fs-s); line-height: 1.4; }
 .cmp-facts .ui-svg { flex: none; color: var(--ok); transform: translateY(2px); }
@@ -5813,6 +5821,9 @@ button.ico-tile:hover { filter: brightness(1.2); }
   .cmp-evo-t > b { font-size: var(--fs-m); }
   .cmp-evo-t > small { font-size: 12px; }
   .cmp-mvs { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 4px; }
+  .cmp-pass { gap: 4px; }
+  .cmp-pass li .chip { min-width: 112px; min-height: 30px; padding: 2px 9px; font-size: 12px; }
+  .cmp-pass .cmp-how { font-size: 12px; }
   .cmp-mv { min-height: 32px; font-size: 12px; }
   .cmp-mv > img { width: 24px; height: 24px; }
   .cmp-spr { width: 96px; height: 80px; }
