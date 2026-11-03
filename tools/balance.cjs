@@ -74,7 +74,7 @@ const sandbox = {
 sandbox.window = sandbox;
 vm.createContext(sandbox);
 const load = f => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox, { filename: f });
-for (const f of ['js/core/util.js', 'js/data/types.js', 'js/systems/stats.js', 'js/data/moves.js', 'js/systems/levelup.js',
+for (const f of ['js/core/util.js', 'js/core/registro.js', 'js/data/types.js', 'js/systems/stats.js', 'js/data/moves.js', 'js/systems/levelup.js',
                  'js/entities/projectile.js', 'js/systems/combat.js']) load(f);
 const G = sandbox.G;
 // (26-10-2026) Daño fijo (Tinieblas) en «ataque 1»: se divide entre el ataque típico del minuto REF.min.

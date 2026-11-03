@@ -130,7 +130,7 @@ G.Player = class Player {
       const up = Math.round(((mon.hp || 0) - (old.hp || 0)) * ((this.abil && this.abil.hpMul) || 1));
       this.maxHp = Math.max(1, this.maxHp + up);
       this.hp = Math.min(this.maxHp, Math.max(1, this.hp + Math.max(0, up)));
-      if (fx) this.heal(this.maxHp * 0.25);
+      if (fx) this.heal(this.maxHp * 0.25, 'evolución');
       this.baseAtk = mon.atk;
       // (El movimiento Z no cambia: va con la Pulsera Z del elegido y el tipo de tus
       // ataques, no con los tipos de la fase; ver combat.js zOf.)
@@ -358,7 +358,8 @@ G.Player = class Player {
    * @param pure  daño que no baja con la defensa ni el cuerpo a cuerpo (Arceus)
    */
   /** @param cat  'physical' | 'special': con qué defensa tuya se para (la del enemigo que pega). */
-  hurt(amount, type = null, pure = false, cat = null) {
+  /** @param src, how  quién y cómo, para el registro de la partida (core/registro.js): el enemigo o un texto, y su ataque. */
+  hurt(amount, type = null, pure = false, cat = null, src = null, how = '') {
     // La gracia sólo la atraviesa el daño puro de Arceus (la Sentencia no se salta).
     if (this.invuln > 0 || this.dead || (this.graceT > 0 && !pure)) return;
     // Habilidad (data/ability-fx.js): absorber un tipo, esquivar o recibir menos.
@@ -366,7 +367,7 @@ G.Player = class Player {
     if (ab && !pure) {
       if (type && ab.absorb === type) {
         this.invuln = 0.3;
-        this.heal(this.maxHp * 0.03);
+        this.heal(this.maxHp * 0.03, 'habilidad');
         return;
       }
       if (ab.dodge && Math.random() < ab.dodge(this, type, cls)) {
@@ -391,6 +392,7 @@ G.Player = class Player {
     const close = this.activeGroup().some(m => m.kind === 'melee') ? 0.75 : 1;
     const d = pure ? Math.max(1, amount) : Math.max(1, amount * (1 - this.reduction) * close);
     this.dmgTaken += Math.min(d, Math.max(0, this.hp));
+    if (!this.remote) G.Reg.hurt(this, Math.min(d, Math.max(0, this.hp)), src, how, type);
     // Golpes fuertes (de una vez, un 20 % de la vida o más): Puño Certero se cancela sólo con estos.
     if (d >= this.maxHp * 0.2) this.bigHits = (this.bigHits || 0) + 1;
     this.hp -= d;
@@ -422,17 +424,20 @@ G.Player = class Player {
     if (ab && ab.hurt && this.hp > 0) ab.hurt(this, type, cls);
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true;
+      if (!this.remote) G.Reg.down(this);
       this.anim.play('Faint', { hold: true });
       G.Projectiles.clearOrbs(this);
       this.reviveT = 0;
     }
   }
 
-  heal(amount) {
+  /** @param src  de dónde viene (registro de la partida): el id del ataque, 'comida', 'carta'... */
+  heal(amount, src = null) {
     if (this.abil && this.abil.healMul) amount *= this.abil.healMul;     // Gula, Recogida
     const before = this.hp;
     this.hp = Math.min(this.maxHp, this.hp + amount);
     this.healed += Math.max(0, this.hp - before);
+    if (!this.remote) G.Reg.heal(this, this.hp - before, src || G.Reg.hsrc);
     const got = Math.round(this.hp - before);
     if (got >= 1) G.FX.dmgText(this.x, this.y - this.bodyH - 6, '+' + got, '#5fe08a');
   }
@@ -531,12 +536,16 @@ G.Player = class Player {
     if (this.slowT > 0) this.slowT -= dt;
     const hp0 = this.hp;       // Cascabel Concha y regeneración: cuentan en la curación
     if (this.bellHeal > 0) { const h = Math.min(this.bellHeal, 4 * dt); this.hp = Math.min(this.maxHp, this.hp + h); this.bellHeal -= h; }
+    const hpB = this.hp;
     if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
-    if (this.hp > hp0) this.healed += this.hp - hp0;
+    if (this.hp > hp0) {
+      this.healed += this.hp - hp0;
+      if (!this.remote) { G.Reg.heal(this, hpB - hp0, 'cascabel'); G.Reg.heal(this, this.hp - hpB, 'regeneración'); }
+    }
     const hp1 = this.hp;       // y lo que cura la habilidad (Cura Lluvia, Gélido, Mudar...)
     if (this.abil && this.abil.tick) this.abil.tick(this, dt);
-    if (this.hp > hp1) this.healed += this.hp - hp1;
+    if (this.hp > hp1) { this.healed += this.hp - hp1; if (!this.remote) G.Reg.heal(this, this.hp - hp1, 'habilidad'); }
     // Sequía, Llovizna...: su clima al empezar y cada 3 min, si no hay otro (en
     // grupo lo pone el anfitrión, que es quien manda el clima a todos).
     if (this.abil && this.abil.summon && (!G.Coop.active || G.Coop.isHost) && (this.sumT = (this.sumT || 0) - dt) <= 0) {
@@ -576,7 +585,7 @@ G.Player = class Player {
         this.lavaTick -= dt;
         if (this.lavaTick <= 0) {
           this.lavaTick = le.every; this.invuln = 0;
-          this.hurt(Math.max(le.flat, this.maxHp * le.dmg * 0.5));
+          this.hurt(Math.max(le.flat, this.maxHp * le.dmg * 0.5), null, false, null, 'x:terreno', G.World.liquidKind() || 'lava');
           G.FX.burst(this.x, this.y - 4, le.color, 5, 70);
         }
       } else if (this.walking && Math.random() < dt * 8) {

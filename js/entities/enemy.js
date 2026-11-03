@@ -918,7 +918,7 @@
       const shot = G.Projectiles.spawn({
         x: this.x, y: this.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         dmg: this.shotDmg() * k, r, life, friendly: false, color: '#ff7a9e', mtype: type, cat: this.cat,
-        vis: G.VFX.forType(type)
+        vis: G.VFX.forType(type), foe: this, fsk: G.Reg.castOf(this)
       });
       if (G.Coop.isHost) G.Coop.enemyShot(shot, type);
     }
@@ -936,7 +936,7 @@
         const shot = G.Projectiles.spawn({
           x: this.x, y: this.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
           dmg: this.shotDmg() * k, r: 7, life: 2.4, friendly: false, color: '#ff7a9e', mtype: type, cat: this.cat,
-          vis: G.VFX.forType(type)
+          vis: G.VFX.forType(type), foe: this
         });
         if (G.Coop.isHost) G.Coop.enemyShot(shot, type);
       }
@@ -951,7 +951,8 @@
      * la vez (los avisos se saltan la invulnerabilidad de después de un golpe y, del
      * minuto 15 en adelante, varios juntos te quitaban la vida entera de una vez).
      */
-    hazard(o) { G.Hazards.add(Object.assign({ cat: this.cat }, this.boss ? null : { grp: -1 }, o)); }
+    // (foe y fsk: quién y con qué, para el registro de la partida; no van por la red.)
+    hazard(o) { G.Hazards.add(Object.assign({ cat: this.cat, foe: this, fsk: G.Reg.castOf(this) }, this.boss ? null : { grp: -1 }, o)); }
 
     /** Lo que hace cada personalidad cuando le toca (anfitrión / solitario). */
     special(pl, dx, dy) {
@@ -1386,10 +1387,12 @@
       }
       rebuildGrid();
       for (const e of list) {
+        G.Reg.actor = e;              // (las firmas que lance ahora saben de quién son: registro de la partida)
         if (e.remote) e.netUpdate(dt);
         else e.update(dt, nearestPlayer(players, e.x, e.y) || pl);
         e.pickAnim();
       }
+      G.Reg.actor = null;
       if (!G.Coop.active || G.Coop.isHost) separate(dt);
       G.BossSig.update(dt);                 // firmas de los jefes: campos y marcas (en todos)
       for (let i = list.length - 1; i >= 0; i--) {
@@ -1398,6 +1401,7 @@
         if (e.dead) {
           pl.kills++;                                          // (del equipo: el anfitrión lo manda a todos)
           killHook(pl, players, e);
+          G.Reg.kill(e);
           if (e.boss && !e.judge) pl.bosses++;
           if (e.boss && !e.judge && !e.legend) pl.cboss = (pl.cboss || 0) + 1;   // (tickets: systems/tickets.js)
           if (G.Director) G.Director.kill(e);
@@ -1864,7 +1868,7 @@ G.BossSig = (() => {
     if (G.Projectiles.count > 480) return;
     const type = e.atkType;
     const shot = G.Projectiles.spawn({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: sd(e) * k, r, life, friendly: false, color: '#ff7a9e',
-                                       mtype: type, cat: e.cat, vis: G.VFX.forType(type) });
+                                       mtype: type, cat: e.cat, vis: G.VFX.forType(type), foe: e, fsk: G.Reg.castOf(e) });
     if (G.Coop.isHost) G.Coop.enemyShot(shot, type);
   }
   /** Se cura una parte de su vida (con su número verde). */
@@ -2899,6 +2903,8 @@ G.BossSig = (() => {
   /** Añade un campo o una marca (de aquí o del anfitrión). Devuelve el de aquí (o null). */
   function add(o) {
     const m = Object.assign({}, o, { t: 0 });
+    const by = G.Reg && G.Reg.actor;   // (de quién es, para el registro de la partida: sólo aquí, no por la red)
+    if (by && by.boss) { m.foe = by; m.fsk = G.Reg.castOf(by) || 'firma'; }
     if (m.k === 'hide') {
       if (m.dur > 0) hides.set(m.id, m); else hides.delete(m.id);
       return null;
@@ -2987,7 +2993,7 @@ G.BossSig = (() => {
     if (ps.imm > 0) ps.imm -= dt;
     if (ps.conf > 0) ps.conf -= dt;
     if (ps.ice > 0) ps.ice -= dt;
-    if (ps.burn > 0) { ps.burn -= dt; ps.bt -= dt; if (ps.bt <= 0) { ps.bt = 0.5; me.hurt(ps.bd, 'fire', false, 'special'); } }
+    if (ps.burn > 0) { ps.burn -= dt; ps.bt -= dt; if (ps.bt <= 0) { ps.bt = 0.5; me.hurt(ps.bd, 'fire', false, 'special', 'x:estado', 'quemadura'); } }
     if (ps.yawn > 0 && (ps.yawn -= dt) <= 0) inflict(me, 'sleep', 1.3);
   }
 
@@ -3032,7 +3038,7 @@ G.BossSig = (() => {
     }
     return out;
   }
-  function strike(me, f, k = 1) { me.invuln = 0; me.hurt(f.dmg * k, f.type || null, false, f.cat || null); }
+  function strike(me, f, k = 1) { me.invuln = 0; me.hurt(f.dmg * k, f.type || null, false, f.cat || null, f.foe || null, f.fsk || f.k); }
 
   function tickField(f, dt, me) {
     f.t += dt;
@@ -3068,7 +3074,7 @@ G.BossSig = (() => {
         // Charco de Brecha Negra: si te quedas dentro, te duermes.
         if (f.sleep) { me.slowT = Math.max(me.slowT || 0, 0.25); f.in = (f.in || 0) + dt; if (f.in > 0.7) { f.in = -2; inflict(me, 'sleep', 1.2); } return; }
         if (f.slow) me.slowT = Math.max(me.slowT || 0, f.slow > 1 ? f.slow : 0.25);
-        if (f.dot) { f.tick = (f.tick || 0) - dt; if (f.tick <= 0) { f.tick = 0.5; me.hurt(f.dot, f.type || null, false, f.cat || null); } }
+        if (f.dot) { f.tick = (f.tick || 0) - dt; if (f.tick <= 0) { f.tick = 0.5; me.hurt(f.dot, f.type || null, false, f.cat || null, f.foe || null, f.fsk || f.k); } }
         break;
       }
       case 'wave': {
@@ -3192,7 +3198,7 @@ G.BossSig = (() => {
         for (let i = jobs.length - 1; i >= 0; i--) {
           const j = jobs[i];
           if (j.e.dead || !G.EnemyMgr.get(j.e.id)) { jobs.splice(i, 1); continue; }
-          if (clock >= j.at) { jobs.splice(i, 1); try { j.fn(); } catch (err) { console.warn('[BossSig]', err); } }
+          if (clock >= j.at) { jobs.splice(i, 1); G.Reg.actor = j.e; try { j.fn(); } catch (err) { console.warn('[BossSig]', err); } finally { G.Reg.actor = null; } }
         }
       }
     }

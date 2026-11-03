@@ -311,6 +311,9 @@ G.SettingsUI = (() => {
       // Guardar: el único que queda (26-10-2026), por si acaso; dorado si hay algo sin subir.
       + `<div class="set-acts">${cloud ? `<button type="button" class="btn ${st === 'ok' ? 'ghost' : 'gold'}" id="set-save"${st === 'syncing' ? ' disabled' : ''}>Guardar</button>` : ''}
            <button type="button" class="btn" id="set-logout">Cerrar sesión</button></div>`
+      // (03-11-2026) Resumen anónimo de cada partida para mejorar el juego (net/stats.js).
+      + (cloud ? section('Datos de las partidas') + list(toggle('shareStats', 'Enviar un resumen anónimo de cada partida',
+          'Para mejorar el juego: Pokémon, duración, ataques, daño y si juegas en móvil o PC. No incluye tu nombre ni tu cuenta.')) : '')
       + '<div class="acc-danger"><button type="button" class="btn danger" id="set-delete">Borrar cuenta</button></div>'
       + '<p class="note set-note" id="set-msg" role="alert"></p>';
   }

@@ -50,6 +50,7 @@ function sim(terr, o = {}) {
   vm.runInContext(source('js/world/world.js'), ctx, { filename: 'world.js' });
   vm.runInContext(source('js/systems/pathing.js'), ctx, { filename: 'pathing.js' });
   vm.runInContext(source('js/systems/enemy-ai.js'), ctx, { filename: 'enemy-ai.js' });
+  vm.runInContext(source('js/core/registro.js'), ctx, { filename: 'registro.js' });   // (sin partida no apunta nada)
   vm.runInContext(source('js/entities/enemy.js'), ctx, { filename: 'enemy.js' });
   G.World.reset(o.seed || 1234, terr);
   let dexN = 1000;
