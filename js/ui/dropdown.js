@@ -16,6 +16,12 @@
  *   - mando: gamepad.js sigue pasando a la siguiente opción con A.
  * Con giro, getBoundingClientRect() e innerWidth / innerHeight ya hablan en píxeles de
  * la vista (rotate.js) y position: fixed dentro del <body> girado va en esos mismos.
+ *
+ * El nativo no debe abrirse NUNCA (03-11-2026: en el iPhone, al elegir volvía la rueda).
+ * En iOS basta con que el <select> coja el foco para que salga la rueda, así que en
+ * táctil el <select> no lo coge nunca: no se le devuelve al elegir (sólo con teclado),
+ * un clic en su <label> no se lo pasa y, si algo se lo da (las flechas de la barra del
+ * teclado de iOS, otro código), se le quita en el acto.
  */
 G.Dropdown = (() => {
   let pop = null;              // la lista abierta (div.dd-pop) o null
@@ -25,6 +31,9 @@ G.Dropdown = (() => {
   let watch = 0;               // comprobación periódica (el <select> desaparece al cambiar de pantalla)
   let tStart = null;           // toque en curso sobre un desplegable: { sel, x, y }
   let typed = '', typedAt = 0; // buscar tecleando
+  let touchAt = -1e9;          // último toque en la pantalla
+  /** ¿Se está usando táctil? (en el móvil, que el <select> coja el foco ya abre la rueda de iOS) */
+  const touchy = () => (G.Touch && G.Touch.active) || performance.now() - touchAt < 1500;
 
   /** El <select> que abre un toque o clic en `t` (el propio, o el de su <label>), o null. */
   function selectOf(t) {
@@ -113,7 +122,8 @@ G.Dropdown = (() => {
     pop = null; sel = null; opts = []; act = -1;
     if (s) {
       s.removeAttribute('aria-expanded');
-      if (refocus && s.isConnected) s.focus({ preventScroll: true });
+      if (refocus && !touchy() && s.isConnected) s.focus({ preventScroll: true });
+      else if (touchy() && document.activeElement === s) s.blur();
     }
   }
 
@@ -129,9 +139,10 @@ G.Dropdown = (() => {
     else if (top < pop.scrollTop) pop.scrollTop = top;
     else if (bot > pop.scrollTop + pop.clientHeight) pop.scrollTop = bot - pop.clientHeight;
   }
-  function pick(k) {
+  /** Elige la fila `k`; el foco vuelve al <select> sólo si se eligió con el teclado. */
+  function pick(k, byKey) {
     const s = sel, o = opts[k];
-    close(true);
+    close(!!byKey);
     if (s && o) choose(s, o.i);
   }
 
@@ -142,7 +153,7 @@ G.Dropdown = (() => {
     const s = selectOf(e.target);
     if (!s) { close(false); return; }
     e.preventDefault();                                     // sin esto se abre la lista del navegador
-    s.focus({ preventScroll: true });
+    if (!touchy()) s.focus({ preventScroll: true });
     if (pop && sel === s) close(false); else open(s, false);
   }, true);
   // Tocar fuera cierra (y en táctil la lista no se queda encima de la pantalla siguiente).
@@ -155,6 +166,7 @@ G.Dropdown = (() => {
   // El navegador abre su selector al soltar el dedo: se corta en touchend (y con él el
   // clic y el foco), salvo si el dedo se arrastró (para desplazar la pantalla).
   addEventListener('touchstart', e => {
+    touchAt = performance.now();
     const s = e.touches.length === 1 ? selectOf(e.target) : null;
     tStart = s ? { sel: s, x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
   }, { capture: true, passive: true });
@@ -168,6 +180,15 @@ G.Dropdown = (() => {
     if (pop && sel === s) close(false); else open(s, false);
   }, { capture: true, passive: false });
   addEventListener('touchcancel', () => { tStart = null; }, true);
+  // El clic que sigue (o el de su <label>, que le pasaría el foco y abriría la rueda) no hace nada:
+  // el desplegable ya se ha abierto con mousedown o touchend.
+  addEventListener('click', e => { if (selectOf(e.target)) e.preventDefault(); }, true);
+  // Si en táctil el <select> coge el foco por otro camino, se le quita: sin foco, iOS no saca la rueda.
+  addEventListener('focusin', e => {
+    const s = e.target;
+    if (!s || s.tagName !== 'SELECT' || !touchy()) return;
+    s.blur();
+  }, true);
 
   // Elegir: clic (o toque sin arrastrar) en una fila.
   document.addEventListener('click', e => {
@@ -211,7 +232,7 @@ G.Dropdown = (() => {
       else if (key === 'PageDown') k = step(Math.max(act, 0), page);
       else if (key === 'PageUp') k = step(Math.max(act, 0), -page);
       else if (key === 'Enter' || (key === ' ' && performance.now() - typedAt > 800)) {   // (el espacio, si no se está tecleando un nombre)
-        if (act >= 0) pick(act); else close(true);
+        if (act >= 0) pick(act, true); else close(true);
       } else if (key === 'Escape' || (e.altKey && (key === 'ArrowUp' || key === 'ArrowDown')) || key === 'F4') close(true);
       else if (key === 'Tab') { close(false); return; }       // el foco sigue su camino
       else if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { const f = byLetter(key); if (f >= 0) k = f; }

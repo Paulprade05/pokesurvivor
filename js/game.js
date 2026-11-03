@@ -232,6 +232,9 @@ G.Game = (() => {
     }
     // «Empiezas como Charmander…» (los avisos van en cola: si hay consejo, sale después).
     G.EvoUI.startHint(pl);
+    // Registro de la partida (core/registro.js): lo que pasa en ella, para estudiarla luego.
+    try { G.Reg.start(pl, { chosen, coop, upg: G.DB.upgradesOf(chosen), seed: G.World.seed }); }
+    catch (e) { console.error('[Game] no se pudo empezar el registro:', e); }
   }
 
   // ---------------- evoluciones en partida (24-10-2026) ----------------
@@ -383,9 +386,10 @@ G.Game = (() => {
         // hubieras pulsado) y esperas a los demás como siempre.
         const auto = G.LevelUp.auto(pl);
         G.RunUI.showLevelUp(level, auto ? [auto] : G.LevelUp.offer(pl), card => {
+          G.Reg.hsrc = 'carta';
           try { G.Audio.sfx('confirm'); if (card.full) fullFx(G.LevelUp.fullGain(pl, card), card.full); else card.apply(pl); }
           catch (e) { console.error('[Game] fallo al aplicar la carta:', e); }
-          finally { G.Coop.localPicked(); }
+          finally { G.Reg.hsrc = null; G.Coop.localPicked(); }
         }, true);
         if (auto) G.RunUI.pick(0, true);
       } catch (e) {
@@ -543,6 +547,7 @@ G.Game = (() => {
       if (sent) sent.then(b => { if (b && b.some(p => p !== 'a')) G.DB.commit(true); }).catch(() => {});
     });
 
+    guard('Reg', () => G.Reg.end(dead, { coins, parts, judge, record }));
     overArgs = [{
       dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10, judge,
       moves: pl.moves, caught, dealt: pl.dmgDealt, taken: pl.dmgTaken, healed: pl.healed,
@@ -621,8 +626,12 @@ G.Game = (() => {
     // Todo al máximo con la elección fijada en Ajustes («Siempre curar» / «Siempre monedas»):
     // se aplica sola, con un aviso pequeño, sin parar la partida.
     let auto = null;
-    try { auto = G.LevelUp.auto(pl); if (auto) { G.Audio.sfx('levelup'); fullFx(G.LevelUp.fullGain(pl, auto), auto.full); } }
+    try {
+      auto = G.LevelUp.auto(pl);
+      if (auto) { G.Reg.offered([auto], pl.level); G.Reg.picked(auto); G.Reg.hsrc = 'carta'; G.Audio.sfx('levelup'); fullFx(G.LevelUp.fullGain(pl, auto), auto.full); }
+    }
     catch (e) { console.error('[Game] fallo al aplicar la carta sola:', e); }
+    finally { G.Reg.hsrc = null; }
     if (auto) return;
     state = 'levelup';
     // Si algo falla al abrir las cartas o al aplicar la elegida, se sigue
@@ -630,9 +639,10 @@ G.Game = (() => {
     try {
       G.Audio.sfx('levelup');
       G.RunUI.showLevelUp(pl.level, G.LevelUp.offer(pl), card => {
+        G.Reg.hsrc = 'carta';
         try { G.Audio.sfx('confirm'); card.apply(pl); }
         catch (e) { console.error('[Game] fallo al aplicar la carta:', e); }
-        finally { if (state === 'levelup') state = 'playing'; }
+        finally { G.Reg.hsrc = null; if (state === 'levelup') state = 'playing'; }
       });
     } catch (e) {
       console.error('[Game] no se pudieron abrir las cartas:', e);
@@ -680,6 +690,7 @@ G.Game = (() => {
       G.RunUI.showBond(opt, picked => {
         try {
           const group = pl.fuse(picked, opt.group);
+          G.Reg.ev('vinculo', group.map(m => m.id));
           G.Audio.sfx('legend');
           G.FX.ring(pl.x, pl.y, 8, 130, '#ff8ad8', 0.8, 6);
           G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffb3e6', 40, 240);
@@ -772,13 +783,13 @@ G.Game = (() => {
       return;
     }
     if (p.kind === 'item') {
-      if (mine) offerItem(p.value);
+      if (mine) { G.Reg.ev('objeto', p.value); offerItem(p.value); }
       return;
     }
     // (2.0, bloque 5) Un ticket del suelo sólo puede venir de un anfitrión de antes: no cuenta (los tickets salen del reloj).
     if (p.kind === 'ticket' || p.kind === 'ticket10') return;
     if (p.kind === 'heal') {
-      if (mine) pl.heal(pl.maxHp * 0.3);
+      if (mine) pl.heal(pl.maxHp * 0.3, 'comida');
       G.FX.ring(who.x, who.y, 6, 60, '#5fe08a', 0.4, 3);
       return;
     }
@@ -1038,6 +1049,7 @@ G.Game = (() => {
     G.Events.update(dt, all, time);
     G.Weather.update(dt, time, pl);
     G.FX.update(dt);
+    G.Reg.tick(dt, time);
 
     G.Audio.music(G.Judgment.active ? G.Judgment.music : G.Rift.inArena ? 'rift' : G.EnemyMgr.bossAlive() ? 'boss' : G.BIOME_MUSIC[biome % G.BIOME_MUSIC.length]);
     if (!coop || G.Coop.isHost) maybeLevelUp();
@@ -1531,7 +1543,8 @@ G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
-    G.SocialUI.init(); G.RankingUI.init(); G.ModUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.NewsUI.init(); G.Updater.init();
+    G.SocialUI.init(); G.RankingUI.init(); G.ModUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.NewsUI.init(); G.RunsUI.init(); G.Updater.init();
+    G.Reg.init();          // (la partida que se quedó a medias al cerrar la app, a «cerrada»)
     // Tu nombre arriba a la derecha abre tu perfil.
     document.getElementById('user-pill').onclick = () => G.GoalsUI.open('profile');
     G.Audio.music('village');     // suena tras el primer clic (lo exige el navegador)

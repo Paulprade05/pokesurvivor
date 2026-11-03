@@ -422,7 +422,8 @@ G.CompendiumUI = (() => {
         + (st ? `<button type="button" class="ico-tile s t-purple" data-go="p:${esc(st.id)}" title="${esc(st.title)}">${G.Icons.html(st.icon, 30)}</button>` : '')
         + `<i>=</i><span class="ico-tile s t-gold">${G.Icons.html('move:' + id, 30)}${done ? `<span class="cmp-got">${G.UI.svg('check', 12)}</span>` : ''}</span></div>
           <div class="cmp-evo-t"><b class="gold">${esc(G.T(name, 'move'))}</b>`
-        + (need ? `<small>${G.I18n.f('Con la carta {x} y el ataque al nivel {x}', `<button type="button" class="cmp-link" data-go="p:${esc(need.needs)}">${esc(need.title)}</button>`, need.lvl)}</small>` : '')
+        // (3-11-2026) La pasiva, a la mitad de su máximo (G.LevelUp.evoLvl): Potencia, tope 10 → nivel 5.
+        + (need ? `<small>${G.I18n.f('Con {x} al nivel {x} (la mitad de su máximo) y el ataque al nivel {x}', `<button type="button" class="cmp-link" data-go="p:${esc(need.needs)}">${esc(need.title)}</button>`, need.need, need.lvl)}</small>` : '')
         + (info && info.text ? `<small class="cmp-gain">${esc(info.text)}</small>` : '')
         + (done ? `<small class="cmp-done">${G.UI.svg('check', 14)}<span>¡Conseguido!</span></small>` : '') + '</div></div>', 'evo');
     } else if (!G.Moves.EVO[id]) {
@@ -445,6 +446,8 @@ G.CompendiumUI = (() => {
     life: 'Duración', count: '+1 por carta', 'half:radius': 'Largo', 'half:ring': 'Círculo de vuelo', 'inv:charge': 'Carga más rápida',
     'code:pspd': 'Llega antes', 'code:amt': '+1 zona por carta'
   };
+  /** ★ y el nivel de pasiva que pide la evolución (la mitad de su máximo, G.LevelUp.evoLvl). */
+  const evoBadge = id => `<span class="badge gold">★ <span>Nv.</span> ${G.LevelUp.evoLvl(id)}</span>`;
   function passHow(def, evoBy) {
     if (!G.Moves.passiveKeys) return '';
     const rows = PASS4.map(id => {
@@ -452,7 +455,7 @@ G.CompendiumUI = (() => {
       if (!st || !keys.length) return '';
       const words = [...new Set(keys.map(k => PASS_KEY[k] || k))].map(w => `<span>${esc(w)}</span>`).join('<i>, </i>');
       return `<li${id === evoBy ? ' class="evo"' : ''}><button type="button" class="chip" data-go="p:${esc(id)}">${G.Icons.html(st.icon, 30)}<span>${esc(st.title)}</span></button>`
-        + `<span class="cmp-how">${words}</span>${id === evoBy ? '<span class="badge gold">★</span>' : ''}</li>`;
+        + `<span class="cmp-how">${words}</span>${id === evoBy ? evoBadge(id) : ''}</li>`;
     }).join('');
     const hurts = !(G.Moves.nonAttacking && G.Moves.nonAttacking(def.kind));
     let note = hurts ? '<p class="cmp-note">Potencia, Reflejos y Puntería valen igual para todos los ataques: más daño, menos recarga y más críticos.</p>'
@@ -461,7 +464,7 @@ G.CompendiumUI = (() => {
     // La carta que lo hace evolucionar, si no es una de estas cuatro (Vigor, Potencia...): también aquí.
     const evoSt = evoBy && !PASS4.includes(evoBy) ? STATS().find(s => s.id === evoBy) : null;
     const evoRow = evoSt ? `<li class="evo"><button type="button" class="chip" data-go="p:${esc(evoSt.id)}">${G.Icons.html(evoSt.icon, 30)}<span>${esc(evoSt.title)}</span></button>`
-      + '<span class="cmp-how"><span>Lo hace evolucionar</span></span><span class="badge gold">★</span></li>' : '';
+      + `<span class="cmp-how"><span>${G.I18n.f('Lo hace evolucionar al nivel {x}', G.LevelUp.evoLvl(evoSt.id))}</span></span><span class="badge gold">★</span></li>` : '';
     return sec('Qué cambia cada carta', (rows || evoRow ? `<ul class="cmp-pass">${rows}${evoRow}</ul>` : '') + note);
   }
 
@@ -500,7 +503,7 @@ G.CompendiumUI = (() => {
     if (s.max) facts.push(G.I18n.f('Se puede coger hasta {x} veces por partida.', s.max));
     h += `<ul class="cmp-facts">${facts.map(t => `<li>${G.UI.svg('check', 14)}<span>${esc(t)}</span></li>`).join('')}</ul>`;
     const evo = evolvesWith(id);
-    if (evo.length) h += sec(G.I18n.f('Hace evolucionar ({x})', evo.length), `<p class="cmp-note">Al nivel máximo, estos ataques evolucionan si en esa partida has cogido esta carta.</p><div class="cmp-mvs">${evo.map(m => moveBtn(m)).join('')}</div>`);
+    if (evo.length) h += sec(G.I18n.f('Hace evolucionar ({x})', evo.length), `<p class="cmp-note">${G.I18n.f('Al nivel máximo, estos ataques evolucionan si en esa partida llevas esta carta al nivel {x} (la mitad de su máximo).', G.LevelUp.evoLvl(id))}</p><div class="cmp-mvs">${evo.map(m => moveBtn(m)).join('')}</div>`);
     if (PASS4.includes(id) && G.Moves.passiveAffects) {
       const kinds = [...new Set(G.Moves.ALL.map(m => m.kind))].filter(k => G.Moves.passiveAffects(k, id));
       if (kinds.length) h += sec('Afecta a estas familias', `<div class="cmp-chips">${kinds.map(k => `<button type="button" class="fam-chip" data-go="f:${esc(k)}">${famName(k)}</button>`).join('')}</div>`);

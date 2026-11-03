@@ -60,9 +60,10 @@ G.RunUI = (() => {
   // ---------------- evoluciones a la vista (23-10-2026) ----------------
 
   /**
-   * «Evoluciona con [icono] Potencia · Nv. 5»: lo que pide un ataque para
-   * evolucionar (ev: G.LevelUp.evoNeed). Con esa carta ya cogida, su nombre
-   * lleva ✓; con el ataque al nivel máximo, el nivel también; con las dos, la
+   * «Evoluciona con [icono] Potencia 2/5 · Nv. 5»: lo que pide un ataque para
+   * evolucionar (ev: G.LevelUp.evoNeed): su pasiva al nivel ev.need (la mitad de su
+   * máximo; 2/5 = la llevas a 2 de 5) y el ataque a su nivel máximo. Con la pasiva a
+   * ese nivel, su nombre lleva ✓; con el ataque al máximo, el nivel también; con las dos, la
    * línea es dorada: lista para evolucionar (sale su carta dorada al subir; en
    * la píldora de la pausa y el resumen lo dice, más corto para que quepa).
    * m.evolved: nada. Sin evolución (potenciadores): «No evoluciona».
@@ -78,7 +79,7 @@ G.RunUI = (() => {
     const blocked = ev.blocked && !ev.has;
     return `<span class="${cls}${ev.ready ? ' ready' : ev.has ? ' has' : blocked ? ' blocked' : ''}">`
       + `<span class="evo-k">Evoluciona con</span>`
-      + `<span class="evo-need">${G.Icons.html(ev.icon, 18)}<b>${ev.title}</b>${ev.has ? ok : ''}</span>`
+      + `<span class="evo-need">${G.Icons.html(ev.icon, 18)}<b>${ev.title}</b><span class="evo-pn">${Math.min(ev.n || 0, ev.need || 1)}/${ev.need || 1}</span>${ev.has ? ok : ''}</span>`
       + (blocked ? '<span class="evo-no">Sin hueco de pasiva</span></span>'
                  : `<span class="evo-lv">· <span>Nv.</span> ${ev.lvl}${ev.max ? ok : ''}</span></span>`);
   }
@@ -288,6 +289,7 @@ G.RunUI = (() => {
 
   function renderCards(list) {
     offers = list;
+    G.Reg.offered(list);              // (registro de la partida: qué cartas salieron y cuál elegiste)
     const left = rerollsLeft();
     $('lvl-rr-n').textContent = left;
     $('lvl-reroll').classList.toggle('hidden', left <= 0);
@@ -325,6 +327,7 @@ G.RunUI = (() => {
     }
     const c = offers[i], cb = offerCb;
     offers = null; offerCb = null;
+    G.Reg.picked(c);
     // «Elegir siempre esta opción»: se guarda en Ajustes y ya no se pregunta.
     if (c.full && !auto && $('lvl-always-cb').checked) {
       G.Settings.set('maxPick', c.full);
