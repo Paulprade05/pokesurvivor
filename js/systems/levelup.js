@@ -104,6 +104,25 @@ G.LevelUp = (() => {
   const canTake = (pl, id) => !isPassive(id) || (pl.statsTaken[id] || 0) > 0 || passivesOf(pl).length < MAX_PASSIVES;
 
   /*
+   * Nivel de pasiva que pide una evolución (3-11-2026, lo pidió el dueño): la mitad de su
+   * máximo, redondeando hacia arriba (tope 10 → 5; 11 → 6; 5 → 3). Antes bastaba cogerla una vez.
+   * El máximo es el de esta partida (statMax): Réplica de Mejoras ya pone uno de los 3, así que
+   * con ella el tope de cartas es 2 y basta 1. Lo usan las cartas, la pausa, el compendio y el bot.
+   */
+  const evoLvlFor = max => Math.ceil(Math.max(0, max) / 2);
+  /** Cuántas cartas de la mejora `id` se pueden coger en esta partida (0: sin tope). */
+  function statMax(id, pl) {
+    const s = STATS.find(x => x.id === id);
+    if (!s || !s.max) return 0;
+    if (id === 'amt' && pl && pl.pass) return Math.max(0, s.max - ((pl.pass.amt || 0) - ((pl.statsTaken && pl.statsTaken.amt) || 0)));
+    return s.max;
+  }
+  /** Nivel de la pasiva `id` que hace falta para evolucionar (sin tope: 1). */
+  const evoLvl = (id, pl) => { const max = statMax(id, pl); return max ? evoLvlFor(max) : 1; };
+  /** ¿Llega ya la pasiva `id` (cogida `taken[id]` veces) al nivel que pide la evolución? */
+  const evoHas = (id, taken, pl) => ((taken && taken[id]) || 0) >= evoLvl(id, pl);
+
+  /*
    * Repertorio sorteado por partida (2.0, bloque 1): de los ataques que puede aprender tu
    * Pokémon sólo salen en las cartas el 70 % (como mínimo 10), para que no sean siempre
    * las mismas builds. Cada ataque recibe un número al azar la primera vez que se mira
@@ -156,31 +175,32 @@ G.LevelUp = (() => {
 
   /**
    * Lo que pide un ataque (definición o el tuyo) para evolucionar:
-   * { name, needs, icon, title, lvl (su nivel máximo), has (ya cogiste esa carta en
-   * esta partida), max (el tuyo ya está al máximo), ready (las dos cosas) }, o null
-   * si no evoluciona (potenciadores) o ya ha evolucionado.
+   * { name, needs, icon, title, lvl (su nivel máximo), need (nivel de la pasiva que pide: evoLvl),
+   * n (el que llevas), has (ya llegas a need), max (el tuyo ya está al máximo), ready (las dos
+   * cosas) }, o null si no evoluciona (potenciadores) o ya ha evolucionado.
    */
   function evoNeed(m, pl) {
     const def = m && (m.def || m);
     if (!def || m.evolved) return null;
     const taken = (pl && pl.statsTaken) || {};
-    const ev = G.Moves.evoInfo({ id: def.id, def, kind: def.kind, lvl: def.maxLvl }, taken);
+    const ev = G.Moves.evoInfo({ id: def.id, def, kind: def.kind, lvl: def.maxLvl }, taken, pl);
     if (!ev) return null;
     const s = STATS.find(x => x.id === ev.needs);
     const max = !!m.def && m.lvl >= def.maxLvl;
     // blocked: te falta esa pasiva y ya no te quedan huecos para cogerla.
     return { name: ev.name, needs: ev.needs, icon: s ? s.icon : 'tm', title: s ? s.title : ev.needName, lvl: def.maxLvl,
-             has: ev.ready, max, ready: ev.ready && max, blocked: !ev.ready && !!pl && !canTake(pl, ev.needs) };
+             need: evoLvl(ev.needs, pl), n: taken[ev.needs] || 0, has: ev.ready, max, ready: ev.ready && max, blocked: !ev.ready && !!pl && !canTake(pl, ev.needs) };
   }
 
   /**
    * Ataques que evolucionan con la carta `id`: los tuyos (sin evolucionar; ready si
-   * ya están al máximo y esta carta es lo que les falta) y, si te quedan huecos,
-   * los que aún puedes aprender.
+   * ya están al máximo y con esta carta la pasiva llega justo al nivel que piden) y,
+   * si te quedan huecos, los que aún puedes aprender.
    */
   function evolvesWith(id, pl) {
-    const E = G.Moves.EVO, mine = [], more = [], first = !(pl.statsTaken && pl.statsTaken[id]);
-    for (const m of pl.moves) if (!m.evolved && E[m.id] && E[m.id][1] === id) mine.push({ id: m.id, name: m.name, ready: first && m.lvl >= m.def.maxLvl });
+    const E = G.Moves.EVO, mine = [], more = [], n = (pl.statsTaken && pl.statsTaken[id]) || 0;
+    const reach = n + 1 === evoLvl(id, pl);
+    for (const m of pl.moves) if (!m.evolved && E[m.id] && E[m.id][1] === id) mine.push({ id: m.id, name: m.name, ready: reach && m.lvl >= m.def.maxLvl });
     if (pl.slots.length < pl.maxMoves) {
       for (const mid of runPool(pl)) {
         if (E[mid] && E[mid][1] === id && !pl.hasMove(mid) && !(pl.banned && pl.banned.has(mid))) more.push(mid);
@@ -191,7 +211,7 @@ G.LevelUp = (() => {
 
   /**
    * Pasivas que piden tus ataques para evolucionar (estén o no al máximo) y que aún no
-   * llevas, si te queda hueco para cogerlas: { id de la pasiva: [tus ataques] }.
+   * llegan al nivel que piden, si te queda hueco para cogerlas: { id de la pasiva: [tus ataques] }.
    */
   function neededPassives(pl) {
     const out = {};
@@ -211,7 +231,7 @@ G.LevelUp = (() => {
     const out = [];
     for (const m of pl.moves) {
       const ev = evoNeed(m, pl);
-      if (ev && !ev.has && ev.needs !== id) out.push(m);
+      if (ev && !ev.n && ev.needs !== id) out.push(m);
     }
     return out;
   }
@@ -256,10 +276,10 @@ G.LevelUp = (() => {
       }
     }
 
-    // --- evoluciones: movimiento al máximo + su condición cumplida ---
+    // --- evoluciones: movimiento al máximo + su pasiva a la mitad de su máximo (evoLvl) ---
     const waiting = {};                   // stat -> movimientos que la esperan para evolucionar
     for (const m of pl.moves) {
-      const ev = G.Moves.evoInfo(m, pl.statsTaken);
+      const ev = G.Moves.evoInfo(m, pl.statsTaken, pl);
       if (!ev) continue;
       if (!ev.ready) { (waiting[ev.needs] = waiting[ev.needs] || []).push(m); continue; }
       out.push({
@@ -306,7 +326,9 @@ G.LevelUp = (() => {
     const must = s => waiting[s.id] || needed[s.id];
     const pickStats = G.U.pickN(STATS.filter(s => !must(s) && room(s)), 5).concat(STATS.filter(s => must(s) && room(s)));
     for (const s of pickStats) {
-      const evoFor = waiting[s.id];
+      // evoFor: tus ataques al máximo que esperan esta pasiva; done, si con esta carta llega al
+      // nivel que piden (dorada: «Evoluciona ...»). Si aún le faltan más, sale igual, sin dorar.
+      const evoFor = waiting[s.id], done = evoFor && (pl.statsTaken[s.id] || 0) + 1 >= evoLvl(s.id, pl);
       // Un pasivo que no le sirve a ninguno de tus movimientos (Réplica con sólo
       // cuerpo a cuerpo...) sale la mitad. Con huecos libres no: aún puede servir.
       const idle = !evoFor && s.id !== 'luck' && PASSIVES.includes(s) && pl.slots.length >= pl.maxMoves &&
@@ -314,7 +336,7 @@ G.LevelUp = (() => {
       out.push({
         w: evoFor ? 14 : needed[s.id] ? 11 : (pl.slots.length < pl.maxMoves ? 4 : 7) * (idle ? 0.5 : 1),
         type: 'stat', key: 'stat:' + s.id,
-        icon: s.icon, color: evoFor ? '#ffd23f' : '#8fa3c4', tag: evoFor ? 'Evoluciona ' + evoFor.map(m => G.T(m.name, 'move')).join(', ') : 'Mejora',
+        icon: s.icon, color: done ? '#ffd23f' : '#8fa3c4', tag: done ? 'Evoluciona ' + evoFor.map(m => G.T(m.name, 'move')).join(', ') : 'Mejora',
         title: s.title, desc: s.desc, evolves: evolvesWith(s.id, pl),
         apply: p => { s.apply(p); p.statsTaken[s.id] = (p.statsTaken[s.id] || 0) + 1; }
       });
@@ -375,5 +397,6 @@ G.LevelUp = (() => {
     return c.full === 'coin' ? fmt('+{x} monedas', (pl.bonusCoins || 0) - co) : fmt('+{x} PV', Math.round(pl.hp - hp));
   }
 
-  return { offer, auto, fullGain, maxPick, fullCoins, FULL_HEAL, STATS, FULL_CARDS, DEF_CAP, runPool, discard, discardsLeft, canDiscard, DISCARDS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake };
+  return { offer, auto, fullGain, maxPick, fullCoins, FULL_HEAL, STATS, FULL_CARDS, DEF_CAP, runPool, discard, discardsLeft, canDiscard, DISCARDS, evoNeed, evolvesWith, neededPassives, wouldBlock, MAX_PASSIVES, isPassive, passivesOf, canTake,
+           statMax, evoLvl, evoLvlFor, evoHas };
 })();

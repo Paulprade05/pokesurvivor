@@ -122,11 +122,13 @@ BOT.pick = function (cards, cardInfo) {
   const attacks = pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind))).length;
   const STAT = { 'Potencia': 42, 'Réplica': 40, 'Reflejos': 36, 'Amplitud': 30, 'Coraza': 30, 'Vigor': 26, 'Puntería': 24, 'Síntesis': 24,
                  'Persistencia': 20, 'Propulsión': 16, 'Carrera': 18, 'Imán': 12, 'Aprendizaje': 10 };
-  // (2-11-2026) La pasiva que hace evolucionar a uno de sus ataques, si aún no la tiene (basta cogerla una vez).
+  // (2-11-2026) La pasiva que hace evolucionar a uno de sus ataques, mientras no llegue al nivel que pide
+  // (3-11-2026: la mitad de su máximo, G.LevelUp.evoHas; antes bastaba cogerla una vez).
   const taken = pl.statsTaken || {}, needs = new Set();
+  const has = id => (G.LevelUp.evoHas ? G.LevelUp.evoHas(id, taken, pl) : !!taken[id]);
   for (const m of pl.moves) {
     const e = G.Moves.EVO[m.id];
-    if (e && !m.evolved && !taken[e[1]] && !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind))) needs.add(G.Moves.NEED_NAME[e[1]]);
+    if (e && !m.evolved && !has(e[1]) && !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind))) needs.add(G.Moves.NEED_NAME[e[1]]);
   }
   const score = c => {
     if (/\bevo\b/.test(c.cls)) return 100;

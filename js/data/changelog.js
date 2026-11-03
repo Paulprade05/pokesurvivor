@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-03', title: ["Evolucionar ataques: su pasiva a la mitad", "Evolving attacks: their passive at half"], chg: [
+    ["Para evolucionar un ataque ya no basta con coger su pasiva una vez: hace falta llevarla a la mitad de su máximo (redondeando hacia arriba). Potencia, que llega a 10, al nivel 5; Vigor (8), al 4; Reflejos (6), Carrera, Coraza, Síntesis, Amplitud, Persistencia, Propulsión y Puntería (5), al 3; Imán y Aprendizaje (4) y Réplica (3), al 2 (Réplica, al 1 si tienes su mejora comprada). El ataque sigue teniendo que estar a su nivel máximo.",
+     "To evolve an attack, taking its passive once is no longer enough: it has to reach half its maximum (rounded up). Power, which goes up to 10, at level 5; Vigor (8) at 4; Reflexes (6), Sprint, Armor, Synthesis, Area, Persistence, Propulsion and Precision (5) at 3; Magnet and Learning (4) and Replica (3) at 2 (Replica at 1 if you bought its upgrade). The attack still has to be at max level."],
+    ["Las cartas, la pausa, el compendio y la lista de evoluciones de Objetivos dicen el nivel de pasiva que pide cada evolución y el que llevas (por ejemplo, «Potencia 2/5»). Mientras te falte, esa pasiva sigue saliendo más a menudo en las cartas.",
+     "Cards, the pause menu, the Compendium and the evolution list in Goals show the passive level each evolution needs and the one you have (for example, “Power 2/5”). Until you get there, that passive keeps showing up more often in the cards."]] },
   { d: '2026-11-02', title: ["Revisión de ataques: evoluciones que conservan el ataque, compendio y dibujos nuevos", "Attack review: evolutions keep the attack, compendium and new art"], new: [
     ["Compendio: cada ataque dice ahora qué cambia en él cada carta de pasiva (Amplitud: radio o tamaño; Persistencia: duración; Réplica: +1 por carta; Propulsión: velocidad...), cuál lo hace evolucionar y, si tiene crítico propio, que Puntería le rinde más.",
      "Compendium: each attack now shows what every passive card changes in it (Area: radius or size; Persistence: duration; Replica: +1 per card; Propulsion: speed...), which one makes it evolve and, if it has its own critical chance, that Precision pays off more."],
