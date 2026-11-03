@@ -97,6 +97,24 @@ test('registro: per-attack counters (hits, boss damage, kills, active time) and 
   assert.equal(sum.top.id, 'ember'); assert.equal(sum.killer, 'x:terreno|lava'); assert.equal(sum.coins, 77);
 });
 
+test('registro: damage of moves outside your slots (Z move) and of hits without a move adds up to the total', () => {
+  const { R } = load();
+  const { pl, m1 } = player();
+  R.start(pl, {});
+  const rat = { dex: 19, dead: false }, boss = { dex: 150, boss: true, dead: false };
+  R.hit(pl, m1, rat, 40); m1.dealt += 40; pl.dmgDealt += 40;
+  // El movimiento Z (no está en tus huecos): antes su daño se perdía (3-11-2026, partida del dueño).
+  const z = { id: 'z-fighting', name: 'Hiperpuño Fiero' };
+  R.hit(pl, z, boss, 300); R.hit(pl, { id: 'z-fighting~' }, rat, 20); pl.dmgDealt += 320;
+  pl.dmgDealt += 15;                                                      // un golpe sin ataque (objeto, habilidad...)
+  const r = J(R.end(true, {}));
+  assert.equal(r.moves['z-fighting'].dealt, 320); assert.equal(r.moves['z-fighting'].boss, 300);
+  assert.equal(r.moves['z-fighting'].name, 'Hiperpuño Fiero'); assert.equal(r.moves['z-fighting'].now, false);
+  assert.equal(r.moves.ember.dealt, 40); assert.equal(r.moves.ember.dmg, undefined);
+  assert.equal(r.moves['(otros)'].dealt, 15);
+  assert.equal(Object.values(r.moves).reduce((a, m) => a + (m.dealt || 0), 0), r.dealt, 'la suma por ataque da el total');
+});
+
 test('registro: cards offered and picked (with rerolls), passives, items, level and evolution over time', () => {
   const { R } = load();
   const { pl, m1 } = player();
