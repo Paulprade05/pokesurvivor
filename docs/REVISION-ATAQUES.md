@@ -132,7 +132,30 @@ Huesomerang, Impactrueno y Semilladora. Capturas con `tools/shot.cjs`.)
 
 ## 5. Bot (`tools/curve.cjs`)
 
-PENDIENTE_BOT
+Mismas partidas con `main` (ad812917, «antes») y con esta rama («después»): Charizard (6), Garchomp (445) y Delibird (225),
+`--speed 3`. Con todo al máximo, 6 partidas por lado (2 de cada); sin mejoras, 3 después y 2 antes (la tercera de antes se
+colgó en el minuto 2 y no cuenta). Datos en `../pokesurvivor-tmp/rev/curva-*`.
+
+| Con todo al máximo | Antes | Después |
+|---|---|---|
+| Primera caída (mediana) | min 7,4 | min 9,9 |
+| Muro (mediana) | min 20 | min 20 (2 de 6 sin muro) |
+| Caídas min 20-30, una a una | 48 · 64 · 105 · 137 · 327 · 414 | 25 · 30 · 58 · 221 · 384 · 431 |
+| Caídas min 20-30 (mediana) | 121 | 140 |
+| Nivel en el min 20 / 29 (mediana) | 42 / 56 | 43 / 58 |
+
+| Sin mejoras | Antes | Después |
+|---|---|---|
+| Primera caída | min 5,2 · 6,0 | min 2,2 · 5,0 · 5,3 |
+| Muro | min 12 · 17 | min 11 · 11 · 12 |
+| Caídas min 20-30 | 787 · 975 | 77 · 190 · 394 |
+
+**Lectura**: ni más fácil ni imposible. Con todo al máximo, el principio aguanta algo más (primera caída 7,4 → 9,9) y el
+final queda igual dentro de lo que varía el bot (la misma configuración da de 48 a 414 caídas; el primer equilibrio ya
+vio 281 y 758 con el mismo código). Sin mejoras, el muro llega igual (min 11-17) y el final del 20 al 30 se lleva algo
+mejor: es donde entran las evoluciones, que ya no tienen pegas y nunca son peores que el ataque sin evolucionar. Si el
+dueño lo nota fácil al final: `Player.EVO_K` (0,74; a 0,70 quita esa subida del 7 % de los evolucionados) o los
+`mods.dmg` de cada evolución (la norma pide al menos ×1,2: `tools/equilibrio.cjs --norma` lo comprueba).
 
 ## Archivos
 
