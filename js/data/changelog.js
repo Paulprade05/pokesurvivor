@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-03', title: ["Desplegables: adiós a la rueda del iPhone", "Dropdowns: goodbye to the iPhone wheel"], fix: [
+    ["En iPhone, al elegir una opción en un desplegable (filtros del Compendio, región y orden de la Pokédex, Pokémon de Mejoras...) volvía a salir la rueda de iOS encima de la lista del juego. Ya no: los desplegables sólo abren la lista con el estilo del juego, también al elegir varias veces seguidas o al cambiar de pantalla y volver.",
+     "On iPhone, picking an option in a dropdown (Compendium filters, Pokédex region and sort, the Upgrades Pokémon...) brought the iOS wheel back on top of the game's list. Not anymore: dropdowns only open the game's own list, also when picking several times in a row or after switching screens and coming back."]] },
   { d: '2026-11-02', title: ["Revisión de ataques: evoluciones que conservan el ataque, compendio y dibujos nuevos", "Attack review: evolutions keep the attack, compendium and new art"], new: [
     ["Compendio: cada ataque dice ahora qué cambia en él cada carta de pasiva (Amplitud: radio o tamaño; Persistencia: duración; Réplica: +1 por carta; Propulsión: velocidad...), cuál lo hace evolucionar y, si tiene crítico propio, que Puntería le rinde más.",
      "Compendium: each attack now shows what every passive card changes in it (Area: radius or size; Persistence: duration; Replica: +1 per card; Propulsion: speed...), which one makes it evolve and, if it has its own critical chance, that Precision pays off more."],
