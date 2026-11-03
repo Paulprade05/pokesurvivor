@@ -89,7 +89,7 @@ function analyze(all, o = {}) {
   // ---- ataques ----
   const mv = {};
   for (const r of runs) for (const [id, m] of Object.entries(r.moves || {})) {
-    if (m.dealt == null) continue;
+    if (m.dealt == null || id === '(otros)') continue;      // (lo que no lleva ataque: cuenta en la parte, no es un ataque)
     const a = mv[id] || (mv[id] = { id, name: m.name || id, runs: 0, dps: [], bossK: [], share: [], kills: 0, hits: 0, evo: 0, evoT: [] });
     const tot = Object.values(r.moves).reduce((x, y) => x + (y.dealt || 0), 0) || 1;
     const secs = Math.max(10, (r.dur || 0) - (m.got || 0));

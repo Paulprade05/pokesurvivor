@@ -32,8 +32,9 @@ G.Reg = (() => {
 
   let cur = null;          // partida en curso (lo que no cambia y los sucesos)
   let P = null;            // tu Pokémon (los demás no cuentan aquí)
-  // Por ataque (clave: id del movimiento; '~' = el mismo, golpes de segunda): golpes, daño a jefes, derrotados, s activo.
-  let H, B, K, A;
+  // Por ataque (clave: id del movimiento; '~' = el mismo, golpes de segunda): golpes, daño a jefes, derrotados, s activo,
+  // daño (D: también el de lo que no está en tus huecos, como el movimiento Z) y su nombre (N).
+  let H, B, K, A, D, N;
   let taken, healBy, sec = 0, tlAcc = 0, snapAcc = 0, frames = 0, realAcc = 0, realLast = 0, now = 0;
   let last = null;         // para la línea de tiempo: lo de la línea anterior
   let seen = null;         // lo que se mira cada segundo (para ver qué ha cambiado)
@@ -79,7 +80,7 @@ G.Reg = (() => {
    */
   function start(pl, o = {}) {
     if (cur) finish('salida', null);           // (no debería: la anterior no acabó)
-    P = pl; H = {}; B = {}; K = {}; A = {}; taken = {}; healBy = {};
+    P = pl; H = {}; B = {}; K = {}; A = {}; D = {}; N = {}; taken = {}; healBy = {};
     sec = tlAcc = snapAcc = frames = realAcc = 0; realLast = 0; now = 0; offer = null; lastHit = null;
     const coop = o.coop || null, chosen = o.chosen != null ? o.chosen : pl.dex;
     let nat = null, abil = null;
@@ -117,6 +118,8 @@ G.Reg = (() => {
     if (pl !== P || !m) return;
     const id = m.id;
     H[id] = (H[id] || 0) + 1;
+    D[id] = (D[id] || 0) + d;
+    if (!N[id]) N[id] = m.name || id;
     if (e && e.boss) B[id] = (B[id] || 0) + d;
     if (e && e.dead && !e._rkd) { e._rkd = 1; K[id] = (K[id] || 0) + 1; }
   }
@@ -265,12 +268,18 @@ G.Reg = (() => {
       const grp = (pl.slots || []).find(s => s.includes(m));
       r.group = grp && grp.length > 1 ? grp.map(x => x.id) : null;
     }
-    for (const [map, key] of [[H, 'hits'], [B, 'boss'], [K, 'kills'], [A, 'active']]) {
+    for (const [map, key] of [[H, 'hits'], [B, 'boss'], [K, 'kills'], [A, 'active'], [D, 'dmg']]) {
       for (const id in map) {
-        const b = base(id), r = mv[b] || (mv[b] = { name: b, lv: [] });
+        const b = base(id), r = mv[b] || (mv[b] = { name: N[id] || b, lv: [] });
         r[key] = r1((r[key] || 0) + map[id]);
       }
     }
+    // Lo que ya no está en tus huecos (el movimiento Z, un ataque cambiado...): su daño, el apuntado aquí.
+    for (const id in mv) { const r = mv[id]; if (r.dealt == null && r.dmg) r.dealt = r.dmg; delete r.dmg; }
+    // Y lo que no lleva ataque (algún golpe de objeto o habilidad), para que la suma dé el total.
+    let dsum = 0;
+    for (const id in mv) dsum += mv[id].dealt || 0;
+    if ((pl.dmgDealt || 0) - dsum >= 1) mv['(otros)'] = { name: '(otros)', lv: [], dealt: r1(pl.dmgDealt - dsum) };
     for (const id in mv) { const r = mv[id]; if (r.dealt != null) r.horde = Math.max(0, r.dealt - (r.boss || 0)); r.now = mine.has(id); }
     out.moves = mv;
     out.takenBy = {};
@@ -299,7 +308,7 @@ G.Reg = (() => {
   /** Lo corto de una partida (la lista del historial no carga las enteras). */
   function summary(r) {
     let top = null;
-    for (const id in r.moves || {}) { const m = r.moves[id]; if (m.dealt != null && (!top || m.dealt > top.dealt)) top = { id, name: m.name, dealt: m.dealt }; }
+    for (const id in r.moves || {}) { const m = r.moves[id]; if (id !== '(otros)' && m.dealt != null && (!top || m.dealt > top.dealt)) top = { id, name: m.name, dealt: m.dealt }; }
     return { id: r.id, at: r.at, ver: r.ver, state: r.state, mode: r.mode, players: r.players, dur: r.dur || 0,
              dex: r.mon && r.mon.dex, form: r.form, lvl: r.lvl, kills: r.kills, bossesN: r.bossesN, coins: r.coins != null ? r.coins : null,
              dealt: r.dealt, taken: r.taken, healed: r.healed, downs: (r.downs || []).length, killer: r.killer || null,
@@ -313,7 +322,7 @@ G.Reg = (() => {
     const r = build();
     r.state = state;
     if (x) { if (x.coins != null) r.coins = x.coins; if (x.parts) r.coinParts = x.parts; if (x.judge) r.judge = x.judge; if (x.record) r.record = 1; }
-    cur = null; P = null; H = B = K = A = null; seen = null; offer = null;
+    cur = null; P = null; H = B = K = A = D = N = null; seen = null; offer = null;
     save(r).catch(e => console.warn('[Registro] no se pudo guardar la partida:', e));
     try { localStorage.removeItem(LAST); } catch (e) { /* sin almacenamiento */ }
     // Y su resumen anónimo a la nube, si se puede y se quiere (net/stats.js).

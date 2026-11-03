@@ -138,7 +138,7 @@ G.RunsUI = (() => {
     const tot = moves.reduce((a, [, m]) => a + (m.dealt || 0), 0) || 1;
     const rows = moves.map(([id, m]) => {
       const secs = Math.max(5, dur - (m.got || 0));
-      return `<tr><td>${esc(moveName(id, m.name))}${m.evolved ? ' <span class="run-tag">' + esc(G.T('Evo')) + '</span>' : ''}${m.group ? ' <span class="run-tag">' + esc(G.T('Vínculo')) + '</span>' : ''}</td>
+      return `<tr><td>${esc(id === '(otros)' ? G.T('Otros') : moveName(id, m.name))}${m.evolved ? ' <span class="run-tag">' + esc(G.T('Evo')) + '</span>' : ''}${m.group ? ' <span class="run-tag">' + esc(G.T('Vínculo')) + '</span>' : ''}</td>
         <td>${num(m.lvl)}</td><td><b>${num(m.dealt)}</b></td><td>${Math.round((m.dealt || 0) / tot * 100)}%</td>
         <td>${num(m.boss)}</td><td>${num(m.horde)}</td><td>${num(m.hits)}</td><td>${num(m.kills)}</td><td>${num((m.dealt || 0) / secs)}</td></tr>`;
     }).join('');
