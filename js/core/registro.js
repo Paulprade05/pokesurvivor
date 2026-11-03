@@ -20,7 +20,8 @@
  *
  * Guardado: IndexedDB (ps-partidas), las MAX últimas. Cada SNAP_EVERY s de partida se
  * guarda cómo va y, al cerrar u ocultar la app, también en localStorage (síncrono):
- * al volver a abrir, la que se quedó a medias sale como «cerrada». Nada sube a la nube.
+ * al volver a abrir, la que se quedó a medias sale como «cerrada». A la nube sólo sube
+ * un resumen anónimo al acabar (net/stats.js, con cuenta y si no lo has desactivado).
  */
 G.Reg = (() => {
   const DB_NAME = 'ps-partidas', RUNS = 'runs', SUMS = 'sums', MAX = 500;
@@ -302,7 +303,7 @@ G.Reg = (() => {
     return { id: r.id, at: r.at, ver: r.ver, state: r.state, mode: r.mode, players: r.players, dur: r.dur || 0,
              dex: r.mon && r.mon.dex, form: r.form, lvl: r.lvl, kills: r.kills, bossesN: r.bossesN, coins: r.coins != null ? r.coins : null,
              dealt: r.dealt, taken: r.taken, healed: r.healed, downs: (r.downs || []).length, killer: r.killer || null,
-             killerName: r.killer && r.nm ? r.nm[dex(r.killer)] || '' : '', top, mob: r.dev ? r.dev.mob : 0 };
+             killerName: r.killer && r.nm ? r.nm[dex(r.killer)] || '' : '', top, mob: r.dev ? r.dev.mob : 0, cloud: r.cloud ? 1 : 0 };
   }
 
   /** Fin de la partida (Game.endRun). x: { coins, parts, judge, record }. */
@@ -315,6 +316,8 @@ G.Reg = (() => {
     cur = null; P = null; H = B = K = A = null; seen = null; offer = null;
     save(r).catch(e => console.warn('[Registro] no se pudo guardar la partida:', e));
     try { localStorage.removeItem(LAST); } catch (e) { /* sin almacenamiento */ }
+    // Y su resumen anónimo a la nube, si se puede y se quiere (net/stats.js).
+    try { if (G.RegCloud) G.RegCloud.finished(r); } catch (e) { console.warn('[Registro] resumen:', e); }
     return r;
   }
   const end = (dead, x) => finish(dead ? 'muerto' : 'salida', x);
@@ -427,6 +430,8 @@ G.Reg = (() => {
 
   return {
     start, tick, hit, hurt, down, heal, kill, ev, offered, picked, end, finish, build, summary, init, stash,
+    /** Vuelve a guardar una partida ya acabada (net/stats.js: marcada como subida). */
+    resave: r => save(r).catch(() => {}),
     exportData, download, castOf, who, TL_KEYS, MAX,
     list: () => store.sums().then(l => (l || []).sort((a, b) => b.id - a.id)),
     get: id => store.get(id),

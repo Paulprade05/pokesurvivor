@@ -227,3 +227,94 @@ test('analizar-partidas: summary of an export (attacks, killers, healing, cards,
   assert.equal(s.danoRecibidoPorClase.legendarios, '100%');
   assert.ok(A.text(s).includes('Quién te tumba'));
 });
+
+// ---------------- resumen anónimo en la nube (net/stats.js) ----------------
+function cloud(over = {}) {
+  const { G, R, store } = load();
+  const sent = [];
+  G.Settings = { v: { shareStats: true }, get(k) { return this.v[k]; } };
+  G.DB = { online: true, fb: { uid: 'u1', fs: {
+    collection: c => ({ doc: id => ({ c, id: id || 'auto' }) }),
+    batch: () => { const ops = []; return { set: (ref, d) => ops.push([ref.c, ref.id, d]), commit: () => { sent.push(ops); return Promise.resolve(); } }; }
+  } } };
+  Object.assign(G, over);
+  const ctx = vm.createContext({ G, Math, console, Date, JSON, Promise, setTimeout, clearTimeout,
+                                 firebase: { firestore: { FieldValue: { serverTimestamp: () => '__ts__' } } } });
+  vm.runInContext(source('js/net/stats.js'), ctx, { filename: 'stats.js' });
+  return { G, R, C: G.RegCloud, sent, store };
+}
+function playedRun(R, secs = 60) {
+  const { pl, m1 } = player();
+  R.start(pl, { upg: { hp: 2 } });
+  R.current.ver = 'abc123';
+  const mew = { id: 9, dex: 150, boss: true, legend: true, name: 'Mewtwo', maxHp: 1 };
+  R.hit(pl, m1, mew, 50); m1.dealt = 500; pl.dmgDealt = 500;
+  R.hurt(pl, 30, mew, 'Psicoataque'); R.heal(pl, 9, 'comida'); pl.healed = 9;
+  R.offered([{ key: 'stat:hp' }, { key: 'stat:atk' }]); R.picked({ key: 'stat:atk' });
+  for (let t = 1; t <= secs; t++) R.tick(1, t);
+  R.down(pl);
+  return { pl };
+}
+
+test('stats: the cloud summary has no name or account, fits the Firestore rules and has no nested lists', async () => {
+  const { R, C, sent } = cloud();
+  playedRun(R);
+  const r = R.end(true, { coins: 12 });
+  await settle();
+  assert.equal(sent.length, 1, 'una subida al acabar');
+  const [[col, , doc], [qcol, qid, q]] = sent[0];
+  assert.equal(col, 'stats'); assert.equal(qcol, 'statsq'); assert.equal(qid, 'u1'); assert.deepEqual(J(q), { at: '__ts__' });
+  const txt = JSON.stringify(doc);
+  assert.ok(!txt.includes('u1'), 'sin la cuenta');
+  const allowed = ['v', 'at', 'ver', 'mode', 'pl', 'st', 'dur', 'dex', 'form', 'abil', 'nat', 'lvl', 'kills', 'coins', 'dealt', 'taken', 'healed',
+                   'downs', 'killer', 'killT', 'kinds', 'dev', 'fps', 'upg', 'moves', 'tk', 'hb', 'cards', 'bosses'];
+  assert.deepEqual(Object.keys(doc).filter(k => !allowed.includes(k)), [], 'sólo los campos de firestore.rules');
+  const rules = source('firestore.rules');
+  for (const k of allowed) assert.ok(rules.includes(`'${k}'`), 'la regla conoce ' + k);
+  assert.ok(Number.isInteger(doc.dur) && doc.dur >= 30 && Number.isInteger(doc.v));
+  assert.ok(Object.keys(doc.moves).length <= 10 && Object.keys(doc.tk).length <= 8 && Object.keys(doc.hb).length <= 6 &&
+            Object.keys(doc.cards).length <= 40 && doc.bosses.length <= 15 && doc.killer.length <= 60);
+  const nested = v => Array.isArray(v) ? v.some(x => Array.isArray(x) || nested(x)) : v && typeof v === 'object' ? Object.values(v).some(nested) : false;
+  assert.equal(nested(doc), false, 'Firestore no deja listas dentro de listas');
+  assert.equal(doc.killer, 'l:150|Psicoataque'); assert.equal(doc.moves.ember.d, 500); assert.deepEqual(J(doc.cards['stat:atk']), [1, 1]);
+  assert.ok(JSON.stringify(doc).length < 3000, 'unos 1-2 KB');
+  assert.equal(r.cloud, 1);
+  await settle();
+  assert.equal((await R.list())[0].cloud, 1, 'marcada como subida en el historial');
+});
+
+test('stats: nothing goes up as a guest, with the setting off, from dev.html or for runs under 30 s', async () => {
+  for (const [why, setup, secs] of [
+    ['invitado', c => { c.G.DB.online = false; }, 60],
+    ['ajuste', c => { c.G.Settings.v.shareStats = false; }, 60],
+    ['dev', c => { c.dev = true; }, 60],
+    ['corta', () => {}, 20]]) {
+    const c = cloud();
+    setup(c);
+    playedRun(c.R, secs);
+    if (c.dev) c.R.current.ver = 'dev';
+    c.R.end(true);
+    await settle();
+    assert.equal(c.sent.length, 0, why);
+  }
+});
+
+test('analizar-partidas: reads the cloud summaries (ps-resumenes) like local runs', () => {
+  const { R, C } = cloud();
+  playedRun(R);
+  const b = J(C.brief(R.build()));
+  const A = require('../tools/analizar-partidas.cjs');
+  const os = require('node:os');
+  const f = path.join(os.tmpdir(), 'ps-resumenes-test-' + process.pid + '.json');
+  fs.writeFileSync(f, JSON.stringify({ fmt: 'ps-resumenes', runs: [Object.assign({}, b, { id: 'a', at: 1 }), Object.assign({}, b, { id: 'b', at: 2 })] }));
+  try {
+    const runs = A.load([f]);
+    assert.equal(runs.length, 2);
+    const s = A.analyze(runs);
+    assert.equal(s.partidas, 2);
+    assert.equal(s.ataquesQueMasPegan[0].id, 'ember');
+    assert.equal(s.quienTeTumba['Mewtwo (l:150)'], 2, 'con el nombre sacado de la Pokédex');
+    assert.equal(s.cartasMasElegidas.length, 0, 'menos de 5 veces: no sale');
+    assert.equal(s.caidas.total, 2);
+  } finally { fs.unlinkSync(f); }
+});

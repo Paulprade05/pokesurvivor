@@ -40,6 +40,7 @@ G.RunsUI = (() => {
   function init() {
     $('runs-close').onclick = close;
     $('runs-export').onclick = exportAll;
+    $('runs-cloud').onclick = cloudAll;
     $('runs-ico').innerHTML = G.Icons.html('clock', 30);
     $('runs-body').addEventListener('click', e => {
       const more = e.target.closest('.runs-more');
@@ -55,6 +56,7 @@ G.RunsUI = (() => {
 
   function open() {
     $('scr-runs').classList.remove('hidden');
+    $('runs-cloud').classList.toggle('hidden', !(G.RegCloud && G.RegCloud.isAdmin()));
     $('runs-body').innerHTML = `<p class="runs-empty">${esc(G.T('Cargando…'))}</p>`;
     G.Reg.list().then(l => { list = l; render(); }).catch(e => {
       console.warn('[Historial]', e);
@@ -165,6 +167,16 @@ G.RunsUI = (() => {
     G.Reg.download().then(n => G.UI.toast(G.I18n.f('{x} partidas exportadas', n), 2600))
       .catch(e => { console.warn('[Historial]', e); G.UI.toast(G.T('No se ha podido exportar'), 2600); })
       .finally(() => { b.disabled = !list.length; });
+  }
+
+  /** (Dueño) Los resúmenes de todos los jugadores (net/stats.js), en otro archivo. */
+  function cloudAll() {
+    const b = $('runs-cloud');
+    b.disabled = true;
+    G.UI.toast(G.T('Descargando…'), 2000);
+    G.RegCloud.download().then(n => G.UI.toast(G.I18n.f('{x} partidas exportadas', n), 2600))
+      .catch(e => { console.warn('[Historial]', e); G.UI.toast(G.T('No se ha podido exportar'), 2600); })
+      .finally(() => { b.disabled = false; });
   }
 
   return { init, open, close };

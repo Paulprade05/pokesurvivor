@@ -1,4 +1,5 @@
 // Resume las partidas exportadas desde el juego (Historial de partidas › Exportar; core/registro.js).
+// También lee los resúmenes de la nube (net/stats.js; Historial › «Descargar las de todos», sólo el dueño).
 // Uso: node tools/analizar-partidas.cjs <partidas.json> [más.json…] [--json salida.json] [--ver <huella>]
 //                                       [--desde AAAA-MM-DD] [--modo solo|grupo] [--min <s>] [--top N]
 //   Junta varios archivos (de varios aparatos) sin repetir partidas (mismo id).
@@ -15,15 +16,51 @@ const r1 = v => Math.round(v * 10) / 10;
 const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
 const who = k => String(k || '?').split('|')[0];
 
-/** Lee uno o varios archivos exportados y devuelve las partidas (sin repetir). */
+/** Nombres de los Pokémon (los resúmenes de la nube no los llevan). */
+let DEX_NAMES = null;
+function dexNames() {
+  if (DEX_NAMES) return DEX_NAMES;
+  DEX_NAMES = {};
+  try {
+    const G = {};
+    new Function('G', fs.readFileSync(path.join(__dirname, '..', 'js', 'data', 'pokedex.js'), 'utf8'))(G);
+    for (const d of G.DEX || []) DEX_NAMES[d.dex] = d.name;
+  } catch (e) { /* sin nombres: salen las claves */ }
+  return DEX_NAMES;
+}
+
+/** Un resumen de la nube (net/stats.js, brief) con la forma de una partida guardada. */
+function fromBrief(b) {
+  const nm = dexNames(), at = typeof b.at === 'number' ? b.at : 0;
+  const moves = {};
+  for (const [id, m] of Object.entries(b.moves || {})) {
+    moves[id] = { name: id, dealt: m.d, boss: m.b, kills: m.k, hits: m.h, lvl: m.l, evolved: !!m.e, got: m.g, active: m.a, evo: m.et, group: m.f ? [id] : null };
+  }
+  const usedNames = {};
+  for (const k of [b.killer, ...Object.keys(b.tk || {}), ...(b.bosses || []).map(x => x.k)]) {
+    const m = /^[hblax]:(\d+)/.exec(k || '');
+    if (m && nm[m[1]]) usedNames[m[1]] = nm[m[1]];
+  }
+  if (nm[b.dex]) usedNames[b.dex] = nm[b.dex];
+  return {
+    id: b.id || at, cloudId: b.id, at, ver: b.ver, mode: b.mode, players: b.pl, state: b.st, dur: b.dur,
+    mon: { dex: b.dex, abil: b.abil, nat: b.nat }, form: b.form, lvl: b.lvl, kills: b.kills, coins: b.coins,
+    dealt: b.dealt, taken: b.taken, healed: b.healed, kinds: b.kinds, dev: b.dev, upg: b.upg, nm: usedNames, moves,
+    takenBy: Object.fromEntries(Object.entries(b.tk || {}).map(([k, v]) => [k, [v, 0]])), healBy: b.hb || {},
+    downs: b.killer ? [{ by: b.killer, t: b.killT }] : [], downsN: b.downs || 0, cardAgg: b.cards || {},
+    bosses: (b.bosses || []).map(x => ({ k: x.k, t: x.t, kt: x.kt >= 0 ? x.kt : null })), fpsAvg: b.fps
+  };
+}
+
+/** Lee uno o varios archivos exportados (del historial o de la nube) y devuelve las partidas (sin repetir). */
 function load(files) {
   const byId = new Map();
   for (const f of files) {
     const j = JSON.parse(fs.readFileSync(f, 'utf8'));
-    const runs = Array.isArray(j) ? j : j.runs || [];
+    const runs = (Array.isArray(j) ? j : j.runs || []).map(r => (j.fmt === 'ps-resumenes' || (r && r.v && r.tk) ? fromBrief(r) : r));
     for (const r of runs) if (r && r.id != null) byId.set(r.id, r);
   }
-  return [...byId.values()].sort((a, b) => a.id - b.id);
+  return [...byId.values()].sort((a, b) => (a.at || 0) - (b.at || 0));
 }
 
 /** Filtra y resume. o: { ver, desde, modo, min } */
@@ -74,7 +111,8 @@ function analyze(all, o = {}) {
 
   // ---- quién te tumba y quién te pega ----
   const downs = runs.flatMap(r => r.downs || []);
-  out.caidas = { total: downs.length, porPartida: r1(downs.length / runs.length) };
+  const downsN = runs.reduce((a, r) => a + (r.downsN != null ? r.downsN : (r.downs || []).length), 0);
+  out.caidas = { total: downsN, porPartida: r1(downsN / runs.length) };
   out.quienTeTumba = top(count(downs.map(d => name(d.by))), o.top || 10);
   out.conQueTeTumba = top(count(downs.map(d => `${name(d.by)} · ${String(d.by).split('|')[1] || '?'}`)), o.top || 10);
   const tk = {};
@@ -93,9 +131,12 @@ function analyze(all, o = {}) {
 
   // ---- cartas ----
   const off = {}, pick = {};
-  for (const r of runs) for (const c of r.cards || []) {
-    for (const k of c.o || []) off[k] = (off[k] || 0) + 1;
-    if (c.p) pick[c.p] = (pick[c.p] || 0) + 1;
+  for (const r of runs) {
+    for (const c of r.cards || []) {
+      for (const k of c.o || []) off[k] = (off[k] || 0) + 1;
+      if (c.p) pick[c.p] = (pick[c.p] || 0) + 1;
+    }
+    for (const [k, [o, p]] of Object.entries(r.cardAgg || {})) { off[k] = (off[k] || 0) + o; pick[k] = (pick[k] || 0) + p; }
   }
   const cards = Object.keys(off).filter(k => off[k] >= 5).map(k => ({ carta: k, sale: off[k], elegida: Math.round((pick[k] || 0) / off[k] * 100) }))
     .sort((a, b) => b.elegida - a.elegida);
@@ -115,6 +156,7 @@ function analyze(all, o = {}) {
   // ---- rendimiento ----
   const fps = { 'móvil': [], PC: [] };
   for (const r of runs) {
+    if (r.fpsAvg && r.fpsAvg.m > 0) { fps[r.dev && r.dev.mob ? 'móvil' : 'PC'].push(r.fpsAvg.m); continue; }
     const i = (r.tlKeys || []).indexOf('fps');
     if (i < 0) continue;
     for (const row of r.tl || []) if (row[i] > 0) fps[r.dev && r.dev.mob ? 'móvil' : 'PC'].push(row[i]);
@@ -174,4 +216,4 @@ if (require.main === module) {
   if (jsonOut) { fs.writeFileSync(jsonOut, JSON.stringify(s, null, 2)); console.log('\nResumen en', jsonOut); }
 }
 
-module.exports = { load, analyze, text };
+module.exports = { load, analyze, text, fromBrief };

@@ -10,6 +10,8 @@ rules_version = '2';
 //   reports/{tabla__id__uid}  reportes de marcas sospechosas (sólo los lee el admin)
 //   lbs/{tabla}            resumen con el top 50 de cada tabla
 //   pres/{uid}             en línea (aproximado) · inv/{para_de} invitaciones
+//   stats/{id}             resumen anónimo de cada partida (sólo los lee el admin)
+//   statsq/{uid}           cuándo subiste tu último resumen (tope)
 // Todo lo demás está cerrado.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -258,6 +260,38 @@ service cloud.firestore {
         && request.resource.data.t is int
         && request.resource.data.at == request.time
         && rid == request.resource.data.board + '__' + request.resource.data.e + '__' + me();
+    }
+
+    // ---------- resumen anónimo de cada partida (js/net/stats.js, 03-11-2026) ----------
+    // Lo sube el juego al acabar una partida (con cuenta, si no lo has desactivado en
+    // Ajustes). No lleva ni tu cuenta ni tu nombre: el tope (uno cada 25 s por cuenta)
+    // va en statsq/{uid}, que se escribe en el mismo lote. Sólo el admin lo lee y lo borra.
+    match /stats/{id} {
+      allow read, delete: if admin();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['v', 'at', 'ver', 'mode', 'pl', 'st', 'dur', 'dex', 'form', 'abil', 'nat', 'lvl',
+             'kills', 'coins', 'dealt', 'taken', 'healed', 'downs', 'killer', 'killT', 'kinds', 'dev', 'fps', 'upg', 'moves',
+             'tk', 'hb', 'cards', 'bosses'])
+        && request.resource.data.v is int
+        && request.resource.data.at == request.time
+        && request.resource.data.ver is string && request.resource.data.ver.size() <= 16
+        && request.resource.data.dur is int && request.resource.data.dur >= 30
+        && request.resource.data.moves is map && request.resource.data.moves.size() <= 10
+        && request.resource.data.tk is map && request.resource.data.tk.size() <= 8
+        && request.resource.data.hb is map && request.resource.data.hb.size() <= 6
+        && request.resource.data.cards is map && request.resource.data.cards.size() <= 40
+        && request.resource.data.upg is map && request.resource.data.upg.size() <= 30
+        && request.resource.data.bosses is list && request.resource.data.bosses.size() <= 15
+        && request.resource.data.killer is string && request.resource.data.killer.size() <= 60
+        && getAfter(/databases/$(database)/documents/statsq/$(me())).data.at == request.time;
+    }
+    match /statsq/{uid} {
+      allow create: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['at']) && request.resource.data.at == request.time;
+      allow update: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['at']) && request.resource.data.at == request.time
+        && every(resource.data.at, 25);
+      allow delete: if signedIn() && me() == uid;
     }
 
     // Para borrar todas tus marcas al borrar la cuenta (consulta de grupo).
