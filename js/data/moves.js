@@ -1747,13 +1747,16 @@
   /** Familias que no hacen (casi) daño: como mucho 2 entre todas (ver levelup.js). */
   function nonAttacking(kind) { return kind === 'buff' || kind === 'ward' || kind === 'wipe'; }
 
-  /** ¿Puede evolucionar ya? → { name, needs, needName, text, ready } o null */
-  function evoInfo(m, statsTaken) {
+  /**
+   * ¿Puede evolucionar ya? → { name, needs, needName, text, ready } o null. ready: su pasiva a la
+   * mitad de su máximo (G.LevelUp.evoHas; pl, para el máximo de esta partida).
+   */
+  function evoInfo(m, statsTaken, pl) {
     const e = EVO[m.id];
     if (!e || m.evolved || m.lvl < m.def.maxLvl || !evoMods(m)) return null;
     const [name, needs] = e;
     return { name, needs, needName: NEED_NAME[needs], text: evoText(m),
-             ready: !!(statsTaken && statsTaken[needs]) };
+             ready: G.LevelUp ? G.LevelUp.evoHas(needs, statsTaken, pl) : !!(statsTaken && statsTaken[needs]) };
   }
 
   /** Evoluciona una instancia (cambia nombre y potencia; sigue siendo del mismo tipo). */
