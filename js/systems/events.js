@@ -222,7 +222,7 @@ G.Events = (() => {
   /** En cada ordenador: cura, y si toca, el Pokémon se une a tu colección. */
   function reward(dex, grant) {
     const pl = G.Game.player;
-    if (pl && !pl.dead) { pl.heal(pl.maxHp * 0.5); G.FX.ring(pl.x, pl.y, 6, 70, '#5fe08a', 0.5, 3); }
+    if (pl && !pl.dead) { pl.heal(pl.maxHp * 0.5, 'suceso'); G.FX.ring(pl.x, pl.y, 6, 70, '#5fe08a', 0.5, 3); }
     const name = (G.DEX_BY[dex] || {}).name || '';
     G.FX.burst(lost ? lost.tx : pl.x, lost ? lost.ty - 10 : pl.y, '#7dffb0', 24, 180);
     G.Audio.sfx('legend');

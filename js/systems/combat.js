@@ -415,7 +415,7 @@ G.Combat = (() => {
       if (m.drain) healed += m.drain;
     }
     for (const p of G.World.propsInCircle(pl.x, pl.y, m.radius)) G.World.damageProp(p, m.dmg * pl.atkFor(m), col);
-    if (healed > 0) pl.heal(Math.min(healed, 6));
+    if (healed > 0) pl.heal(Math.min(healed, 6), m.id);
   }
 
   function buff(pl, m) {
@@ -939,7 +939,7 @@ G.Combat = (() => {
       // Daño tal cual (sin tipos ni crítico): cuenta como un golpe tuyo. (Bajo tierra, nada: bloque 4.)
       if (G.EnemyAI && G.EnemyAI.hidden(e)) return;
       e.hurt(d, f.col, e.x - pl.x, e.y - pl.y, 0, null);
-      pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; pl.onDealt(d);
+      pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; pl.onDealt(d); G.Reg.hit(pl, m, e, d);
     };
     for (const e of list) {
       if (e.dead) continue;
@@ -1000,7 +1000,7 @@ G.Combat = (() => {
     if ((m.charges | 0) >= wardMax(m)) m.t = cooldown(pl, m);   // estaba lleno: empieza a recargar
     m.charges--;
     pl.invuln = Math.max(pl.invuln || 0, 0.5);
-    if (m.heal > 0) pl.heal(pl.maxHp * m.heal);                   // evolucionado: cura un poco
+    if (m.heal > 0) pl.heal(pl.maxHp * m.heal, m.id);             // evolucionado: cura un poco
     G.FX.dmgText(pl.x, pl.y - pl.bodyH - 12, '¡Protegido!', '#9fe0ff', true);
     G.Audio.sfx('shake'); G.Audio.sfx('break');
     G.Camera.kick(0.15);
@@ -1946,6 +1946,7 @@ G.Combat = (() => {
     if (!ghost) pl.onDealt(dmg);
     pl.dmgDealt += dmg;
     m.dealt = (m.dealt || 0) + dmg;               // por ataque, para el resumen de la pausa
+    G.Reg.hit(pl, m, e, dmg);                     // (y para el registro de la partida: core/registro.js)
     const burn = o ? o.burn || 0 : m.burn, poison = o ? o.poison || 0 : m.poison, slow = o ? o.slow || 0 : m.slow;
     if (burn && sk) e.applyBurn(burn * sk);
     if (poison && sk) e.applyPoison(poison * sk);
@@ -1983,7 +1984,7 @@ G.Combat = (() => {
         if (walls3.length && foe3(p)) { projectiles.splice(i, 1); continue; }
         if (G.U.dist2(p.x, p.y, pl.x, pl.y) < (p.r + pl.r) * (p.r + pl.r)) {
           incoming3 = p.dmg;
-          pl.hurt(p.dmg * (pl.u3 ? mistK3(pl, p.x, p.y, p.mtype === 'dragon') : 1), p.mtype, false, p.cat);
+          pl.hurt(p.dmg * (pl.u3 ? mistK3(pl, p.x, p.y, p.mtype === 'dragon') : 1), p.mtype, false, p.cat, p.foe, p.fsk || 'disparo');
           incoming3 = 0;
           G.FX.burst(p.x, p.y - G.LIFT, p.color, 7, 110);
           projectiles.splice(i, 1);
@@ -2080,12 +2081,12 @@ G.Combat = (() => {
         pl.uqLast = e;
         if (Math.random() < 0.5) G.FX.sp('impact', p.vis ? p.vis.pal : 'normal', e.x, e.y - e.bodyH * 0.5, { life: 0.12, scale: 1 });
         pl.dmgDealt += p.dmg * k;
-        if (p.src) p.src.dealt = (p.src.dealt || 0) + p.dmg * k;
+        if (p.src) { p.src.dealt = (p.src.dealt || 0) + p.dmg * k; G.Reg.hit(pl, p.src, e, p.dmg * k); }
         pl.onDealt(p.dmg * k);
         if (p.burn && sk) e.applyBurn(p.burn * sk);
         if (p.poison && sk) e.applyPoison(p.poison * sk);
         if (p.slow && sk) e.applySlow(Math.min(0.8, p.slow * sk));
-        if (p.drain) pl.heal(p.drain);                    // Beso Drenaje
+        if (p.drain) pl.heal(p.drain, p.src ? p.src.id : 'drenaje');   // Beso Drenaje
         if (p.src) hitPost(pl, e, p.src, p, type);
         afterHit(pl, e, p.src);
         if (M && M.afterP) M.afterP(pl, e, p.src, p, p.dmg * k);
@@ -2115,7 +2116,7 @@ G.Combat = (() => {
       // (touchHit: las habilidades saben que este golpe es cuerpo a cuerpo, ver data/ability-fx.js.)
       pl.touchHit = true;
       incoming3 = e.dmg;
-      try { pl.hurt(e.dmg * (pl.u3 ? mistK3(pl, e.x, e.y, e.types && e.types.includes('dragon')) : 1), e.atkType, false, e.cat); } finally { pl.touchHit = false; incoming3 = 0; }
+      try { pl.hurt(e.dmg * (pl.u3 ? mistK3(pl, e.x, e.y, e.types && e.types.includes('dragon')) : 1), e.atkType, false, e.cat, e, 'toque'); } finally { pl.touchHit = false; incoming3 = 0; }
       if (pl.u3 && pl.u3.anchor > 0) touch3(pl, e);                // (Cuerpo Pesado)
       mxTouched(pl, e);                               // (Barrera Espinosa, Fortaleza, Defensa Férrea...)
       if (pl.hasItem('rockyhelmet')) e.hurt(15 + pl.level * 4, '#9aa6b5', e.x - pl.x, e.y - pl.y, 80);
@@ -2440,7 +2441,7 @@ G.Combat = (() => {
   function pure3(pl, e, d, m, col) {
     if (!(d > 0) || e.dead) return;
     e.hurt(d, col, e.x - pl.x, e.y - pl.y, 0, null);
-    pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d;
+    pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; G.Reg.hit(pl, m, e, d);
     if (!ghost) pl.onDealt(d);
   }
   /** Un estado tuyo (con las habilidades: Potencia Bruta no pone ninguno; Dicha, más rato). */
@@ -4588,7 +4589,7 @@ G.Combat = (() => {
                   f.swallowed++;
                   const d = (e.remote ? e.maxHp : e.hp) + 10;
                   e.hurt(d, '#6e4c1e', 0, 1, 0, null);
-                  f.owner.dmgDealt += d; f.m.dealt = (f.m.dealt || 0) + d; f.owner.onDealt(d);
+                  f.owner.dmgDealt += d; f.m.dealt = (f.m.dealt || 0) + d; f.owner.onDealt(d); G.Reg.hit(f.owner, f.m, e, d);
                   if (G.Camera.sees(e.x, e.y, 20)) { G.FX.burst(e.x, e.y, '#3a250c', 12, 90); G.FX.dmgText(e.x, e.y - e.bodyH - 8, '¡Fisura!', '#dcb66c'); }
                 }
               }
@@ -5104,7 +5105,7 @@ G.Combat = (() => {
                   hit(pl2, e, f.dmg, mm.evolved ? '#a3162e' : colOf(mm), 0, 1, 30, mm);
                   const sk = new Set([e.id]);
                   areaHit(pl2, mm, tx, ty, 26, f.dmg * 0.6, { col: colOf(mm), skip: sk });
-                  if (mm.evolved) pl2.heal(Math.max(1, (hp0 - Math.max(0, e.hp)) || f.dmg) * 0.06);
+                  if (mm.evolved) pl2.heal(Math.max(1, (hp0 - Math.max(0, e.hp)) || f.dmg) * 0.06, mm.id);
                 }
               }
               continue;
@@ -5199,7 +5200,7 @@ G.Combat = (() => {
       // Cura: 1 % de la vida máxima por mordisco, como mucho un 3 % por segundo.
       const now = G.Game.st.time, b = pl.uqBite || (pl.uqBite = { t: 0, n: 0 });
       if (now - b.t > 1) { b.t = now; b.n = 0; }
-      if (b.n < 0.03) { b.n += 0.01; pl.heal(pl.maxHp * 0.01); }
+      if (b.n < 0.03) { b.n += 0.01; pl.heal(pl.maxHp * 0.01, m.id); }
       if (m.evolved && !e.dead) stAdd(e, 'markX', 6, 0, { by: pl });
       if (e.dead && !e.remote && Math.random() < 0.08 && G.Pickups) G.Pickups.drop('heal', e.x, e.y);
     }
@@ -5372,7 +5373,7 @@ G.Combat = (() => {
   /** Sanguijuela: lo que cura la pasada (2 % por enemigo, hasta 5). */
   function leech(pl, m) {
     if (!m.evolved || !(m.uqPass > 0)) return;
-    pl.heal(pl.maxHp * 0.02 * Math.min(5, m.uqPass));
+    pl.heal(pl.maxHp * 0.02 * Math.min(5, m.uqPass), m.id);
     for (let i = 0; i < Math.min(5, m.uqPass); i++) G.FX.px(pl.x + G.U.rand(-30, 30), pl.y - G.U.rand(0, 30), '#ff4b5c', { vx: G.U.rand(-20, 20), vy: -40, life: 0.4, size: 2 });
   }
 
@@ -6808,7 +6809,7 @@ G.Combat = (() => {
         const room = pl.maxHp - pl.hp;
         if (h > room) { const u = P3(pl); u.shield = Math.min(pl.maxHp * m.lunar, u.shield + (h - room)); }
       }
-      pl.heal(h);
+      pl.heal(h, m.id);
     }
   };
 
@@ -7967,7 +7968,7 @@ G.Combat = (() => {
       if (m.evolved && n > 3) {
         const d = Math.max(1, (e.dmg || 0) * 0.25);
         e.hurt(d, '#b0b8c8', nx, ny, 0);
-        pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d;
+        pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; G.Reg.hit(pl, m, e, d);
       }
     }
   };
@@ -8521,7 +8522,7 @@ G.Combat = (() => {
               // Fuego Sagrado: cada quemado que cae dentro te cura un 1 % (como mucho un 5 % por segundo).
               if (sacred && !f.ghost && (e.burn > 0 || (e.net && e.net.st & 1))) {
                 if (f.t - f.healT > 1) { f.healT = f.t; f.heal = 0; }
-                if (f.heal < 0.05) { f.heal += 0.01; pl.heal(pl.maxHp * 0.01); }
+                if (f.heal < 0.05) { f.heal += 0.01; pl.heal(pl.maxHp * 0.01, m.id); }
               }
               f.inside.delete(e); continue;
             }
@@ -9127,8 +9128,8 @@ G.Combat = (() => {
               for (let i = 0; i < 10; i++) G.FX.sp('drop', 'grass', pl.x + G.U.rand(-120, 120), pl.y - 80 + G.U.rand(-20, 20), { vy: 160, life: 0.5, angle: Math.PI / 2 });
             }
             const me = G.Game.player;
-            if (!f.ghost) pl.heal(pl.maxHp * 0.03);
-            else if (me && !me.dead && me !== pl && G.U.dist2(me.x, me.y, pl.x, pl.y) < 140 * 140) me.heal(me.maxHp * 0.03);
+            if (!f.ghost) pl.heal(pl.maxHp * 0.03, m.id);
+            else if (me && !me.dead && me !== pl && G.U.dist2(me.x, me.y, pl.x, pl.y) < 140 * 140) me.heal(me.maxHp * 0.03, 'compañero');
           }
           return false;
         },
@@ -9668,7 +9669,7 @@ G.Combat = (() => {
           if (!f.ghost && !pl.dead) {
             const d = atk(pl, m) * 0.12;
             for (const t of f.tgs) if (!t.dead) { hit(pl, t, d, '#45b23c', 0, 0, 0, m, GRASS_RAW); f.acc += d * 0.2; }
-            if (f.acc >= 1) { pl.heal(Math.min(f.acc, pl.maxHp * 0.01)); f.acc = 0; }
+            if (f.acc >= 1) { pl.heal(Math.min(f.acc, pl.maxHp * 0.01), m.id); f.acc = 0; }
           }
         }
         if (Math.random() < dt * 20 && f.tgs.length) {
@@ -9866,7 +9867,7 @@ G.Combat = (() => {
       jungleFx(pl);
       // Cura Selvática: cura un 6 % a los compañeros a 140 px (cada uno el suyo).
       const me = G.Game.player;
-      if (me && !me.dead && me !== pl && G.U.dist2(me.x, me.y, pl.x, pl.y) < 140 * 140) { me.heal(me.maxHp * 0.06); me.slowT = 0; }
+      if (me && !me.dead && me !== pl && G.U.dist2(me.x, me.y, pl.x, pl.y) < 140 * 140) { me.heal(me.maxHp * 0.06, 'compañero'); me.slowT = 0; }
     }
   };
   /* ==== mech: eléctrico ==== */
@@ -10363,7 +10364,7 @@ G.Combat = (() => {
         if (!d) continue;
         if (sees(e.x, e.y)) { G.FX.burst(e.x, e.y - e.bodyH * 0.5, '#d8f6ff', 14, 200); for (let i = 0; i < 5; i++) G.FX.sp('shard', 'ice', e.x, e.y - e.bodyH * 0.5, { vx: G.U.rand(-120, 120), vy: G.U.rand(-140, 20), grav: 300, life: 0.5, spin: 8 }); G.Audio.sfx('break'); }
         e.hurt(d, '#bff3ff', 0, 0, 0);
-        pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; pl.onDealt(d);
+        pl.dmgDealt += d; m.dealt = (m.dealt || 0) + d; pl.onDealt(d); G.Reg.hit(pl, m, e, d);
       }
     }
   };

@@ -129,8 +129,8 @@
 }
 </script>
 
-<link rel="stylesheet" href="css/style.css?v=92d36e4638">
-<script src="js/core/locales.js?v=847f7894fd"></script>
+<link rel="stylesheet" href="css/style.css?v=873356f878">
+<script src="js/core/locales.js?v=9effff0730"></script>
 <script src="js/noframe.js"></script>
 </head>
 <body>
@@ -301,6 +301,22 @@
   </div>
 </section>
 
+<!-- ====== Historial de partidas: las que guarda core/registro.js en este aparato (runs-ui.js) ====== -->
+<section id="scr-runs" class="scr dim modal hidden" role="dialog" aria-labelledby="runs-title">
+  <div class="box sheet-box runs-sheet">
+    <header class="sheet-head">
+      <button class="icon-btn" id="runs-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
+      <span class="ico-tile s" id="runs-ico" aria-hidden="true"></span>
+      <h2 id="runs-title">Historial de partidas</h2>
+      <div class="sheet-acts">
+        <button class="btn small ghost ic hidden" id="runs-cloud" type="button" data-ico="download" title="Los resúmenes anónimos de todos los jugadores (sólo el dueño)"><span>Las de todos</span></button>
+        <button class="btn small ic" id="runs-export" type="button" data-ico="download" title="Exportar todas a un archivo"><span>Exportar</span></button>
+      </div>
+    </header>
+    <div id="runs-body" class="sheet-body runs-body"></div>
+  </div>
+</section>
+
 <!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery): ventana pequeña ====== -->
 <section id="scr-recover" class="scr dim hidden" role="dialog" aria-labelledby="rec-title">
   <div class="box mcard">
@@ -400,6 +416,11 @@
           (nunca se enseña a otros jugadores).
           No usamos tus datos para nada más, ni los compartimos, ni hay publicidad ni seguimiento.
           Como invitado no se guarda nada fuera de tu navegador.</p>
+        <p>Resumen de las partidas: para mejorar el juego, con cuenta enviamos un resumen anónimo de cada
+          partida (Pokémon, duración, ataques, daño recibido y de quién, curación, cartas, jefes, versión del juego
+          y si juegas en móvil o PC con el tamaño de la pantalla). No incluye tu nombre, tu apodo ni tu cuenta y sólo
+          lo ve el autor del juego. Puedes desactivarlo en Ajustes › Cuenta. El historial de tus partidas
+          (Misiones › Perfil) se guarda sólo en tu aparato.</p>
         <p>Amigos y ranking: tu <b>apodo</b> es público para otros jugadores. Guardamos tu lista de
           amigos, si estás en línea y tus mejores tiempos (con tu apodo y tu Pokémon).</p>
         <p>Partidas en grupo: tu navegador se conecta <b>directamente</b> con el de tus compañeros
@@ -937,6 +958,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=62d7e853c6"></script>
+<script defer src="js/app.min.js?v=a22a6bfb7e"></script>
 </body>
 </html>

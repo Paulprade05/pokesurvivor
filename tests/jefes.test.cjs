@@ -56,6 +56,7 @@ function fakeBoss(G, log, dex, types, id = 1) {
 function loadEnemy(G, warns = null) {
   const con = warns ? Object.assign({}, console, { warn: (...a) => warns.push(a.map(String).join(' ')) }) : console;
   const ctx = vm.createContext({ G, console: con, performance: { now: () => 0 }, Math });
+  vm.runInContext(source('js/core/registro.js'), ctx, { filename: 'registro.js' });   // (sin partida no apunta nada)
   vm.runInContext(source('js/entities/enemy.js'), ctx, { filename: 'enemy.js' });
   return G.BossSig;
 }

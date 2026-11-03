@@ -358,7 +358,7 @@ G.Judgment = (() => {
     if (G.U.dist2(A.x, A.y, pl.x, pl.y) > rr * rr) return;
     A.touchCd = 0.9;
     pl.invuln = 0;
-    pl.hurt(pl.maxHp * touchPct(), null, true);
+    pl.hurt(pl.maxHp * touchPct(), null, true, null, 'a:493', 'toque');
     G.Camera.kick(0.6);
     G.FX.ring(pl.x, pl.y, 6, 70, GOLD, 0.4, 4);
     if (authority()) A.anim.play('Attack', { speed: 1.4 });

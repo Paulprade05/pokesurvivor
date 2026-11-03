@@ -4472,6 +4472,63 @@ body.touch #scr-settings .set-tab, body.touch #scr-settings .set-seg > button { 
   #scr-news .news-part li { font-size: var(--fs-s); }
 }
 
+/* ============================ Historial de partidas ============================
+ * Lo que guarda core/registro.js en este aparato (runs-ui.js): arriba las medias,
+ * luego una tarjeta por partida; al tocarla, su detalle con tablas cortas. */
+.box.runs-sheet { width: min(880px, 100%); }
+#scr-runs .sheet-head > .ico-tile { color: var(--ink); }
+#scr-runs .runs-body { display: flex; flex-direction: column; gap: 12px; }
+#scr-runs .runs-empty, #scr-runs .runs-note { margin: 0; color: var(--muted); font-size: var(--fs-s); }
+#scr-runs .runs-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+#scr-runs .runs-stat { padding: 10px 12px; border-radius: var(--rad-m); background: var(--card); border: 1px solid var(--line-1); }
+#scr-runs .runs-stat b { display: block; font: 600 var(--fs-l)/1.2 var(--font-display); color: var(--c-yellow); }
+#scr-runs .runs-stat span { font-size: var(--fs-xs); color: var(--muted); }
+#scr-runs .runs-list { display: flex; flex-direction: column; gap: 10px; }
+#scr-runs .run-card { flex: none; padding: 12px 16px; border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1); cursor: pointer; }
+#scr-runs .run-card:hover { background: var(--card-hi); }
+#scr-runs .run-card.open { cursor: default; border-color: rgba(255, 203, 5, .4); }
+#scr-runs .run-card:focus-visible { outline: var(--focus); outline-offset: 2px; }
+#scr-runs .run-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+#scr-runs .run-date { font: 700 var(--fs-xs)/1.3 var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+#scr-runs .run-chip, #scr-runs .run-tag { display: inline-flex; padding: 1px 8px; border-radius: var(--rad-pill); background: var(--line-2);
+  font: 700 var(--fs-xs)/1.5 var(--font-display); color: var(--ink); }
+#scr-runs .run-chip.grp { background: var(--c-blue-btn); }
+#scr-runs .run-chip.st-muerto { background: var(--c-red-btn); }
+#scr-runs .run-chip.st-cerrada { background: var(--c-purple); color: var(--bg-1); }
+#scr-runs .run-tag { padding: 0 6px; background: var(--c-yellow); color: var(--c-on-yellow); }
+#scr-runs .run-card h3 { margin: 4px 0 6px; font: 600 var(--fs-l)/1.3 var(--font-display); color: var(--ink); }
+#scr-runs .run-nums { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-s); color: var(--muted); }
+#scr-runs .run-nums b { color: var(--ink); font-size: var(--fs-m); }
+#scr-runs .run-line, #scr-runs .run-killer { margin: 6px 0 0; font-size: var(--fs-s); color: var(--muted); }
+#scr-runs .run-line b { color: var(--ink); }
+#scr-runs .run-killer { color: var(--err); }
+#scr-runs .runs-more { align-self: center; }
+#scr-runs .run-detail { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line-2); display: flex; flex-direction: column; gap: 12px; }
+#scr-runs .run-sec h4 { margin: 0 0 6px; font: 600 var(--fs-m)/1.3 var(--font-display); color: var(--c-yellow); }
+#scr-runs .run-table-wrap { overflow-x: auto; }
+#scr-runs .run-table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }
+#scr-runs .run-table th, #scr-runs .run-table td { padding: 4px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-1); }
+#scr-runs .run-table th:first-child, #scr-runs .run-table td:first-child { text-align: left; white-space: normal; min-width: 120px; }
+#scr-runs .run-table th { color: var(--muted); font-weight: 700; }
+#scr-runs .run-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+#scr-runs .run-ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: var(--fs-s); }
+#scr-runs .run-ul li { display: flex; justify-content: space-between; gap: 10px; }
+#scr-runs .run-ul li span { min-width: 0; color: var(--ink); }
+#scr-runs .run-ul li b { flex: none; color: var(--ink); }
+#scr-runs .run-ul small { color: var(--muted); font-weight: 400; }
+body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padding-bottom: calc(var(--tap) / 2 - 11px); line-height: 20px; }
+@media (max-width: 599px), (max-height: 520px) {
+  #scr-runs .runs-body { gap: 10px; }
+  #scr-runs .runs-stats { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px; }
+  #scr-runs .runs-stat { padding: 6px 10px; }
+  #scr-runs .run-card { padding: 10px 12px; border-radius: var(--rad-m); }
+  #scr-runs .run-cols { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+}
+@media (max-height: 520px) {
+  #scr-runs .runs-stat b { font-size: var(--fs-m); }
+  #scr-runs .run-card h3 { margin: 2px 0 4px; font-size: var(--fs-m); }
+}
+
 /* ============================ Aviso legal ============================
  * Un apartado por tarjeta; «Borrar mi cuenta», al final y en rojo. */
 .box.legal-sheet { width: min(760px, 100%); }
@@ -5375,6 +5432,7 @@ img.ico-mv { image-rendering: pixelated; }
 :is(.pc-evo, .mv-evo) .evo-need > img { margin: -3px 0; }
 :is(.pc-evo, .mv-evo) .evo-need > b { color: var(--ink); font-weight: 600; }
 :is(.pc-evo, .mv-evo) .evo-lv { white-space: nowrap; }
+:is(.pc-evo, .mv-evo) .evo-pn { font-weight: 600; font-variant-numeric: tabular-nums; opacity: .85; }
 .evo-ok { display: inline-grid; place-items: center; margin-left: 2px; color: var(--ok); }
 .evo-ok > svg { width: 12px; height: 12px; stroke-width: 3; }
 :is(.pc-evo, .mv-evo).has .evo-need > b { color: var(--ok); }
