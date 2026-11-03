@@ -106,7 +106,22 @@ G.EnemyMgr = {
 };
 
 // ---------------- muñecos ----------------
-const S = { direct: 0, dot: 0, psn: 0, hits: 0, casts: 0, blocks: 0 };
+const S = { direct: 0, dot: 0, psn: 0, hits: 0, casts: 0, blocks: 0, ctl: 0, slw: 0, heal: 0 };
+/*
+ * Utilidad (2-11-2026, revisión de ataques): en la horda, cada fotograma, cuántos enemigos están fuera de
+ * combate (aturdidos, dormidos, congelados, en el aire, con miedo, enamorados, confusos, marionetas...) y
+ * cuánto frenan los frenados (la suma de lo que frenan). Al final, «enemigos·segundo» por segundo: 1 = uno
+ * de los 50 siempre parado. Y lo que te curas (vida por segundo con 400 de vida máxima).
+ */
+const CTL = new Set(['freeze', 'sleep', 'root', 'air', 'fear', 'infat', 'charm', 'control', 'confuse', 'para', 'trap']);
+function utilTick(dt) {
+  for (const e of enemies) {
+    let off = e.stunT > 0;
+    if (!off && e.sts) for (const k in e.sts) if (CTL.has(k)) { off = true; break; }
+    if (off) S.ctl += dt;
+    else if (e.slow > 0) S.slw += e.slow * dt;
+  }
+}
 let nextId = 1;
 class Dummy {
   constructor(x, y, r, boss) {
@@ -151,7 +166,7 @@ function makePlayer(m, P, crit, abil) {
     x: 0, y: 0, r: 14, wr: 14, bodyH: 24, scale: 1, aim: 0, moveAngle: 0, target: null, manualAim: false, dead: false, remote: false,
     cdMul: 1, critChance: (crit && crit.critChance) || 0, critDmg: (crit && crit.critDmg) || 0, abil: abil || null, pass: P, moves: [m], slots: [[m]], active: 0, swapLock: 0, level: REF.level,
     dmgDealt: 0, invuln: 0, maxHp: 400, hp: 400, walking: true, dmgReduce: 0, dmgTaken: 0,   // (walking: Terratemblor pisa al andar)
-    atkFor: () => 1, onDealt: noop, heal: noop, addBuff: noop, hasItem: () => false,
+    atkFor: () => 1, onDealt: noop, heal(a) { if (a > 0) S.heal += a; }, addBuff: noop, hasItem: () => false,
     activeGroup() { return this.slots[0]; }, activeMove() { return m; },
     cast(x) { if (x === m) S.casts++; }
   };
@@ -239,7 +254,7 @@ const SCEN = {
 function run(m, scen, P, crit, seed, abil) {
   rng = mulberry32(seed);
   G.Projectiles.clear(); G.Combat.clearFields();
-  S.direct = S.dot = S.psn = S.hits = S.casts = S.blocks = 0;
+  S.direct = S.dot = S.psn = S.hits = S.casts = S.blocks = S.ctl = S.slw = S.heal = 0;
   clock = 0; G.Game.st.time = 0;
   const pl = makePlayer(m, P, crit, abil);
   G.Game.player = pl;
@@ -258,9 +273,11 @@ function run(m, scen, P, crit, seed, abil) {
     G.Projectiles.update(dt, pl, enemies);
     G.Combat.resolve(dt, pl, t);
     G.Combat.updateFields(dt);
+    utilTick(dt);
   }
   // (El veneno, aparte: ver VENENO arriba.)
-  return { dps: (S.direct + S.dot) / T, dot: S.dot / T, psn: S.psn / T, hpc: S.casts ? S.hits / S.casts : 0, casts: S.casts, bps: S.blocks / T };
+  return { dps: (S.direct + S.dot) / T, dot: S.dot / T, psn: S.psn / T, hpc: S.casts ? S.hits / S.casts : 0, casts: S.casts, bps: S.blocks / T,
+           ctl: S.ctl / T, slw: S.slw / T, hps: S.heal / T };
 }
 
 // ---------------- movimientos ----------------
@@ -365,7 +382,8 @@ const fam = kinds.map(k => [k, median(rows.filter(r => r.kind === k && r.stage =
 for (const [k, a, b, n] of fam) console.log(`${pad(k, 10)} ${lpad(r1(a), 5)} · ${lpad(r1(b), 5)}   (${n})`);
 
 // ---------------- pasivos ----------------
-const report = { ref: REF, secs: SECS, med: MED, rows: rows.map(r => ({ id: r.id, stage: r.stage, jefe: r1(r.jefe.dps), horda: r1(r.horda.dps), dot: [r1(r.jefe.dot), r1(r.horda.dot)], psn: [r1(r.jefe.psn || 0), r1(r.horda.psn || 0)], valor: r.valor && r1(r.valor), m: r.m })) };
+const report = { ref: REF, secs: SECS, med: MED, rows: rows.map(r => ({ id: r.id, stage: r.stage, jefe: r1(r.jefe.dps), horda: r1(r.horda.dps), dot: [r1(r.jefe.dot), r1(r.horda.dot)], psn: [r1(r.jefe.psn || 0), r1(r.horda.psn || 0)], valor: r.valor && r1(r.valor), m: r.m,
+  util: { ctl: r1(r.horda.ctl), slw: r1(r.horda.slw), hps: r1(Math.max(r.horda.hps, r.jefe.hps)), bps: r1(r.horda.bps) } })) };
 if (opt('pasivos')) {
   console.log(`\n=== PASIVOS: lo que gana cada carta (media geométrica de todos los que pegan, nivel máximo y evolucionado) ===`);
   console.log('(Potencia: +10 % por carta; Reflejos: +8,7 % por carta, para comparar)');

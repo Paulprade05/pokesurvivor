@@ -4123,27 +4123,6 @@ G.Combat = (() => {
   MECH['poison-sting'] = {
     cast(pl, m) {
       const col = colOf(m), vis = G.VFX.forMove(m), dmg = m.dmg * pl.atkFor(m);
-      if (m.evolved) {
-        addField({ tag: 'stab', owner: pl, ghost, m, x: pl.x, y: pl.y, a: pl.aim, k: 0, life: 0.4, pad: 120, dmg,
-          upd(f) {
-            const pl2 = f.owner;
-            f.x = pl2.x; f.y = pl2.y;
-            while (f.k < 3 && f.t >= f.k * 0.1) {
-              f.k++;
-              const a = (f.ghost ? pl2.aim : f.a) + G.U.rand(-0.12, 0.12), L = 70 + (f.m.size || 4) * 2;
-              const ex = pl2.x + Math.cos(a) * L, ey = pl2.y + Math.sin(a) * L;
-              if (G.Camera.sees(pl2.x, pl2.y, 80)) {
-                G.FX.sp('needle', 'poison', pl2.x + Math.cos(a) * L * 0.6, pl2.y + Math.sin(a) * L * 0.6 - G.LIFT * 0.5, { vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, life: 0.12, angle: a, scale: 2.5 });
-                G.FX.sp('streak', 'poison', pl2.x + Math.cos(a) * L * 0.5, pl2.y + Math.sin(a) * L * 0.5 - G.LIFT * 0.5, { life: 0.14, angle: a, scale: 1.5 });
-                G.Audio.sfx('shot', { kind: 'melee', type: 'poison' });
-              }
-              // (+1 veneno a la del golpe: 2 por estocada.)
-              if (!f.ghost && !pl2.dead) hitSeg(pl2, f.m, pl2.x, pl2.y, ex, ey, 22, f.dmg, '#b45ec4', 30, null, null, e => e.applyPoison(1));
-            }
-            return false;
-          } });
-        return true;
-      }
       // Dos (o más) aguijones en paralelo; comparten la cuenta de a quién han dado.
       const n = Math.max(1, m.count | 0), pair = new Map(), ca = Math.cos(pl.aim), sa = Math.sin(pl.aim);
       for (let i = 0; i < n; i++) {
@@ -4163,6 +4142,15 @@ G.Combat = (() => {
       if (c === 2) {
         e.applyPoison(2);
         if (G.Camera.sees(e.x, e.y, 20)) { G.FX.burst(e.x, e.y - e.bodyH * 0.5, '#d995f2', 10, 140); G.FX.dmgText(e.x + 10, e.y - e.bodyH - 10, '×2', '#d995f2'); }
+        // Puya Nociva (revisión 2-11-2026: antes cambiaba los aguijones por estocadas): la púa doble estalla en 6 agujas.
+        const m = p.src;
+        if (m && m.evolved) for (let i = 0; i < 6; i++) {
+          const a = i / 6 * TAU + 0.3, sp = (m.speed || 420) * 0.8;
+          G.Projectiles.spawn(Object.assign({
+            x: e.x + Math.cos(a) * (e.r + 4), y: e.y + Math.sin(a) * (e.r + 4), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: p.dmg * 0.6,
+            r: m.size || 4, life: 0.35, pierce: 1, color: p.color, hits: new Set([e.id]), vis: p.vis, ghost: p.ghost, owner: p.owner, src: m
+          }, payload(m)));
+        }
       }
     } })
   };
@@ -4594,7 +4582,7 @@ G.Combat = (() => {
               for (const e of G.EnemyMgr.queryCircle((a.x + b.x) / 2, (a.y + b.y) / 2, Math.hypot(b.x - a.x, b.y - a.y) / 2 + 20)) {
                 if (e.dead || e.flying || f.t - (f.done.get(e.id) ?? -9) < 0.8 || segDist2(a.x, a.y, b.x, b.y, e.x, e.y) > (8 + e.r * 0.5) ** 2) continue;
                 f.done.set(e.id, f.t);
-                hit(f.owner, e, f.dmg * 2.5, '#6e4c1e', 0, 1, 0, f.m);
+                hit(f.owner, e, f.dmg * (big(e) ? 5 : 2.5), '#6e4c1e', 0, 1, 0, f.m);      // (a los grandes, el doble)
                 // Los pequeños que quedan tocados caen dentro (como mucho 6 por grieta).
                 if (!e.dead && !big(e) && !e.champ && e.behavior !== 'thief' && f.swallowed < 6 && e.hp < e.maxHp * 0.4) {
                   f.swallowed++;
@@ -4823,7 +4811,7 @@ G.Combat = (() => {
         const a = Math.min(1, (f.life - f.t) * 3);
         ctx.globalAlpha = own * a;
         // De pie y girando (como una hélice vista de lado).
-        G.VFX.draw(ctx, 'bone', f.m.evolved ? 'ghostfire' : 'ground', f.x, f.y - 14, { angle: f.t * 14, scale: 1.5 });
+        G.VFX.draw(ctx, f.m.evolved ? 'bone' : 'px:bone-club', f.m.evolved ? 'ghostfire' : 'ground', f.x, f.y - 14, { angle: f.t * 14, scale: 1.5 });
       } });
     mxTrim(o, 'post', 4, m.id);
     return true;
@@ -4961,10 +4949,13 @@ G.Combat = (() => {
             f.next = 0.13;
             let best = null, bd = 170 * 170;
             for (const o of G.EnemyMgr.queryCircle(pl2.x, pl2.y, 170)) { if (o.dead || f.done.has(o.id)) continue; const d = G.U.dist2(pl2.x, pl2.y, o.x, o.y); if (d < bd) { bd = d; best = o; } }
+            // (Revisión 2-11-2026) Sin nadie más cerca, vuelve a por el último (un jefe solo también recibe los saltos).
+            if (!best && f.last && !f.last.dead && G.U.dist2(pl2.x, pl2.y, f.last.x, f.last.y) < 170 * 170) best = f.last;
             if (!best) return true;
+            f.last = best;
             f.done.add(best.id); f.hops++;
             const sx = pl2.x, sy = pl2.y;
-            blinkBehind(pl2, best); xSlash(pl2, f.m, best, f.dmg); invul(pl2, 0.2);
+            blinkBehind(pl2, best); xSlash(pl2, f.m, best, f.dmg * 0.45); invul(pl2, 0.2);      // (cada salto de más, algo menos)
             for (let d = 0; d < 1; d += 0.2) G.FX.sp('feather', 'flying', sx + (pl2.x - sx) * d, sy + (pl2.y - sy) * d - G.LIFT * 0.5, { life: 0.3, angle: Math.atan2(pl2.y - sy, pl2.x - sx) });
             return false;
           } });
@@ -5323,32 +5314,28 @@ G.Combat = (() => {
   };
 
   // Rayo Señal: rebota, confunde y señala (tu puntería y tus aliados van a por ellos);
-  // Megacuerno: una embestida con el cuerno, más larga por cada señalado en la línea.
+  // Megacuerno (revisión 2-11-2026: antes era una embestida): rebota igual y bajo cada uno que toca brota del suelo un
+  // cuerno de luz que lo ensarta y lo lanza al aire (×1,5 a los que ya estaban señalados).
   MECH['signal-beam'] = {
     pp: m => ({ onHit: (p, e) => {
       if (e.dead) return;
+      const marked = stHas(e, 'mark');
       confuseOn(e, m, 0.15, 1.5);
       if (!p.ghost && p.owner === G.Game.player) { stAdd(e, 'mark', 5, 0, { by: p.owner }); MARKED.add(e); }
-    } }),
-    cast(pl, m) {
-      if (!m.evolved) return false;
-      if (ghost) { G.FX.sp('horn', 'gold', pl.x + Math.cos(pl.aim) * 20, pl.y + Math.sin(pl.aim) * 20 - G.LIFT * 0.5, { life: 0.25, angle: pl.aim, scale: 2 }); return true; }
-      const ca = Math.cos(pl.aim), sa = Math.sin(pl.aim);
-      let n = 0;
-      for (const e of G.EnemyMgr.queryCircle(pl.x + ca * 160, pl.y + sa * 160, 180)) if (!e.dead && stHas(e, 'mark') && segDist2(pl.x, pl.y, pl.x + ca * 320, pl.y + sa * 320, e.x, e.y) < (30 + e.r) ** 2) n++;
-      const L = Math.min(320, 120 + 40 * n), sx = pl.x, sy = pl.y;
-      let len = 0;
-      for (let d = 8; d <= L; d += 8) { if (!G.World.isFree(sx + ca * d, sy + sa * d, (pl.wr || pl.r) * 0.8, true)) break; len = d; }
-      pl.x = sx + ca * len; pl.y = sy + sa * len;
-      G.World.collide(pl);
-      invul(pl, 0.3);
-      for (let d = 0; d <= len; d += 20) G.FX.sp('streak', 'bug', sx + ca * d, sy + sa * d - G.LIFT * 0.6, { life: 0.22, angle: pl.aim });
-      G.FX.sp('horn', 'gold', pl.x + ca * 16, pl.y + sa * 16 - G.LIFT * 0.5, { life: 0.3, angle: pl.aim, scale: 2.5 });
-      hitSeg(pl, m, sx, sy, pl.x, pl.y, 40, m.dmg * pl.atkFor(m), '#cbe86c', 80, null, e => (stHas(e, 'mark') ? 1.5 : 1));
-      G.Camera.kick(0.14);
-      return true;
-    }
+      if (m.evolved) megahorn(p.owner, m, e, p.dmg * (marked ? 1.5 : 1), p.ghost);
+    } })
   };
+  function megahorn(pl, m, e, dmg, g) {
+    const x = e.x, y = e.y;
+    later(pl, m, 0.25, x, y, f => {
+      const t = !e.dead && G.U.dist2(e.x, e.y, f.x, f.y) < 40 * 40 ? e : null, hx = t ? t.x : f.x, hy = t ? t.y : f.y;
+      if (sees(hx, hy)) { G.FX.sp('horn', 'gold', hx, hy - 10, { life: 0.3, angle: -Math.PI / 2, scale: 2.5 }); G.FX.burst(hx, hy - 6, '#cbe86c', 8, 140); }
+      if (!t) return;
+      if (!f.ghost) hit(pl, t, dmg, '#cbe86c', 0, -1, 0, m);
+      if (!t.dead && real(t) && !big(t)) stAdd(t, 'air', 0.6, 0, { h: 34 });
+    }, { ghost: g, pad: 40,
+      dg(ctx, f, own) { ctx.globalAlpha = 0.4 * own * Math.min(1, f.t / 0.25); ctx.fillStyle = '#fff6a8'; ctx.fillRect(Math.round(f.x) - 6, Math.round(f.y) - 1, 12, 3); } });
+  }
 
   // Ida y Vuelta: cruzas y vuelves (dos pasadas); al volver, el siguiente ataque de tu vínculo sale al momento.
   // Sanguijuela: te cura un 2 % por enemigo atravesado (hasta un 10 % por pasada).
@@ -5459,22 +5446,14 @@ G.Combat = (() => {
   };
 
   // ======== Lucha ========
-  /** Baja tu defensa un rato (A Bocajarro): se devuelve sola. */
-  function guardDown(pl, k, t) {
-    if (pl.remote) return;
-    pl.dmgReduce -= k;
-    addField({ tag: 'guard', owner: pl, ghost: false, m: null, x: pl.x, y: pl.y, life: t, pad: 0, k,
-      upd(f) { if (f.t >= f.life - 0.02 || f.owner.dead) { f.owner.dmgReduce += f.k; return true; } return false; } });
-    G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, '−DEF', '#b0b8c8');
-  }
-
   // Golpe Kárate: tajo seco en línea con mucho crítico (cada crítico, otro golpe ya);
-  // A Bocajarro: 6 golpes rapidísimos al frente y después bajas la guardia.
+  // A Bocajarro: 6 golpes rapidísimos al frente (desde el 2-11-2026, sin bajar la guardia después).
   MECH['karate-chop'] = {
     cast(pl, m) {
       const col = colOf(m), L = m.radius * 1.12, dmg = m.dmg * pl.atkFor(m);
       if (m.evolved) {
-        addField({ tag: 'cc', owner: pl, ghost, m, x: pl.x, y: pl.y, k: 0, life: 0.45, pad: 120, dmg,
+        // (El daño de la evolución es el de toda la ráfaga: cada golpe, la sexta parte.)
+        addField({ tag: 'cc', owner: pl, ghost, m, x: pl.x, y: pl.y, k: 0, life: 0.45, pad: 120, dmg: dmg / 6,
           upd(f) {
             const pl2 = f.owner;
             if (pl2.dead) return true;
@@ -5488,7 +5467,6 @@ G.Combat = (() => {
               }
               if (!f.ghost) hitSeg(pl2, f.m, pl2.x, pl2.y, pl2.x + Math.cos(pl2.aim) * L, pl2.y + Math.sin(pl2.aim) * L, 34, f.dmg, col, 30);
             }
-            if (f.k >= 6 && !f.down) { f.down = true; if (!f.ghost) guardDown(pl2, 0.2, 2); }
             return false;
           } });
         return true;
@@ -5518,8 +5496,8 @@ G.Combat = (() => {
       const a = pl.aim, sp = m.speed * 0.45, dmg = m.dmg * pl.atkFor(m);
       G.Projectiles.spawn(Object.assign({
         x: pl.x, y: pl.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, r: m.size * 3, ds: 3.5, life: 2.8, pierce: 0, color: '#ff8a2e',
-        homing: 3, air: true, hits: new Set(), vis: { proj: 'ball', pal: 'focus', trail: 'spark' }, ghost, owner: pl,
-        upd: focusUpd, end: focusBoom, onHit: focusBoom
+        homing: 3, air: true, hits: new Set(), vis: { proj: 'ball', pal: 'focus', trail: 'spark' }, ghost, owner: pl, trav: 0,
+        upd: focusUpd, end: focusBoom, onHit: focusHit
       }, payload(m)));
       G.Audio.sfx('shot', { kind: 'beam', type: 'fighting' });
       return true;
@@ -5528,6 +5506,7 @@ G.Combat = (() => {
   function travUpd(p, dt) { p.trav += Math.hypot(p.vx, p.vy) * dt; if (p.trav > 100 && !p.big) { p.big = 1; p.ds = 1.5; } return false; }
   /** Onda Certera: arrastra hacia su camino a los de alrededor (lo hace quien tiene los enemigos). */
   function focusUpd(p, dt) {
+    p.trav += Math.hypot(p.vx, p.vy) * dt;
     for (const e of G.EnemyMgr.queryCircle(p.x, p.y, 90)) {
       if (!real(e) || big(e)) continue;
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
@@ -5536,18 +5515,25 @@ G.Combat = (() => {
     if (Math.random() < 0.5 && G.Camera.sees(p.x, p.y, 40)) { const a = Math.random() * TAU; G.FX.px(p.x + Math.cos(a) * 60, p.y + Math.sin(a) * 40 - G.LIFT, '#90d2ff', { vx: -Math.cos(a) * 200, vy: -Math.sin(a) * 140, life: 0.3, size: 2 }); }
     return false;
   }
+  /** (Revisión 2-11-2026) Al que alcanza, además del estallido, el golpe de la esfera (como la Esfera Aural). */
+  function focusHit(p, e) {
+    if (!p.boomed && !p.ghost && !p.owner.dead && e && !e.dead) hit(p.owner, e, p.dmg * Math.min(2.5, 1 + 0.5 * (p.trav || 0) / 100), '#ff8a2e', p.vx, p.vy, 0, p.src);
+    focusBoom(p);
+  }
   function focusBoom(p) {
     if (p.boomed) return;
     p.boomed = true; p.life = p.t;             // (se acaba ya)
     if (G.Camera.sees(p.x, p.y, 70)) { G.FX.ring(p.x, p.y, 6, 70, '#ff8a2e', 0.35, 5); G.FX.burst(p.x, p.y - G.LIFT, '#ffd28a', 18, 220); G.Audio.sfx('break'); }
-    if (!p.ghost && !p.owner.dead) { areaHit(p.owner, p.src, p.x, p.y, 70, p.dmg, { col: '#ff8a2e', knock: 120 }); G.Camera.kick(0.15); }
+    // (Como la Esfera Aural: más fuerte cuanto más lejos ha ido, hasta ×2,5.)
+    const k = Math.min(2.5, 1 + 0.5 * (p.trav || 0) / 100);
+    if (!p.ghost && !p.owner.dead) { areaHit(p.owner, p.src, p.x, p.y, 70, p.dmg * k, { col: '#ff8a2e', knock: 120 }); G.Camera.kick(0.15); }
   }
 
   // Patada Giro: avanzas girando hacia el blanco (y cortas lo que prepara);
   // Patada Salto Alta: saltas al más grande y caes con un golpe ×4 (si no hay nadie, te haces daño).
   MECH['rolling-kick'] = {
     field(f, dt) {
-      if (f.kind !== 'spin' || f.ghost || f.m.evolved) return;
+      if (f.kind !== 'spin' || f.ghost) return;
       const pl = f.owner;
       if (!f.adv) {
         const t = pl.target && !pl.target.dead ? pl.target : null, a = t ? Math.atan2(t.y - pl.y, t.x - pl.x) : pl.aim;
@@ -5563,6 +5549,17 @@ G.Combat = (() => {
     after(pl, e) { interrupt(e); },
     cast(pl, m) {
       if (!m.evolved) return false;
+      // (Revisión 2-11-2026: primero el giro de siempre; al acabarlo, el salto.)
+      spin(pl, m);
+      const g = ghost, wait = Math.max(1, m.count | 0) * 0.13 + 0.05;
+      addField({ tag: 'hjkw', owner: pl, ghost: g, m, x: pl.x, y: pl.y, life: wait + 0.05, pad: 60, go: false,
+        upd(f) { if (!f.go && f.t >= wait) { f.go = true; const gg = ghost; ghost = f.ghost; try { hjk(f.owner, f.m); } finally { ghost = gg; } } return false; } });
+      return true;
+    }
+  };
+  function hjk(pl, m) {
+    {
+      // Patada Salto Alta: saltas al más grande y caes con un rodillazo (×5 a él, ×1,5 alrededor).
       if (ghost) { G.FX.ring(pl.x, pl.y, 4, 40, '#ff9c6c', 0.3, 3); return true; }
       // Al más grande a tiro: jefe, campeón o el de más vida.
       let best = null, bs = -1;
@@ -5590,18 +5587,12 @@ G.Combat = (() => {
           const t = f.e && !f.e.dead && G.U.dist2(pl2.x, pl2.y, f.e.x, f.e.y) < (f.e.r + 44) ** 2 ? f.e : null;
           const skip = new Set();
           if (t) { hit(pl2, t, f.dmg * 5, '#e04a2e', 0, 1, 120, f.m); skip.add(t.id); }
-          const n = areaHit(pl2, f.m, pl2.x, pl2.y, 70, f.dmg * 1.5, { col: '#e04a2e', knock: 80, skip });
-          if (!t && !n) {
-            // Nadie donde caes: te haces daño (sin bajar de 1).
-            pl2.hp = Math.max(1, pl2.hp - pl2.maxHp * 0.05);
-            pl2.flash = 0.14;
-            G.FX.dmgText(pl2.x, pl2.y - pl2.bodyH - 6, '¡Fallaste!', '#ff6b7a');
-          }
+          areaHit(pl2, f.m, pl2.x, pl2.y, 70, f.dmg * 1.5, { col: '#e04a2e', knock: 80, skip });
           return false;
         } });
       return true;
     }
-  };
+  }
 
   // Onda Vacío: un vacío delante de ti atrae a un punto a los de alrededor y los golpea;
   // Puño Incremento: cada enemigo golpeado te sube el ataque físico un rato.
@@ -5769,21 +5760,15 @@ G.Combat = (() => {
     },
     cast(pl, m) {
       if (!m.evolved) return false;
-      const dmg = m.dmg * pl.atkFor(m), cd = cooldown(pl, m);
-      addField({ tag: 'focus', owner: pl, ghost, m, x: pl.x, y: pl.y, life: 0.85, pad: 200, big0: pl.bigHits || 0, done: false, dmg,
+      // (Revisión 2-11-2026: la columna de siempre y, además, el puñetazo; ya no se cancela si te golpean.)
+      column(pl, m);
+      const dmg = m.dmg * pl.atkFor(m);
+      addField({ tag: 'focus', owner: pl, ghost, m, x: pl.x, y: pl.y, life: 0.85, pad: 200, done: false, dmg,
         upd(f) {
           const pl2 = f.owner;
           f.x = pl2.x; f.y = pl2.y;
           if (pl2.dead) return true;
           if (f.done) return false;
-          if (!f.ghost && (pl2.bigHits || 0) > f.big0) {
-            // Te han golpeado fuerte (un golpe de un 20 % de tu vida o más; 29-10-2026: antes bastaba con perder un 8 %
-            // en total, y en plena horda, con los toques, casi nunca salía): se cancela y recuperas la mitad de la recarga.
-            f.done = true;
-            f.m.t = Math.min(f.m.t, cd * 0.5);
-            G.FX.dmgText(pl2.x, pl2.y - pl2.bodyH - 10, '¡Cancelado!', '#c9a0a8');
-            return true;
-          }
           if (Math.random() < 0.7) { const a = Math.random() * TAU; G.FX.px(pl2.x + Math.cos(a) * 34, pl2.y + Math.sin(a) * 24 - G.LIFT * 0.6, '#ffffff', { vx: -Math.cos(a) * 110, vy: -Math.sin(a) * 80, life: 0.3, size: 2 }); }
           if (f.t < 0.7) return false;
           f.done = true;
@@ -5859,7 +5844,7 @@ G.Combat = (() => {
   function stoneDg3(ctx, f, own) { ell3(ctx, f.x, f.y, f.r * 1.1, f.r * 0.45, '#000', 0.25 * own); }
   function stoneDa3(ctx, f, own) {
     const k = Math.min(1, f.t / 0.12), a = Math.min(1, (f.dur - f.t) * 4);
-    G.VFX.draw(ctx, f.shards ? 'spike' : 'rock', 'rock', f.x, f.y - 7 - (1 - k) * 14, { scale: 1.5 * f.r / 10, alpha: a, frame: 1 });
+    G.VFX.draw(ctx, f.shards ? 'spike' : 'px:rock-throw', 'rock', f.x, f.y - 7 - (1 - k) * 14, { scale: 1.5 * f.r / 10, alpha: a, frame: 1 });
   }
 
   // Avalancha → Trampa Rocas: caen y ruedan pantalla abajo; evolucionadas, se quedan de trampa.
@@ -6311,7 +6296,7 @@ G.Combat = (() => {
     for (const o of G.EnemyMgr.queryCircle(e.x, e.y, 50)) {
       if (o.dead) continue;
       crit3f = Math.random() < 0.3;
-      try { hit(pl, o, dmg, col, o.x - pl.x, o.y - pl.y, 0, m); } finally { crit3f = false; }
+      try { hit(pl, o, dmg * (o === e ? 1.35 : 0.56), col, o.x - pl.x, o.y - pl.y, 0, m); } finally { crit3f = false; }
     }
     if (!e.dead) stAdd(e, 'root', 0.6);
   }
@@ -6475,7 +6460,6 @@ G.Combat = (() => {
         add3(pl, 'comet', { m, col: '#a45cff', vis: cv, x: pl.x + ca * d + G.U.rand(-10, 10), y: pl.y + sa * d + G.U.rand(-8, 8), fall: 0.3 + i * 0.08,
                             r: 42, dmg, pad: 200, upd: cometTk3, dg: slideDg3, da: cometDa3 });
       }
-      if (!ghost) pl.addBuff('satk', -0.3, 3, 1, 'draco-meteor');        // y luego te cansas
     }
   };
   function cometTk3(f) {
@@ -6522,7 +6506,7 @@ G.Combat = (() => {
   // evolucionado, una cabeza de dragón que avanza y muerde.
   MECH['dragon-breath'] = {
     cast(pl, m) {
-      if (m.pulse) { dragonPulse3(pl, m); return; }
+      if (m.pulse) dragonPulse3(pl, m);                             // (además del aliento, revisión 2-11-2026)
       tagged3(() => cone(pl, m), p => { p.sx3 = p.x; p.sy3 = p.y; p.rng3 = m.speed * m.life; });
     },
     k(pl, e, m, d, p) {
@@ -6535,7 +6519,7 @@ G.Combat = (() => {
     const n = G.U.clamp(Math.round((m.count | 0) / 5), 1, 3), sp = (m.speed || 330) * 1.2, v = visAs(m, 'dragon', { proj: 'dragonhead' });
     for (let i = 0; i < n; i++) {
       const a = pl.aim + (i - (n - 1) / 2) * 0.42;
-      const d = m.dmg * pl.atkFor(m);
+      const d = m.dmg * pl.atkFor(m) * (m.pulse || 1);             // (pulse: lo que pega la cabeza respecto al aliento)
       shot3(pl, m, { x: pl.x + Math.cos(a) * 6, y: pl.y + Math.sin(a) * 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: d * 0.8,
                      r: 13, ds: 2, life: 200 / sp, pierce: Infinity, vis: v, end: bite3, bite3: d * 1.6 });
     }
@@ -7862,9 +7846,8 @@ G.Combat = (() => {
   MECH['swords-dance'] = {
     cast(pl, m) {
       const g = ghost, max = m.stacks | 0;
-      // Tambor: con más de la mitad de vida pagas el 15 % y las pilas saltan al máximo.
+      // Tambor: con más de la mitad de vida las pilas saltan al máximo (sin pagar vida desde el 2-11-2026).
       if (m.evolved && !g && pl.buffs && pl.hp > pl.maxHp * 0.5 && stacksOf(pl, m.stat, m.id) < max - 1) {
-        pl.hp = Math.max(1, pl.hp - pl.hp * 0.15);
         for (let i = 0; i < max; i++) pl.addBuff(m.stat, m.amount, m.dur, max, m.id);
         if (sees(pl.x, pl.y)) {
           G.FX.ring(pl.x, pl.y - pl.bodyH * 0.5, pl.r, pl.r * 4, '#ff6b4d', 0.35, 4);
@@ -8011,7 +7994,6 @@ G.Combat = (() => {
       else if (!evo && !g && chance(pl, 0.3)) inflict(pl, e, 'para', 2);
     }
     if (!g) for (const p of G.World.propsInCircle(x, y, R)) G.World.damageProp(p, dmg, col);
-    if (evo && !g) m.t = Math.max(m.t, cooldown(pl, m) + 1);       // recarga: 1 s sin lanzarse
   }
   MECH['body-slam'] = {
     cast(pl, m) {
@@ -8500,7 +8482,7 @@ G.Combat = (() => {
           if (f.ghost) return;
           s.endAt = now();
           if (evo && f.combo % 3 === 0) {
-            // Sofoco: a la 3.ª seguida se sobrecalienta y explota; luego 2 s enfriándose.
+            // Sofoco: a la 3.ª seguida se sobrecalienta y explota (desde el 2-11-2026, sin los 2 s de enfriarse).
             const r = 110 * areaK(m);
             if (sees(pl.x, pl.y, r)) {
               G.FX.ring(pl.x, pl.y, pl.r, r, '#eaf7ff', 0.4, 5); G.FX.burst(pl.x, pl.y - 8, '#bfe8ff', 24, 260);
@@ -8508,9 +8490,8 @@ G.Combat = (() => {
               G.Audio.sfx('break'); G.Camera.kick(0.3);
             }
             areaHit(pl, m, pl.x, pl.y, r, atk(pl, m) * 2, { knock: 140, ho: FIRE_B1 });
-            m.t = Math.max(m.t, 2);
             s.combo = 0;
-            addField({ owner: pl, m, tag: 'steam', x: pl.x, y: pl.y, life: 2, pad: 40,
+            addField({ owner: pl, m, tag: 'steam', x: pl.x, y: pl.y, life: 1, pad: 40,
               upd(o) { o.x = pl.x; o.y = pl.y; if (Math.random() < 0.15 && sees(o.x, o.y)) G.FX.sp('vapor', 'steam', pl.x + G.U.rand(-8, 8), pl.y - pl.bodyH, { vy: -40, life: 0.8 }); return false; } });
           }
         } });
@@ -8627,7 +8608,8 @@ G.Combat = (() => {
   }
   MECH['heat-wave'] = {
     cast(pl, m) {
-      if (m.evolved) { eruption(pl, m); return; }
+      // (Revisión 2-11-2026: la evolución ya no quita el frente; las rocas van además.)
+      if (m.evolved) eruption(pl, m);
       const g = ghost, sun = wx() === 'sun', col = TCOL(m.type);
       // Ola de calor: un frente en arco que avanza despacio; con sol, llega el doble y quema el doble.
       const arc = Math.min(6.2832, 2.8 * Math.sqrt(Math.max(1, m.count | 0) / 10)), reach = 200 * ((m.size || 7) / 7) * (sun ? 2 : 1);
@@ -8781,12 +8763,11 @@ G.Combat = (() => {
       for (const e of G.EnemyMgr.queryCircle(x, y, r)) {
         if (e.dead) continue;
         if (m.evolved && ramp >= 2) {
-          // Envite Ígneo: a tope, cometa que estalla; retroceso del 3 % de tu vida y la rueda vuelve a ×1.
+          // Envite Ígneo: a tope, cometa que estalla y la rueda vuelve a ×1 (sin retroceso desde la revisión del 2-11-2026).
           const R = 80 * areaK(m);
           if (sees(e.x, e.y, R)) { G.FX.ring(e.x, e.y, 4, R, '#fff2a0', 0.35, 5); G.FX.burst(e.x, e.y - 8, '#ffb22e', 20, 240); G.Audio.sfx('break'); G.Camera.kick(0.25); }
           areaHit(pl, m, e.x, e.y, R, atk(pl, m) * 3, { knock: 260, ho: { type: 'fire', burn: 2 } });
           toss(e, ca * 520, sa * 520, 0.35, { pl, m, dmg: atk(pl, m), k: 0.5, ghost: false });
-          pl.hp = Math.max(1, pl.hp - pl.hp * 0.03);
           s.run = 0;
           return;
         }
@@ -9060,7 +9041,7 @@ G.Combat = (() => {
       }
       G.FX.ring(pl.x, pl.y, pl.r, pl.r * 3, '#8ccaff', 0.3, 2);
     },
-    evo(pl, m) { surf(pl, m); }
+    evo(pl, m) { MECH['bubble'].cast(pl, m); surf(pl, m); }      // (las burbujas de siempre y, detrás, la ola)
   };
 
   // ---- Hidrobomba → Hidrocañón ----
@@ -9086,7 +9067,6 @@ G.Combat = (() => {
       onHit(p, e, _d, _c, gg = p.ghost) { if (big(e)) { cannonBurst(p, gg); p.t = p.life; p.noHit = true; } return true; },
       onWall(p) { cannonBurst(p, p.ghost); return false; },
       end(p) { cannonBurst(p, p.ghost); } });
-    if (!g) m.t = Math.max(m.t, cooldown(pl, m) + 0.5);         // luego 0,5 s de recarga
     if (sees(pl.x, pl.y)) G.Audio.sfx('thud');
   }
   MECH['hydro-pump'] = {
@@ -9119,7 +9099,7 @@ G.Combat = (() => {
       }
       segProps(x0, y0, x0 + ca * len, y0 + sa * len, w, atk(pl, m), col);
     },
-    evo(pl, m) { cannon(pl, m); }
+    evo(pl, m) { MECH['hydro-pump'].cast(pl, m); cannon(pl, m); }      // (el chorro de siempre y la bala)
   };
 
   // ---- Acua Aro → Gota Vital ----
@@ -9481,7 +9461,7 @@ G.Combat = (() => {
             const last = f.log.get(e.id);
             if (last !== undefined && f.t - last < 0.3) continue;
             f.log.set(e.id, f.t);
-            hit(pl, e, atk(pl, m) * 1.2, col, f.x - e.x, f.y - e.y, 0, m);
+            hit(pl, e, atk(pl, m) * 0.7, col, f.x - e.x, f.y - e.y, 0, m);
           }
         }
         return false;
@@ -9497,7 +9477,7 @@ G.Combat = (() => {
   }
   MECH['razor-leaf'] = {
     cast(pl, m) {
-      if (m.evolved) { leafSpiral(pl, m); return; }
+      if (m.evolved) leafSpiral(pl, m);                             // (además de las hojas, revisión 2-11-2026)
       const g = ghost, n = Math.max(1, m.count | 0), tg = g ? null : aimTarget(pl, 360);
       // Salen hacia los lados y curvan hacia el blanco, sin volver.
       for (let i = 0; i < n; i++) {
@@ -9722,7 +9702,7 @@ G.Combat = (() => {
   const isCave = () => !!(G.World.biomeName && /cueva|cave/i.test(G.World.biomeName()));
   function solarRelease(pl, m, k, g) {
     const col = TCOL(m.type);
-    if (m.evolved) { solarBlade(pl, m, k, g); return; }
+    if (m.evolved) solarBlade(pl, m, k, g);                        // (además del rayo, revisión 2-11-2026)
     const ca = Math.cos(pl.aim), sa = Math.sin(pl.aim), len = rayLen(pl.x, pl.y, ca, sa, m.radius);
     const w = m.width * (0.75 + 0.35 * (k - 0.8) / 1.4);
     G.FX.beam(pl.x, pl.y - G.LIFT, pl.aim, len, w, col, { pal: 'sacred', beam: 'leaf' });
@@ -9941,6 +9921,7 @@ G.Combat = (() => {
   MECH['thunder-shock'] = {
     cast(pl, m) { shootN(pl, m, { upd3: zigUpd }); },
     evo(pl, m) {
+      shootN(pl, m, { upd3: zigUpd });                             // (la chispa de siempre y, además, los rayos)
       const g = ghost, rain = wx() === 'rain', n = Math.max(1, m.count | 0) + 1 + (rain ? 2 : 0);
       // Con lluvia caen más (sobre enemigos distintos).
       const first = g ? nearestE(pl.x + Math.cos(pl.aim) * 150, pl.y + Math.sin(pl.aim) * 150, 260) : aimTarget(pl, 380);
@@ -10053,31 +10034,24 @@ G.Combat = (() => {
       if (!g) G.Camera.kick(0.05);
       if (sees(pl.x, pl.y)) G.Audio.sfx('shake');
     },
-    evo(pl, m) { zapCannon(pl, m); }
+    evo(pl, m) { MECH['thunderbolt'].cast(pl, m); zapCannon(pl, m); }      // (la cadena de siempre y la bola)
   };
 
   // ---- Onda Trueno → Voltio Cruel ----
-  function voltTackle(pl, m) {
-    const g = ghost, col = TCOL(m.type), ca = Math.cos(pl.aim), sa = Math.sin(pl.aim), want = 300;
-    const sx = pl.x, sy = pl.y, len = g ? want * 0.6 : pathLen(pl, ca, sa, want);
-    const x0 = g ? sx - ca * len : sx, y0 = g ? sy - sa * len : sy, x1 = g ? sx : sx + ca * len, y1 = g ? sy : sy + sa * len;
-    // Te lanzas como un rayo en línea recta (invulnerable) y dejas una estela que paraliza.
-    zap(pl, x0, y0 - G.LIFT * 0.5, x1, y1 - G.LIFT * 0.5, 'electric', 0.3, 4);
-    afterimages(pl, [0.2, 0.45, 0.7].map(q => ({ x: x0 + (x1 - x0) * q, y: y0 + (y1 - y0) * q })), 0.3, '#fff36a');
+  // (Revisión 2-11-2026: antes la evolución era una embestida en línea; ahora las zonas siguen y de ti sale un
+  //  rayo hasta cada una que deja una estela que paraliza.)
+  function voltLink(pl, m, f) {
+    const g = f.ghost, col = TCOL(m.type), x0 = pl.x, y0 = pl.y, x1 = f.x, y1 = f.y;
+    zap(pl, x0, y0 - G.LIFT * 0.5, x1, y1 - G.LIFT * 0.3, 'electric', 0.3, 4);
     zone(pl, m, { elem: 'elec', shape: 'line', x1: x0, y1: y0, x2: x1, y2: y1, w: 22, life: 2, every: 0.4, dmg: atk(pl, m) * 0.25, st: ['para', 2], ghost: g,
                   each: (z, e) => { if (z.ghost && real(e)) stAdd(e, 'para', 2); } });
-    if (sees(sx, sy)) G.Audio.sfx('surge');
     if (g) return;
-    pl.x = x1; pl.y = y1; G.World.collide(pl);
-    invul(pl, 0.4);
-    for (const e of onSeg(x0, y0, x1, y1, 36)) hit(pl, e, atk(pl, m), col, ca, sa, 80, m);
-    segProps(x0, y0, x1, y1, 36, atk(pl, m), col);
-    G.Camera.kick(0.15);
+    for (const e of onSeg(x0, y0, x1, y1, 30)) hit(pl, e, atk(pl, m) * 0.6, col, x1 - x0, y1 - y0, 40, m);
   }
   MECH['thunder-wave'] = {
     cast() { return false; },                                       // la zona de siempre (familia aturdir)…
-    evo(pl, m) { voltTackle(pl, m); },
     zone(pl, m, f) {
+      if (m.evolved) voltLink(pl, m, f);
       // …pero no aturde: PARALIZA a todos los de dentro, y la parálisis se contagia una vez.
       if (sees(f.x, f.y)) for (let i = -2; i <= 2; i++) {
         zap(pl, f.x + i * f.r * 0.4, f.y - f.r * 0.6 - 30, f.x + i * f.r * 0.4, f.y + f.r * 0.3, 'electric', 0.18, 1);
@@ -10232,7 +10206,7 @@ G.Combat = (() => {
                       if ((z.k = (z.k + 1) % 2) === 0) stAdd(e, 'chill', 3, 1);
                     } });
     },
-    evo(pl, m) { blizzard(pl, m); },
+    evo(pl, m) { MECH['ice-beam'].cast(pl, m); blizzard(pl, m); },      // (el rayo de siempre y la ventisca)
     after(pl, e, m) {
       const snow = m.evolved && wx() === 'snow';
       if (snow || chance(pl, m.evolved ? 0.3 : 0.15)) inflict(pl, e, 'freeze', 1);     // con nieve, congela siempre
@@ -10278,7 +10252,7 @@ G.Combat = (() => {
       if (sees(f.x, f.y)) { G.FX.burst(f.x, f.y - 4, '#d8f6ff', 4, 80); if (Math.random() < 0.3) G.Audio.sfx('hover'); }
       areaHit(pl, m, f.x, f.y, (m.radius || 40) * 0.5, atk(pl, m) * rage, { ghost: f.ghost });
     }, { ghost: g, pad: 40, fall,
-      da(ctx, f, own) { const k = Math.min(1, f.t / f.fall); G.VFX.draw(ctx, 'shard', 'ice', f.x + (1 - k) * 18, f.y - (1 - k) * 140 - 4, { angle: 1.45, alpha: own }); } });
+      da(ctx, f, own) { const k = Math.min(1, f.t / f.fall); G.VFX.draw(ctx, 'px:hail', 'ice', f.x + (1 - k) * 18, f.y - (1 - k) * 140 - 4, { angle: f.t * 9, alpha: own }); } });
   }
   function avalanche(pl, m) {
     // Alud: caen 6 bloques de hielo en anillo a tu alrededor.
@@ -10406,7 +10380,7 @@ G.Combat = (() => {
         dg(ctx, z, own) {
           ctx.globalAlpha = 0.25 * own; ctx.fillStyle = '#bff3ff';
           ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.5, 0, 0, 6.2832); ctx.fill();
-          G.VFX.draw(ctx, 'shard', 'ice', z.x, z.y - 6, { angle: -Math.PI / 2, alpha: own * Math.min(1, (z.life - z.t) * 3) });
+          G.VFX.draw(ctx, 'px:icicle-crash', 'ice', z.x, z.y - 6, { angle: -Math.PI / 2, alpha: own * Math.min(1, (z.life - z.t) * 3) });
         } });
     }
   }

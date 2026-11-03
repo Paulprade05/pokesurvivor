@@ -429,12 +429,40 @@ G.CompendiumUI = (() => {
       h += sec('Evolución', '<p class="cmp-note">No evoluciona</p>');
     }
 
-    // Pasivas que le afectan (Amplitud, Persistencia, Réplica, Propulsión).
-    if (G.Moves.passiveAffects) {
-      const ps = PASS4.filter(p => G.Moves.passiveAffects(def.kind, p)).map(p => STATS().find(s => s.id === p)).filter(Boolean);
-      if (ps.length) h += sec('Le afectan', `<div class="cmp-chips">${ps.map(s => `<button type="button" class="chip" data-go="p:${esc(s.id)}">${G.Icons.html(s.icon, 30)}<span>${esc(s.title)}</span></button>`).join('')}</div>`);
-    }
+    h += passHow(def, need && need.needs);
     return h + whoLearns(def);
+  }
+
+  /*
+   * (Revisión de ataques, 2-11-2026) Qué cambia cada carta de pasiva en ESTE ataque (G.Moves.passiveKeys): una fila por
+   * pasiva con lo que sube (radio, duración, +1 por carta...); la que lo hace evolucionar, marcada. Potencia, Reflejos
+   * y Puntería valen igual para todos: una nota (y si tiene crítico propio, se dice). Cada palabra va en su propio
+   * elemento para que la traduzca el diccionario.
+   */
+  const PASS_KEY = {
+    size: 'Tamaño', radius: 'Radio', width: 'Grosor', height: 'Alto', ring: 'Círculo de vuelo', range: 'Alcance de disparo',
+    blast: 'Explosión', speed: 'Velocidad', curl: 'Espiral', turn: 'Giro', grav: 'Caída', dur: 'Duración', stun: 'Aturdimiento',
+    life: 'Duración', count: '+1 por carta', 'half:radius': 'Largo', 'half:ring': 'Círculo de vuelo', 'inv:charge': 'Carga más rápida',
+    'code:pspd': 'Llega antes', 'code:amt': '+1 zona por carta'
+  };
+  function passHow(def, evoBy) {
+    if (!G.Moves.passiveKeys) return '';
+    const rows = PASS4.map(id => {
+      const st = STATS().find(s => s.id === id), keys = G.Moves.passiveKeys(def.kind, id);
+      if (!st || !keys.length) return '';
+      const words = [...new Set(keys.map(k => PASS_KEY[k] || k))].map(w => `<span>${esc(w)}</span>`).join('<i>, </i>');
+      return `<li${id === evoBy ? ' class="evo"' : ''}><button type="button" class="chip" data-go="p:${esc(id)}">${G.Icons.html(st.icon, 30)}<span>${esc(st.title)}</span></button>`
+        + `<span class="cmp-how">${words}</span>${id === evoBy ? '<span class="badge gold">★</span>' : ''}</li>`;
+    }).join('');
+    const hurts = !(G.Moves.nonAttacking && G.Moves.nonAttacking(def.kind));
+    let note = hurts ? '<p class="cmp-note">Potencia, Reflejos y Puntería valen igual para todos los ataques: más daño, menos recarga y más críticos.</p>'
+      : '<p class="cmp-note">No hace daño: Potencia y Puntería no le afectan; Reflejos, sí (menos recarga).</p>';
+    if (hurts && def.crit2) note += `<p class="cmp-note">${G.I18n.f('Tiene un {x} de crítico propio: Puntería le rinde más.', Math.round(def.crit2 * 100) + ' %')}</p>`;
+    // La carta que lo hace evolucionar, si no es una de estas cuatro (Vigor, Potencia...): también aquí.
+    const evoSt = evoBy && !PASS4.includes(evoBy) ? STATS().find(s => s.id === evoBy) : null;
+    const evoRow = evoSt ? `<li class="evo"><button type="button" class="chip" data-go="p:${esc(evoSt.id)}">${G.Icons.html(evoSt.icon, 30)}<span>${esc(evoSt.title)}</span></button>`
+      + '<span class="cmp-how"><span>Lo hace evolucionar</span></span><span class="badge gold">★</span></li>' : '';
+    return sec('Qué cambia cada carta', (rows || evoRow ? `<ul class="cmp-pass">${rows}${evoRow}</ul>` : '') + note);
   }
 
   /** Quién puede llevar un ataque: los de su tipo (los Normal, todos) y si es el inicial de su tipo. */

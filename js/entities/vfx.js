@@ -472,8 +472,53 @@ G.VFX = (() => {
     }
   }
 
+  // ---------------- dibujos de PixelLab (revisión de ataques, 2-11-2026) ----------------
+  /*
+   * Algunos ataques llevan su propio dibujo, para no confundirse con los de su tipo: assets/vfx/<id>.png, hecho con
+   * PixelLab (pedidos en tools/pixellab/vfx/pedidos.json) y preparado con tools/pixellab_vfx.py, a resolución de arte
+   * (1 píxel = 1 del juego, como las formas de código). No cambian con la paleta. Forma 'px:<id>'.
+   *   face  hacia dónde mira el dibujo (rad): los que tienen dirección se giran para mirar a la derecha
+   *   fb    la forma de código que se usa mientras carga el archivo (o si falla)
+   */
+  const PX_VFX = {
+    'ember':         { dir: true, face: 2.36, fb: 'fire' },         // (la brasa abajo a la izquierda, la cola arriba)
+    'water-gun':     { dir: true, face: 0, fb: 'drop' },
+    'rock-throw':    { spin: true, fb: 'rock' },
+    'rollout':       { spin: true, fb: 'rock' },
+    'rock-blast':    { spin: true, fb: 'rock' },
+    'ice-shard':     { dir: true, face: -0.4, fb: 'shard' },
+    'icicle-crash':  { dir: true, face: Math.PI / 2, fb: 'shard' },
+    'hail':          { spin: true, fb: 'shard' },
+    'bonemerang':    { spin: true, fb: 'bone' },
+    'bone-club':     { spin: true, fb: 'bone' },
+    'thunder-shock': { dir: true, face: -0.8, fb: 'bolt' },
+    'confusion':     { fb: 'ring' },
+    'seed-bomb':     { fb: 'seed' },                                 // (de pie: el brote arriba)
+    'bullet-seed':   { dir: true, face: -0.79, fb: 'seed' }
+  };
+  const pxImgs = {};                                 // id -> Image (cargada), null mientras carga, false si falló
+  function pxReady(id) {
+    if (!(id in pxImgs)) {
+      pxImgs[id] = null;
+      if (typeof Image === 'undefined') { pxImgs[id] = false; return false; }
+      const im = new Image();
+      im.onload = () => { const S = SHAPES['px:' + id]; S.w = im.naturalWidth; S.h = im.naturalHeight; pxImgs[id] = im; };
+      im.onerror = () => { pxImgs[id] = false; };
+      im.src = 'assets/vfx/' + id + '.png';
+    }
+    return pxImgs[id] || null;
+  }
+  for (const id in PX_VFX) SHAPES['px:' + id] = Object.assign({ w: 1, h: 1, frames: 1, img: id }, PX_VFX[id]);
+  /** La forma que se pinta de verdad: un dibujo de PixelLab aún sin cargar → su forma de código. */
+  function live(shape) {
+    const S = SHAPES[shape];
+    return S && S.img && !pxReady(S.img) ? S.fb : shape;
+  }
+
   /** El lienzo del sprite, o null si ahora no se puede crear (sin memoria de lienzos). */
   function sprite(shape, pal, frame = 0) {
+    shape = live(shape);
+    if (SHAPES[shape] && SHAPES[shape].img) return pxImgs[SHAPES[shape].img];
     const S = SHAPES[shape] || SHAPES.ball;
     const f = (frame | 0) % (S.frames || 1);
     const k = shape + '|' + pal + '|' + f;
@@ -503,6 +548,7 @@ G.VFX = (() => {
 
   /** Dibuja centrado en (x, y). opts: angle, scale (1 = píxel de juego), frame, alpha, flip (mirando a la izquierda). */
   function draw(ctx, shape, pal, x, y, o = {}) {
+    shape = live(shape);
     const S = SHAPES[shape] || SHAPES.ball;
     const cv = sprite(shape, pal, o.frame || 0);
     const k = PX * (o.scale || 1);
@@ -510,7 +556,7 @@ G.VFX = (() => {
     if (o.alpha != null && o.alpha < 1) ctx.globalAlpha *= o.alpha;
     ctx.imageSmoothingEnabled = false;
     ctx.translate(Math.round(x), Math.round(y));
-    let a = o.angle || 0;
+    let a = (o.angle || 0) - (S.img && S.dir && S.face ? S.face : 0);
     if (a) {
       a = Math.round(a / (Math.PI / 8)) * (Math.PI / 8);          // 16 direcciones: menos parpadeo
       ctx.rotate(a);
@@ -1106,6 +1152,9 @@ G.VFX = (() => {
     'hyper-beam':    { beam: 'star', proj: 'star', pal: 'rainbow' },
     'harden':        { buff: 'shield', pal: 'steel' }
   };
+
+  // (Revisión de ataques, 2-11-2026) Los que tienen dibujo de PixelLab (PX_VFX, arriba) lo usan como proyectil.
+  for (const id in PX_VFX) MOVE[id] = Object.assign({}, MOVE[id], { proj: 'px:' + id });
 
   const TYPE_SHAPE = {
     fire: 'fire', water: 'drop', grass: 'leaf', electric: 'bolt', psychic: 'ring', ice: 'shard',

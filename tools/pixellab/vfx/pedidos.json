@@ -1,0 +1,226 @@
+{
+ "rock-throw": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one heavy grey boulder with cracks, chunky round stone, isolated game projectile sprite",
+   "seed": 20
+  }
+ },
+ "rollout": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one round brown boulder rolling, with a lighter stripe band around it, isolated game projectile sprite",
+   "seed": 21
+  }
+ },
+ "rock-blast": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one small jagged sharp brown rock chunk, angular stone, isolated game projectile sprite",
+   "seed": 22
+  }
+ },
+ "ice-shard": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one sharp light blue ice shard lying perfectly horizontal pointing straight right, isolated game projectile sprite",
+   "seed": 23
+  }
+ },
+ "icicle-crash": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one big icicle spear hanging vertically pointing straight down, light blue ice, isolated game sprite",
+   "seed": 24
+  }
+ },
+ "hail": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one round white and light blue hailstone ice ball, isolated game projectile sprite",
+   "seed": 25
+  }
+ },
+ "bonemerang": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one white cartoon bone with round knobs on both ends, lying horizontal, isolated game projectile sprite",
+   "seed": 26
+  }
+ },
+ "bone-club": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one thick brown and white club bone, heavy cudgel bone lying horizontal, isolated game projectile sprite",
+   "seed": 27
+  }
+ },
+ "thunder-shock": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one yellow electric spark ball with small zigzag lightning arcs, isolated game projectile sprite",
+   "seed": 28
+  }
+ },
+ "confusion": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one pink psychic energy orb with wavy concentric rings, isolated game projectile sprite",
+   "seed": 29
+  }
+ },
+ "seed-bomb": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one big brown seed with a green sprout leaf on top, isolated game projectile sprite",
+   "seed": 30
+  }
+ },
+ "bullet-seed": {
+  "endpoint": "create-image-pixflux",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one small green seed pellet lying horizontal pointing right, isolated game projectile sprite",
+   "seed": 31
+  }
+ },
+ "ember": {
+  "endpoint": "MCP create_image_pixflux",
+  "request": {
+   "description": "tiny glowing ember fireball projectile flying to the right, round hot core with short orange flame tail, game projectile sprite",
+   "width": 32,
+   "height": 32,
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "direction": "east",
+   "view": "side",
+   "seed": 11
+  }
+ },
+ "water-gun": {
+  "endpoint": "create-image-pixflux",
+  "note": "segundo intento (el primero, con el MCP, salía como una salpicadura)",
+  "request": {
+   "no_background": true,
+   "outline": "single color black outline",
+   "shading": "basic shading",
+   "detail": "low detail",
+   "view": "side",
+   "image_size": {
+    "width": 32,
+    "height": 32
+   },
+   "description": "one horizontal blue water bullet flying straight to the right, rounded droplet head on the right with a short white streak tail on the left, isolated game projectile sprite",
+   "seed": 41
+  }
+ }
+}
