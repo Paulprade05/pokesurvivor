@@ -6382,8 +6382,13 @@ G.Combat = (() => {
       try { allies(pl, m); } finally { m.count = c0; m.dmg = d0; }
       if (ko >= 15 && !ghost) G.FX.dmgText(pl.x, pl.y - pl.bodyH - 18, '+' + Math.min(4, Math.floor(ko / 15)), '#a8b4ff');
     },
-    after(pl, e, m) { if (m.raise && e.dead && !e.remote) rise3(pl, m, e); }
+    after(pl, e, m) {
+      // (4-11-2026, partidas reales: Marshadow hacía 4 veces menos daño) El golpe del espíritu salpica a los de al lado.
+      areaHit(pl, m, e.x, e.y, 46, atk(pl, m) * 0.45, { filter: o => o !== e, ho: LR_SPLASH });
+      if (m.raise && e.dead && !e.remote) rise3(pl, m, e);
+    }
   };
+  const LR_SPLASH = { raw: true };
   function rise3(pl, m, e) {
     let n = 0;
     for (const f of fields) if (f.risen && f.owner === pl && !f.gone) n++;
@@ -6878,7 +6883,12 @@ G.Combat = (() => {
     cast(pl, m) {
       sweep(pl, m);
       const f = fields[fields.length - 1];
-      if (f && f.kind === 'sweep') { f.on3 = fleurOn3; f.acc3 = 0.3; }
+      if (f && f.kind === 'sweep') {
+        f.on3 = fleurOn3; f.acc3 = 0.3;
+        // (4-11-2026, partidas reales: 8.000 de daño/s, ×2-3 el siguiente) Cada rayo de Réplica reparte el daño en vez de sumarlo entero.
+        const rep = Math.max(0, f.n - G.Moves.levelCount(m) - (m.evolved ? 1 : 0));
+        if (rep) { f.dmg *= Math.sqrt(1 - rep / f.n); }
+      }
     }
   };
   function fleurOn3(f, prev) {
