@@ -37,7 +37,7 @@ En las dos partidas, por debajo de ×0,7 de la mediana una vez descontada Potenc
 
 | Grupo | Ataques (daño/s descontado) | Lectura |
 |---|---|---|
-| Flojos de verdad | Sustituto 200, Bucle Arena 287, Gancho Alto 487, Tóxico 552, Lanzallamas 577, Ala Bis 603, Magnitud 739, Esfera Aural 849, Rayo Aurora 956 | Candidatos a subir |
+| Flojos de verdad | Sustituto 200, Bucle Arena 287, Gancho Alto 487, Lanzallamas 577, Ala Bis 603, Magnitud 739, Esfera Aural 849, Rayo Aurora 956 | Candidatos a subir |
 | Dudosos por el bot | Semilladora 200, Pin Misil 385, Shuriken de Agua 396, Ráfaga Escamas 514 (ráfagas); Púas Tóxicas 191, Púas 347 (minas) | Probar a mano antes de tocar |
 | Algo flojos | Picadura 821, Enfado 822, Voz Cautivadora 873, Tormenta Floral 881, Ciclón 903, Rueda Fuego 951, Al Ataque 953, Giro Rápido 994 | Sin prisa |
 
@@ -94,19 +94,56 @@ Medidos junto a Placaje, que solo hace 944 de daño/s:
 | Fortaleza | 0,84 | Baja el daño recibido a 2,21/s, frente a 8,64/s de Placaje solo |
 | Maquinación | 0,72 | No cuenta: sube el ataque especial y Placaje es físico |
 
-Acua Aro curó sólo 0,20/s. Merece mirarlo. Con dos partidas y Placaje dando 1.213 y 674, sólo los extremos son fiables.
+Con dos partidas y Placaje dando 1.213 y 674, sólo los extremos son fiables.
 
 ## Límites de esta prueba
 
 - **Un solo ataque:** nadie juega así. Esto compara ataques, no predice el daño de una partida normal.
 - **Dos partidas por ataque:** sirve para extremos, no para distinguir un 10 %.
 - **Daño bruto:** cuenta el exceso de muerte, así que Hiperrayo y otros golpes grandes salen algo inflados. Mirar también las bajas.
+- **El veneno y la quemadura no cuentan como daño hecho:** Tóxico y Púas Tóxicas salen bajos en daño, pero con bajas normales. Tóxico no es flojo.
+- **La columna Cura/s no vale:** con vida infinita la vida real no baja, así que casi no se apunta la cura.
 - **Mew:** sus ataques Psíquicos llevan +20 %, ya descontado en las tablas.
 - **Las 85 primeras partidas a distancia** usan el bot antes de las correcciones, que no cambian nada para esos ataques.
 
 ## Fallo encontrado en el juego
 
 Hubo fallos de fotograma en 3 de las 358 partidas, sin pararlas: las dos de Sombra Vil y una de Brecha Negra. Sólo se capturó entero el de Brecha Negra: `drawImage` con un lienzo de tamaño 0 en `js/systems/hazards.js:283`, al pintar un aviso de peligro. No se sabe si los de Sombra Vil son el mismo fallo, y repetirse con ese ataque puede no ser casualidad.
+
+## Ajuste aplicado después del estudio (2026-11-05)
+
+El dueño pidió aplicarlo todo para que todos los ataques valgan la pena. Las tablas de abajo y `ESTUDIO-ATAQUES.md` y `ESTUDIO-POKEMON.md` son de **antes** de este ajuste.
+
+Antes, el peor ataque no llegaba a ×0,2 de la mediana. Ahora los 129 que pegan llegan a ×0,7 en daño o en bajas: el peor da ×0,71 y el mejor ×2,56. Medido con 2 partidas por ataque tocado, sin errores.
+
+| Ataque | `DMG_K` | Daño/s descontado: antes → después |
+|---|---|---|
+| Semilladora | [2,4; 2,2] + apunta | 200 → 1.403 |
+| Pin Misil | [2; 1,8] + apunta | 385 → 1.310 |
+| Shuriken de Agua | [2,1; 2,1] + apunta | 396 → 1.320 |
+| Ráfaga Escamas | [1,5; 1,5] + apunta | 514 → 1.831 |
+| Bucle Arena | [5,5; 4] | 287 → 1.261 |
+| Púas | [3; 3] | 347 → 1.247 |
+| Púas Tóxicas | [2,4; 2,1] | 191 → 612 (bajas 1.181 → 1.788) |
+| Sustituto | [6; 6] | 200 → 2.109 (bajas sólo 673) |
+| Gancho Alto | [2,2; 2,1] | 487 → 1.207 |
+| Ala Bis | [1,7; 2] | 603 → 1.218 |
+| Lanzallamas | [1,1; 1,5] | 577 → 830 (bajas 1.425 → 1.664) |
+| Esfera Aural | [1,3; 1,1] | 849 → 1.344 |
+| Rayo Aurora | [1,15; 0,9] | 956 → 1.767 |
+
+- **Suben algo:** Picadura, Enfado, Voz Cautivadora, Tormenta Floral, Ciclón, Giro Rápido, Burbuja, Canto Helado, Infortunio, Disparo Lodo, Golpe Kárate, Remolino y Magnitud.
+- **Bajan:** Tajo Cruzado [1,2; 2,2] (3.158 → 2.968) y Fuego Fatuo [1; 0,9].
+- **Rayo Carga:** Réplica reparte el daño (3.269 → 2.724).
+- **Ráfagas:** salen hacia donde andas, pero van al enemigo más cercano de ese lado (±46°). Es el cambio que más ha rendido.
+- **No se tocó Tóxico:** no era flojo; su veneno no cuenta como daño.
+
+**Vigilar en partidas reales:**
+
+- **Bucle Arena:** en el modelo es el 2.º en marea (3.238) y el 3.º contra jefes (1.212). En partida da mucho menos porque no toca a los voladores, pero una persona que lo coloque bien puede sacar más.
+- **Rayo Aurora:** primero en marea (3.473); en partida, ×1,12 de la mediana.
+- **Tierra en el modelo:** Groudon pasa de 1,14 a 1,97 y es el más alto. Es por Bucle Arena y Púas, y el bot no lo confirma.
+- **Sustituto:** su daño no se convierte en bajas ni en nivel (24). Sigue siendo el más raro de todos.
 
 ## Tablas completas
 

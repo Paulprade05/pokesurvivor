@@ -98,7 +98,8 @@ for (const [i, lang] of langs.entries()) {
       }
     }
     load('js/data/changelog.js');
-    if (lang !== 'en') for (const entry of G.CHANGELOG.filter(e => e.d >= '2026-10-18')) {
+    // (Desde el 5-11-2026, lo pidió el dueño: los textos nuevos sólo en español e inglés. Lo que falte sale en inglés.)
+    if (lang !== 'en') for (const entry of G.CHANGELOG.filter(e => e.d >= '2026-10-18' && e.d < '2026-11-05')) {
       for (const pair of [entry.title, ...(entry.new || []), ...(entry.chg || []), ...(entry.fix || [])]) {
         assert.ok(G.I18n.has(pair[0]), pair[0]);
       }

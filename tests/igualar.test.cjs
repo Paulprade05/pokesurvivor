@@ -51,3 +51,27 @@ test('medir-pokemon saca a todos los Pokémon finales, con sus cuatro ataques', 
   assert.ok(r.every((x, i) => !i || r[i - 1].v >= x.v));
   assert.ok(r.some(x => x.dex === 6) && !r.some(x => x.dex === 4));
 });
+
+test('todos los ataques valen la pena: los flojos suben y Tajo Cruzado baja', () => {
+  const vm = require('node:vm');
+  const ctx = { window: {}, console };
+  ctx.G = ctx.window.G = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'js/data/moves.js'), 'utf8'), ctx);
+  const M = ctx.G.Moves;
+  const k = (id, lvl) => M.instance(id, lvl).dmg / M.instance(id, lvl).def.dmg;
+  for (const id of ['bullet-seed', 'pin-missile', 'water-shuriken', 'scale-shot', 'substitute', 'sand-tomb', 'spikes']) assert.ok(k(id, 1) > 1.4, `${id}: ×${k(id, 1)}`);
+  // Tajo Cruzado no pasa de ×2,2 de su escalera; al nivel 1 sigue en ×1,2.
+  const cc = M.BY_ID['cross-chop'];
+  assert.ok(Math.abs(k('cross-chop', 1) - 1.2) < 1e-9);
+  const ups = cc.ups.reduce((t, u) => t * (u.m.dmg || 1), 1);
+  assert.ok(Math.abs(k('cross-chop', cc.maxLvl) / ups - 2.2) < 1e-9, `×${k('cross-chop', cc.maxLvl) / ups}`);
+});
+
+test('Rayo Carga: Réplica reparte el daño, y las ráfagas apuntan al enemigo de ese lado', () => {
+  const src = fs.readFileSync(path.join(root, 'js/systems/combat.js'), 'utf8');
+  assert.match(src, /MECH\['charge-beam'\] = \{\s*cast\(pl, m\) \{[\s\S]{0,160}replicaShare\(f, m\)/);
+  assert.match(src, /if \(!pl\.manualAim\) pl\.aim = knifeAim\(pl, m\);/);
+  const r = measure('charge-beam', 'carga').todas['charge-beam'].evo;
+  assert.ok(r.marea.dps > 0 && r.jefe.dps > 0);
+});

@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-05', title: ["Todos los ataques valen la pena: suben 26 y las ráfagas apuntan mejor", "Every attack is worth it: 26 go up and bursts aim better"], chg: [
+    ["Ráfagas (Semilladora, Pin Misil, Shuriken de Agua y Ráfaga Escamas): siguen saliendo hacia donde andas, pero ahora van al enemigo más cercano de ese lado. Antes fallaban casi siempre. Además pegan más.",
+     "Bursts (Bullet Seed, Pin Missile, Water Shuriken and Scale Shot): they still fire the way you walk, but now aim at the nearest enemy on that side. They used to miss most of the time. They also hit harder."],
+    ["Suben Sustituto, Bucle Arena, Púas, Púas Tóxicas, Gancho Alto, Ala Bis, Lanzallamas, Magnitud, Esfera Aural y Rayo Aurora: se quedaban muy por debajo de los demás en las partidas.",
+     "Substitute, Sand Tomb, Spikes, Toxic Spikes, Sky Uppercut, Dual Wingbeat, Flamethrower, Magnitude, Aura Sphere and Aurora Beam go up: they were falling well behind the others in runs."],
+    ["Suben algo menos Picadura, Enfado, Voz Cautivadora, Tormenta Floral, Ciclón, Giro Rápido, Burbuja, Canto Helado, Infortunio, Disparo Lodo, Golpe Kárate y Remolino.",
+     "Bug Bite, Outrage, Disarming Voice, Leaf Storm, Twister, Rapid Spin, Bubble, Ice Shard, Hex, Mud Shot, Karate Chop and Whirlwind go up a bit."],
+    ["Bajan un poco Tajo Cruzado y Fuego Fatuo. En Rayo Carga, cada rayo de más por Réplica reparte ahora el daño en vez de sumarlo entero, como en Cañón Floral.",
+     "Cross Chop and Will-O-Wisp go down a bit. On Charge Beam, each extra beam from Replica now splits the damage instead of adding it in full, like Fleur Cannon."]] },
   { d: '2026-11-05', title: ["Ataques a la par: baja Cañón Floral y suben Homenaje Póstumo, Tajo Cruzado y Puño Dinámico", "Attacks on par: Fleur Cannon down; Last Respects, Cross Chop and Dynamic Punch up"], chg: [
     ["Cañón Floral pega menos: era, con mucha diferencia, el ataque que más daño hacía en las partidas. Cada rayo de más por Réplica reparte ahora el daño en vez de sumarlo entero, y sube menos con el nivel.",
      "Fleur Cannon hits less: it was, by far, the attack dealing the most damage in real runs. Each extra beam from Replica now splits the damage instead of adding it in full, and it grows less with level."],
