@@ -767,10 +767,6 @@ G.I18n.add({
   // ---------------- idiomas nuevos (19-10-2026) ----------------
   'PokéSurvivor – Juego Pokémon gratis online estilo Survivor.io': 'PokéSurvivor – Free online Pokémon survival game (Survivor.io style)',
   'Tipo': 'Type', 'Nuevo': 'New', 'Cambios': 'Changes', 'Arreglos': 'Fixes', 'Entendido': 'Got it',
-  // Frases del ranking en francés, italiano... (en inglés se montan enteras en ranking-ui.js)
-  'Tu mejor puesto: {x}': 'Your best rank: {x}',
-  'Aún no estás en el top 50. Tu puesto está en Histórico.': 'You are not in the top 50 yet. Your rank is in All-time.',
-  'Aún no tienes marca.': 'You do not have a record yet.',
   'Folagor, Sekiam, PokeAlex: ¿un hueco?': 'Folagor, Sekiam, PokeAlex: room for one more?',
   // ---------------- Tienda Kecleon, naturalezas y habilidades (20-10-2026) ----------------
   "+35 % de daño de tipo {x} con poca vida (menos de 1/3).": "+35% {x}-type damage at low HP (under 1/3).",
@@ -1800,7 +1796,7 @@ G.I18n.add({
   "×1,25 daño y +1 sombra. Salen tres garras de la sombra: el blanco recibe las tres y los de alrededor, una, con un 30% de crítico.": "×1.25 damage and +1 shadow. Three claws burst from the shadow: the target takes all three and those around it take one, with a 30% critical chance.",
   "Un viento maldito hace girar a los enemigos alrededor de su centro: chocan entre ellos y a veces se marean.": "A cursed wind spins enemies around its center: they crash into each other and sometimes get confused.",
   "×2,2 daño y más grande. Desapareces dentro del remolino (invulnerable 1 s) y reapareces en su centro con un golpe que lanza fuera a todos.": "×2.2 damage and bigger. You vanish into the whirlwind (invulnerable for 1 s) and reappear in its center with a blow that throws everyone out.",
-  "Espíritus que atraviesan paredes, persiguen y frenan a los enemigos; salen más y más fuertes cuantos más enemigos hayas debilitado en los últimos 20 s.": "Spirits that pass through walls, chase enemies and slow them down; more and stronger spirits appear the more enemies you've knocked out in the last 20 s.",
+  "Espíritus que atraviesan paredes, persiguen y frenan a los enemigos, y su golpe salpica a los de al lado; salen más y más fuertes cuantos más enemigos hayas debilitado en los últimos 20 s.": "Spirits that pass through walls, chase enemies and slow them down, and their hit splashes nearby enemies; more and stronger spirits appear the more enemies you've knocked out in the last 20 s.",
   "×1,8 daño y +2 espíritus. Los enemigos que debilitan se levantan 3 s como fantasmas aliados (hasta 4) que atacan a los demás.": "×1.8 damage and +2 spirits. Enemies they knock out rise for 3 s as allied ghosts (up to 4) that attack the others.",
   "Orbes fantasma caen en corona alrededor del enemigo con más vida de la pantalla y se juntan sobre él.": "Ghost orbs fall in a ring around the enemy with the most HP on screen and converge on it.",
   "×2,45 daño y +2 orbes. Cada orbe que impacta abre una grieta: medio segundo después sale de ella un rayo de sombra.": "×2.45 damage and +2 orbs. Every orb that hits opens a crack: half a second later a shadow ray bursts out of it.",
@@ -2179,7 +2175,7 @@ G.I18n.add({
   "Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la Pokédex.": "What you buy goes to your Bag: use it from each Pokémon’s page in the Pokédex.",
   "Para usarlo, abre la Pokédex, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.": "To use it, open the Pokédex, pick a Pokémon and press Mint, Capsule or Teach TM on its page.",
   "¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la Pokédex.": "Welcome! Mints, Capsules and TMs. What you buy goes to your Bag (in the main menu); use it from each Pokémon’s page in the Pokédex.",
-  // ---------------- Pokémon Paradoja (nombres oficiales en inglés; italiano y portugués los usan de reserva) ----------------
+  // ---------------- Pokémon Paradoja (nombres oficiales en inglés) ----------------
   "Colmilargo": "Great Tusk",
   "Colagrito": "Scream Tail",
   "Melenaleteo": "Flutter Mane",
@@ -2294,5 +2290,7 @@ G.I18n.add({
   "Resumen de las partidas: para mejorar el juego, con cuenta enviamos un resumen anónimo de cada partida (Pokémon, duración, ataques, daño recibido y de quién, curación, cartas, jefes, versión del juego y si juegas en móvil o PC con el tamaño de la pantalla). No incluye tu nombre, tu apodo ni tu cuenta y sólo lo ve el autor del juego. Puedes desactivarlo en Ajustes › Cuenta. El historial de tus partidas (Misiones › Perfil) se guarda sólo en tu aparato.": "Run summaries: to improve the game, if you have an account we send an anonymous summary of each run (Pokémon, length, attacks, damage taken and from whom, healing, cards, bosses, game version and whether you play on mobile or PC with the screen size). It doesn't include your name, nickname or account and only the game's author sees it. You can turn it off in Settings › Account. Your match history (Missions › Profile) is kept only on your device.",
   "Las de todos": "Everyone's",
   "Los resúmenes anónimos de todos los jugadores (sólo el dueño)": "Anonymous summaries from all players (owner only)",
-  "Descargando…": "Downloading…"
+  "Descargando…": "Downloading…",
+  "Animaciones": "Animations",
+  "Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.": "Trees and grass in the wind, critters, water, pickups and attack flourishes. Turn it off if your device struggles: the world stays still and attacks are still shown."
 });

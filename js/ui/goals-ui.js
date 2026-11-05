@@ -234,7 +234,7 @@
         const EVO = G.Moves.EVO, BY = G.Moves.BY_ID, types = Object.keys(G.U.TYPE_NAME);
         const all = Object.keys(EVO), ok = id => !!(s.evoMoves && s.evoMoves[id]);
         const ids = all.filter(id => BY[id]).sort((a, b) => types.indexOf(BY[a].type) - types.indexOf(BY[b].type)
-          || G.T(BY[a].name, 'move').localeCompare(G.T(BY[b].name, 'move'), G.I18n.locale));
+          || G.T(BY[a].name).localeCompare(G.T(BY[b].name), G.I18n.locale));
         const nOk = all.filter(ok).length;
         box.insertAdjacentHTML('beforeend', `<div class="goals-sec"><h3>Movimientos evolucionados ${nOk} / ${all.length}</h3></div>
           <p class="sub goals-hint">Un movimiento al nivel máximo evoluciona si en esa partida llevas la carta que pide a la mitad de su máximo (×5: 5 cartas).</p>
@@ -252,7 +252,7 @@
             <span class="evo-eq"><span class="ico-tile s tint" style="--tile-c:${col}">${ico('move:' + id)}</span><i>+</i>`
             + `<span class="ico-tile s" title="${esc(needName)}">${need ? ico(need.icon) : ''}</span><i>=</i>`
             + `<span class="ico-tile s t-gold evo-to">${ico('move:' + id)}${ok(id) ? `<span class="evo-got" title="¡Conseguido!">${G.UI.svg('check', 12)}</span>` : ''}</span></span>
-            <span class="evo-txt"><b>${G.T(BY[id].name, 'move')}</b><small class="gold">→ ${G.T(EVO[id][0], 'move')}</small>
+            <span class="evo-txt"><b>${G.T(BY[id].name)}</b><small class="gold">→ ${G.T(EVO[id][0])}</small>
             <small><span>${needName}</span> ×${G.LevelUp.evoLvl(EVO[id][1])} · <span>Nv.</span> ${BY[id].maxLvl}</small></span></button>`;
         }).join('');
         eg.onclick = e => { const t = e.target.closest('[data-mv]'); if (t && G.CompendiumUI) G.CompendiumUI.open('moves', t.dataset.mv); };

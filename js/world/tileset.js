@@ -51,6 +51,7 @@ G.Tileset = (() => {
   // (Arte PixelLab) Archivos de assets/objects-px/; px[k]: Image, null mientras carga, false si falló.
   const PX_FILES = ['chest', 'bigchest', 'trap0', 'trap1', 'trap2', 'cliff'];
   const px = {};
+  const TM = 2;                                     // (arte animado) hueco del árbol a los lados y arriba, para que el viento no lo corte
   const FH = 16;                                    // alto de la cara de roca de una pared (px de arte; cliff.png)
 
   /** ¿Se usan? (hay datos y el interruptor de Ajustes está encendido) */
@@ -345,20 +346,103 @@ G.Tileset = (() => {
     if (type === 'bigchest') return obj('bigchest');            // (el pequeño de PMD no cabe en su casilla: tiles.js)
     if (type === 'trap') return obj('trap' + ((variant >> 2) % 3));
     if (type !== 'tree') return null;
-    const k = bi + '/' + (variant % 3);
+    // (variant = aspecto + 3 × fotograma: ver world.js. Sin lienzo: null, este fotograma el de tiles.js.)
+    return treeFrame(bi, variant % 3, (variant / 3) | 0);
+  }
+
+  /**
+   * (Arte animado, 05-11-2026) El árbol sigue siendo la pieza de pared suelta (lo que prefiere el dueño), pero recortada del
+   * suelo que lleva pintado: así proyecta sombra y se mueven las hojas y no el cuadrado entero. Lo que sea suelo se quita
+   * desde el borde hacia dentro (los colores del suelo dentro de la copa se quedan). Con TM px de hueco a los lados y arriba.
+   */
+  function treeCut(bi, look) {
+    const k = 'cut/' + bi + '/' + look;
+    if (propCache.has(k)) return propCache.get(k);
+    const s = st[bi], m = meta[bi], v = look - 1;
+    let src = s.sheet;
+    if (v >= 0 && m.vars[v] && s.vars[v] && (m.vars[v].cells[0] / Math.pow(2, ISO)) % 2 >= 1) src = s.vars[v];
+    const cv = document.createElement('canvas');
+    cv.width = T + TM * 2; cv.height = T + TM;
+    const g = cv.getContext('2d', { willReadFrequently: true });       // (de aquí se leen sus 8 fotogramas)
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, (ISO % 6) * T, ((ISO / 6) | 0) * T, T, T, TM, TM, T, T);
+    try {
+      // Los colores del suelo: los de la casilla llena de suelo de la hoja.
+      const c = document.createElement('canvas');
+      c.width = c.height = T;
+      const cg = c.getContext('2d');
+      cg.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, 0, 0, T, T);
+      const fl = new Set(new Uint32Array(cg.getImageData(0, 0, T, T).data.buffer));
+      G.U.freeCanvas(c);
+      const W = cv.width, Hh = cv.height, d = g.getImageData(0, 0, W, Hh), a = new Uint32Array(d.data.buffer);
+      const q = [];
+      const push = (x, y) => { const i = y * W + x; if (a[i] && fl.has(a[i])) { a[i] = 0; q.push(x, y); } };
+      for (let i = 0; i < T; i++) { push(TM + i, TM); push(TM + i, TM + T - 1); push(TM, TM + i); push(TM + T - 1, TM + i); }
+      while (q.length) {
+        const y = q.pop(), x = q.pop();
+        if (x > 0) push(x - 1, y);
+        if (x < W - 1) push(x + 1, y);
+        if (y > 0) push(x, y - 1);
+        if (y < Hh - 1) push(x, y + 1);
+      }
+      // Las motas de suelo sueltas que quedan al lado del recorte también se van.
+      for (let y = 1; y < Hh - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (a[i] && fl.has(a[i]) && (!a[i - 1] + !a[i + 1] + !a[i - W] + !a[i + W]) >= 2) a[i] = 0;
+      }
+      // Sin viento (cristales, rocas): la pieza no tiene suelo que quitar y se veía el cuadrado. Las esquinas, redondeadas.
+      let solid = 0;
+      for (let i = 0; i < a.length; i++) if (a[i]) solid++;
+      if (solid > T * T * 0.8) {
+        const c0 = TM + T / 2 - 0.5, R3 = Math.pow(T / 2, 3), edge = hex32(m.pal ? m.pal.edge : '#141414');
+        for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+          const q = Math.pow(Math.abs(x - c0), 3) + Math.pow(Math.abs(y - c0), 3);
+          if (q > R3) a[y * W + x] = 0;
+          else if (q > R3 * 0.72 && a[y * W + x]) a[y * W + x] = edge;
+        }
+      }
+      g.putImageData(d, 0, 0);
+    } catch (e) { /* file://: con su cuadrado, como antes */ }
+    propCache.set(k, cv);
+    return cv;
+  }
+
+  const hex32 = h => ((255 << 24) | (parseInt(h.slice(5, 7), 16) << 16) | (parseInt(h.slice(3, 5), 16) << 8) | parseInt(h.slice(1, 3), 16)) >>> 0;
+
+  /** La sombra del árbol en el suelo (no se mueve con el viento). */
+  function treeShade(bi, look) {
+    const k = 'shade/' + bi + '/' + look;
+    if (propCache.has(k)) return propCache.get(k);
+    const base = treeCut(bi, look);
+    if (!base) return null;
+    const cv = document.createElement('canvas');
+    cv.width = base.width; cv.height = base.height;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    g.drawImage(base, 1, 2);
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.fillRect(0, 0, cv.width, cv.height);
+    propCache.set(k, cv);
+    return cv;
+  }
+
+  /** ¿Con viento? En cuevas, volcanes y suelos hechos no sopla: ahí el árbol es cristal o roca y brilla o late. */
+  const leafy = bi => { const g = G.Tiles.BIOMES[bi].ground; return g === 'grass' || g === 'sand' || g === 'snow'; };
+
+  /** El árbol del bioma: aspecto look (0..2), fotograma f (0..7, ver G.Anim.wind). */
+  function treeFrame(bi, look, f) {
+    const k = bi + '/' + look + '/' + f;
     let cv = propCache.get(k);
-    if (!cv) {
-      const s = st[bi], m = meta[bi], v = variant % 3 - 1;
-      let src = s.sheet;
-      if (v >= 0 && m.vars[v] && s.vars[v] && (m.vars[v].cells[0] / Math.pow(2, ISO)) % 2 >= 1) src = s.vars[v];
-      cv = document.createElement('canvas');
-      cv.width = cv.height = T;
-      const g = cv.getContext('2d');
-      if (!g) { G.U.freeCanvas(cv); return null; }   // (sin memoria de lienzos: este fotograma, el de tiles.js)
-      g.imageSmoothingEnabled = false;
-      g.drawImage(src, (ISO % 6) * T, ((ISO / 6) | 0) * T, T, T, 0, 0, T, T);
-      propCache.set(k, cv);
-    }
+    if (cv) return cv;
+    if (f && !G.Anim.take()) return treeFrame(bi, look, 0);
+    const base = treeCut(bi, look), sh = treeShade(bi, look);
+    if (!base || !sh) return null;
+    const W = base.width, Hh = base.height;
+    cv = leafy(bi) ? G.Anim.sway(base, f, 8, W / 2, Hh * 0.62, 2.2, sh)
+      : G.Anim.sheen(base, f, 8, G.Tiles.BIOMES[bi].ground === 'ash', sh);
+    if (cv) propCache.set(k, cv);
     return cv;
   }
 

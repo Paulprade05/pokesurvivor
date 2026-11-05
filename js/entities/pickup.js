@@ -149,6 +149,8 @@ G.Pickups = (() => {
       // (Rápido, en un fotograma podía pasar de largo: también si este paso ya llega.)
       if (d2 < 15 * 15 || (p.pulled && d2 < (p.vx * p.vx + p.vy * p.vy) * dt * dt)) {
         list.splice(i, 1);
+        // (Arte animado) Un destello donde lo has cogido.
+        if (G.Anim.on) G.FX.sp('sparkle', p.kind === 'coin' || p.kind === 'item' ? 'electric' : p.kind === 'heal' ? 'grass' : 'ice', pl.x + G.U.rand(-8, 8), pl.y - pl.bodyH * 0.5 + G.U.rand(-8, 8), { life: 0.24, frameRate: 16, fade: false });
         onCollect(p, pl);
       }
     }
@@ -160,33 +162,80 @@ G.Pickups = (() => {
   // primeros enemigos dan 22-28, los del final 130-220; los fusionados, más).
   const xpSprite = v => v < 30 ? 'xp1' : v < 60 ? 'xp2' : v < 120 ? 'xp3' : v < 300 ? 'xp4' : 'xp5';
 
+  /*
+   * (Arte animado, 05-11-2026) El brillo y la sombra, ya hechos y a píxeles (antes, arcos lisos que no casaban con el pixel
+   * art y costaban uno por objeto: con 400 orbes se notaba). Dos fotogramas: el disco tramado cambia y parece que late.
+   */
+  const glowC = new Map();
+  let shadowC = null;
+  function glowImg(col, f) {
+    const k = col + f;
+    let cv = glowC.get(k);
+    if (cv) return cv;
+    const R = 10, S = R * 2 + 1;
+    cv = document.createElement('canvas');
+    cv.width = cv.height = S;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    g.fillStyle = col;
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const d = Math.hypot(x - R, y - R);
+      if (d > R) continue;
+      if (d < 6 ? ((x + y + f) & 1) === 0 : ((x + f) & 1) === 0 && (y & 1) === 0) g.fillRect(x, y, 1, 1);
+    }
+    glowC.set(k, cv);
+    return cv;
+  }
+  function shadowImg() {
+    if (shadowC) return shadowC;
+    const cv = document.createElement('canvas');
+    cv.width = 10; cv.height = 4;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    g.fillStyle = '#000';
+    g.fillRect(2, 0, 6, 4); g.fillRect(0, 1, 10, 2);
+    shadowC = cv;
+    return cv;
+  }
+  /** Suelta los brillos guardados (game.js purgeGfx). */
+  function purge() { for (const c of glowC.values()) G.U.freeCanvas(c); glowC.clear(); if (shadowC) G.U.freeCanvas(shadowC); shadowC = null; }
+
   function draw(ctx) {
+    const anim = G.Anim.on, sh = shadowImg();
     for (const p of list) {
       if (!G.Camera.sees(p.x, p.y, 30)) continue;
       const k = KIND[p.kind];
-      const bounce = Math.abs(Math.sin(p.t * 0.8)) * 3;
+      // Con «Animaciones» apagado, quieto: sin saltitos ni latidos (el brillo se queda, que se vea desde lejos).
+      const bounce = anim ? Math.abs(Math.sin(p.t * 0.8)) * 3 : 1;
       const r = k.r;
       const y = p.y - 6 - bounce;
       const xp = p.kind === 'xp' || p.kind === 'xpBig';
+      const f = anim ? (p.t * 0.5) & 1 : 0;
 
-      ctx.globalAlpha = 0.28;
-      ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, r * 0.9, r * 0.35, 0, 0, 6.2832); ctx.fill();
-
-      ctx.globalAlpha = 0.3;
-      ctx.fillStyle = k.glow;
-      ctx.beginPath(); ctx.arc(p.x, y, r * 2, 0, 6.2832); ctx.fill();
-
-      if (p.kind === 'item') {
-        // Objeto: brillo dorado latiendo, para que se vea desde lejos.
-        ctx.globalAlpha = 0.35 + Math.sin(p.t * 1.5) * 0.15;
-        ctx.fillStyle = '#ffe14d';
-        ctx.beginPath(); ctx.arc(p.x, y, 18, 0, 6.2832); ctx.fill();
+      if (sh) {
+        ctx.globalAlpha = 0.28;
+        ctx.drawImage(sh, Math.round(p.x - r), Math.round(p.y - r * 0.35), r * 2, r * 0.7);
       }
+      ctx.globalAlpha = 0.34;
+      const gi = glowImg(p.kind === 'item' ? '#ffe14d' : k.glow, f);
+      if (gi) { const D = p.kind === 'item' ? 42 : Math.round(r * 2) * 2; ctx.drawImage(gi, Math.round(p.x - D / 2), Math.round(y - D / 2), D, D); }
       ctx.globalAlpha = 1;
 
-      // El sprite del objeto, a 1 unidad por píxel (medio píxel de los Pokémon).
-      if (G.Icons.sprite(ctx, xp ? xpSprite(p.value) : p.kind === 'item' ? p.value : SPRITE[p.kind], p.x, y, 1)) continue;
+      // La moneda gira: el mismo dibujo, cada vez más estrecho.
+      const name = xp ? xpSprite(p.value) : p.kind === 'item' ? p.value : SPRITE[p.kind];
+      if (p.kind === 'coin' && anim) {
+        const w = [1, 0.75, 0.3, 0.75][(p.t * 2.2) & 3];
+        ctx.save();
+        ctx.translate(Math.round(p.x), Math.round(y));
+        ctx.scale(w, 1);
+        const ok = G.Icons.sprite(ctx, name, 0, 0, 1);
+        ctx.restore();
+        if (ok) continue;
+      } else if (G.Icons.sprite(ctx, name, p.x, y, 1)) {
+        // Un destello en los que valen algo: los caramelos grandes, los objetos.
+        if (anim && (p.kind === 'item' || p.kind === 'xpBig') && ((p.t * 0.7 + p.id) & 7) === 0) G.Icons.twinkle(ctx, p.x + 6, y - 7, (p.t * 0.7 + p.id) % 1, 2);
+        continue;
+      }
 
       // Sin cargar aún: el dibujo de antes.
       ctx.fillStyle = k.color;
@@ -212,5 +261,5 @@ G.Pickups = (() => {
     ctx.globalAlpha = 1;
   }
 
-  return { clear, all, dropXp, drop, update, draw, addRemote, removeId, pullAll, KIND, get count() { return list.length; } };
+  return { clear, all, dropXp, drop, update, draw, purge, glow: glowImg, addRemote, removeId, pullAll, KIND, get count() { return list.length; } };
 })();

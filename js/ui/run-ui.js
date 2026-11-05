@@ -100,7 +100,7 @@ G.RunUI = (() => {
       const g = pl.slots[i];
       if (!g || !g[0]) { atk.push(free); continue; }
       const m = g[0];
-      atk.push(`<span class="sl ico-tile tint${m.evolved ? ' evo' : ''}${g.length > 1 ? ' bond' : ''}" style="--tile-c:${typeCol(m)}" title="${g.map(x => G.T(x.name, 'move')).join(' + ')}">`
+      atk.push(`<span class="sl ico-tile tint${m.evolved ? ' evo' : ''}${g.length > 1 ? ' bond' : ''}" style="--tile-c:${typeCol(m)}" title="${g.map(x => G.T(x.name)).join(' + ')}">`
         + G.Icons.html('move:' + m.id, SZ) + (mini ? '' : `<i class="sl-lv">${m.lvl}</i>`)
         + (g.length > 1 ? `<i class="sl-plus">+${g.length - 1}</i>` : '') + '</span>');
     }
@@ -134,7 +134,7 @@ G.RunUI = (() => {
   const MORE = 5;
   function evolvesHtml(e) {
     if (!e || (!e.mine.length && !e.more.length)) return '';
-    const mine = e.mine.map(m => `<span class="evo-mv mine${m.ready ? ' ready' : ''}">${G.Icons.html('move:' + m.id, 24)}<b>${G.T(m.name, 'move')}</b></span>`).join('');
+    const mine = e.mine.map(m => `<span class="evo-mv mine${m.ready ? ' ready' : ''}">${G.Icons.html('move:' + m.id, 24)}<b>${G.T(m.name)}</b></span>`).join('');
     const more = e.more.slice(0, MORE).map(id => `<span class="evo-mv">${G.Icons.html('move:' + id, 24)}</span>`).join('')
       + (e.more.length > MORE ? `<span class="evo-more">+${e.more.length - MORE}</span>` : '');
     return `<span class="pc-evo evo-for${e.mine.some(m => m.ready) ? ' ready' : e.mine.length ? ' has' : ''}">`
@@ -277,7 +277,7 @@ G.RunUI = (() => {
     // Pasiva nueva que llena el último hueco mientras un ataque tuyo pide otra: lo avisa (en rojo).
     const lost = slot && !n ? G.LevelUp.wouldBlock(pl, id) : [];
     const warn = lost.length ? `<span class="pc-warn">${G.I18n.f('Te quedarás sin la evolución de {x}',
-      lost.slice(0, 2).map(m => G.T(m.name, 'move')).join(', ') + (lost.length > 2 ? '…' : ''))}</span>` : '';
+      lost.slice(0, 2).map(m => G.T(m.name)).join(', ') + (lost.length > 2 ? '…' : ''))}</span>` : '';
     return {
       cls: 'is-stat' + (unlocks ? ' unlocks' : ''), icon: c.icon, tile: unlocks ? 't-gold' : passive ? 't-purple' : 't-blue',
       badge: slot && n > 0 ? lvBadge(n, true, passive ? 'purple' : 'ghost') : passive ? badge('Pasivo', 'purple') : badge('Mejora', 'ghost'),
@@ -456,20 +456,20 @@ G.RunUI = (() => {
 
   function renderBond() {
     const { opt, first } = bond;
-    const names = ms => ms.map(m => G.T(m.name, 'move')).join(' + ');
+    const names = ms => ms.map(m => G.T(m.name)).join(' + ');
     const step2 = opt.mode === 'pair' && first;
     $('bond-sub').textContent = opt.mode === 'add' ? 'Elige qué movimiento se une a ' + names(opt.group)
-      : step2 ? '¿Con cuál unes ' + G.T(first.name, 'move') + '?' : 'Elige el primer movimiento que vas a unir';
+      : step2 ? '¿Con cuál unes ' + G.T(first.name) + '?' : 'Elige el primer movimiento que vas a unir';
     $('bond-back').classList.toggle('hidden', !step2);
     bond.list = step2 ? opt.loose.filter(m => m !== first) : opt.loose;
     const box = $('bond-cards');
     box.innerHTML = '';
     bond.list.forEach((m, i) => {
       const desc = opt.mode === 'add' ? 'Se lanzará a la vez que ' + names(opt.group) + '.'
-        : step2 ? 'Se lanzará a la vez que ' + G.T(first.name, 'move') + '. Queda un hueco libre.'
+        : step2 ? 'Se lanzará a la vez que ' + G.T(first.name) + '. Queda un hueco libre.'
         : m.desc || '';
       box.appendChild(cardEl({ cls: opt.mode === 'add' || step2 ? 'bond' : '', icon: 'move:' + m.id, tile: 'tint', tileC: typeCol(m),
-        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name, 'move'), chips: moveChips(m, false), desc,
+        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name), chips: moveChips(m, false), desc,
         evo: evoHtml(m, G.LevelUp.evoNeed(m, G.Game.player), 'pc-evo') }, i, () => pickBond(i)));
     });
   }
@@ -514,7 +514,7 @@ G.RunUI = (() => {
       const nums = m.cat ? `<b>${n(d)}</b><small>${total ? pct + ' %' : '—'} · ${n(d / secs)}/s</small>` : '<b>—</b>';
       return `<div class="mv-row${m.evolved ? ' evolved' : ''}">
         <span class="ico-tile s tint" style="--tile-c:${col}">${G.Icons.html('move:' + m.id, 30)}</span>
-        <div class="mv-main"><div class="mv-name"><b>${G.T(m.name, 'move')}</b><span class="badge ghost"><span>Nv.</span> ${m.lvl}</span></div>
+        <div class="mv-main"><div class="mv-name"><b>${G.T(m.name)}</b><span class="badge ghost"><span>Nv.</span> ${m.lvl}</span></div>
           <div class="mv-tags">${moveChips(m, withCat)}${evoHtml(m, G.LevelUp.evoNeed(m, pl), 'mv-evo')}</div></div>
         <div class="mv-num">${nums}</div>
         ${m.cat ? `<i class="mv-bar"><i style="width:${pct}%;background:${col}"></i></i>` : ''}</div>`;

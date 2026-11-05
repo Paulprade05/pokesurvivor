@@ -205,6 +205,96 @@ G.VFX = (() => {
       P.arc(1, 5, 4.6, -0.6, 0.6, 'l');
       P.arc(1, 5, 7.2, -0.5, 0.5, 'm');
     } },
+    // (Arte animado, 05-11-2026) Golpes en varios fotogramas: un destello que se abre en rayos y se rompe en puntos.
+    hit: { w: 21, h: 21, frames: 5, gen(P, f) {
+      const c = 10;
+      if (f === 0) P.fill((x, y) => { const d = Math.abs(x - c) + Math.abs(y - c); return d <= 3 ? 'w' : d <= 5 ? 'l' : null; });
+      for (let k = 0; k < 8 && f; k++) {
+        const a = k * Math.PI / 4 + Math.PI / 8 * (k & 1 ? 0.4 : 0), long = !(k & 1);
+        const r0 = [0, 2, 5, 8, 9][f], r1 = (long ? [0, 9, 10, 10, 10] : [0, 6, 7, 8, 9])[f];
+        for (let r = r0; r <= r1; r++) P.set(c + Math.cos(a) * r, c + Math.sin(a) * r, f === 1 ? (r < 4 ? 'w' : r < 7 ? 'l' : 'm') : f === 2 ? (r < 7 ? 'l' : 'm') : f === 3 ? 'm' : 'd');
+      }
+      if (f === 1) P.fill((x, y) => Math.hypot(x - c, y - c) < 2.6 ? 'w' : null);
+      if (f === 2) P.set(c, c, 'l');
+    } },
+    // Humo o polvo: tres bultos que crecen y se deshacen.
+    smoke: { w: 13, h: 13, frames: 4, gen(P, f) {
+      const r = [2, 2.8, 3.4, 3.8][f], d = [1.6, 2.6, 3.4, 4.2][f];
+      const lobes = [[6, 6 - d * 0.5], [6 - d, 6 + d * 0.5], [6 + d, 6 + d * 0.4]];
+      P.fill((x, y) => {
+        let m = 9;
+        for (const [a, b] of lobes) m = Math.min(m, Math.hypot(x - a, y - b) / r);
+        if (m > 1) return null;
+        if (f >= 2 && (x + y) % (f === 3 ? 2 : 3) === 0) return null;   // (se deshace a cuadros)
+        const lit = (x - 6) * -0.5 + (y - 6) * -0.8;
+        return f === 3 ? 'd' : lit > 1.2 ? 'l' : lit > -1.2 ? 'm' : 'd';
+      });
+    } },
+    // Salpicadura: corona de gotas que sube y cae.
+    splash: { w: 15, h: 13, frames: 4, gen(P, f) {
+      const n = 7, r = [2.5, 4.5, 6, 6.8][f], top = [0, 3, 3.5, 1][f];
+      for (let k = 0; k < n; k++) {
+        const a = Math.PI + (k + 0.5) / n * Math.PI, x = 7 + Math.cos(a) * r, y = 9 + Math.sin(a) * (r * 0.5 + top);
+        P.set(x, y, f < 2 ? 'w' : 'l');
+        if (f < 3) P.set(x, y + 1, f ? 'm' : 'l');
+        if (f === 1) P.set(x - Math.cos(a) * 1.2, y + 2, 'd');
+      }
+      if (f < 2) for (let x = 7 - r; x <= 7 + r; x++) P.set(x, 10, f ? 'm' : 'l');
+    } },
+    // Chispa: un rayito que cambia en cada fotograma.
+    zap: { w: 13, h: 13, frames: 3, gen(P, f) {
+      const pts = [[[6, 6], [9, 4], [8, 7], [12, 5]], [[6, 6], [3, 9], [6, 9], [2, 12]], [[6, 6], [4, 3], [7, 3], [5, 0]]][f];
+      for (let i = 0; i < 3; i++) P.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 'w', 0);
+      P.outline();
+    } },
+    // Esquirla o trozo de piedra.
+    chip: { w: 7, h: 7, frames: 2, spin: true, gen(P, f) {
+      if (f) { P.line(1, 5, 5, 1, 'l', 1, 'm'); P.set(5, 1, 'w'); } else P.fill((x, y) => Math.abs(x - 3) + Math.abs(y - 3) <= 2 ? (y < 3 ? 'l' : 'm') : null);
+      P.outline();
+    } },
+    // Estrellita que nace y se apaga.
+    sparkle: { w: 9, h: 9, frames: 4, gen(P, f) {
+      const L = [1, 3, 4, 2][f];
+      for (let i = 1; i <= L; i++) for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P.set(4 + a * i, 4 + b * i, i < L ? 'l' : 'm');
+      P.set(4, 4, 'w');
+      if (f === 1 || f === 2) for (const [a, b] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) P.set(4 + a, 4 + b, 'l');
+    } },
+    // Llamita de ánima: sube temblando.
+    flamelet: { w: 7, h: 11, frames: 3, gen(P, f) {
+      const sw = [0, 1, -1][f];
+      P.fill((x, y) => {
+        const t = y / 10, cx = 3 + sw * (1 - t) * 1.4, hw = 3.2 * Math.sin(Math.PI * Math.pow(t, 1.5));
+        const d = Math.abs(x - cx);
+        return d > hw ? null : d < hw * 0.35 && t > 0.5 ? 'w' : d < hw * 0.7 ? 'l' : 'm';
+      });
+    } },
+    bub: { w: 5, h: 5, gen(P) {
+      P.fill((x, y) => { const d = Math.hypot(x - 2, y - 2); return d <= 1.6 ? 'L' : d <= 2.5 ? 'm' : null; });
+      P.set(1, 1, 'w');
+    } },
+    // Halo bajo los proyectiles: un disco tramado, para que se lean como luz.
+    halo: { w: 19, h: 19, frames: 2, gen(P, f) {
+      P.fill((x, y) => {
+        const d = Math.hypot(x - 9, y - 9);
+        if (d > (f ? 9 : 8)) return null;
+        return d < 5 ? ((x + y) & 1 ? 'l' : null) : ((x ^ y) & 3) === (f ? 1 : 0) ? 'm' : null;
+      });
+    } },
+    // Explosión: núcleo blanco, bola de fuego que se abre y anillo de humo.
+    blast: { w: 33, h: 33, frames: 6, gen(P, f) {
+      const c = 16, R = [5, 9, 12, 14, 15, 15.5][f];
+      P.fill((x, y) => {
+        const a = Math.atan2(y - c, x - c), wob = 1 + 0.12 * Math.sin(a * 5 + f) + 0.08 * Math.sin(a * 9 - f * 2);
+        const d = Math.hypot(x - c, y - c) / (R * wob);
+        if (d > 1) return null;
+        if (f === 0) return d < 0.6 ? 'w' : 'l';
+        if (f === 1) return d < 0.5 ? 'w' : d < 0.8 ? 'l' : 'm';
+        if (f === 2) return d < 0.35 ? 'w' : d < 0.65 ? 'l' : d < 0.88 ? 'm' : 'd';
+        if (f === 3) return d < 0.4 ? null : d < 0.65 ? 'l' : d < 0.88 ? 'm' : 'd';
+        if (f === 4) return d < 0.62 ? null : (x + y) & 1 ? 'm' : 'd';
+        return d < 0.82 || (x ^ y) & 1 ? null : 'd';
+      });
+    } },
     impact: { w: 15, h: 15, frames: 2, gen(P, f) {
       for (let k = 0; k < 8; k++) {
         const a = k * Math.PI / 4 + (f ? Math.PI / 8 : 0), L = (k % 2 ? 3.5 : 6) * (f ? 1 : 0.75);

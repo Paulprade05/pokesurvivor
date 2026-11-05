@@ -15,7 +15,7 @@
  * arte sigue siendo la v1 a propósito: así no se pierden los sprites ya guardados
  * (sólo se quitan las copias repetidas de los reintentos, las que llevan ?r=).
  */
-const CODE = 'ps-code-v2', ART = 'ps-art-v1';
+const CODE = 'ps-code-v3', ART = 'ps-art-v1';      // (v3: fuera los diccionarios de idiomas quitados, js/lang/)
 const PRE_CODE = ['./', './index.html', './css/style.css', './manifest.webmanifest'];
 const PRE_ART = ['./assets/icons/icon-180.png', './assets/icons/icon-192.png', './assets/icons/icon-512.png'];
 

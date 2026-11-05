@@ -22,12 +22,7 @@
   var lang = (window.PS_LOCALES && window.PS_LOCALES.lang) || document.documentElement.lang || 'en';
   var texts = {
     es: ['Esta no es la web oficial', 'PokéSurvivor sólo se juega en su web oficial, gratis y sin anuncios.', 'Jugar en pokesurvivor.com'],
-    en: ['This is not the official website', 'PokéSurvivor can only be played on its official website, free and without ads.', 'Play on pokesurvivor.com'],
-    fr: ['Ce n’est pas le site officiel', 'PokéSurvivor se joue uniquement sur son site officiel, gratuitement et sans publicité.', 'Jouer sur pokesurvivor.com'],
-    it: ['Questo non è il sito ufficiale', 'PokéSurvivor si gioca solo sul suo sito ufficiale, gratis e senza pubblicità.', 'Gioca su pokesurvivor.com'],
-    'pt-BR': ['Este não é o site oficial', 'PokéSurvivor só pode ser jogado no site oficial, de graça e sem anúncios.', 'Jogar em pokesurvivor.com'],
-    'zh-Hans': ['这不是官方网站', 'PokéSurvivor 只能在官方网站免费游玩，没有广告。', '前往 pokesurvivor.com 游玩'],
-    'zh-Hant': ['這不是官方網站', 'PokéSurvivor 只能在官方網站免費遊玩，沒有廣告。', '前往 pokesurvivor.com 遊玩']
+    en: ['This is not the official website', 'PokéSurvivor can only be played on its official website, free and without ads.', 'Play on pokesurvivor.com']
   };
   var copy = texts[lang] || texts.en;
 

@@ -945,7 +945,7 @@ G.HUD = (() => {
       // Nombre encima del activo, en una chapa (con un vínculo: "Ascuas +2"): un rato al
       // cambiar de ataque (o al aprender, evolucionar o vincular el activo) y se va (nameA).
       if (on && nameA > 0) {
-        const nm = fused ? G.T(m.name, 'move') + ' +' + (g.length - 1) : G.T(m.name, 'move');
+        const nm = fused ? G.T(m.name) + ' +' + (g.length - 1) : G.T(m.name);
         ctx.font = F(600, cmp ? 11 : 12);
         ctx.textAlign = 'center';
         // (Sin salirse por los lados: con el móvil de pie, el del último hueco se cortaba.

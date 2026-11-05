@@ -187,7 +187,7 @@ G.Combat = (() => {
     // sólo para lanzarla (así el compañero la ve en esa dirección) y se devuelve.
     if (m.kind === 'knife') {
       if (!swap) { swap = true; t0 = pl.target; a0 = pl.aim; }
-      if (!pl.manualAim) pl.aim = pl.moveAngle;
+      if (!pl.manualAim) pl.aim = knifeAim(pl, m);
     }
     m.t = cooldown(pl, m);
     // Una sola vez: esta recarga × cdK (ataques únicos: Huesomerang atrapado...).
@@ -716,6 +716,12 @@ G.Combat = (() => {
         hits: new Set(), vis, ghost, owner: pl
       }, payload(m)));
     }
+  }
+
+  /** Hacia donde andas, o al enemigo más cercano en ese lado (5-11-2026: si no, huyendo no daba a nadie). */
+  function knifeAim(pl, m) {
+    const e = G.Projectiles.nearest(G.EnemyMgr.all().filter(o => inArc(pl.x, pl.y, o.x, o.y, pl.moveAngle, 0.8)), pl.x, pl.y, reach(m));
+    return e ? Math.atan2(e.y - pl.y, e.x - pl.x) : pl.moveAngle;
   }
 
   /** Ráfaga (Knife): `count` disparos seguidos hacia pl.aim (en tickMove, donde miras). Los suelta el campo «burst». */
@@ -6382,8 +6388,14 @@ G.Combat = (() => {
       try { allies(pl, m); } finally { m.count = c0; m.dmg = d0; }
       if (ko >= 15 && !ghost) G.FX.dmgText(pl.x, pl.y - pl.bodyH - 18, '+' + Math.min(4, Math.floor(ko / 15)), '#a8b4ff');
     },
-    after(pl, e, m) { if (m.raise && e.dead && !e.remote) rise3(pl, m, e); }
+    after(pl, e, m) {
+      // (4-11-2026, partidas reales: Marshadow hacía 4 veces menos daño) El golpe del espíritu salpica a los de al lado.
+      if (sees(e.x, e.y)) G.FX.ring(e.x, e.y, 6, 64, '#a8b4ff', 0.22, 2);
+      areaHit(pl, m, e.x, e.y, 64, atk(pl, m) * 0.8, { filter: o => o !== e, ho: LR_SPLASH });
+      if (m.raise && e.dead && !e.remote) rise3(pl, m, e);
+    }
   };
+  const LR_SPLASH = { raw: true };
   function rise3(pl, m, e) {
     let n = 0;
     for (const f of fields) if (f.risen && f.owner === pl && !f.gone) n++;
@@ -6874,11 +6886,19 @@ G.Combat = (() => {
   }
 
   // Cañón Floral → Luz Aniquiladora: la aguja planta flores que estallan al segundo; evolucionado, disparan un rayo hacia ti.
+  /** (4-11-2026, partidas reales: 8.000 de daño/s, ×2-3 el siguiente) Cada rayo de Réplica reparte el daño en vez de sumarlo entero. */
+  function replicaShare(f, m) {
+    const rep = Math.max(0, f.n - G.Moves.levelCount(m) - (m.evolved ? 1 : 0));
+    if (rep) f.dmg *= Math.sqrt(1 - rep / f.n);
+  }
   MECH['fleur-cannon'] = {
     cast(pl, m) {
       sweep(pl, m);
       const f = fields[fields.length - 1];
-      if (f && f.kind === 'sweep') { f.on3 = fleurOn3; f.acc3 = 0.3; }
+      if (f && f.kind === 'sweep') {
+        f.on3 = fleurOn3; f.acc3 = 0.3;
+        replicaShare(f, m);
+      }
     }
   };
   function fleurOn3(f, prev) {
@@ -10112,6 +10132,11 @@ G.Combat = (() => {
 
   // ---- Rayo Carga → Rayo Fusión ----
   MECH['charge-beam'] = {
+    cast(pl, m) {
+      sweep(pl, m);
+      const f = fields[fields.length - 1];
+      if (f && f.kind === 'sweep') replicaShare(f, m);
+    },
     tick(pl, m, dt) {
       const s = stOf(m);
       // Cada vuelta completa en la que golpea a alguien: +1 pila de at. esp. (máx 3, 6 s).

@@ -116,23 +116,12 @@ G.RankingUI = (() => {
     rows.forEach((r, i) => list.appendChild(rowEl(r, i + 1, r.uids.includes(uid), b, done)));
 
     // La frase se monta en cada idioma (traducirla por trozos sale rara).
-    const lang = G.I18n.lang, en = lang === 'en', pos = '#' + (me && me.capped ? '1000+' : me && me.pos);
-    if (lang !== 'es' && !en) {
-      // Otros idiomas: frases enteras sin periodo ni Pokémon (ya se ven en los filtros).
-      const rk = $('rk-me');
-      rk.setAttribute('translate', 'no');
-      rk.textContent = !G.Social.me ? G.T('Elige un apodo (en Amigos) para salir en el ranking.')
-        : me && me.out ? G.T('Aún no estás en el top 50. Tu puesto está en Histórico.')
-        : me ? G.I18n.f('Tu mejor puesto: {x}', pos) + ' · ' + fmt(me.t)
-        : G.T('Aún no tienes marca.');
-      return;
-    }
+    const en = G.I18n.lang === 'en', pos = '#' + (me && me.capped ? '1000+' : me && me.pos);
     const pn = en ? { d: 'today', w: 'this week', m: 'this month', y: 'this year', a: 'of all time' }[period]
                   : { d: 'de hoy', w: 'de esta semana', m: 'de este mes', y: 'de este año', a: 'de siempre' }[period];
     const mon = dex ? G.DEX_BY[dex].name : '';
     const where = en ? (mode === 's' ? 'solo' : 'group') + (dex ? ' with ' + mon : '')
                      : (mode === 's' ? 'en solitario' : 'en grupo') + (dex ? ' con ' + mon : '');
-    $('rk-me').removeAttribute('translate');
     $('rk-me').innerHTML = !G.Social.me ? 'Elige un apodo (en Amigos) para salir en el ranking.'
       : me && me.out ? (en ? `<span translate="no">You're not in the top 50 ${where} ${pn} yet. Your rank is in All-time.</span>`
                            : `Aún no estás en el top 50 ${pn} ${where}. Tu puesto está en Histórico.`)

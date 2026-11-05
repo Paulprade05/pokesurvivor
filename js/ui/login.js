@@ -103,10 +103,7 @@ G.LoginUI = (() => {
     const queue = NOTES.filter(n => { try { return n.when() && !localStorage.getItem(n.key); } catch (e) { return false; } });
     if (!queue.length) return false;
     const en = G.I18n.lang === 'en' ? 1 : 0;
-    // Otros idiomas: título, aviso y botón de su diccionario (el aviso entero: por trozos
-    // sale raro); si falta, en inglés. La caja va con translate="no" (dev.html).
-    const other = G.I18n.lang !== 'es' && !en;
-    const pick = (es, eng) => (!other ? (en ? eng : es) : G.I18n.has(es) ? G.T(es) : eng);
+    const pick = (es, eng) => (en ? eng : es);
     const next = () => {
       const n = queue.shift();
       if (!n) { $('scr-savenote').classList.add('hidden'); return; }
@@ -114,7 +111,6 @@ G.LoginUI = (() => {
       if (G.Icons && n.ico) $('savenote-ico').innerHTML = G.Icons.html(n.ico, n.ico === 'save' ? 40 : 60);
       $('savenote-title').textContent = pick(n.title[0], n.title[1]);
       const body = $('savenote-body');
-      if (other) body.setAttribute('translate', 'no');
       body.innerHTML = pick(n.body[0], n.body[1]);
       $('savenote-ok').textContent = pick('Entendido', 'Got it');
     };

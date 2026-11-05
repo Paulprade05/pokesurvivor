@@ -22,6 +22,10 @@ Cada cambio de juego o arreglo de fallos va también en `js/data/changelog.js`
 (español e inglés, en `new` / `chg` / `fix` de la fecha de hoy). Los cambios de
 servidores, base de datos o costes NO van ahí.
 
+## Idiomas
+El juego está sólo en español e inglés (desde el 05-11-2026). Los textos nuevos van en
+español y en `js/data/lang-en.js`; no se añaden otros idiomas.
+
 ## Servidores
 Esta copia (repositorio Paulprade05/pokesurvivor) se publica en GitHub Pages:
 https://paulprade05.github.io/pokesurvivor/ (sin dominio propio).

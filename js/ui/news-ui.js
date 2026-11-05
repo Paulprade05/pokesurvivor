@@ -44,10 +44,7 @@ G.NewsUI = (() => {
   }
 
   function open() {
-    // Historical notes without a complete translation use the existing English
-    // version, never a sentence assembled from partially translated fragments.
-    const text = pair => G.I18n.lang === 'es' ? pair[0]
-      : G.I18n.lang === 'en' || !G.I18n.has(pair[0]) ? pair[1] : G.T(pair[0]);
+    const text = pair => pair[G.I18n.lang === 'es' ? 0 : 1];
     // Cada texto ya va en su idioma: translate="no" para que no lo toque i18n.
     const PARTS = [['new', ['Nuevo', 'New']], ['chg', ['Cambios', 'Changes']], ['fix', ['Arreglos', 'Fixes']]];
     // Punto rojo: lo que no habías visto (la primera vez, sólo la más nueva).
