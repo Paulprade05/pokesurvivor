@@ -909,16 +909,18 @@ G.World = (() => {
   const SPR = { img: null, P: 2, pmd: false };
   function spriteOf(bi, type, variant) {
     SPR.pmd = false;
+    // (Arte animado) Sólo el árbol del tileset tiene fotogramas: los de tiles.js eligen forma con variant (si no, cambiarían de forma).
+    const look = type === 'tree' ? variant % 3 : variant;
     if (pmdOn(bi)) {
       const o = G.Tileset.prop(bi, type, variant);
       // (Los cofres en bloque, como las paredes, llevan su sombra dibujada: como los árboles de PMD.)
       if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'tree' || type === 'trap' || (type !== 'rock' && G.Tileset.isPx(o)); return SPR; }
       const pal = G.Tileset.pal(bi), g24 = !!pal && (type !== 'grass' || G.Tiles.grass24(bi));
-      SPR.img = G.Tiles.propSprite(bi, type, variant, g24 ? pal : null);
+      SPR.img = G.Tiles.propSprite(bi, type, look, g24 ? pal : null);
       SPR.P = type === 'grass' ? (g24 ? TS / G.Tileset.T : GS) : G.Sprites.PX;
       return SPR;
     }
-    SPR.img = G.Tiles.propSprite(bi, type, variant);
+    SPR.img = G.Tiles.propSprite(bi, type, look);
     SPR.P = type === 'grass' ? GS : G.Sprites.PX;
     return SPR;
   }

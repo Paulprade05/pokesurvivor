@@ -363,7 +363,7 @@ G.Tileset = (() => {
     if (v >= 0 && m.vars[v] && s.vars[v] && (m.vars[v].cells[0] / Math.pow(2, ISO)) % 2 >= 1) src = s.vars[v];
     const cv = document.createElement('canvas');
     cv.width = T + TM * 2; cv.height = T + TM;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', { willReadFrequently: true });       // (de aquí se leen sus 8 fotogramas)
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.imageSmoothingEnabled = false;
     g.drawImage(src, (ISO % 6) * T, ((ISO / 6) | 0) * T, T, T, TM, TM, T, T);

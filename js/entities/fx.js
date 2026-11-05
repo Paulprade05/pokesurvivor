@@ -194,10 +194,10 @@ G.FX = (() => {
   function ring(x, y, r0, r1, color, life = 0.3, width = 3) {
     rings.push({ x, y, r0, r1, color, life, t: 0, width });
     // (Arte animado) Los estallidos grandes llevan su explosión en el centro.
-    // (Las blancas son avisos y cambios de fase, no explosiones; y nunca tan grande que tape a tu Pokémon: tope ×2.)
+    // (Las blancas son avisos y cambios de fase, no explosiones; y nunca encima de tu Pokémon, que lo taparía: tope ×2.)
     if (width >= 4 && r1 >= 70 && r1 < 600 && G.Anim.on) {
-      const p = palOf(color);
-      if (p !== 'normal') sp('blast', p, x, y - 8, { life: 0.36, scale: Math.min(2, r1 / 80), frameRate: 17, fade: false });
+      const p = palOf(color), me = G.Game.player;
+      if (p !== 'normal' && !(me && Math.abs(me.x - x) < 50 && Math.abs(me.y - y) < 50)) sp('blast', p, x, y - 8, { life: 0.36, scale: Math.min(2, r1 / 80), frameRate: 17, fade: false });
     }
   }
 
