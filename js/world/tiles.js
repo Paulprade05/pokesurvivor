@@ -818,14 +818,19 @@ G.Tiles = (() => {
   function propSprite(bi, type, variant = 0, pal = null) {
     const k = (pal ? 'p' : '') + bi + '/' + type + '/' + variant;
     let cv = propCache.get(k);
-    if (!cv) { cv = PAINT[type](pal ? pmdBiome(bi, pal) : BIOMES[bi], variant, pal ? 24 : T); propCache.set(k, cv); }
+    if (!cv) {
+      // (Arte animado) Los fotogramas del viento se pintan poco a poco: mientras, el quieto de esa mata.
+      if (pal && type === 'grass' && variant % 9 && variant % 9 < 8 && grass24(bi) && !G.Anim.take()) return propSprite(bi, type, variant - variant % 9, pal);
+      cv = PAINT[type](pal ? pmdBiome(bi, pal) : BIOMES[bi], variant, pal ? 24 : T);
+      propCache.set(k, cv);
+    }
     return cv;
   }
   const pmdCache = new Map();
   function pmdBiome(bi, pal) {
     let B = pmdCache.get(bi);
     if (!B) {
-      B = Object.assign({}, BIOMES[bi], { floor: pal.floor, rock: pal.rock.slice(0, 3), grass: pal.grass.slice(0, 3), leaf: pal.wall });
+      B = Object.assign({}, BIOMES[bi], { floor: pal.floor, rock: pal.rock.slice(0, 3), grass: pal.grass.slice(1, 4), leaf: pal.wall });
       pmdCache.set(bi, B);
     }
     return B;
@@ -1090,10 +1095,11 @@ G.Tiles = (() => {
      * está dentro. Estado: 0 quieta · 1 viento · 2 la pisan.
      */
     grass(B, variant = 0, S = T) {
-      if (variant >= 9) variant -= 9;                    // (las variantes 9..17 eran las del Ultra de antes)
+      if (S !== 24 && variant >= 9) variant -= 9;        // (las variantes 9..17 eran las del Ultra de antes)
       // (29-10-2026) La hierba alta, en suelo de metal: rejilla con cables; en madera: esteras de tatami.
       if (B.ground === 'metal') return PAINT.grate(B, variant);
       if (B.ground === 'wood') return PAINT.mats(B, variant);
+      if (S === 24) return PAINT.grass24(B, variant);
       // (6b) S: px por casilla (16 el pintor; 24 con el tileset de Mundo Misterioso: las matas, ×1,5 más altas).
       const k = S / 16;
       const P = Pix(S + 2, S + 2);
@@ -1135,6 +1141,50 @@ G.Tiles = (() => {
       //  Con 24, matas cada 12 px y al tresbolillo: entre ellas se ve el suelo.
       for (const x of k > 1 ? [-5, 7, 19, 31] : [-3, 5, 13, 21]) tuft(x + 1, Math.round(10 * k), hb);   // fila de detrás
       for (const x of k > 1 ? [1, 13, 25] : [1, 9, 17]) tuft(x + 1, Math.round(15 * k), hf - 1);   // fila de delante
+      return P.canvas();
+    },
+
+    /*
+     * (Arte animado, 05-11-2026) La hierba alta con el tileset: hojas sueltas, cada una con su altura y su inclinación, en
+     * vez de filas de matas iguales con contorno (de lejos parecían setos de pinos). Atrás las oscuras, delante las claras y
+     * entre ellas se ve el suelo. El dibujo se repite cada 24 px y hace campo. Sólo el extremo de cada hoja se mueve.
+     * variant = aspecto × 9 + fotograma: 0..7 el viento, 8 pisada (se abre y se aplasta). Colores: los del bioma (ramp).
+     */
+    grass24(B, variant = 0) {
+      const look = Math.floor(variant / 9) % 3, f = variant % 9, step = f === 8;
+      const P = Pix(26, 26);
+      const Gc = ramp(B.grass), hi = sortHex(B.grass)[2];
+      const shadow = pack(shade(sortHex(B.grass)[0], -0.3)), lite = mixPack(hi, '#ffffff', 0.1), tip = mixPack(hi, '#ffffff', 0.32);
+      const ph = f / 8 * Math.PI * 2;
+      const blade = (bx, by, h, lean, i, rows) => {
+        const hh = step ? Math.round(h * 0.6) : h;
+        const sw = step ? (bx < 12 ? -2.6 : 2.6) : Math.sin(ph + i * 0.9) * 1.6;      // lo que se mueve la punta
+        for (let j = 0; j < hh; j++) {
+          const t = j / Math.max(1, hh - 1), cx = bx + (lean + sw) * t * t;
+          const half = 1.5 * (1 - t) + 0.1, tone = t > 0.66 ? 2 : t > 0.28 ? 1 : 0;
+          for (let w = -24; w <= 24; w += 24) {                                       // (se repite: sin costuras)
+            const x0 = Math.round(cx - half) + w + 1, x1 = Math.round(cx + half) + w + 1;
+            for (let x = x0; x <= x1; x++) P.set(x, by - j, rows[x === x1 && x1 > x0 ? Math.max(0, tone - 1) : tone]);
+          }
+        }
+      };
+      const R = (i, s) => H(i, look * 7 + 3, s);
+      // Matas: cada una, un abanico de hojas que salen del mismo sitio. Atrás, las oscuras; delante, las claras.
+      const clumps = [[3, 14, 11, 0], [15, 13, 12, 0], [9, 19, 11, 1], [21, 20, 10, 1], [4, 24, 8, 2], [15, 25, 9, 2]];
+      const tones = [[shadow, Gc[0], Gc[1]], [Gc[0], Gc[1], lite], [Gc[1], lite, tip]];
+      let i = 0;
+      for (const [x0, y0, h0, li] of clumps) {
+        const cx = x0 + (R(i, 95) - 0.5) * 4, cy = y0 - Math.round(R(i, 96) * 2);
+        for (const a of [-1, 1, 0]) {                                                 // (la del centro, encima)
+          blade(cx + a * 2, cy, h0 - Math.abs(a) * 2 + Math.round(R(i, 92) * 3), a * 2.8 + (R(i, 94) - 0.5) * 2.2, i, tones[li]);
+          i++;
+        }
+      }
+      // En algunas matas, una flor: lo único de la hierba que no es hierba.
+      if (look === 2 && !step) {
+        const fl = pack((B.flowers || ['#ffd54a'])[0]), s = Math.round(Math.sin(ph) * 1.2);
+        P.set(16 + s, 9, fl); P.set(15 + s, 10, fl); P.set(17 + s, 10, fl); P.set(16 + s, 11, fl); P.set(16 + s, 10, pack('#fff6c8'));
+      }
       return P.canvas();
     },
 

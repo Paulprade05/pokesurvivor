@@ -704,7 +704,7 @@ G.World = (() => {
     dropImages(images); if (fade) dropImages(fade.images); fade = null;
   }
   // (Bloque 6) Tileset de Mundo Misterioso: ¿se usa ya para el bioma bi? Al acabar de cargar uno, se rehornea.
-  let pmd = false, flat3d = false;
+  let pmd = false, flat3d = false, g24 = false;
   const pmdOn = bi => !!(G.Tileset && G.Tileset.ready(bi));
   if (G.Tileset) G.Tileset.onReady = bi => { if (bi === biome || (fade && bi === fade.from)) { dropImages(images); if (fade) dropImages(fade.images); } };
 
@@ -797,6 +797,8 @@ G.World = (() => {
   /** exact: a escala entera (el lienzo del suelo del modo Ultra, en game.js): sin el px de solape. */
   function drawGround(ctx, cam, exact = false) {
     syncMode();
+    G.Anim.frame(performance.now());
+    g24 = pmd && pmdOn(biome) && G.Tiles.grass24(biome);
     ctx.imageSmoothingEnabled = false;
     const k = fadeK(), S = exact ? CW : CW + 1;
     // (Revisión del bloque 6) En el fundido, los chunks del bioma nuevo se hornean poco a poco: uno por fotograma y
@@ -881,12 +883,14 @@ G.World = (() => {
   function propVariant(p, t) {
     switch (p.type) {
       case 'grass': {
-        const pl = livePl;
-        if (pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8) return (p.look % 3) * 3 + 2;
-        return (p.look % 3) * 3 + (Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
+        const pl = livePl, step = pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8;
+        // (Arte animado) Con el tileset, la hierba de 24 px: 8 fotogramas de viento y uno pisada (tiles.js grass24).
+        if (g24) return (p.look % 3) * 9 + (step ? 8 : G.Anim.wind(p.x, p.y));
+        if (step) return (p.look % 3) * 3 + 2;
+        return (p.look % 3) * 3 + (G.Anim.on && Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
       }
       case 'rock': return (p.look % 2) * 2 + (p.hp < p.maxHp * 0.5 ? 1 : 0);
-      case 'tree': return p.look % 3;
+      case 'tree': return p.look % 3 + 3 * G.Anim.wind(p.x, p.y);      // (arte animado: tileset.js prop)
       case 'altar': return p.kind * 2 + (p.used ? 1 : 0);
       case 'spring': return p.charge < 0.15 ? 1 : 0;
       case 'trap': return p.kind * 4 + (((t * 5 + p.wiggle) | 0) & 3);
@@ -928,6 +932,7 @@ G.World = (() => {
   function drawProp0(ctx, p, t, a0, a1) {
     if (p.wallrow) { drawWallRow(ctx, p, a0, a1); return; }
     const variant = propVariant(p, t);
+    if (p.type === 'tree') G.Ambient.tree(p);
     const { img, P, pmd: block } = spriteOf(biome, p.type, variant);
     const w = img.width * P, h = img.height * P;
     if (p.flat) {
