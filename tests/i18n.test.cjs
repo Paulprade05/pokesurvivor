@@ -87,18 +87,21 @@ for (const [i, lang] of langs.entries()) {
     assert.equal(b.G.LoginUI.updateNotices(), false);
   });
   if (lang === 'es') continue;
+  const SOLO_ES_EN = new Set(['Animaciones', 'Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.']);
   test(`${lang}: current English-key coverage and placeholder contracts`, () => {
     const { G, load } = boot(lang);
     if (lang !== 'en') {
       // Todo lo que tiene inglés (lang-en.js y los datos del juego) tiene también este idioma.
-      assert.deepEqual(langs1.missing().res[lang], []);
+      // (Decisión del dueño, 05-11-2026: lo nuevo, sólo en español e inglés. Excepción con nombre hasta que se junte
+      //  el PR de solo-es-en, que quita estos idiomas y esta comprobación.)
+      assert.deepEqual(langs1.missing().res[lang].filter(k => !SOLO_ES_EN.has(k)), []);
       for (const [d, l] of langs1.capture(langs1.SOURCES, '?')) if (l === lang) for (const [k, v] of Object.entries(d)) {
         assert.equal((k.match(/\{(?:x|name)\}/g) || []).length,
           (v.match(/\{(?:x|name)\}/g) || []).length, k);
       }
     }
     load('js/data/changelog.js');
-    if (lang !== 'en') for (const entry of G.CHANGELOG.filter(e => e.d >= '2026-10-18')) {
+    if (lang !== 'en') for (const entry of G.CHANGELOG.filter(e => e.d >= '2026-10-18' && e.d < '2026-11-05')) {
       for (const pair of [entry.title, ...(entry.new || []), ...(entry.chg || []), ...(entry.fix || [])]) {
         assert.ok(G.I18n.has(pair[0]), pair[0]);
       }
