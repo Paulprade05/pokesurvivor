@@ -14,7 +14,9 @@
  */
 G.Anim = (() => {
   let on = G.Settings.get('anim') !== false;
-  G.Settings.on((k, v) => { if (k === 'anim') on = v !== false; });
+  const mark = () => { if (typeof document !== 'undefined') document.documentElement.classList.toggle('no-anim', !on); };   // (css/style.css)
+  mark();
+  G.Settings.on((k, v) => { if (k === 'anim') { on = v !== false; mark(); } });
   let ph = 0, last = 0, now = 0, dt = 0, budget = 2, gust = 0.5, force = 0;
   const TAU = Math.PI * 2;
 

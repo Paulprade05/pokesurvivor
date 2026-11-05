@@ -938,18 +938,22 @@ G.World = (() => {
     if (p.flat) {
       // Planos (manantial, trampa): pegados al suelo, centrados en su casilla (las trampas de PMD, en toda la casilla).
       ctx.drawImage(img, Math.round(p.x - w / 2), Math.round((block ? p.y + 4 - TS / 2 : p.y - 8) - h / 2), w, h);
-      if (p.type === 'spring' && p.charge >= 0.15 && Math.sin(t * 3 + p.wiggle) > 0.92) {
+      if (p.type === 'spring' && p.charge >= 0.15 && G.Anim.on && Math.sin(t * 3 + p.wiggle) > 0.92) {
         G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 + G.U.rand(-6, 6));
+        G.Ambient.ring(p.x + G.U.rand(-14, 14), p.y - 8 + G.U.rand(-5, 5));
       }
       return;
     }
     if (p.type === 'altar' && !p.used) {
-      // Halo del orbe, latiendo (el orbe va en (10, 5.5) del sprite).
-      const col = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'][p.kind];
-      ctx.globalAlpha = 0.22 + Math.sin(t * 3 + p.wiggle) * 0.1;
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(p.x, p.y - h + 2 + 5.5 * P, 13, 0, 6.2832); ctx.fill();
-      ctx.globalAlpha = 1;
+      // Halo del orbe (el orbe va en (10, 5.5) del sprite): a píxeles y latiendo; con «Animaciones» apagado, quieto.
+      const col = ORB_COL[p.kind], ox = p.x, oy = p.y - h + 2 + 5.5 * P, pu = G.Anim.tick(4, 5, p.wiggle * 3);
+      const ha = G.Pickups.glow(col, pu & 1);
+      if (ha) {
+        const D = 30 + (pu === 2 ? 6 : 0);
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(ha, Math.round(ox - D / 2), Math.round(oy - D / 2), D, D);
+        ctx.globalAlpha = 1;
+      }
     }
     if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
     const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
@@ -990,11 +994,37 @@ G.World = (() => {
     ctx.restore();
   }
 
+  /*
+   * (Arte animado, 05-11-2026) Lo que hace cada objeto de vez en cuando (veces por segundo; sale del mismo bucle que ya
+   * recorre los objetos que se ven y son partículas normales, con su tope): los cofres brillan, las trampas burbujean, sueltan
+   * esporas o tiemblan, los manantiales hacen ondas. Las torres, sus chispas de poder.
+   */
+  const LIVELY = { chest: 0.35, bigchest: 0.7, trap: 1.3, altar: 1.4 };
+  const ORB_COL = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'];
+  function lively(p) {
+    const r = Math.random;
+    switch (p.type) {
+      case 'chest': case 'bigchest': G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 - r() * 26); break;
+      case 'trap': {
+        const c = p.kind === 0 ? '#c48ae8' : p.kind === 1 ? '#f4f0d0' : '#ffb8a0';
+        G.FX.px(p.x + G.U.rand(-14, 14), p.y - 2 + G.U.rand(-10, 8), c, { vy: -G.U.rand(14, 30), vx: G.U.rand(-6, 6), life: 0.7, drag: 1 });
+        break;
+      }
+      case 'altar':
+        if (!p.used) G.FX.px(p.x + G.U.rand(-9, 9), p.y - 36, ORB_COL[p.kind], { vy: -G.U.rand(22, 40), life: 0.8, drag: 1 });
+        break;
+    }
+  }
+
   function update(dt, cam) {
     if (fade && (fade.t += dt) >= FADE) { dropImages(fade.images); fade = null; }
     // (Ultra: con la perspectiva se ve más por arriba y por los lados.)
+    const anim = G.Anim.on;
     for (const [cx, cy] of visibleChunks(cam, G.Camera.persp ? 150 : 60)) {
-      for (const p of chunkData(cx, cy).props) if (p.flash > 0) p.flash -= dt;
+      for (const p of chunkData(cx, cy).props) {
+        if (p.flash > 0) p.flash -= dt;
+        if (anim && LIVELY[p.type] && Math.random() < dt * LIVELY[p.type]) lively(p);
+      }
     }
   }
 

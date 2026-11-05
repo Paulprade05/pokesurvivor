@@ -390,5 +390,5 @@ G.Ambient = (() => {
   /** world.js: un árbol que se ve (de aquí salen las hojas). */
   function tree(p) { if (!hasTree) { tx = p.x; ty = p.y; hasTree = rnd() < 0.2; } }
 
-  return { ground, air, tree, reset() { recipeOf = -1; flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
+  return { ground, air, tree, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
 })();

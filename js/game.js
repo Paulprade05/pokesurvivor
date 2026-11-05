@@ -79,6 +79,7 @@ G.Game = (() => {
     G.Ultra3D.free();
     // (iPhone: ataques invisibles, 02-11-2026) También los sprites guardados de ataques y avisos.
     G.VFX.purge();
+    G.Pickups.purge();
     G.Hazards.purge();
     G.Combat.purgeWebs();
     if (emptied) G.Tileset.purge();        // (vaciados por Safari: también árboles y rocas repintados)

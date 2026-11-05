@@ -12,6 +12,72 @@ G.FX = (() => {
   const CAP_PARTS = [350, 800, 1400], CAP_SPRITES = [110, 210, 320], CAP_TEXTS = [25, 45, 70], DENS = [0.35, 0.65, 1];
   const q = () => G.Settings.fx;
   let parts = [], sprites = [], texts = [], rings = [], slashes = [], beams = [];
+  /*
+   * (Arte animado, 05-11-2026) Golpes con dibujo propio de cada tipo. Sólo aspecto: se cuelga de lo que ya se ve al golpear
+   * (Enemy.showHurt, burst, ring) y no toca el daño. Coste con tope: como mucho HIT_MAX golpes con adornos por fotograma y
+   * TRAIL_MAX estelas; los demás salen sólo con la chispa de siempre, así que mil enemigos cuestan lo mismo que diez.
+   * Con «Animaciones» apagado no sale nada de esto: se sigue viendo la chispa, los números y los ataques.
+   */
+  const HIT_MAX = [2, 4, 7], TRAIL_MAX = [1, 3, 6];
+  let hitLeft = 0, trailLeft = 0;
+  const palCache = new Map();
+  /** El tipo (paleta de G.VFX) más cercano a un color: los golpes llegan con su color, no con su tipo. */
+  function palOf(hex) {
+    let p = palCache.get(hex);
+    if (p) return p;
+    p = 'normal';
+    const n = parseInt(String(hex).slice(1), 16);
+    if (/^#[0-9a-f]{6}$/i.test(hex)) {
+      const r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+      let best = 1e9;
+      for (const k in G.VFX.PAL) {
+        if (k === 'aura') continue;
+        for (const i of [2, 3]) {
+          const c = parseInt(G.VFX.PAL[k][i].slice(1), 16), d = (r - (c >> 16 & 255)) ** 2 + (g - (c >> 8 & 255)) ** 2 + (b - (c & 255)) ** 2;
+          if (d < best) { best = d; p = k; }
+        }
+      }
+    }
+    palCache.set(hex, p);
+    return p;
+  }
+
+  function debris(shape, pal, x, y, n, o) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.2832, s = G.U.rand(o.v * 0.5, o.v);
+      sp(shape, pal, x + Math.cos(a) * 4, y + Math.sin(a) * 4, { vx: Math.cos(a) * s, vy: Math.sin(a) * s + (o.vy || 0), life: G.U.rand(o.life * 0.7, o.life), grav: o.grav || 0,
+         spin: o.spin ? G.U.rand(-o.spin, o.spin) : 0, frameRate: o.fr || 10, scale: o.scale || 1 });
+    }
+  }
+
+  /** Lo que sale al golpear, según el tipo. big: crítico, muy eficaz o jefe. */
+  function hitFx(x, y, color, big = false) {
+    if (hitLeft <= 0 || !G.Anim.on) return;
+    hitLeft--;
+    const pal = palOf(color), D = DENS[q()] >= 1 ? 1 : 0;
+    sp('hit', pal, x, y, { life: 0.2, scale: big ? 1.75 : 1.25, frameRate: 25, fade: false });
+    switch (pal) {
+      case 'fire': debris('smoke', 'fire', x, y, 1 + D, { v: 26, vy: -34, life: 0.32, fr: 12 }); for (let i = 0; i < 3; i++) px(x + G.U.rand(-6, 6), y, Math.random() < 0.5 ? '#ffb22e' : '#ff6a1f', { vy: -G.U.rand(40, 90), vx: G.U.rand(-20, 20), life: 0.4 }); break;
+      case 'water': sp('splash', pal, x, y - 4, { life: 0.28, scale: 1.25, frameRate: 14, fade: false }); for (let i = 0; i < 3; i++) px(x, y, '#8ccaff', { vx: G.U.rand(-60, 60), vy: -G.U.rand(40, 90), grav: 380, life: 0.36 }); break;
+      case 'grass': case 'bug': debris('leaf', pal, x, y, 2 + D, { v: 60, vy: -10, grav: 90, life: 0.5, spin: 9, scale: 0.75 }); break;
+      case 'electric': sp('zap', pal, x, y, { life: 0.16, scale: 1.5, frameRate: 18, fade: false }); debris('zap', pal, x, y, D, { v: 50, life: 0.14, fr: 20 }); break;
+      case 'ice': debris('chip', pal, x, y, 3 + D, { v: 90, life: 0.3, spin: 10 }); break;
+      case 'rock': case 'ground': debris('chip', pal, x, y, 2 + D, { v: 70, vy: -50, grav: 420, life: 0.4, spin: 12 }); debris('smoke', pal, x, y + 6, 1, { v: 12, life: 0.3, fr: 13 }); break;
+      case 'steel': debris('chip', pal, x, y, 2, { v: 110, life: 0.2, spin: 16 }); for (let i = 0; i < 3; i++) px(x, y, '#ffffff', { vx: G.U.rand(-130, 130), vy: G.U.rand(-130, 130), life: 0.16 }); break;
+      case 'poison': debris('bub', pal, x, y, 2 + D, { v: 26, vy: -44, life: 0.45 }); break;
+      case 'psychic': case 'fairy': debris('sparkle', pal, x, y, 2 + D, { v: 46, life: 0.34, fr: 12 }); break;
+      case 'ghost': case 'dark': case 'dragon': debris('flamelet', pal, x, y, 1 + D, { v: 20, vy: -52, life: 0.42, fr: 9 }); break;
+      case 'flying': debris('leaf', pal, x, y, 2, { v: 70, life: 0.4, spin: 8, scale: 0.75 }); break;
+      default: for (let i = 0; i < 3; i++) px(x, y, '#ffffff', { vx: G.U.rand(-90, 90), vy: G.U.rand(-90, 90), life: 0.2 });
+    }
+  }
+
+  /** Un enemigo se debilita: se deshace en humo. */
+  function faintFx(x, y, boss) {
+    if (hitLeft <= 0 || !G.Anim.on) return;
+    hitLeft--;
+    debris('smoke', 'normal', x, y, boss ? 6 : 2, { v: boss ? 70 : 34, vy: -14, life: 0.42, fr: 9, scale: boss ? 2 : 1 });
+  }
 
   function clear() { parts = []; sprites = []; texts = []; rings = []; slashes = []; beams = []; }
 
@@ -41,6 +107,7 @@ G.FX = (() => {
 
   function burst(x, y, color, n = 8, power = 110) {
     n = Math.max(1, Math.round(n * DENS[q()]));
+    if (n <= 8) hitFx(x, y, color);                    // (un disparo que se acaba contra algo)
     for (let i = 0; i < n; i++) {
       const a = Math.random() * 6.2832, s = G.U.rand(power * 0.35, power);
       px(x, y, color, { vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: G.U.rand(0.22, 0.5), size: Math.random() < 0.35 ? 2 : 1 });
@@ -85,6 +152,12 @@ G.FX = (() => {
       case 'dirt':    px(x + j(), y + j(), P[Math.random() < 0.5 ? 2 : 1], { vx: Math.cos(back) * 25, vy: -20, grav: 300, life: 0.35 }); break;
       case 'wisp':    px(x + j() * 2, y + j() * 2, P[Math.random() < 0.5 ? 1 : 2], { vy: -30, life: 0.5, size: 2 }); break;
     }
+    // (Arte animado) Y de vez en cuando, un dibujo: humo, burbuja, chispa o llamita (con tope por fotograma).
+    if (trailLeft > 0 && G.Anim.on && Math.random() < 0.3) {
+      trailLeft--;
+      const sh = { ember: 'smoke', drip: 'bub', spark: 'zap', bubbles: 'bub', dirt: 'smoke', wisp: 'flamelet' }[kind];
+      if (sh) sp(sh, pal, x + j(), y + j(), { vy: kind === 'dirt' ? 6 : -22, life: 0.3, frameRate: sh === 'smoke' ? 12 : 14, scale: sh === 'smoke' ? 0.75 : 1 });
+    }
     mine = false;
   }
 
@@ -120,6 +193,12 @@ G.FX = (() => {
   /** Anillo de onda (puntos de píxel). */
   function ring(x, y, r0, r1, color, life = 0.3, width = 3) {
     rings.push({ x, y, r0, r1, color, life, t: 0, width });
+    // (Arte animado) Los estallidos grandes llevan su explosión en el centro.
+    // (Las blancas son avisos y cambios de fase, no explosiones; y nunca tan grande que tape a tu Pokémon: tope ×2.)
+    if (width >= 4 && r1 >= 70 && r1 < 600 && G.Anim.on) {
+      const p = palOf(color);
+      if (p !== 'normal') sp('blast', p, x, y - 8, { life: 0.36, scale: Math.min(2, r1 / 80), frameRate: 17, fade: false });
+    }
   }
 
   /** Golpe cuerpo a cuerpo. fx: { pal, melee } (ver G.VFX.forMove). */
@@ -147,13 +226,14 @@ G.FX = (() => {
     beams.push({ x, y, angle, len, width, pal: fx.pal || 'normal', shape: fx.beam || null, t: 0, life: 0.2, seed: Math.random() * 100, own: !fx.foe });
     foe = !!fx.foe;
     sp('impact', fx.pal || 'normal', x + Math.cos(angle) * 10, y + Math.sin(angle) * 10, { life: 0.12, scale: 1 });
-    sp('impact', fx.pal || 'normal', x + Math.cos(angle) * len, y + Math.sin(angle) * len, { life: 0.18, scale: 1.5 });
+    sp('hit', fx.pal || 'normal', x + Math.cos(angle) * len, y + Math.sin(angle) * len, { life: 0.2, scale: 1.5, frameRate: 25, fade: false });
     foe = false;
   }
 
   // ---------------- actualización ----------------
 
   function update(dt) {
+    hitLeft = HIT_MAX[q()]; trailLeft = TRAIL_MAX[q()];
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
       p.t += dt;
@@ -335,6 +415,6 @@ G.FX = (() => {
     ctx.restore();
   }
 
-  return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw, ownAlpha,
+  return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw, ownAlpha, hitFx, faintFx,
            get count() { return parts.length + sprites.length + texts.length; } };
 })();
