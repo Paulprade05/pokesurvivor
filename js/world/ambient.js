@@ -390,5 +390,18 @@ G.Ambient = (() => {
   /** world.js: un árbol que se ve (de aquí salen las hojas). */
   function tree(p) { if (!hasTree) { tx = p.x; ty = p.y; hasTree = rnd() < 0.2; } }
 
-  return { ground, air, tree, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
+  /** Suelta los lienzos guardados (Safari los ha vaciado o falta memoria, game.js purgeGfx); se rehacen solos. */
+  function purge() {
+    if (atlas) G.U.freeCanvas(atlas);
+    atlas = null;
+    if (leafC) G.U.freeCanvas(leafC);
+    if (ringC) G.U.freeCanvas(ringC);
+    leafC = ringC = null; leafKey = ringKey = '';
+    for (const c of halos.values()) G.U.freeCanvas(c);
+    halos.clear();
+    for (const c of cloudC) if (c) G.U.freeCanvas(c);
+    cloudC = [];
+  }
+
+  return { ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
 })();

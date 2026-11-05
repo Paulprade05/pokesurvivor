@@ -1183,7 +1183,7 @@ G.Tiles = (() => {
       // En algunas matas, una flor: lo único de la hierba que no es hierba.
       if (look === 2 && !step) {
         const fl = pack((B.flowers || ['#ffd54a'])[0]), s = Math.round(Math.sin(ph) * 1.2);
-        P.set(16 + s, 9, fl); P.set(15 + s, 10, fl); P.set(17 + s, 10, fl); P.set(16 + s, 11, fl); P.set(16 + s, 10, pack('#fff6c8'));
+        P.set(16 + s, 9, fl); P.set(17 + s, 9, fl); P.set(16 + s, 10, fl); P.set(17 + s, 10, pack('#fff6c8'));
       }
       return P.canvas();
     },

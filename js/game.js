@@ -80,9 +80,10 @@ G.Game = (() => {
     // (iPhone: ataques invisibles, 02-11-2026) También los sprites guardados de ataques y avisos.
     G.VFX.purge();
     G.Pickups.purge();
+    G.Ambient.purge();
     G.Hazards.purge();
     G.Combat.purgeWebs();
-    if (emptied) G.Tileset.purge();        // (vaciados por Safari: también árboles y rocas repintados)
+    if (emptied) { G.Tileset.purge(); G.Tiles.clearProps(); }      // (vaciados por Safari: también árboles, rocas y hierba repintados)
   }
 
   // (iPhone: ataques invisibles, 02-11-2026) Safari puede vaciar los lienzos guardados sin avisar (sin el
