@@ -55,7 +55,7 @@ G.FX = (() => {
     if (hitLeft <= 0 || !G.Anim.on) return;
     hitLeft--;
     const pal = palOf(color), D = DENS[q()] >= 1 ? 1 : 0;
-    sp('hit', pal, x, y, { life: 0.2, scale: big ? 1.75 : 1.25, frameRate: 25, fade: false });
+    sp('hit', pal, x, y, { life: 0.2, scale: big ? 1.5 : 1, frameRate: 25, fade: false });
     switch (pal) {
       case 'fire': debris('smoke', 'fire', x, y, 1 + D, { v: 26, vy: -34, life: 0.32, fr: 12 }); for (let i = 0; i < 3; i++) px(x + G.U.rand(-6, 6), y, Math.random() < 0.5 ? '#ffb22e' : '#ff6a1f', { vy: -G.U.rand(40, 90), vx: G.U.rand(-20, 20), life: 0.4 }); break;
       case 'water': sp('splash', pal, x, y - 4, { life: 0.28, scale: 1.25, frameRate: 14, fade: false }); for (let i = 0; i < 3; i++) px(x, y, '#8ccaff', { vx: G.U.rand(-60, 60), vy: -G.U.rand(40, 90), grav: 380, life: 0.36 }); break;
