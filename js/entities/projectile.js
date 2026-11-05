@@ -205,6 +205,8 @@ G.Projectiles = (() => {
       let angle = 0;
       if (G.VFX.isDir(shape)) angle = p.orb ? p.oa + Math.PI / 2 : Math.atan2(p.vy, p.vx);
       else if (G.VFX.spins(shape)) angle = p.t * 9;
+      // (Arte animado) Un halo tramado que late debajo: el disparo se lee como luz. Sólo los tuyos y en calidad media o alta.
+      if (p.friendly && !p.orb && G.Anim.on && G.Settings.fx > 0) G.VFX.draw(ctx, 'halo', v.pal, p.x, p.y - L, { alpha: 0.45 * a * own, frame: (p.t * 10) | 0, scale: p.r >= 8 ? 1.25 : 1 });
       // (Los de un movimiento Z, del tamaño de lo que golpean: las bolas de fuego gigantes se ven gigantes.)
       G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, {
         angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.ds || (p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1),

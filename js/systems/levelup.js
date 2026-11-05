@@ -270,7 +270,7 @@ G.LevelUp = (() => {
           // ataque físico y Maquinación el especial: llevan la del lado que suben.)
           tag: G.U.TYPE_NAME[d.type],
           cat: G.Stats.NAME[d.cat || (d.stat === 'patk' ? 'physical' : d.stat === 'satk' ? 'special' : '')] || '',
-          title: G.T(d.name, 'move'), desc: d.desc + fitNote(pl.mon, d.cat), evo: evoNeed(d, pl),
+          title: G.T(d.name), desc: d.desc + fitNote(pl.mon, d.cat), evo: evoNeed(d, pl),
           apply: p => p.addMove(id)
         });
       }
@@ -285,7 +285,7 @@ G.LevelUp = (() => {
       out.push({
         w: 40, type: 'evo', key: 'evo:' + m.id,
         icon: 'move:' + m.id, color: '#ffd23f', tag: 'EVOLUCIÓN',
-        title: G.T(m.name, 'move') + ' → ' + G.T(ev.name, 'move'), desc: ev.text, evo: evoNeed(m, pl),
+        title: G.T(m.name) + ' → ' + G.T(ev.name), desc: ev.text, evo: evoNeed(m, pl),
         apply: p => {
           G.Moves.evolve(m);
           G.FX.ring(p.x, p.y, 8, 120, '#ffd23f', 0.8, 6);
@@ -304,7 +304,7 @@ G.LevelUp = (() => {
         w: 8, type: 'up', key: 'up:' + m.id,
         icon: 'move:' + m.id, color: G.U.TYPE_COLOR[m.type],
         tag: 'Nv.' + m.lvl + ' > ' + (m.lvl + 1),
-        title: G.T(m.name, 'move'), desc: txt, evo: evoNeed(m, pl),
+        title: G.T(m.name), desc: txt, evo: evoNeed(m, pl),
         apply: () => G.Moves.levelUp(m)
       });
     }
@@ -336,7 +336,7 @@ G.LevelUp = (() => {
       out.push({
         w: evoFor ? 14 : needed[s.id] ? 11 : (pl.slots.length < pl.maxMoves ? 4 : 7) * (idle ? 0.5 : 1),
         type: 'stat', key: 'stat:' + s.id,
-        icon: s.icon, color: done ? '#ffd23f' : '#8fa3c4', tag: done ? 'Evoluciona ' + evoFor.map(m => G.T(m.name, 'move')).join(', ') : 'Mejora',
+        icon: s.icon, color: done ? '#ffd23f' : '#8fa3c4', tag: done ? 'Evoluciona ' + evoFor.map(m => G.T(m.name)).join(', ') : 'Mejora',
         title: s.title, desc: s.desc, evolves: evolvesWith(s.id, pl),
         apply: p => { s.apply(p); p.statsTaken[s.id] = (p.statsTaken[s.id] || 0) + 1; }
       });

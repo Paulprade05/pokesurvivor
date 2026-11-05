@@ -19,6 +19,12 @@
  *   frenado            suma de lo que frenan los frenados (0,5 = uno a media velocidad), por segundo
  *   cura               vida por segundo que te devuelve · bloqueos: golpes parados por segundo
  *   pasivas            lo que gana su DPS (al nivel máximo) con TODAS las cartas de esa pasiva
+ *
+ * (4-11-2026) Con `balance.cjs --todas`, además, la tabla «Con todas las pasivas»:
+ *   jefe / horda / marea  con TODAS las pasivas a la vez; marea = enemigos que caen y vienen de lejos (la que se
+ *                         parece a una partida, ver balance.cjs). El veneno cuenta.
+ *   valor real            VR_JEFE de jefe y el resto de marea (media geométrica) frente a la mediana de su etapa:
+ *                         en las partidas sólo va a jefes entre un 5 y un 30 % del daño.
  */
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
@@ -73,13 +79,13 @@ const UTIL = new Set(['buff', 'ward', 'wipe']);
 
 const out = [];
 const w = s => out.push(s);
-w('# Estudio de los ataques (2026-11-02)');
+w('# Estudio de los ataques (2026-11-02, todas las pasivas: 2026-11-04)');
 w('');
-w('Hecho con `tools/estudio.cjs` a partir de `tools/balance.cjs --pasivos` (combate de verdad, semilla fija: sale siempre');
+w('Hecho con `tools/estudio.cjs` a partir de `tools/balance.cjs --pasivos --todas` (combate de verdad, semilla fija: sale siempre');
 w('lo mismo). Cómo se mide cada columna, en la cabecera de `tools/estudio.cjs`. Para repetirlo:');
 w('');
 w('```');
-w('node tools/balance.cjs --pasivos --json bal.json');
+w('node tools/balance.cjs --pasivos --todas --json bal.json');
 w('node tools/estudio.cjs bal.json > docs/ESTUDIO-ATAQUES.md');
 w('```');
 w('');
@@ -138,6 +144,40 @@ for (const id of order.filter(i => !UTIL.has(M.BY_ID[i].kind)).concat(order.filt
     PASS.map(([p]) => (util ? '—' : pct(g[p]))).join(' | ') + ' |');
 }
 w('');
+
+// ---------------- todas las pasivas (4-11-2026) ----------------
+if (rep.todas) {
+  const VR_JEFE = 0.2, med = a => { const x = a.slice().sort((p, q) => p - q); return x[x.length >> 1] || 1; };
+  const tot = x => (x ? x.dps + x.psn : 0);
+  const stats = st => {
+    const l = Object.values(rep.todas).map(t => t[st]).filter(Boolean);
+    return { j: med(l.map(x => tot(x.jefe))), h: med(l.map(x => tot(x.horda))), m: med(l.map(x => tot(x.marea))) };
+  };
+  const MS = { max: stats('max'), evo: stats('evo') };
+  const vr = (x, st) => (x ? Math.pow(Math.max(tot(x.jefe), 1) / MS[st].j, VR_JEFE) * Math.pow(Math.max(tot(x.marea), 1) / MS[st].m, 1 - VR_JEFE) : null);
+  const n = Object.keys(rep.todas).length;
+  const list = Object.keys(rep.todas).map(id => ({ id, a: rep.todas[id].max, b: rep.todas[id].evo }))
+    .sort((x, y) => (vr(y.b || y.a, y.b ? 'evo' : 'max') - vr(x.b || x.a, x.b ? 'evo' : 'max')));
+  const flag = v => (v == null ? '' : v > 1.5 ? ' ▲' : v < 0.6 ? ' ▼' : '');
+  const anteT = ante && ante.todas;
+  w('## Con todas las pasivas');
+  w('');
+  w(`Los ${n} ataques que pegan, al nivel máximo y evolucionados, con **todas** las cartas de Amplitud, Persistencia, Réplica, Propulsión y Puntería a la vez (no suman: Réplica tiene tope y unas pasivas potencian a otras).`);
+  w(`«Marea» es lo que se parece a una partida: ${rep.marea.n} enemigos que caen y vienen andando hacia ti. «Horda» son 50 pegados a ti que no caen: exagera los ataques de área.`);
+  w(`**Valor real**: marea ${Math.round((1 - VR_JEFE) * 100)} % y jefe ${Math.round(VR_JEFE * 100)} % (media geométrica) frente a la mediana de su etapa. ▲ más de 1,5; ▼ menos de 0,6. Con 1 de ataque, sin \`EVO_K\` ni \`MOVE_K\`.`);
+  w('');
+  w(`Medianas: máximo jefe ${n0(MS.max.j)} · horda ${n0(MS.max.h)} · marea ${n0(MS.max.m)}; evolucionado jefe ${n0(MS.evo.j)} · horda ${n0(MS.evo.h)} · marea ${n0(MS.evo.m)}.`);
+  w('');
+  w(`| Ataque | Familia | Máx: jefe / horda / marea | valor real | Evo: jefe / horda / marea | valor real${anteT ? ' (antes)' : ''} | marea: todas ÷ sin pasivas |`);
+  w('|---|---|---|---|---|---|---|');
+  for (const { id, a, b } of list) {
+    const d = M.BY_ID[id], e = M.EVO[id], x = b || a, st = b ? 'evo' : 'max';
+    const was = anteT && anteT[id] && anteT[id][st];
+    const tri = t => (t ? `${n0(tot(t.jefe))} / ${n0(tot(t.horda))} / ${n0(tot(t.marea))}` : '—');
+    w(`| ${d.name}${e ? ' → ' + e[0] : ''} | ${FAM[d.kind] || d.kind} | ${tri(a)} | ${a ? n2(vr(a, 'max')) + flag(vr(a, 'max')) : '—'} | ${tri(b)} | ${b ? n2(vr(b, 'evo')) + flag(vr(b, 'evo')) : '—'}${was ? ` (${n2(Math.pow(Math.max(tot(was.jefe), 1) / MS[st].j, VR_JEFE) * Math.pow(Math.max(tot(was.marea), 1) / MS[st].m, 1 - VR_JEFE))})` : ''} | ×${n2(x.marea.dps / Math.max(1, x.marea0.dps))} |`);
+  }
+  w('');
+}
 
 // ---------------- fichas ----------------
 w('## Ficha de cada ataque');

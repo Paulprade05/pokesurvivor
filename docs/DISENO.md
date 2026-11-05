@@ -47,7 +47,6 @@ Usa siempre la variable, nunca el valor suelto.
 
 - `--font` = **Nunito** (texto de lectura, etiquetas, descripciones).
 - `--font-display` = **Fredoka** (títulos, botones, números, nombres de Pokémon, pestañas).
-- En chino, ambas llevan detrás las fuentes del sistema (PingFang, Microsoft YaHei/JhengHei, Noto Sans CJK): no hay que hacer nada.
 - Escala: `--fs-xs` 12 · `--fs-s` 13 · `--fs-m` 15 · `--fs-l` 18 · `--fs-xl` 22 · `--fs-2xl` 26 · `--fs-3xl` 34 px. **Nunca menos de 11 px.**
   En el móvil (modo compacto, §16) la base los baja solos: 11 · 12 · 14 · 16 · 19 · 22 · 28 px, y la letra del `body`, de 16 a 15.
 - Pesos: Fredoka 600 (títulos, botones) y 700 (logotipo, cifras gordas); Nunito 400 (texto), 600-700 (etiquetas), 800 (`<b>`).
@@ -376,11 +375,10 @@ Reglas:
 
 ## 13. Texto e idiomas
 
-- Todo el texto visible se escribe en **español** en el HTML o en el JS; `i18n.js` lo traduce solo (por frase exacta). Cada frase nueva hay que darla con sus traducciones (en, fr, it, pt-BR, zh-Hans, zh-Hant).
+- Todo el texto visible se escribe en **español** en el HTML o en el JS; `i18n.js` lo traduce solo (por frase exacta). Cada frase nueva hay que darla con su inglés (`js/data/lang-en.js`).
 - Un texto = un nodo: no partas una frase en trozos con etiquetas en medio si puedes evitarlo (se traduce peor). Las cifras, aparte: `<b>12</b><span>Mejor nivel</span>`.
 - Lo que escribe el jugador (apodos) va con `translate="no"`.
 - `title`, `aria-label`, `placeholder` y `alt` también se traducen: úsalos.
-- En chino el texto ocupa menos ancho pero más alto: deja respirar las líneas.
 
 ---
 
@@ -399,7 +397,7 @@ Reglas:
 - `min-height` en `.btn`; `vh` fijos; anchos fijos sin `min()`.
 - Colores sueltos en el código (`#3d67c0`…) en vez de tokens.
 - Escalar sprites con CSS a tamaños no enteros.
-- Tocar `index.html`, `js/app.min.js` o `js/lang/*` (se generan).
+- Tocar `index.html` o `js/app.min.js` (se generan).
 
 ---
 

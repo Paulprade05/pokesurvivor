@@ -79,9 +79,11 @@ G.Game = (() => {
     G.Ultra3D.free();
     // (iPhone: ataques invisibles, 02-11-2026) También los sprites guardados de ataques y avisos.
     G.VFX.purge();
+    G.Pickups.purge();
+    G.Ambient.purge();
     G.Hazards.purge();
     G.Combat.purgeWebs();
-    if (emptied) G.Tileset.purge();        // (vaciados por Safari: también árboles y rocas repintados)
+    if (emptied) { G.Tileset.purge(); G.Tiles.clearProps(); }      // (vaciados por Safari: también árboles, rocas y hierba repintados)
   }
 
   // (iPhone: ataques invisibles, 02-11-2026) Safari puede vaciar los lienzos guardados sin avisar (sin el
@@ -184,6 +186,7 @@ G.Game = (() => {
     G.Path.clear();
     G.Hazards.clear();
     G.World.reset(coop ? coop.seed : Math.floor(Math.random() * 1e6));
+    G.Ambient.reset();
     G.World.setBiome(0, true);
     biome = 0;
     time = 0; pendingLevels = 0;
@@ -1081,6 +1084,7 @@ G.Game = (() => {
     const t = performance.now() / 1000;
     G.World.drawGround(ctx, cam);
     G.World.drawLiquid(ctx, cam, t);
+    G.Ambient.ground(ctx, cam);          // (arte animado: nubes, ondas; pura decoración)
     G.EnemyAI.drawGround(ctx);           // (los que van bajo tierra: su montículo)
     G.Hazards.draw(ctx);
     G.Combat.drawGroundFields(ctx);
@@ -1162,6 +1166,7 @@ G.Game = (() => {
       gx.imageSmoothingEnabled = false;
       G.World.drawGround(gx, view, true);
       G.World.drawLiquid(gx, view, t);
+      G.Ambient.ground(gx, view);
       const props = G.World.visibleProps(view);
       // (Ultra 3D, world/ultra3d.js) Paredes, rocas y cofres en 3D de verdad, si se puede; si no, este fotograma en 2D.
       const u3 = G.Ultra3D.begin(cam, Kd, cv.width, Hd, props);
@@ -1287,6 +1292,7 @@ G.Game = (() => {
         ax.clearRect(0, 0, acv.width, acv.height);
         ax.setTransform(Kd, 0, 0, Kd, -aox * Kd, -aoy * Kd);
         ax.imageSmoothingEnabled = false;
+        G.Ambient.air(ax, cam);
         G.Projectiles.draw(ax);
         G.Combat.drawAirFields(ax);
         G.FX.draw(ax);
@@ -1356,6 +1362,7 @@ G.Game = (() => {
       ctx.scale(G.Camera.scale, G.Camera.scale);
       G.Camera.apply(ctx);
       drawScene(G.Camera, ents);
+      G.Ambient.air(ctx, G.Camera);
       G.Projectiles.draw(ctx);
       G.Combat.drawAirFields(ctx);
       G.FX.draw(ctx);
@@ -1501,6 +1508,7 @@ G.Game = (() => {
         ctx.scale(G.Camera.scale, G.Camera.scale);
         G.Camera.apply(ctx);
         drawScene(G.Camera, wanderers);
+        G.Ambient.air(ctx, G.Camera);
         ctx.restore();
       }
       G.World.drawVignette(ctx, w, h);

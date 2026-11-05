@@ -312,6 +312,7 @@
       G.FX.dmgText(this.x, this.y - this.bodyH - 4, d, eff === 'crit' ? '#ff9a3c' : eff === 'super' ? '#ffe14d' : eff === 'weak' ? '#a3abb8' : color,
                    this.boss || eff === 'super' || eff === 'crit');
       G.FX.spark(this.x, this.y - this.bodyH * 0.5, color, dirX, dirY, 3);
+      G.FX.hitFx(this.x, this.y - this.bodyH * 0.5, color, this.boss || eff === 'super' || eff === 'crit');
       if (!this.anim.busy() && this.phase !== 'dash') this.anim.play('Hurt');
       G.Audio.sfx('hit');
     }
@@ -347,6 +348,7 @@
       this.anim.play('Faint', { hold: true });
       const col = this.boss ? '#ffd95e' : '#ffffff';
       const cy = this.y - this.bodyH * 0.5;
+      G.FX.faintFx(this.x, cy, this.boss);
       G.FX.burst(this.x, cy, col, this.boss ? 34 : 9, this.boss ? 260 : 120);
       G.FX.ring(this.x, this.y, this.r, this.r * (this.boss ? 6 : 2.6), col, this.boss ? 0.6 : 0.3, this.boss ? 6 : 3);
       // En una copia, el botín y los shinies los reparte el anfitrión.

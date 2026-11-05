@@ -704,7 +704,7 @@ G.World = (() => {
     dropImages(images); if (fade) dropImages(fade.images); fade = null;
   }
   // (Bloque 6) Tileset de Mundo Misterioso: ¿se usa ya para el bioma bi? Al acabar de cargar uno, se rehornea.
-  let pmd = false, flat3d = false;
+  let pmd = false, flat3d = false, g24 = false;
   const pmdOn = bi => !!(G.Tileset && G.Tileset.ready(bi));
   if (G.Tileset) G.Tileset.onReady = bi => { if (bi === biome || (fade && bi === fade.from)) { dropImages(images); if (fade) dropImages(fade.images); } };
 
@@ -797,6 +797,8 @@ G.World = (() => {
   /** exact: a escala entera (el lienzo del suelo del modo Ultra, en game.js): sin el px de solape. */
   function drawGround(ctx, cam, exact = false) {
     syncMode();
+    G.Anim.frame(performance.now());
+    g24 = pmd && pmdOn(biome) && G.Tiles.grass24(biome);
     ctx.imageSmoothingEnabled = false;
     const k = fadeK(), S = exact ? CW : CW + 1;
     // (Revisión del bloque 6) En el fundido, los chunks del bioma nuevo se hornean poco a poco: uno por fotograma y
@@ -881,12 +883,14 @@ G.World = (() => {
   function propVariant(p, t) {
     switch (p.type) {
       case 'grass': {
-        const pl = livePl;
-        if (pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8) return (p.look % 3) * 3 + 2;
-        return (p.look % 3) * 3 + (Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
+        const pl = livePl, step = pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8;
+        // (Arte animado) Con el tileset, la hierba de 24 px: 8 fotogramas de viento y uno pisada (tiles.js grass24).
+        if (g24) return (p.look % 3) * 9 + (step ? 8 : G.Anim.wind(p.x, p.y));
+        if (step) return (p.look % 3) * 3 + 2;
+        return (p.look % 3) * 3 + (G.Anim.on && Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
       }
       case 'rock': return (p.look % 2) * 2 + (p.hp < p.maxHp * 0.5 ? 1 : 0);
-      case 'tree': return p.look % 3;
+      case 'tree': return p.look % 3 + 3 * G.Anim.wind(p.x, p.y);      // (arte animado: tileset.js prop)
       case 'altar': return p.kind * 2 + (p.used ? 1 : 0);
       case 'spring': return p.charge < 0.15 ? 1 : 0;
       case 'trap': return p.kind * 4 + (((t * 5 + p.wiggle) | 0) & 3);
@@ -905,16 +909,18 @@ G.World = (() => {
   const SPR = { img: null, P: 2, pmd: false };
   function spriteOf(bi, type, variant) {
     SPR.pmd = false;
+    // (Arte animado) Sólo el árbol del tileset tiene fotogramas: los de tiles.js eligen forma con variant (si no, cambiarían de forma).
+    const look = type === 'tree' ? variant % 3 : variant;
     if (pmdOn(bi)) {
       const o = G.Tileset.prop(bi, type, variant);
       // (Los cofres en bloque, como las paredes, llevan su sombra dibujada: como los árboles de PMD.)
       if (o) { SPR.img = o; SPR.P = TS / G.Tileset.T; SPR.pmd = type === 'tree' || type === 'trap' || (type !== 'rock' && G.Tileset.isPx(o)); return SPR; }
       const pal = G.Tileset.pal(bi), g24 = !!pal && (type !== 'grass' || G.Tiles.grass24(bi));
-      SPR.img = G.Tiles.propSprite(bi, type, variant, g24 ? pal : null);
+      SPR.img = G.Tiles.propSprite(bi, type, look, g24 ? pal : null);
       SPR.P = type === 'grass' ? (g24 ? TS / G.Tileset.T : GS) : G.Sprites.PX;
       return SPR;
     }
-    SPR.img = G.Tiles.propSprite(bi, type, variant);
+    SPR.img = G.Tiles.propSprite(bi, type, look);
     SPR.P = type === 'grass' ? GS : G.Sprites.PX;
     return SPR;
   }
@@ -928,23 +934,28 @@ G.World = (() => {
   function drawProp0(ctx, p, t, a0, a1) {
     if (p.wallrow) { drawWallRow(ctx, p, a0, a1); return; }
     const variant = propVariant(p, t);
+    if (p.type === 'tree') G.Ambient.tree(p);
     const { img, P, pmd: block } = spriteOf(biome, p.type, variant);
     const w = img.width * P, h = img.height * P;
     if (p.flat) {
       // Planos (manantial, trampa): pegados al suelo, centrados en su casilla (las trampas de PMD, en toda la casilla).
       ctx.drawImage(img, Math.round(p.x - w / 2), Math.round((block ? p.y + 4 - TS / 2 : p.y - 8) - h / 2), w, h);
-      if (p.type === 'spring' && p.charge >= 0.15 && Math.sin(t * 3 + p.wiggle) > 0.92) {
+      if (p.type === 'spring' && p.charge >= 0.15 && G.Anim.on && Math.sin(t * 3 + p.wiggle) > 0.92) {
         G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 + G.U.rand(-6, 6));
+        G.Ambient.ring(p.x + G.U.rand(-14, 14), p.y - 8 + G.U.rand(-5, 5));
       }
       return;
     }
     if (p.type === 'altar' && !p.used) {
-      // Halo del orbe, latiendo (el orbe va en (10, 5.5) del sprite).
-      const col = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'][p.kind];
-      ctx.globalAlpha = 0.22 + Math.sin(t * 3 + p.wiggle) * 0.1;
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(p.x, p.y - h + 2 + 5.5 * P, 13, 0, 6.2832); ctx.fill();
-      ctx.globalAlpha = 1;
+      // Halo del orbe (el orbe va en (10, 5.5) del sprite): a píxeles y latiendo; con «Animaciones» apagado, quieto.
+      const col = ORB_COL[p.kind], ox = p.x, oy = p.y - h + 2 + 5.5 * P, pu = G.Anim.tick(4, 5, p.wiggle * 3);
+      const ha = G.Pickups.glow(col, pu & 1);
+      if (ha) {
+        const D = 30 + (pu === 2 ? 6 : 0);
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(ha, Math.round(ox - D / 2), Math.round(oy - D / 2), D, D);
+        ctx.globalAlpha = 1;
+      }
     }
     if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
     const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
@@ -985,11 +996,37 @@ G.World = (() => {
     ctx.restore();
   }
 
+  /*
+   * (Arte animado, 05-11-2026) Lo que hace cada objeto de vez en cuando (veces por segundo; sale del mismo bucle que ya
+   * recorre los objetos que se ven y son partículas normales, con su tope): los cofres brillan, las trampas burbujean, sueltan
+   * esporas o tiemblan, los manantiales hacen ondas. Las torres, sus chispas de poder.
+   */
+  const LIVELY = { chest: 0.35, bigchest: 0.7, trap: 1.3, altar: 1.4 };
+  const ORB_COL = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'];
+  function lively(p) {
+    const r = Math.random;
+    switch (p.type) {
+      case 'chest': case 'bigchest': G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 - r() * 26); break;
+      case 'trap': {
+        const c = p.kind === 0 ? '#c48ae8' : p.kind === 1 ? '#f4f0d0' : '#ffb8a0';
+        G.FX.px(p.x + G.U.rand(-14, 14), p.y - 2 + G.U.rand(-10, 8), c, { vy: -G.U.rand(14, 30), vx: G.U.rand(-6, 6), life: 0.7, drag: 1 });
+        break;
+      }
+      case 'altar':
+        if (!p.used) G.FX.px(p.x + G.U.rand(-9, 9), p.y - 36, ORB_COL[p.kind], { vy: -G.U.rand(22, 40), life: 0.8, drag: 1 });
+        break;
+    }
+  }
+
   function update(dt, cam) {
     if (fade && (fade.t += dt) >= FADE) { dropImages(fade.images); fade = null; }
     // (Ultra: con la perspectiva se ve más por arriba y por los lados.)
+    const anim = G.Anim.on;
     for (const [cx, cy] of visibleChunks(cam, G.Camera.persp ? 150 : 60)) {
-      for (const p of chunkData(cx, cy).props) if (p.flash > 0) p.flash -= dt;
+      for (const p of chunkData(cx, cy).props) {
+        if (p.flash > 0) p.flash -= dt;
+        if (anim && LIVELY[p.type] && Math.random() < dt * LIVELY[p.type]) lively(p);
+      }
     }
   }
 

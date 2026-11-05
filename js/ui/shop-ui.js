@@ -613,7 +613,7 @@ G.ShopUI = (() => {
     };
   }
 
-  const moveName = id => G.T(G.Moves.BY_ID[id].name, 'move');
+  const moveName = id => G.T(G.Moves.BY_ID[id].name);
   // Baldosa de cada objeto teñida con su color (las MT, con el de su tipo: ver tmTile).
   const TINT = { mint: 't-green', cap: 't-red', caph: 't-purple' };
   const tmTile = (id, size, cls = '') => {
