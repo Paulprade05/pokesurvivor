@@ -28,7 +28,9 @@
  * firmas, daño hecho mientras vivía) y cada grieta (ganada, ttk, nº de legendarios). El informe da sus medianas.
  * (Bloque 4) «ia=A%/B/C»: enemigos atascados (% de los vivos, muestreado cada 0,2 s), media bajo tierra y nadando.
  * --quiere id,id,...  (4-11-2026) las cartas sólo ofrecen esos ataques y empieza con el primero: mide un equipo concreto.
+ *                     Con ataques cortos el bot juega pegado a la horda (closeRange).
  * --pref Réplica,Propulsión,...  esas pasivas antes que las demás (por nombre de carta).
+ * El bot va a por el cofre grande, los altares, los manantiales si va mal de vida y los cofres pequeños (4-11-2026).
  * Al acabar, una línea REG con el daño de cada ataque (G.Reg: dealt, boss, active, lvl, evolved), para contrastar el modelo.
  * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall); «dir» = vida/daño/geo del director
  * (geo: lo que tarda en caer un enemigo normal, ver systems/director.js) y el informe da sus medianas.
@@ -136,7 +138,7 @@ BOT.pick = function (cards, cardInfo) {
   const score = c => {
     if (/\bevo\b/.test(c.cls)) return 100;
     if (/unlocks/.test(c.cls)) return 90;
-    const mv = byName[c.title], atk = mv && !G.Moves.nonAttacking(mv.kind);
+    const mv = byName[c.title], atk = mv && (!G.Moves.nonAttacking(mv.kind) || (BOT.want && BOT.want.includes(mv.id)));
     if (BOT.want && mv && BOT.want.includes(mv.id) && /is-new/.test(c.cls)) return 95;
     if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 + (BOT.want && mv ? (BOT.want.length - BOT.want.indexOf(mv.id)) * 5 : 0) : 12; }
     if (/is-new/.test(c.cls)) return atk ? (attacks < 2 ? 75 : attacks < 3 ? 48 : 22) : 4;
@@ -157,8 +159,35 @@ BOT.pick = function (cards, cardInfo) {
   // y elige la más segura, con algo de atracción por orbes, la grieta y el espacio libre.
   const DIRS = []; for (let i = 0; i < 16; i++) DIRS.push([Math.cos(i / 16 * 6.2832), Math.sin(i / 16 * 6.2832)]); DIRS.push([0, 0]);
   let prev = [0, 0];
+  // (5-11-2026) Los ataques cortos o que salen hacia donde miras no llegan huyendo: con ellos se juega como una persona, pegado
+  // a la horda y andando hacia ella. Devuelve a qué distancia hay que quedarse (0: a distancia, como siempre).
+  const CERCA = { melee: 0.7, spin: 0.7, aura: 0.7, shove: 0.7, orbit: 0.7, mine: 0.6, trail: 0.6, dash: 0.8, knife: 1 };
+  function closeRange(pl) {
+    if (!BOT.cerca) return 0;
+    let D = 0;
+    for (const m of pl.moves || []) { const k = CERCA[m.kind]; if (k) D = Math.max(D, m.kind === 'knife' ? 30 : Math.max(36, (m.radius || 60) * k)); }
+    return D;
+  }
+  // (5-11-2026) Sólo pega el hueco activo: con un apoyo (--quiere apoyo,ataque) una persona va y vuelve. Las danzas, 4,5 s de cada
+  // 10 para acumular; escudos y barridos, cuando estén listos.
+  function swapSupport(pl) {
+    if (!BOT.want || pl.slots.length < 2) return;
+    const sup = g => g.some(m => G.Moves.nonAttacking(m.kind));
+    const u = pl.slots.findIndex(sup), a = pl.slots.findIndex(g => !sup(g));
+    if (u < 0 || a < 0) return;
+    const m = pl.slots[u][0], t = G.Game.st ? G.Game.st.time || 0 : 0;
+    let go;
+    if (m.kind === 'buff') go = t % 10 < 4.5;
+    else {
+      const wants = m.kind === 'ward' ? (m.charges | 0) < 1 : G.EnemyMgr.all().length >= 4;
+      if (m.t <= 0 && wants && t >= (BOT.supT || 0)) BOT.supT = t + 0.6;
+      go = t < (BOT.supT || 0);
+    }
+    const i = go ? u : a;
+    if (i !== pl.active) pl.setActive(i);
+  }
   function smart(pl) {
-    const s = pl.spd || 100, R = pl.r || 12, en = [], pr = [];
+    const s = pl.spd || 100, R = pl.r || 12, en = [], pr = [], D = closeRange(pl);
     for (const e of G.EnemyMgr.all()) if (!e.dead && Math.abs(e.x - pl.x) < 420 && Math.abs(e.y - pl.y) < 420 && e.behavior !== 'thief' && !(G.BossSig && G.BossSig.hidden(e))) en.push(e);
     for (const p of G.Projectiles.all()) if (!p.friendly && !p.orb && Math.abs(p.x - pl.x) < 320 && Math.abs(p.y - pl.y) < 320) pr.push(p);
     const hz = G.Hazards.all.filter(h => !h.hit);
@@ -168,10 +197,29 @@ BOT.pick = function (cards, cardInfo) {
     if (gem) { tx = gem.x; ty = gem.y; tw = 1.6; }
     else if (BOT.target) { tx = BOT.target.x; ty = BOT.target.y; tw = 1.4; }
     else {
-      let bd = 1e12, best = null;
-      for (const p of G.Pickups.all()) { const d2 = (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2; if (d2 < bd) { bd = d2; best = p; } }
-      if (best && bd < 600 * 600) { tx = best.x; ty = best.y; tw = 0.9; }
+      // (4-11-2026) Como una persona: el cofre grande (hay que quedarse al lado), el altar, el manantial si va mal de vida
+      // y los cofres pequeños que se rompen a golpes, antes que seguir recogiendo.
+      const low = window.V ? V.hp / pl.maxHp < 0.55 : pl.hp / pl.maxHp < 0.55;
+      let gd = 1e12, goal = null;
+      for (const p of G.World.specialsNear(pl.x, pl.y, 620)) {
+        const ok = p.type === 'bigchest' || (p.type === 'altar' && !p.used) || (p.type === 'spring' && low && !p.dry);
+        if (!ok) continue;
+        const d2 = ((p.x - pl.x) ** 2 + (p.y - pl.y) ** 2) * (p.type === 'spring' ? 0.3 : p.type === 'altar' ? 0.8 : 1);
+        if (d2 < gd) { gd = d2; goal = p; }
+      }
+      if (goal) { tx = goal.x; ty = goal.y; tw = 1.3; }
+      else {
+        const br = G.World.nearestBreakable(pl.x, pl.y, 260);
+        if (br && br.type === 'chest') { tx = br.x; ty = br.y; tw = 1.1; }
+        else {
+          let bd = 1e12, best = null;
+          for (const p of G.Pickups.all()) { const d2 = (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2; if (d2 < bd) { bd = d2; best = p; } }
+          if (best && bd < 600 * 600) { tx = best.x; ty = best.y; tw = 0.9; }
+        }
+      }
     }
+    let near = null, nd = 300;
+    if (D && tw < 1.4) for (const e of en) { const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < nd) { nd = d; near = e; } }
     let bestS = -1e9, bx = 0, by = 0;
     for (const [dx, dy] of DIRS) {
       let danger = 0;
@@ -181,7 +229,7 @@ BOT.pick = function (cards, cardInfo) {
         for (const e of en) {
           let ux = pl.x - e.x, uy = pl.y - e.y; const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
           const es = (e.spd || 60) * (e.phase === 'dash' ? 3 : 1) * 0.9;
-          const d = Math.hypot(px - (e.x + ux * es * T), py - (e.y + uy * es * T)) - (e.r || 12) - R, M = e.boss ? 90 : 50;
+          const d = Math.hypot(px - (e.x + ux * es * T), py - (e.y + uy * es * T)) - (e.r || 12) - R, M = D ? (e.boss ? 45 : 20) : (e.boss ? 90 : 50);
           if (d < M) danger += (e.boss ? 3 : e.champ ? 2 : 1) * ((M - d) / M) ** 2 * (T < 0.3 ? 1.6 : 1);
         }
         for (const h of hz) { if (h.delay - h.t > T + 0.45) continue; if (G.Hazards.inside(h, px, py, R + 8)) danger += 9 * (h.kind === 'zone' && h.r > 80 ? 1.2 : 1); }
@@ -194,8 +242,9 @@ BOT.pick = function (cards, cardInfo) {
         BOT.wt -= 1 / 600; if (BOT.wt <= 0) { BOT.wander += (Math.random() - 0.5) * 1.6; BOT.wt = 2.5; }
         gain += (Math.cos(BOT.wander) * dx + Math.sin(BOT.wander) * dy) * 0.5;
       }
-      if (dx || dy) { let c = 0; for (const e of en) { const ex = e.x - pl.x, ey = e.y - pl.y, l = Math.hypot(ex, ey); if (l < 320 && l > 1) c += (ex * dx + ey * dy) / l * (1 - l / 320); } gain -= c * 0.35; }
-      if ((dx || dy) && en.length > 4 && tw < 1.4) {
+      if (near && (dx || dy)) gain += ((near.x - pl.x) * dx + (near.y - pl.y) * dy) / (nd || 1) * (nd > D ? 1.2 : nd < D * 0.6 ? -0.8 : 0);
+      if (!D && (dx || dy)) { let c = 0; for (const e of en) { const ex = e.x - pl.x, ey = e.y - pl.y, l = Math.hypot(ex, ey); if (l < 320 && l > 1) c += (ex * dx + ey * dy) / l * (1 - l / 320); } gain -= c * 0.35; }
+      if (!D && (dx || dy) && en.length > 4 && tw < 1.4) {
         let cx = 0, cy = 0; for (const e of en) { cx += e.x; cy += e.y; } cx /= en.length; cy /= en.length;
         let ox = pl.x - cx, oy = pl.y - cy; const l = Math.hypot(ox, oy) || 1; ox /= l; oy /= l;
         gain += (-oy * BOT.spin * dx + ox * BOT.spin * dy) * 0.6;
@@ -204,6 +253,11 @@ BOT.pick = function (cards, cardInfo) {
       if (gain - danger > bestS) { bestS = gain - danger; bx = dx; by = dy; }
     }
     prev = [bx, by];
+    // La ráfaga sale hacia donde andas: si vas hacia el enemigo, derecho a él (16 direcciones fallan a 100 px).
+    if (near && (bx || by) && (pl.moves || []).some(m => m.kind === 'knife')) {
+      const ux = (near.x - pl.x) / (nd || 1), uy = (near.y - pl.y) / (nd || 1);
+      if (ux * bx + uy * by > 0.7) return [ux, uy];
+    }
     return [bx, by];
   }
   G.Input.axis = function () {
@@ -211,6 +265,7 @@ BOT.pick = function (cards, cardInfo) {
     const pl = G.Game.player; if (!pl) return [0, 0];
     const r = G.Rift.rift;
     BOT.target = r && !G.EnemyMgr.bossAlive() ? { x: r.x, y: r.y - 10 } : null;
+    swapSupport(pl);
     return smart(pl);
   };
   const visible = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
@@ -271,7 +326,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
   const page = await browser.newPage();
   let errors = 0;
   page.on('pageerror', e => { errors++; console.log('  !! pageerror', String(e.message || e).slice(0, 300)); });
-  page.on('console', m => { if (m.type() === 'error' && !/beforeunload|favicon|firebase|ERR_|Failed to load resource/i.test(m.text())) { errors++; console.log('  !! console.error', m.text().slice(0, 300)); } });
+  page.on('console', m => { if (m.type() === 'error' && !/beforeunload|favicon|firebase|ERR_|Failed to load resource/i.test(m.text())) { errors++; console.log('  !! console.error', m.text().slice(0, 300)); for (const h of m.args()) h.evaluate(x => (x && x.stack) || '').then(t => { if (t) console.log('  !! pila', t.slice(0, 500)); }).catch(() => {}); } });
   await page.setViewport({ width: 932, height: 430, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   const log = s => console.log(s);
   try {
@@ -292,6 +347,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       if (pref) BOT.pref = pref;
       if (want) {       // (--quiere: sólo esos ataques en las cartas y el primero, de inicio)
         BOT.want = want;
+        BOT.cerca = true;
         G.Moves.poolFor = () => want.slice();
         G.startMoveOf = () => want[0];
       }
@@ -431,7 +487,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
     }
     const blog = await page.evaluate(() => BOT.log.filter(l => /evolu|aviso: ¡|err/.test(l)).slice(-30).join(' | '));
     const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas }));
-    const reg = await page.evaluate(() => { try { const r = G.Reg.build(), o = {}; for (const id in r.moves) { const m = r.moves[id]; o[id] = { d: m.dealt, b: m.boss, a: m.active, l: m.lvl, e: m.evolved ? 1 : 0, g: m.group, h: m.hits, k: m.kills }; } return { dur: r.dur, lvl: r.lvl, kills: r.kills, dealt: r.dealt, cards: r.statsTaken, moves: o, en: r.tl.map(x => x[7]) }; } catch (e) { return null; } });
+    const reg = await page.evaluate(() => { try { const r = G.Reg.build(), o = {}; for (const id in r.moves) { const m = r.moves[id]; o[id] = { d: m.dealt, b: m.boss, a: m.active, l: m.lvl, e: m.evolved ? 1 : 0, g: m.group, h: m.hits, k: m.kills }; } return { dur: r.dur, lvl: r.lvl, kills: r.kills, dealt: r.dealt, taken: r.taken, healed: r.healed, bossesN: r.bossesN, item: r.item, cards: r.statsTaken, moves: o, en: r.tl.map(x => x[7]), keys: r.tlKeys, tl: r.tl, ev: r.ev, takenBy: r.takenBy, bosses: r.bosses, kinds: r.kinds }; } catch (e) { return null; } });
     if (reg) log(`${tag} REG ${JSON.stringify(reg)}`);
     log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} ` +
         `jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
