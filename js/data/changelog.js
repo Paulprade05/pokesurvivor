@@ -6,6 +6,13 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-05', title: ["Ataques a la par: baja Cañón Floral y suben Homenaje Póstumo, Tajo Cruzado y Puño Dinámico", "Attacks on par: Fleur Cannon down; Last Respects, Cross Chop and Dynamic Punch up"], chg: [
+    ["Cañón Floral pega menos: era, con mucha diferencia, el ataque que más daño hacía en las partidas. Cada rayo de más por Réplica reparte ahora el daño en vez de sumarlo entero, y sube menos con el nivel.",
+     "Fleur Cannon hits less: it was, by far, the attack dealing the most damage in real runs. Each extra beam from Replica now splits the damage instead of adding it in full, and it grows less with level."],
+    ["Homenaje Póstumo: el golpe de cada espíritu salpica ahora a los enemigos de al lado, y pega más al subir de nivel. Antes sólo daba a uno y se quedaba muy corto contra la horda.",
+     "Last Respects: each spirit's hit now splashes nearby enemies, and it hits harder as it levels up. It used to hit just one and fell well short against the horde."],
+    ["Tajo Cruzado y Puño Dinámico pegan bastante más a niveles altos: se quedaban muy por debajo de los demás en las partidas.",
+     "Cross Chop and Dynamic Punch hit much harder at high levels: they were falling well behind the others in real runs."]] },
   { d: '2026-11-03', title: ["Desplegables: adiós a la rueda del iPhone", "Dropdowns: goodbye to the iPhone wheel"], fix: [
     ["En iPhone, al elegir una opción en un desplegable (filtros del Compendio, región y orden de la Pokédex, Pokémon de Mejoras...) volvía a salir la rueda de iOS encima de la lista del juego. Ya no: los desplegables sólo abren la lista con el estilo del juego, también al elegir varias veces seguidas o al cambiar de pantalla y volver.",
      "On iPhone, picking an option in a dropdown (Compendium filters, Pokédex region and sort, the Upgrades Pokémon...) brought the iOS wheel back on top of the game's list. Not anymore: dropdowns only open the game's own list, also when picking several times in a row or after switching screens and coming back."]] },

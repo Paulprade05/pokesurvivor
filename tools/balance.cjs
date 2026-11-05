@@ -6,6 +6,8 @@
  *   node tools/balance.cjs --json f.json    además, todos los números en un JSON
  *   node tools/balance.cjs --rapido         menos segundos por prueba (más ruido)
  *   node tools/balance.cjs --quieto         y uno quieto a 57 px, para comparar con el juego
+ *   node tools/balance.cjs --todas          (4-11-2026) y cada ataque (máximo y evolucionado) con TODAS las pasivas a la vez y
+ *                                           en la marea (abajo): lo que usa tools/medir-pokemon.cjs. Tarda ~4 veces más.
  *   node tools/balance.cjs --z              y los movimientos Z (24-10-2026): al nivel 1 frente a
  *                                           los de nivel 1 y al nivel REF.level frente a los evolucionados
  *   node tools/balance.cjs --habilidades    y lo que vale cada habilidad (24-10-2026), en puntos (10 = una
@@ -24,6 +26,10 @@
  *          objetivo); la mitad del tiempo andas hacia él. Te golpea cada 1 s (escudos).
  *   horda  50 enemigos a tu alrededor (hasta 190 px) que van contigo mientras das
  *          vueltas; cada uno dura unos 4 s y le sustituye otro nuevo. Te golpean cada 0,7 s.
+ *
+ *   marea  (4-11-2026, partidas reales) lo que se parece a una partida: enemigos que SE MUEREN y vienen de lejos andando hacia
+ *          ti mientras tú te mueves, sin rodearte de 50 a la vez. Ver SCEN.marea. La horda de arriba da unas 3 veces más daño a
+ *          los ataques de área que una partida (y lo mismo a los de un objetivo): compara, pero no predice.
  *
  * Todo en «daño por segundo con 1 de ataque» (el ataque del Pokémon, Potencia,
  * danzas, tipos... multiplican igual a todos). Las quemaduras cuentan, con los
@@ -54,6 +60,8 @@ const SECS = opt('rapido') ? 10 : 20;
  * Vida: la de spawner.js (tramo 6 × (1 + t/95) × hpK) y la de un jefe del minuto 15.
  */
 const REF = { min: 15, atk: 6, level: 45, hp: 13000, bossHp: 60000 };   // (bossHp: 40.000 hasta el bloque 3 de la 2.0)
+// Marea: enemigos a la vez (cerca), vida en «ataque 1» y cómo te mueves (radio de la vuelta y px/s).
+const MAREA = { n: +(val('marea-n') || 20), hp: +(val('marea-hp') || 300), r: +(val('marea-r') || 260), v: +(val('marea-v') || 125), stop: +(val('marea-stop') || 60) };
 
 // ---------------- azar con semilla ----------------
 function mulberry32(a) {
@@ -138,7 +146,18 @@ class Dummy {
   /** Mira hacia pl (dirección de 8 del sprite), como los del juego que te persiguen. */
   face(pl) { const a = Math.atan2(pl.y - this.y, pl.x - this.x); this.anim.dir = ((Math.round((Math.PI / 2 - a) / (Math.PI / 4)) % 8) + 8) % 8; }
   // (Ataques únicos, 26-10-2026: Vulnerable y Espada Santa suben lo que recibe, como en enemy.js.)
-  hurt(amount) { if (this.sts) amount *= G.Combat.mx.stHurtK(this); S.direct += Math.max(1, Math.round(amount)); S.hits++; }
+  hurt(amount) {
+    if (this.dead) return;
+    if (this.sts) amount *= G.Combat.mx.stHurtK(this);
+    S.direct += Math.max(1, Math.round(amount)); S.hits++;
+    if (this.mortal) this.lose(amount);
+  }
+  /** (Marea) Le quita vida; al caer lo apunta como baja (Homenaje Póstumo cuenta tus bajas recientes). */
+  lose(amount) {
+    if (this.dead) return;
+    this.hp -= amount;
+    if (this.hp <= 0) { this.dead = true; G.Game.player.kills = (G.Game.player.kills || 0) + 1; }
+  }
   applyStun(d) { this.stunT = Math.max(this.stunT, d); }
   applySlow(f, d = 1.2) { this.slow = Math.max(this.slow, f); this.slowT = Math.max(this.slowT, d); }
   applyBurn(n = 1) { this.burn = Math.min(8, this.burn + n); this.burnT = 3; }
@@ -149,12 +168,12 @@ class Dummy {
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.slow = 0; }
     if (this.burn > 0) {
       this.burnT -= dt; this.burnTick -= dt;
-      if (this.burnTick <= 0) { this.burnTick = 0.5; S.dot += 1.6 * this.burn * (1 + REF.level * 0.06) / REF.atk; }
+      if (this.burnTick <= 0) { this.burnTick = 0.5; const d = 1.6 * this.burn * (1 + REF.level * 0.06) / REF.atk; S.dot += d; if (this.mortal) this.lose(d); }
       if (this.burnT <= 0) this.burn = 0;
     }
     if (this.poison > 0) {
       this.poisonT -= dt; this.poisonTick -= dt;
-      if (this.poisonTick <= 0) { this.poisonTick = 0.6; S.psn += (this.hpRef * 0.012 * (this.boss ? 0.25 : 1) * this.poison + 1) / REF.atk; }
+      if (this.poisonTick <= 0) { this.poisonTick = 0.6; const d = (this.hpRef * 0.012 * (this.boss ? 0.25 : 1) * this.poison + 1) / REF.atk; S.psn += d; if (this.mortal) this.lose(d); }
       if (this.poisonT <= 0) this.poison = 0;
     }
   }
@@ -244,6 +263,51 @@ const SCEN = {
       }
       struck(pl, dt, t, 0.7);
     }
+  },
+  /*
+   * Marea (4-11-2026): N enemigos que vienen andando desde fuera de la pantalla, te siguen mientras vas de un lado a otro
+   * y caen de verdad (vida HP en «ataque 1»; al caer, otro nuevo lejos). Sin rodearte: la masa va detrás de ti y sólo los
+   * más cercanos están al alcance, como en las partidas. N, HP y las velocidades salen del bot (`curve.cjs`, en= y
+   * hecho/bajas del minuto 12 al 18): ver docs/ESTUDIO-POKEMON.md.
+   */
+  marea: {
+    N: MAREA.n, HP: MAREA.hp,
+    /** Uno nuevo lejos (otro objeto: lo que llevaba pegado el muerto, Infierno..., ve que ha caído). */
+    spawn(pl) {
+      const e = new Dummy(0, 0, 12, false), a = rng() * 6.2832, d = 280 + rng() * 170;
+      e.mortal = true; e.hpRef = this.HP * REF.atk;
+      e.x = pl.x + Math.cos(a) * d; e.y = pl.y + Math.sin(a) * d * 0.8;
+      e.v = 55 + rng() * 25; e.hp = e.maxHp = this.HP;
+      return e;
+    },
+    setup(pl) {
+      enemies = [];
+      for (let i = 0; i < this.N; i++) {
+        const e = this.spawn(pl);
+        // (Al empezar ya hay gente por todas partes, no sólo en el borde.)
+        const k = 0.35 + 0.65 * rng(); e.x = pl.x + (e.x - pl.x) * k; e.y = pl.y + (e.y - pl.y) * k;
+        enemies.push(e);
+      }
+    },
+    step(pl, dt, t) {
+      walk(pl, t, MAREA.r, MAREA.v);
+      for (let i = 0; i < enemies.length; i++) if (enemies[i].dead) enemies[i] = this.spawn(pl);
+      const tg = nearest(pl.x, pl.y, 520);
+      pl.target = tg; if (tg) pl.aim = Math.atan2(tg.y - pl.y, tg.x - pl.x);
+      // (Como en el jefe: la mitad del tiempo andas hacia ellos; las ráfagas van hacia donde miras.)
+      if (Math.floor(t / 2) % 2) pl.moveAngle = pl.aim;
+      for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        e.tick(dt);
+        if (e.dead) continue;
+        const dx = pl.x - e.x, dy = pl.y - e.y, l = Math.hypot(dx, dy) || 1;
+        // (No se apilan: el i-ésimo se queda algo más lejos del que tiene delante.)
+        const stop = MAREA.stop + 7 * (i % 7);
+        if (l > stop) { e.x += dx / l * e.v * dt; e.y += dy / l * e.v * dt; }
+        e.face(pl);
+      }
+      struck(pl, dt, t, 0.7);
+    }
   }
 };
 
@@ -307,9 +371,9 @@ const lpad = (s, n) => String(s).padStart(n).slice(-n);
 // Utilidad (no se comparan con los que pegan): potenciadores, escudos y barridos.
 const UTIL = new Set(['buff', 'ward', 'wipe']);
 
-function measure(id, lvl, evo, P, crit) {
+function measure(id, lvl, evo, P, crit, scens) {
   const out = {};
-  for (const sc of ['jefe', 'horda']) {
+  for (const sc of scens || ['jefe', 'horda']) {
     const m = make(id, lvl, evo, P);
     out[sc] = run(m, sc, P || NO_PASS, crit, seedOf(id + sc + lvl + (evo ? 'e' : '')));
   }
@@ -445,6 +509,28 @@ if (opt('z')) {
   }
   console.log(`(mediana de los Z: ${r1(median(zrows.map(r => r.valor1)))} al nivel 1 · ${r1(median(zrows.map(r => r.valor)))} al nivel ${REF.level})`);
   report.z = zrows;
+}
+
+// ---------------- todas las pasivas a la vez (4-11-2026) ----------------
+// Para cada ataque que pega, al nivel máximo y evolucionado: sin pasivas y con todas las cartas de Amplitud, Persistencia,
+// Réplica, Propulsión y Puntería, contra el jefe, la horda y la marea. Las pasivas no suman ni multiplican por separado (Réplica
+// llega al tope EXTRA_MAX con la evolución, Propulsión hace que los rayos den más vueltas...): por eso se miden juntas.
+if (opt('todas')) {
+  const allP = { pass: { area: 1, dur: 1, amt: 0, pspd: 1 }, critChance: 0, critDmg: 0 };
+  // (--cartas area=5,luck=5: sólo ésas, para contrastar con una partida concreta.)
+  const only = val('cartas') ? Object.fromEntries(val('cartas').split(',').map(x => x.split('=')).map(([k, v]) => [k, +v])) : null;
+  for (const s of PASSIVES) for (let i = 0; i < (only ? only[s.id] || 0 : s.max || 1); i++) s.apply(allP);
+  report.allP = allP;
+  report.marea = MAREA;
+  const pick = x => ({ dps: r1(x.dps), dot: r1(x.dot), psn: r1(x.psn || 0), hpc: r1(x.hpc), hps: r1(x.hps) });
+  report.todas = {};
+  for (const r of rows) {
+    if ((r.stage !== 'max' && r.stage !== 'evo') || UTIL.has(r.kind)) continue;
+    const base = measure(r.id, r.lvl, r.evo, null, 0, ['marea']);
+    const full = measure(r.id, r.lvl, r.evo, allP.pass, allP, ['jefe', 'horda', 'marea']);
+    (report.todas[r.id] = report.todas[r.id] || {})[r.stage] = { lvl: r.lvl, type: r.type, cat: G.Moves.BY_ID[r.id].cat, kind: r.kind, name: r.name, evoName: (G.Moves.EVO[r.id] || [])[0] || null,
+      marea0: pick(base.marea), jefe: pick(full.jefe), horda: pick(full.horda), marea: pick(full.marea), count: full.m.count };
+  }
 }
 
 if (opt('habilidades')) report.hab = habilidades();

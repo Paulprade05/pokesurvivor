@@ -27,6 +27,9 @@
  * (tk=t1/t10), ataques al 5 (m5), evolucionados (ev) y cartas cogidas. En RESULT, cada jefe y legendario (ttk, ataques,
  * firmas, daño hecho mientras vivía) y cada grieta (ganada, ttk, nº de legendarios). El informe da sus medianas.
  * (Bloque 4) «ia=A%/B/C»: enemigos atascados (% de los vivos, muestreado cada 0,2 s), media bajo tierra y nadando.
+ * --quiere id,id,...  (4-11-2026) las cartas sólo ofrecen esos ataques y empieza con el primero: mide un equipo concreto.
+ * --pref Réplica,Propulsión,...  esas pasivas antes que las demás (por nombre de carta).
+ * Al acabar, una línea REG con el daño de cada ataque (G.Reg: dealt, boss, active, lvl, evolved), para contrastar el modelo.
  * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall); «dir» = vida/daño/geo del director
  * (geo: lo que tarda en caer un enemigo normal, ver systems/director.js) y el informe da sus medianas.
  */
@@ -134,11 +137,13 @@ BOT.pick = function (cards, cardInfo) {
     if (/\bevo\b/.test(c.cls)) return 100;
     if (/unlocks/.test(c.cls)) return 90;
     const mv = byName[c.title], atk = mv && !G.Moves.nonAttacking(mv.kind);
-    if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 : 12; }
+    if (BOT.want && mv && BOT.want.includes(mv.id) && /is-new/.test(c.cls)) return 95;
+    if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 + (BOT.want && mv ? (BOT.want.length - BOT.want.indexOf(mv.id)) * 5 : 0) : 12; }
     if (/is-new/.test(c.cls)) return atk ? (attacks < 2 ? 75 : attacks < 3 ? 48 : 22) : 4;
     if (c.title === 'Baya Zidra') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
     // Todo al máximo (1-11-2026): curarte un poco (20 %) si va mal de vida; si no, «Monedas» (15, abajo).
     if (c.title === 'Curarte un poco') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
+    if (BOT.pref && BOT.pref.includes(c.title)) return 59 + BOT.pref.length - BOT.pref.indexOf(c.title);
     if (needs.has(c.title)) return 58;
     return STAT[c.title] != null ? STAT[c.title] : 15;
   };
@@ -235,7 +240,7 @@ BOT.pick = function (cards, cardInfo) {
 `;
 
 // ---------------------------------------------------------------- una partida
-async function one(dex, upg, tag, speed, cap) {
+async function one(dex, upg, tag, speed, cap, want, pref) {
   const ppDir = opt('pp', process.env.PUPPETEER_CORE || '');
   let puppeteer;
   // (path.resolve: una ruta relativa se lee desde la carpeta en la que se lanza, no desde tools/.)
@@ -283,7 +288,13 @@ async function one(dex, upg, tag, speed, cap) {
       const v = [...document.querySelectorAll('#scr-result button')].find(b => b.offsetParent);
       if (v) { v.click(); await sleep(1200); }
     });
-    await page.evaluate(async (dex, upg) => {
+    await page.evaluate(async (dex, upg, want, pref) => {
+      if (pref) BOT.pref = pref;
+      if (want) {       // (--quiere: sólo esos ataques en las cartas y el primero, de inicio)
+        BOT.want = want;
+        G.Moves.poolFor = () => want.slice();
+        G.startMoveOf = () => want[0];
+      }
       const S = G.DB.save, U = G.DB.upgradesOf(dex);
       for (const k of Object.keys(U)) delete U[k];
       if (upg === 'max') for (const u of G.Upgrades.LIST) U[u.id] = u.max;
@@ -382,7 +393,7 @@ async function one(dex, upg, tag, speed, cap) {
           }
         }
       }, 200);
-    }, dex, upg);
+    }, dex, upg, want || null, pref || null);
     await page.evaluate(k => G.Game.debugSpeed(k), speed);
     const t0 = Date.now();
     let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0, lastKills = 0, lastDealt = 0, ttks = [], judgeAt = null, lastAi = { n: 0, live: 0, stuck: 0, under: 0, swim: 0 };
@@ -420,6 +431,8 @@ async function one(dex, upg, tag, speed, cap) {
     }
     const blog = await page.evaluate(() => BOT.log.filter(l => /evolu|aviso: ¡|err/.test(l)).slice(-30).join(' | '));
     const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas }));
+    const reg = await page.evaluate(() => { try { const r = G.Reg.build(), o = {}; for (const id in r.moves) { const m = r.moves[id]; o[id] = { d: m.dealt, b: m.boss, a: m.active, l: m.lvl, e: m.evolved ? 1 : 0, g: m.group, h: m.hits, k: m.kills }; } return { dur: r.dur, lvl: r.lvl, kills: r.kills, dealt: r.dealt, cards: r.statsTaken, moves: o, en: r.tl.map(x => x[7]) }; } catch (e) { return null; } });
+    if (reg) log(`${tag} REG ${JSON.stringify(reg)}`);
     log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} ` +
         `jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
   } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
@@ -432,9 +445,10 @@ async function main() {
   if (rep >= 0) return report(args.slice(rep + 1));
   if (flag('one')) {
     const [dex, upg, tag] = args;
-    return one(+dex, upg, tag, +opt('speed', 2), +opt('cap', 1860));
+    const want = opt('quiere', ''), pref = opt('pref', '');
+    return one(+dex, upg, tag, +opt('speed', 2), +opt('cap', 1860), want ? want.split(',') : null, pref ? pref.split(',') : null);
   }
-  const par = +opt('par', 6), speed = opt('speed', '2'), cap = opt('cap', '1860'), chrome = opt('chrome', '');
+  const par = +opt('par', 6), speed = opt('speed', '2'), cap = opt('cap', '1860'), chrome = opt('chrome', ''), want = opt('quiere', ''), pref = opt('pref', '');
   const pp0 = opt('pp', process.env.PUPPETEER_CORE || ''), pp = pp0 && path.resolve(pp0);
   const out = path.resolve(opt('out', path.join(os.tmpdir(), 'ps-curve-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-'))));
   const jobs = args.filter(a => /^\d+:(max|zero)(:\d+)?$/.test(a));
@@ -452,6 +466,8 @@ async function main() {
       const a = [__filename, '--one', j.dex, j.upg, j.tag, '--speed', speed, '--cap', cap];
       if (pp) a.push('--pp', pp);
       if (chrome) a.push('--chrome', chrome);
+      if (want) a.push('--quiere', want);
+      if (pref) a.push('--pref', pref);
       spawn(process.execPath, a, { stdio: ['ignore', f, f] }).on('exit', () => { running--; console.log('hecha', j.tag); next(); });
     };
     // (Escalonadas: si arrancan todas a la vez, Chrome tarda tanto en cargar que alguna falla.)

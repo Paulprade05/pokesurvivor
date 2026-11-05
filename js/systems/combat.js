@@ -6384,7 +6384,8 @@ G.Combat = (() => {
     },
     after(pl, e, m) {
       // (4-11-2026, partidas reales: Marshadow hacía 4 veces menos daño) El golpe del espíritu salpica a los de al lado.
-      areaHit(pl, m, e.x, e.y, 46, atk(pl, m) * 0.45, { filter: o => o !== e, ho: LR_SPLASH });
+      if (sees(e.x, e.y)) G.FX.ring(e.x, e.y, 6, 64, '#a8b4ff', 0.22, 2);
+      areaHit(pl, m, e.x, e.y, 64, atk(pl, m) * 0.8, { filter: o => o !== e, ho: LR_SPLASH });
       if (m.raise && e.dead && !e.remote) rise3(pl, m, e);
     }
   };
