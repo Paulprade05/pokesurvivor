@@ -10,12 +10,7 @@ window.PS_PAGES = !!document.querySelector('meta[name="ps-pages"]');
   // El idioma lo elige locales.js (en el <head>).
   var copy = {
     es: ['Juego de supervivencia con Pokémon, gratis en el navegador y en el móvil.', 'Cargando…'],
-    en: ['A Pokémon survival game, free in your browser and on mobile.', 'Loading…'],
-    fr: ['Un jeu de survie Pokémon gratuit sur navigateur et mobile.', 'Chargement…'],
-    it: ['Un gioco di sopravvivenza Pokémon gratuito su browser e cellulare.', 'Caricamento…'],
-    'pt-BR': ['Um jogo de sobrevivência Pokémon grátis no navegador e no celular.', 'Carregando…'],
-    'zh-Hans': ['免费的宝可梦生存游戏，可在浏览器和手机上游玩。', '加载中…'],
-    'zh-Hant': ['免費的寶可夢生存遊戲，可在瀏覽器與手機上遊玩。', '載入中…']
+    en: ['A Pokémon survival game, free in your browser and on mobile.', 'Loading…']
   }[window.PS_LOCALES && window.PS_LOCALES.lang];
   if (!copy) return;
   var p = document.querySelectorAll('#boot p');
@@ -31,12 +26,7 @@ window.PS_PAGES = !!document.querySelector('meta[name="ps-pages"]');
 (function () {
   var copy = {
     es: ['No se ha podido cargar el juego', 'Recargar'],
-    en: ['The game could not be loaded', 'Reload'],
-    fr: ['Impossible de charger le jeu', 'Recharger'],
-    it: ['Impossibile caricare il gioco', 'Ricarica'],
-    'pt-BR': ['Não foi possível carregar o jogo', 'Recarregar'],
-    'zh-Hans': ['无法加载游戏', '重新加载'],
-    'zh-Hant': ['無法載入遊戲', '重新載入']
+    en: ['The game could not be loaded', 'Reload']
   };
   window.PS_BOOT_FAIL = function () {
     var el = document.getElementById('boot'), ld = el && el.querySelector('.boot-ld');

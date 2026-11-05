@@ -28,7 +28,7 @@ G.CompendiumUI = (() => {
   const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const TYPES = () => Object.keys(G.U.TYPE_NAME);
   const typeCol = t => G.U.TYPE_COLOR[t] || '#9fb1c9';
-  const moveName = m => G.T(m.name, 'move');
+  const moveName = m => G.T(m.name);
   // Ventana estrecha y alta (de pie): la ficha, encima de la lista.
   const NARROW = window.matchMedia ? matchMedia('(max-width: 699px) and (min-height: 521px)') : { matches: false };
 
@@ -407,7 +407,7 @@ G.CompendiumUI = (() => {
       return `<tr><th>${label}</th><td>${v(a)}</td><td>${v(b)}</td>${e ? `<td class="gold">${v(e)}</td>` : ''}</tr>`;
     }).join('');
     const table = rows ? `<table class="cmp-stats"><thead><tr><th></th><th><span>Nv.</span> 1</th><th><span>Nv.</span> ${max}</th>`
-      + `${e ? `<th class="gold" title="${esc(G.T(e.name, 'move'))}">★</th>` : ''}</tr></thead><tbody>${rows}</tbody></table>` : '';
+      + `${e ? `<th class="gold" title="${esc(G.T(e.name))}">★</th>` : ''}</tr></thead><tbody>${rows}</tbody></table>` : '';
     h += sec('Cómo sube', (ladder ? `<ol class="cmp-ladder">${ladder}</ol>` : '') + table);
 
     // Evolución: en qué, con qué carta y a qué nivel, y lo que gana.
@@ -421,7 +421,7 @@ G.CompendiumUI = (() => {
           <div class="cmp-eq"><span class="ico-tile s tint" style="--tile-c:${col}">${G.Icons.html('move:' + id, 30)}</span><i>+</i>`
         + (st ? `<button type="button" class="ico-tile s t-purple" data-go="p:${esc(st.id)}" title="${esc(st.title)}">${G.Icons.html(st.icon, 30)}</button>` : '')
         + `<i>=</i><span class="ico-tile s t-gold">${G.Icons.html('move:' + id, 30)}${done ? `<span class="cmp-got">${G.UI.svg('check', 12)}</span>` : ''}</span></div>
-          <div class="cmp-evo-t"><b class="gold">${esc(G.T(name, 'move'))}</b>`
+          <div class="cmp-evo-t"><b class="gold">${esc(G.T(name))}</b>`
         // (3-11-2026) La pasiva, a la mitad de su máximo (G.LevelUp.evoLvl): Potencia, tope 10 → nivel 5.
         + (need ? `<small>${G.I18n.f('Con {x} al nivel {x} (la mitad de su máximo) y el ataque al nivel {x}', `<button type="button" class="cmp-link" data-go="p:${esc(need.needs)}">${esc(need.title)}</button>`, need.need, need.lvl)}</small>` : '')
         + (info && info.text ? `<small class="cmp-gain">${esc(info.text)}</small>` : '')

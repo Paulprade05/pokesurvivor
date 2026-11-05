@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-05', title: ["El juego queda en español e inglés", "The game is now in Spanish and English"], chg: [
+    ["El juego queda sólo en español e inglés: se quitan francés, italiano, portugués y chino. Si jugabas en uno de ellos, pasa solo a inglés, o a español si tu navegador está en español. Tu partida, tus mejoras y tu cuenta siguen igual.",
+     "The game is now only in Spanish and English: French, Italian, Portuguese and Chinese have been removed. If you played in one of them, it switches to English on its own, or to Spanish if your browser is in Spanish. Your save, upgrades and account stay the same."]] },
   { d: '2026-11-03', title: ["Desplegables: adiós a la rueda del iPhone", "Dropdowns: goodbye to the iPhone wheel"], fix: [
     ["En iPhone, al elegir una opción en un desplegable (filtros del Compendio, región y orden de la Pokédex, Pokémon de Mejoras...) volvía a salir la rueda de iOS encima de la lista del juego. Ya no: los desplegables sólo abren la lista con el estilo del juego, también al elegir varias veces seguidas o al cambiar de pantalla y volver.",
      "On iPhone, picking an option in a dropdown (Compendium filters, Pokédex region and sort, the Upgrades Pokémon...) brought the iOS wheel back on top of the game's list. Not anymore: dropdowns only open the game's own list, also when picking several times in a row or after switching screens and coming back."]] },

@@ -767,10 +767,6 @@ G.I18n.add({
   // ---------------- idiomas nuevos (19-10-2026) ----------------
   'PokéSurvivor – Juego Pokémon gratis online estilo Survivor.io': 'PokéSurvivor – Free online Pokémon survival game (Survivor.io style)',
   'Tipo': 'Type', 'Nuevo': 'New', 'Cambios': 'Changes', 'Arreglos': 'Fixes', 'Entendido': 'Got it',
-  // Frases del ranking en francés, italiano... (en inglés se montan enteras en ranking-ui.js)
-  'Tu mejor puesto: {x}': 'Your best rank: {x}',
-  'Aún no estás en el top 50. Tu puesto está en Histórico.': 'You are not in the top 50 yet. Your rank is in All-time.',
-  'Aún no tienes marca.': 'You do not have a record yet.',
   'Folagor, Sekiam, PokeAlex: ¿un hueco?': 'Folagor, Sekiam, PokeAlex: room for one more?',
   // ---------------- Tienda Kecleon, naturalezas y habilidades (20-10-2026) ----------------
   "+35 % de daño de tipo {x} con poca vida (menos de 1/3).": "+35% {x}-type damage at low HP (under 1/3).",
@@ -2179,7 +2175,7 @@ G.I18n.add({
   "Lo que compres va a tu Mochila: úsalo desde la ficha de cada Pokémon en la Pokédex.": "What you buy goes to your Bag: use it from each Pokémon’s page in the Pokédex.",
   "Para usarlo, abre la Pokédex, elige un Pokémon y pulsa Menta, Cápsula o Enseñar MT en su ficha.": "To use it, open the Pokédex, pick a Pokémon and press Mint, Capsule or Teach TM on its page.",
   "¡Bienvenido! Mentas, Cápsulas y MT. Lo que compres va a tu Mochila (en el menú principal); úsalo desde la ficha de cada Pokémon en la Pokédex.": "Welcome! Mints, Capsules and TMs. What you buy goes to your Bag (in the main menu); use it from each Pokémon’s page in the Pokédex.",
-  // ---------------- Pokémon Paradoja (nombres oficiales en inglés; italiano y portugués los usan de reserva) ----------------
+  // ---------------- Pokémon Paradoja (nombres oficiales en inglés) ----------------
   "Colmilargo": "Great Tusk",
   "Colagrito": "Scream Tail",
   "Melenaleteo": "Flutter Mane",
