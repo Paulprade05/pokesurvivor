@@ -25,6 +25,16 @@ G.CHANGELOG = [
      "Last Respects: each spirit's hit now splashes nearby enemies, and it hits harder as it levels up. It used to hit just one and fell well short against the horde."],
     ["Tajo Cruzado y Puño Dinámico pegan bastante más a niveles altos: se quedaban muy por debajo de los demás en las partidas.",
      "Cross Chop and Dynamic Punch hit much harder at high levels: they were falling well behind the others in real runs."]] },
+  { d: '2026-11-05', title: ["Un mundo con vida y ataques con más efectos", "A living world and flashier attacks"], new: [
+    ["El mundo tiene vida: la hierba alta es nueva y se mueve con el viento en olas, los árboles mecen las hojas y sueltan alguna, y según dónde estés verás mariposas, pájaros con su sombra, murciélagos, luciérnagas, ascuas, ceniza, nieve o pétalos. Por el suelo pasan sombras de nubes y en el agua y con lluvia salen ondas.",
+     "The world is alive: tall grass is new and moves with the wind in waves, trees rustle and drop the odd leaf, and depending on where you are you'll see butterflies, birds with their shadow, bats, fireflies, embers, ash, snow or petals. Cloud shadows cross the ground, and water and rain make ripples."],
+    ["Ataques con más fuerza visual, sin cambiar lo que hacen: cada tipo golpea a su manera (humo y ascuas, salpicaduras, hojas, chispas, esquirlas, polvo, burbujas, estrellas, llamitas), los estallidos grandes llevan su explosión, los disparos brillan y dejan estela y los enemigos se deshacen en humo.",
+     "Attacks hit harder to the eye, without changing what they do: each type strikes in its own way (smoke and embers, splashes, leaves, sparks, shards, dust, bubbles, stars, small flames), big blasts get a proper explosion, shots glow and leave a trail, and enemies fade away in smoke."],
+    ["Ajuste nuevo en Ajustes > Gráficos: «Animaciones». Si tu aparato va justo, apágalo: el mundo se queda quieto y los ataques se siguen viendo.",
+     "New option in Settings > Graphics: “Animations”. If your device struggles, turn it off: the world stays still and attacks are still shown."]],
+  chg: [
+    ["Objetos con movimiento: las monedas giran, los orbes y objetos tienen un brillo pixelado que late, destello al recogerlos, cofres que centellean, trampas que burbujean, torres con chispas y manantiales con ondas.",
+     "Objects that move: coins spin, orbs and items have a pulsing pixel glow, a sparkle when picked up, chests glint, traps bubble, power towers give off sparks and springs ripple."]] },
   { d: '2026-11-03', title: ["Desplegables: adiós a la rueda del iPhone", "Dropdowns: goodbye to the iPhone wheel"], fix: [
     ["En iPhone, al elegir una opción en un desplegable (filtros del Compendio, región y orden de la Pokédex, Pokémon de Mejoras...) volvía a salir la rueda de iOS encima de la lista del juego. Ya no: los desplegables sólo abren la lista con el estilo del juego, también al elegir varias veces seguidas o al cambiar de pantalla y volver.",
      "On iPhone, picking an option in a dropdown (Compendium filters, Pokédex region and sort, the Upgrades Pokémon...) brought the iOS wheel back on top of the game's list. Not anymore: dropdowns only open the game's own list, also when picking several times in a row or after switching screens and coming back."]] },

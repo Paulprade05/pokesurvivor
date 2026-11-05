@@ -2290,5 +2290,7 @@ G.I18n.add({
   "Resumen de las partidas: para mejorar el juego, con cuenta enviamos un resumen anónimo de cada partida (Pokémon, duración, ataques, daño recibido y de quién, curación, cartas, jefes, versión del juego y si juegas en móvil o PC con el tamaño de la pantalla). No incluye tu nombre, tu apodo ni tu cuenta y sólo lo ve el autor del juego. Puedes desactivarlo en Ajustes › Cuenta. El historial de tus partidas (Misiones › Perfil) se guarda sólo en tu aparato.": "Run summaries: to improve the game, if you have an account we send an anonymous summary of each run (Pokémon, length, attacks, damage taken and from whom, healing, cards, bosses, game version and whether you play on mobile or PC with the screen size). It doesn't include your name, nickname or account and only the game's author sees it. You can turn it off in Settings › Account. Your match history (Missions › Profile) is kept only on your device.",
   "Las de todos": "Everyone's",
   "Los resúmenes anónimos de todos los jugadores (sólo el dueño)": "Anonymous summaries from all players (owner only)",
-  "Descargando…": "Downloading…"
+  "Descargando…": "Downloading…",
+  "Animaciones": "Animations",
+  "Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.": "Trees and grass in the wind, critters, water, pickups and attack flourishes. Turn it off if your device struggles: the world stays still and attacks are still shown."
 });

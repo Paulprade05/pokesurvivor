@@ -30,6 +30,9 @@
  *   maxPick     'ask' | 'heal' | 'coin'           al subir de nivel con todo al máximo: sacar las dos cartas
  *                                                 (curarte un poco o monedas) o elegir siempre una sola (levelup.js)
  *
+ *   anim        true/false                        animaciones decorativas del mundo (world/anim.js): árboles, hierba, bichos,
+ *                                                 agua, recogidas... Apagado, quieto y sin coste; los ataques se siguen viendo
+ *
  *   shareStats  true | false                     subir el resumen anónimo de cada partida (net/stats.js)
  *
  *   G.Settings.get('quality')  ·  G.Settings.set('fps', true)  ·  G.Settings.on(fn)
@@ -39,7 +42,7 @@ G.Settings = (() => {
   const KEY = 'ps.settings';
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
-    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true };
+    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true };
   let s = Object.assign({}, DEF);
   try {
     const old = JSON.parse(localStorage.getItem(KEY) || '{}');

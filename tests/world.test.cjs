@@ -97,6 +97,9 @@ test('co-op: the host sends wv in "start"; the guest sends wv with "ready"; neit
 
 function loadTileset(on = true) {
   const G = { Settings: { get: k => (k === 'pmdTiles' ? on : undefined) } };
+  // (Arte animado) El árbol se recorta y se mueve con G.Anim; aquí, sin píxeles de verdad, el dibujo tal cual.
+  G.Anim = { take: () => true, sway: s => s, sheen: s => s };
+  G.Tiles = { BIOMES: [{ ground: 'grass' }] };
   G.TILESETS = [{ bi: 0, key: 'forest', src: 'X', vars: [{ file: 'var1.png', cells: [1, 0, 2 ** 47] }], frames: 2, dur: 0.5,
     pal: { floor: ['#111111', '#222222', '#333333', '#444444'], wall: ['#000000', '#005500', '#007700', '#00aa00'], edge: '#000000', rock: ['#1', '#2', '#3', '#4'], grass: ['#1', '#2', '#3', '#4'] } }];
   G.OBJECTS_PMD = { bigchest: { file: 'bigchest.png', w: 32, h: 31 }, trap0: { file: 'trap0.png', w: 24, h: 24 } };
@@ -160,8 +163,8 @@ test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile);
   for (const im of images.slice(n - 6)) im.onload();
   assert.ok(/objects-px\/chest\.png$/.test(T.prop(0, 'chest', 0)._src));
   assert.ok(/objects-px\/trap2\.png$/.test(T.prop(0, 'trap', 4 * 2)._src));
-  // Los árboles, como antes: la pieza de pared suelta.
-  assert.equal(T.prop(0, 'tree', 0).width, 24, 'la pieza de pared de siempre');
+  // Los árboles, como antes: la pieza de pared suelta (recortada y con 2 px de hueco a los lados para el viento).
+  assert.equal(T.prop(0, 'tree', 0).width, 28, 'la pieza de pared de siempre');
 });
 
 test('world 6: almost no loose walls (each wall belongs to a 2×2 block) and grove trees always leave a gap', () => {
@@ -197,9 +200,8 @@ test('tileset 6b: objects in PMD style only when the tileset is ready (tree = th
   assert.equal(T.pal(0), null);
   for (const im of images) im.onload();
   const tree = T.prop(0, 'tree', 0);
-  assert.ok(tree && tree.width === 24, 'el árbol es una casilla de 24 px');
-  const d = draws[draws.length - 1];
-  assert.deepEqual([d[1], d[2]], [(T.RULE[0] % 6) * 24, ((T.RULE[0] / 6) | 0) * 24], 'la pieza de pared suelta (sección de pared)');
+  assert.ok(tree && tree.width === 28 && tree.height === 26, 'el árbol es una casilla de 24 px con su hueco para el viento');
+  assert.ok(draws.some(d => d[1] === (T.RULE[0] % 6) * 24 && d[2] === ((T.RULE[0] / 6) | 0) * 24 && d[5] === 2 && d[6] === 2), 'la pieza de pared suelta (sección de pared)');
   assert.equal(T.prop(0, 'tree', 0), tree, 'guardado');
   assert.equal(T.prop(0, 'chest', 0), null, 'el cofre pequeño, de tiles.js');
   assert.equal(T.prop(0, 'rock', 0), null);
