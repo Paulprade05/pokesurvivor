@@ -7,6 +7,8 @@
  */
 G.CHANGELOG = [
   { d: '2026-11-05', title: ["Un mundo con vida y ataques con más efectos", "A living world and flashier attacks"], new: [
+    ["Muros nuevos en todos los mapas: cima con relieve, pared de roca natural y lianas, cristales o magma según el sitio. Nuevo portal de la grieta y más vida por el suelo: flores, setas, huesos, cristales, fumarolas y brasas.",
+     "New walls on every map: textured tops, natural rock faces and vines, crystals or magma depending on the place. New rift portal and more life on the ground: flowers, mushrooms, bones, crystals, vents and embers."],
     ["El mundo tiene vida: la hierba alta es nueva y se mueve con el viento en olas, los árboles mecen las hojas y sueltan alguna, y según dónde estés verás mariposas, pájaros con su sombra, murciélagos, luciérnagas, ascuas, ceniza, nieve o pétalos. Por el suelo pasan sombras de nubes y en el agua y con lluvia salen ondas.",
      "The world is alive: tall grass is new and moves with the wind in waves, trees rustle and drop the odd leaf, and depending on where you are you'll see butterflies, birds with their shadow, bats, fireflies, embers, ash, snow or petals. Cloud shadows cross the ground, and water and rain make ripples."],
     ["Ataques con más fuerza visual, sin cambiar lo que hacen: cada tipo golpea a su manera (humo y ascuas, salpicaduras, hojas, chispas, esquirlas, polvo, burbujas, estrellas, llamitas), los estallidos grandes llevan su explosión, los disparos brillan y dejan estela y los enemigos se deshacen en humo.",

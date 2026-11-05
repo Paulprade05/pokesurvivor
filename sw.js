@@ -42,7 +42,7 @@ self.addEventListener('fetch', e => {
   const p = url.pathname;
   if (p.endsWith('/version.json') || p.startsWith('/__/')) return;      // directo a la red
   if (p.includes('/assets/pokemon/')) { e.respondWith(sprite(e, req, url)); return; }
-  if (/\/assets\/(icons|fonts|splash|items|tiles-pmd|objects-pmd|objects-px|vfx)\//.test(p)) { fresh(e, req); return; }      // (tiles-pmd: tilesets, bloque 6; objects-pmd: cofres y trampas, 6b; objects-px y vfx: arte PixelLab)
+  if (/\/assets\/(icons|fonts|splash|items|tiles-pmd|objects-pmd|objects-px|pxl|vfx)\//.test(p)) { fresh(e, req); return; }      // (tiles-pmd: tilesets, bloque 6; objects-pmd: cofres y trampas, 6b; objects-px y vfx: arte PixelLab)
   e.respondWith(fetch(req).then(res => {
     if (res.ok) e.waitUntil(keep(req, url, res.clone()).catch(() => {}));
     return res;

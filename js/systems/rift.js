@@ -665,9 +665,21 @@ G.Rift = (() => {
       y: rift.y,
       draw(ctx) {
         const P = G.Sprites.PX;
+        const fadeIn = Math.min(1, rift.t * 2), fadeOut = Math.min(1, rift.ttl / 1.5);
+        // (Muros y grietas, 05-11-2026) El portal dibujado con pxl (tools/pxl/mapas.px.js): 8 fotogramas y el suelo roto debajo.
+        const sheet = G.Tileset && G.Tileset.pxImg('riftp'), rot = G.Tileset && G.Tileset.pxImg('riftsuelo');
+        if (sheet) {
+          ctx.save();
+          ctx.globalAlpha = fadeIn * fadeOut;
+          ctx.imageSmoothingEnabled = false;
+          if (rot) ctx.drawImage(rot, Math.round(rift.x - rot.width), Math.round(rift.y - rot.height), rot.width * P, rot.height * P);
+          ctx.drawImage(sheet, (Math.floor(rift.t * 8) % 8) * 48, 0, 48, 64, Math.round(rift.x - 48), Math.round(rift.y - 118), 96, 128);
+          ctx.restore();
+          if (Math.random() < 0.3) G.FX.px(rift.x + G.U.rand(-24, 24), rift.y - G.U.rand(10, 110), '#d9c2ff', { vy: -40, life: 0.6 });
+          return;
+        }
         const img = G.Tiles.propSprite(0, 'rift', Math.floor(rift.t * 8) % 4);
         const w = img.width * P, h = img.height * P;
-        const fadeIn = Math.min(1, rift.t * 2), fadeOut = Math.min(1, rift.ttl / 1.5);
         ctx.save();
         ctx.globalAlpha = 0.25 * fadeIn * fadeOut;
         ctx.fillStyle = '#7b3cff';

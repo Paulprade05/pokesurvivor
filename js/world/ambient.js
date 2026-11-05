@@ -7,7 +7,9 @@
  * Todo se dibuja con drawImage de un atlas pequeño (hecho una vez, en píxeles de arte) o con fillRect de un punto.
  *
  * Qué sale en cada bioma: RECIPE, según su suelo; en las grietas, según el tipo. Cada capa:
- *   ground(ctx, view)  encima del agua y debajo de todo: sombras de nubes, ondas del agua, burbujas de lava, gotas de lluvia
+ *   ground(ctx, view)  encima del agua y debajo de todo: sombras de nubes, ondas del agua, burbujas de lava, gotas de lluvia y
+ *                      flora (flores, helechos, setas que brillan, cristales, fumarolas, brasas: assets/pxl/flora.png; pocos por
+ *                      chunk, salen de un hash y un fotograma ya hecho: no cuestan más que un drawImage cada uno)
  *   air(ctx, cam)      encima de todo menos de los ataques: mariposas, pájaros, hojas, ascuas, luciérnagas, nieve...
  *   tree(p)            world.js avisa de los árboles que se ven: de ahí caen las hojas
  */
@@ -283,6 +285,7 @@ G.Ambient = (() => {
       }
       ctx.globalAlpha = 1;
     }
+    if (G.Settings.fx > 0) drawFlora(ctx, view, bi);
     // Sombra de la bandada: lejos del pájaro, que va alto.
     if (flock) drawFlock(ctx, true);
     // Ondas: en el agua, de vez en cuando; en la lava, burbujas; con lluvia, gotas por todas partes.
@@ -309,6 +312,46 @@ G.Ambient = (() => {
       ctx.globalAlpha = 1;
     }
   }
+  // ---------------- flora ----------------
+  // Filas de flora.png por suelo: 0-2 flores, 3 helecho, 4 seta que brilla, 5 cristal, 6 fumarola, 7 brasa. Con viento, las 4 primeras.
+  const FLORA = { grass: [0, 1, 2, 3, 3], stone: [4, 4, 5], ash: [6, 7, 7], sand: [3], snow: [] };
+  const floraC = new Map();
+  let floraFor = -1;
+  /** La flora de un chunk (una vez): casillas de suelo libres, elegidas por hash (todos ven la misma). */
+  function floraOf(cx, cy, rows) {
+    const W = G.World, N = W.N, TS = W.TS, out = [], taken = new Set(W.chunk(cx, cy).props.map(p => p.tx + ',' + p.ty));
+    for (let j = 0; j < N && out.length < 5; j++) for (let i = 0; i < N && out.length < 5; i++) {
+      const tx = cx * N + i, ty = cy * N + j;
+      if (G.U.hash(tx, ty, W.seed + 720) >= 0.05 || W.terrainAt(tx, ty) !== 0 || taken.has(tx + ',' + ty)) continue;
+      out.push({ x: tx * TS + 8 + G.U.hash(tx, ty, W.seed + 721) * 32 | 0, y: ty * TS + 12 + G.U.hash(tx, ty, W.seed + 722) * 32 | 0, row: rows[G.U.hash(tx, ty, W.seed + 723) * rows.length | 0] });
+    }
+    return out;
+  }
+  function drawFlora(ctx, view, bi) {
+    const rows = FLORA[G.Tiles.BIOMES[bi].ground], im = G.Tileset.pxImg('flora');
+    if (!rows || !rows.length || !im || !G.World.pmdOn(bi)) return;
+    if (floraFor !== bi) { floraC.clear(); floraFor = bi; }
+    const CW = G.World.CW, x0 = Math.floor((view.left() - 40) / CW), x1 = Math.floor((view.left() + view.w + 40) / CW);
+    const y0 = Math.floor((view.top() - 40) / CW), y1 = Math.floor((view.top() + view.h + 40) / CW);
+    let fresh = 1;                                   // (un chunk nuevo por fotograma como mucho)
+    for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
+      const k = cx * 65536 + cy;
+      let list = floraC.get(k);
+      if (!list) {
+        if (!fresh) continue;
+        fresh = 0;
+        if (floraC.size > 64) floraC.clear();
+        list = floraOf(cx, cy, rows);
+        floraC.set(k, list);
+      }
+      for (const f of list) {
+        if (!view.sees(f.x, f.y, 40)) continue;
+        const fr = f.row < 4 ? G.Anim.wind(f.x, f.y) : G.Anim.tick(8, 7, (f.x + f.y) & 7);
+        ctx.drawImage(im, fr * 16, f.row * 20, 16, 20, f.x - 16, f.y - 36, 32, 40);
+      }
+    }
+  }
+
   function addRing(x, y, k) { for (const o of rings) if (!o.on) { o.on = true; o.x = x; o.y = y; o.t = 0; o.k = k; return; } }
 
   function drawFlock(ctx, shadow) {
@@ -403,5 +446,5 @@ G.Ambient = (() => {
     cloudC = [];
   }
 
-  return { ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
+  return { ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; floraFor = -1; floraC.clear(); flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
 })();
