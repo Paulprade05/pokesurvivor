@@ -17,11 +17,19 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 3. **Un píxel de arte son 2 unidades de mundo y un número entero de píxeles de pantalla** (`camera.js`). Todo se dibuja en posiciones pares, sobre la misma rejilla (`sprites.js`, `world.js`, `vfx.js`). Por eso la vista va a saltos: en una pantalla de 1920×868, de 4 a 3 píxeles de pantalla.
 4. **Lo que está de pie y no es del tileset** lleva contorno con el tono oscuro del tileset, trazo de 2 px como mínimo y tres tonos planos más un brillo. El negro casi puro es sólo de los Pokémon.
 5. **Las sombras van a píxeles.** Nada de elipses lisas ni tramas por encima del suelo.
-6. **Sin tapar el arte:** ni manchas de nubes ni viñetas fuertes.
-7. **Pocos adornos:** la franja del tileset ya da vida. Lo demás, escaso y con causa.
+6. **Sin tapar lo que importa:** la niebla y las sombras que se mueven van pegadas al suelo, debajo de avisos, recompensas, Pokémon y disparos (`atmos.js`, `game.js drawScene`). Por encima de la escena sólo va la viñeta, que no toca el centro.
+7. **Pocos adornos:** la franja del tileset ya da vida. Lo demás, escaso y con causa: lo que crece, junto a la hierba (`tileset.js decor`). Colores apagados hacia el suelo (`grounded`) y contorno del tono del suelo oscurecido (`inkOf`), no de la pared.
 8. **Las plantas nacen del suelo, no se posan encima.** La hierba lleva debajo una mancha horneada en el suelo que deja ver su textura y tiene el borde irregular, nunca el de la casilla (`tileset.js seatSheet`). Sus matas no llevan contorno, tienen la base del tono de esa mancha y son sueltas en la orilla (`tiles.js grass24`).
 9. **Lo que apoya en el suelo lleva sombra de contacto** (`tileset.js grounded`) y un contorno que no sea más oscuro que el del mapa.
-10. **En Ultra, muro y suelo son del mismo material:** la cara mezcla roca y suelo y se oscurece a escalones hacia el pie; sombras y contornos usan el tono oscuro del mapa, nunca negro; lo lejano se pierde en una bruma a franjas (`tileset.js haze`, `game.js`).
+10. **Cada mapa tiene un tono** (`atmos.js MOODS`): se multiplica sobre chunks, árboles, rocas y líquido, y de ahí salen niebla, sombra y viñeta. Un color que no pase por ahí se despega.
+11. **El líquido lleva el color de su mapa** (`BIOMES[bi].liq`), no el del tileset, si no se parecen (`tileset.js toneLiq`).
+12. **En Ultra, muro y suelo son del mismo material:** la cara mezcla roca y suelo y se oscurece a escalones hacia el pie; sombras y contornos usan el tono oscuro del mapa, nunca negro; lo lejano se pierde en una bruma a franjas (`tileset.js haze`, `game.js`).
+
+## Cómo se da profundidad
+Sin dibujar nada encima con otro estilo (`js/world/atmos.js`):
+- **Horneado en el chunk:** tono del mapa, manchas grandes de luz y sombra, interior de los muros en penumbra.
+- **Por fotograma, sobre el suelo:** dos bancos de niebla y uno de sombra, a escalones y en píxeles de arte, más anchos que altos. Sale de un solo mapa de ruido que se repite sin costuras.
+- **Según avanza la partida:** cae la noche sólo sobre el suelo. Los Pokémon no se oscurecen y resaltan más.
 
 ## Referencias
 Capturas de Exploradores del Cielo en Mystery Dungeon Franchise Wiki. Se toma la técnica, no los mapas ni los dibujos.

@@ -1088,7 +1088,11 @@ G.World = (() => {
    * (antes, 0,5 en las esquinas; y en Ultra, una luz que oscurecía arriba).
    */
   let vig = null, vigW = 0, vigH = 0;
-  function drawVignette(ctx, w, h) { drawEdge(ctx, w, h, '0,0,0', 0.14, 0.4, 0.8); }
+  function drawVignette(ctx, w, h) {
+    // (Ambientación) Del tono del mapa y algo más cerrada: lo que da fondo. Sigue sin tocar el centro, donde pasa todo.
+    const e = G.Atmos.edge(biome);
+    drawEdge(ctx, w, h, e[0], e[1], 0.42, 0.78);
+  }
 
   /*
    * Oscurecer (o aclarar, la niebla) los bordes de la pantalla: el círculo va de min(w, h)·r0 a max(w, h)·r1.

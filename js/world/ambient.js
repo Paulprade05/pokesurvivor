@@ -131,7 +131,7 @@ G.Ambient = (() => {
    * glow: { n, c } luces que van y vienen (luciérnagas, fuegos fatuos)
    */
   const R = {
-    meadow: { fly: 3, leaf: 4, bird: 1, cloud: 1, up: { n: 6, c: ['#fff6c8', '#d8f0a0'], v: 9 } },
+    meadow: { fly: 3, leaf: 4, bird: 1, cloud: 1, glow: { n: 4, c: ['#e8f4a0', '#a8f0d0'] }, up: { n: 6, c: ['#fff6c8', '#d8f0a0'], v: 9 } },
     cave: { bat: 2, glow: { n: 6, c: ['#8fe3ff', '#c9a6ff'] }, up: { n: 6, c: ['#c8f7ff', '#8fa0d8'], v: 7 } },
     ash: { up: { n: 11, c: ['#ffb040', '#ff7a2a', '#ffe08a'], v: 34 }, down: { n: 7, c: ['#8a7a70', '#b0a498'], v: 22 } },
     desert: { bird: 1, cloud: 1, down: { n: 6, c: ['#e8cf8f', '#d8b878'], v: 12 } },

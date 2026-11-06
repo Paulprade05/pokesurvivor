@@ -84,6 +84,7 @@ G.Game = (() => {
     G.VFX.purge();
     G.Pickups.purge();
     G.Ambient.purge();
+    G.Atmos.purge();
     G.Hazards.purge();
     G.Combat.purgeWebs();
     // (Vaciados por Safari: también árboles, rocas y hierba repintados, los dibujos de los ataques y los degradados del HUD.)
@@ -121,11 +122,11 @@ G.Game = (() => {
   const BW_EVERY = 2000, BW_AGAIN = 300, BW_HITS = 3, BW_WAIT = 1500, BW_MAX = 6;
 
   /** 'ok', 'negro' (opaco y negro), 'vacio' (transparente) o null si no se puede leer. */
-  function readWorld() {
+  function readWorld(c = ctx, v = cv) {
     try {
       let black = 0, empty = 0;
       for (const k of [0.22, 0.5, 0.78]) {
-        const d = ctx.getImageData(0, Math.floor(cv.height * k), cv.width, 1).data;
+        const d = c.getImageData(0, Math.floor(v.height * k), v.width, 1).data;
         for (let i = 0; i < d.length; i += 64) {
           if (d[i + 3] < 16) empty++;
           else if (d[i] + d[i + 1] + d[i + 2] > 9) return 'ok';
@@ -136,12 +137,23 @@ G.Game = (() => {
     } catch (e) { return null; }      // (file://: no deja leer)
   }
 
+  /*
+   * (Ambientación, 06-11-2026) La niebla, el anochecer y el tinte del clima aclaran el negro: leídos encima, un mundo perdido daría «ok».
+   * Por eso en el fotograma que toca mirar se lee también el suelo antes de esas capas. Sobre el mundo de verdad nada de esto sale negro: los
+   * mapas más oscuros tienen tonos mucho más claros que el umbral (ver readWorld) y la penumbra de los muros no pasa del 62 %.
+   */
+  let bwFloor = null, bwDue = false;
+  function watchFloor(c, v) { if (bwDue && state === 'playing') bwFloor = readWorld(c, v); }
+
   /** Justo antes del HUD. Una vez cada BW_EVERY ms; con sospechas, más seguido. */
   function blackWatch() {
+    if (!bwDue) return;                      // (se decide al empezar el fotograma: las dos lecturas, del mismo)
+    bwDue = false;
     const now = performance.now();
-    if (now < bwNext) return;
     if (state !== 'playing' || G.Judgment.cinematic || G.Rift.traveling) { bwHits = 0; bwNext = now + BW_EVERY; return; }
-    const seen = readWorld();
+    let seen = readWorld();
+    if (seen === 'ok' && bwFloor && bwFloor !== 'ok') seen = bwFloor;     // (arriba hay color, pero es la niebla sobre un mundo perdido)
+    bwFloor = null;
     if (seen === null) { bwOn = false; return; }
     if (seen === 'ok') {
       if (bwStep) {
@@ -301,6 +313,7 @@ G.Game = (() => {
     G.Hazards.clear();
     G.World.reset(coop ? coop.seed : Math.floor(Math.random() * 1e6));
     G.Ambient.reset();
+    G.Atmos.reset();
     G.World.setBiome(0, true);
     biome = 0;
     time = 0; pendingLevels = 0;
@@ -1213,6 +1226,8 @@ G.Game = (() => {
     G.World.drawGround(ctx, cam);
     G.World.drawLiquid(ctx, cam, t);
     G.Ambient.ground(ctx, cam);          // (arte animado: nubes, ondas; pura decoración)
+    watchFloor(ctx, cv);                 // (el vigilante mira el suelo antes de la niebla: sobre negro, la niebla parecería mundo)
+    G.Atmos.ground(ctx, cam);            // (ambientación: la niebla va aquí, debajo de avisos, recompensas, enemigos y disparos)
     G.EnemyAI.drawGround(ctx);           // (los que van bajo tierra: su montículo)
     G.Hazards.draw(ctx);
     G.Combat.drawGroundFields(ctx);
@@ -1295,6 +1310,8 @@ G.Game = (() => {
       G.World.drawGround(gx, view, true);
       G.World.drawLiquid(gx, view, t);
       G.Ambient.ground(gx, view);
+      watchFloor(gx, gcv);
+      G.Atmos.ground(gx, view);
       const props = G.World.visibleProps(view);
       // (Ultra 3D, world/ultra3d.js) Paredes, rocas y cofres en 3D de verdad, si se puede; si no, este fotograma en 2D.
       const u3 = G.Ultra3D.begin(cam, Kd, cv.width, Hd, props);
@@ -1484,6 +1501,7 @@ G.Game = (() => {
 
   function render() {
     drawing = true;
+    bwDue = bwOn && performance.now() >= bwNext;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (!G.Camera.persp) ctx.clearRect(0, 0, w, h);     // (en Ultra el suelo ya tapa toda la pantalla)
     ctx.imageSmoothingEnabled = false;
@@ -1515,7 +1533,7 @@ G.Game = (() => {
     const fog = G.Weather.vignette;
     if (fog > 0) {
       ctx.globalAlpha = Math.min(1, fog);
-      G.World.drawEdge(ctx, w, h, '200,205,220', 0.45, 0.32, 0.62);
+      G.World.drawEdge(ctx, w, h, '200,205,220', 0.3, 0.32, 0.62);      // (0,3: este velo va encima de los enemigos; lo espeso es la niebla del suelo, atmos.js)
       ctx.globalAlpha = 1;
     }
     if (bwOn) blackWatch();
