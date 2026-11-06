@@ -894,7 +894,11 @@ G.World = (() => {
       case 'grass': {
         const pl = livePl, step = pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8;
         // (Arte animado) Con el tileset, la hierba de 24 px: 8 fotogramas de viento y uno pisada (tiles.js grass24).
-        if (g24) return (p.look % 4) * 9 + (step ? 8 : G.Anim.wind(p.x, p.y));
+        if (g24) {
+          // En la orilla de la mancha, matas sueltas (se mira al dibujarla la primera vez: al repartir, los vecinos aún no existen).
+          if (p.thin === undefined) p.thin = !(grassField(p.tx, p.ty - 1) && grassField(p.tx + 1, p.ty) && grassField(p.tx, p.ty + 1) && grassField(p.tx - 1, p.ty));
+          return (p.thin ? 4 + p.look % 2 : p.look % 4) * 9 + (step ? 8 : G.Anim.wind(p.x, p.y));
+        }
         if (step) return (p.look % 3) * 3 + 2;
         return (p.look % 3) * 3 + (G.Anim.on && Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
       }

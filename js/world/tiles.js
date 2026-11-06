@@ -1155,10 +1155,10 @@ G.Tiles = (() => {
       // (Hierba integrada, 06-11-2026) Como en Mundo Misterioso: matas bajas sin contorno, con la base del tono de la tierra que
       // tienen debajo (tileset.js seatSheet) y la punta clara, y sin tocar el borde del dibujo. Las altas con contorno, en filas
       // iguales y cortadas por los lados, parecían pegadas encima del suelo.
-      const look = Math.floor(variant / 9) % 4, f = variant % 9, step = f === 8;
+      const look = Math.floor(variant / 9) % 6, f = variant % 9, step = f === 8;      // (4 y 5: las sueltas de la orilla de la mancha)
       const P = Pix(26, 26);
       const s0 = sortHex(B.grass), fl = sortHex(B.floor)[1];
-      const base = mixPack(s0[0], fl, 0.22), mid = pack(s0[1]), lit = mixPack(s0[2], fl, 0.1);
+      const base = mixPack(s0[0], fl, 0.12), mid = pack(s0[1]), lit = pack(s0[2]);
       const ph = f / 8 * Math.PI * 2;
       const blade = (bx, by, h, lean, i) => {
         const hh = step ? Math.max(2, Math.round(h * 0.55)) : h;
@@ -1169,7 +1169,7 @@ G.Tiles = (() => {
           if (t < 0.55) P.set(cx + 1, by - j, j < 2 ? base : mid);
         }
       };
-      const set = [[[7, 12, 6], [17, 15, 7], [11, 22, 8]], [[15, 11, 6], [7, 18, 7], [18, 22, 7]], [[10, 16, 8], [18, 21, 6]], [[8, 12, 6], [16, 17, 8], [7, 23, 6], [19, 23, 5]]][look];
+      const set = [[[7, 12, 9], [17, 15, 10], [11, 22, 11]], [[15, 11, 9], [7, 18, 10], [18, 22, 10]], [[10, 16, 11], [18, 21, 9], [6, 23, 8]], [[8, 12, 9], [16, 17, 11], [7, 23, 9], [19, 23, 8]], [[12, 19, 9]], [[8, 22, 8], [17, 15, 8]]][look];
       set.forEach(([x, y, h], n) => {
         blade(x - 3, y, h - 2, -2, n * 3);
         blade(x + 3, y, h - 2, 2, n * 3 + 1);

@@ -232,8 +232,8 @@ G.Tileset = (() => {
     const g = cv.getContext('2d');
     if (!g) { G.U.freeCanvas(cv); return null; }
     const fl = m.pal.floor.map(hex3), gr = m.pal.grass.map(hex3), ed = hex3(m.pal.edge);
-    const deep = mix3(mix3(fl[0], ed, 0.16), gr[1], 0.4), soft = mix3(fl[1], gr[1], 0.42);
-    const sprig = mix3(gr[1], fl[2], 0.16), tip = mix3(gr[2], fl[3], 0.12);
+    const deep = mix3(mix3(fl[0], ed, 0.12), gr[1], 0.55), soft = mix3(fl[1], gr[1], 0.62);
+    const sprig = mix3(gr[2], fl[2], 0.08), tip = gr[3] || gr[2];
     const lat = (i, j, look, n) => {
       i = (i + n) % n; j = (j + n) % n;
       return H(i * 7 + n, j * 5 + n, i && j ? 11 + look * 37 : 11);
@@ -253,21 +253,22 @@ G.Tileset = (() => {
         const D = [y, T - 1 - x, T - 1 - y, x];
         let w = self ? 1 : 0;
         for (let s = 0; s < 4; s++) {
-          const on = (bits >> s) & 1, q = cl(D[s] / 7);
-          if (self && !on) w = Math.min(w, 0.35 + 0.65 * q);
-          if (!self && on) w = Math.max(w, 0.35 * (1 - q));
+          // (El borde se tuerce con ruido: si siguiera la casilla, la mancha se vería cuadrada.)
+          const on = (bits >> s) & 1, q = cl((D[s] + (bil(x, y, 6, look) - 0.5) * 16) / 10);
+          if (self && !on) w = Math.min(w, 0.3 + 0.7 * q);
+          if (!self && on) w = Math.max(w, 0.3 * (1 - q));
         }
         return w;
       };
       for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
         const w = weight(x, y), v = cl((0.6 * bil(x, y, 4, look) + 0.4 * bil(x, y, 2, look) - 0.25) * 2);
         if (v >= w * 0.9) continue;
-        if (v < w * 0.34) put(X + x, Y + y, deep, 150); else put(X + x, Y + y, soft, 120);
+        if (v < w * 0.34) put(X + x, Y + y, deep, 205); else put(X + x, Y + y, soft, 175);
       }
       // Brotes sueltos, dentro de la mancha.
       for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) {
         const px = i * 5 + 1 + Math.floor(H(i + look * 5, j, 901) * 3), py = j * 5 + 2 + Math.floor(H(i, j + look * 5, 902) * 3);
-        if (px < 1 || px > T - 2 || py > T - 1 || weight(px, py) < 0.5 || H(i, j, 903 + look) > 0.74) continue;
+        if (px < 1 || px > T - 2 || py > T - 1 || weight(px, py) < 0.45 || H(i, j, 903 + look) > 0.9) continue;
         put(X + px, Y + py, sprig, 255); put(X + px - 1, Y + py - 1, sprig, 255); put(X + px + 1, Y + py - 1, sprig, 255); put(X + px, Y + py - 2, tip, 255);
       }
     }

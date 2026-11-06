@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Cámara más lejos", "Camera further away"], chg: [
+    ["La cámara se aleja: ves más mapa alrededor y los Pokémon se ven algo más pequeños. Cuánto depende de tu pantalla.",
+     "The camera is further away: you see more of the map around you and Pokémon look a bit smaller. How much depends on your screen."],
+    ["La hierba se nota más, con manchas de borde irregular y matas sueltas en la orilla.",
+     "Grass stands out more, with irregular patches and loose tufts around the edges."]] },
   { d: '2026-11-06', title: ["Hierba natural y mejor 2,5D", "Natural grass and better 2.5D"], chg: [
     ["La hierba ya nace del suelo: manchas de brotes que se deshacen hacia los bordes y matas bajas, en lugar de filas pegadas encima.",
      "Grass now grows from the ground: sprout patches that fade out at the edges and low tufts, instead of rows stuck on top."],
