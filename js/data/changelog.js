@@ -6,6 +6,36 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Pasivas hasta el nivel 10", "Passives up to level 10"], chg: [
+    ["Todas las pasivas suben ahora hasta el nivel 10, y Réplica hasta el 4. Antes se quedaban en 4, 5, 6 u 8 (Potencia ya llegaba a 10), así que al final de la partida eres bastante más fuerte.",
+     "All passives now go up to level 10, and Replica up to 4. They used to stop at 4, 5, 6 or 8 (Power already reached 10), so you're much stronger late in a run."],
+    ["Réplica suma ahora hasta +4 por ataque, contando la evolución (antes +3).",
+     "Replica now adds up to +4 per move, counting its evolution (it was +3)."],
+    ["Como evolucionar pide la pasiva a la mitad de su máximo, ahora hace falta nivel 5 en casi todas (nivel 2 en Réplica).",
+     "Since evolving needs the passive at half its maximum, most now need level 5 (level 2 for Replica)."],
+    ["Coraza deja de salir en las cartas cuando ya está en su techo del 60 %, salvo que la pida una evolución.",
+     "Armor stops showing up in the cards once it reaches its 60% ceiling, unless an evolution needs it."]] },
+  { d: '2026-11-06', title: ["Cámara más lejos", "Camera further away"], chg: [
+    ["La cámara se aleja: ves más mapa alrededor y los Pokémon se ven algo más pequeños. Cuánto depende de tu pantalla.",
+     "The camera is further away: you see more of the map around you and Pokémon look a bit smaller. How much depends on your screen."],
+    ["La hierba se nota más, con manchas de borde irregular y matas sueltas en la orilla.",
+     "Grass stands out more, with irregular patches and loose tufts around the edges."]] },
+  { d: '2026-11-06', title: ["Hierba natural y mejor 2,5D", "Natural grass and better 2.5D"], chg: [
+    ["La hierba ya nace del suelo: manchas de brotes que se deshacen hacia los bordes y matas bajas, en lugar de filas pegadas encima.",
+     "Grass now grows from the ground: sprout patches that fade out at the edges and low tufts, instead of rows stuck on top."],
+    ["Flores, setas, adornos y rocas se apoyan mejor en el suelo y usan sus colores.",
+     "Flowers, mushrooms, decorations and rocks sit better on the ground and use its colors."],
+    ["Ultra se ve más 2,5D: cámara más inclinada, muros más altos del mismo material que el suelo, sombras del color de cada mapa y bruma a lo lejos.",
+     "Ultra looks more 2.5D: a more tilted camera, taller walls made of the same material as the ground, shadows in each map's color and haze in the distance."]] },
+  { d: '2026-11-06', title: ["Mundos como los de Mundo Misterioso", "Worlds like Mystery Dungeon"], chg: [
+    ["Todos los mapas se ven ahora como en Mundo Misterioso: suelo de un solo material, muros orgánicos y una franja de plantas o cristales junto a muros y agua, para que nada cambie de golpe.",
+     "Every map now looks like Mystery Dungeon: a single ground material, organic walls and a strip of plants or crystals along walls and water, so nothing changes abruptly."],
+    ["Mapas nuevos para las grietas que no casaban con su nombre: Selva Esmeralda, Glaciar Eterno, Pico Celeste, Fortaleza de Acero, Templo Mental, Bosque Encantado, Ruinas del Juicio y otros.",
+     "New maps for the rifts that didn't fit their name: Emerald Jungle, Eternal Glacier, Celestial Peak, Steel Fortress, Mind Temple, Enchanted Forest, Ruins of Judgment and others."],
+    ["Hierba, rocas, cristales y adornos usan los colores de cada mapa, y las rejillas y esteras pasan a ser hierba.",
+     "Grass, rocks, crystals and decorations use each map's colors, and grates and mats are now grass."],
+    ["Todos los píxeles miden lo mismo en pantalla. Antes unos salían más anchos que otros. Según tu pantalla verás algo más o algo menos de mapa.",
+     "All pixels are now the same size on screen. Before, some came out wider than others. Depending on your screen you'll see slightly more or less of the map."]] },
   { d: '2026-11-06', title: ["Muros, grietas y mapas con más vida", "Walls, rifts and livelier maps"], new: [
     ["Muros nuevos en todos los mapas: ya no son bloques planos, sino montes con la cima en relieve, pared de roca natural y lianas, cristales o magma según el sitio.",
      "New walls on every map: no more flat blocks, now they're hills with textured tops, natural rock faces and vines, crystals or magma depending on the place."],

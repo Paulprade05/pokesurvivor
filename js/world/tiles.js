@@ -836,7 +836,7 @@ G.Tiles = (() => {
     return B;
   }
   /** (6b) ¿La hierba alta de este bioma es de 24 px con la paleta del tileset? (las rejillas y esteras siguen a 16) */
-  const grass24 = bi => BIOMES[bi].ground !== 'metal' && BIOMES[bi].ground !== 'wood';
+  const grass24 = () => true;
 
   /*
    * Sombras de los objetos, en píxeles de arte (radio x, radio y) y guardadas:
@@ -1097,9 +1097,10 @@ G.Tiles = (() => {
     grass(B, variant = 0, S = T) {
       if (S !== 24 && variant >= 9) variant -= 9;        // (las variantes 9..17 eran las del Ultra de antes)
       // (29-10-2026) La hierba alta, en suelo de metal: rejilla con cables; en madera: esteras de tatami.
+      // (Mundo integrado) Con el tileset, la misma hierba en todos los mapas, con sus colores: las rejillas y esteras no casaban.
+      if (S === 24) return PAINT.grass24(B, variant);
       if (B.ground === 'metal') return PAINT.grate(B, variant);
       if (B.ground === 'wood') return PAINT.mats(B, variant);
-      if (S === 24) return PAINT.grass24(B, variant);
       // (6b) S: px por casilla (16 el pintor; 24 con el tileset de Mundo Misterioso: las matas, ×1,5 más altas).
       const k = S / 16;
       const P = Pix(S + 2, S + 2);
@@ -1151,28 +1152,29 @@ G.Tiles = (() => {
      * variant = aspecto × 9 + fotograma: 0..7 el viento, 8 pisada (se abre y se aplasta). Colores: los del bioma (ramp).
      */
     grass24(B, variant = 0) {
-      // (Estilo común, 06-11-2026) Con las reglas de los Pokémon (docs/ESTILO-ARTE.md): pocas hojas, gruesas, tres tonos planos y
-      // contorno oscuro alrededor de toda la mata. Las de 1 px sin contorno parecían de más resolución que todo lo demás.
-      const look = Math.floor(variant / 9) % 3, f = variant % 9, step = f === 8;
+      // (Hierba integrada, 06-11-2026) Como en Mundo Misterioso: matas bajas sin contorno, con la base del tono de la tierra que
+      // tienen debajo (tileset.js seatSheet) y la punta clara, y sin tocar el borde del dibujo. Las altas con contorno, en filas
+      // iguales y cortadas por los lados, parecían pegadas encima del suelo.
+      const look = Math.floor(variant / 9) % 6, f = variant % 9, step = f === 8;      // (4 y 5: las sueltas de la orilla de la mancha)
       const P = Pix(26, 26);
-      const s0 = sortHex(B.grass), Gc = ramp(B.grass), edge = pack(shade(s0[0], -0.68));
+      const s0 = sortHex(B.grass), fl = sortHex(B.floor)[1];
+      const base = mixPack(s0[0], fl, 0.12), mid = pack(s0[1]), lit = pack(s0[2]);
       const ph = f / 8 * Math.PI * 2;
-      const blade = (bx, by, h, lean, i, c0, c1) => {
-        const hh = step ? Math.round(h * 0.6) : h;
-        const sw = step ? (bx < 13 ? -2.5 : 2.5) : Math.round(Math.sin(ph + i * 1.3) * 1.5);      // sólo la punta se mueve
+      const blade = (bx, by, h, lean, i) => {
+        const hh = step ? Math.max(2, Math.round(h * 0.55)) : h;
+        const sw = step ? (lean < 0 ? -2 : 2) : Math.round(Math.sin(ph + i * 1.3));
         for (let j = 0; j < hh; j++) {
-          const t = j / Math.max(1, hh - 1), cx = Math.round(bx + (lean + sw) * t * t);
-          const w = t < 0.4 ? 2 : t < 0.8 ? 1 : 0;                                               // de 3 px a 1 px
-          for (let k = -24; k <= 24; k += 24) for (let x = cx - w; x <= cx + w; x++) P.set(x + k + 1, by - j, x <= cx - (w ? 1 : 0) ? c1 : c0);
+          const t = j / Math.max(1, hh - 1), cx = Math.round(bx + (lean + sw) * t * t), c = j < 2 ? base : t < 0.72 ? mid : lit;
+          P.set(cx, by - j, c);
+          if (t < 0.55) P.set(cx + 1, by - j, j < 2 ? base : mid);
         }
       };
-      // Tres matas de tres hojas por casilla; la de delante, la más clara.
-      const set = [[[5, 15], [17, 13], [11, 23]], [[8, 14], [20, 16], [4, 23]], [[12, 14], [3, 17], [19, 23]]][look];
-      set.forEach(([x, y], n) => {
-        const dark = n < 2, a = dark ? Gc[0] : Gc[1], b = dark ? Gc[1] : Gc[2];
-        for (const [dx, lean, h] of [[-3, -3, 9], [3, 3, 10], [0, 0, 13]]) blade(x + dx, y, h - (dark ? 1 : 2), lean, n * 3 + dx, a, b);
+      const set = [[[7, 12, 9], [17, 15, 10], [11, 22, 11]], [[15, 11, 9], [7, 18, 10], [18, 22, 10]], [[10, 16, 11], [18, 21, 9], [6, 23, 8]], [[8, 12, 9], [16, 17, 11], [7, 23, 9], [19, 23, 8]], [[12, 19, 9]], [[8, 22, 8], [17, 15, 8]]][look];
+      set.forEach(([x, y, h], n) => {
+        blade(x - 3, y, h - 2, -2, n * 3);
+        blade(x + 3, y, h - 2, 2, n * 3 + 1);
+        blade(x, y, h, 0, n * 3 + 2);
       });
-      outline(P, edge);
       return P.canvas();
     },
 

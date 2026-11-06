@@ -36,11 +36,11 @@ MAX_FRAMES = 8
 LIQ = {'poison': 'PoisonMaze', 'judgment': 'MtBlaze'}
 BIOMES = [
     ('forest', 'HowlingForest1'), ('crystal', 'CrystalCave1'), ('volcano', 'MagmaCavern2'),
-    ('normal', 'LushPrairie'), ('fire', 'MagmaCavern3'), ('water', 'BeachCave'), ('grass', 'MysteryJungle1'),
-    ('electric', 'LightningField'), ('ice', 'IceAegisCave'), ('fighting', 'MtHorn'), ('poison', 'MurkyCave'),
-    ('ground', 'NorthernDesert1'), ('flying', 'HiddenHighland'), ('psychic', 'MystifyingForest'), ('bug', 'ForestPath'),
-    ('rock', 'DeepBoulderQuarry'), ('ghost', 'DarkHill1'), ('dragon', 'DarkCrater'), ('dark', 'DarknightRelic'),
-    ('steel', 'MtSteel1'), ('fairy', 'MoonlitCourtyard'), ('judgment', 'HiddenLand'),
+    ('normal', 'LushPrairie'), ('fire', 'MagmaCavern3'), ('water', 'DrenchedBluff'), ('grass', 'SouthernJungle'),
+    ('electric', 'LightningField'), ('ice', 'IceMaze'), ('fighting', 'BuriedRelic1'), ('poison', 'MurkyCave'),
+    ('ground', 'NorthernDesert1'), ('flying', 'SkyPeak7thPass'), ('psychic', 'JoyousTower'), ('bug', 'ForestPath'),
+    ('rock', 'RockPathTDS'), ('ghost', 'DarkHill1'), ('dragon', 'DarkCrater'), ('dark', 'DeepDuskForest1'),
+    ('steel', 'SteelAegisCave'), ('fairy', 'PurityForest2'), ('judgment', 'TemporalSpire'),
 ]
 
 

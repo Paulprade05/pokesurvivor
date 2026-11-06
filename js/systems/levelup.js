@@ -10,6 +10,8 @@ G.LevelUp = (() => {
    * Topes de la 2.0 (bloque 1, 31-10-2026): antes Potencia llegaba a ×45 (×1,1 compuesto,
    * 40 veces) y Vigor y Síntesis no tenían tope (vida casi infinita). Ahora las que
    * multiplicaban suman (+10 % de lo de partida cada una, no del total) y todas tienen tope.
+   * (6-11-2026, lo pidió el dueño para que el final sea más fácil: todas las pasivas llegan a 10
+   * niveles, Réplica a 4. Antes: Vigor 8, Reflejos 6, Imán y Aprendizaje 4, Réplica 3 y las demás 5.)
    * `add(k, id, key)`: multiplica pl[key] para que, con n cartas, quede ×(1 + k·n);
    * statsTaken se suma después de apply, así que aquí n = las que ya llevabas.
    */
@@ -18,21 +20,21 @@ G.LevelUp = (() => {
   const DEF_CAP = 0.6;
   const STATS = [
     { id: 'hp',   icon: 'hpup', title: 'Vigor',        desc: '+20 de vida máxima (y la recupera).',
-      apply: pl => pl.addMaxHp(20), max: 8 },
+      apply: pl => pl.addMaxHp(20), max: 10 },
     { id: 'atk',  icon: 'fist', title: 'Potencia',     desc: '+10% de daño con todos los movimientos.',
       apply: add(0.10, 'atk', 'atkMul'), max: 10 },
     { id: 'spd',  icon: 'boot', title: 'Carrera',      desc: '+7% de velocidad de movimiento.',
-      apply: add(0.07, 'spd', 'spdMul'), max: 5 },
+      apply: add(0.07, 'spd', 'spdMul'), max: 10 },
     { id: 'cd',   icon: 'clock', title: 'Reflejos',     desc: '-8% de recarga en todos los movimientos.',
-      apply: pl => pl.cdMul *= 0.92, max: 6 },
+      apply: pl => pl.cdMul *= 0.92, max: 10 },
     { id: 'def',  icon: 'shield', title: 'Coraza',       desc: '+6% de reducción de daño recibido.',
-      apply: pl => pl.dmgReduce = Math.min(DEF_CAP, pl.dmgReduce + 0.06), max: 5 },
+      apply: pl => pl.dmgReduce = Math.min(DEF_CAP, pl.dmgReduce + 0.06), max: 10 },
     { id: 'rgn',  icon: 'sprout', title: 'Síntesis',     desc: '+0.9 de vida regenerada por segundo.',
-      apply: pl => pl.regenFlat += 0.9, max: 5 },
+      apply: pl => pl.regenFlat += 0.9, max: 10 },
     { id: 'mag',  icon: 'magnet', title: 'Imán',         desc: '+30% de radio de recogida de experiencia.',
-      apply: add(0.30, 'mag', 'magnet'), max: 4 },
+      apply: add(0.30, 'mag', 'magnet'), max: 10 },
     { id: 'xp',   icon: 'exp', title: 'Aprendizaje',  desc: '+12% de experiencia ganada.',
-      apply: add(0.12, 'xp', 'xpMul'), max: 4 },
+      apply: add(0.12, 'xp', 'xpMul'), max: 10 },
     { id: 'heal', icon: 'berry', title: 'Baya Zidra',   desc: 'Recupera el 45% de tu vida ahora mismo.',
       apply: pl => pl.heal(pl.maxHp * 0.45) }
   ];
@@ -64,20 +66,20 @@ G.LevelUp = (() => {
   const r2 = v => Math.round(v * 100) / 100;
   const PASSIVES = [
     { id: 'area', icon: 'area', title: 'Amplitud', desc: '+10% de área en todos los ataques: radio, grosor y tamaño.',
-      apply: pl => { pl.pass.area = r2(pl.pass.area + 0.10); }, max: 5 },
+      apply: pl => { pl.pass.area = r2(pl.pass.area + 0.10); }, max: 10 },
     { id: 'dur', icon: 'duration', title: 'Persistencia', desc: '+12% de duración: charcos, aliados, aves, rayos que giran, minas, torretas, potenciadores y aturdir.',
-      apply: pl => { pl.pass.dur = r2(pl.pass.dur + 0.12); }, max: 5 },
+      apply: pl => { pl.pass.dur = r2(pl.pass.dur + 0.12); }, max: 10 },
     // Réplica (23-10-2026): +1 en todas las familias (antes +2 en las ráfagas radiales y
-    // los abanicos y +3 en las lluvias) y hasta 3 cartas: como mucho 3 más de lo normal
+    // los abanicos y +3 en las lluvias) y hasta 4 cartas (3 hasta el 6-11-2026): como mucho 4 más de lo normal
     // de cada ataque, contando lo que suma su evolución (el tope, G.Moves.EXTRA_MAX).
-    { id: 'amt', icon: 'loaded-dice', title: 'Réplica', desc: '+1 a la cantidad de todos los ataques: proyectiles, orbes, minas, aliados... Hasta +3 por ataque, con la evolución.',
-      apply: pl => { pl.pass.amt += 1; }, max: 3 },
+    { id: 'amt', icon: 'loaded-dice', title: 'Réplica', desc: '+1 a la cantidad de todos los ataques: proyectiles, orbes, minas, aliados... Hasta +4 por ataque, con la evolución.',
+      apply: pl => { pl.pass.amt += 1; }, max: 4 },
     { id: 'pspd', icon: 'zoom-lens', title: 'Propulsión', desc: '+10% de velocidad de los proyectiles y de todo lo que gira.',
-      apply: pl => { pl.pass.pspd = r2(pl.pass.pspd + 0.10); }, max: 5 },
+      apply: pl => { pl.pass.pspd = r2(pl.pass.pspd + 0.10); }, max: 10 },
     // Puntería (23-10-2026): con +4 % de críticos daba un +2 % de daño por carta (Potencia, +10 %);
     // ahora +5 % de críticos y +10 % al daño de cada crítico (pl.critDmg): un +5 % por carta.
     { id: 'luck', icon: 'scope-lens', title: 'Puntería', desc: '+5% de probabilidad de golpe crítico y +10% de daño de los críticos.',
-      apply: pl => { pl.critChance += 0.05; pl.critDmg = r2((pl.critDmg || 0) + 0.10); }, max: 5 }
+      apply: pl => { pl.critChance += 0.05; pl.critDmg = r2((pl.critDmg || 0) + 0.10); }, max: 10 }
   ];
   STATS.push(...PASSIVES);
 
@@ -106,8 +108,8 @@ G.LevelUp = (() => {
   /*
    * Nivel de pasiva que pide una evolución (3-11-2026, lo pidió el dueño): la mitad de su
    * máximo, redondeando hacia arriba (tope 10 → 5; 11 → 6; 5 → 3). Antes bastaba cogerla una vez.
-   * El máximo es el de esta partida (statMax): Réplica de Mejoras ya pone uno de los 3, así que
-   * con ella el tope de cartas es 2 y basta 1. Lo usan las cartas, la pausa, el compendio y el bot.
+   * El máximo es el de esta partida (statMax): Réplica de Mejoras ya pone uno de los 4, así que
+   * con ella el tope de cartas es 3 y siguen haciendo falta 2. Lo usan las cartas, la pausa, el compendio y el bot.
    */
   const evoLvlFor = max => Math.ceil(Math.max(0, max) / 2);
   /** Cuántas cartas de la mejora `id` se pueden coger en esta partida (0: sin tope). */
@@ -315,9 +317,11 @@ G.LevelUp = (() => {
     // acumulaban sin fin (velocidad, recarga y experiencia por las nubes) y el
     // juego acababa colgándose. Las que piden una evolución salen siempre.
     // Con los 4 huecos de pasiva llenos, sólo las que ya llevas (canTake).
-    // (Réplica cuenta también la permanente de Mejoras, que ya va en pl.pass.amt: con ella, la 3.ª carta no sumaba nada.)
+    // (Réplica cuenta también la permanente de Mejoras, que ya va en pl.pass.amt: con ella, la última carta no sumaba nada.)
+    // (Coraza, en su techo DEF_CAP con las Mejoras o el objeto: la carta ya no sumaría nada; sólo sale si la pide una evolución.)
     // (Una pasiva descartada en esta partida, pl.bannedStats, ya no sale.)
     const room = s => (s.id === 'amt' ? ((pl.pass && pl.pass.amt) || 0) < s.max : !s.max || (pl.statsTaken[s.id] || 0) < s.max) && canTake(pl, s.id) &&
+                      !(s.id === 'def' && pl.dmgReduce >= DEF_CAP && !must(s)) &&
                       !(pl.bannedStats && pl.bannedStats.has(s.id));
     // Las pasivas que piden tus ataques para evolucionar (aunque aún no estén al máximo) y que
     // no llevas: mientras queden huecos de pasiva salen siempre y mucho más (24-10-2026: antes

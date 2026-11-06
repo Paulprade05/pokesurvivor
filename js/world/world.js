@@ -424,6 +424,15 @@ G.World = (() => {
   const tileOf = v => Math.floor(v / TS);
 
   function kindAt(x, y) { return KIND[terrainAt(tileOf(x), tileOf(y))]; }
+  /** (Hierba integrada) ¿Es casilla de mancha de hierba? La misma cuenta que al repartir los objetos, sin mirar si salió otra cosa. */
+  function grassField(tx, ty) {
+    if (terrainAt(tx, ty) !== FLOOR) return false;
+    if (arenaDist(tx, ty) < arena_outer() + 1.33) {
+      const g = arena && arena.th.props.grass;
+      return !!g && fbm(tx / 3, ty / 3, seed + 717) > 0.8 - 0.9 * g;
+    }
+    return fbm(tx / 3.33, ty / 3.33, seed + 707) > 0.69;
+  }
   function isWall(x, y) { return terrainAt(tileOf(x), tileOf(y)) === WALL; }
   function isLiquid(x, y) { return terrainAt(tileOf(x), tileOf(y)) === LIQUID; }
   function liquidKind() { return G.Tiles.BIOMES[biome].liquid; }
@@ -714,7 +723,7 @@ G.World = (() => {
     if (img) return img;
     // (Bloque 6) Con el tileset de Mundo Misterioso de este bioma, si está listo; si no, el pintor de tiles.js, ya sin
     //  caminos de tierra (PMD no los tiene: el campo de tierra a 0).
-    const paint = () => pmdOn(bi) ? G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed, flat3d)
+    const paint = () => pmdOn(bi) ? G.Tileset.paintChunk(cx, cy, N, terrainAt, bi, seed, flat3d, grassField)
       : G.Tiles.paintChunk(cx, cy, N, (tx, ty) => KIND[terrainAt(tx, ty)], () => 0, bi, seed, ultra);
     // (iPhone: pantalla negra, 01-11-2026) Con el tope de memoria de lienzos de Safari lleno, el lienzo nuevo sale
     //  sin dibujo (getContext da null) y fallaba todo el fotograma: negro. Se suelta lo guardado y se prueba otra
@@ -885,7 +894,11 @@ G.World = (() => {
       case 'grass': {
         const pl = livePl, step = pl && !pl.dead && Math.abs(pl.x - p.x) < 26 && pl.y > p.y - 42 && pl.y < p.y + 8;
         // (Arte animado) Con el tileset, la hierba de 24 px: 8 fotogramas de viento y uno pisada (tiles.js grass24).
-        if (g24) return (p.look % 3) * 9 + (step ? 8 : G.Anim.wind(p.x, p.y));
+        if (g24) {
+          // En la orilla de la mancha, matas sueltas (se mira al dibujarla la primera vez: al repartir, los vecinos aún no existen).
+          if (p.thin === undefined) p.thin = !(grassField(p.tx, p.ty - 1) && grassField(p.tx + 1, p.ty) && grassField(p.tx, p.ty + 1) && grassField(p.tx - 1, p.ty));
+          return (p.thin ? 4 + p.look % 2 : p.look % 4) * 9 + (step ? 8 : G.Anim.wind(p.x, p.y));
+        }
         if (step) return (p.look % 3) * 3 + 2;
         return (p.look % 3) * 3 + (G.Anim.on && Math.sin(t * 1.8 - p.x * 0.012 - p.y * 0.006) > 0.86 ? 1 : 0);
       }
@@ -959,7 +972,7 @@ G.World = (() => {
     }
     if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
     const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
-    const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + dy);
+    const x = Math.round((p.x - w / 2) / 2) * 2, y = Math.round((p.y - h + dy) / 2) * 2;       // (sobre la rejilla de los píxeles de arte)
     if (p.type !== 'grass' && !block) {
       // Sombra suave debajo (como en los juegos de DS): imagen guardada.
       const sh = G.Tiles.shadow(p.type), sw = sh.width * P, shh = sh.height * P;
@@ -1079,7 +1092,7 @@ G.World = (() => {
     if (!vig || vigW !== w || vigH !== h) {
       vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.4, w / 2, h / 2, Math.max(w, h) * 0.8);
       vig.addColorStop(0, 'rgba(0,0,0,0)');
-      vig.addColorStop(1, 'rgba(0,0,0,.3)');
+      vig.addColorStop(1, 'rgba(0,0,0,.14)');
       vigW = w; vigH = h;
     }
     ctx.fillStyle = vig;
@@ -1087,6 +1100,7 @@ G.World = (() => {
   }
 
   return {
+    grassField,
     TS, GS, CW, WV, reset, setBiome, biomeName, liquidKind, liquidEffect, walkable, cellAt, fillCells,
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,

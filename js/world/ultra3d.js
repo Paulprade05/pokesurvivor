@@ -24,12 +24,12 @@
  */
 G.Ultra3D = (() => {
   const KL = 0.5;            // px del lienzo 3D por unidad de mundo (24 px de arte por casilla de 48)
-  const HW = 32;             // alto de las paredes (16 px de arte: el alto de la cara de roca, cliff.png)
+  const HW = 40;             // alto de las paredes (20 px de arte: G.Tileset.FH3, cara de roca y su pie en sombra)
   const KEEP = 6;            // chunks con mallas guardados de más (además de los de la vista y su margen)
   const OWN = { rock: 1, chest: 1, bigchest: 1 };
   const L = [-0.45 / 1.25, -0.6 / 1.25, 1 / 1.25];          // hacia la luz (arriba a la izquierda y del norte)
   let T = null, state = 'idle', lost = false;
-  let renderer = null, glcv = null, scene, cam3, sun, plane, frame = 0;
+  let renderer = null, glcv = null, scene, cam3, sun, plane, frame = 0, tinted = -1;
   let Wl = 0, Hl = 0, R = 1, Ox = 0, Oy = 0;
   const P = new Float64Array(16);                          // la proyección (por filas), también para las cajas de tijera
   const chunks = new Map();                                // "cx,cy" -> { c, bi, rows: [{ ty, mesh }], tex, top, used }
@@ -95,7 +95,7 @@ G.Ultra3D = (() => {
       // (three.js también mira las capas de las luces: en todas, si no las pasadas salen negras.)
       amb.layers.enableAll(); sun.layers.enableAll();
       scene.add(amb, sun, sun.target);
-      plane = new T.Mesh(new T.PlaneGeometry(1, 1), new T.ShadowMaterial({ opacity: 0.3, side: T.DoubleSide }));
+      plane = new T.Mesh(new T.PlaneGeometry(1, 1), new T.ShadowMaterial({ opacity: 0.38, side: T.DoubleSide }));
       plane.receiveShadow = true;
       plane.layers.set(2);
       plane.frustumCulled = false;
@@ -430,7 +430,7 @@ G.Ultra3D = (() => {
     if (gone) {
       for (const e of chunks.values()) for (const r of e.rows) scene.remove(r.mesh);
       for (const it of props.values()) scene.remove(it.obj);
-      chunks.clear(); props.clear(); faceMats.clear(); rockMats.clear(); flashMats.clear(); shared = null; shadowDirty = true;
+      chunks.clear(); props.clear(); faceMats.clear(); rockMats.clear(); flashMats.clear(); shared = null; tinted = -1; shadowDirty = true;
       return;
     }
     for (const k of [...chunks.keys()]) dropChunk(k);
@@ -444,7 +444,7 @@ G.Ultra3D = (() => {
       for (const r of shared.rocks) { r.g.dispose(); r.hull.dispose(); }
       for (const c of [shared.chest, shared.big]) { c.body.dispose(); c.lid.dispose(); for (const k in c.m) kill(c.m[k]); }
       shared.hullMat.dispose();
-      shared = null;
+      shared = null; tinted = -1;
     }
   }
 
@@ -463,6 +463,12 @@ G.Ultra3D = (() => {
     if (!on()) return false;
     const W = G.World, bi = W.biome;
     if (!W.pmdOn(bi) || !faceMat(bi) || !sharedParts()) return false;
+    if (tinted !== bi) {
+      // Sombras y contornos, del tono oscuro del mapa y no negros.
+      const edge = G.Tileset.pal(bi).edge;
+      plane.material.color.set(edge); shared.hullMat.color.set(edge);
+      tinted = bi;
+    }
     frame++;
     // Tamaño del lienzo 3D: la pantalla a la escala del arte (y como mucho 1024: memoria de lienzos).
     const wl = Math.min(1024, Math.ceil(Wd * KL / Kd) + 2), hl = Math.min(1024, Math.ceil(Hd * KL / Kd) + 2);
