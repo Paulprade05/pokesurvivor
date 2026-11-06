@@ -22,7 +22,7 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 
 ## Cómo se comprueba
 - `auditar.cjs` hace 4 capturas de cada mapa: junto a muro, junto a agua, muro y agua, y campo abierto.
-- `medir_px.py` mide los tramos de color: tienen que ser múltiplos del tamaño del píxel. Antes, el 56 % no lo era; ahora, en torno al 5 %, que son rotaciones, efectos y texto.
+- `medir_px.py` mide los tramos de color: tienen que ser múltiplos del tamaño del píxel. Antes, el 56 % no lo era; ahora, en torno al 6 %, que son rotaciones, efectos y texto.
 - Están en `../pokesurvivor-tmp/animado/`.
 
 ## Dónde está
