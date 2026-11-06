@@ -70,6 +70,8 @@ G.Sprites = (() => {
   function purge() {
     for (const c of whites.values()) G.U.freeCanvas(c);
     whites.clear(); whiteBytes = 0;
+    for (const c of shadows.values()) G.U.freeCanvas(c);      // (si no, tras vaciarse, los Pokémon quedaban sin sombra)
+    shadows.clear();
   }
 
   /** ¿Tiene versión shiny? (assets/pokemon/{dex}/s/) */

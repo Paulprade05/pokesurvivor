@@ -51,7 +51,7 @@ G.RegCloud = (() => {
       lvl: n(r.lvl), kills: n(r.kills), coins: n(r.coins), dealt: n(r.dealt), taken: n(r.taken), healed: n(r.healed),
       downs: dn.length, killer: last ? String(last.by) : '', killT: last ? n(last.t) : -1,
       kinds: Object.assign({ h: 0, b: 0, l: 0, a: 0 }, r.kinds || {}),
-      dev: { mob: d.mob ? 1 : 0, touch: d.touch ? 1 : 0, w: n(d.w), h: n(d.h), q: String(d.q || ''), lang: String(d.lang || ''), pwa: d.pwa ? 1 : 0 },
+      dev: { mob: d.mob ? 1 : 0, touch: d.touch ? 1 : 0, w: n(d.w), h: n(d.h), q: String(d.q || ''), lang: String(d.lang || ''), pwa: d.pwa ? 1 : 0, gfx: (r.ev || []).filter(e => e[1] === 'gfx').length },
       fps: f.length ? { m: n(f.reduce((a, b) => a + b, 0) / f.length), p10: n(f[Math.floor(f.length * 0.1)]) } : { m: 0, p10: 0 },
       upg: Object.fromEntries(Object.entries(r.upg || {}).filter(([, v]) => typeof v === 'number').slice(0, 30)),
       moves, tk: top(Object.fromEntries(Object.entries(r.takenBy || {}).map(([k, v]) => [k, v[0]])), 8, v => v),

@@ -73,20 +73,31 @@ G.Touch = (() => {
   function init(canvas) {
     cv = canvas;
     if (active) document.body.classList.add('touch');
-    cv.addEventListener('pointerdown', down);
+    bind(cv);
     // Mover y soltar se escuchan en toda la ventana (y antes que nadie): si el
     // dedo acababa encima de las cartas de nivel o fallaba la captura, el lienzo
     // no se enteraba y el Pokémon seguía andando solo.
     addEventListener('pointermove', move, true);
     addEventListener('pointerup', up, true);
     addEventListener('pointercancel', up, true);
-    cv.addEventListener('lostpointercapture', up);
     for (const ev of ['pointerdown', 'pointermove', 'pointerup']) addEventListener(ev, usedPointer, true);
     addEventListener('keydown', e => { if (active && G.Input.gameKey(e)) toPc(e); }, true);
     // Sin ningún dedo en la pantalla no puede haber joystick.
     for (const ev of ['touchstart', 'touchend', 'touchcancel']) {
       document.addEventListener(ev, e => { touchAt = performance.now(); if (ev !== 'touchstart' && !e.touches.length && (!stick || stick.touch)) reset(); }, { capture: true, passive: true });
     }
+    document.addEventListener('selectstart', e => {
+      if (!e.target.closest || !e.target.closest('input, textarea, [contenteditable]')) e.preventDefault();
+    });
+    addEventListener('blur', reset);
+    document.addEventListener('visibilitychange', reset);
+  }
+
+  /** Lo que escucha el lienzo del juego. (Otra vez si se cambia por uno nuevo: game.js remakeCanvas.) */
+  function bind(canvas) {
+    cv = canvas;
+    cv.addEventListener('pointerdown', down);
+    cv.addEventListener('lostpointercapture', up);
     cv.addEventListener('contextmenu', e => e.preventDefault());
     // iPhone: la pulsación larga sobre el juego abría la lupa y el menú de
     // "Copiar / Seleccionar todo". Cortar el toque aquí lo evita (los eventos
@@ -107,11 +118,6 @@ G.Touch = (() => {
       }
       for (const t of e.changedTouches) { const b = hit(t.clientX, t.clientY); if (b) press(b); }
     }, { passive: false });
-    document.addEventListener('selectstart', e => {
-      if (!e.target.closest || !e.target.closest('input, textarea, [contenteditable]')) e.preventDefault();
-    });
-    addEventListener('blur', reset);
-    document.addEventListener('visibilitychange', reset);
   }
 
   function hit(x, y) {
@@ -255,6 +261,6 @@ G.Touch = (() => {
     ctx.restore();
   }
 
-  return { init, vector, draw, drawStick, clearButtons, addButton, reset, safeArea, resetSafe, spot, stickBase, stickDef, R, STICK_DEF,
+  return { init, bind, vector, draw, drawStick, clearButtons, addButton, reset, safeArea, resetSafe, spot, stickBase, stickDef, R, STICK_DEF,
            get active() { return active; }, get stick() { return stick; } };
 })();
