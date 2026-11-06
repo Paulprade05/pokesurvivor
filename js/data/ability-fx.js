@@ -185,6 +185,11 @@ G.AbilityFX = (() => {
     'victory-star': { d: '+10 % de probabilidad de golpe crítico y +8 % de daño.', out: allOut(1.08), start: pl => { pl.critChance += 0.1; } },
     'moxie': moxie, 'chilling-neigh': moxie, 'grim-neigh': moxie, 'beast-boost': moxie, 'supreme-overlord': moxie,
     'soul-heart': moxie, 'receiver': moxie,
+    // Sólo de los que entraron el 06-11-2026 (Toedscool y Pecharunt).
+    'mycelium-might': { d: '+10 % de daño; a los enemigos envenenados, +25 %.', out: (pl, m, e) => (e && e.poison > 0 ? 1.25 : 1.1) },
+    'poison-puppeteer': { d: 'Sus ataques cuerpo a cuerpo y embestidas envenenan.', d2: '+15 % de daño a los enemigos envenenados.', touchPoison: true,
+      out: (pl, m, e) => (e && e.poison > 0 ? 1.15 : 1) },
+    'rocky-payload': boost('rock', 20),
     'merciless': { d: '+35 % de daño a los enemigos envenenados o con menos de la mitad de vida.',
       out: (pl, m, e) => (e && (e.poison > 0 || e.hp < e.maxHp * 0.5) ? 1.35 : 1) },
     'analytic': { d: '+35 % de daño a enemigos con menos de la mitad de vida.', out: (pl, m, e) => (e && e.hp < e.maxHp * 0.5 ? 1.35 : 1) },
@@ -399,6 +404,7 @@ G.AbilityFX = (() => {
     // ---------------- al recibir golpes ----------------
     'weak-armor': onHurt('spd', 0.25, 3, 1, 'Al recibir un golpe físico se aligera: +25 % de velocidad un momento.', (pl, type, c) => c === 'p'),
     'steadfast': onHurt('spd', 0.08, 4, 2, 'Al recibir un golpe, +8 % de velocidad un momento (se acumula).'),
+    'steam-engine': onHurt('spd', 0.25, 3, 1, 'Los golpes le calientan la caldera: +25 % de velocidad un momento.'),
     'rattled': onHurt('spd', 0.2, 3, 1, 'Los golpes le asustan: +20 % de velocidad un momento.'),
     'contrary': onHurt('atk', 0.08, 8, 3, 'Le salen al revés: cada golpe que recibe le da +8 % de daño durante 8 s (hasta 3 veces).'),
     'defiant': onHurt('patk', 0.12, 8, 2, 'Al recibir un golpe se pica: +12 % de daño físico durante 8 s (hasta 2 veces).'),

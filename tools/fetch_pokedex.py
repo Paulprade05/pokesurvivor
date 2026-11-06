@@ -38,7 +38,7 @@ def dexes_with_sprites():
     url = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/tracker.json'
     req = urllib.request.Request(url, headers={'User-Agent': 'pokesurvivor/1.0'})
     t = json.load(urllib.request.urlopen(req, timeout=120))
-    need = {'Idle', 'Walk', 'Attack'}
+    need = {'Idle', 'Walk'}          # el ataque lo saca fetch_sprites.py de otra animación si no lo hay (FALLBACK)
     return [d for d in range(1, 1026) if need <= set(t.get(f'{d:04d}', {}).get('sprite_files', {}))]
 
 

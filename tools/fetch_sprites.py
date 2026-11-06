@@ -481,7 +481,7 @@ def main():
     jobs = []
     for dex in range(lo, hi + 1):
         e = tracker.get(f'{dex:04d}')
-        if not e or not REQUIRED <= set(e.get('sprite_files', {})):
+        if not e or not {'Idle', 'Walk'} <= set(e.get('sprite_files', {})):
             continue
         s = e.get('subgroups', {}).get('0000', {}).get('subgroups', {}).get('0001', {})
         jobs.append((dex, {'Idle', 'Walk'} <= set(s.get('sprite_files', {}))))

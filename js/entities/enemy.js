@@ -1659,6 +1659,7 @@ G.BossSig = (() => {
     1016: ['perfume', 'Atracción', { st: 'toxic' }],                                                // Fezandipiti: perfume que atrae
     1017: ['fists', 'Garrote Liana', { st: 'leaf', n: 6, vines: 1 }],                               // Ogerpon: deja lianas
     1024: ['barrier', 'Teraclúster', { st: 'prism', armor: 0.8, dur: 3, burst: 4, tera: 1 }],      // Terapagos: anillos de todos los tipos
+    1025: ['pools', 'Bomba Lodo', { st: 'toxic', n: 7, ring: 1 }],                                 // Pecharunt: un anillo de charcos alrededor
     // ----- jefes del calendario más vistos -----
     3: ['beam', 'Rayo Solar', { st: 'sun', kind: 'single', w: 'sun', seeds: 1 }],                   // Venusaur: y Drenadoras
     6: ['strikes', 'Anillo Ígneo', { st: 'fire', n: 10, pat: 'ring', burst: 1 }],                   // Charizard: anillo y estallido
@@ -2783,7 +2784,7 @@ G.BossSig = (() => {
   P.pools = (e, pl, c, o) => {
     const n = o.n || 4, tox = o.st === 'toxic';
     for (const p of living()) for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU, d = i ? G.U.rand(40, 130) : 0;
+      const a = o.ring ? i / n * TAU : Math.random() * TAU, d = o.ring ? 120 : i ? G.U.rand(40, 130) : 0;
       emit({ k: 'pool', x: R(p.x + Math.cos(a) * d), y: R(p.y + Math.sin(a) * d * 0.8), r: 52, dur: 6, delay: 0.9, st: o.st, col: c.col, col2: c.col2,
              dot: tox ? R(e.shotDmg() * 0.22) : 0, slow: tox ? 0 : 1.2, type: e.atkType, cat: e.cat });
     }
