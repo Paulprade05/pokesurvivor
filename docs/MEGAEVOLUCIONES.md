@@ -1,6 +1,6 @@
 # Megaevoluciones en PokéSurvivor
 
-> **Estado:** diseño revisado el 06-11-2026, pendiente de las decisiones del dueño (sección 10).
+> **Estado:** diseño revisado el 06-11-2026, con las decisiones del dueño ya tomadas (sección 10).
 > Sustituye a la propuesta del 26-10-2026, que sigue en el historial de git. Datos: PokeAPI y
 > `tracker.json` de SpriteCollab, consultados el 06-11-2026; lo del juego, sacado del código de `main`.
 
@@ -10,8 +10,8 @@
   daño, más aguante y, a veces, otro tipo y otra habilidad. Luego vuelve a la normalidad.
 - **Cómo se activa:** con el mismo botón y la misma tecla que el movimiento Z. Tu Pokémon lleva
   **Pulsera Z o megapiedra**, nunca las dos a la vez, como en los juegos.
-- **Cuándo:** la **Energía Mega** se llena sola durante la partida y más deprisa al vencer jefes.
-  La primera mega llega hacia el **minuto 6-7**; si tu línea evoluciona más tarde, al llegar a la forma final.
+- **Cuándo:** la **Energía Mega** se llena **derrotando enemigos**. Cuesta al principio, cuando caen
+  pocos, y luego va mucho más rápido, con un mínimo de 75 s entre megas. Con la forma final y la barra llena, ya puedes.
 - **Qué hace falta:** el **Mega-Aro** (se gana con la primera grieta) y la **megapiedra** de ese
   Pokémon, comprada en sus Mejoras. Las dos son para siempre.
 - **Cuántas:** **43 megas** con sprite de Mundo Misterioso. Las demás entrarán con la herramienta
@@ -25,14 +25,15 @@ versión hace menos cosas.
 
 | Tema | Antes | Ahora | Por qué |
 |---|---|---|---|
-| **Cuándo llega** | Desde el minuto 10 y con la forma final, normalmente en el 13 | Sin minuto: una Energía que se llena desde el principio. Primera mega hacia el minuto 6-7 | Las partidas reales medidas han acabado hacia el minuto 18 como mucho. Con la regla vieja casi no se vería |
+| **Cuándo llega** | Desde el minuto 10 y con la forma final, normalmente en el 13 | Sin minuto: una Energía que se llena desde el principio | Las partidas reales medidas han acabado hacia el minuto 18 como mucho. Con la regla vieja casi no se vería |
+| **Cómo se recarga** | Por tiempo (150 s) y por jefes | **Por enemigos derrotados**, con un mínimo de 75 s | Lo pidió el dueño: que cueste al principio y sea más fácil después. La propuesta vieja lo descartó porque se llenaría en segundos; el mínimo lo evita |
 | **Con el Z** | Dos botones; cada uno bloquea al otro mientras dura | **Uno u otro por Pokémon**, en el mismo botón | Con los dos, un Pokémon con mega iría potenciado la mitad del tiempo y los demás un 20 %. También evita el candado y una tecla nueva |
 | **Barra del móvil** | Un hueco más, con candados | **Igual que hoy**: el hueco del Z enseña la piedra | Menos botones, menos toques fallados. «Colocar los botones» no cambia |
 | **Tecla y mando** | Tecla X y botón Y nuevos | Los del Z | Nada que aprender ni que configurar |
 | **Conseguir la piedra** | Pestaña nueva con 3 piedras al día, grietas, gacha y logros | **Se compra en las Mejoras de ese Pokémon**, como la Pulsera Z | Con una rotación diaria podías esperar días la piedra que querías |
 | **Cartas de nivel** | Salían ataques del tipo de la mega, con chapa | **No cambian** | Invitaba a guardar las subidas de nivel para la mega, y confunde |
 | **Daño** | Fórmula × 1,2, entre +30 % y +60 % | **Entre +25 % y +40 %**, fijado en los datos | Más bajo, y la cuenta queda hecha en los datos y no en la partida |
-| **Duración** | 90 s, recarga 150 s (37 % del tiempo) | **75 s, recarga 240 s** (unos 28 %) | La mega no debe tapar la dificultad de la segunda mitad. El número final sale de medir |
+| **Duración** | 90 s | **75 s**, afinado con medidas | La mega no debe tapar la dificultad de la segunda mitad |
 | **Red** | Dato 20.º nuevo | **El dato de la fase de siempre** | Una versión anterior ya descarta los números que no conoce y ve al Pokémon normal |
 | **Cuántas** | 38, y primigenias y Rayquaza en una fase aparte | **43 de una vez**: añade Kyogre, Groudon, Rayquaza, Sceptile y Chimecho con la misma regla | Tienen sprite. Un nombre de objeto distinto no pide un sistema distinto |
 | **Idiomas** | 6 | **Español e inglés** | Norma del juego desde el 05-11 |
@@ -48,7 +49,7 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 | Qué hace | Pasa a la fase siguiente | Añade un ataque muy fuerte | Transforma a tu Pokémon |
 | Hace falta | Nada | Pulsera Z + Cristal Z + 2 ataques del tipo | Mega-Aro + megapiedra + forma final |
 | Se activa | Sola | Botón | Botón (el mismo) |
-| Dura | Para siempre | 60 s, recarga 240 s | 75 s, recarga 240 s o menos con jefes |
+| Dura | Para siempre | 60 s, recarga 240 s | 75 s; se recarga con 300 derrotados, 75 s como mínimo |
 | Papel | Crecer | Pico corto y explosivo | Poder largo y más aguante |
 
 - **Evolución:** va antes y no se toca. La mega sólo existe en la forma final; en las ramas, en la que tenga mega.
@@ -57,7 +58,7 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
   ataques, así que la norma de evolución (evo/máx × 0,74/1,08 ≥ 1,2) debe seguir igual. Se comprueba con `tools/equilibrio.cjs`.
 - **Tipo Z:** sigue en Mejoras y sólo cuenta si llevas la Pulsera.
 - **Vínculos, objeto y mejoras permanentes:** siguen todos. La piedra no ocupa el hueco de objeto.
-- **Sentencia de Arceus y grietas:** se puede megaevolucionar. Vencer a un legendario llena un 30 %.
+- **Sentencia de Arceus y grietas:** se puede megaevolucionar, y lo que derrotes allí también carga la energía.
 
 ## 3. En la partida
 
@@ -70,12 +71,20 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 
 ### 3.2 Energía Mega
 
-- Empieza a 0 y se llena sola en **480 s** la primera vez y en **240 s** las siguientes.
-- Cada **jefe** vencido suma un **20 %** y cada **legendario**, un **30 %**. En grupo, para todos.
-- El reloj corre con la partida: se para en la pausa y con las cartas, como el del Z.
-- Con los jefes de los minutos 3 y 6, la primera se llena hacia el **minuto 6-7**. En una partida
-  de 18 minutos salen unas 3 megas, y en una de 30, unas 5.
-- No se llena con enemigos derrotados: en el minuto 20 se llenaría en segundos.
+- Empieza a 0 y se llena con **300 enemigos derrotados**. Un jefe o un legendario cuenta como 30.
+- En grupo cuentan los derrotados de todo el equipo, y la meta sube como los enemigos que salen (×1,75 por jugador de más).
+- Mientras dura la mega no se carga. Al acabar vuelve a 0 y empieza un **mínimo de 75 s** antes de poder repetir.
+- Si se llena antes de la forma final, espera llena.
+
+Lo que da con los ritmos medidos con el bot (derrotados por minuto):
+
+| Jugador | Minutos 0-10 | Después | Primera barra llena | Megas en 18 min |
+|---|---|---|---|---|
+| Con mejoras | 60-100 | 200-600 | Minuto 4-5, y la mega al llegar a la forma final | 5 o 6 |
+| Sin mejoras | 30-40 | 30-40 | Minuto 8-10 | 1 |
+
+Sin el mínimo, al final de la partida se recargaría en menos de un minuto y la mega estaría casi
+siempre puesta. Con él, nunca pasa de la mitad del tiempo. Es el número a vigilar al medir.
 
 ### 3.3 Activar y acabar
 
@@ -240,12 +249,13 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 | Perder lo comprado al fusionar | Unión, con prueba, como los Cristales Z |
 | Sprite de mega que no carga a tiempo | Se precarga al llegar a la forma final; sin hoja, se queda el sprite normal |
 
-## 10. Decisiones para el dueño
+## 10. Decisiones del dueño (06-11-2026)
 
-1. **Mega y Z:** uno u otro por Pokémon (recomendado), o los dos sin poder usarlos a la vez.
-2. **Duración:** 75 s con recarga (recomendado), o desde que se activa hasta acabar la partida.
-3. **Quién:** las 43 con sprite, también legendarios (recomendado), o sólo las no legendarias.
-4. **Las que no tienen sprite:** esperar a SpriteCollab (recomendado), o sacarlas con el sprite normal y un aura.
+1. **Mega y Z:** uno u otro por Pokémon.
+2. **Duración:** temporal, y se recarga con enemigos derrotados, de modo que al principio cueste y luego sea más fácil.
+3. **Quién:** las 43 con sprite, también legendarios.
+4. **Las que no tienen sprite:** esperan a SpriteCollab.
+5. **Pokémon que faltan:** entran los 8 con andar. Los otros 51 esperan a SpriteCollab.
 
 ## 11. Orden de trabajo
 
