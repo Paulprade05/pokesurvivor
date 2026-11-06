@@ -288,12 +288,24 @@ G.Sprites = (() => {
   function drawShadow(ctx, dex, x, y, scale = 1) {
     const m = meta(dex);
     const s = m ? m.s : 1;
-    const rx = [5, 8, 12][G.U.clamp(s, 0, 2)] * PX * scale;
-    ctx.fillStyle = 'rgba(0,0,0,.34)';
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx, rx * 0.42, 0, 0, 6.2832);
-    ctx.fill();
+    const R = Math.round([5, 8, 12][G.U.clamp(s, 0, 2)] * scale);
+    // (Mundo integrado) A píxeles, como todo lo demás: una elipse lisa no casa con el arte.
+    let c = shadows.get(R);
+    if (c === undefined) {
+      c = document.createElement('canvas');
+      const h = Math.max(1, Math.round(R * 0.42));
+      c.width = R * 2; c.height = h * 2;
+      const g = c.getContext('2d');
+      if (g) { g.fillStyle = '#000'; for (let j = 0; j < h * 2; j++) { const w = Math.round(Math.sqrt(1 - Math.pow((j + 0.5 - h) / h, 2)) * R); g.fillRect(R - w, j, w * 2, 1); } } else { G.U.freeCanvas(c); c = null; }
+      shadows.set(R, c);
+    }
+    if (!c) return;
+    const a = ctx.globalAlpha;
+    ctx.globalAlpha = a * 0.34;
+    ctx.drawImage(c, Math.round((x - R * PX) / PX) * PX, Math.round((y - c.height) / PX) * PX, c.width * PX, c.height * PX);
+    ctx.globalAlpha = a;
   }
+  const shadows = new Map();
 
   // ---------------- Animator ----------------
 
@@ -414,8 +426,9 @@ G.Sprites = (() => {
       if (alpha <= 0) return;
       // (x, y: dónde empieza la animación dentro de su atlas; las de siempre, en 0, 0.)
       const sx = (m.x || 0) + Math.min(frame, m.n - 1) * m.w, sy = (m.y || 0) + row * m.h;
-      const dx = Math.round(x - m.ax * k);
-      let dy = Math.round(y - m.ay * k);
+      // (Mundo integrado) Sobre la rejilla de los píxeles de arte, como el suelo: si no, sus píxeles caen a caballo de los del mapa.
+      const dx = Math.round((x - m.ax * k) / PX) * PX;
+      let dy = Math.round((y - m.ay * k) / PX) * PX;
       // Techo (el compañero del menú, ceil en píxeles de arte sobre los pies): el fotograma
       // que suba más se baja lo que sobre (un salto más corto en vez de cortarse arriba).
       if (this.ceil != null && own) {

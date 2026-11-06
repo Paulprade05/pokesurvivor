@@ -1230,7 +1230,7 @@ G.Icons = (() => {
     if (!cv) return sprite(ctx, name, cx, cy, 1);
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(cv, Math.round(cx - cv.width), Math.round(cy - cv.height), cv.width * 2, cv.height * 2);
+    ctx.drawImage(cv, Math.round((cx - cv.width) / 2) * 2, Math.round((cy - cv.height) / 2) * 2, cv.width * 2, cv.height * 2);
     ctx.imageSmoothingEnabled = prev;
     return true;
   }

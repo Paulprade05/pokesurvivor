@@ -20,7 +20,10 @@ G.Camera = {
     this.dpr = dpr;
     // Con el lado largo y el corto: en vertical (móvil de pie) se ve lo mismo
     // que en horizontal, girado, y los Pokémon salen del mismo tamaño.
-    this.scale = Math.min(Math.max(cssW, cssH) / this.VIEW_W, Math.min(cssW, cssH) / this.MIN_VIEW_H);
+    const raw = Math.min(Math.max(cssW, cssH) / this.VIEW_W, Math.min(cssW, cssH) / this.MIN_VIEW_H);
+    // (Mundo integrado, 06-11-2026) Cada píxel de arte (2 unidades) ocupa un número entero de píxeles físicos. Con una escala cualquiera
+    // salían unos de 3 y otros de 4 píxeles de ancho: se veían píxeles torcidos. La vista cambia un poco según la pantalla.
+    this.scale = Math.max(2, Math.round(2 * raw * dpr)) / (2 * dpr);
     this.w = cssW / this.scale;
     this.h = cssH / this.scale;
   },

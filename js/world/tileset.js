@@ -46,7 +46,7 @@ G.Tileset = (() => {
   const SEC = [2, 0, 1];
   const D8 = [[0, -1, 1], [1, -1, 2], [1, 0, 4], [1, 1, 8], [0, 1, 16], [-1, 1, 32], [-1, 0, 64], [-1, -1, 128]];
   const meta = {};
-  for (const m of G.TILESETS || []) { meta[m.bi] = m; themed(m); }
+  for (const m of G.TILESETS || []) meta[m.bi] = m;
   const st = {};                                    // bi -> { sheet, vars: [img], liq, left, ok, fail }
   let onReady = null;
   const ISO = RULE[0];                              // la pieza de pared suelta (sin vecinos de pared)
@@ -54,28 +54,13 @@ G.Tileset = (() => {
   const propCache = new Map();                      // "bi/variante" -> lienzo del árbol
   // (Arte PixelLab) Archivos de assets/objects-px/; px[k]: Image, null mientras carga, false si falló.
   const PX_FILES = ['chest', 'bigchest', 'trap2'];
-  const FLOORS = ['grass', 'stone', 'ash', 'sand', 'snow', 'wood', 'metal'];
-  const PXL_FILES = ['wallset', 'decor', 'flora', 'riftp', 'riftsuelo', 'trap0', 'trap1'].concat(FLOORS.map(f => 'floor_' + f));      // (dibujados con pxl: assets/pxl/)
+  const PXL_FILES = ['wallset', 'decor', 'flora', 'riftp', 'riftsuelo', 'trap0', 'trap1'];      // (dibujados con pxl: assets/pxl/)
   // Filas de wallset.png: [y, alto].
   const WS = { top: [0, 24], cliff: [24, 16], lip: [40, 7], vine: [47, 16], crystal: [63, 16], magma: [79, 16], pilC: [95, 26], pilB: [121, 26], pilL: [147, 26], rock: [173, 17], moss: [190, 17] };
   const WW = 96;
   const px = {};
   const TM = 2;                                     // (arte animado) hueco del árbol a los lados y arriba, para que el viento no lo corte
   const FH = 16;                                    // alto de la cara de roca de una pared (px de arte; cliff.png)
-
-  /**
-   * (Estilo común, 06-11-2026) Los colores del mundo salen de la paleta de cada bioma (tiles.js) y no de los del tileset: así todo lo
-   * del mapa casa entre sí y con su nombre (antes las Ruinas del Juicio salían verdes y el Bosque Encantado, azul).
-   * Cuatro tonos por material, de oscuro a claro. Del tileset sólo queda el agua.
-   */
-  function themed(m) {
-    const B = G.Tiles && G.Tiles.BIOMES && G.Tiles.BIOMES[m.bi];
-    if (!B || !B.floor || !B.dirt) return;
-    const lum = h => parseInt(h.slice(1, 3), 16) * 0.3 + parseInt(h.slice(3, 5), 16) * 0.59 + parseInt(h.slice(5, 7), 16) * 0.11;
-    const lit = (h, k) => '#' + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) * k))).map(v => v.toString(16).padStart(2, '0')).join('');
-    const four = list => { const s = list.slice(0, 3).sort((p, q) => lum(p) - lum(q)); return [s[0], s[1], s[2], lit(s[2], 1.14)]; };
-    m.pal = Object.assign({}, m.pal, { floor: four(B.floor), dirt: four(B.dirt), grass: four(B.grass), rock: four(B.rock), edge: B.wallEdge || m.pal.edge });
-  }
 
   /** ¿Se usan? (hay datos y el interruptor de Ajustes está encendido) */
   function enabled() { return !!(G.TILESETS && G.TILESETS.length) && G.Settings.get('pmdTiles') !== false; }
@@ -96,11 +81,7 @@ G.Tileset = (() => {
     m.vars.forEach((v, i) => img(v.file, im => { s.vars[i] = im; }));
     if (m.frames) img('liq.png', im => { s.liq = im; });
     pxImg('wallset');
-    pxImg(floorKey(bi));
   }
-
-  /** La hoja de suelo del bioma (tools/pxl/suelos.px.js). */
-  function floorKey(bi) { const g = G.Tiles.BIOMES[bi].ground; return 'floor_' + (FLOORS.includes(g) ? g : 'stone'); }
 
   /** (Arte PixelLab) Una imagen de assets/objects-px/: la Image, null mientras carga o false si no está. */
   function pxImg(k) {
@@ -119,7 +100,7 @@ G.Tileset = (() => {
     if (!enabled() || !meta[bi]) return false;
     if (!st[bi]) load(bi);
     // (Arte PixelLab) Y la roca de las paredes, cargada o descartada (así no se hornea un chunk con las paredes de antes).
-    return st[bi].ok && pxImg('wallset') !== null && pxImg(floorKey(bi)) !== null;
+    return st[bi].ok && pxImg('wallset') !== null;
   }
 
   /** Precarga: los de esta lista (los del mapa al empezar; el siguiente al cambiar de bioma). */
@@ -192,108 +173,74 @@ G.Tileset = (() => {
     const g = cv.getContext('2d');
     if (!g) { G.U.freeCanvas(cv); return null; }   // sin memoria de lienzos (iPhone): world.js suelta y reintenta
     g.imageSmoothingEnabled = false;
-    const face = cliffFace(bi);                     // (arte PixelLab) con ella, las paredes son una elevación del suelo
+    // (Mundo integrado, 06-11-2026) Como en Mundo Misterioso: suelo, paredes y líquido salen de las piezas de autotile del
+    // tileset, con su borde irregular y la franja de plantas o cristales que hace de transición. Nada se dibuja encima con otro estilo.
+    const fl = floorSheet(s, m, bi);
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const tx = cx * N + i, ty = cy * N + j, t = at(tx, ty), sec = SEC[t];
-      // (Ultra 3D) Las paredes las levanta ultra3d.js en 3D: aquí sólo el suelo (queda tapado) y sin sombras pintadas.
-      if (flat3d && t === 1) { if (!newFloor(g, bi, seed, tx, ty, i * T, j * T)) g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T); continue; }
-      if (t === 1 && face) { raised(g, at, tx, ty, i * T, j * T, s, m, seed, face); continue; }
+      // (Ultra 3D) Las paredes las levanta ultra3d.js en 3D: aquí sólo el suelo (queda tapado).
+      if (flat3d && t === 1) { g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T); continue; }
       // Debajo, el suelo lleno (algunas casillas de pared o agua tienen huecos transparentes).
-      const nf = newFloor(g, bi, seed, tx, ty, i * T, j * T);
-      if (sec !== 2 && !nf) g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T);
+      if (sec !== 2) g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T);
       const cell = cellOf(at, tx, ty, t);
-      if (sec !== 2 || !nf) g.drawImage(srcOf(s, m, sec, cell, tx, ty, seed), (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
-      if (t === 0) decor(g, at, tx, ty, i * T, j * T, bi, seed);
-      // (6b) Sombra en el suelo al pie de una pared (al sur), para que la pared se lea como obstáculo; (arte PixelLab)
-      //  más larga y, con la luz de arriba a la izquierda, también un poco al este de la pared.
-      if (flat3d) continue;
-      if (t !== 1 && at(tx, ty - 1) === 1) {
-        g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(i * T, j * T, T, 2);
-        g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(i * T, j * T + 2, T, 2);
-        g.fillStyle = 'rgba(0,0,0,0.07)'; g.fillRect(i * T, j * T + 4, T, 2);
-      }
-      if (t !== 1 && at(tx - 1, ty) === 1) { g.fillStyle = 'rgba(0,0,0,0.13)'; g.fillRect(i * T, j * T, 2, T); }
+      if (t === 0 && cell === FULL && fl) {
+        // (Lo normal, la casilla limpia y sus espejos; de vez en cuando, una de las variaciones, que llevan ramitas o marcas.)
+        const h = H(tx, ty, seed + 813), n = fl.width / T, f = h < 0.93 || n <= 4 ? Math.floor(H(tx, ty, seed + 814) * 4) : 4 + Math.floor(H(tx, ty, seed + 815) * (n - 4));
+        g.drawImage(fl, f * T, 0, T, T, i * T, j * T, T, T);
+        decor(g, at, tx, ty, i * T, j * T, bi, seed);
+      } else g.drawImage(srcOf(s, m, sec, cell, tx, ty, seed), (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
     }
     cv.pmd = true;
     return cv;
   }
 
-  /**
-   * (Arte PixelLab) Una casilla de pared como elevación del suelo, en (x, y) del lienzo del chunk: arriba el suelo del
-   * bioma más claro; si al sur no hay pared, la cara de roca (FH px) con su labio iluminado; contorno oscuro donde acaba
-   * la elevación, luz en los bordes de arriba y de la izquierda y sombra en el de la derecha (luz de arriba a la izquierda).
-   */
-  //  (Un escalón más en el centro de las paredes grandes se probó y parecía un agujero: una sola elevación.)
-  function raised(g, at, tx, ty, x, y, s, m, seed, face) {
-    const w = (dx, dy) => at(tx + dx, ty + dy) === 1;
-    const n = w(0, -1), so = w(0, 1), e = w(1, 0), wo = w(-1, 0), bi = s.bi;
-    const top = so ? T : T - FH;                    // alto de la parte de arriba (la meseta)
-    // Lo que queda fuera de las esquinas redondeadas: el suelo.
-    const cut = (cx, cy, cw) => g.drawImage(s.sheet, (12 + FULL % 6) * T + (cx - x), ((FULL / 6) | 0) * T + (cy - y), cw, 1, cx, cy, cw, 1);
-    topTile(g, bi, x, y, top, H(tx, ty, seed + 515));
-    if (!so) {
-      // La cara de roca: la textura seguida a lo largo de la fila (sin costuras entre casillas vecinas).
-      const FW = face.width, o = ((tx * T) % FW + FW) % FW, a = Math.min(T, FW - o);
-      g.drawImage(face, o, 0, a, FH, x, y + top, a, FH);
-      if (a < T) g.drawImage(face, 0, 0, T - a, FH, x + a, y + top, T - a, FH);
-      // Donde la cara acaba contra la elevación que sigue bajando (esquina interior): su contorno.
-      g.fillStyle = m.pal.edge;
-      if (wo && w(-1, 1)) g.fillRect(x, y + top, 1, FH);
-      if (e && w(1, 1)) g.fillRect(x + T - 1, y + top, 1, FH);
-    }
-    rim(g, m, x, y, top, n, so, e, wo, !so, cut);
-    g.fillStyle = m.pal.edge;
-    if (n && wo && !w(-1, -1)) g.fillRect(x, y, 1, 1);
-    if (n && e && !w(1, -1)) g.fillRect(x + T - 1, y, 1, 1);
+  /** El contorno casi negro de los dibujos pasa al tono oscuro del tileset: los Pokémon lo llevan negro, el terreno no. */
+  function softEdge(g, cv, m) {
+    let d;
+    try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { return; }
+    const a = d.data, e = parseInt(m.pal.edge.slice(1), 16);
+    for (let i = 0; i < a.length; i += 4) if (a[i + 3] > 200 && a[i] < 40 && a[i + 1] < 34 && a[i + 2] < 46) { a[i] = e >> 16; a[i + 1] = e >> 8 & 255; a[i + 2] = e & 255; }
+    g.putImageData(d, 0, 0);
   }
 
-  /** Ruido suave de baja frecuencia: da manchas de varias casillas, que nunca se repiten. */
-  function soft(x, y, s) {
-    const x0 = Math.floor(x), y0 = Math.floor(y), u = x - x0, v = y - y0, a = u * u * (3 - 2 * u), b = v * v * (3 - 2 * v);
-    return (H(x0, y0, s) * (1 - a) + H(x0 + 1, y0, s) * a) * (1 - b) + (H(x0, y0 + 1, s) * (1 - a) + H(x0 + 1, y0 + 1, s) * a) * b;
-  }
-  /** ¿Material B en esta esquina de casilla? Dos escalas de ruido: manchas grandes con entrantes. */
-  const cornerB = (vx, vy, seed) => soft(vx / 7, vy / 7, seed + 811) * 0.7 + soft(vx / 2.6, vy / 2.6, seed + 812) * 0.3 > 0.56;
-
-  /**
-   * (Suelo nuevo, 06-11-2026) Hoja de suelo con los colores del bioma: a b c d, el suelo; e f g h, el otro material (tierra, grava...).
-   * tools/pxl/suelos.px.js. null si no se puede.
-   */
-  function floorSheet(bi) {
-    const k = 'floorS/' + bi;
+  /** La flora con el contorno del tileset (ambient.js). null si no está. */
+  function floraSheet(bi) {
+    const k = 'flora/' + bi;
     if (propCache.has(k)) return propCache.get(k);
-    const im = pxImg(floorKey(bi)), p = meta[bi].pal;
-    if (!im || !p.dirt) return null;
+    const im = pxImg('flora');
+    if (!im || !meta[bi].pal) return null;
     const cv = document.createElement('canvas');
     cv.width = im.width; cv.height = im.height;
     const g = cv.getContext('2d');
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(im, 0, 0);
-    let d;
-    try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { G.U.freeCanvas(cv); return null; }
-    const a = d.data, cols = [...p.floor, ...p.dirt].map(h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
-    for (let i = 0; i < a.length; i += 4) {
-      const c = cols[a[i] ? (a[i] >> 4) - 1 : (a[i + 1] >> 4) + 3];
-      if (c) { a[i] = c[0]; a[i + 1] = c[1]; a[i + 2] = c[2]; }
-    }
-    g.putImageData(d, 0, 0);
+    softEdge(g, cv, meta[bi]);
     propCache.set(k, cv);
     return cv;
   }
 
-  /** Pinta la casilla de suelo nueva en (x, y). false si no está (entonces, la de antes). */
-  function newFloor(g, bi, seed, tx, ty, x, y) {
-    const sh = floorSheet(bi);
-    if (!sh) return false;
-    const mask = (cornerB(tx, ty, seed) ? 1 : 0) | (cornerB(tx + 1, ty, seed) ? 2 : 0) | (cornerB(tx, ty + 1, seed) ? 4 : 0) | (cornerB(tx + 1, ty + 1, seed) ? 8 : 0);
-    g.drawImage(sh, mask * T, Math.floor(H(tx, ty, seed + 813) * 3) * T, T, T, x, y, T, T);
-    return true;
-  }
-
-  /** Un trozo de cima de la casilla: una de las 8 variantes (las 4 de la hoja y sus espejos), con los colores del bioma. */
-  function topTile(g, bi, x, y, top, h) {
-    const tex = wallPart(bi, 'top');
-    g.drawImage(tex, Math.floor(h * 8) * T, 0, T, top, x, y, T, top);
+  /**
+   * (Mundo integrado) La casilla de suelo lleno, en todas sus formas: la del tileset, sus variaciones y sus espejos. Elegir una al azar
+   * rompe el dibujo que se repite sin salir del arte del tileset. null si no se puede (entonces, la casilla tal cual).
+   */
+  function floorSheet(s, m, bi) {
+    const k = 'floorS/' + bi;
+    if (propCache.has(k)) return propCache.get(k);
+    const src = [s.sheet];
+    m.vars.forEach((v, i) => { if (s.vars[i] && (v.cells[2] / Math.pow(2, FULL)) % 2 >= 1) src.push(s.vars[i]); });
+    const F = [[1, 1], [-1, 1], [1, -1], [-1, -1]], cv = document.createElement('canvas');
+    cv.width = src.length * F.length * T; cv.height = T;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    g.imageSmoothingEnabled = false;
+    src.forEach((im, a) => F.forEach(([fx, fy], b) => {
+      const x = (a * F.length + b) * T;
+      g.save(); g.translate(x + (fx < 0 ? T : 0), fy < 0 ? T : 0); g.scale(fx, fy);
+      g.drawImage(im, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, 0, 0, T, T);
+      g.restore();
+    }));
+    propCache.set(k, cv);
+    return cv;
   }
 
   /** Fila de decor.png de cada suelo (null: suelos hechos, sin nada por el suelo). */
@@ -312,6 +259,7 @@ G.Tileset = (() => {
     g.drawImage(im, 0, 0);
     const n = ramped(im, [64, 16], m.pal.rock);
     if (n) { g.clearRect(0, 64, WW, 16); g.drawImage(n, 0, 64); G.U.freeCanvas(n); }
+    softEdge(g, cv, m);
     propCache.set(k, cv);
     return cv;
   }
@@ -324,32 +272,11 @@ G.Tileset = (() => {
     const row = DECOR_ROW[G.Tiles.BIOMES[bi].ground];
     if (row == null || at(tx, ty - 1) === 1) return;
     const h = H(tx, ty, seed + 616);
-    if (h >= 0.13) return;
+    if (h >= 0.07) return;
     const sh = decorSheet(bi);
     if (!sh) return;
-    const r = h < 0.06 ? row : 4, c = Math.floor(H(tx, ty, seed + 617) * 6);
+    const r = h < 0.025 ? row : 4, c = Math.floor(H(tx, ty, seed + 617) * 6);
     g.drawImage(sh, c * 16, r * 16, 16, 16, x + Math.floor(H(tx, ty, seed + 618) * 8), y + Math.floor(H(tx, ty, seed + 619) * 8), 16, 16);
-  }
-
-  /**
-   * El borde de la elevación: contorno oscuro, luz a la izquierda y arriba y sombra a la derecha, con las esquinas de fuera
-   * redondeadas (una elevación del terreno no acaba en ángulo recto). cut(x, y, ancho) quita una fila; face: lleva cara al sur.
-   */
-  function rim(g, m, x, y, top, n, so, e, wo, face, cut) {
-    const ramp = topRamp(m.bi), edge = m.pal.edge, lite = ramp[3], dark = ramp[0], R = x + T - 1, B = y + T - 1;
-    if (!n) { g.fillStyle = lite; g.fillRect(x, y + 1, T, 1); g.fillStyle = edge; g.fillRect(x, y, T, 1); }
-    if (!wo) { g.fillStyle = lite; g.fillRect(x + 1, y + 1, 1, top - 1); g.fillStyle = edge; g.fillRect(x, y, 1, T); }
-    if (!e) { g.fillStyle = dark; g.fillRect(x + T - 2, y + 1, 1, top - 1); g.fillStyle = edge; g.fillRect(R, y, 1, T); }
-    g.fillStyle = edge;
-    const corner = (sx, sy) => {                     // sx, sy: ±1, hacia dentro de la casilla
-      const X = sx > 0 ? x : R, Y = sy > 0 ? y : B;
-      cut(sx > 0 ? X : X - 2, Y, 3); cut(sx > 0 ? X : X - 1, Y + sy, 2); cut(X, Y + 2 * sy, 1);
-      g.fillRect(X + 3 * sx, Y, 1, 1); g.fillRect(X + 2 * sx, Y + sy, 1, 1); g.fillRect(X + sx, Y + 2 * sy, 1, 1); g.fillRect(X, Y + 3 * sy, 1, 1);
-    };
-    if (!n && !wo) corner(1, 1);
-    if (!n && !e) corner(-1, 1);
-    if (!so && !wo && face) corner(1, -1);
-    if (!so && !e && face) corner(-1, -1);
   }
 
   /**
@@ -368,20 +295,13 @@ G.Tileset = (() => {
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.imageSmoothingEnabled = false;
     if (!cliffFace(bi)) return null;
-    const edge = m.pal.edge;
+    // (Mundo integrado) Arriba, la pieza de pared del tileset, igual que en 2D.
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const tx = cx * N + i, ty = cy * N + j;
       if (at(tx, ty) !== 1) continue;
-      const w = (dx, dy) => at(tx + dx, ty + dy) === 1, x = i * T, y = j * T;
-      const n = w(0, -1), so = w(0, 1), e = w(1, 0), wo = w(-1, 0);
-      topTile(g, bi, x, y, T, H(tx, ty, seed + 515));
-      if (!so) { g.fillStyle = topRamp(bi)[3]; g.fillRect(x, y + T - 2, T, 1); g.fillStyle = edge; g.fillRect(x, y + T - 1, T, 1); }
-      rim(g, m, x, y, T, n, true, e, wo, false, (cx, cy, cw) => g.clearRect(cx, cy, cw, 1));
-      g.fillStyle = edge;
-      if (n && wo && !w(-1, -1)) g.fillRect(x, y, 1, 1);
-      if (n && e && !w(1, -1)) g.fillRect(x + T - 1, y, 1, 1);
-      if (so && wo && !w(-1, 1)) g.fillRect(x, y + T - 1, 1, 1);
-      if (so && e && !w(1, 1)) g.fillRect(x + T - 1, y + T - 1, 1, 1);
+      const cell = cellOf(at, tx, ty, 1), x = i * T, y = j * T;
+      g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, x, y, T, T);
+      g.drawImage(srcOf(s, m, 0, cell, tx, ty, seed), (cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, T, T);
     }
     return cv;
   }
@@ -451,27 +371,7 @@ G.Tileset = (() => {
     return cv;
   }
 
-  /** Los tonos de la cima: los de hierba del tileset; en el volcán, basalto (la tierra parda parecía un bloque plano). */
-  const topRamp = bi => (G.Tiles.BIOMES[bi].ground === 'ash' ? meta[bi].pal.rock : meta[bi].pal.grass);
-
-  /** La cima del bioma: 8 variantes de 24 px (las 4 del dibujo y sus espejos, para que no se note que se repite), o null. */
-  function wallPart(bi, part) {
-    const k = 'wall/' + part + '/' + bi;
-    if (propCache.has(k)) return propCache.get(k);
-    const c = ramped(pxImg('wallset'), WS[part], topRamp(bi));
-    if (!c) return null;
-    const cv = document.createElement('canvas');
-    cv.width = WW * 2; cv.height = T;
-    const g = cv.getContext('2d');
-    if (!g) { G.U.freeCanvas(c); G.U.freeCanvas(cv); return null; }
-    g.drawImage(c, 0, 0);
-    g.translate(WW * 2, 0); g.scale(-1, 1);
-    g.drawImage(c, 0, 0);
-    G.U.freeCanvas(c);
-    cv.wallTop = true;
-    propCache.set(k, cv);
-    return cv;
-  }
+  const topRamp = bi => meta[bi].pal.grass;
 
   /**
    * (Muros nuevos) La cara de roca del bioma bi, o null: la roca con sus tonos, lo que crece en ella según el suelo (lianas,
@@ -536,13 +436,11 @@ G.Tileset = (() => {
   function treeCut(bi, look) {
     const k = 'cut/' + bi + '/' + look;
     if (propCache.has(k)) return propCache.get(k);
-    // (Estilo común, 06-11-2026) Con las reglas de los Pokémon: copa sin tronco donde hay viento, cristales en cuevas y agujas
-    //  de basalto en volcanes; en suelos hechos, agujas con los tonos de la roca. Todo con contorno oscuro.
-    const gd = G.Tiles.BIOMES[bi].ground, sheet = pxImg('wallset');
+    // (Muros nuevos) Sin árboles donde no hay hojas: en cuevas, cristales con los tonos de la pared del tileset; en volcanes, agujas de
+    // basalto. Donde hay hojas, la pieza suelta del tileset, que es del mismo arte que el suelo y las paredes.
+    const gd = G.Tiles.BIOMES[bi].ground, sheet = gd === 'stone' || gd === 'ash' ? pxImg('wallset') : null;
     if (sheet) {
-      const p = meta[bi].pal, part = leafy(bi) ? WS.pilL : gd === 'ash' ? WS.pilB : WS.pilC;
-      const ramp = leafy(bi) ? [p.edge, ...p.grass] : gd === 'ash' ? null : gd === 'stone' ? [p.edge, ...G.Tiles.BIOMES[bi].leaf] : [p.edge, ...p.rock];
-      const row = ramped(sheet, part, ramp);
+      const p = meta[bi].pal, row = ramped(sheet, gd === 'stone' ? WS.pilC : WS.pilB, gd === 'stone' ? [p.edge, ...p.wall] : null);
       if (!row) return null;
       const c = document.createElement('canvas');
       c.width = T + TM * 2; c.height = T + TM;
@@ -687,6 +585,6 @@ G.Tileset = (() => {
   /** Suelta los árboles, rocas y caras repintados (Safari los ha vaciado, game.js gfxCheck); se rehacen al dibujar. */
   function purge() { for (const c of propCache.values()) G.U.freeCanvas(c); propCache.clear(); }
 
-  return { T, RULE, FH, floorSheet, wallPart, cliffFace, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
+  return { T, RULE, FH, cliffFace, floraSheet, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
     set onReady(fn) { onReady = fn; } };
 })();

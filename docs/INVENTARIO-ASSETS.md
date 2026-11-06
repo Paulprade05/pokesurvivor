@@ -66,3 +66,14 @@ Reglas en `docs/ESTILO-ARTE.md`.
 | Flores, helechos, adornos, lianas | Regular | Con contorno y trazo grueso |
 | Recogidas | **Pobre**: a medio píxel, 49 colores | Con el píxel de los Pokémon y contorno |
 | Agua | Buena | Sin tocar: sale del tileset y en algunos mapas no casa de color |
+
+## Cuarta tanda: mundo integrado (06-11-2026)
+Sustituye lo de arriba donde choque. Reglas en `docs/ESTILO-ARTE.md`.
+
+| Asset | Ahora |
+|---|---|
+| Suelo y muros | Piezas de autotile de los tilesets originales. Fuera `floor_*.png` |
+| Tilesets | 11 cambiados para que casen con su mapa |
+| Árbol | La pieza suelta del tileset, recortada, con viento |
+| Rejillas y esteras | Sustituidas por hierba con los colores del mapa |
+| Sombras de nubes | Quitadas |

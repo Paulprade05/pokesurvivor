@@ -836,7 +836,7 @@ G.Tiles = (() => {
     return B;
   }
   /** (6b) ¿La hierba alta de este bioma es de 24 px con la paleta del tileset? (las rejillas y esteras siguen a 16) */
-  const grass24 = bi => BIOMES[bi].ground !== 'metal' && BIOMES[bi].ground !== 'wood';
+  const grass24 = () => true;
 
   /*
    * Sombras de los objetos, en píxeles de arte (radio x, radio y) y guardadas:
@@ -1097,9 +1097,10 @@ G.Tiles = (() => {
     grass(B, variant = 0, S = T) {
       if (S !== 24 && variant >= 9) variant -= 9;        // (las variantes 9..17 eran las del Ultra de antes)
       // (29-10-2026) La hierba alta, en suelo de metal: rejilla con cables; en madera: esteras de tatami.
+      // (Mundo integrado) Con el tileset, la misma hierba en todos los mapas, con sus colores: las rejillas y esteras no casaban.
+      if (S === 24) return PAINT.grass24(B, variant);
       if (B.ground === 'metal') return PAINT.grate(B, variant);
       if (B.ground === 'wood') return PAINT.mats(B, variant);
-      if (S === 24) return PAINT.grass24(B, variant);
       // (6b) S: px por casilla (16 el pintor; 24 con el tileset de Mundo Misterioso: las matas, ×1,5 más altas).
       const k = S / 16;
       const P = Pix(S + 2, S + 2);

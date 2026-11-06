@@ -645,7 +645,7 @@ G.VFX = (() => {
     ctx.save();
     if (o.alpha != null && o.alpha < 1) ctx.globalAlpha *= o.alpha;
     ctx.imageSmoothingEnabled = false;
-    ctx.translate(Math.round(x), Math.round(y));
+    ctx.translate(Math.round(x / PX) * PX, Math.round(y / PX) * PX);
     let a = (o.angle || 0) - (S.img && S.dir && S.face ? S.face : 0);
     if (a) {
       a = Math.round(a / (Math.PI / 8)) * (Math.PI / 8);          // 16 direcciones: menos parpadeo
