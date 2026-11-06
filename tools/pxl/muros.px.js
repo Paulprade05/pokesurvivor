@@ -180,6 +180,42 @@ for (let i = 0; i < 3; i++) sprite("_basa" + i, { w: 28, h: 26 }, (c) => {
 })
 sprite("_pilares", { w: 96, h: 52 }, ...[0, 1, 2].flatMap(i => [stamp("_cris" + i, i * 28, 0), stamp("_basa" + i, i * 28, 26)]))
 
+// ---- rocas: 4 celdas de 22×17 (peñasco, peñasco roto, peñasco y piedra, los dos rotos); mismas facetas que la pared ----
+const ROCAS = [[[10.5, 9, 9.5, 7]], [[8.5, 9.5, 7.5, 6.5], [16.5, 12, 4.5, 3.5]]]
+const celda = (c, i, cuerpo) => {
+  const look = i >> 1, broken = i & 1, ox = i * 22, blobs = ROCAS[look], r = c.rng(70 + look), seeds = []
+  for (let n = 0; n < 9; n++) seeds.push([2 + r() * 18, 2 + r() * 14, r() < 0.5 ? "3" : "2"])
+  const dentro = (x, y) => blobs.some(([bx, by, rx, ry]) => ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2 <= 1)
+  const cell = (x, y) => { let b = 0, bd = 1e9; seeds.forEach(([sx, sy], n) => { const d = (x - sx) ** 2 + (y - sy) ** 2 * 1.4; if (d < bd) { bd = d; b = n } }); return b }
+  for (let y = 0; y < 17; y++) for (let x = 0; x < 22; x++) {
+    if (!dentro(x, y)) { if (dentro(x + 1, y) || dentro(x - 1, y) || dentro(x, y + 1) || dentro(x, y - 1)) cuerpo(ox + x, y, "k", x, y); continue }
+    const id = cell(x, y), ny = blobs.reduce((m, [bx, by, rx, ry]) => Math.min(m, Math.abs((y - by) / ry) * (y > by ? 1 : -1)), 9)
+    let col = seeds[id][2]
+    if (cell(x + 1, y) !== id || cell(x, y + 1) !== id) col = "1"                  // junta en sombra
+    else if (cell(x, y - 1) !== id) col = "4"                                      // arista con luz, sólo la de arriba
+    if (y >= 14 || ny > 0.7) col = "1"                                             // el pie, en sombra
+    cuerpo(ox + x, y, col, x, y)
+  }
+  if (broken) for (const [x, y] of [[9, 3], [10, 4], [10, 5], [11, 6], [10, 7], [12, 7], [13, 8], [8, 8], [7, 9], [11, 8], [6, 10]]) cuerpo(ox + x, y, "k", x, y)
+}
+sprite("_rocas", { w: 88, h: 17 }, (c) => { for (let i = 0; i < 4; i++) celda(c, i, (x, y, col) => c.px(x, y, col)) })
+// Musgo encima de la roca (bosques): lo de arriba de cada peñasco, a matas.
+sprite("_musgos", { w: 88, h: 17 }, (c) => {
+  for (let i = 0; i < 4; i++) {
+    const ox = i * 22, blobs = ROCAS[i >> 1], dentro = (x, y) => blobs.some(([bx, by, rx, ry]) => ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2 <= 0.86)
+    for (let x = 1; x < 21; x++) {
+      let y = 0
+      while (y < 17 && !dentro(x, y)) y++
+      if (y >= 12) continue
+      // Más grueso a matas; por debajo, la sombra del musgo sobre la piedra.
+      const h = [1, 2, 3, 2, 1, 2, 2, 1][(x + (i >> 1) * 3) % 8]
+      for (let k = 0; k < h; k++) c.px(ox + x, y + k, k === 0 ? (x % 3 ? "c" : "d") : "b")
+      c.px(ox + x, y + h, "a")
+    }
+  }
+})
+
 // ---- todo junto en una hoja (una sola descarga); las filas, en tileset.js (WS) ----
-sprite("wallset", { w: W, h: 147 }, stamp("_walltop", 0, 0), stamp("_cliff", 0, 24), stamp("_walllip", 0, 40),
-  stamp("_wallvine", 0, 47), stamp("_wallcrystal", 0, 63), stamp("_wallmagma", 0, 79), stamp("_pilares", 0, 95))
+sprite("wallset", { w: W, h: 181 }, stamp("_walltop", 0, 0), stamp("_cliff", 0, 24), stamp("_walllip", 0, 40),
+  stamp("_wallvine", 0, 47), stamp("_wallcrystal", 0, 63), stamp("_wallmagma", 0, 79), stamp("_pilares", 0, 95),
+  stamp("_rocas", 0, 147), stamp("_musgos", 0, 164))

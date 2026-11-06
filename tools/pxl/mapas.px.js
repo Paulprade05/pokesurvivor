@@ -7,6 +7,7 @@ pal({ k: "#1a1420", K: "#2e2436",
       r: "#c23a2c", R: "#f06a4a", c: "#efe2c8", C: "#b8a890", // setas, hueso
       m: "#7a1c08", o: "#e84a10", O: "#ffb020", e: "#3a3034", E: "#5c4e4e", // brasas, carbón
       x: "#2a6a80", X: "#5ad1e8", Z: "#c8f7ff",               // cristal y luz fría
+      h: "#8a7a78",                                           // humo claro
       v: "#6e7a3a", V: "#a8b85a",                             // planta seca
       1: "#404040", 2: "#707070", 3: "#a0a0a0", 4: "#d0d0d0" })
 ramps("kgGH", "ttTu", "krR", "mooO", "eE", "xXZ", "1234")
@@ -287,11 +288,12 @@ anim("flora", { w: 16, h: 160, frames: 8, fps: 8 }, (c) => {
   { const y = 6 * 20
     for (let x = 4; x <= 12; x++) { put(x, y + 17, "e"); put(x, y + 18, "E") }
     for (let x = 6; x <= 10; x++) put(x, y + 17, f & 2 ? "o" : "m")
+    // Bocanadas redondas: nacen claras y pequeñas y se apagan al subir.
     for (let n = 0; n < 3; n++) {
-      const u = ((c.phase + n / 3) % 1), yy = y + 16 - Math.round(u * 15), xx = 8 + Math.round(Math.sin(u * 7 + n) * 2)
-      const col = u > 0.7 ? "e" : "E", r = u > 0.4 ? 2 : 1
-      for (let dx = -r; dx <= r; dx++) put(xx + dx, yy, col)
-      if (r > 1) { put(xx, yy - 1, col); put(xx, yy + 1, col) }
+      const u = ((c.phase + n / 3) % 1), yy = y + 15 - Math.round(u * 13), xx = 8 + Math.round(Math.sin(u * 6 + n * 2) * 1.5)
+      const col = u > 0.66 ? "e" : "E", big = u > 0.3
+      for (const [dx, dy] of big ? [[-1, -1], [0, -1], [1, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1]] : [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]) put(xx + dx, yy + dy, col)
+      if (u < 0.66) put(xx - 1, yy - 1, "h")
     } }
   // Brasa que late: un charco de ascuas.
   { const y = 7 * 20, br = (f >> 1) & 1
@@ -342,4 +344,35 @@ sprite("riftsuelo", { w: 72, h: 24 }, (c) => {
     c.line(x0, y0, x1, y1, "D")
     c.px(x0, y0, "l")
   }
+})
+
+// ---- trampas: 24×24, pegadas al suelo ----
+pal({ 5: "#3a1748", 6: "#6e2b8a", 7: "#9b48bb", 8: "#c98ae6", 9: "#f2dcff" })
+ramps("56789")
+sprite("trap0", { w: 24, h: 24 }, (c) => {
+  // Charco de veneno: el borde oscuro, el líquido y su brillo arriba a la izquierda; burbujas con causa, y gotas salpicadas.
+  const blob = [[12, 13, 9, 7], [6, 15, 4, 4], [18, 9, 4, 4], [14, 18, 5, 3]]
+  const dentro = (x, y, g) => blob.some(([a, b, rx, ry]) => ((x - a) / (rx + g)) ** 2 + ((y - b) / (ry + g)) ** 2 <= 1)
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) {
+    if (dentro(x, y, -1)) c.px(x, y, y < 11 ? "7" : "6")
+    else if (dentro(x, y, 0)) c.px(x, y, "5")
+  }
+  c.ellipse(11, 11, 5, 2, "7"); c.hline(8, 10, 5, "8"); c.px(9, 9, "9"); c.px(10, 9, "9")
+  c.hline(5, 19, 5, "5"); c.hline(13, 21, 6, "5")
+  for (const [x, y, r] of [[15, 14, 2], [8, 15, 1], [12, 18, 1]]) { c.ring(x, y, r, "8"); c.px(x - 1, y - 1, "9") }
+  for (const [x, y] of [[2, 8], [21, 16], [5, 21], [20, 3]]) { c.px(x, y, "6"); c.px(x + 1, y, "5"); c.px(x, y + 1, "5") }
+})
+pal({ a: "#efeadc", A: "#b4ae9c", s: "#ffffff" })
+sprite("trap1", { w: 24, h: 24 }, (c) => {
+  // Telaraña: radios desde el centro y vueltas que cuelgan entre ellos; sombra debajo para que se lea sobre cualquier suelo.
+  const n = 8, cx = 12, cy = 12, rad = i => (i * 6.2832 / n) + 0.2
+  const hilo = (x0, y0, x1, y1, col) => { c.line(x0 + 1, y0 + 1, x1 + 1, y1 + 1, "#00000050"); c.line(x0, y0, x1, y1, col) }
+  for (let i = 0; i < n; i++) hilo(cx, cy, Math.round(cx + Math.cos(rad(i)) * 11), Math.round(cy + Math.sin(rad(i)) * 11), i & 1 ? "A" : "a")
+  for (const R of [4, 7, 10]) for (let i = 0; i < n; i++) {
+    const a = rad(i), b = rad(i + 1), m = (a + b) / 2
+    const x0 = Math.round(cx + Math.cos(a) * R), y0 = Math.round(cy + Math.sin(a) * R), x1 = Math.round(cx + Math.cos(b) * R), y1 = Math.round(cy + Math.sin(b) * R)
+    const xm = Math.round(cx + Math.cos(m) * (R - 1)), ym = Math.round(cy + Math.sin(m) * (R - 1))
+    hilo(x0, y0, xm, ym, "a"); hilo(xm, ym, x1, y1, "A")
+  }
+  for (const [x, y] of [[7, 9], [16, 6], [17, 15], [8, 17]]) c.px(x, y, "s")
 })

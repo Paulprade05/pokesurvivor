@@ -53,10 +53,10 @@ G.Tileset = (() => {
   const objs = {};                                  // (6b) cofres y trampas de PMD: tipo -> Image (o null si falló)
   const propCache = new Map();                      // "bi/variante" -> lienzo del árbol
   // (Arte PixelLab) Archivos de assets/objects-px/; px[k]: Image, null mientras carga, false si falló.
-  const PX_FILES = ['chest', 'bigchest', 'trap0', 'trap1', 'trap2'];
-  const PXL_FILES = ['wallset', 'decor', 'flora', 'riftp', 'riftsuelo'];      // (dibujados con pxl: assets/pxl/)
+  const PX_FILES = ['chest', 'bigchest', 'trap2'];
+  const PXL_FILES = ['wallset', 'decor', 'flora', 'riftp', 'riftsuelo', 'trap0', 'trap1'];      // (dibujados con pxl: assets/pxl/)
   // Filas de wallset.png: [y, alto].
-  const WS = { top: [0, 24], cliff: [24, 16], lip: [40, 7], vine: [47, 16], crystal: [63, 16], magma: [79, 16], pilC: [95, 26], pilB: [121, 26] };
+  const WS = { top: [0, 24], cliff: [24, 16], lip: [40, 7], vine: [47, 16], crystal: [63, 16], magma: [79, 16], pilC: [95, 26], pilB: [121, 26], rock: [147, 17], moss: [164, 17] };
   const WW = 96;
   const px = {};
   const TM = 2;                                     // (arte animado) hueco del árbol a los lados y arriba, para que el viento no lo corte
@@ -457,6 +457,7 @@ G.Tileset = (() => {
     // (Arte PixelLab) Cofres y trampas nuevos; si faltan, los de PMD.
     const x = pxProp(bi, type, variant);
     if (x) return x;
+    if (type === 'rock') return rockArt(bi, variant);
     if (type === 'bigchest') return obj('bigchest');            // (el pequeño de PMD no cabe en su casilla: tiles.js)
     if (type === 'trap') return obj('trap' + ((variant >> 2) % 3));
     if (type !== 'tree') return null;
@@ -574,6 +575,29 @@ G.Tileset = (() => {
     return cv;
   }
 
+  /**
+   * (Objetos con pxl) La roca del bioma: variant = aspecto × 2 + rota. Con los tonos de roca del tileset y, en los bosques,
+   * musgo. Mismas facetas que la cara de los muros. null sin la hoja: la pinta tiles.js.
+   */
+  function rockArt(bi, variant) {
+    const k = 'rock/' + bi + '/' + variant;
+    if (propCache.has(k)) return propCache.get(k);
+    const im = pxImg('wallset'), m = meta[bi];
+    if (!im || !m.pal) return null;
+    const row = ramped(im, WS.rock, [m.pal.edge, ...m.pal.rock]);
+    const moss = G.Tiles.BIOMES[bi].ground === 'grass' ? ramped(im, WS.moss, m.pal.grass) : null;
+    const cv = document.createElement('canvas');
+    cv.width = 22; cv.height = 17;
+    const g = cv.getContext('2d');
+    if (!row || !g) { if (row) G.U.freeCanvas(row); if (moss) G.U.freeCanvas(moss); G.U.freeCanvas(cv); return null; }
+    const sx = (variant % 4) * 22;
+    g.drawImage(row, sx, 0, 22, 17, 0, 0, 22, 17);
+    if (moss) { g.drawImage(moss, sx, 0, 22, 17, 0, 0, 22, 17); G.U.freeCanvas(moss); }
+    G.U.freeCanvas(row);
+    propCache.set(k, cv);
+    return cv;
+  }
+
   /** (Arte PixelLab) El dibujo generado de un objeto (ya cargado), o null: cofres y trampas (los árboles, como antes). */
   function pxProp(bi, type, variant) {
     if (type === 'chest' || type === 'bigchest') return pxImg(type) || null;
@@ -581,7 +605,7 @@ G.Tileset = (() => {
     return null;
   }
   /** (Arte PixelLab) ¿Es un dibujo generado? (lleva su sombra y va a la escala de los Pokémon) */
-  const isPx = img => !!img && (img.pxArt === true || (img instanceof Image && img.src.indexOf('/objects-px/') >= 0));
+  const isPx = img => !!img && (img.pxArt === true || (img instanceof Image && /\/(objects-px|pxl)\//.test(img.src)));
 
   /** ¿Tiene el líquido animado? */
   function animated(bi) { const s = st[bi]; return !!(s && s.ok && s.liq && meta[bi].frames > 1); }

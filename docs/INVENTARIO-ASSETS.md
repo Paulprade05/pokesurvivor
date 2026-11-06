@@ -41,3 +41,16 @@ puntos de relleno sin causa, repetir con variantes y mover sólo lo que se mover
 Licencia MIT. Es una guía (`SKILL.md`) y una herramienta de Node sin dependencias que convierte archivos `.px.js` en PNG. No
 envía datos fuera (sólo un visor local opcional). **No se ha ejecutado, instalado ni copiado al juego**: sólo se han aplicado sus
 consejos. Si se quisiera usar de verdad, habría que instalarla como skill de Claude, y eso lo decide el dueño.
+
+## Segunda tanda, con `pxl` (06-11-2026)
+El dueño pidió usar el skill y dejar PixelLab. Fuentes en `tools/pxl/*.px.js`, PNG en `assets/pxl/`. Construir: `PXL=<carpeta de claude-pxl> node tools/pxl/build.cjs`. La herramienta no entra en el juego ni en el repositorio.
+
+| Asset | Antes | Ahora |
+|---|---|---|
+| Muros | **Pobre**: bloque plano del color del suelo | Cima en relieve (8 variantes), pared en facetas, borde que cuelga, esquinas redondeadas; lianas, cristales o magma según el suelo. También en Ultra 3D |
+| Portal de la grieta | Regular | 8 fotogramas, estrellas, rocas flotando, suelo roto |
+| Suelo | Regular: sólo el dibujo repetido del tileset | Cosas horneadas en el mapa (`decor.png`) y flora animada (`flora.png`) |
+| Árbol de cueva y volcán | **Pobre**: bola y concha | Cristales y agujas de basalto. El árbol del bosque no cambia (decisión del dueño) |
+| Rocas | Regular: sombreado liso | Facetas como la pared; con musgo en los bosques. En Ultra 3D siguen siendo su modelo |
+| Trampas de veneno y telaraña | Regular | Redibujadas. Las setas explosivas se quedan |
+| Cofres, torres, manantiales | Buena | Sin cambiar: ya casan con el estilo |

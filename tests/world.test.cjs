@@ -205,7 +205,7 @@ test('tileset 6b: objects in PMD style only when the tileset is ready (tree = th
   assert.ok(draws.some(d => d[1] === (T.RULE[0] % 6) * 24 && d[2] === ((T.RULE[0] / 6) | 0) * 24 && d[5] === 2 && d[6] === 2), 'la pieza de pared suelta (sección de pared)');
   assert.equal(T.prop(0, 'tree', 0), tree, 'guardado');
   assert.equal(T.prop(0, 'chest', 0), null, 'el cofre pequeño, de tiles.js');
-  assert.equal(T.prop(0, 'rock', 0), null);
+  assert.ok(T.prop(0, 'rock', 0), 'la roca, de la hoja de muros');
   assert.equal(T.prop(0, 'bigchest', 0), null, 'el PNG del cofre aún cargando');
   const n = images.length;
   images[n - 1].onload();
