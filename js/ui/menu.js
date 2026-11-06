@@ -718,7 +718,9 @@ G.MenuUI = (() => {
     const rows = line.map(d => { const f = G.Mons.formFor(dex, d);
       return `<tr class="${d === dex ? 'on' : ''}"><th scope="row">${esc(G.DEX_BY[d].name)}</th>${STATS.map(([k]) =>
         `<td class="${nat.up === k ? 'up' : nat.down === k ? 'down' : ''}">${statTxt(k, f[k])}</td>`).join('')}</tr>`; }).join('');
-    return `${intro}
+    const mgId = G.Shop.megaId(dex), mgD = mgId ? G.MEGA[mgId] : null;
+    const megaBox = mgD ? `<section class="dx-sec"><h4 class="dx-h">${G.T('Megaevolución')}</h4><p class="dx-start">${G.Icons.html('mg:' + mgD.ico, 30)}<span><b class="gold" translate="no">${esc(G.Mons.name(mgD.name))}</b> · ${G.UI.typeChips(mgD.types)} · <span translate="no">${esc(G.Mons.name(mgD.stone))}</span></span></p></section>` : '';
+    return `${intro}${megaBox}
       <div class="dx-evo-row">${steps}</div>
       ${sib}
       <section class="dx-sec">
@@ -1045,7 +1047,7 @@ G.MenuUI = (() => {
         if (u.id === 'start' && lvl > 0 && startOpen) box.appendChild(startPicker());
         if (u.id === 'start2' && lvl > 0 && start2Open) box.appendChild(start2Picker());
       }
-      if (g.id === 'moves') { box.appendChild(ringCard(mon)); if (zTypeOpen && zTypeCan()) box.appendChild(zTypePicker(mon)); }
+      if (g.id === 'moves') { box.appendChild(ringCard(mon)); if (G.Shop.megaId(upgDex)) box.appendChild(megaCard(mon)); if (zTypeOpen && zTypeCan()) box.appendChild(zTypePicker(mon)); }
     }
     box.appendChild(bindPanel());
     if (body) body.scrollTop = top;
@@ -1147,6 +1149,40 @@ G.MenuUI = (() => {
     el.querySelector('[data-zshop]').onclick = () => G.ShopUI.open('z');
     const tb = el.querySelector('[data-ztype]');
     if (tb) tb.onclick = () => { zTypeOpen = !zTypeOpen; G.Audio.sfx('click'); renderUpgrades(); };
+    return el;
+  }
+
+  /**
+   * Megaevolución (06-11-2026): el Mega-Aro y la megapiedra de este Pokémon. Con Pulsera Z y
+   * piedra, aquí se elige cuál lleva: una cosa u otra, en el mismo botón de la partida.
+   */
+  function megaCard(mon) {
+    const s = G.DB.save, id = G.Shop.megaId(upgDex), d = G.MEGA[id], aro = G.Shop.aroHas(), has = G.Shop.stoneHas(id);
+    const price = G.Shop.stonePrice(id), both = has && G.Shop.ringHas(upgDex), w = G.Shop.wears(upgDex);
+    const el = document.createElement('div');
+    el.className = 'upg-card upg-ring' + (has ? ' is-max' : '');
+    const sub = !aro ? G.T('Consigue el Mega-Aro ganando tu primera grieta.')
+      : G.I18n.f('En la partida se carga derrotando enemigos y se transforma en {x}. Lleva piedra o Pulsera Z, no las dos.', G.Mons.name(d.name));
+    el.innerHTML = `
+      <span class="ico-tile s${has ? ' t-gold' : ''}">${G.Icons.html(aro ? 'mg:' + d.ico : 'mring', 30)}</span>
+      <div class="upg-info"><div class="upg-top"><b translate="no">${G.Mons.name(d.stone)}</b><span class="upg-num"><b>${has ? 1 : 0}</b>/1</span></div>
+        <small>${sub}</small>${upgPips(has ? 1 : 0, 1)}</div>
+      <div class="upg-acts">${has ? `<span class="badge gold upg-maxed">${G.UI.svg('check', 14)}<span>${G.T('Máx.')}</span></span>`
+        : `<button class="btn small gold ic upg-buy" type="button" data-buy data-sfx="none" ${!aro || s.coins < price ? 'disabled' : ''}>${G.Icons.html('coin', 30)}<span>${price.toLocaleString(G.I18n.locale)}</span></button>`}</div>
+      ${both ? `<div class="upg-more"><button class="btn small ghost ic upg-pick${w === 'mega' ? ' on' : ''}" type="button" data-wear="mega">${G.Icons.html('mg:' + d.ico, 30)}<span>${G.T('Lleva la megapiedra')}</span></button>
+        <button class="btn small ghost ic upg-pick${w === 'z' ? ' on' : ''}" type="button" data-wear="z">${G.Icons.html('zring', 30)}<span>${G.T('Lleva la Pulsera Z')}</span></button></div>` : ''}`;
+    const b = el.querySelector('[data-buy]');
+    if (b) b.onclick = () => {
+      const r = G.Shop.buy('mg:' + id);
+      if (!r.ok) { if (r.error) G.UI.toast(G.T(r.error)); G.Audio.sfx('error'); renderUpgrades(); return; }
+      G.Audio.sfx('buy');
+      G.UI.refreshCoins();
+      G.UI.toast(`${mon.name} · ${G.Mons.name(d.stone)}`);
+      renderUpgrades();
+    };
+    el.querySelectorAll('[data-wear]').forEach(x => {
+      x.onclick = () => { G.Shop.setWear(upgDex, x.dataset.wear); G.DB.commit(); G.Audio.sfx('select'); renderUpgrades(); };
+    });
     return el;
   }
 

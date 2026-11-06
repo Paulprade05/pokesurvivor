@@ -683,7 +683,7 @@ G.HUD = (() => {
     const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.maxMoves);
     // Movimiento Z (24-10-2026): su botón, del tamaño de un hueco, a la derecha de los huecos
     // (separado como el objeto a la izquierda). Sólo con el Cristal Z de un tipo de tu compañero.
-    const z = G.Combat.zOf(pl), ZW = z ? IG + S : 0;
+    const z = G.Combat.zOf(pl), mg = G.Mega ? G.Mega.of(pl) : null, ZW = z || mg ? IG + S : 0;     // (mega: el mismo hueco)
     const totalW = n * S + (n - 1) * GAP;
     let sx = (W - totalW) / 2;
     // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
@@ -965,6 +965,7 @@ G.HUD = (() => {
 
     // ---------- movimiento Z: listo (late en su color), activo (cuenta atrás) o recargando ----------
     if (z) drawZ(ctx, pl, z, zx, sy, S, TR, HALO, ip, kb, touch, now, nameA, W);
+    else if (mg) drawMega(ctx, pl, mg, zx, sy, S, TR, HALO, ip, kb, touch, now, nameA, W);
 
     // ---------- vínculo guardado (aún no hay dos movimientos sueltos) ----------
     if (pl.bonds > 0) {
@@ -1176,6 +1177,77 @@ G.HUD = (() => {
       ctx.globalAlpha = 1;
     }
     G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing') G.Combat.zUse(pl); }, 4 * kb);
+  }
+
+  /**
+   * El botón de la megaevolución: el hueco del Z, con la megapiedra dentro.
+   *   falta la forma final  piedra en gris; al tocarlo, la pista
+   *   cargando              arco de progreso y el %
+   *   lista                 halo que late y borde de color
+   *   activa                barra abajo que se vacía y los segundos que quedan
+   */
+  function drawMega(ctx, pl, g, x, y, S, TR, HALO, ip, kb, touch, now, nameA, W) {
+    const M = G.Mega, act = g.t > 0, ready = M.ready(pl, g), en = M.energy(pl, g), col = M.COL;
+    const calm = G.Settings.get('calm');
+    if (ready || act) {
+      ctx.globalAlpha = act ? 0.42 : calm ? 0.28 : 0.2 + 0.16 * Math.sin(now / 200);
+      roundRect(ctx, x - HALO, y - HALO, S + HALO * 2, S + HALO * 2, TR + HALO);
+      ctx.fillStyle = col; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    panel(ctx, x, y, S, S, TR, ip, act ? C.panel2 : C.panel, null);
+    const zi = S - 12;
+    ctx.globalAlpha = ready || act ? 1 : 0.42;
+    G.Icons.draw(ctx, 'mg:' + g.def.ico, x + 6, y + (S - zi) / 2 - (act ? 5 : ready ? 2 : 4), zi);
+    ctx.globalAlpha = 1;
+    roundRect(ctx, x, y, S, S, TR);
+    ctx.lineWidth = act ? 3 : ready ? 2 : ip;
+    ctx.strokeStyle = act || ready ? col : C.edge;
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    if (act) {
+      bar(ctx, x + 6, y + S - (cmp ? 8 : 9), S - 12, cmp ? 4 : 5, g.t / M.DUR, col);
+      ctx.font = F(700, cmp ? 13 : 14);
+      outlined(ctx, zLeft(g.t), x + S / 2, y + S - (cmp ? 12 : 13), '#fff', 3);
+    } else if (!ready) {
+      // El arco por dentro del borde: se ve llenarse sin tapar la piedra.
+      if (en > 0) {
+        ctx.beginPath();
+        ctx.arc(x + S / 2, y + S / 2, S / 2 - 4, -Math.PI / 2, -Math.PI / 2 + en * 6.2832);
+        ctx.lineWidth = 3; ctx.strokeStyle = col; ctx.stroke();
+      }
+      ctx.font = F(700, cmp ? 12 : 13);
+      outlined(ctx, Math.floor(en * 100) + '%', x + S / 2, y + S - (cmp ? 7 : 8), '#fff', 3);
+    }
+    ctx.font = N(900, 11);
+    if (touch) {
+      ctx.textAlign = 'left';
+      outlined(ctx, 'M', x + (cmp ? 4 : 5), y + (cmp ? 12 : 13), ready ? C.yellow : act ? '#fff' : C.ink2, 2.5);
+    } else {
+      const key = String(G.Input.keyLabel('zmove'));
+      const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
+      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, ready ? C.yellow : 'rgba(8,14,32,.94)', ready ? null : 'rgba(255,255,255,.3)');
+      ctx.fillStyle = ready ? C.yellowInk : C.ink;
+      ctx.textAlign = 'center';
+      ctx.fillText(key, x - 5 + kw / 2, y + 7, kw - 6);
+    }
+    // La pista encima, como la del Z apagado.
+    const wait = nameA > 0;
+    if (g.hintAt && wait && now - g.hintAt < Z_HINT_MS) g.hintAt = now;
+    const a = g.hintAt && !wait ? G.U.clamp((Z_HINT_MS - (now - g.hintAt)) / 350, 0, 1) : 0;
+    if (a > 0) {
+      const NH = cmp ? 16 : 18, txt = M.hint(pl, g);
+      ctx.font = F(600, cmp ? 11 : 12);
+      const pw = Math.min(ctx.measureText(txt).width, W - 26) + (cmp ? 14 : 18);
+      const nx = G.U.clamp(x + S / 2, pw / 2 + 4, Math.max(pw / 2 + 4, W - pw / 2 - 4));
+      ctx.globalAlpha = a;
+      panel(ctx, nx - pw / 2, y - NH - 5, pw, NH, NH / 2, ip, C.panel2, col, 1.5 * ip);
+      ctx.fillStyle = C.ink;
+      ctx.textAlign = 'center';
+      ctx.fillText(txt, nx, y - (cmp ? 9 : 9.8), W - 26);
+      ctx.globalAlpha = 1;
+    }
+    G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing') M.use(pl); }, 4 * kb);
   }
 
   // ---------------- cooperativo ----------------

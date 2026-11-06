@@ -27,6 +27,7 @@
  * (tk=t1/t10), ataques al 5 (m5), evolucionados (ev) y cartas cogidas. En RESULT, cada jefe y legendario (ttk, ataques,
  * firmas, daño hecho mientras vivía) y cada grieta (ganada, ttk, nº de legendarios). El informe da sus medianas.
  * (Bloque 4) «ia=A%/B/C»: enemigos atascados (% de los vivos, muestreado cada 0,2 s), media bajo tierra y nadando.
+ * --mega  (6-11-2026) lleva su megapiedra y megaevoluciona en cuanto puede; «mg=» en RESULT y en cada minuto, en s.mg.
  * --quiere id,id,...  (4-11-2026) las cartas sólo ofrecen esos ataques y empieza con el primero: mide un equipo concreto.
  *                     Con ataques cortos el bot juega pegado a la horda (closeRange).
  * --pref Réplica,Propulsión,...  esas pasivas antes que las demás (por nombre de carta).
@@ -343,7 +344,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       const v = [...document.querySelectorAll('#scr-result button')].find(b => b.offsetParent);
       if (v) { v.click(); await sleep(1200); }
     });
-    await page.evaluate(async (dex, upg, want, pref) => {
+    await page.evaluate(async (dex, upg, want, pref, mega) => {
       if (pref) BOT.pref = pref;
       if (want) {       // (--quiere: sólo esos ataques en las cartas y el primero, de inicio)
         BOT.want = want;
@@ -356,6 +357,8 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       if (upg === 'max') for (const u of G.Upgrades.LIST) U[u.id] = u.max;
       S.owned[dex] = S.owned[dex] || { at: Date.now(), from: 'gacha' };
       S.partner = dex; S.partnerShiny = false;
+      // --mega (06-11-2026): lleva su megapiedra y megaevoluciona en cuanto puede.
+      if (mega) { S.ach = S.ach || {}; S.ach.rift1 = 1; S.pz = {}; S.mst = { [G.Shop.megaId(dex)]: 1 }; }
       // Daño recibido por origen: contacto (t), disparo enemigo (p), aviso en el suelo (h), firma de jefe (s).
       window.DMG = { touch: 0, proj: 0, hz: 0, sig: 0, other: 0, total: 0 };
       window.__src = 'other';
@@ -449,7 +452,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
           }
         }
       }, 200);
-    }, dex, upg, want || null, pref || null);
+    }, dex, upg, want || null, pref || null, process.argv.includes('--mega'));
     await page.evaluate(k => G.Game.debugSpeed(k), speed);
     const t0 = Date.now();
     let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0, lastKills = 0, lastDealt = 0, ttks = [], judgeAt = null, lastAi = { n: 0, live: 0, stuck: 0, under: 0, swim: 0 };
@@ -457,7 +460,8 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       await new Promise(r => setTimeout(r, 1000));
       s = await page.evaluate(() => {
         const pl = G.Game.player;
-        return { t: Math.round(G.Game.st.time), lv: pl.level, max: Math.round(pl.maxHp), form: (G.DEX_BY[pl.form] || {}).name, kills: pl.kills, en: G.EnemyMgr.count,
+        if (G.Mega && G.Mega.of(pl) && G.Mega.ready(pl, G.Mega.of(pl))) G.Mega.use(pl);
+        return { t: Math.round(G.Game.st.time), mg: pl.mg ? pl.mg.uses : 0, lv: pl.level, max: Math.round(pl.maxHp), form: (G.DEX_BY[pl.form] || {}).name, kills: pl.kills, en: G.EnemyMgr.count,
           boss: G.EnemyMgr.bosses().map(e => e.name + (e.legend ? '*' : '') + ':' + Math.round(100 * e.hp / e.maxHp) + '%').join(','), arena: G.Rift.inArena, judge: G.Judgment.active,
           over: G.Game.state === 'over', moves: pl.moves.map(m => m.id + m.lvl + (m.evolved ? '*' : '')).join(' '), dmg: Object.assign({}, DMG), vhp: Math.round(V.hp), deaths: V.deaths.slice(),
           dealt: Math.round(pl.dmgDealt), ttk: M.ttk.splice(0), cards: Object.assign({}, pl.statsTaken), t1: pl.t1, t10: pl.t10,
@@ -476,7 +480,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
         const cards = Object.entries(s.cards).map(([k, v]) => k + v).join(',');
         // (Los campos nuevos van detrás de caídas=N: report() lee hasta ahí.)
         log(`${tag} [${String(Math.floor(s.t / 60)).padStart(2)}:${String(s.t % 60).padStart(2, '0')}] Nv.${s.lv} ${s.form} v${s.vhp}/${s.max} en=${s.en} dmg/min=${Math.round(dm)} (${(dm / s.max).toFixed(1)}x) caídas=${nd} ` +
-            `bajas=${s.kills - lastKills} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
+            `bajas=${s.kills - lastKills} mg=${s.mg} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
             `ia=${s.ai.live > lastAi.live ? (100 * (s.ai.stuck - lastAi.stuck) / (s.ai.live - lastAi.live)).toFixed(1) : '-'}%/${s.ai.n > lastAi.n ? ((s.ai.under - lastAi.under) / (s.ai.n - lastAi.n)).toFixed(1) : '-'}/${s.ai.n > lastAi.n ? ((s.ai.swim - lastAi.swim) / (s.ai.n - lastAi.n)).toFixed(1) : '-'} ` +
             `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} | ${s.moves}`);
         lastKills = s.kills; lastDealt = s.dealt; ttks = []; lastAi = s.ai;
@@ -523,6 +527,7 @@ async function main() {
       if (pp) a.push('--pp', pp);
       if (chrome) a.push('--chrome', chrome);
       if (want) a.push('--quiere', want);
+      if (args.includes('--mega')) a.push('--mega');
       if (pref) a.push('--pref', pref);
       spawn(process.execPath, a, { stdio: ['ignore', f, f] }).on('exit', () => { running--; console.log('hecha', j.tag); next(); });
     };

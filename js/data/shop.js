@@ -162,6 +162,38 @@ G.Shop = (() => {
              need: near ? near.t : null, needN: near ? near.n : 0, have: have.map(({ t, n }) => ({ t, n })) };
   }
 
+  // ---------------- megaevolución (06-11-2026, docs/MEGAEVOLUCIONES.md) ----------------
+
+  /** ¿Tienes el Mega-Aro? Es el premio del logro de la primera grieta: vale para quien ya lo tuviera. */
+  const aroHas = () => { const s = save(); return !!(s && s.ach && s.ach.rift1); };
+  /** La mega de este Pokémon (0: no tiene). */
+  const megaId = dex => { const l = G.MEGA_OF && G.MEGA_OF[dex]; return l ? l[0] : 0; };
+  const stoneHas = id => { const s = save(); return !!(s && s.mst && s.mst[id]); };
+  /** Tus megapiedras (ids de mega). */
+  const stonesOwned = () => { const s = save(); return Object.keys((s && s.mst) || {}).filter(id => G.MEGA && G.MEGA[id]); };
+  function stonePrice(id) {
+    const m = G.MEGA[id], p = m && G.DEX_BY[m.dex];
+    return !p || p.leg || p.rarity >= 5 ? 10000 : p.rarity === 4 ? 7500 : 5000;
+  }
+  /**
+   * Qué lleva este Pokémon: 'mega', 'z' o null. Como en los juegos, una cosa u otra.
+   * Con las dos, la que elegiste en Mejoras (save.pmg[dex] = ['mega'|'z', fecha]) o la última comprada.
+   */
+  function wears(dex) {
+    const s = save(), mg = stoneHas(megaId(dex)) && aroHas(), z = ringHas(dex);
+    if (!mg || !z) return mg ? 'mega' : z ? 'z' : null;
+    const p = s.pmg && s.pmg[dex];
+    if (p && (p[0] === 'mega' || p[0] === 'z')) return p[0];
+    return (+s.mst[megaId(dex)] || 0) >= (+s.pz[dex] || 0) ? 'mega' : 'z';
+  }
+  /** Elige qué lleva. Sin guardar: lo hace quien llama. */
+  function setWear(dex, w) {
+    const s = save();
+    if (!s) return;
+    s.pmg = s.pmg || {};
+    s.pmg[dex] = [w === 'z' ? 'z' : 'mega', Date.now()];
+  }
+
   // ---------------- comprar ----------------
 
   /**
@@ -171,6 +203,18 @@ G.Shop = (() => {
   function buy(key) {
     const s = save();
     if (!s) return { ok: false };
+    if (key.startsWith('mg:')) {
+      const id = +key.slice(3), m = G.MEGA && G.MEGA[id];
+      if (!m || !(s.owned && s.owned[m.dex])) return { ok: false };
+      if (stoneHas(id)) return { ok: false, error: 'Ya tienes esa megapiedra.' };
+      if (!aroHas()) return { ok: false, error: 'Antes necesitas el Mega-Aro: gana tu primera grieta.' };
+      if (s.coins < stonePrice(id)) return { ok: false, error: 'No tienes Pokémonedas suficientes.' };
+      s.coins -= stonePrice(id);
+      s.mst = s.mst || {};
+      s.mst[id] = Date.now();
+      G.DB.commit(true);
+      return { ok: true };
+    }
     if (key.startsWith('zr:')) {
       const dex = +key.slice(3);
       if (!G.DEX_BY[dex] || !(s.owned && s.owned[dex])) return { ok: false };
@@ -206,5 +250,6 @@ G.Shop = (() => {
   }
 
   return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today,
-           Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zPref, zSetPref, zState };
+           Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zPref, zSetPref, zState,
+           aroHas, megaId, stoneHas, stonesOwned, stonePrice, wears, setWear };
 })();

@@ -6,6 +6,20 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Megaevoluciones", "Mega Evolution"], new: [
+    ["Llegan las megaevoluciones: 43 Pokémon pueden transformarse durante 75 segundos, con otro aspecto, más daño, menos daño recibido y, a veces, otro tipo y otra habilidad.",
+     "Mega Evolution is here: 43 Pokémon can transform for 75 seconds, with a new look, more damage, less damage taken and sometimes a new type and Ability."],
+    ["La Energía Mega se carga derrotando enemigos: cuesta al principio y luego va más rápido. Se activa con el mismo botón y la misma tecla que el movimiento Z.",
+     "Mega Energy charges by defeating enemies: slow at first, faster later. It uses the same button and key as the Z-Move."],
+    ["Ganar tu primera grieta te da el Mega-Aro. Después compras la megapiedra en las Mejoras de cada Pokémon. Cada Pokémon lleva megapiedra o Pulsera Z, y lo eliges tú si tiene las dos.",
+     "Winning your first rift gives you the Mega Ring. Then you buy the Mega Stone in each Pokémon's Upgrades. Each Pokémon holds a Mega Stone or a Z-Ring, and you choose if it has both."],
+    ["El Compendio y la Pokédex enseñan la mega de cada Pokémon, y en el Compendio hay un filtro «Con mega».",
+     "The Compendium and Pokédex show each Pokémon's Mega, and the Compendium has a \"With Mega\" filter."]] },
+  { d: '2026-11-06', title: ["8 Pokémon nuevos", "8 new Pokémon"], new: [
+    ["Entran 8 Pokémon: Rolycoly, Cufant, Copperajah, Bombirdier, Jellicent, Sirfetch'd, Toedscool y Pecharunt. Copperajah es la evolución de Cufant, y Sirfetch'd la de Farfetch'd: si tenías Farfetch'd, ahora tienes a Sirfetch'd con todo lo que le habías mejorado.",
+     "8 new Pokémon: Rolycoly, Cufant, Copperajah, Bombirdier, Jellicent, Sirfetch'd, Toedscool and Pecharunt. Copperajah evolves from Cufant and Sirfetch'd from Farfetch'd: if you had Farfetch'd, you now have Sirfetch'd with all its upgrades."],
+    ["Pecharunt aparece en las grietas, con su llegada y su ataque propios.",
+     "Pecharunt appears in rifts, with its own entrance and attack."]] },
   { d: '2026-11-06', title: ["Pantalla negra en iPhone", "Black screen on iPhone"], fix: [
     ["Si en plena partida el mapa y los Pokémon desaparecen y queda todo negro, el juego ahora se da cuenta y lo vuelve a dibujar solo, sin cortar la partida. Sale el aviso «Dibujo recuperado».",
      "If the map and Pokémon disappear mid-run and everything goes black, the game now notices and redraws it by itself, without stopping the run. You'll see a \"Graphics recovered\" notice."],

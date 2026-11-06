@@ -134,7 +134,7 @@ G.LevelUp = (() => {
    */
   const POOL_K = 0.7, POOL_MIN = 10;
   function runPool(pl) {
-    const ids = G.Moves.poolFor(pl.mon);
+    const ids = G.Moves.poolFor(G.Mega ? G.Mega.cardMon(pl) : pl.mon);
     if (!pl.poolRank) { pl.poolRank = {}; pl.poolKeep = new Set(pl.moves.map(m => m.id)); }
     const r = pl.poolRank;
     for (const id of ids) if (!(id in r)) r[id] = Math.random();

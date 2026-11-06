@@ -275,6 +275,7 @@ G.CompendiumUI = (() => {
       picks += `<label class="cmp-pick${f.fam ? ' on' : ''}" data-ico="sort" data-ico-size="16"><select data-f="fam" aria-label="Familia">`
         + opt('', 'Familia', f.fam) + kinds.map(k => opt(k, famName(k), f.fam)).join('') + opt('z', 'Movimientos Z', f.fam) + '</select></label>';
     }
+    if (tab === 'mons') picks += `<button type="button" class="chip${f.mega ? ' on' : ''}" data-f="mega" aria-pressed="${!!f.mega}">${G.Icons.html('mring', 30)}<span>Con mega</span></button>`;
     if (tab === 'mons') picks += `<button type="button" class="chip${f.mine ? ' on' : ''}" data-f="mine" aria-pressed="${f.mine}">${G.Icons.html('ball', 30)}<span>Tus Pokémon</span></button>`;
     // (Cuántos salen: dentro del buscador, a la derecha, para no gastar otra línea.)
     box.innerHTML = `<label class="cmp-q" data-ico="search" data-ico-size="18"><input class="field" type="search" id="cmp-q" placeholder="${esc(ph)}" `
@@ -287,6 +288,8 @@ G.CompendiumUI = (() => {
     box.querySelectorAll('select[data-f]').forEach(s => {
       s.onchange = () => { f[s.dataset.f] = s.value; s.parentElement.classList.toggle('on', !!s.value); renderList(); renderDetail(); };
     });
+    const mgc = box.querySelector('[data-f="mega"]');
+    if (mgc) mgc.onclick = () => { f.mega = !f.mega; mgc.classList.toggle('on', f.mega); mgc.setAttribute('aria-pressed', String(f.mega)); renderList(); renderDetail(); };
     const mine = box.querySelector('[data-f="mine"]');
     if (mine) mine.onclick = () => { f.mine = !f.mine; mine.classList.toggle('on', f.mine); mine.setAttribute('aria-pressed', String(f.mine)); renderList(); renderDetail(); };
   }
@@ -302,7 +305,7 @@ G.CompendiumUI = (() => {
     if (tab === 'items') return G.Items.LIST.filter(it => !q || norm(G.T(it.name)).includes(q) || norm(it.name).includes(q));
     const n = q.replace(/^#/, '');
     const hit = d => { const m = G.DEX_BY[d]; return !!m && (norm(G.T(m.name)).includes(q) || norm(m.name).includes(q) || (/^\d+$/.test(n) && String(d).startsWith(String(+n)))); };
-    return monList().filter(p => (!f.type || p.types.includes(f.type)) && (!f.mine || owned(p.dex)) && (!q || lineOf(p.dex).some(hit)));
+    return monList().filter(p => (!f.type || p.types.includes(f.type)) && (!f.mine || owned(p.dex)) && (!f.mega || G.Shop.megaId(p.dex)) && (!q || lineOf(p.dex).some(hit)));
   }
   const idOf = x => String(tab === 'mons' ? x.dex : x.id);
 
@@ -535,6 +538,15 @@ G.CompendiumUI = (() => {
     const line = lineOf(dex);
     if (line.length > 1) {
       h += sec('Evolución', `<p class="cmp-note cmp-line">${line.map(d => `<b class="${d === +dex ? 'gold' : ''}">${esc(G.DEX_BY[d].name)}</b>`).join('<i class="evo-arr" aria-hidden="true"> → </i>')}</p>`);
+    }
+    // Su megaevolución (docs/MEGAEVOLUCIONES.md).
+    const mid = G.Shop && G.Shop.megaId ? G.Shop.megaId(dex) : 0, mg = mid ? G.MEGA[mid] : null;
+    if (mg) {
+      const mfx = mg.abil && G.AbilityFX ? G.AbilityFX.of(mg.abil, mg) : null, ma = G.AbilityFX ? mg.atk / p.atk : 1;
+      h += sec('Megaevolución', `<p class="cmp-note"><span class="ico-tile s tint" style="--tile-c:${G.Mega.COL}">${G.Icons.html('mg:' + mg.ico, 30)}</span> <b class="gold" translate="no">${esc(G.Mons.name(mg.name))}</b> ${G.UI.typeChips(mg.types)}</p>`
+        + `<div class="cmp-kv"><div><span class="cmp-k">Daño</span><b>+${Math.round((ma - 1) * 100)} %</b><small><span>${esc(G.T('Y recibe un 15 % menos de daño.'))}</span></small></div>`
+        + `<div><span class="cmp-k">Habilidad</span>${mg.abil ? `<b translate="no">${esc(G.Mons.abilityName(mg.abil))}</b><small><span>${esc(G.T(mfx.d))}</span>${mfx.d2 ? ` <span>${esc(G.T(mfx.d2))}</span>` : ''}</small>` : `<b>${esc(G.T('Se queda con la tuya'))}</b>`}</div>`
+        + `<div><span class="cmp-k">Megapiedra</span><b translate="no">${esc(G.Mons.name(mg.stone))}</b><small><span>${esc(G.T('Se compra en sus Mejoras. Hace falta el Mega-Aro, de tu primera grieta ganada.'))}</span></small></div></div>`);
     }
     h += '<div class="cmp-kv">'
       + (st ? `<div><span class="cmp-k">Ataque inicial</span>${moveBtn(st)}</div>` : '')

@@ -11,6 +11,7 @@ donde el autor es un nombre o un ID de Discord ("<@!123...>"). Los IDs se
 traducen con el credit_names.txt de la raiz del repo.
 """
 import io
+import json
 import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -43,11 +44,22 @@ def main():
 
     dexes = sorted(int(d) for d in os.listdir(ASSETS) if d.isdigit())
 
+    # Las megas van por su número de PokeAPI: su carpeta es la de su especie y forma (tools/fetch_megas.cjs).
+    forms = {}
+    jobs = os.path.join(ROOT, 'tools', 'cache', 'megas.json')
+    if os.path.exists(jobs):
+        with io.open(jobs, encoding='utf-8') as f:
+            forms = {j['id']: f"{j['dex']:04d}/{j['form']}" for j in json.load(f)}
+
     def one(dex):
         # Créditos del sprite normal y del shiny (que puede ser de otro artista).
-        txt = fetch(f'{RAW}/sprite/{dex:04d}/credits.txt')
-        if os.path.isdir(os.path.join(ASSETS, str(dex), 's')):
-            txt += '\n' + fetch(f'{RAW}/sprite/{dex:04d}/0000/0001/credits.txt')
+        if dex in forms:
+            txt = fetch(f'{RAW}/sprite/{forms[dex]}/credits.txt')
+            txt += '\n' + fetch(f'{RAW}/sprite/{forms[dex]}/0001/credits.txt')
+        else:
+            txt = fetch(f'{RAW}/sprite/{dex:04d}/credits.txt')
+            if os.path.isdir(os.path.join(ASSETS, str(dex), 's')):
+                txt += '\n' + fetch(f'{RAW}/sprite/{dex:04d}/0000/0001/credits.txt')
         authors = []
         for line in txt.splitlines():
             parts = line.split('\t')
@@ -63,23 +75,16 @@ def main():
                 display, contact = names.get(a, (a, ''))
                 per_artist.setdefault((display, contact), set()).add(dex)
 
+    # Sólo la tabla de sprites: el resto de CREDITS.md (tilesets, fuentes, marca...) está escrito a mano.
+    rows = ''.join(f'| {display} | {contact} | {", ".join(str(d) for d in sorted(dx))} |\n'
+                   for (display, contact), dx in sorted(per_artist.items(), key=lambda kv: kv[0][0].lower()))
+    head = '| Artista | Contacto | Sprites (nº de Pokédex) |\n|---|---|---|\n'
+    with io.open(OUT, encoding='utf-8') as f:
+        text = f.read().replace('\r\n', '\n')
+    start = text.index(head) + len(head)
+    end = text.index('\n\n', start) + 1
     with io.open(OUT, 'w', encoding='utf-8', newline='\n') as f:
-        f.write('# Créditos\n\n')
-        f.write('## Sprites\n\n')
-        f.write('Los sprites estilo *Pokémon Mundo Misterioso* vienen de\n')
-        f.write('[SpriteCollab](https://github.com/PMDCollab/SpriteCollab), bajo licencia\n')
-        f.write('[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/):\n')
-        f.write('uso **no comercial** y con atribución a sus artistas.\n\n')
-        f.write('| Artista | Contacto | Sprites (nº de Pokédex) |\n|---|---|---|\n')
-        for (display, contact), dx in sorted(per_artist.items(), key=lambda kv: kv[0][0].lower()):
-            nums = ', '.join(str(d) for d in sorted(dx))
-            f.write(f'| {display} | {contact} | {nums} |\n')
-        f.write('\n## Datos\n\n')
-        f.write('Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),\n')
-        f.write('descargados una vez y guardados en `js/data/pokedex.js`.\n\n')
-        f.write('## Marca\n\n')
-        f.write('Pokémon es propiedad de Nintendo, Creatures Inc. y GAME FREAK.\n')
-        f.write('Este es un proyecto de fan sin ánimo de lucro.\n')
+        f.write(text[:start] + rows + text[end:])
 
     print(f'{len(per_artist)} artistas para {len(dexes)} Pokemon -> CREDITS.md')
 
