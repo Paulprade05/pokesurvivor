@@ -77,7 +77,7 @@
 | `tools/serve.cjs` | Servidor local para jugar y probar |
 | `tools/balance.cjs` | Equilibrio de los ataques (no debería cambiar: los ataques no se tocan) |
 | `tools/build_langs.js --faltan --todo` | Qué textos faltan por traducir |
-| `tools/changelog-add.cjs` | Entrada de novedades en los 7 idiomas (§2) |
+| `tools/changelog-add.cjs` | Entrada de novedades en español e inglés (§2) |
 | `tests/*.test.cjs` | `node --test "tests/*.test.cjs"` |
 
 ### El archivo de estado: `docs/2.0-ESTADO.md`
@@ -218,9 +218,9 @@ Después de jugar un día entero y hacer pruebas:
   - **Tests**: `node --test "tests/*.test.cjs"` (Node 24; no hay package.json).
 - **Commits**: **sin «Co-Authored-By» ni ninguna firma de IA**. `git push origin main` **sólo cuando el dueño lo pida**.
 - **Actualización automática**: no tocar `js/core/updater.js` ni la escritura de `version.json` en `tools/build.js`.
-- **Novedades**: cada cambio de juego va en `js/data/changelog.js`, en español e inglés (`new` / `chg` / `fix`), con sus filas para fr, it, pt-BR, zh-Hans y zh-Hant en `js/data/lang-updates.js`.
-  - Hay un ayudante: `node tools/changelog-add.cjs <items.json> <repo> <fecha> <titulo.json>`. El formato de los dos JSON está en su cabecera (cada línea con `tipo` y los 7 idiomas: `es`, `en`, `fr`, `it`, `ptBR`, `zhHans`, `zhHant`).
-  - Todo texto nuevo visible va en los 7 idiomas (`js/data/lang-en.js` + `lang-updates.js`); `node tools/build_langs.js --faltan --todo` dice lo que falta y `tests/i18n.test.cjs` falla si falta algo.
+- **Novedades**: cada cambio de juego va en `js/data/changelog.js`, en español e inglés (`new` / `chg` / `fix`).
+  - Hay un ayudante: `node tools/changelog-add.cjs <items.json> <repo> <fecha> <titulo.json>`. El formato de los dos JSON está en su cabecera (cada línea con `tipo`, `es` y `en`).
+  - Todo texto nuevo visible va en español y en inglés (`js/data/lang-en.js`). El juego está sólo en esos dos idiomas desde el 05-11-2026.
   - Añadir también la novedad a `NEWS` en `tools/make_seo_pages.py`.
 - **Servidores**: nada de pago.
   - Firebase en plan Spark; **nunca** activar Identity Platform ni nada que lo active.
@@ -454,7 +454,7 @@ apply: pl => { const n = pl.statsTaken.atk || 0; pl.atkMul *= (1 + 0.10 * (n + 1
 
 - **No subir** los topes de Amplitud, Persistencia ni Propulsión: `netPass` (`combat.js:1863-1869`) rechaza Amplitud >1,5 en cooperativo.
 - **Con todo al tope**: hoy `offer` sólo devolvería la Baya Zidra, que cura el 45 % en cada subida: hacia el minuto 22-25 volvería a hacerte casi inmortal. Que salga una **Baya Zidra que cura el 20 %** (texto nuevo, 7 idiomas) y monedas **sólo en solitario** (en cooperativo el anfitrión pisa las monedas y los tickets del invitado, `game.js:319-321`).
-- En la pausa, enseñar «n/tope» o «MÁX» (`run-ui.js:110-111`). Texto nuevo: 7 idiomas.
+- En la pausa, enseñar «n/tope» o «MÁX» (`run-ui.js:110-111`). Texto nuevo: español e inglés.
 - El Compendio ya muestra «Se puede coger hasta {x} veces» (`compendium-ui.js:441`).
 - Tras los topes, el antitrampas `clean()` (`game.js:526`, `atkMul > 2000`) se puede bajar a ~200.
 
@@ -493,7 +493,7 @@ apply: pl => { const n = pl.statsTaken.atk || 0; pl.atkMul *= (1 + 0.10 * (n + 1
 - **Descartar en partida**: 2 por partida.
   - Un ataque descartado va a `pl.banned`, que ya se respeta.
   - Una pasiva descartada va a un `pl.bannedStats` nuevo, que se mira en `room`.
-  - Botón en `run-ui.js` y mando en `gamepad.js`; textos en 7 idiomas.
+  - Botón en `run-ui.js` y mando en `gamepad.js`; textos en español e inglés.
 - **No bajar** el máximo de las mejoras «Cambio de cartas» ni «Veto»: `perks()` recorta al máximo nuevo (`upgrades.js:59`) y se perdería lo que el jugador pagó.
 
 ### 6.4 Lo que se debilita al subir menos de nivel (revisar, no romper)
@@ -581,7 +581,7 @@ Se añade en `dev.html`, en el bloque `<!-- scripts:begin -->`, después de `spa
 - **Opcional, recomendado por diseño: riesgo a cambio de premio.** Hoy toda la dificultad es automática: el jugador bueno no puede pedir más peligro a cambio de algo (como la Maldición de Vampire Survivors o el Calor de Hades).
   - Un **Altar del Desafío** en el mapa. Al tocarlo, el director no baja de `hpMul ≥ 1,3` ni de `dmgMul ≥ 1,2` el resto de la partida.
   - A cambio, +50 % de monedas y una elección de vínculo más, o un objeto. **Nunca tickets por encima del tope de 30.**
-  - Bandera `pl.heat`; no viaja nada nuevo porque decide el anfitrión. Textos en 7 idiomas.
+  - Bandera `pl.heat`; no viaja nada nuevo porque decide el anfitrión. Textos en español e inglés.
 
 ---
 
@@ -686,7 +686,7 @@ Se añade en `dev.html`, en el bloque `<!-- scripts:begin -->`, después de `spa
   - un invitado de la versión anterior ignora `'arrive'` y los bits nuevos (ampliar el test de `jefes.test.cjs:310`).
 - **Herramientas**: subir `REF.bossHp` en `tools/balance.cjs:56` (hoy 40.000). Actualizar `docs/JEFES.md`.
 - **Cosas para el dueño en la consola**: `G.Judgment.debug.single` (su DPS), `G.Rift.debugArena('fire', 3)` y `G.Spawner.debugBossesFrom(1260)`.
-- **Textos nuevos**: «¡{x} cambia de fase!», «¡{x} resiste!», «¡Guardia rota!», «Algo se acerca…», en 7 idiomas.
+- **Textos nuevos**: «¡{x} cambia de fase!», «¡{x} resiste!», «¡Guardia rota!», «Algo se acerca…», en español e inglés.
 - **Se vuelven más difíciles**: las misiones `boss`, `wboss` y `wrift` y los logros `boss100`, `rift10` y `legAll`. Revisar que sigan siendo razonables.
 
 ---
@@ -1059,7 +1059,7 @@ Con esta variante, un jugador flojo puede bajar a 2 por tramo.
 - **Problema**: con `TS = 48` y un compañero de la versión anterior, cada uno vería otras paredes, aterrizaría en otro sitio de la arena, rompería otros objetos y vería enemigos dentro de las paredes. **Hoy no hay comprobación de versión del mundo** (`net.js` sólo negocia la versión del códec).
 - **Solución**:
   - añadir `wv` (versión del generador del mundo) a los datos de cada miembro de la sala;
-  - que el anfitrión **no empiece** si alguien no lo tiene o tiene otro, con un aviso en 7 idiomas tipo «Tu compañero tiene otra versión: que recargue»;
+  - que el anfitrión **no empiece** si alguien no lo tiene o tiene otro, con un aviso en español e inglés tipo «Tu compañero tiene otra versión: que recargue»;
   - mandarlo también en `start`. Un invitado 2.0 que reciba un `start` sin `wv` o con otro distinto sale de la sala con el mismo aviso;
   - **publicar normal**. `node tools/build.js --forzar` (`build.js:84-86`, `updater.js:16-20`) recarga también a quien está en partida, y eso va contra la norma de CLAUDE.md «en partida no se toca». Sólo si el dueño lo marca en §0. Dos jugadores con la versión vieja en partida son coherentes entre sí, y `wv` ya impide mezclar.
 - Lo que sólo cambia el dibujo (motor de tileset con la rejilla igual, y Ultra) no afecta a la red. **Suben `wv`**: la limpieza del terreno, el cambio de `TS` y el nuevo reparto de árboles y arboledas de §11.5 (los árboles son objetos sólidos que cada uno choca en local y que viajan por `pb [tx,ty]`).
@@ -1079,7 +1079,7 @@ Con esta variante, un jugador flojo puede bajar a 2 por tramo.
   - ningún fotograma > 25 ms al cambiar de bioma en móvil;
   - contador de FPS en Ajustes, en móvil horizontal, con calidad auto y Ultra.
 - **A ojo**: `dev.html?dev` en los 22 biomas (`G.Game.debugTime`, `game.js:1356`), en una grieta de cada tipo y en el Juicio, en Alta y en Ultra. **Capturas de antes y después para el dueño.**
-- **Créditos**: si se usa arte de terceros, en `CREDITS.md`. Los nombres de bioma son claves del diccionario: si se renombran, hay que tocarlos en los 7 idiomas.
+- **Créditos**: si se usa arte de terceros, en `CREDITS.md`. Los nombres de bioma son claves del diccionario: si se renombran, hay que tocarlos en español e inglés.
 
 ---
 
@@ -1094,7 +1094,7 @@ Con esta variante, un jugador flojo puede bajar a 2 por tramo.
 | Ranking | El tiempo aguantado y los niveles dejan de ser comparables: valorar tablas nuevas como `best2` |
 | Móvil | Repartir el trabajo pesado entre fotogramas (campos, horneado). Medir con la CPU ×4 |
 | Ultra | Todo lo nuevo del suelo y del aire, en las dos capas de `D3`; probar siempre en Normal y en Ultra |
-| Idiomas | Cada texto nuevo en 7 idiomas; `build_langs.js --faltan --todo` y `tests/i18n.test.cjs` |
+| Idiomas | Cada texto nuevo en español e inglés; `tests/i18n.test.cjs` |
 | Misiones y logros más difíciles (jefes, grietas, bajas, nivel) | Revisarlos en `missions.js` y `achievements.js` y ajustar los objetivos sin cambiar ids |
 | Documentación desactualizada | Actualizar `docs/JEFES.md`, `GDD.md` (tope de enemigos, personalidades) y las cabeceras de `enemy.js`/`world.js` |
 

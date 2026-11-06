@@ -41,7 +41,7 @@ G.EvoUI = (() => {
       case 'trade': return (it ? `<span>${T('Intercambio con')}</span> ${it}` : `<span>${T('Intercambio')}</span>`) + dot + lv;
       case 'friend': return `<span>${T('Amistad')}</span>${dot}${lv}`;
       case 'move':
-        if (r.mv) return `<span>${G.I18n.f('Al aprender {x}', G.T(moveName(r.mv), 'move'))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>${orMin}`;
+        if (r.mv) return `<span>${G.I18n.f('Al aprender {x}', G.T(moveName(r.mv)))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>${orMin}`;
         if (r.mt) return `<span>${G.I18n.f('Al aprender un ataque de tipo {x}', T(G.U.TYPE_NAME[r.mt]))}</span>${dot}<span>${G.I18n.f('o Nv. {x}', L)}</span>${orMin}`;
         return lv;
       case 'coins': return `<span>${G.I18n.f('Recoge {x} monedas', r.n)}</span>${orMin}`;

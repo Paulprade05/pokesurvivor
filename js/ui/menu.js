@@ -740,7 +740,7 @@ G.MenuUI = (() => {
     const row = id => { const m = G.Moves.BY_ID[id]; if (!m) return '';
       const cat = G.Stats.NAME[m.cat] || '';
       return `<div class="dx-mrow${id === start ? ' start' : ''}">${G.Icons.html('move:' + id, 30)}<span class="dx-mt">
-        <b>${G.T(m.name, 'move')}</b>${cat ? `<span class="tag-chip cat">${cat}</span>` : ''}${KN[m.kind] ? `<span class="fam-chip">${KN[m.kind]}</span>` : ''}
+        <b>${G.T(m.name)}</b>${cat ? `<span class="tag-chip cat">${cat}</span>` : ''}${KN[m.kind] ? `<span class="fam-chip">${KN[m.kind]}</span>` : ''}
         <small>${m.desc || ''}</small></span></div>`; };
     const groups = Object.keys(from).map(t => {
       const ids = (G.Moves.POOL[t] || []).filter(id => G.Moves.BY_ID[id]);
@@ -749,7 +749,7 @@ G.MenuUI = (() => {
         <div class="dx-mlist">${ids.map(row).join('')}</div></div>`;
     }).join('');
     const sm = G.Moves.BY_ID[start];
-    return `<p class="dx-start">${G.Icons.html('move:' + start, 30)}<span>Empieza con <b class="gold">${sm ? G.T(sm.name, 'move') : ''}</b></span></p>
+    return `<p class="dx-start">${G.Icons.html('move:' + start, 30)}<span>Empieza con <b class="gold">${sm ? G.T(sm.name) : ''}</b></span></p>
       <section class="dx-sec dx-moves-sec">
         <h4 class="dx-h">Ataques que puede llevar</h4>
         <p class="dx-note">${G.T('Salen en las cartas al subir de nivel: los de sus tipos y los normales. Los de un tipo que llega con una evolución, desde esa fase.')}</p>
@@ -762,7 +762,7 @@ G.MenuUI = (() => {
   function tmSection(dex) {
     const taught = G.Mons.taught(dex).filter(id => !G.Mons.natural(dex, id));
     const can = G.Mons.learnable(dex), inBag = can.filter(id => G.Shop.tmCount(id) > 0);
-    const chipOf = id => `<span class="dx-tm">${G.Icons.html('move:' + id, 30)}<span>${G.T(G.Moves.BY_ID[id].name, 'move')}</span></span>`;
+    const chipOf = id => `<span class="dx-tm">${G.Icons.html('move:' + id, 30)}<span>${G.T(G.Moves.BY_ID[id].name)}</span></span>`;
     return `<section class="dx-sec dx-extra">
       <div class="dx-row">
         <div class="dx-rt"><span class="dx-lbl">MT</span>${taught.length ? '' : `<small>${G.T('Aún no ha aprendido ninguna')}</small>`}</div>
@@ -873,9 +873,9 @@ G.MenuUI = (() => {
       });
     } else if (extraOpen === 'tm') {
       const list = G.Mons.learnable(dex).filter(id => G.Shop.tmCount(id) > 0);
-      chips(list.map(id => ({ v: id, html: `${G.Icons.html('move:' + id, 30)}<span>${G.T(G.Moves.BY_ID[id].name, 'move')}</span><small>×${G.Shop.tmCount(id)}</small>` })), id => {
+      chips(list.map(id => ({ v: id, html: `${G.Icons.html('move:' + id, 30)}<span>${G.T(G.Moves.BY_ID[id].name)}</span><small>×${G.Shop.tmCount(id)}</small>` })), id => {
         if (!G.Mons.teach(dex, id)) return;
-        done(G.I18n.f('¡{x} ha aprendido {x}!', mon.name, G.T(G.Moves.BY_ID[id].name, 'move')));
+        done(G.I18n.f('¡{x} ha aprendido {x}!', mon.name, G.T(G.Moves.BY_ID[id].name)));
       });
     }
   }
@@ -1226,7 +1226,7 @@ G.MenuUI = (() => {
       <p class="sub">Elige qué movimiento va siempre en cada hueco (teclas 1-4 o los iconos de abajo), para la memoria muscular. Si aún no tienes tantos movimientos, va al hueco más cercano.</p>
       <div class="upg-slots">${[0, 1, 2, 3].map(i => `<label class="upg-slot"><span class="upg-sn">${i + 1}</span>
         <select class="field" data-slot="${i}"><option value="">Libre</option>${ids.map(id =>
-          `<option value="${id}" ${list[i] === id ? 'selected' : ''}>${G.T(G.Moves.BY_ID[id].name, 'move')}</option>`).join('')}</select></label>`).join('')}</div>`;
+          `<option value="${id}" ${list[i] === id ? 'selected' : ''}>${G.T(G.Moves.BY_ID[id].name)}</option>`).join('')}</select></label>`).join('')}</div>`;
     el.querySelectorAll('select[data-slot]').forEach(sel => {
       sel.onchange = () => {
         const l = (s.pbind[upgDex] || [null, null, null, null]).slice(0, 4);
@@ -1322,7 +1322,7 @@ G.MenuUI = (() => {
     const list = banList();
     const el = movePanel(`Toca los movimientos que no quieres que te salgan en las cartas (${list.length}/${max}). El movimiento de inicio no se puede vetar.`,
       ids.map(id => { const d = G.Moves.BY_ID[id]; const on = list.includes(id);
-        return `<button class="chip mv-chip${on ? ' on ban' : ''}" type="button" data-id="${id}" aria-pressed="${on}">${G.Icons.html('move:' + id, 30)}<span>${G.T(d.name, 'move')}</span>${on ? G.Icons.html('ban', 30) : ''}</button>`; }).join(''));
+        return `<button class="chip mv-chip${on ? ' on ban' : ''}" type="button" data-id="${id}" aria-pressed="${on}">${G.Icons.html('move:' + id, 30)}<span>${G.T(d.name)}</span>${on ? G.Icons.html('ban', 30) : ''}</button>`; }).join(''));
     el.querySelectorAll('[data-id]').forEach(b => {
       b.onclick = () => {
         const l = banList(), id = b.dataset.id, i = l.indexOf(id);

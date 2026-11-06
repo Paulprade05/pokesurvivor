@@ -165,8 +165,8 @@ funcione sin conexión); sólo se carga con la calidad Ultra y el ajuste «Ultra
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
 descargados una vez y guardados en `js/data/pokedex.js`. Los nombres de los
-Cristales Z y de los movimientos Z (Tienda Kecleon) son los oficiales de cada
-idioma: de PokeAPI y, en chino, los de los juegos.
+Cristales Z y de los movimientos Z (Tienda Kecleon) son los oficiales en español
+y en inglés, de PokeAPI.
 
 ## Iconos de objetos
 

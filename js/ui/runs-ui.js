@@ -22,11 +22,11 @@ G.RunsUI = (() => {
                  drenaje: 'Drenaje', '(otros)': 'Otros', '?': 'Otros' };
 
   const monName = (d, nm) => (G.DEX_BY[d] && G.DEX_BY[d].name) || (nm && nm[d]) || '#' + d;
-  const moveName = (id, fallback) => { const m = G.Moves && G.Moves.BY_ID && G.Moves.BY_ID[id]; return G.T((m && m.name) || fallback || id, 'move'); };
+  const moveName = (id, fallback) => { const m = G.Moves && G.Moves.BY_ID && G.Moves.BY_ID[id]; return G.T((m && m.name) || fallback || id); };
   /** «l:150|Psicoataque» → «Mewtwo (Legendario) · Psicoataque». */
   function source(k, nm) {
     const [who, how = ''] = String(k || '?').split('|');
-    const h = HOW[how] ? G.T(HOW[how]) : how ? G.T(how, 'move') : '';
+    const h = HOW[how] ? G.T(HOW[how]) : how ? G.T(how) : '';
     if (who === '?') return G.T('Desconocido') + (h ? ' · ' + h : '');
     const m = /^([hblax]):(.*)$/.exec(who);
     if (!m) return who + (h ? ' · ' + h : '');

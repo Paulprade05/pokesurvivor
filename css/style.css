@@ -164,17 +164,6 @@ body.touch { --ctl: 44px; --bar-h: 64px; }
     --bar-top: max(4px, var(--sa-t)); --bar-h: 44px;
   }
 }
-/* Chino: las letras del sistema detrás (Fredoka y Nunito no las tienen). */
-html:lang(zh-Hant) {
-  --font: 'Nunito', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC', system-ui, sans-serif;
-  --font-display: 'Fredoka', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC', system-ui, sans-serif;
-}
-html:lang(zh-Hans) {
-  --font: 'Nunito', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', system-ui, sans-serif;
-  --font-display: 'Fredoka', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', system-ui, sans-serif;
-}
-html:lang(zh) body { line-height: 1.55; }
-html:lang(zh) :is(.btn, .chip, .tab, .gen-tab, .menu-item, .tb-btn) { letter-spacing: 0; }
 
 /* ---------- 1. Base ---------- */
 * { box-sizing: border-box; }

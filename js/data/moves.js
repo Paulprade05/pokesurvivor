@@ -896,7 +896,7 @@
       desc: 'Llamas a un enjambre: las abejas revolotean cerca y pican a los enemigos.',
       cd: 6, dmg: 8, count: 3, speed: 160, size: 7, dur: 6 },
     { id: 'last-respects', name: 'Homenaje Póstumo', type: 'ghost', kind: 'ally',
-      desc: 'Espíritus que atraviesan paredes, persiguen y frenan a los enemigos; salen más y más fuertes cuantos más enemigos hayas debilitado en los últimos 20 s.',
+      desc: 'Espíritus que atraviesan paredes, persiguen y frenan a los enemigos, y su golpe salpica a los de al lado; salen más y más fuertes cuantos más enemigos hayas debilitado en los últimos 20 s.',
       cd: 6, dmg: 8, count: 3, speed: 140, size: 7, dur: 6, slow: 0.3, phase: 1 },
     // (Paliza, 26-10-2026: una copia por tipo de tus ataques; count suma copias de más.)
     { id: 'beat-up', name: 'Paliza', type: 'dark', kind: 'ally',
@@ -1086,22 +1086,27 @@
    */
   const DMG_K = {
     'aerial-ace': [0.87, 1], 'air-slash': [0.83, 0.88], 'ancient-power': [1, 0.74], 'astral-barrage': [1, 0.91],
-    'aura-sphere': [1, 0.77], 'aura-wheel': [1, 0.78], 'aurora-beam': [1, 0.75], 'body-slam': [1, 0.77],
-    'bone-club': [1, 0.87], 'bug-buzz': [1, 0.84], 'bullet-seed': [1, 0.93], 'confusion': [1, 0.8],
-    'cross-poison': [1, 0.91], 'dark-pulse': [0.9, 1], 'dazzling-gleam': [1, 0.77], 'dragon-breath': [1, 0.78],
-    'dragon-claw': [1, 0.86], 'draining-kiss': [1, 0.89], 'dual-wingbeat': [0.87, 1], 'dynamic-punch': [1, 1.16],
+    'aura-sphere': [1.3, 1.1], 'aura-wheel': [1, 0.78], 'aurora-beam': [1.15, 0.9], 'body-slam': [1, 0.77],
+    'bone-club': [1, 0.87], 'bug-buzz': [1, 0.84], 'bullet-seed': [2.4, 2.2], 'confusion': [1, 0.8],
+    'cross-chop': [1.2, 2.2], 'cross-poison': [1, 0.91], 'dark-pulse': [0.9, 1], 'dazzling-gleam': [1, 0.77], 'dragon-breath': [1, 0.78],
+    'dragon-claw': [1, 0.86], 'draining-kiss': [1, 0.89], 'dual-wingbeat': [1.7, 2], 'dynamic-punch': [1.2, 2.4],
     'ember': [1, 0.73], 'energy-ball': [1, 0.84], 'fire-pledge': [0.89, 0.91], 'fire-spin': [1, 0.82],
-    'flame-charge': [0.9, 1], 'flame-wheel': [0.63, 1], 'flamethrower': [0.74, 1], 'fleur-cannon': [1, 0.79],
+    'flame-charge': [0.9, 1], 'flame-wheel': [0.63, 1], 'flamethrower': [1.1, 1.5], 'fleur-cannon': [0.75, 0.45],
     'gust': [1, 0.94], 'heat-wave': [0.67, 1], 'hydro-pump': [1, 0.87], 'hyper-beam': [0.78, 1],
-    'hyper-voice': [0.87, 1], 'leaf-storm': [1, 0.77], 'lick': [1, 0.92], 'metal-claw': [1, 0.86],
+    'hyper-voice': [0.87, 1], 'last-respects': [1.1, 1.35], 'leaf-storm': [1.4, 1.1], 'lick': [1, 0.92], 'metal-claw': [1, 0.86],
     'meteor-mash': [1, 0.74], 'mist-ball': [1, 0.81], 'night-shade': [1, 0.79], 'night-slash': [1, 0.76],
-    'outrage': [1, 0.7], 'pin-missile': [1, 0.91], 'play-rough': [1, 0.79], 'powder-snow': [1, 0.82],
+    'outrage': [1.3, 0.91], 'pin-missile': [2, 1.8], 'play-rough': [1, 0.79], 'powder-snow': [1, 0.82],
     'psychic-terrain': [1, 0.84], 'psycho-cut': [1, 0.89], 'pyro-ball': [1, 0.92], 'quick-attack': [0.87, 1],
     'rock-throw': [1, 0.82], 'rock-tomb': [0.89, 1], 'rolling-kick': [1, 0.79], 'rollout': [1, 0.83],
-    'sand-tomb': [0.88, 1], 'seed-bomb': [1, 0.84], 'shadow-ball': [1, 0.81], 'sky-uppercut': [1, 0.95],
-    'sludge': [1, 0.91], 'spikes': [0.91, 1], 'steel-wing': [1, 0.77], 'string-shot': [0.84, 1],
-    'tackle': [0.81, 0.89], 'toxic-spikes': [1, 0.89], 'vine-whip': [1, 0.92], 'water-gun': [1, 0.8],
-    'whirlpool': [0.8, 1], 'wing-attack': [1, 0.79]
+    'sand-tomb': [5.5, 4], 'seed-bomb': [1, 0.84], 'shadow-ball': [1, 0.81], 'sky-uppercut': [2.2, 2.1],
+    'sludge': [1, 0.91], 'spikes': [3, 3], 'steel-wing': [1, 0.77], 'string-shot': [0.84, 1],
+    'tackle': [0.81, 0.89], 'toxic-spikes': [2.4, 2.1], 'vine-whip': [1, 0.92], 'water-gun': [1, 0.8],
+    'whirlpool': [0.8, 1], 'wing-attack': [1, 0.79],
+    // (5-11-2026, lo pidió el dueño: que todos valgan la pena. 280 partidas de bot, docs/ESTUDIO-PARTIDAS-BOT.md.)
+    'bubble': [1.3, 1.3], 'bug-bite': [1.6, 1.6], 'disarming-voice': [1.3, 1.3], 'hex': [1.3, 1.3],
+    'ice-shard': [1.4, 1.4], 'karate-chop': [1.25, 1.25], 'magnitude': [1.4, 1.4], 'mud-shot': [1.3, 1.3],
+    'rapid-spin': [1.2, 1.2], 'scale-shot': [1.5, 1.5], 'substitute': [6, 6], 'twister': [1.3, 1.3],
+    'water-shuriken': [2.1, 2.1], 'whirlwind': [1.25, 1.25], 'will-o-wisp': [1, 0.9]
   };
   for (const m of RAW) {
     m.cat = m.kind === 'buff' ? null : PHYSICAL.has(m.id) ? 'physical' : 'special';
@@ -1373,7 +1378,7 @@
     'aura-sphere':    { t: '×2 daño. Una esfera enorme y lenta que atrae a los enemigos a su paso y estalla en el blanco, más fuerte cuanto más lejos ha ido.', mods: { dmg: 2 } },
     'rolling-kick':   { t: '×1,85 daño. Avanzas girando a patadas como siempre y, al acabar, saltas al enemigo más grande y caes sobre él con un rodillazo enorme.', mods: { dmg: 1.85 } },
     'vacuum-wave':    { t: 'Cada enemigo golpeado te sube el ataque físico un rato (hasta 6 veces).', mods: { dmg: 2.0, radius: 1.2 } },
-    'dynamic-punch':  { t: 'Ya no falla y deja un cráter 2 s donde los enemigos quedan confusos.', mods: { dmg: 2.1, radius: 1.2 } },
+    'dynamic-punch':  { t: 'Ya no falla y deja un cráter 2 s donde los enemigos quedan confusos.', mods: { dmg: 2.1, radius: 1.5 } },
     'cross-chop':     { t: 'Cada 4 s, cuatro espadas se clavan a tu alrededor: los enemigos dentro reciben un 30% más de daño.', mods: { dmg: 1.9 } },
     'sky-uppercut':   { t: '×1,55 daño. El gancho levanta a los enemigos como siempre y, mientras están en el aire, sueltas un puñetazo devastador en línea.', mods: { dmg: 1.55 } }
   };

@@ -63,7 +63,7 @@ async function pool(items, n, fn) {
 }
 
 const idOf = url => +String(url).replace(/\/$/, '').split('/').pop();
-const LANGS = { es: 'es', en: 'en', fr: 'fr', it: 'it', 'zh-hans': 'zhHans', 'zh-hant': 'zhHant' };
+const LANGS = { es: 'es', en: 'en' };
 const namesOf = j => {
   const o = {};
   for (const n of j.names || []) if (LANGS[n.language.name]) o[LANGS[n.language.name]] = n.name;
@@ -230,11 +230,11 @@ function generate(d) {
       EVO[n.id] = rule;
     }
   }
-  // Nombres de los objetos: [es, en, fr, it, zh-Hans, zh-Hant] (como G.Mons.name).
+  // Nombres de los objetos: [es, en] (como G.Mons.name).
   const ITEM = {};
   for (const it of [...usedItems].sort()) {
     const n = d.itemNames[it] || {};
-    ITEM[it] = [n.es || n.en || it, n.en || it, n.fr || n.en || it, n.it || n.en || it, n.zhHans || n.en || it, n.zhHant || n.zhHans || n.en || it];
+    ITEM[it] = [n.es || n.en || it, n.en || it];
   }
   return { EVO, ITEM, report };
 }
@@ -258,7 +258,7 @@ const HEADER = `/* ============ evolutions.js — GENERADO por tools/fetch_evolu
  *     wx 'rain'   además, con lluvia (o unos niveles más tarde)
  *   lv: en lo que no va por nivel, uno equivalente según su fase (20 / 30 / 36...).
  *   Los que faltan en el juego se saltan; los legendarios, más deprisa (×0,6).
- * G.EVO_ITEM[id] = nombre del objeto [es, en, fr, it, zh-Hans, zh-Hant] (pt-BR: el inglés).
+ * G.EVO_ITEM[id] = nombre del objeto [es, en].
  */
 `;
 

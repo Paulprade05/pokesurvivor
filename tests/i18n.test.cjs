@@ -6,11 +6,8 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const source = f => fs.readFileSync(path.join(root, f), 'utf8');
 const dictionaries = [...source('dev.html').matchAll(/src="(js\/data\/lang-[^"]+\.js)"/g)].map(m => m[1]);
-// Francés, italiano...: sus diccionarios van aparte (js/lang/, los genera tools/build_langs.js).
-const langs1 = require('../tools/build_langs.js');
-langs1.build();
-function boot(saved = null, nav = 'en-US', pathname = '/', blocked = false) {
-  const storage = { 'ps.lang': saved }, calls = [], dicts = {}, written = [];
+function boot(saved = null, nav = 'en-US', pathname = '/', blocked = false, seed = {}) {
+  const storage = { 'ps.lang': saved, ...seed }, calls = [], dicts = {}, written = [];
   class Canvas {
     constructor() { this.font = '16px Pixelify,sans-serif'; }
     get font() { return this._font; }
@@ -21,39 +18,36 @@ function boot(saved = null, nav = 'en-US', pathname = '/', blocked = false) {
   }
   const ctx = { G: {}, navigator: { language: nav, languages: [nav] },
     location: { pathname, reload: () => calls.push('reload') },
-    localStorage: { getItem: k => { if (blocked) throw Error('blocked'); return storage[k]; }, setItem: (k, v) => { storage[k] = v; } },
+    localStorage: { getItem: k => { if (blocked) throw Error('blocked'); return storage[k]; }, setItem: (k, v) => { storage[k] = v; },
+      removeItem: k => { if (blocked) throw Error('blocked'); delete storage[k]; } },
     document: { documentElement: {}, write: html => written.push(html) }, CanvasRenderingContext2D: Canvas,
     confirm: s => { calls.push(s); return true; }, alert: s => calls.push(s), console };
   ctx.window = ctx;
   vm.createContext(ctx);
   const load = f => vm.runInContext(source(f), ctx, { filename: f });
   load('js/core/locales.js');
-  // Lo que pide locales.js con document.write (sólo francés, italiano...): se ejecuta antes que el juego.
-  for (const html of written) load(/src="(js\/lang\/[^"?]+)/.exec(html)[1]);
   load('js/core/i18n.js');
   const add = ctx.G.I18n.add;
-  ctx.G.I18n.add = (d, l = 'en', c = '') => {
-    if (!c) dicts[l] = { ...dicts[l], ...d };
-    add(d, l, c);
+  ctx.G.I18n.add = (d, l = 'en') => {
+    dicts[l] = { ...dicts[l], ...d };
+    add(d, l);
   };
   dictionaries.forEach(load);
   return { ctx, G: ctx.G, storage, calls, dicts, Canvas, load, written };
 }
-const langs = ['es', 'en', 'fr', 'it', 'pt-BR', 'zh-Hans', 'zh-Hant'];
-const save = ['Guardar', 'Save', 'Enregistrer', 'Salva', 'Salvar', '保存', '儲存'];
+const langs = ['es', 'en'];
+const removed = ['fr', 'it', 'pt-BR', 'zh-Hans', 'zh-Hant'];
+const save = ['Guardar', 'Save'];
 for (const [i, lang] of langs.entries()) {
   test(`${lang}: isolated dictionary, templates, loading locale, canvas, new save notice`, () => {
     const b = boot(lang), I = b.G.I18n;
     assert.equal(I.lang, lang); assert.equal(b.ctx.document.documentElement.lang, lang);
     assert.equal(b.G.T('Guardar'), save[i]);
     assert.equal(I.f('Se guarda en la nube en {x} s.', 17).includes('17'), true);
-    assert.equal(b.written.length, lang === 'es' || lang === 'en' ? 0 : 1);
+    assert.equal(b.written.length, 0);
     const c = new b.Canvas(); c.fillText('Guardar');
     assert.equal(b.calls.at(-1)[0], save[i]);
-    // Chino: las letras del sistema detrás de Pixelify, puestas una vez al poner la fuente.
-    if (lang.startsWith('zh-')) assert.ok(c.font.includes('PingFang') && c.font.startsWith('16px Pixelify,'));
-    else assert.equal(c.font, '16px Pixelify,sans-serif');
-    c.font = c.font; assert.equal(c.font.split('PingFang').length, lang.startsWith('zh-') ? 2 : 1);
+    assert.equal(c.font, '16px Pixelify,sans-serif');
     I.rawCanvas(c, 'fillText', 'Pikachu'); assert.equal(b.calls.at(-1)[0], 'Pikachu');
     assert.ok(b.G.T('Solicitud enviada a Pikachu').includes('Pikachu'));
     assert.ok(I.f('Esperando a {x}…', 'Pikachu').includes('Pikachu'));
@@ -65,79 +59,101 @@ for (const [i, lang] of langs.entries()) {
     b.load('js/ui/login.js');
     assert.equal(b.G.LoginUI.updateNotices(), true);
     // El aviso del guardado (ps.savenote.3, 26-10-2026: ya se guarda solo; Guardar queda en Ajustes),
-    // entero y con sus negritas, en el idioma del jugador o, si su diccionario aún no lo tiene, en inglés.
+    // entero y con sus negritas, en el idioma del jugador.
     const body = node('savenote-body');
     const TITLE = ['Tu partida ya se guarda sola', 'Your game now saves itself'];
     const enBody = body.innerHTML.includes('You no longer need to press Save');
-    assert.ok(body.innerHTML.includes('class="gold">' + (enBody ? 'Save' : save[i]) + '<') && !/\b10\b/.test(body.innerHTML));
+    assert.equal(enBody, lang === 'en');
+    assert.ok(body.innerHTML.includes('class="gold">' + save[i] + '<') && !/\b10\b/.test(body.innerHTML));
     assert.equal((body.innerHTML.match(/<b[ >]/g) || []).length, 3);
-    if (lang !== 'es') assert.ok(!body.innerHTML.includes('Ya no hace falta pulsar Guardar'));
-    if (lang === 'en') assert.ok(enBody);
-    if (lang !== 'es' && lang !== 'en') assert.equal(body.attrs.translate, 'no');
-    // Título y botón en el idioma del jugador (la caja va con translate="no").
-    if (lang === 'es' || lang === 'en') assert.equal(node('savenote-title').textContent, TITLE[lang === 'es' ? 0 : 1]);
-    else assert.equal(node('savenote-title').textContent, I.has(TITLE[0]) ? b.G.T(TITLE[0]) : TITLE[1]);
-    if (lang !== 'es') assert.notEqual(node('savenote-title').textContent, TITLE[0]);
-    assert.equal(node('savenote-ok').textContent, lang === 'es' ? 'Entendido' : lang === 'en' ? 'Got it' : b.G.T('Entendido'));
+    assert.equal(node('savenote-title').textContent, TITLE[i]);
+    assert.equal(node('savenote-ok').textContent, lang === 'es' ? 'Entendido' : 'Got it');
     assert.equal(b.G.LoginUI.updateNotices(), false);
     b.G.DB.save.stats.runs = 1;
     assert.equal(b.G.LoginUI.updateNotices(), true);
-    assert.ok(/rankings|leaderboards/.test(b.G.T(node('savenote-title').textContent)) || lang.startsWith('zh') || lang === 'fr' || lang === 'it');
+    assert.ok(/rankings|leaderboards/.test(b.G.T(node('savenote-title').textContent)));
     assert.equal((node('savenote-body').innerHTML.match(/<p>/g) || []).length, 2);
     assert.equal(b.G.LoginUI.updateNotices(), false);
   });
-  if (lang === 'es') continue;
-  const SOLO_ES_EN = new Set(['Animaciones', 'Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.']);
-  test(`${lang}: current English-key coverage and placeholder contracts`, () => {
-    const { G, load } = boot(lang);
-    if (lang !== 'en') {
-      // Todo lo que tiene inglés (lang-en.js y los datos del juego) tiene también este idioma.
-      // (Decisión del dueño, 05-11-2026: lo nuevo, sólo en español e inglés. Excepción con nombre hasta que se junte
-      //  el PR de solo-es-en, que quita estos idiomas y esta comprobación.)
-      assert.deepEqual(langs1.missing().res[lang].filter(k => !SOLO_ES_EN.has(k)), []);
-      for (const [d, l] of langs1.capture(langs1.SOURCES, '?')) if (l === lang) for (const [k, v] of Object.entries(d)) {
-        assert.equal((k.match(/\{(?:x|name)\}/g) || []).length,
-          (v.match(/\{(?:x|name)\}/g) || []).length, k);
-      }
-    }
-    load('js/data/changelog.js');
-    if (lang !== 'en') for (const entry of G.CHANGELOG.filter(e => e.d >= '2026-10-18' && e.d < '2026-11-05')) {
-      for (const pair of [entry.title, ...(entry.new || []), ...(entry.chg || []), ...(entry.fix || [])]) {
-        assert.ok(G.I18n.has(pair[0]), pair[0]);
-      }
-    }
-  });
 }
+test('every changelog line has Spanish and English', () => {
+  const { G, load } = boot('es');
+  load('js/data/changelog.js');
+  for (const entry of G.CHANGELOG) {
+    for (const pair of [entry.title, ...(entry.new || []), ...(entry.chg || []), ...(entry.fix || [])]) {
+      assert.equal(pair.length, 2, entry.d);
+      assert.ok(pair[0] && pair[1], entry.d);
+    }
+  }
+});
+test('only Spanish and English remain', () => {
+  const { G } = boot('es');
+  assert.deepEqual([...G.I18n.choices.map(([id]) => id)], langs);
+  assert.deepEqual(dictionaries, ['js/data/lang-en.js']);
+  assert.equal(fs.existsSync(path.join(root, 'js', 'lang')), false);
+  assert.deepEqual(fs.readdirSync(path.join(root, 'js', 'data')).filter(f => f.startsWith('lang-')), ['lang-en.js']);
+});
+test('a removed language falls back to Spanish or English and keeps the save', () => {
+  for (const old of removed) {
+    for (const [nav, expected] of [['es-ES', 'es'], ['es-MX', 'es'], ['es', 'es'], ['en-US', 'en'], [old, 'en'], ['ja-JP', 'en']]) {
+      const b = boot(old, nav, '/', false, { 'ps.cloud.fake': '{"coins":42}', 'ps.run': 'x' });
+      assert.equal(b.G.I18n.lang, expected, `${old} ${nav}`);
+      assert.equal(b.ctx.document.documentElement.lang, expected);
+      assert.equal(b.G.I18n.locale, expected === 'es' ? 'es-ES' : 'en-GB');
+      assert.equal(b.written.length, 0);
+      assert.equal(b.G.T('Guardar'), expected === 'es' ? 'Guardar' : 'Save');
+      // Se olvida sólo el ajuste del idioma: lo demás, igual.
+      assert.equal('ps.lang' in b.storage, false);
+      assert.equal(b.storage['ps.cloud.fake'], '{"coins":42}');
+      assert.equal(b.storage['ps.run'], 'x');
+    }
+    // Con la dirección /en/ manda esa, como sin nada guardado.
+    assert.equal(boot(old, 'es-ES', '/en/').G.I18n.lang, 'en');
+    // Almacenamiento bloqueado: sin errores.
+    assert.equal(boot(old, 'es-ES', '/', true).G.I18n.lang, 'es');
+    // La pantalla de carga tampoco se queda sin texto.
+    const b = boot(old, 'fr-FR'), paragraphs = [{}, {}];
+    b.ctx.document.querySelector = () => ({});
+    b.ctx.document.querySelectorAll = () => paragraphs;
+    b.load('js/boot.js');
+    assert.equal(paragraphs[1].textContent, 'Loading…');
+  }
+});
+test('names per language keep only Spanish and English', () => {
+  const b = boot('en');
+  b.load('js/data/abilities.js'); b.load('js/data/natures.js'); b.load('js/data/evolutions.js'); b.load('js/systems/mons.js');
+  for (const n of [...Object.values(b.G.ABIL), ...b.G.NATURES.map(x => x.n), ...Object.values(b.G.EVO_ITEM)]) {
+    assert.equal(n.length, 2, n[0]);
+    assert.ok(n[0] && n[1], n[0]);
+  }
+  assert.equal(b.G.Mons.name(['Uno', 'One']), 'One');
+  const es = boot('es'); es.load('js/systems/mons.js');
+  assert.equal(es.G.Mons.name(['Uno', 'One']), 'Uno');
+});
 test('locale precedence, aliases and blocked storage', () => {
-  for (const [input, expected] of [['zh-TW', 'zh-Hant'], ['zh-HK', 'zh-Hant'], ['zh-Hant-HK', 'zh-Hant'],
-    ['zh-CN', 'zh-Hans'], ['zh-SG', 'zh-Hans'], ['zh', 'zh-Hans'], ['zh-Hans-TW', 'zh-Hans'],
-    ['pt', 'pt-BR'], ['pt-PT', 'pt-BR'], ['fr-CA', 'fr'], ['it-IT', 'it'], ['ja-JP', 'en']]) {
+  for (const [input, expected] of [['es-ES', 'es'], ['es-MX', 'es'], ['es', 'es'], ['en-GB', 'en'], ['en', 'en'],
+    ['fr-CA', 'en'], ['it-IT', 'en'], ['pt-BR', 'en'], ['zh-CN', 'en'], ['zh-TW', 'en'], ['ja-JP', 'en']]) {
     assert.equal(boot(null, input).G.I18n.lang, expected, input);
   }
-  assert.equal(boot('it', 'fr-FR', '/en/').G.I18n.lang, 'it');
+  assert.equal(boot('es', 'fr-FR', '/en/').G.I18n.lang, 'es');
   assert.equal(boot('unknown', 'fr-FR', '/en/').G.I18n.lang, 'en');
-  assert.equal(boot(null, 'fr-FR', '/', true).G.I18n.lang, 'fr');
+  assert.equal(boot(null, 'fr-FR', '/', true).G.I18n.lang, 'en');
   assert.equal(boot(null, 'es-MX').G.I18n.lang, 'es');
 });
 test('switching language writes only the preference and validates input', () => {
   const b = boot('es'); b.storage['ps.cloud.fake'] = '{"coins":42}';
   b.G.I18n.set('invalid'); assert.equal(b.storage['ps.lang'], 'es');
-  b.G.I18n.set('zh-Hant'); assert.equal(b.storage['ps.lang'], 'zh-Hant');
+  b.G.I18n.set('fr'); assert.equal(b.storage['ps.lang'], 'es');
+  assert.deepEqual(b.calls, []);
+  b.G.I18n.set('en'); assert.equal(b.storage['ps.lang'], 'en');
   assert.equal(b.storage['ps.cloud.fake'], '{"coins":42}'); assert.deepEqual(b.calls, ['reload']);
 });
 test('specific templates and later overrides beat generic patterns', () => {
-  const { G } = boot('fr');
-  G.I18n.add({ 'Bonjour {x}': 'Ancien {x}', '{x}).': '{x}）。' }, 'fr');
-  G.I18n.add({ 'Bonjour {x}': 'Nouveau {x}', 'Le résultat ({x}).': 'Résultat : {x}' }, 'fr');
-  assert.equal(G.T('Bonjour 5'), 'Nouveau 5');
-  assert.equal(G.T('Le résultat (42).'), 'Résultat : 42');
-});
-test('Chinese move context is distinct from type; all species have names', () => {
-  for (const lang of ['zh-Hans', 'zh-Hant']) {
-    const b = boot(lang); b.load('js/data/pokedex.js');
-    assert.notEqual(b.G.T('Psíquico'), b.G.T('Psíquico', 'move'));
-    for (const p of b.G.DEX) assert.ok(b.G.I18n.has(p.name), p.name);
-  }
+  const { G } = boot('en');
+  G.I18n.add({ 'Hola {x}': 'Old {x}', '{x}).': '{x}!' }, 'en');
+  G.I18n.add({ 'Hola {x}': 'New {x}', 'El resultado ({x}).': 'Result: {x}' }, 'en');
+  assert.equal(G.T('Hola 5'), 'New 5');
+  assert.equal(G.T('El resultado (42).'), 'Result: 42');
 });
 
 

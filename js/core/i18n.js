@@ -1,7 +1,6 @@
 /* ============ i18n.js — traducción desde textos españoles ============
- * El juego está escrito en español. Los demás idiomas traducen el texto
- * con su diccionario js/data/lang-*.js, sin tener que
- * tocar cada pantalla:
+ * El juego está escrito en español. El inglés traduce el texto con su
+ * diccionario js/data/lang-en.js, sin tener que tocar cada pantalla:
  *   - el DOM (menús, cartas, avisos...) con un MutationObserver,
  *   - el canvas (HUD, avisos, números) envolviendo fillText/strokeText,
  *   - confirm()/alert().
@@ -15,26 +14,18 @@
  *
  * Idioma: el elegido en Ajustes; si no, /en/ en la dirección o el del navegador
  * La selección compartida con la pantalla de carga está en locales.js.
- * add(dict, idioma, contexto) sólo carga el idioma activo; el contexto 'move'
- * distingue Psíquico (movimiento) de Psíquico (tipo). Los IDs no se traducen.
+ * add(dict, idioma) sólo carga el idioma activo. Los IDs no se traducen.
  * {name} conserva el apodo del jugador sin traducirlo; {x} traduce su contenido.
- *
- * Francés, italiano, portugués y chino: cada jugador descarga sólo su diccionario
- * (js/lang/<idioma>.js, generado por tools/build.js y cargado por locales.js antes
- * que el juego, en window.PS_LANG_Q). Lo que no esté en su idioma sale en inglés
- * (nunca en español): por eso en esos idiomas se guarda también el diccionario inglés.
  */
 G.I18n = (() => {
   const KEY = 'ps.lang';
   const { choices, lang, locale } = window.PS_LOCALES;
   const supported = choices.map(([id]) => id);
 
-  // Dos capas: la del idioma (main) y, en francés, italiano..., la inglesa de reserva (back).
-  const layer = () => ({ exact: new Map(), exactLow: new Map(), patterns: [] });
-  const main = layer(), back = lang !== 'es' && lang !== 'en' ? layer() : null;
+  const main = { exact: new Map(), exactLow: new Map(), patterns: [] };
   let frag = null, fragDirty = false;
-  const fragMap = new Map(), fragMain = new Set();
-  const cache = new Map(), contexts = new Map();
+  const fragMap = new Map();
+  const cache = new Map();
   const nameTemplates = new Set([
     'Faltan por elegir: {x}', 'Esperando a {x}…', '{x} ha dejado la partida',
     '¡{x} necesita ayuda! · {x} m', 'Tu apodo es {x}', '¿Quitar a {x} de tus amigos?',
@@ -48,10 +39,8 @@ G.I18n = (() => {
   const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   /** Añade traducciones { 'texto en español': 'traducción' } de un idioma. */
-  function add(dict, language = 'en', context = '') {
-    const isMain = language === lang, ly = isMain ? main : language === 'en' && back;
-    if (!ly) return;
-    if (context) { if (isMain) contexts.set(context, { ...contexts.get(context), ...dict }); return; }
+  function add(dict, language = 'en') {
+    if (language !== lang) return;
     let sort = false;
     for (const [es, en] of Object.entries(dict)) {
       if (!en) continue;
@@ -60,28 +49,26 @@ G.I18n = (() => {
         const key = es.replace(/\{name\}/g, '{x}');
         if (nameTemplates.has(key)) slots[0] = '{name}';
         const parts = es.split(/\{(?:x|name)\}/).map(reEsc);
-        const i = ly.patterns.findIndex(p => p.key === key);
-        if (i >= 0) ly.patterns.splice(i, 1);
-        ly.patterns.push({ key, weight: parts.join('').length, re: new RegExp('^' + parts.join('(.+?)') + '$', 'u'), reI: new RegExp('^' + parts.join('(.+?)') + '$', 'iu'), en, slots });
+        const i = main.patterns.findIndex(p => p.key === key);
+        if (i >= 0) main.patterns.splice(i, 1);
+        main.patterns.push({ key, weight: parts.join('').length, re: new RegExp('^' + parts.join('(.+?)') + '$', 'u'), reI: new RegExp('^' + parts.join('(.+?)') + '$', 'iu'), en, slots });
         sort = true;
       } else {
-        ly.exact.set(es, en);
-        ly.exactLow.set(es.toLowerCase(), en);
+        main.exact.set(es, en);
+        main.exactLow.set(es.toLowerCase(), en);
         if (es.length >= 4 || /\s/.test(es)) {
-          // Los trozos del idioma mandan sobre los de reserva.
-          const k = es.toLowerCase();
-          if (isMain) { fragMap.set(k, en); fragMain.add(k); } else if (!fragMain.has(k)) fragMap.set(k, en);
+          fragMap.set(es.toLowerCase(), en);
           fragDirty = true;
         }
       }
     }
     // Specific templates must precede catch-alls such as "{x}).".
-    if (sort) ly.patterns.sort((a, b) => b.weight - a.weight);
+    if (sort) main.patterns.sort((a, b) => b.weight - a.weight);
     cache.clear();
   }
 
   // Una sola expresión con todos los trozos (los más largos primero), sólo palabras enteras.
-  // Se monta al usarla, no en cada add (en francés... se añaden dos diccionarios).
+  // Se monta al usarla, no en cada add.
   function fragRe() {
     if (fragDirty) {
       fragDirty = false;
@@ -91,18 +78,13 @@ G.I18n = (() => {
     return frag;
   }
 
-  // Diccionario del idioma, descargado aparte (ver locales.js).
-  for (const [d, l, c] of window.PS_LANG_Q || []) add(d, l, c);
-
   function keepCase(src, en) {
     if (src === src.toUpperCase() && /\p{L}/u.test(src)) return en.toUpperCase();
     return en;
   }
 
   /** Traduce un texto (sin espacios de los lados) al idioma actual. */
-  function t(s, context) {
-    const contextual = contexts.get(context);
-    if (contextual && Object.prototype.hasOwnProperty.call(contextual, s)) return contextual[s];
+  function t(s) {
     if (lang === 'es' || !s || typeof s !== 'string') return s;
     if (!/\p{L}/u.test(s)) return s;
     const c = cache.get(s);
@@ -120,20 +102,19 @@ G.I18n = (() => {
     const lead = m[1], tail = m[3], body = m[2].replace(/\s+/g, ' ');
     if (!body) return s;
     const upper = body === body.toUpperCase() && /\p{L}/u.test(body);
-    let r = whole(main, body, upper);
-    if (r === undefined && back) r = whole(back, body, upper);
+    let r = whole(body, upper);
     if (r === undefined && fragRe()) {
       r = body.replace(frag, w => keepCase(w, fragMap.get(w.toLowerCase()) || w));
     }
     return lead + (r === undefined ? body : r) + tail;
   }
 
-  /** Frase exacta o patrón con huecos de una capa (undefined si no está). */
-  function whole(ly, body, upper) {
-    let r = ly.exact.get(body);
-    if (r === undefined && upper) { const e = ly.exactLow.get(body.toLowerCase()); if (e !== undefined) r = keepCase(body, e); }
+  /** Frase exacta o patrón con huecos (undefined si no está). */
+  function whole(body, upper) {
+    let r = main.exact.get(body);
+    if (r === undefined && upper) { const e = main.exactLow.get(body.toLowerCase()); if (e !== undefined) r = keepCase(body, e); }
     if (r !== undefined) return r;
-    for (const p of ly.patterns) {
+    for (const p of main.patterns) {
       const mm = (upper ? p.reI : p.re).exec(body);
       if (!mm) continue;
       let i = 1;
@@ -203,16 +184,6 @@ G.I18n = (() => {
       const orig = P[k];
       P[k] = function (s, ...a) { return orig.call(this, typeof s === 'string' ? t(s) : s, ...a); };
     }
-    // Chino: Fredoka, Nunito (y Pixelify) no tienen sus letras; se añaden las del
-    // sistema detrás de la primera al poner la fuente (una vez, no en cada texto
-    // que se dibuja, que frenaría el juego).
-    if (lang.startsWith('zh-')) {
-      const cjk = lang === 'zh-Hant' ? '"PingFang TC","Microsoft JhengHei","Noto Sans CJK TC"' : '"PingFang SC","Microsoft YaHei","Noto Sans CJK SC"';
-      const FAM = /(Fredoka|Nunito|Pixelify)/, REP = '$1,' + cjk;
-      const fd = Object.getOwnPropertyDescriptor(P, 'font');
-      if (fd && fd.set) Object.defineProperty(P, 'font', { configurable: true, enumerable: fd.enumerable, get: fd.get,
-        set(v) { fd.set.call(this, typeof v === 'string' && !v.includes('PingFang') && FAM.test(v) ? v.replace(FAM, REP) : v); } });
-    }
     const oc = window.confirm, oa = window.alert;
     window.confirm = s => oc.call(window, t(s));
     window.alert = s => oa.call(window, t(s));
@@ -229,8 +200,6 @@ G.I18n = (() => {
     location.reload();
   }
 
-  /** ¿Está traducido al idioma del jugador? (no cuenta la reserva en inglés) */
-  const has = s => main.exact.has(s) || main.patterns.some(p => p.key === s.replace(/\{name\}/g, '{x}'));
-  return { choices, lang, locale, add, t, f, has, set, startDom, walk, rawCanvas };
+  return { choices, lang, locale, add, t, f, set, startDom, walk, rawCanvas };
 })();
 G.T = G.I18n.t;

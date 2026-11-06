@@ -6,9 +6,26 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-05', title: ["El juego queda en español e inglés", "The game is now in Spanish and English"], chg: [
+    ["El juego queda sólo en español e inglés: se quitan francés, italiano, portugués y chino. Si jugabas en uno de ellos, pasa solo a inglés, o a español si tu navegador está en español. Tu partida, tus mejoras y tu cuenta siguen igual.",
+     "The game is now only in Spanish and English: French, Italian, Portuguese and Chinese have been removed. If you played in one of them, it switches to English on its own, or to Spanish if your browser is in Spanish. Your save, upgrades and account stay the same."]] },
+  { d: '2026-11-05', title: ["Todos los ataques valen la pena: suben 26 y las ráfagas apuntan mejor", "Every attack is worth it: 26 go up and bursts aim better"], chg: [
+    ["Ráfagas (Semilladora, Pin Misil, Shuriken de Agua y Ráfaga Escamas): siguen saliendo hacia donde andas, pero ahora van al enemigo más cercano de ese lado. Antes fallaban casi siempre. Además pegan más.",
+     "Bursts (Bullet Seed, Pin Missile, Water Shuriken and Scale Shot): they still fire the way you walk, but now aim at the nearest enemy on that side. They used to miss most of the time. They also hit harder."],
+    ["Suben Sustituto, Bucle Arena, Púas, Púas Tóxicas, Gancho Alto, Ala Bis, Lanzallamas, Magnitud, Esfera Aural y Rayo Aurora: se quedaban muy por debajo de los demás en las partidas.",
+     "Substitute, Sand Tomb, Spikes, Toxic Spikes, Sky Uppercut, Dual Wingbeat, Flamethrower, Magnitude, Aura Sphere and Aurora Beam go up: they were falling well behind the others in runs."],
+    ["Suben algo menos Picadura, Enfado, Voz Cautivadora, Tormenta Floral, Ciclón, Giro Rápido, Burbuja, Canto Helado, Infortunio, Disparo Lodo, Golpe Kárate y Remolino.",
+     "Bug Bite, Outrage, Disarming Voice, Leaf Storm, Twister, Rapid Spin, Bubble, Ice Shard, Hex, Mud Shot, Karate Chop and Whirlwind go up a bit."],
+    ["Bajan un poco Tajo Cruzado y Fuego Fatuo. En Rayo Carga, cada rayo de más por Réplica reparte ahora el daño en vez de sumarlo entero, como en Cañón Floral.",
+     "Cross Chop and Will-O-Wisp go down a bit. On Charge Beam, each extra beam from Replica now splits the damage instead of adding it in full, like Fleur Cannon."]] },
+  { d: '2026-11-05', title: ["Ataques a la par: baja Cañón Floral y suben Homenaje Póstumo, Tajo Cruzado y Puño Dinámico", "Attacks on par: Fleur Cannon down; Last Respects, Cross Chop and Dynamic Punch up"], chg: [
+    ["Cañón Floral pega menos: era, con mucha diferencia, el ataque que más daño hacía en las partidas. Cada rayo de más por Réplica reparte ahora el daño en vez de sumarlo entero, y sube menos con el nivel.",
+     "Fleur Cannon hits less: it was, by far, the attack dealing the most damage in real runs. Each extra beam from Replica now splits the damage instead of adding it in full, and it grows less with level."],
+    ["Homenaje Póstumo: el golpe de cada espíritu salpica ahora a los enemigos de al lado, y pega más al subir de nivel. Antes sólo daba a uno y se quedaba muy corto contra la horda.",
+     "Last Respects: each spirit's hit now splashes nearby enemies, and it hits harder as it levels up. It used to hit just one and fell well short against the horde."],
+    ["Tajo Cruzado y Puño Dinámico pegan bastante más a niveles altos: se quedaban muy por debajo de los demás en las partidas.",
+     "Cross Chop and Dynamic Punch hit much harder at high levels: they were falling well behind the others in real runs."]] },
   { d: '2026-11-05', title: ["Un mundo con vida y ataques con más efectos", "A living world and flashier attacks"], new: [
-    ["Muros nuevos en todos los mapas: cima con relieve, pared de roca natural y lianas, cristales o magma según el sitio. Nuevo portal de la grieta y más vida por el suelo: flores, setas, huesos, cristales, fumarolas y brasas.",
-     "New walls on every map: textured tops, natural rock faces and vines, crystals or magma depending on the place. New rift portal and more life on the ground: flowers, mushrooms, bones, crystals, vents and embers."],
     ["El mundo tiene vida: la hierba alta es nueva y se mueve con el viento en olas, los árboles mecen las hojas y sueltan alguna, y según dónde estés verás mariposas, pájaros con su sombra, murciélagos, luciérnagas, ascuas, ceniza, nieve o pétalos. Por el suelo pasan sombras de nubes y en el agua y con lluvia salen ondas.",
      "The world is alive: tall grass is new and moves with the wind in waves, trees rustle and drop the odd leaf, and depending on where you are you'll see butterflies, birds with their shadow, bats, fireflies, embers, ash, snow or petals. Cloud shadows cross the ground, and water and rain make ripples."],
     ["Ataques con más fuerza visual, sin cambiar lo que hacen: cada tipo golpea a su manera (humo y ascuas, salpicaduras, hojas, chispas, esquirlas, polvo, burbujas, estrellas, llamitas), los estallidos grandes llevan su explosión, los disparos brillan y dejan estela y los enemigos se deshacen en humo.",

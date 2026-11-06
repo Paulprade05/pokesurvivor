@@ -1,7 +1,7 @@
-// Añade una entrada nueva arriba de G.CHANGELOG (js/data/changelog.js) y sus filas a js/data/lang-updates.js.
+// Añade una entrada nueva arriba de G.CHANGELOG (js/data/changelog.js).
 // Uso: node tools/changelog-add.cjs <items.json> <repo> <fecha AAAA-MM-DD> <titulo.json>
-//   items.json  = [{ "tipo": "new"|"chg"|"fix", "es": "…", "en": "…", "fr": "…", "it": "…", "ptBR": "…", "zhHans": "…", "zhHant": "…" }, …]
-//   titulo.json = { "es": "…", "en": "…", "fr": "…", "it": "…", "ptBR": "…", "zhHans": "…", "zhHant": "…" }
+//   items.json  = [{ "tipo": "new"|"chg"|"fix", "es": "…", "en": "…" }, …]
+//   titulo.json = { "es": "…", "en": "…" }
 const fs = require('fs'), path = require('path');
 const [file, repo, date, titleFile] = process.argv.slice(2);
 const items = require(path.resolve(file)), title = require(path.resolve(titleFile));
@@ -19,12 +19,4 @@ const at = cl.indexOf('G.CHANGELOG = [');
 const ins = cl.indexOf(nl, at) + nl.length;
 cl = cl.slice(0, ins) + entry + cl.slice(ins);
 fs.writeFileSync(P('js/data/changelog.js'), cl);
-let up = fs.readFileSync(P('js/data/lang-updates.js'), 'utf8');
-const nl2 = up.includes('\r\n') ? '\r\n' : '\n';
-const has = s => up.includes('[' + dq(s) + ',');
-const row = t => `    [${[t.es, t.fr, t.it, t.ptBR, t.zhHans, t.zhHant].map(dq).join(', ')}],`;
-const rows = [title, ...items].filter(t => !has(t.es)).map(row);
-const cut = up.indexOf(nl2 + '  ];');
-up = up.slice(0, cut) + nl2 + `    // ---------------- ${date}: ${title.es} (novedades) ----------------` + nl2 + rows.join(nl2) + up.slice(cut);
-fs.writeFileSync(P('js/data/lang-updates.js'), up);
-console.log('entrada con', items.length, 'líneas;', rows.length, 'filas nuevas en lang-updates');
+console.log('entrada con', items.length, 'líneas');
