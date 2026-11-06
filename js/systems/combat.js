@@ -1852,10 +1852,10 @@ G.Combat = (() => {
   /**
    * Pasivos que llegan por la red ([área·100, duración·100, cantidad, propulsión·100]):
    * sólo si están dentro de lo que dan las cartas; si no, ninguno. La cantidad, con
-   * su tope (G.Moves.EXTRA_MAX: hasta 3 cartas de Réplica desde el 23-10-2026; las
-   * versiones de antes mandan como mucho 2): una mayor se queda en el tope.
-   * Topes (26-10-2026): lo que dan las cartas (5 de Persistencia, +60 %; 5 de Propulsión,
-   * +50 %) más lo que dan las mejoras permanentes de los ataques (G.Upgrades.PASS_MAX).
+   * su tope (G.Moves.EXTRA_MAX: hasta 4 cartas de Réplica desde el 6-11-2026; las
+   * versiones de antes mandan como mucho 3): una mayor se queda en el tope.
+   * Topes (6-11-2026): lo que dan las cartas (10 de Amplitud, +100 %; 10 de Persistencia,
+   * +120 %; 10 de Propulsión, +100 %) más lo que dan las mejoras permanentes de los ataques (G.Upgrades.PASS_MAX).
    * Una versión de antes, con los topes viejos, no se los cree y repite el ataque sin
    * pasivos: sólo cambia cómo lo ve (el fantasma no hace daño).
    */
@@ -1863,7 +1863,7 @@ G.Combat = (() => {
   function netPassCap() {
     if (passCap) return passCap;
     const M = G.Upgrades && G.Upgrades.PASS_MAX;
-    const cap = { dur: 1.6 + ((M && M.dur) || 0) + 0.005, pspd: 1.5 + ((M && M.pspd) || 0) + 0.005 };
+    const cap = { dur: 2.2 + ((M && M.dur) || 0) + 0.005, pspd: 2 + ((M && M.pspd) || 0) + 0.005 };
     if (M) passCap = cap;
     return cap;
   }
@@ -1871,7 +1871,7 @@ G.Combat = (() => {
     if (!Array.isArray(a) || a.length < 4) return null;
     for (let i = 0; i < 4; i++) if (!Number.isFinite(a[i])) return null;
     const area = a[0] / 100, dur = a[1] / 100, pspd = a[3] / 100, cap = netPassCap();
-    if (area < 1 || area > 1.5 || dur < 1 || dur > cap.dur || !Number.isInteger(a[2]) || a[2] < 0 || pspd < 1 || pspd > cap.pspd) return null;
+    if (area < 1 || area > 2 || dur < 1 || dur > cap.dur || !Number.isInteger(a[2]) || a[2] < 0 || pspd < 1 || pspd > cap.pspd) return null;
     return { area, dur, amt: Math.min(G.Moves.EXTRA_MAX, a[2]), pspd };
   }
 

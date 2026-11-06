@@ -108,8 +108,8 @@ G.RunUI = (() => {
     for (let i = 0; i < Math.max(MAX, mine.length); i++) {
       const p = mine[i];
       if (!p) { pas.push(free); continue; }
-      // (2.0: con su tope, «3/5» o «Máx.».)
-      const cap = p.def.max, lv = cap && p.n >= cap ? G.T('Máx.') : cap ? p.n + '/' + cap : p.n;
+      // (2.0: con su tope, «3/10» o «Máx.»; statMax: Réplica de Mejoras ya pone uno de los 4.)
+      const cap = G.LevelUp.statMax(p.id, pl), lv = cap && p.n >= cap ? G.T('Máx.') : cap ? p.n + '/' + cap : p.n;
       pas.push(`<span class="sl ico-tile ${PASSIVE.has(p.id) ? 't-purple' : 't-blue'}" title="${p.def.title}">`
         + G.Icons.html(p.def.icon, SZ) + (mini ? '' : `<i class="sl-lv${cap && p.n >= cap ? ' max' : ''}">${lv}</i>`) + '</span>');
     }

@@ -57,9 +57,9 @@ test('300 subidas: nunca por encima del tope y offer() nunca vacío', () => {
       for (const id in pl.statsTaken) if (caps[id]) assert.ok(pl.statsTaken[id] <= caps[id], `${id} ${pl.statsTaken[id]} > ${caps[id]}`);
     }
     assert.ok(pl.atkMul <= 2.0 + 1e-9, 'Potencia ' + pl.atkMul);
-    assert.ok(pl.maxHp - 100 <= 160, 'Vigor ' + (pl.maxHp - 100));
+    assert.ok(pl.maxHp - 100 <= 200, 'Vigor ' + (pl.maxHp - 100));
     assert.ok(pl.dmgReduce <= G.LevelUp.DEF_CAP + 1e-9, 'Coraza ' + pl.dmgReduce);
-    assert.ok(pl.regenFlat <= 5 * 0.9 + 1e-9, 'Síntesis ' + pl.regenFlat);
+    assert.ok(pl.regenFlat <= 10 * 0.9 + 1e-9, 'Síntesis ' + pl.regenFlat);
     assert.ok(full > 0, 'en 300 subidas tiene que llegar a tenerlo todo al tope');
   }
 });

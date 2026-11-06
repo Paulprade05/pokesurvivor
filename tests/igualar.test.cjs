@@ -9,16 +9,17 @@ const root = path.join(__dirname, '..');
 const tmp = path.join(os.tmpdir(), 'ps-igualar-' + process.pid);
 
 /** Mide esos ataques con el combate de verdad (semilla fija; --rapido: 10 s por prueba). */
-function measure(ids, tag) {
+function measure(ids, tag, ...extra) {
   const out = `${tmp}-${tag}.json`;
-  execFileSync(process.execPath, [path.join(root, 'tools/balance.cjs'), '--rapido', '--todas', '--solo', ids, '--json', out], { stdio: 'ignore', maxBuffer: 1 << 26 });
+  execFileSync(process.execPath, [path.join(root, 'tools/balance.cjs'), '--rapido', '--todas', '--solo', ids, '--json', out, ...extra], { stdio: 'ignore', maxBuffer: 1 << 26 });
   const r = JSON.parse(fs.readFileSync(out, 'utf8'));
   fs.unlinkSync(out);
   return r;
 }
 
 test('Cañón Floral: Réplica reparte el daño en vez de sumarlo entero', () => {
-  const r = measure('fleur-cannon', 'floral').todas['fleur-cannon'].evo;
+  // (Con los topes de antes del 6-11-2026: con los de ahora todas las pasivas suben a la vez, no sólo ésta.)
+  const r = measure('fleur-cannon', 'floral', '--cartas', 'area=5,dur=5,amt=3,pspd=5,luck=5').todas['fleur-cannon'].evo;
   // (Antes: ×2,4 sólo con Réplica y ×7 con todas las pasivas en la marea.)
   assert.ok(r.marea.dps / r.marea0.dps < 5, `con todas las pasivas: ×${(r.marea.dps / r.marea0.dps).toFixed(2)}`);
 });

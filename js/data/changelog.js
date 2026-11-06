@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Pasivas hasta el nivel 10", "Passives up to level 10"], chg: [
+    ["Todas las pasivas suben ahora hasta el nivel 10, y Réplica hasta el 4. Antes se quedaban en 4, 5, 6 u 8 (Potencia ya llegaba a 10), así que al final de la partida eres bastante más fuerte.",
+     "All passives now go up to level 10, and Replica up to 4. They used to stop at 4, 5, 6 or 8 (Power already reached 10), so you're much stronger late in a run."],
+    ["Réplica suma ahora hasta +4 por ataque, contando la evolución (antes +3).",
+     "Replica now adds up to +4 per move, counting its evolution (it was +3)."],
+    ["Como evolucionar pide la pasiva a la mitad de su máximo, ahora hace falta nivel 5 en casi todas (nivel 2 en Réplica).",
+     "Since evolving needs the passive at half its maximum, most now need level 5 (level 2 for Replica)."],
+    ["Coraza deja de salir en las cartas cuando ya está en su techo del 60 %, salvo que la pida una evolución.",
+     "Armor stops showing up in the cards once it reaches its 60% ceiling, unless an evolution needs it."]] },
   { d: '2026-11-06', title: ["Cámara más lejos", "Camera further away"], chg: [
     ["La cámara se aleja: ves más mapa alrededor y los Pokémon se ven algo más pequeños. Cuánto depende de tu pantalla.",
      "The camera is further away: you see more of the map around you and Pokémon look a bit smaller. How much depends on your screen."],
