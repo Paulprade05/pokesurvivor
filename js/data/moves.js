@@ -1288,7 +1288,7 @@
   });
   // Lo que gana al evolucionar, según cómo funcione.
   // (23-10-2026, con tools/balance.cjs: ninguna suma más de +2 a la cantidad —el tope
-  // con Réplica es +3, ver EXTRA_MAX— y se igualan las familias: las que se salían
+  // con Réplica es +4, ver EXTRA_MAX— y se igualan las familias: las que se salían
   // —cuerpo a cuerpo, minas, giros, charcos— pegan algo menos y las flojas —rayos,
   // cadenas, torretas, remolinos, aturdir, cargas, empujones, embestidas— algo más.)
   const EVO_MODS = {
@@ -1671,7 +1671,7 @@
    * aplica applyPassives (por donde pasan rebake y los ataques de los
    * compañeros) y combat.js lo lee para las zonas de aturdir y la red.
    */
-  const EXTRA_MAX = 3;
+  const EXTRA_MAX = 4;
 
   /** Cantidad (count) que lanza la instancia s sólo con su nivel (sin evolución ni pasivos). */
   function levelCount(s) {

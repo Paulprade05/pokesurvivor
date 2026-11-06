@@ -21,7 +21,7 @@ G.Upgrades = (() => {
     // ---- mejoras de los ataques (26-10-2026) ----
     // Empiezas la partida con los pasivos de las cartas Persistencia, Propulsión y Réplica
     // ya subidos (pl.pass, ver G.Player y G.Moves.applyPassives): las cartas suman encima.
-    // La cantidad sigue con su tope (G.Moves.EXTRA_MAX: como mucho 3 más por ataque).
+    // La cantidad sigue con su tope (G.Moves.EXTRA_MAX: como mucho 4 más por ataque).
     { id: 'dur',    grp: 'atk',   icon: 'duration', name: 'Persistencia', unit: '+4% duración de los efectos', max: 8, base: 90, grow: 1.42,
       desc: 'Charcos, estelas, minas, torretas, aliados, aves, columnas, rayos que giran, potenciadores y aturdir' },
     { id: 'pspd',   grp: 'atk',   icon: 'zoom-lens', name: 'Propulsión',  unit: '+3% velocidad de proyectiles', max: 8, base: 70, grow: 1.4,

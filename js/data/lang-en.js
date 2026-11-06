@@ -1322,7 +1322,7 @@ G.I18n.add({
   // ---------------- Menú: tocar el compañero (23-10-2026) ----------------
   "Ver en la colección": "View in the collection",
   // ---------------- Movimientos Z, jefes, iconos y equilibrio (24-10-2026) ----------------
-  "+1 a la cantidad de todos los ataques: proyectiles, orbes, minas, aliados... Hasta +3 por ataque, con la evolución.": "+1 amount for all moves: projectiles, orbs, mines, allies... Up to +3 per move, counting its evolution.",
+  "+1 a la cantidad de todos los ataques: proyectiles, orbes, minas, aliados... Hasta +4 por ataque, con la evolución.": "+1 amount for all moves: projectiles, orbs, mines, allies... Up to +4 per move, counting its evolution.",
   "+5% de probabilidad de golpe crítico y +10% de daño de los críticos.": "+5% critical chance and +10% critical damage.",
   "×1,6 daño, +2 proyectiles, +2 perforación y más grandes": "×1.6 damage, +2 projectiles, +2 pierce and bigger",
   "×1,7 daño, más alcance y golpea en 360°": "×1.7 damage, more range and hits in 360°",

@@ -23,7 +23,30 @@ test('la mitad del máximo, redondeando hacia arriba', () => {
   assert.equal(L.evoLvlFor(11), 6);
   assert.equal(L.evoLvlFor(5), 3);
   assert.equal(L.evoLvlFor(4), 2);
+  assert.equal(L.evoLvlFor(3), 2);
   assert.equal(L.evoLvlFor(1), 1);
+});
+
+test('6-11-2026: todas las pasivas llegan a 10 y Réplica a 4 (la evolución pide 5 y 2)', () => {
+  const L = boot().LevelUp;
+  for (const s of L.STATS.filter(x => L.isPassive(x.id))) {
+    assert.equal(s.max, s.id === 'amt' ? 4 : 10, s.id);
+    assert.equal(L.evoLvl(s.id), s.id === 'amt' ? 2 : 5, s.id);
+  }
+});
+
+test('Coraza en su techo: la carta deja de salir, salvo que la pida una evolución', () => {
+  const G = boot(), L = G.LevelUp;
+  G.T = t => t;
+  const ids = pl => { const seen = new Set(); for (let i = 0; i < 200; i++) for (const c of L.offer(pl, 20)) seen.add(c.key); return seen; };
+  const base = extra => Object.assign(player({ def: 4 }), { slots: [1, 2, 3, 4], dmgReduce: 0.6 }, extra);
+  assert.equal(ids(base()).has('stat:def'), false);
+  assert.equal(ids(base({ dmgReduce: 0.54 })).has('stat:def'), true);
+  const id = Object.keys(G.Moves.EVO).find(k => G.Moves.EVO[k][1] === 'def' && G.Moves.BY_ID[k] && G.Moves.BY_ID[k].kind !== 'buff');
+  assert.ok(id, 'algún ataque que evoluciona con Coraza');
+  const m = G.Moves.instance(id, G.Moves.BY_ID[id].maxLvl), pl = base();
+  pl.moves.push(m);
+  assert.equal(ids(pl).has('stat:def'), true);
 });
 
 test('máximo 10 vale a 5; máximo 11 no vale a 5 y sí a 6; máximo 5 vale a 3', () => {
@@ -40,14 +63,15 @@ test('máximo 10 vale a 5; máximo 11 no vale a 5 y sí a 6; máximo 5 vale a 3'
   assert.equal(L.evoHas('atk', { atk: 3 }), true);
 });
 
-test('Réplica de Mejoras ya pone uno de los 3: tope de cartas 2, basta 1', () => {
+test('Réplica de Mejoras ya pone uno de los 4: tope de cartas 3, siguen haciendo falta 2', () => {
   const L = boot().LevelUp;
-  assert.equal(L.statMax('amt', player()), 3);
+  assert.equal(L.statMax('amt', player()), 4);
   assert.equal(L.evoLvl('amt', player()), 2);
-  assert.equal(L.statMax('amt', player({}, 1)), 2);
-  assert.equal(L.evoLvl('amt', player({}, 1)), 1);
-  // Con una carta cogida (pass.amt = 1 de Mejoras + 1 de la carta): ya llega.
-  assert.equal(L.evoHas('amt', { amt: 1 }, player({ amt: 1 }, 2)), true);
+  assert.equal(L.statMax('amt', player({}, 1)), 3);
+  assert.equal(L.evoLvl('amt', player({}, 1)), 2);
+  // Con una carta cogida (pass.amt = 1 de Mejoras + 1 de la carta) aún no llega; con dos, sí.
+  assert.equal(L.evoHas('amt', { amt: 1 }, player({ amt: 1 }, 2)), false);
+  assert.equal(L.evoHas('amt', { amt: 2 }, player({ amt: 2 }, 3)), true);
 });
 
 test('evoInfo y evoNeed: el ataque al máximo no evoluciona hasta que su pasiva llega a la mitad', () => {
