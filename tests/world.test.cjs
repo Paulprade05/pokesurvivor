@@ -105,7 +105,7 @@ function loadTileset(on = true) {
     pal: { floor: ['#111111', '#222222', '#333333', '#444444'], wall: ['#000000', '#005500', '#007700', '#00aa00'], edge: '#000000', rock: ['#1', '#2', '#3', '#4'], grass: ['#1', '#2', '#3', '#4'] } }];
   G.OBJECTS_PMD = { bigchest: { file: 'bigchest.png', w: 32, h: 31 }, trap0: { file: 'trap0.png', w: 24, h: 24 } };
   const draws = [];
-  const ctx = { drawImage: (...a) => draws.push(a), fillRect() {}, clearRect() {}, translate() {}, scale() {}, fillStyle: '', set imageSmoothingEnabled(v) {} };
+  const ctx = { drawImage: (...a) => draws.push(a), fillRect() {}, clearRect() {}, translate() {}, scale() {}, save() {}, restore() {}, fillStyle: '', set imageSmoothingEnabled(v) {} };
   const images = [];
   class Img { set src(v) { this._src = v; images.push(this); } }
   const document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
@@ -127,23 +127,23 @@ test('tileset: the 256 neighbour masks map onto the 47 DTEF rules (the red cell 
 test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and animates the liquid; off → not ready', () => {
   const { T, draws, images } = loadTileset(true);
   assert.equal(T.ready(0), false, 'cargando');
-  assert.equal(images.length, 5, 'hoja, variación, líquido, la hoja de muros y la de suelo');
+  assert.equal(images.length, 4, 'hoja, variación, líquido y la hoja de muros');
   for (const im of images.slice(0, 3)) im.onload();
   assert.equal(T.ready(0), false, 'esperando también a la roca');
-  images[3].onerror(); images[4].onerror();                      // sin muros ni suelo: los de antes
+  images[3].onerror();                                           // sin la hoja de muros: igual
   assert.equal(T.ready(0), true);
   assert.equal(T.ready(5), false, 'un bioma sin datos: el pintor de siempre');
   const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
   const cv = T.paintChunk(0, 0, 16, terr, 0, 7);
   assert.ok(cv.pmd);
-  assert.equal(draws.length, 256 + 2, 'una por casilla y el suelo debajo de la pared y del agua');
+  assert.equal(draws.length, 256 + 2 + 4, 'una por casilla, el suelo debajo de la pared y del agua, y una vez los 4 espejos del suelo');
   assert.ok(T.animated(0));
   T.drawLiquid({ drawImage: (...a) => draws.push(a) }, 0, terr, 5, 5, 0, 0, 48, 0.6);
   assert.equal(draws[draws.length - 1][1] >= 6 * 24, true, 'segundo fotograma del líquido');
   assert.equal(loadTileset(false).T.ready(0), false, 'apagado en Ajustes');
 });
 
-test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile); generated chests and traps', () => {
+test('integrated world: walls and floor come from the tileset autotile pieces, as in Mystery Dungeon; generated chests and traps', () => {
   const { T, draws, images } = loadTileset(true);
   T.ready(0);
   for (const im of images) { im.width = 64; im.height = 16; im.onload(); }
@@ -152,12 +152,10 @@ test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile);
   T.paintChunk(0, 0, 16, terr, 0, 7);              // (la primera vez también recolorea la roca)
   draws.length = 0;
   T.paintChunk(0, 0, 16, terr, 0, 7);
-  // La pared (3,3): el suelo lleno de la hoja y la cara de roca (un lienzo recoloreado), nada de la sección de pared.
-  const face = draws.filter(d => d[0] && d[0].pxArt);
-  assert.equal(face.length, 1, 'la cara de roca, de un trozo');
-  assert.equal(face[0][8], 16, 'de 16 px de alto');
-  assert.equal(draws.filter(d => d[0].wallTop).length, 1, 'la cima, de la hoja de muros');
-  assert.ok(draws.every(d => d[0].pxArt || d[0].wallTop || d[1] >= 6 * 24), 'ninguna casilla de la sección de pared');
+  // La pared (3,3): una pieza de la sección de pared del tileset, sobre el suelo; nada dibujado aparte.
+  const walls = draws.filter(d => d[0]._src && d[1] < 6 * 24 && d[8] === 24);
+  assert.equal(walls.length, 1, 'la pieza de pared de autotile');
+  assert.equal(draws.filter(d => d[0].pxArt).length, 0, 'sin bloques ni cara de roca en 2D');
   // Cofres y trampas: los generados en cuanto cargan.
   const n = images.length;
   T.preload([0]);
@@ -202,7 +200,7 @@ test('tileset 6b: objects in PMD style only when the tileset is ready (tree = th
   for (const im of images) im.onload();
   const tree = T.prop(0, 'tree', 0);
   assert.ok(tree && tree.width === 28 && tree.height === 26, 'el árbol es una casilla de 24 px con su hueco para el viento');
-  assert.ok(draws.some(d => d[1] === 0 && d[2] === 147 && d[4] === 26), 'la copa, de la hoja de muros');
+  assert.ok(draws.some(d => d[1] === (T.RULE[0] % 6) * 24 && d[2] === ((T.RULE[0] / 6) | 0) * 24 && d[5] === 2 && d[6] === 2), 'la pieza de pared suelta (sección de pared)');
   assert.equal(T.prop(0, 'tree', 0), tree, 'guardado');
   assert.equal(T.prop(0, 'chest', 0), null, 'el cofre pequeño, de tiles.js');
   assert.ok(T.prop(0, 'rock', 0), 'la roca, de la hoja de muros');

@@ -959,7 +959,7 @@ G.World = (() => {
     }
     if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
     const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
-    const x = Math.round(p.x - w / 2), y = Math.round(p.y - h + dy);
+    const x = Math.round((p.x - w / 2) / 2) * 2, y = Math.round((p.y - h + dy) / 2) * 2;       // (sobre la rejilla de los píxeles de arte)
     if (p.type !== 'grass' && !block) {
       // Sombra suave debajo (como en los juegos de DS): imagen guardada.
       const sh = G.Tiles.shadow(p.type), sw = sh.width * P, shh = sh.height * P;
@@ -1079,7 +1079,7 @@ G.World = (() => {
     if (!vig || vigW !== w || vigH !== h) {
       vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.4, w / 2, h / 2, Math.max(w, h) * 0.8);
       vig.addColorStop(0, 'rgba(0,0,0,0)');
-      vig.addColorStop(1, 'rgba(0,0,0,.3)');
+      vig.addColorStop(1, 'rgba(0,0,0,.14)');
       vigW = w; vigH = h;
     }
     ctx.fillStyle = vig;

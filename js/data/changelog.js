@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Mundos como los de Mundo Misterioso", "Worlds like Mystery Dungeon"], chg: [
+    ["Todos los mapas se ven ahora como en Mundo Misterioso: suelo de un solo material, muros orgánicos y una franja de plantas o cristales junto a muros y agua, para que nada cambie de golpe.",
+     "Every map now looks like Mystery Dungeon: a single ground material, organic walls and a strip of plants or crystals along walls and water, so nothing changes abruptly."],
+    ["Mapas nuevos para las grietas que no casaban con su nombre: Selva Esmeralda, Glaciar Eterno, Pico Celeste, Fortaleza de Acero, Templo Mental, Bosque Encantado, Ruinas del Juicio y otros.",
+     "New maps for the rifts that didn't fit their name: Emerald Jungle, Eternal Glacier, Celestial Peak, Steel Fortress, Mind Temple, Enchanted Forest, Ruins of Judgment and others."],
+    ["Hierba, rocas, cristales y adornos usan los colores de cada mapa, y las rejillas y esteras pasan a ser hierba.",
+     "Grass, rocks, crystals and decorations use each map's colors, and grates and mats are now grass."],
+    ["Todos los píxeles miden lo mismo en pantalla. Antes unos salían más anchos que otros. Según tu pantalla verás algo más o algo menos de mapa.",
+     "All pixels are now the same size on screen. Before, some came out wider than others. Depending on your screen you'll see slightly more or less of the map."]] },
   { d: '2026-11-06', title: ["Muros, grietas y mapas con más vida", "Walls, rifts and livelier maps"], new: [
     ["Muros nuevos en todos los mapas: ya no son bloques planos, sino montes con la cima en relieve, pared de roca natural y lianas, cristales o magma según el sitio.",
      "New walls on every map: no more flat blocks, now they're hills with textured tops, natural rock faces and vines, crystals or magma depending on the place."],

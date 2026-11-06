@@ -102,27 +102,6 @@ G.Ambient = (() => {
     return cv;
   }
 
-  // Sombra de nube: manchas redondas con el borde tramado, en píxeles de arte.
-  let cloudC = [];
-  function cloud(i) {
-    if (cloudC[i]) return cloudC[i];
-    const W = 112, H = 60, cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
-    const g = cv.getContext('2d');
-    if (!g) { G.U.freeCanvas(cv); return null; }
-    const blobs = i ? [[34, 32, 26, 16], [62, 26, 30, 18], [84, 36, 20, 13]] : [[28, 30, 22, 14], [54, 34, 32, 18], [80, 26, 18, 12]];
-    const d = g.createImageData(W, H), a = d.data;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      let m = 9;
-      for (const [cx, cy, rx, ry] of blobs) m = Math.min(m, Math.hypot((x - cx) / rx, (y - cy) / ry));
-      if (m > 1 || (m > 0.84 && (x + y) & 1)) continue;      // (el borde, a cuadros: se funde sin degradado)
-      a[(y * W + x) * 4 + 3] = 255;
-    }
-    g.putImageData(d, 0, 0);
-    cloudC[i] = cv;
-    return cv;
-  }
-
   // Ondas: 4 fotogramas de un aro que se abre, en el color de la espuma del líquido.
   let ringC = null, ringKey = '';
   function ringSheet(col) {
@@ -194,7 +173,6 @@ G.Ambient = (() => {
   // ---------------- los objetos ----------------
   const P = [];
   let flock = null, flockT = 6, rings = [], ringT = 0, rainT = 0, tx = 0, ty = 0, hasTree = false, cx0 = 0, cy0 = 0;
-  const clouds = [{ x: 0, y: 0, i: 0 }, { x: 900, y: 500, i: 1 }, { x: 400, y: 1000, i: 0 }];
   for (let i = 0; i < 12; i++) rings.push({ on: false, x: 0, y: 0, t: 0, k: 0 });
 
   /** Reparte los objetos: tantos de cada clase como pide el bioma, según la calidad y el tamaño de la pantalla. */
@@ -272,19 +250,6 @@ G.Ambient = (() => {
     update(dt, cam);
     if (G.Weather) G.Anim.setForce(G.Weather.windK);
     const L = view.left(), Tp = view.top(), W = view.w, Hh = view.h;
-    // Sombras de nubes: tres manchas que cruzan el mapa despacio, en una rejilla que da la vuelta alrededor de la cámara.
-    if (r.cloud && G.Settings.fx > 0) {
-      ctx.globalAlpha = 0.13;
-      const SP = 1500, CW = 112 * PX * 2, CH = 60 * PX * 2;
-      for (const c of clouds) {
-        c.x += (6 + G.Anim.gust * 8) * dt; c.y += 1.5 * dt;
-        const x = L - CW + ((c.x - L) % SP + SP) % SP, y = Tp - CH + ((c.y - Tp) % SP + SP) % SP;
-        if (x > L + W || y > Tp + Hh) continue;
-        const im = cloud(c.i);
-        if (im) ctx.drawImage(im, Math.round(x / PX) * PX, Math.round(y / PX) * PX, CW, CH);
-      }
-      ctx.globalAlpha = 1;
-    }
     if (G.Settings.fx > 0) drawFlora(ctx, view, bi);
     // Sombra de la bandada: lejos del pájaro, que va alto.
     if (flock) drawFlock(ctx, true);
@@ -319,16 +284,16 @@ G.Ambient = (() => {
   let floraFor = -1;
   /** La flora de un chunk (una vez): casillas de suelo libres, elegidas por hash (todos ven la misma). */
   function floraOf(cx, cy, rows) {
-    const W = G.World, N = W.N, TS = W.TS, out = [], taken = new Set(W.chunk(cx, cy).props.map(p => p.tx + ',' + p.ty));
-    for (let j = 0; j < N && out.length < 5; j++) for (let i = 0; i < N && out.length < 5; i++) {
+    const W = G.World, N = W.N, TS = W.TS, out = [], open = (x, y) => { for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) if (W.terrainAt(x + a, y + b) !== 0) return false; return true; }, taken = new Set(W.chunk(cx, cy).props.map(p => p.tx + ',' + p.ty));
+    for (let j = 0; j < N && out.length < 3; j++) for (let i = 0; i < N && out.length < 3; i++) {
       const tx = cx * N + i, ty = cy * N + j;
-      if (G.U.hash(tx, ty, W.seed + 720) >= 0.05 || W.terrainAt(tx, ty) !== 0 || taken.has(tx + ',' + ty)) continue;
-      out.push({ x: tx * TS + 8 + G.U.hash(tx, ty, W.seed + 721) * 32 | 0, y: ty * TS + 12 + G.U.hash(tx, ty, W.seed + 722) * 32 | 0, row: rows[G.U.hash(tx, ty, W.seed + 723) * rows.length | 0] });
+      if (G.U.hash(tx, ty, W.seed + 720) >= 0.03 || !open(tx, ty) || taken.has(tx + ',' + ty)) continue;
+      out.push({ x: (tx * TS + 8 + G.U.hash(tx, ty, W.seed + 721) * 32) & ~1, y: (ty * TS + 12 + G.U.hash(tx, ty, W.seed + 722) * 32) & ~1, row: rows[G.U.hash(tx, ty, W.seed + 723) * rows.length | 0] });
     }
     return out;
   }
   function drawFlora(ctx, view, bi) {
-    const rows = FLORA[G.Tiles.BIOMES[bi].ground], im = G.Tileset.pxImg('flora');
+    const rows = FLORA[G.Tiles.BIOMES[bi].ground], im = G.Tileset.floraSheet(bi);
     if (!rows || !rows.length || !im || !G.World.pmdOn(bi)) return;
     if (floraFor !== bi) { floraC.clear(); floraFor = bi; }
     const CW = G.World.CW, x0 = Math.floor((view.left() - 40) / CW), x1 = Math.floor((view.left() + view.w + 40) / CW);
@@ -442,8 +407,6 @@ G.Ambient = (() => {
     leafC = ringC = null; leafKey = ringKey = '';
     for (const c of halos.values()) G.U.freeCanvas(c);
     halos.clear();
-    for (const c of cloudC) if (c) G.U.freeCanvas(c);
-    cloudC = [];
   }
 
   return { get atlas() { return atlas; }, ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; floraFor = -1; floraC.clear(); flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
