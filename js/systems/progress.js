@@ -151,6 +151,7 @@ G.Progress = (() => {
       case 'item':
         s.itemsFound = s.itemsFound || {}; s.itemsFound[d.id] = s.itemsFound[d.id] || Date.now();
         break;
+      case 'mega': S.megas = (S.megas || 0) + 1; break;
       case 'runEnd':
         if (d.group) S.groupRuns = (S.groupRuns || 0) + 1;
         break;

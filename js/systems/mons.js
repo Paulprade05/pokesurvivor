@@ -65,14 +65,14 @@ G.Mons = (() => {
    * dex sigue siendo el tuyo (MT, mejoras, récords); form, el sprite y el nombre.
    */
   function formFor(dex, form) {
-    const base = G.DEX_BY[form] || G.DEX_BY[dex];
+    const base = G.DEX_BY[form] || (G.MEGA && G.MEGA[form]) || G.DEX_BY[dex];   // (una mega: G.Mega)
     if (!base) return base;
     const n = natureOf(dex), m = Object.assign({}, base);
     if (n.up) m[n.up] = base[n.up] * 1.1;
     if (n.down) m[n.down] = base[n.down] * 0.9;
     m.atk = Math.max(m.pa, m.sa);
     m.nature = n.id;
-    m.dex = dex; m.form = base.dex;
+    m.dex = dex; m.form = base.id || base.dex;
     return m;
   }
 

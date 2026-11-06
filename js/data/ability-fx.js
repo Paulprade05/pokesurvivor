@@ -190,6 +190,11 @@ G.AbilityFX = (() => {
     'poison-puppeteer': { d: 'Sus ataques cuerpo a cuerpo y embestidas envenenan.', d2: '+15 % de daño a los enemigos envenenados.', touchPoison: true,
       out: (pl, m, e) => (e && e.poison > 0 ? 1.15 : 1) },
     'rocky-payload': boost('rock', 20),
+    // Sólo de megaevoluciones (06-11-2026): sin dos golpes, para no doblar números de daño.
+    'parental-bond': { d: '+20 % de daño: la cría también golpea.', out: allOut(1.2) },
+    'piercing-drill': { d: '+12 % de daño; con ataques cuerpo a cuerpo y embestidas, +25 %.', out: (pl, m) => (close(m) ? 1.25 : 1.12) },
+    'eelevate': { d: 'Flota, y cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).', levitate: true,
+      kill: pl => { pl.eelK = Math.min(0.15, (pl.eelK || 0) + 0.005); }, out: pl => 1 + (pl.eelK || 0) },
     'merciless': { d: '+35 % de daño a los enemigos envenenados o con menos de la mitad de vida.',
       out: (pl, m, e) => (e && (e.poison > 0 || e.hp < e.maxHp * 0.5) ? 1.35 : 1) },
     'analytic': { d: '+35 % de daño a enemigos con menos de la mitad de vida.', out: (pl, m, e) => (e && e.hp < e.maxHp * 0.5 ? 1.35 : 1) },

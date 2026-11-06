@@ -115,8 +115,9 @@ G.Player = class Player {
    * partida (mejoras, cartas, objeto, habilidad): la vida máxima sube lo que
    * sube la de la fase, cura un 25 % y es invulnerable mientras dura el destello.
    * fx: con la animación (los compañeros en grupo la ven igual, ver netUpdate).
+   * cure: si cura (la megaevolución no: G.Mega).
    */
-  evolve(mon, fx = true) {
+  evolve(mon, fx = true, cure = true) {
     const old = this.mon, from = this.anim, fromForm = this.form;
     this.mon = mon;
     this.body(mon.form || mon.dex);
@@ -130,7 +131,7 @@ G.Player = class Player {
       const up = Math.round(((mon.hp || 0) - (old.hp || 0)) * ((this.abil && this.abil.hpMul) || 1));
       this.maxHp = Math.max(1, this.maxHp + up);
       this.hp = Math.min(this.maxHp, Math.max(1, this.hp + Math.max(0, up)));
-      if (fx) this.heal(this.maxHp * 0.25, 'evolución');
+      if (fx && cure) this.heal(this.maxHp * 0.25, 'evolución');
       this.baseAtk = mon.atk;
       // (El movimiento Z no cambia: va con la Pulsera Z del elegido y el tipo de tus
       // ataques, no con los tipos de la fase; ver combat.js zOf.)
@@ -193,7 +194,8 @@ G.Player = class Player {
   static get MOVE_K() { return 1.08; }
   /** Monotipo (19-10-2026): los de un solo tipo pegan un +20 % con los ataques de su tipo (tienen menos variedad). */
   static get MONO_K() { return 1.2; }
-  monoType(type) { return this.mon.types.length === 1 && type === this.mon.types[0]; }
+  // (Con la mega, el de tu forma normal: si no, Groudon o Lopunny perderían el +20 % al ganar un tipo.)
+  monoType(type) { const t = (G.Mega ? G.Mega.cardMon(this) : this.mon).types; return t.length === 1 && type === t[0]; }
   get spd() {
     // (Habilidades: "steady" no se frena; speed() multiplica, ver data/ability-fx.js.)
     const ab = this.abil || {}, stuck = this.slowT > 0 && !ab.steady;
@@ -381,6 +383,7 @@ G.Player = class Player {
     if (!pure && (type || cat) && G.Combat.wardBlock(this)) return;
     // (Y los que empiezan como preevolución, algo menos al principio: G.Enemies.youngK, 29-10-2026.)
     if (!pure) amount *= G.Stats.taken(this.mon, cat) * G.Enemies.youngK(this, G.Game.st ? G.Game.st.time : 0);
+    if (!pure && G.Mega && G.Mega.active(this)) amount *= G.Mega.IN_K;
     let eff = null;
     if (type) {
       const k = G.Types.mult(type, this.mon.types);
@@ -424,6 +427,7 @@ G.Player = class Player {
     if (ab && ab.hurt && this.hp > 0) ab.hurt(this, type, cls);
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true;
+      if (G.Mega) G.Mega.down(this);                // (al caer se acaba la mega)
       if (!this.remote) G.Reg.down(this);
       this.anim.play('Faint', { hold: true });
       G.Projectiles.clearOrbs(this);
@@ -554,7 +558,8 @@ G.Player = class Player {
     }
 
     // Movimiento Z: su tecla (Ajustes > Controles, Z de serie) o el botón X del mando; el del HUD llama a zUse.
-    if (!this.frozen && !this.remote && G.Input.act('zmove')) G.Combat.zUse(this);
+    // (Con la megapiedra, el mismo botón megaevoluciona: G.Shop.wears.)
+    if (!this.frozen && !this.remote && G.Input.act('zmove')) { if (G.Mega && G.Mega.of(this)) G.Mega.use(this); else G.Combat.zUse(this); }
 
     // --- movimiento con colisiones ---
     // (En cooperativo la pausa no para el juego: sólo te quedas quieto.)
@@ -692,12 +697,14 @@ G.Player = class Player {
     if (!n) return;
     // Su fase (evoluciones en partida): la manda su dueño en cada envío. Una versión
     // anterior no la manda (fm 0): se le ve como el Pokémon que eligió.
-    const fm = n.fm || this.dex;
-    if (fm !== this.form && G.DEX_BY[fm]) {
+    const fm = n.fm || this.dex, from = this.form;
+    const mg = G.MEGA && G.MEGA[fm];
+    if (fm !== this.form && (G.DEX_BY[fm] || mg)) {
       const evo = !!n.fm && this.formSeen;           // la primera vez, sin destello
       G.Sprites.preload([fm], 8000, this.shinyWant);
-      this.evolve(Object.assign({}, G.DEX_BY[fm], { dex: this.dex, form: fm }), evo);
-      if (evo && G.EvoUI) G.EvoUI.mateEvolved(this);
+      this.evolve(Object.assign({}, mg || G.DEX_BY[fm], { dex: this.dex, form: fm }), evo);
+      if (evo && mg && this.evoFx) this.evoFx.mega = true;
+      if (evo && !mg && !(G.MEGA && G.MEGA[from]) && G.EvoUI) G.EvoUI.mateEvolved(this);
     }
     this.formSeen = true;
     if (this.flash > 0) this.flash -= dt;
@@ -830,13 +837,25 @@ G.Player = class Player {
       ctx.restore();
     }
 
+    // Megaevolución: dos aros bajo los pies, también para los compañeros.
+    if (G.MEGA && G.MEGA[this.form]) {
+      ctx.save();
+      ctx.globalAlpha = 0.45 + Math.sin(performance.now() / 160) * 0.15;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ff8ad8';
+      ctx.beginPath(); ctx.ellipse(this.x, this.y, this.r * 2.3, this.r * 0.95, 0, 0, 6.2832); ctx.stroke();
+      ctx.strokeStyle = '#8ad8ff';
+      ctx.beginPath(); ctx.ellipse(this.x, this.y, this.r * 1.7, this.r * 0.68, 0, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+    }
+
     const e = this.evoFx;
     if (e) {
       // Evolución: la silueta blanca pasa de la fase de antes a la nueva, cada vez
       // más deprisa (como en los juegos); al final se ve la nueva con un destello.
       const k = e.t / e.dur, f0 = 2.5, f1 = 16;
       const n = Math.floor(f0 * e.t + (f1 - f0) * e.t * k / 2);
-      if (k > 0.88) this.anim.draw(ctx, this.x, this.y, { flash: true, softFlash: true, color: '#ffcb3d' });
+      if (k > 0.88) this.anim.draw(ctx, this.x, this.y, { flash: true, softFlash: true, color: e.mega ? '#ff8ad8' : '#ffcb3d' });
       else (n % 2 ? this.anim : e.from).draw(ctx, this.x, this.y, { flash: true, color: '#ffffff' });
     } else {
       const alpha = this.invuln > 0 && !this.dead ? (Math.floor(this.invuln * 18) % 2 ? 0.45 : 1) : 1;

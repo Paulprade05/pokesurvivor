@@ -100,7 +100,7 @@ datos**, una vez. En la partida se aplica la naturaleza, como en cualquier fase.
 
 | Qué | Regla |
 |---|---|
-| Daño | Entre **+25 % y +40 %**: rarezas 1-3 hasta +40 %, rareza 4 hasta +35 %, rareza 5 y legendarios hasta +30 % |
+| Daño | **Según la rareza:** 1 y 2, +40 %; 3, +35 %; 4, +30 %; 5 y legendarios, +25 %. Glalie y Camerupt, +25 %, porque ya están entre los mejores. La fórmula sólo reparte entre físico y especial |
 | Daño recibido | **−15 %**, además de sus defensas |
 | Velocidad | La de la fórmula, nunca más de un 10 % más lenta |
 | Vida | No cambia y no cura |
@@ -108,8 +108,8 @@ datos**, una vez. En la partida se aplica la naturaleza, como en cualquier fase.
 
 ### 3.5 Tipo
 
-Mientras dura, cuenta su tipo para la tabla de tipos, el +20 % de monotipo, el clima, los líquidos
-y las habilidades. Las **cartas de nivel siguen con la forma normal**.
+Mientras dura, cuenta su tipo para la tabla de tipos, el clima, los líquidos y las habilidades. Las
+**cartas de nivel y el +20 % de monotipo siguen con la forma normal**: si no, Groudon o Lopunny perderían ese +20 % al ganar un tipo.
 
 ### 3.6 Habilidad
 
@@ -117,8 +117,8 @@ Mientras dura, la de la mega sustituye a la tuya en todo lo que funciona en vivo
 velocidad, cada fotograma). Lo que tu habilidad dio al empezar la partida se queda. Lo que la de la
 mega sólo haría al empezar la partida no se aplica, y así no hay nada que deshacer.
 
-- **Faltan 3 efectos:** Amor Filial (+20 % de daño, sin segundo golpe), Turbotaladro (+12 % de daño
-  y atraviesa escudos) y Eelevate (flota y +0,5 % de daño por derrotado, hasta +15 %).
+- **Faltan 3 efectos:** Amor Filial (+20 % de daño, sin segundo golpe), Turbotaladro (+12 % de daño,
+  +25 % cuerpo a cuerpo) y Eelevate (flota y +0,5 % de daño por derrotado, hasta +15 %).
 - **Mantienen tu habilidad:** Darkrai, Zygarde, Zeraora y Tatsugiri, porque PokeAPI no da la suya, y
   Rayquaza, Kyogre y Groudon, porque las suyas cambian el clima de todos. La herramienta avisa si llega el dato.
 - **Clima:** Mega-Tyranitar pone tormenta de arena con el gancho que ya existe. En grupo sólo la pone el anfitrión, como hoy.
@@ -142,7 +142,7 @@ mega sólo haría al empezar la partida no se aplica, y así no hay nada que des
 
 - **Mega-Aro:** premio del logro «Al otro lado» (`rift1`, primera grieta ganada). Quien ya lo tenga
   lo recibe al actualizar, como el regalo de las Pulseras Z.
-- **Megapiedra:** se compra en las Mejoras del Pokémon y en la Tienda Kecleon, junto a las Pulseras.
+- **Megapiedra:** se compra en las Mejoras del Pokémon.
   Hace falta tener el Pokémon. **5.000** rarezas 1-3, **7.500** rareza 4, **10.000** rareza 5 y legendarios.
 - **Elegir:** con Pulsera y piedra, en Mejoras eliges cuál lleva. Sin elegir, la última comprada.
 - **Guardado:** `save.mring` (fecha), `save.mst[mega]` (fecha) y `save.pmg[dex]` (qué lleva, con fecha).
@@ -151,8 +151,8 @@ mega sólo haría al empezar la partida no se aplica, y así no hay nada que des
 - **Pokédex:** en la pestaña Evolución de su ficha, la mega después de la forma final.
 - **Pausa:** la tarjeta del Z enseña la mega si es lo que llevas, con el tiempo o el %, y qué falta.
 - **Resumen final:** cuántas megas y el daño hecho en mega.
-- **Logros:** «¡Megaevolución!» (usar una) y «Megacoleccionista» (5, 15 y todas las piedras).
-- **Iconos:** plantilla de piedra coloreada por tipo y Mega-Aro, con `pxl` y `docs/ESTILO-ARTE.md`.
+- **Logros:** «¡Megaevolución!» (usar una) y «Megacoleccionista» (5 piedras).
+- **Iconos:** los objetos oficiales de PokeAPI/sprites (`assets/items/`), como los Cristales Z. No hace falta dibujar nada.
 
 ## 5. Botón del HUD
 
@@ -223,20 +223,18 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 
 ## 7. Datos que hay que generar
 
-- `tools/fetch_megas.js` → `js/data/megas.js`: por mega, su número de PokeAPI (`10034`), especie,
+- `tools/fetch_megas.cjs` → `js/data/megas.js`: por mega, su número de PokeAPI (`10034`), especie,
   nombres en español e inglés, tipos, habilidad, stats ajustados y piedra. Se puede volver a ejecutar
   y avisa si PokeAPI o SpriteCollab cambian. Las megas no entran en `G.DEX`.
 - `tools/fetch_sprites.py`: modo de formas que baja a `assets/pokemon/{número}/` y llena `G.SPRITE_META`.
 - `tools/fetch_credits.py`: créditos de las formas. Sprites CC BY-NC 4.0, como los demás.
-- `tests/mega.test.cjs`, caso de red en `tests/net.test.cjs` y modo `--mega` en `tools/balance.cjs`.
+- `tests/mega.test.cjs` y caso de red en `tests/net.test.cjs`.
 
 ## 8. Equilibrio: cómo se mide
 
-- `tools/balance.cjs --mega`: daño por segundo y aguante con y sin mega en los minutos 10, 15 y 20.
-- `tools/equilibrio.cjs`: las filas de evolución deben salir iguales con y sin mega.
-- `tools/medir-pokemon.cjs`: ninguna mega por encima de los mejores Pokémon sin mega contando el
-  tiempo que dura, y las flojas (Mawile, Sableye, Banette) deben subir más que los legendarios.
-- Partidas con `tools/curve.cjs` con y sin mega: sin mega se debe poder seguir ganando.
+- `tools/medir-mega.cjs` (con la salida de `medir-pokemon.cjs`): ninguna mega por encima del mejor Pokémon sin mega.
+- `tools/equilibrio.cjs`: las filas de los ataques deben salir iguales.
+- `tools/curve.cjs --mega`: partidas con el bot que megaevoluciona en cuanto puede.
 
 ## 9. Riesgos
 

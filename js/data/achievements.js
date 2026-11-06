@@ -64,7 +64,9 @@ G.AchDefs = (() => {
     { id: 'itemsAll', cat: 'combate', tier: 2, name: 'Coleccionista de objetos', desc: 'Encuentra los 11 objetos.', value: count('itemsFound'), goal: 11, reward: { t10: 1 }, title: 'Anticuario' },
 
     // ---------- grietas ----------
-    { id: 'rift1', cat: 'grietas', tier: 1, name: 'Al otro lado', desc: 'Gana tu primera pelea en una grieta.', value: st('riftWins'), goal: 1, reward: { t1: 3 }, title: 'Valiente' },
+    { id: 'rift1', cat: 'grietas', tier: 1, name: 'Al otro lado', desc: 'Gana tu primera pelea en una grieta y consigue el Mega-Aro.', value: st('riftWins'), goal: 1, reward: { t1: 3 }, title: 'Valiente' },
+    { id: 'mega1', cat: 'combate', tier: 1, name: '¡Megaevolución!', desc: 'Megaevoluciona por primera vez.', value: st('megas'), goal: 1, reward: { t1: 3 } },
+    { id: 'mega5', cat: 'coleccion', tier: 2, name: 'Megacoleccionista', desc: 'Consigue 5 megapiedras.', value: s => Object.keys(s.mst || {}).length, goal: 5, reward: { t10: 1 } },
     { id: 'rift10', cat: 'grietas', tier: 2, name: 'Saltagrietas', desc: 'Gana 10 peleas en grietas.', value: st('riftWins'), goal: 10, reward: { t10: 1 } },
     { id: 'arenas', cat: 'grietas', tier: 3, name: 'Viajero de grietas', desc: 'Gana en las 18 arenas (una por tipo).', value: count('arenas'), goal: 18, reward: { t10: 2 }, title: 'Viajero de grietas' },
 

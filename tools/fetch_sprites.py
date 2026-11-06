@@ -6,6 +6,7 @@ a assets/pokemon/ y genera js/data/sprites-meta.js.
 
     python tools/fetch_sprites.py            # todos los que existan (1-1025)
     python tools/fetch_sprites.py 1 151      # sólo un rango de la Pokédex
+    python tools/fetch_sprites.py --megas    # las formas de tools/fetch_megas.cjs, en assets/pokemon/{su id}/
     python tools/fetch_sprites.py --ext      # sólo las animaciones extra (Sleep.png, Ext.png y
                                              # More.png) de los que ya están, sin tocar las 7 de
                                              # siempre (--ext 1 151: sólo ese rango)
@@ -468,9 +469,54 @@ def main_ext():
     write_meta(metas)
 
 
+def do_form(job):
+    """Una forma (megaevolución) de una especie: sprite/{dex}/{form}/ y su shiny en .../{form}/0001/."""
+    out_dir = os.path.join(OUT_ASSETS, str(job['id']))
+    url = f"{BASE}/{job['dex']:04d}/{job['form']}"
+    xml = fetch(url + '/AnimData.xml')
+    if not xml:
+        return job['id'], None
+    anims, shadow = parse_animdata(xml.decode('utf-8', 'replace'))
+    normal = download_set(url, out_dir, anims)
+    if not REQUIRED & set(normal):
+        return job['id'], None
+    meta = {'s': shadow, 'a': normal}
+    if job.get('shiny'):
+        sxml = fetch(url + '/0001/AnimData.xml')
+        sanims = parse_animdata(sxml.decode('utf-8', 'replace'))[0] if sxml else anims
+        shiny = download_set(url + '/0001', os.path.join(out_dir, 's'), sanims, normal)
+        if 'Idle' in shiny:
+            meta['sh'] = 1
+            diff = {k: v for k, v in shiny.items() if normal.get(k) != v}
+            if diff:
+                meta['sa'] = diff
+            miss = [k for k in normal if k not in shiny]
+            if miss:
+                meta['sm'] = miss
+    return job['id'], meta
+
+
+def main_megas():
+    """--megas: las formas que ha elegido tools/fetch_megas.cjs; no toca a los Pokémon."""
+    jobs = json.load(open(os.path.join(CACHE, 'megas.json'), encoding='utf-8'))
+    metas, failed = read_meta(), []
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for mid, meta in ex.map(do_form, jobs):
+            if meta:
+                metas[mid] = meta
+            else:
+                failed.append(mid)
+    write_meta(metas)
+    print(f'{len(jobs) - len(failed)} formas bajadas')
+    if failed:
+        print(f'Fallaron ({len(failed)}): {failed}')
+
+
 def main():
     if '--ext' in sys.argv:
         return main_ext()
+    if '--megas' in sys.argv:
+        return main_megas()
     lo = int(sys.argv[1]) if len(sys.argv) > 1 else 1
     hi = int(sys.argv[2]) if len(sys.argv) > 2 else 1025
     os.makedirs(OUT_ASSETS, exist_ok=True)

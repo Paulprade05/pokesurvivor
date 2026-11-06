@@ -32,6 +32,7 @@ G.Combat = (() => {
   function tick(dt, pl, now) {
     if (pl.u3) tickPl3(dt, pl);                      // (ataques únicos de Roca, Fantasma... al final)
     zTick(dt, pl, now);
+    if (G.Mega) G.Mega.tick(dt, pl);
     if (pl.dead) return;
     const act = pl.activeGroup();
     // Las recargas de los otros huecos también corren (#174: antes se congelaban y
@@ -75,7 +76,8 @@ G.Combat = (() => {
     if (!pl || pl.remote) return null;
     let z = pl.z;
     if (z === undefined) {
-      z = pl.z = G.Shop && G.Shop.ringHas && G.Shop.ringHas(pl.mon && pl.mon.dex)
+      // (Con la megapiedra puesta, sin Z: una cosa u otra, ver G.Shop.wears.)
+      z = pl.z = G.Shop && G.Shop.ringHas && G.Shop.ringHas(pl.mon && pl.mon.dex) && G.Shop.wears(pl.mon.dex) !== 'mega'
         ? { type: null, def: null, n: 0, need: null, needN: 0, have: [], nm: -1, t: 0, cd: 0, m: null, dealt: 0, uses: 0, hintAt: 0 } : null;
     }
     // (Sólo cuando cambian tus ataques: aprender uno es lo único que lo mueve.)
