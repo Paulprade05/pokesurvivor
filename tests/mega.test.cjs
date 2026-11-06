@@ -66,7 +66,7 @@ test('comprar: hace falta el Aro y el Pokémon; precio por rareza; no se compra 
   assert.equal(G.Shop.stonePrice(mewtwo), 10000);
 });
 
-test('energía: se llena con derrotados, los jefes cuentan más, en grupo pide más y hay un mínimo entre megas', () => {
+test('energía: se llena con derrotados, los jefes cuentan más, en grupo pide más y se repite sin espera', () => {
   const G = boot(sv({ mst: { 10034: 1 }, ach: { rift1: 1 } }));
   const M = G.Mega, pl = { dex: 6, form: 6, kills: 0, bosses: 0, mon: { dex: 6 } };
   const g = M.of(pl);
@@ -76,7 +76,7 @@ test('energía: se llena con derrotados, los jefes cuentan más, en grupo pide m
   pl.bosses = 5; assert.equal(M.energy(pl, g), 1);
   assert.equal(M.ready(pl, g), true);
   pl.form = 5; assert.equal(M.ready(pl, g), false, 'antes de la forma final espera');
-  pl.form = 6; g.cd = 10; assert.equal(M.ready(pl, g), false, 'el mínimo entre megas');
+  pl.form = 6; g.k0 = 0; assert.equal(M.ready(pl, g), true, 'llena otra vez, se puede repetir sin esperar');
   G.Coop.active = true; G.Game = { everyone: () => [1, 2] };
   assert.equal(M.need(), 300 * 1.75);
 });

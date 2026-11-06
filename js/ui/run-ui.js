@@ -573,7 +573,6 @@ G.RunUI = (() => {
     const fx = d.abil && G.AbilityFX ? G.AbilityFX.of(d.abil, d) : null, n = v => Math.round(v).toLocaleString(G.I18n.locale);
     const state = g.t > 0 ? `<span class="z-state on">${G.I18n.f('Activa: {x}', G.U.mmss(g.t))}</span>`
       : M.ready(pl, g) ? `<span class="z-state ready">${G.Touch.active ? G.T('Lista: toca su botón') : G.I18n.f('Lista: pulsa {x}', G.Input.keyLabel('zmove'))}</span>`
-      : g.cd > 0 ? `<span class="z-state">${G.I18n.f('Se recarga: {x}', G.U.mmss(g.cd))}</span>`
       : !M.final(pl) ? `<span class="z-state">${G.I18n.f('Llega a {x}', G.DEX_BY[pl.dex].name)}</span>`
       : `<span class="z-state">${G.I18n.f('Energía: {x}', Math.floor(M.energy(pl, g) * 100) + ' %')}</span>`;
     return `<section class="ps-card ps-z"><h3>Megaevolución</h3>

@@ -11,7 +11,7 @@
 - **Cómo se activa:** con el mismo botón y la misma tecla que el movimiento Z. Tu Pokémon lleva
   **Pulsera Z o megapiedra**, nunca las dos a la vez, como en los juegos.
 - **Cuándo:** la **Energía Mega** se llena **derrotando enemigos**. Cuesta al principio, cuando caen
-  pocos, y luego va mucho más rápido, con un mínimo de 75 s entre megas. Con la forma final y la barra llena, ya puedes.
+  pocos, y luego va mucho más rápido. Con la forma final y la barra llena, ya puedes.
 - **Qué hace falta:** el **Mega-Aro** (se gana con la primera grieta) y la **megapiedra** de ese
   Pokémon, comprada en sus Mejoras. Las dos son para siempre.
 - **Cuántas:** **43 megas** con sprite de Mundo Misterioso. Las demás entrarán con la herramienta
@@ -26,7 +26,7 @@ versión hace menos cosas.
 | Tema | Antes | Ahora | Por qué |
 |---|---|---|---|
 | **Cuándo llega** | Desde el minuto 10 y con la forma final, normalmente en el 13 | Sin minuto: una Energía que se llena desde el principio | Las partidas reales medidas han acabado hacia el minuto 18 como mucho. Con la regla vieja casi no se vería |
-| **Cómo se recarga** | Por tiempo (150 s) y por jefes | **Por enemigos derrotados**, con un mínimo de 75 s | Lo pidió el dueño: que cueste al principio y sea más fácil después. La propuesta vieja lo descartó porque se llenaría en segundos; el mínimo lo evita |
+| **Cómo se recarga** | Por tiempo (150 s) y por jefes | **Por enemigos derrotados** | Lo pidió el dueño: que cueste al principio y sea más fácil después. La propuesta vieja lo descartó porque se llenaría en segundos. Con 300 derrotados tarda de 30 a 90 s al final de la partida |
 | **Con el Z** | Dos botones; cada uno bloquea al otro mientras dura | **Uno u otro por Pokémon**, en el mismo botón | Con los dos, un Pokémon con mega iría potenciado la mitad del tiempo y los demás un 20 %. También evita el candado y una tecla nueva |
 | **Barra del móvil** | Un hueco más, con candados | **Igual que hoy**: el hueco del Z enseña la piedra | Menos botones, menos toques fallados. «Colocar los botones» no cambia |
 | **Tecla y mando** | Tecla X y botón Y nuevos | Los del Z | Nada que aprender ni que configurar |
@@ -49,7 +49,7 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 | Qué hace | Pasa a la fase siguiente | Añade un ataque muy fuerte | Transforma a tu Pokémon |
 | Hace falta | Nada | Pulsera Z + Cristal Z + 2 ataques del tipo | Mega-Aro + megapiedra + forma final |
 | Se activa | Sola | Botón | Botón (el mismo) |
-| Dura | Para siempre | 60 s, recarga 240 s | 75 s; se recarga con 300 derrotados, 75 s como mínimo |
+| Dura | Para siempre | 60 s, recarga 240 s | 75 s; se recarga con 300 derrotados |
 | Papel | Crecer | Pico corto y explosivo | Poder largo y más aguante |
 
 - **Evolución:** va antes y no se toca. La mega sólo existe en la forma final; en las ramas, en la que tenga mega.
@@ -73,19 +73,17 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 
 - Empieza a 0 y se llena con **300 enemigos derrotados**. Un jefe o un legendario cuenta como 30.
 - En grupo cuentan los derrotados de todo el equipo, y la meta sube como los enemigos que salen (×1,75 por jugador de más).
-- Mientras dura la mega no se carga. Al acabar vuelve a 0 y empieza un **mínimo de 75 s** antes de poder repetir.
+- Mientras dura la mega no se carga. Al acabar vuelve a 0 y se puede repetir en cuanto se llene: **no hay espera mínima** (06-11-2026, lo pidió el dueño).
 - Si se llena antes de la forma final, espera llena.
 
-Medido con el bot en 3 partidas de 20 minutos, usando la mega en cuanto puede:
+Medido con el bot en partidas de 20 minutos, usando la mega en cuanto puede y sin espera mínima:
 
 | Partida | Primera mega | Megas en 20 min |
 |---|---|---|
-| Charizard con mejoras | Minuto 7 (la barra se llenó en el 5, esperó a la forma final) | 4 |
-| Absol con mejoras | Minuto 11 | 2 |
-| Absol sin mejoras | Minuto 9 | 1 |
+| Charizard con mejoras | Minuto 7 (la barra se llenó antes y esperó a la forma final) | 4 |
+| Absol con mejoras | Minuto 13 | 3 |
 
-Sin el mínimo, al final de la partida se recargaría en menos de un minuto y la mega estaría casi
-siempre puesta. Con él, nunca pasa de la mitad del tiempo. Es el número a vigilar al medir.
+Con 600 derrotados por minuto, lo más alto medido, la mega estaría puesta el 71 % del tiempo. Es el número a vigilar.
 
 ### 3.3 Activar y acabar
 
@@ -251,7 +249,7 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 ## 10. Decisiones del dueño (06-11-2026)
 
 1. **Mega y Z:** uno u otro por Pokémon.
-2. **Duración:** temporal, y se recarga con enemigos derrotados, de modo que al principio cueste y luego sea más fácil.
+2. **Duración:** temporal, y se recarga con enemigos derrotados, de modo que al principio cueste y luego sea más fácil. Sin espera mínima entre megas.
 3. **Quién:** las 43 con sprite, también legendarios.
 4. **Las que no tienen sprite:** esperan a SpriteCollab.
 5. **Pokémon que faltan:** entran los 8 con andar. Los otros 51 esperan a SpriteCollab.

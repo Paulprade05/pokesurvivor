@@ -1182,7 +1182,7 @@ G.HUD = (() => {
   /**
    * El botón de la megaevolución: el hueco del Z, con la megapiedra dentro.
    *   falta la forma final  piedra en gris; al tocarlo, la pista
-   *   cargando              arco de progreso y el % (o, tras una mega, los segundos de espera)
+   *   cargando              arco de progreso y el %
    *   lista                 halo que late y borde de color
    *   activa                barra abajo que se vacía y los segundos que quedan
    */
@@ -1211,14 +1211,13 @@ G.HUD = (() => {
       outlined(ctx, zLeft(g.t), x + S / 2, y + S - (cmp ? 12 : 13), '#fff', 3);
     } else if (!ready) {
       // El arco por dentro del borde: se ve llenarse sin tapar la piedra.
-      const f = g.cd > 0 ? 0 : en;
-      if (f > 0) {
+      if (en > 0) {
         ctx.beginPath();
-        ctx.arc(x + S / 2, y + S / 2, S / 2 - 4, -Math.PI / 2, -Math.PI / 2 + f * 6.2832);
+        ctx.arc(x + S / 2, y + S / 2, S / 2 - 4, -Math.PI / 2, -Math.PI / 2 + en * 6.2832);
         ctx.lineWidth = 3; ctx.strokeStyle = col; ctx.stroke();
       }
       ctx.font = F(700, cmp ? 12 : 13);
-      outlined(ctx, g.cd > 0 ? zLeft(g.cd) : Math.floor(en * 100) + '%', x + S / 2, y + S - (cmp ? 7 : 8), '#fff', 3);
+      outlined(ctx, Math.floor(en * 100) + '%', x + S / 2, y + S - (cmp ? 7 : 8), '#fff', 3);
     }
     ctx.font = N(900, 11);
     if (touch) {
