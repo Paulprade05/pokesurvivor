@@ -480,7 +480,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
         const cards = Object.entries(s.cards).map(([k, v]) => k + v).join(',');
         // (Los campos nuevos van detrás de caídas=N: report() lee hasta ahí.)
         log(`${tag} [${String(Math.floor(s.t / 60)).padStart(2)}:${String(s.t % 60).padStart(2, '0')}] Nv.${s.lv} ${s.form} v${s.vhp}/${s.max} en=${s.en} dmg/min=${Math.round(dm)} (${(dm / s.max).toFixed(1)}x) caídas=${nd} ` +
-            `bajas=${s.kills - lastKills} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
+            `bajas=${s.kills - lastKills} mg=${s.mg} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
             `ia=${s.ai.live > lastAi.live ? (100 * (s.ai.stuck - lastAi.stuck) / (s.ai.live - lastAi.live)).toFixed(1) : '-'}%/${s.ai.n > lastAi.n ? ((s.ai.under - lastAi.under) / (s.ai.n - lastAi.n)).toFixed(1) : '-'}/${s.ai.n > lastAi.n ? ((s.ai.swim - lastAi.swim) / (s.ai.n - lastAi.n)).toFixed(1) : '-'} ` +
             `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} | ${s.moves}`);
         lastKills = s.kills; lastDealt = s.dealt; ttks = []; lastAi = s.ai;

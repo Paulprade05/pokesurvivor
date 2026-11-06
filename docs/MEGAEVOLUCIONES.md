@@ -1,6 +1,6 @@
 # Megaevoluciones en PokéSurvivor
 
-> **Estado:** diseño revisado el 06-11-2026, con las decisiones del dueño ya tomadas (sección 10).
+> **Estado:** programado el 06-11-2026 (PR #23, #24 y el de la rama `megas`), con las decisiones del dueño (sección 10). Sin publicar.
 > Sustituye a la propuesta del 26-10-2026, que sigue en el historial de git. Datos: PokeAPI y
 > `tracker.json` de SpriteCollab, consultados el 06-11-2026; lo del juego, sacado del código de `main`.
 
@@ -76,12 +76,13 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 - Mientras dura la mega no se carga. Al acabar vuelve a 0 y empieza un **mínimo de 75 s** antes de poder repetir.
 - Si se llena antes de la forma final, espera llena.
 
-Lo que da con los ritmos medidos con el bot (derrotados por minuto):
+Medido con el bot en 3 partidas de 20 minutos, usando la mega en cuanto puede:
 
-| Jugador | Minutos 0-10 | Después | Primera barra llena | Megas en 18 min |
-|---|---|---|---|---|
-| Con mejoras | 60-100 | 200-600 | Minuto 4-5, y la mega al llegar a la forma final | 5 o 6 |
-| Sin mejoras | 30-40 | 30-40 | Minuto 8-10 | 1 |
+| Partida | Primera mega | Megas en 20 min |
+|---|---|---|
+| Charizard con mejoras | Minuto 7 (la barra se llenó en el 5, esperó a la forma final) | 4 |
+| Absol con mejoras | Minuto 11 | 2 |
+| Absol sin mejoras | Minuto 9 | 1 |
 
 Sin el mínimo, al final de la partida se recargaría en menos de un minuto y la mega estaría casi
 siempre puesta. Con él, nunca pasa de la mitad del tiempo. Es el número a vigilar al medir.
