@@ -148,6 +148,8 @@ G.RunsUI = (() => {
     const downs = (r.downs || []).map(d => `<li><span>${mmss(d.t)} · ${esc(source(d.by, nm))}</span><b>-${num(d.d)}</b></li>`).join('');
     const bosses = (r.bosses || []).map(b => `<li><span>${mmss(b.t)} · ${esc(source(b.k, nm))}</span><b>${b.kt != null ? esc(G.T('Vencido')) + ' ' + mmss(b.kt) : '—'}</b></li>`).join('');
     const picks = (r.cards || []).filter(c => c.p).length;
+    // (Pantalla negra, 06-11-2026) Lo que ha apuntado G.U.gfxLog en esta partida.
+    const gfx = (r.ev || []).filter(e => e[1] === 'gfx').slice(0, 12).map(e => `<li>${mmss(e[0])} · ${esc(String(e[2]))}</li>`).join('');
     return `<div class="run-sec"><h4>${esc(G.T('Ataques'))}</h4><div class="run-table-wrap"><table class="run-table">
         <thead><tr><th>${esc(G.T('Ataque'))}</th><th>${esc(G.T('Nv.'))}</th><th>${esc(G.T('Daño'))}</th><th>%</th><th>${esc(G.T('A jefes'))}</th>
         <th>${esc(G.T('A la horda'))}</th><th>${esc(G.T('Golpes'))}</th><th>${esc(G.T('Derrotados'))}</th><th>${esc(G.T('Daño/s'))}</th></tr></thead>
@@ -157,6 +159,7 @@ G.RunsUI = (() => {
         <div class="run-sec"><h4>${esc(G.T('Curación'))} · ${num(r.healed)} (${num(r.healed / dur * 10) / 10}/s)</h4><ul class="run-ul">${top(r.healBy, 8, healName) || '<li>—</li>'}</ul></div>
         <div class="run-sec"><h4>${esc(G.T('Caídas'))}</h4><ul class="run-ul">${downs || '<li>—</li>'}</ul></div>
         <div class="run-sec"><h4>${esc(G.T('Jefes'))}</h4><ul class="run-ul">${bosses || '<li>—</li>'}</ul></div>
+        ${gfx ? `<div class="run-sec"><h4>${esc(G.T('Fallos de dibujo'))}</h4><ul class="run-ul">${gfx}</ul></div>` : ''}
       </div>
       <p class="run-line">${esc(G.I18n.f('Cartas elegidas: {x}', picks))} · ${esc(G.T('Versión'))} <span translate="no">${esc(r.ver)}</span></p>`;
   }

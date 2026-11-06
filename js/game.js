@@ -40,15 +40,11 @@ G.Game = (() => {
     // (ResizeObserver) y, por si acaso, un poco después de cada aviso.
     addEventListener('orientationchange', resizeSoon);
     if (window.visualViewport) visualViewport.addEventListener('resize', resizeSoon);
-    if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(cv);
+    if (window.ResizeObserver) { cvRO = new ResizeObserver(() => resize()); cvRO.observe(cv); }
     G.Touch.init(cv);
     // En móvil: al cambiar de app o al girarlo, la partida se pausa (ver checkOrientation).
     document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); else gfxCheckT = 0; });
-    // (iPhone: pantalla negra, 01-11-2026) Si el navegador tira la memoria del lienzo (sin memoria, o al volver
-    // de otra app), el lienzo queda en negro hasta «contextrestored». Mientras, en pausa; al volver, todo lo
-    // horneado se suelta (se vuelve a hornear) y se reajusta el tamaño.
-    cv.addEventListener('contextlost', e => { e.preventDefault(); onCtxLost(); });
-    cv.addEventListener('contextrestored', onCtxBack);
+    bindCanvas();
     // Continuar: en grupo la pausa no para nada, sólo se cierra (sin saltarse
     // la espera si otro está eligiendo o el anfitrión no responde).
     G.RunUI.wirePause(() => { if (state === 'paused') state = 'playing'; G.UI.hideAll(); }, quitRun);
@@ -68,7 +64,14 @@ G.Game = (() => {
    * juntos; al pasarlo, los nuevos salen sin dibujo y el fotograma fallaba antes de pintar nada (negro).
    * Esto suelta todo lo que se puede volver a hacer: copias blancas, chunks horneados y los lienzos de Ultra.
    */
-  let ctxLost = false, purgedAt = -1e9;
+  let ctxLost = false, purgedAt = -1e9, cvRO = null;
+  // (iPhone: pantalla negra, 01-11-2026) Si el navegador tira la memoria del lienzo (sin memoria, o al volver
+  // de otra app), el lienzo queda en negro hasta «contextrestored». Mientras, en pausa; al volver, todo lo
+  // horneado se suelta (se vuelve a hornear) y se reajusta el tamaño.
+  function bindCanvas() {
+    cv.addEventListener('contextlost', e => { e.preventDefault(); onCtxLost(); });
+    cv.addEventListener('contextrestored', onCtxBack);
+  }
   function purgeGfx(emptied = false) {
     const now = performance.now();
     if (now - purgedAt < 500) return;      // una vez cada medio segundo como mucho (si no, rehornear sin parar)
@@ -83,7 +86,8 @@ G.Game = (() => {
     G.Ambient.purge();
     G.Hazards.purge();
     G.Combat.purgeWebs();
-    if (emptied) { G.Tileset.purge(); G.Tiles.clearProps(); }      // (vaciados por Safari: también árboles, rocas y hierba repintados)
+    // (Vaciados por Safari: también árboles, rocas y hierba repintados, los dibujos de los ataques y los degradados del HUD.)
+    if (emptied) { G.Tileset.purge(); G.Tiles.clearProps(); G.Icons.purge(); G.HUD.purge(); }
   }
 
   // (iPhone: ataques invisibles, 02-11-2026) Safari puede vaciar los lienzos guardados sin avisar (sin el
@@ -94,11 +98,121 @@ G.Game = (() => {
     if ((gfxCheckT -= real) > 0) return;
     gfxCheckT = 1.5;
     if (G.U.canvasAlive()) return;
-    console.warn('[Game] Safari ha vaciado los lienzos guardados: se vuelven a pintar');
+    G.U.gfxLog('vaciado', gfxState());
     purgedAt = -1e9; purgeGfx(true); Backdrop.stale();
   }
 
-  function onCtxLost() { if (ctxLost) return; ctxLost = true; autoPause(); purgedAt = -1e9; purgeGfx(); }
+  /** Lo que conviene saber de un fallo de dibujo (para G.U.gfxLog). */
+  function gfxState() {
+    const u = !!G.Camera.persp;
+    return 'min ' + (time / 60).toFixed(1) + ' calidad ' + G.Settings.get('quality') + (u ? ' 3d ' + (G.Ultra3D.on() ? 1 : 0) : '') + ' lienzo ' +
+           cv.width + '×' + cv.height + ' enemigos ' + (G.EnemyMgr.all ? G.EnemyMgr.all().length : 0) + ' bioma ' + G.World.biome;
+  }
+
+  /*
+   * (Pantalla negra, 06-11-2026) El vigilante. Lo que vio el dueño en su iPhone: la partida sigue, HUD y FPS (que son
+   * parte de este lienzo) se pintan, y debajo todo es negro puro: ni el mapa, ni tu Pokémon, ni nada, y sin ningún error.
+   * Por eso nada de lo de antes saltaba: el lienzo no estaba perdido y ningún fotograma fallaba. Hace lo único que no
+   * depende de saber la causa: mirar de verdad unos píxeles del mundo justo antes de pintar el HUD (blackWatch) y, si
+   * sale negro o vacío, rehacer el dibujo por pasos sin tocar la partida (rescue), apuntándolo (G.U.gfxLog).
+   * Sólo en iOS: en Chrome leer el lienzo a menudo lo pasa a la CPU, y allí no se ha visto este fallo.
+   */
+  let bwOn = G.U.IOS, bwNext = 0, bwHits = 0, bwStep = 0, bwWorld = '', rescueDue = null;
+  const BW_EVERY = 2000, BW_AGAIN = 300, BW_HITS = 3, BW_WAIT = 1500, BW_MAX = 6;
+
+  /** 'ok', 'negro' (opaco y negro), 'vacio' (transparente) o null si no se puede leer. */
+  function readWorld() {
+    try {
+      let black = 0, empty = 0;
+      for (const k of [0.22, 0.5, 0.78]) {
+        const d = ctx.getImageData(0, Math.floor(cv.height * k), cv.width, 1).data;
+        for (let i = 0; i < d.length; i += 64) {
+          if (d[i + 3] < 16) empty++;
+          else if (d[i] + d[i + 1] + d[i + 2] > 9) return 'ok';
+          else black++;
+        }
+      }
+      return black >= empty ? 'negro' : 'vacio';
+    } catch (e) { return null; }      // (file://: no deja leer)
+  }
+
+  /** Justo antes del HUD. Una vez cada BW_EVERY ms; con sospechas, más seguido. */
+  function blackWatch() {
+    const now = performance.now();
+    if (now < bwNext) return;
+    if (state !== 'playing' || G.Judgment.cinematic || G.Rift.traveling) { bwHits = 0; bwNext = now + BW_EVERY; return; }
+    const seen = readWorld();
+    if (seen === null) { bwOn = false; return; }
+    if (seen === 'ok') {
+      if (bwStep) {
+        G.U.gfxLog('recuperado', 'paso ' + bwStep + ' ' + gfxState());
+        G.UI.toast('Dibujo recuperado', 2500);
+      }
+      bwHits = 0; bwStep = 0; bwNext = now + BW_EVERY;
+      return;
+    }
+    bwNext = now + BW_AGAIN;
+    if (++bwHits < BW_HITS) return;
+    bwHits = 0;
+    rescueDue = seen;                 // (al empezar el siguiente fotograma: aquí a medio dibujar no se puede tocar el lienzo)
+    bwNext = now + (bwStep + 1 >= BW_MAX ? 30000 : BW_WAIT);
+  }
+
+  /**
+   * Rehace el dibujo sin tocar la partida. Cada vez que siga igual, un paso más:
+   *  1) números arreglados y todo lo guardado en lienzos, soltado (se vuelve a pintar),
+   *  2) además, este lienzo vaciado (el mismo elemento, con su contexto como nuevo),
+   *  3) en adelante, un lienzo nuevo en su sitio.
+   * bwWorld (qué había antes de la viñeta) dice dónde está el fallo: si ya era negro, en el mundo; si no, en lo de encima.
+   */
+  function rescue(seen) {
+    bwStep++;
+    G.U.gfxLog('negro', seen + ' antes-de-velos ' + bwWorld + ' paso ' + bwStep + ' ' + gfxState());
+    saneView();
+    purgedAt = -1e9; purgeGfx(true); Backdrop.stale();
+    if (bwStep === 2) wipeCanvas();
+    else if (bwStep >= 3) remakeCanvas();
+  }
+
+  /** Vacía el lienzo y su estado (también los ctx.save() sin su restore de un fotograma cortado). */
+  function wipeCanvas() {
+    const W = cv.width;
+    cv.width = W;
+    Backdrop.stale();
+  }
+
+  /** Cambia el lienzo del juego por uno nuevo, en el mismo sitio y con lo mismo que escuchaba. */
+  function remakeCanvas() {
+    const nv = cv.cloneNode(false), nx = nv.getContext('2d');
+    if (!nx) { G.U.freeCanvas(nv); return false; }     // (sin memoria de lienzos: se sigue con el que hay)
+    const old = cv;
+    if (cvRO) cvRO.unobserve(old);
+    old.replaceWith(nv);
+    cv = nv; ctx = nx;
+    G.U.freeCanvas(old);
+    bindCanvas();
+    G.Touch.bind(cv);
+    if (cvRO) cvRO.observe(cv);
+    dpr = 0; resize();
+    return true;
+  }
+
+  /*
+   * Posición de tu Pokémon y de la cámara. Un NaN aquí (una división entre 0 en algún empujón) deja la pantalla sin
+   * mundo y ya no se arregla solo: el lienzo ignora la cámara y nada «se ve». Se vuelve al último sitio bueno.
+   */
+  let goodX = 0, goodY = 0;
+  function saneView() {
+    if (!pl) return;
+    const c = G.Camera, fin = Number.isFinite;
+    if (fin(pl.x) && fin(pl.y)) { goodX = pl.x; goodY = pl.y; }
+    else { G.U.gfxLog('nan', 'jugador ' + gfxState()); pl.x = goodX; pl.y = goodY; }
+    if (!fin(c.x) || !fin(c.y)) { G.U.gfxLog('nan', 'camara ' + gfxState()); c.x = pl.x; c.y = pl.y; }
+    if (!fin(c._sx) || !fin(c._sy) || !fin(c.shake)) { c._sx = c._sy = c.shake = 0; }
+    if (!(c.scale > 0) || !fin(c.w) || !fin(c.h)) { G.U.gfxLog('nan', 'escala ' + gfxState()); c.resize(w, h, dpr); }
+  }
+
+  function onCtxLost() { if (ctxLost) return; ctxLost = true; G.U.gfxLog('perdido', gfxState()); autoPause(); purgedAt = -1e9; purgeGfx(); }
   function onCtxBack() { if (!ctxLost) return; ctxLost = false; purgedAt = -1e9; purgeGfx(); dpr = 0; resize(); }
 
   function resize() {
@@ -238,6 +352,7 @@ G.Game = (() => {
     // Registro de la partida (core/registro.js): lo que pasa en ella, para estudiarla luego.
     try { G.Reg.start(pl, { chosen, coop, upg: G.DB.upgradesOf(chosen), seed: G.World.seed }); }
     catch (e) { console.error('[Game] no se pudo empezar el registro:', e); }
+    bwNext = performance.now() + 4000; bwHits = 0; bwStep = 0; goodX = pl ? pl.x : 0; goodY = pl ? pl.y : 0;
   }
 
   // ---------------- evoluciones en partida (24-10-2026) ----------------
@@ -900,14 +1015,25 @@ G.Game = (() => {
   // Si falla fotograma tras fotograma (el juego ya no avanza ni se ve), la
   // partida se da por terminada a los ~3 s y se guarda: tiempo, derrotados,
   // récords y ranking. Mejor eso que una pantalla negra y perderlo todo.
-  let loopErrs = 0, errRun = 0;
+  let loopErrs = 0, errRun = 0, drawing = false, wipedAt = -1e9;
   function loop(ts) {
     requestAnimationFrame(loop);
     try { frame(ts); errRun = 0; }
     catch (e) {
-      if (loopErrs++ < 5) console.error('[Game] fallo en un fotograma:', e);
+      if (loopErrs++ < 5) {
+        console.error('[Game] fallo en un fotograma:', e);
+        G.U.gfxLog('fotograma', (e && (e.name + ': ' + e.message)) + ' ' + (drawing ? 'dibujando' : 'en la logica'));
+      }
       G.Input.endFrame();
-      try { purgeGfx(); } catch (e2) { /* (por si el fallo es de memoria de lienzos: se suelta lo horneado) */ }
+      // (Pantalla negra, 06-11-2026) Si se cortó dibujando, el lienzo se queda con los ctx.save() sin su restore y lo
+      // que hubiera a medias (transparencia, recorte...): se deja limpio. Y lo horneado, sólo si vuelve a fallar: un
+      // fallo suelto no es de memoria y soltarlo todo era un tirón.
+      if (drawing) {
+        drawing = false;
+        const t = performance.now();
+        if (t - wipedAt > 500) { wipedAt = t; try { wipeCanvas(); } catch (e2) { /* (sigue) */ } }
+        if (errRun > 0) try { purgeGfx(); } catch (e2) { /* (por si el fallo es de memoria de lienzos: se suelta lo horneado) */ }
+      }
       if (++errRun === 180 && pl && state !== 'ui' && state !== 'over') {
         try {
           G.UI.hideAll();
@@ -931,6 +1057,8 @@ G.Game = (() => {
     if (flashT > 0) flashT -= dt;
     watchdog(real);
     gfxCheck(real);
+    saneView();
+    if (rescueDue) { const seen = rescueDue; rescueDue = null; rescue(seen); }
     // (Por si el navegador no avisa con el evento: se mira el lienzo, que es barato.)
     if (ctx.isContextLost && ctx.isContextLost() !== ctxLost) (ctxLost ? onCtxBack : onCtxLost)();
     // Red de seguridad: si la ventana ha cambiado de tamaño (girar el móvil) y no ha
@@ -1354,8 +1482,8 @@ G.Game = (() => {
     ctx.restore();
   }
 
-  let fogG = null, fogW = 0, fogH = 0;
   function render() {
+    drawing = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (!G.Camera.persp) ctx.clearRect(0, 0, w, h);     // (en Ultra el suelo ya tapa toda la pantalla)
     ctx.imageSmoothingEnabled = false;
@@ -1379,23 +1507,18 @@ G.Game = (() => {
       ctx.restore();
     }
 
+    if (bwHits) bwWorld = readWorld() || '';      // (con sospechas: cómo está el mundo antes de los velos de encima)
     G.Weather.draw(ctx, w, h, frameDt);
     G.World.drawVignette(ctx, w, h);
     // Niebla: la viñeta se cierra un poco (sin tapar el centro).
     // (El degradado se guarda y la intensidad va con globalAlpha: mismo resultado.)
     const fog = G.Weather.vignette;
     if (fog > 0) {
-      if (!fogG || fogW !== w || fogH !== h) {
-        fogG = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.32, w / 2, h / 2, Math.max(w, h) * 0.62);
-        fogG.addColorStop(0, 'rgba(200,205,220,0)');
-        fogG.addColorStop(1, 'rgba(200,205,220,.45)');
-        fogW = w; fogH = h;
-      }
       ctx.globalAlpha = Math.min(1, fog);
-      ctx.fillStyle = fogG;
-      ctx.fillRect(0, 0, w, h);
+      G.World.drawEdge(ctx, w, h, '200,205,220', 0.45, 0.32, 0.62);
       ctx.globalAlpha = 1;
     }
+    if (bwOn) blackWatch();
     if (!G.Judgment.cinematic) G.HUD.draw(ctx, w, h, pl, st);
     G.Judgment.drawOverlay(ctx, w, h);
     // (En el viaje por la grieta no hay HUD ni joystick: toda la pantalla es el botón de saltarlo.)
@@ -1417,6 +1540,7 @@ G.Game = (() => {
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
     }
+    drawing = false;
   }
 
   // ---------------- fondo de los menús ----------------
@@ -1548,6 +1672,8 @@ G.Game = (() => {
     quit() { if (state !== 'ui' && state !== 'over') quitRun(); },
     /** Llamar antes de recargar o salir a propósito: el navegador no pregunta. */
     allowLeave() { leaving = true; },
+    /** Para pruebas: enciende el vigilante de la pantalla negra (fuera de iOS va apagado) y dice cómo va. */
+    debugWatch(on = true) { bwOn = on; bwNext = 0; return { step: bwStep, hits: bwHits, world: bwWorld, canvas: cv }; },
     /** Para grabar vídeos: abre las cartas de subir de nivel. */
     debugLevelUp() { tampered = true; pl.level++; pendingLevels++; },
     toUI() { state = 'ui'; if (cv) cv.style.cursor = ''; Backdrop.restore(); },

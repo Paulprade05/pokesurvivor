@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Pantalla negra en iPhone", "Black screen on iPhone"], fix: [
+    ["Si en plena partida el mapa y los Pokémon desaparecen y queda todo negro, el juego ahora se da cuenta y lo vuelve a dibujar solo, sin cortar la partida. Sale el aviso «Dibujo recuperado».",
+     "If the map and Pokémon disappear mid-run and everything goes black, the game now notices and redraws it by itself, without stopping the run. You'll see a \"Graphics recovered\" notice."],
+    ["Los iconos de los ataques también vuelven a dibujarse si se pierden.",
+     "Move icons are also redrawn if they get lost."],
+    ["La pantalla de elegir objeto ya ocupa todo el ancho en el móvil tumbado, sin una franja del juego a la derecha.",
+     "The item choice screen now fills the whole width on a phone in landscape, with no strip of the game on the right."],
+    ["Arreglado un fallo que cortaba algún fotograma con muchos avisos de ataques de jefes en pantalla.",
+     "Fixed a bug that could drop frames with lots of boss attack warnings on screen."]] },
   { d: '2026-11-06', title: ["Pasivas hasta el nivel 10", "Passives up to level 10"], chg: [
     ["Todas las pasivas suben ahora hasta el nivel 10, y Réplica hasta el 4. Antes se quedaban en 4, 5, 6 u 8 (Potencia ya llegaba a 10), así que al final de la partida eres bastante más fuerte.",
      "All passives now go up to level 10, and Replica up to 4. They used to stop at 4, 5, 6 or 8 (Power already reached 10), so you're much stronger late in a run."],

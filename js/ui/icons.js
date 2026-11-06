@@ -903,6 +903,7 @@ G.Icons = (() => {
     cv = document.createElement('canvas');
     cv.width = cv.height = 30;
     const c = cv.getContext('2d');
+    if (!c) { G.U.freeCanvas(cv); return null; }     // (sin memoria de lienzos: sin icono este fotograma, sin cortar el dibujo)
     for (let y = 0; y < 30; y++) for (let x = 0; x < 30;) {
       const v = a.px[y * 30 + x];
       let n = 1;
@@ -1141,6 +1142,7 @@ G.Icons = (() => {
 
   /** Dibujo de un ataque (30×30) en la caja size×size: cerca de un múltiplo entero (±12 %), a ese múltiplo. */
   function drawArt(ctx, cv, x, y, size) {
+    if (!cv) return;
     let k = size / 30;
     const kr = Math.round(k);
     if (kr >= 1 && Math.abs(k - kr) <= kr * 0.12) k = kr;
@@ -1235,6 +1237,16 @@ G.Icons = (() => {
     return true;
   }
   function purgeChunks() { for (const c of chunks.values()) if (c) G.U.freeCanvas(c); chunks.clear(); }
+  /**
+   * (Pantalla negra, 06-11-2026) Suelta los dibujos guardados en lienzos: se rehacen al dibujar. Los de los ataques se
+   * guardaban para siempre: vaciados por Safari, el HUD se quedaba sin ningún icono de ataque hasta cerrar la app.
+   */
+  function purge() {
+    purgeChunks();
+    for (const c of artCanvases.values()) G.U.freeCanvas(c);
+    for (const c of cache.values()) if (c) G.U.freeCanvas(c);
+    artCanvases.clear(); cache.clear();
+  }
 
   /** Pide ya todos los sprites (los usa el canvas: HUD, objetos del suelo, tienda...). */
   function preload() {
@@ -1285,6 +1297,6 @@ G.Icons = (() => {
     r.setProperty('--ico-cursor', `url("${url('cursor')}")`);
   }
 
-  return { canvas, url, html, draw, sprite, chunky, purgeChunks, preload, has, twinkle, rarity, RARITY_BALL, installCss,
+  return { canvas, url, html, draw, sprite, chunky, purgeChunks, purge, preload, has, twinkle, rarity, RARITY_BALL, installCss,
            moveArt, ITEM, TM, UI: LEGACY, TYPE_GLYPH };
 })();

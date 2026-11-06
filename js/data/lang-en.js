@@ -2292,5 +2292,7 @@ G.I18n.add({
   "Los resúmenes anónimos de todos los jugadores (sólo el dueño)": "Anonymous summaries from all players (owner only)",
   "Descargando…": "Downloading…",
   "Animaciones": "Animations",
+  "Dibujo recuperado": "Graphics recovered",
+  "Fallos de dibujo": "Drawing errors",
   "Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.": "Trees and grass in the wind, critters, water, pickups and attack flourishes. Turn it off if your device struggles: the world stays still and attacks are still shown."
 });
