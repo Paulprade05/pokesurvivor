@@ -61,6 +61,7 @@ G.Tileset = (() => {
   const px = {};
   const TM = 2;                                     // (arte animado) hueco del árbol a los lados y arriba, para que el viento no lo corte
   const FH = 16;                                    // alto de la cara de roca de una pared (px de arte; cliff.png)
+  const FH3 = 20;                                   // (Ultra 3D) la misma cara con su pie en sombra
 
   /** ¿Se usan? (hay datos y el interruptor de Ajustes está encendido) */
   function enabled() { return !!(G.TILESETS && G.TILESETS.length) && G.Settings.get('pmdTiles') !== false; }
@@ -166,7 +167,7 @@ G.Tileset = (() => {
    * Hornea un chunk: N×N casillas de 24 px (world.js lo dibuja a su tamaño en el mundo, CW). at(tx, ty) -> terreno de
    * world.js (0 suelo, 1 pared, 2 líquido), también fuera del chunk (sin costuras).
    */
-  function paintChunk(cx, cy, N, at, bi, seed, flat3d = false) {
+  function paintChunk(cx, cy, N, at, bi, seed, flat3d = false, grassAt = null) {
     const s = st[bi], m = meta[bi];
     const cv = document.createElement('canvas');
     cv.width = cv.height = N * T;
@@ -175,7 +176,14 @@ G.Tileset = (() => {
     g.imageSmoothingEnabled = false;
     // (Mundo integrado, 06-11-2026) Como en Mundo Misterioso: suelo, paredes y líquido salen de las piezas de autotile del
     // tileset, con su borde irregular y la franja de plantas o cristales que hace de transición. Nada se dibuja encima con otro estilo.
-    const fl = floorSheet(s, m, bi);
+    const fl = floorSheet(s, m, bi), seat = grassAt ? seatSheet(bi) : null;
+    // (Hierba integrada) ¿Hay hierba en esta casilla o en la de al lado? Cada consulta cuesta un ruido: una vez por casilla.
+    const W2 = N + 2, known = seat ? new Int8Array(W2 * W2).fill(-1) : null, x0 = cx * N, y0 = cy * N;
+    const has = (tx, ty) => {
+      const o = (ty - y0 + 1) * W2 + tx - x0 + 1;
+      if (known[o] < 0) known[o] = grassAt(tx, ty) ? 1 : 0;
+      return known[o];
+    };
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const tx = cx * N + i, ty = cy * N + j, t = at(tx, ty), sec = SEC[t];
       // (Ultra 3D) Las paredes las levanta ultra3d.js en 3D: aquí sólo el suelo (queda tapado).
@@ -183,15 +191,129 @@ G.Tileset = (() => {
       // Debajo, el suelo lleno (algunas casillas de pared o agua tienen huecos transparentes).
       if (sec !== 2) g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, i * T, j * T, T, T);
       const cell = cellOf(at, tx, ty, t);
-      if (t === 0 && cell === FULL && fl) {
+      const full = t === 0 && cell === FULL && fl;
+      if (full) {
         // (Lo normal, la casilla limpia y sus espejos; de vez en cuando, una de las variaciones, que llevan ramitas o marcas.)
         const h = H(tx, ty, seed + 813), n = fl.width / T, f = h < 0.93 || n <= 4 ? Math.floor(H(tx, ty, seed + 814) * 4) : 4 + Math.floor(H(tx, ty, seed + 815) * (n - 4));
         g.drawImage(fl, f * T, 0, T, T, i * T, j * T, T, T);
-        decor(g, at, tx, ty, i * T, j * T, bi, seed);
       } else g.drawImage(srcOf(s, m, sec, cell, tx, ty, seed), (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
+      if (seat && t === 0) {
+        const bits = has(tx, ty - 1) | has(tx + 1, ty) << 1 | has(tx, ty + 1) << 2 | has(tx - 1, ty) << 3, self = has(tx, ty);
+        if (self || bits) g.drawImage(seat, bits * T, (self * 2 + (H(tx, ty, seed + 821) < 0.5 ? 0 : 1)) * T, T, T, i * T, j * T, T, T);
+      }
+      if (full) decor(g, at, tx, ty, i * T, j * T, bi, seed);
+      if (flat3d && t === 0) {
+        const nW = at(tx, ty - 1) === 1, wW = at(tx - 1, ty) === 1, eW = at(tx + 1, ty) === 1;
+        if (nW || wW || eW) footShade(g, i * T, j * T, m.pal.edge, nW, wW, eW);
+      }
     }
     cv.pmd = true;
     return cv;
+  }
+
+  /** Mezcla dos colores #rrggbb; devuelve [r, g, b]. */
+  const hex3 = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const mix3 = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const css3 = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+
+  /**
+   * (Hierba integrada, 06-11-2026) La hierba no se posa encima: nace del suelo. En Mundo Misterioso las plantas son parte del terreno,
+   * con tierra oscura debajo y brotes pequeños alrededor. Aquí, una hoja de 4 filas (casilla sin o con hierba, 2 aspectos) y 16 columnas
+   * (qué vecinos tienen hierba: N 1, E 2, S 4, O 8): manchas de tierra húmeda que dejan ver la textura del suelo, se deshacen hacia los
+   * bordes y siguen unos píxeles fuera. El ruido se repite cada casilla y sus bordes son iguales en los dos aspectos, sin cortes.
+   */
+  function seatSheet(bi) {
+    const k = 'seat/' + bi;
+    if (propCache.has(k)) return propCache.get(k);
+    const m = meta[bi];
+    if (!m.pal) return null;
+    const cv = document.createElement('canvas');
+    cv.width = 16 * T; cv.height = 4 * T;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return null; }
+    const fl = m.pal.floor.map(hex3), gr = m.pal.grass.map(hex3), ed = hex3(m.pal.edge);
+    const deep = mix3(mix3(fl[0], ed, 0.16), gr[1], 0.4), soft = mix3(fl[1], gr[1], 0.42);
+    const sprig = mix3(gr[1], fl[2], 0.16), tip = mix3(gr[2], fl[3], 0.12);
+    const lat = (i, j, look, n) => {
+      i = (i + n) % n; j = (j + n) % n;
+      return H(i * 7 + n, j * 5 + n, i && j ? 11 + look * 37 : 11);
+    };
+    const bil = (x, y, S, look) => {
+      const n = T / S, i = Math.floor(x / S), j = Math.floor(y / S), u = x / S - i, v = y / S - j;
+      const a = lat(i, j, look, n), b = lat(i + 1, j, look, n), c = lat(i, j + 1, look, n), e = lat(i + 1, j + 1, look, n);
+      return (a + (b - a) * u) * (1 - v) + (c + (e - c) * u) * v;
+    };
+    const cl = v => Math.max(0, Math.min(1, v));
+    let d;
+    try { d = g.createImageData(cv.width, cv.height); } catch (e) { G.U.freeCanvas(cv); return null; }
+    const put = (x, y, c, a) => { const o = (y * cv.width + x) * 4; d.data[o] = c[0]; d.data[o + 1] = c[1]; d.data[o + 2] = c[2]; d.data[o + 3] = a; };
+    for (let row = 0; row < 4; row++) for (let bits = 0; bits < 16; bits++) {
+      const self = row >> 1, look = row & 1, X = bits * T, Y = row * T;
+      const weight = (x, y) => {
+        const D = [y, T - 1 - x, T - 1 - y, x];
+        let w = self ? 1 : 0;
+        for (let s = 0; s < 4; s++) {
+          const on = (bits >> s) & 1, q = cl(D[s] / 7);
+          if (self && !on) w = Math.min(w, 0.35 + 0.65 * q);
+          if (!self && on) w = Math.max(w, 0.35 * (1 - q));
+        }
+        return w;
+      };
+      for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+        const w = weight(x, y), v = cl((0.6 * bil(x, y, 4, look) + 0.4 * bil(x, y, 2, look) - 0.25) * 2);
+        if (v >= w * 0.9) continue;
+        if (v < w * 0.34) put(X + x, Y + y, deep, 150); else put(X + x, Y + y, soft, 120);
+      }
+      // Brotes sueltos, dentro de la mancha.
+      for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) {
+        const px = i * 5 + 1 + Math.floor(H(i + look * 5, j, 901) * 3), py = j * 5 + 2 + Math.floor(H(i, j + look * 5, 902) * 3);
+        if (px < 1 || px > T - 2 || py > T - 1 || weight(px, py) < 0.5 || H(i, j, 903 + look) > 0.74) continue;
+        put(X + px, Y + py, sprig, 255); put(X + px - 1, Y + py - 1, sprig, 255); put(X + px + 1, Y + py - 1, sprig, 255); put(X + px, Y + py - 2, tip, 255);
+      }
+    }
+    g.putImageData(d, 0, 0);
+    propCache.set(k, cv);
+    return cv;
+  }
+
+  /** (Objetos integrados) Una fila de sombra justo debajo de cada dibujo y sus colores, algo más cerca del suelo: así apoyan en él. */
+  function grounded(g, cv, m) {
+    let d;
+    try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { return; }
+    const a = d.data, W = cv.width, fl = hex3(m.pal.floor[1]), sh = mix3(hex3(m.pal.floor[0]), hex3(m.pal.edge), 0.42), edge = hex3(m.pal.edge);
+    for (let i = 0; i < a.length; i += 4) {
+      if (a[i + 3] < 128 || (a[i] === edge[0] && a[i + 1] === edge[1] && a[i + 2] === edge[2])) continue;
+      const c = mix3([a[i], a[i + 1], a[i + 2]], fl, 0.14);
+      a[i] = c[0]; a[i + 1] = c[1]; a[i + 2] = c[2];
+    }
+    for (let y = cv.height - 1; y > 0; y--) for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4, u = o - W * 4;
+      if (a[o + 3] < 128 && a[u + 3] >= 128) { a[o] = sh[0]; a[o + 1] = sh[1]; a[o + 2] = sh[2]; a[o + 3] = 150; }
+    }
+    g.putImageData(d, 0, 0);
+  }
+
+  /** (Ultra) Dónde el muro toca el suelo, el suelo se oscurece a escalones: es lo que hace que parezca que está de pie. */
+  function footShade(g, x, y, edge, N, W, E) {
+    g.fillStyle = edge;
+    const step = [0.34, 0.24, 0.14, 0.07];
+    for (let k = 0; k < 4; k++) {
+      g.globalAlpha = step[k];
+      if (N) g.fillRect(x, y + k * 2, T, 2);
+      if (W && k < 2) g.fillRect(x + k * 2, y, 2, T);
+      if (E && k < 2) g.fillRect(x + T - 2 - k * 2, y, 2, T);
+    }
+    g.globalAlpha = 1;
+  }
+
+  /** (Ultra) La bruma de lo lejano: {c, a}. Clara al aire libre, oscura en lo que ya es oscuro. */
+  function haze(bi) {
+    const m = meta[bi];
+    if (!m || !m.pal) return null;
+    if (m.haze) return m.haze;
+    const f = hex3(m.pal.floor[2]), lum = f[0] * 0.3 + f[1] * 0.59 + f[2] * 0.11;
+    m.haze = lum > 88 ? { c: css3(mix3(f, [214, 232, 255], 0.62)), a: 0.26 } : { c: css3(mix3(hex3(m.pal.edge), hex3(m.pal.wall[0]), 0.4)), a: 0.4 };
+    return m.haze;
   }
 
   /** El contorno casi negro de los dibujos pasa al tono oscuro del tileset: los Pokémon lo llevan negro, el terreno no. */
@@ -215,6 +337,7 @@ G.Tileset = (() => {
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(im, 0, 0);
     softEdge(g, cv, meta[bi]);
+    grounded(g, cv, meta[bi]);
     propCache.set(k, cv);
     return cv;
   }
@@ -260,6 +383,7 @@ G.Tileset = (() => {
     const n = ramped(im, [64, 16], m.pal.rock);
     if (n) { g.clearRect(0, 64, WW, 16); g.drawImage(n, 0, 64); G.U.freeCanvas(n); }
     softEdge(g, cv, m);
+    grounded(g, cv, m);
     propCache.set(k, cv);
     return cv;
   }
@@ -300,7 +424,10 @@ G.Tileset = (() => {
       const tx = cx * N + i, ty = cy * N + j;
       if (at(tx, ty) !== 1) continue;
       const cell = cellOf(at, tx, ty, 1), x = i * T, y = j * T;
-      g.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, x, y, T, T);
+      // Debajo, el interior del muro y no el suelo: lo de arriba es una sola masa.
+      g.fillStyle = m.pal.wall[0];
+      g.fillRect(x, y, T, T);
+      g.drawImage(s.sheet, FULL % 6 * T, ((FULL / 6) | 0) * T, T, T, x, y, T, T);
       g.drawImage(srcOf(s, m, 0, cell, tx, ty, seed), (cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, T, T);
     }
     return cv;
@@ -311,11 +438,19 @@ G.Tileset = (() => {
     const face = ready(bi) ? cliffFace(bi) : null;
     if (!face) return null;
     const cv = document.createElement('canvas');
-    cv.width = face.width; cv.height = FH;
+    cv.width = face.width; cv.height = FH3;
     const g = cv.getContext('2d');
     if (!g) { G.U.freeCanvas(cv); return null; }
     const W = cv.width;
-    g.drawImage(face, 0, 0);
+    g.imageSmoothingEnabled = false;
+    // Más alta que la cara: repite su tramo de abajo y se hunde en sombra a escalones hasta tocar el suelo.
+    g.drawImage(face, 0, 8, W, 6, 0, FH - 2, W, 6);
+    g.drawImage(face, 0, 0, W, FH - 2, 0, 0, W, FH - 2);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = meta[bi].pal.edge;
+    [[9, 0.1], [13, 0.14], [16, 0.16], [18, 0.16]].forEach(([y, a]) => { g.globalAlpha = a; g.fillRect(0, y, W, FH3 - y); });
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
     propCache.set(k, cv);
     return cv;
   }
@@ -382,14 +517,17 @@ G.Tileset = (() => {
     if (!im || !m.pal) return null;
     const k = 'cliff/' + bi;
     if (propCache.has(k)) return propCache.get(k);
-    const B = G.Tiles.BIOMES[bi], gr = topRamp(bi), face = ramped(im, WS.cliff, [m.pal.edge, ...m.pal.rock]);
+    // (2,5D) La cara es del mismo material que el suelo y más oscura, no una franja gris aparte.
+    const earth = m.pal.rock.map((c, i) => css3(mix3(mix3(hex3(c), hex3(m.pal.floor[i]), 0.68), hex3(m.pal.edge), 0.16)));
+    const line = css3(mix3(hex3(m.pal.edge), hex3(m.pal.floor[0]), 0.4));
+    const B = G.Tiles.BIOMES[bi], gr = topRamp(bi), face = ramped(im, WS.cliff, [line, ...earth]);
     if (!face) return null;
     const g = face.getContext('2d');
     const over = (part, ramp) => { const c = ramped(im, WS[part], ramp); if (c) { g.drawImage(c, 0, 0); G.U.freeCanvas(c); } };
-    if (B.ground === 'grass') over('vine', [m.pal.edge, ...m.pal.grass]);
-    else if (B.ground === 'stone') over('crystal', [m.pal.edge, ...B.leaf]);
+    if (B.ground === 'grass') over('vine', [line, ...m.pal.grass]);
+    else if (B.ground === 'stone') over('crystal', [line, ...B.leaf]);
     else if (B.ground === 'ash') over('magma', null);
-    over('lip', [m.pal.edge, ...gr]);
+    over('lip', [line, ...gr]);
     face.pxArt = true;
     propCache.set(k, face);
     return face;
@@ -548,7 +686,8 @@ G.Tileset = (() => {
     if (propCache.has(k)) return propCache.get(k);
     const im = pxImg('wallset'), m = meta[bi];
     if (!im || !m.pal) return null;
-    const row = ramped(im, WS.rock, [m.pal.edge, ...m.pal.rock]);
+    // (Objetos integrados) Contorno entre el oscuro del mapa y su suelo: la roca sigue leyéndose, sin parecer recortada.
+    const row = ramped(im, WS.rock, [css3(mix3(hex3(m.pal.edge), hex3(m.pal.floor[0]), 0.4)), ...m.pal.rock]);
     const moss = G.Tiles.BIOMES[bi].ground === 'grass' ? ramped(im, WS.moss, m.pal.grass) : null;
     const cv = document.createElement('canvas');
     cv.width = 22; cv.height = 17;
@@ -585,6 +724,6 @@ G.Tileset = (() => {
   /** Suelta los árboles, rocas y caras repintados (Safari los ha vaciado, game.js gfxCheck); se rehacen al dibujar. */
   function purge() { for (const c of propCache.values()) G.U.freeCanvas(c); propCache.clear(); }
 
-  return { T, RULE, FH, cliffFace, floraSheet, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
+  return { T, RULE, FH, FH3, haze, cliffFace, floraSheet, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
     set onReady(fn) { onReady = fn; } };
 })();

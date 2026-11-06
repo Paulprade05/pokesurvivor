@@ -19,6 +19,16 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 5. **Las sombras van a píxeles.** Nada de elipses lisas ni tramas por encima del suelo.
 6. **Sin tapar el arte:** ni manchas de nubes ni viñetas fuertes.
 7. **Pocos adornos:** la franja del tileset ya da vida. Lo demás, escaso y con causa.
+8. **Las plantas nacen del suelo, no se posan encima.** La hierba lleva debajo una mancha horneada en el suelo que deja ver su textura y se deshace por los bordes (`tileset.js seatSheet`), y sus matas son bajas, sin contorno y con la base del tono de esa mancha (`tiles.js grass24`).
+9. **Lo que apoya en el suelo lleva sombra de contacto** (`tileset.js grounded`) y un contorno que no sea más oscuro que el del mapa.
+10. **En Ultra, muro y suelo son del mismo material:** la cara mezcla roca y suelo y se oscurece a escalones hacia el pie; sombras y contornos usan el tono oscuro del mapa, nunca negro; lo lejano se pierde en una bruma a franjas (`tileset.js haze`, `game.js`).
+
+## Referencias
+Capturas de Exploradores del Cielo en Mystery Dungeon Franchise Wiki. Se toma la técnica, no los mapas ni los dibujos.
+- **Bosque de Manzanos (Apple Woods):** hojitas pálidas por todo el suelo y plantas planas, sin contorno.
+- **Llanura Amperio (Amp Plains):** guijarros junto al muro y cara de roca con la paleta de la cima.
+- **Cueva Cristal (Crystal Cave):** cristales pequeños como transición y fondo oscuro.
+- **Cueva de Vapor (Steam Cave):** musgo sobre tierra oscura, hundido en el suelo, y luz con un tono propio del lugar.
 
 ## Cómo se comprueba
 - `auditar.cjs` hace 4 capturas de cada mapa: junto a muro, junto a agua, muro y agua, y campo abierto.
@@ -28,7 +38,7 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 ## Dónde está
 - Dibujos propios: `tools/pxl/*.px.js`, en `assets/pxl/`. Construir: `PXL=<carpeta de claude-pxl> node tools/pxl/build.cjs`.
 - Tilesets: `assets/tiles-pmd/`, con `tools/fetch_tiles.py`.
-- Hierba: `tiles.js grass24`. Objetos del suelo: `icons.js chunky`.
+- Hierba: `tiles.js grass24` y `tileset.js seatSheet`. Objetos del suelo: `icons.js chunky`.
 
 ## Lo que no cumple y por qué
 - **Ultra:** la perspectiva cambia la escala con la altura, así que los píxeles no pueden ser iguales.
