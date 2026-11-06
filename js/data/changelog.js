@@ -6,6 +6,21 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Niebla y ambiente en el mundo", "Fog and atmosphere in the world"], new: [
+    ["El mundo tiene ambiente: bancos de niebla que se mueven despacio pegados al suelo, zonas de luz y de sombra y un tono propio en cada mapa. La niebla va por debajo de enemigos, disparos, avisos y recompensas, así que nunca tapa nada.",
+     "The world has atmosphere now: slow banks of fog hugging the ground, patches of light and shadow, and a mood of its own for each map. The fog stays under enemies, shots, warnings and rewards, so it never hides anything."],
+    ["Cae la tarde durante la partida: desde el minuto 4 el suelo se va oscureciendo y a los 20 es de noche. Los Pokémon y los ataques no se oscurecen, y el clima Niebla la hace más espesa.",
+     "Evening falls during a run: from minute 4 the ground slowly darkens and by minute 20 it's night. Pokémon and attacks stay bright, and Fog weather thickens the mist."]],
+  chg: [
+    ["Los adornos ya casan con el suelo: setas, flores, ramitas y piedras con colores menos chillones, sin cerco verde y más escasos. Lo que crece sale junto a la hierba, no suelto en medio de la tierra.",
+     "Scenery now blends with the ground: mushrooms, flowers, twigs and stones have calmer colours, no green outline and show up less often. Plants grow near grass, not alone in bare dirt."],
+    ["El interior de los muros queda en penumbra, para que no tire de la vista, y la hierba se funde mejor con la tierra.",
+     "The inside of walls now sits in shade so it doesn't pull your eye, and grass fades into the dirt more smoothly."],
+    ["Los mapas abiertos también tienen luciérnagas. Con calidad Baja no hay niebla en movimiento, para que siga yendo ligero.",
+     "Open maps get fireflies too. On Low quality there's no moving fog, so it stays light."]],
+  fix: [
+    ["El líquido de cada mapa ya es del color que le toca: Pico Celeste, Selva Esmeralda, Templo Mental, Central Voltio, Cementerio y otros tenían agua que no cuadraba.",
+     "Each map's liquid now has the right colour: Sky Peak, Emerald Jungle, Mind Temple, Volt Plant, Graveyard and others had water that didn't fit."]] },
   { d: '2026-11-06', title: ["Megaevoluciones", "Mega Evolution"], new: [
     ["Llegan las megaevoluciones: 43 Pokémon pueden transformarse durante 75 segundos, con otro aspecto, más daño, menos daño recibido y, a veces, otro tipo y otra habilidad.",
      "Mega Evolution is here: 43 Pokémon can transform for 75 seconds, with a new look, more damage, less damage taken and sometimes a new type and Ability."],
