@@ -54,3 +54,15 @@ El dueño pidió usar el skill y dejar PixelLab. Fuentes en `tools/pxl/*.px.js`,
 | Rocas | Regular: sombreado liso | Facetas como la pared; con musgo en los bosques. En Ultra 3D siguen siendo su modelo |
 | Trampas de veneno y telaraña | Regular | Redibujadas. Las setas explosivas se quedan |
 | Cofres, torres, manantiales | Buena | Sin cambiar: ya casan con el estilo |
+
+## Tercera tanda: estilo de los Pokémon (06-11-2026)
+Reglas en `docs/ESTILO-ARTE.md`.
+
+| Asset | Antes | Ahora |
+|---|---|---|
+| Suelo de todos los mapas | **Pobre**: ruido fino y repetido | Piezas por esquinas (`assets/pxl/floor_*.png`): dos materiales en manchas que no se repiten |
+| Hierba alta | Regular: 1 px, sin contorno | Matas gruesas con contorno |
+| Árbol | Regular: hojas de 1 px | Copa sin tronco, gruesa y con contorno |
+| Flores, helechos, adornos, lianas | Regular | Con contorno y trazo grueso |
+| Recogidas | **Pobre**: a medio píxel, 49 colores | Con el píxel de los Pokémon y contorno |
+| Agua | Buena | Sin tocar: sale del tileset y en algunos mapas no casa de color |

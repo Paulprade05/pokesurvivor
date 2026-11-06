@@ -39,20 +39,10 @@ sprite("_hueco", `
   .aaa.`)
 group("_relieve", ["_bulto", "_bulto", "_bulto2", "_mata", "_mata"])
 
+// Cima lisa, con pocas marcas y distintas en cada variante: con muchas se veía el sello repetido. Dos variantes casi vacías.
 for (let i = 0; i < 4; i++) sprite("_top" + i, { w: 24, h: 24 },
   rect(0, 0, 24, 24, "b"),
-  (c) => {
-    // Zonas algo más claras, de borde tramado: la cima no es plana. Nada toca el borde de la casilla (así casan entre sí).
-    const r = c.rng(40 + i)
-    for (let n = 0; n < 2; n++) {
-      const cx = 6 + (r() * 12 | 0), cy = 6 + (r() * 12 | 0), rx = 4 + (r() * 2 | 0), ry = 3
-      c.ellipse(cx, cy, rx, ry, "c")
-      for (let k = 0; k < 10; k++) { const a = k * 0.63, x = cx + Math.round(Math.cos(a) * (rx + 1)), y = cy + Math.round(Math.sin(a) * (ry + 1)); if (k & 1) c.px(x, y, "c") }
-    }
-  },
-  scatter("_mata", 4, 4, 16, 16, 3, { seed: 7 + i * 13, rflip: "x" }),
-  scatter("_bulto", 4, 4, 16, 16, 1, { seed: 3 + i * 5 }),
-  i === 1 ? stamp("_grieta", 12, 13) : i === 3 ? stamp("_grieta", 5, 5, { flip: "x" }) : stamp("_hueco", 4 + i * 6, 18 - i * 5))
+  i === 0 ? stamp("_mata", 9, 10) : i === 1 ? stamp("_grieta", 12, 13) : i === 2 ? px(0, 0, "b") : stamp("_hueco", 7, 14))
 sprite("_walltop", { w: 96, h: 24 }, stamp("_top0", 0, 0), stamp("_top1", 24, 0), stamp("_top2", 48, 0), stamp("_top3", 72, 0))
 
 // ---- la cara: estratos de roca en bloques irregulares; seguida a lo largo (se repite cada 96 px) ----

@@ -446,5 +446,5 @@ G.Ambient = (() => {
     cloudC = [];
   }
 
-  return { ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; floraFor = -1; floraC.clear(); flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
+  return { get atlas() { return atlas; }, ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; floraFor = -1; floraC.clear(); flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
 })();

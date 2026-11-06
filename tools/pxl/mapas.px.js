@@ -270,6 +270,7 @@ anim("flora", { w: 16, h: 160, frames: 8, fps: 8 }, (c) => {
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.abs(dx) + Math.abs(dy) <= 3) put(X + dx, top + dy, dx + dy < 0 ? a2 : a1)
     put(X, top, cen); put(X - 1, top, cen)
   }
+  flor(0, "y", "Y", "t"); flor(1, "p", "P", "y"); flor(2, "b", "B", "y")
   // Helecho: tres hojas gruesas que se abren y cierran.
   for (const [dir, h] of [[-1, 9], [1, 8], [0, 11]]) for (let i = 0; i < h; i++) {
     const t = i / (h - 1), x = 8 + Math.round((dir * 5 + sw) * t * t), y = 3 * 20 + 18 - i, g = t < 0.75 ? 1 : 0
