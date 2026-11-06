@@ -14,12 +14,12 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 ## Reglas
 1. **El terreno sale de las piezas de autotile del tileset** (`tileset.js`, 47 piezas por sección). No se dibujan suelos ni muros aparte.
 2. **Cada mapa usa un tileset que case con su nombre** (`tools/fetch_tiles.py`) y de ahí sale su paleta (`G.Tileset.pal`). Rocas, hierba, cristales y adornos usan esa paleta, nunca colores propios del bioma.
-3. **Un píxel de arte son 2 unidades de mundo y un número entero de píxeles de pantalla** (`camera.js`). Todo se dibuja en posiciones pares, sobre la misma rejilla (`sprites.js`, `world.js`, `vfx.js`).
+3. **Un píxel de arte son 2 unidades de mundo y un número entero de píxeles de pantalla** (`camera.js`). Todo se dibuja en posiciones pares, sobre la misma rejilla (`sprites.js`, `world.js`, `vfx.js`). Por eso la vista va a saltos: en una pantalla de 1920×868, de 4 a 3 píxeles de pantalla.
 4. **Lo que está de pie y no es del tileset** lleva contorno con el tono oscuro del tileset, trazo de 2 px como mínimo y tres tonos planos más un brillo. El negro casi puro es sólo de los Pokémon.
 5. **Las sombras van a píxeles.** Nada de elipses lisas ni tramas por encima del suelo.
 6. **Sin tapar el arte:** ni manchas de nubes ni viñetas fuertes.
 7. **Pocos adornos:** la franja del tileset ya da vida. Lo demás, escaso y con causa.
-8. **Las plantas nacen del suelo, no se posan encima.** La hierba lleva debajo una mancha horneada en el suelo que deja ver su textura y se deshace por los bordes (`tileset.js seatSheet`), y sus matas son bajas, sin contorno y con la base del tono de esa mancha (`tiles.js grass24`).
+8. **Las plantas nacen del suelo, no se posan encima.** La hierba lleva debajo una mancha horneada en el suelo que deja ver su textura y tiene el borde irregular, nunca el de la casilla (`tileset.js seatSheet`). Sus matas no llevan contorno, tienen la base del tono de esa mancha y son sueltas en la orilla (`tiles.js grass24`).
 9. **Lo que apoya en el suelo lleva sombra de contacto** (`tileset.js grounded`) y un contorno que no sea más oscuro que el del mapa.
 10. **En Ultra, muro y suelo son del mismo material:** la cara mezcla roca y suelo y se oscurece a escalones hacia el pie; sombras y contornos usan el tono oscuro del mapa, nunca negro; lo lejano se pierde en una bruma a franjas (`tileset.js haze`, `game.js`).
 

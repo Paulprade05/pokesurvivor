@@ -5,7 +5,7 @@
 G.Camera = {
   x: 0, y: 0,
   scale: 1,
-  VIEW_W: 768,              // un 20% más de vista que al principio (640)
+  VIEW_W: 960,              // (Cámara más lejos, 06-11-2026) un 25 % más que antes (768): se ve más mapa y los Pokémon, más pequeños
   shake: 0,
   _sx: 0, _sy: 0,
 
@@ -14,13 +14,16 @@ G.Camera = {
 
   // En pantallas más anchas que 16:9 (móviles en horizontal) se asegura
   // también un alto mínimo de mundo, para no ver una franja estrecha.
-  MIN_VIEW_H: 420,
+  MIN_VIEW_H: 525,
+  // (En móvil se aleja menos: con menos pantalla, los Pokémon tienen que seguir distinguiéndose.)
+  MIN_VIEW_H_TOUCH: 470,
 
   resize(cssW, cssH, dpr = 1) {
     this.dpr = dpr;
     // Con el lado largo y el corto: en vertical (móvil de pie) se ve lo mismo
     // que en horizontal, girado, y los Pokémon salen del mismo tamaño.
-    const raw = Math.min(Math.max(cssW, cssH) / this.VIEW_W, Math.min(cssW, cssH) / this.MIN_VIEW_H);
+    const minH = G.Settings && G.Settings.touch ? this.MIN_VIEW_H_TOUCH : this.MIN_VIEW_H;
+    const raw = Math.min(Math.max(cssW, cssH) / this.VIEW_W, Math.min(cssW, cssH) / minH);
     // (Mundo integrado, 06-11-2026) Cada píxel de arte (2 unidades) ocupa un número entero de píxeles físicos. Con una escala cualquiera
     // salían unos de 3 y otros de 4 píxeles de ancho: se veían píxeles torcidos. La vista cambia un poco según la pantalla.
     this.scale = Math.max(2, Math.round(2 * raw * dpr)) / (2 * dpr);
