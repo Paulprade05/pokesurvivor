@@ -192,7 +192,7 @@ G.Atmos = (() => {
     try { d = g.createImageData(S, S); } catch (e) { G.U.freeCanvas(cv); return null; }
     const n = parseInt(hex.slice(1), 16), r = n >> 16, gr = n >> 8 & 255, b = n & 255, o = d.data, q = a0;
     for (let i = 0; i < map.length; i++) {
-      const v = map[i], s = styleNow === 1 ? Math.min(1, Math.max(0, (v - lv.m0) / (lv.m3 - lv.m0))) : v < lv.m0 ? 0 : v < lv.m1 ? 0.34 : v < lv.m2 ? 0.67 : v < lv.m3 ? 0.86 : 1;
+      const v = map[i], s = v < lv.m0 ? 0 : v < lv.m1 ? 0.34 : v < lv.m2 ? 0.67 : v < lv.m3 ? 0.86 : 1;
       if (!s) continue;
       const p = i * 4;
       o[p] = r; o[p + 1] = gr; o[p + 2] = b; o[p + 3] = 255 * s * q;
@@ -228,8 +228,9 @@ G.Atmos = (() => {
     return u * u * (3 - 2 * u);
   }
 
-  // style: 0 a píxeles (la elegida), 1 suave, 2 densa. Sólo para enseñar las opciones al dueño.
-  let styleNow = 0, last = 0;
+  // (El dueño eligió la niebla densa, 07-11-2026: se ve claro como bancos.) La de MOODS, por estos factores.
+  // MIST_MAX: el tope, también con el clima Niebla: muros, agua y lava están debajo y tienen que seguir leyéndose.
+  const MIST_K = 1.36, DARK_K = 1.19, MIST_MAX = 0.5;
   /** Encima del terreno y debajo de todo lo demás (game.js). */
   function ground(ctx, view) {
     const fx = G.Settings.fx;
@@ -246,12 +247,9 @@ G.Atmos = (() => {
     const m = mood(forBi), now = G.Anim.on ? G.Anim.now : 0;
     const L = view.left(), Tp = view.top(), W = view.w, H = view.h;
     const nn = dusk(), wx = G.Weather ? G.Weather.vignette : 0;     // (el clima «Niebla» la espesa)
-    const dens = styleNow === 2 ? 1.7 : 1;
-    const a = Math.min(0.7, m.mist[1] * 0.8 * dens * (1 + nn * 0.45 + wx * 1.1) * k);
-    const smooth = styleNow === 1, prev = ctx.imageSmoothingEnabled;
-    if (smooth) ctx.imageSmoothingEnabled = true;
+    const a = Math.min(MIST_MAX, m.mist[1] * MIST_K * (1 + nn * 0.45 + wx * 1.1)) * k;
     if (fx > 1) {
-      if (darkC) { ctx.globalAlpha = Math.min(0.6, m.dark[1] * 0.7 * dens) * k; tile(ctx, darkC, L, Tp, W, H, -now * 9, now * 3.5, 4, 3); }
+      if (darkC) { ctx.globalAlpha = Math.min(0.6, m.dark[1] * DARK_K) * k; tile(ctx, darkC, L, Tp, W, H, -now * 9, now * 3.5, 4, 3); }
     }
     ctx.globalAlpha = a;
     tile(ctx, mistC, L, Tp, W, H, now * 7, now * 2.2, 3, 2);
@@ -259,7 +257,6 @@ G.Atmos = (() => {
     // (El anochecer, lo último: también baja la niebla, que si no brillaría sobre el suelo oscuro.)
     if (fx > 1 && nn > 0) { ctx.globalAlpha = nn * 0.34 * k; ctx.fillStyle = m.night; ctx.fillRect(L, Tp, W, H); }
     ctx.globalAlpha = 1;
-    ctx.imageSmoothingEnabled = prev;
   }
 
   /** La viñeta del mapa: [color 'r,g,b', opacidad]. */
@@ -271,7 +268,5 @@ G.Atmos = (() => {
   }
 
   return { MOODS, mood, bake, tops, ground, edge, purge: free,
-    /** Para pruebas: opción de niebla. */
-    set style(v) { styleNow = v; free(); k = 1; },
     reset() { k = 0; want = -1; free(); } };
 })();

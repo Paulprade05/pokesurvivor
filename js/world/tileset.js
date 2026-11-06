@@ -820,12 +820,16 @@ G.Tileset = (() => {
         for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128 && !floor.has(rgbKey(d, i))) water.set(rgbKey(d, i), [d[i], d[i + 1], d[i + 2]]);
       }
       G.U.freeCanvas(cv);
-      tab = { list: [...water.values()], floor, L, foam: hex3(B.foam), keep: true };
+      tab = { list: [...water.values()], floor, L, foam: hex3(B.foam), keep: true, wet: () => true };
       if (core.length) {
         const mean = core.reduce((a, c) => [a[0] + c[0] / core.length, a[1] + c[1] / core.length, a[2] + c[2] / core.length], [0, 0, 0]), mh = hue(mean);
+        // (La orilla de tierra va en las mismas casillas: si se pintara del color del agua, cada charca saldría con un marco recto.)
+        // (La lava va de rojo a amarillo sin orilla de tierra: toda es líquido.)
+        if (B.liquid !== 'lava') tab.wet = c => { const q = hue(c), e = Math.abs(q.h - mh.h); return q.s < 0.12 || Math.min(e, 360 - e) < 70; };
+        tab.list = tab.list.filter(tab.wet);
         const dh = Math.min(Math.abs(mh.h - lh.h), 360 - Math.abs(mh.h - lh.h));
         const luma = c => c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11;
-        tab.keep = dh < 38 && Math.abs(mh.s - lh.s) < 0.4 && Math.abs(luma(mean) - luma(L)) < 60;
+        tab.keep = dh < 38 && Math.abs(mh.s - lh.s) < 0.4 && Math.abs(luma(mean) - luma(L)) < 40;
       }
     } catch (e) { tab = null; }
     LIQ_T.set(bi, tab);
@@ -857,7 +861,7 @@ G.Tileset = (() => {
       let o = seen.get(q);
       if (o === undefined) {
         // (La capa animada cambia de colores en cada fotograma: todo lo que no es suelo cuenta como agua.)
-        o = tab.floor.has(q) && anim ? null : tab.keep || !(anim || known.has(q)) ? [a[i], a[i + 1], a[i + 2]] : ramp([a[i], a[i + 1], a[i + 2]]);
+        o = tab.floor.has(q) && anim ? null : tab.keep || !((anim && tab.wet([a[i], a[i + 1], a[i + 2]])) || known.has(q)) ? [a[i], a[i + 1], a[i + 2]] : ramp([a[i], a[i + 1], a[i + 2]]);
         if (o && mul) o = o.map((v, n) => Math.round(v * mul[n] / 255));
         seen.set(q, o);
       }
