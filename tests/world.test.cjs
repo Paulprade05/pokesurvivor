@@ -99,12 +99,13 @@ function loadTileset(on = true) {
   const G = { Settings: { get: k => (k === 'pmdTiles' ? on : undefined) } };
   // (Arte animado) El árbol se recorta y se mueve con G.Anim; aquí, sin píxeles de verdad, el dibujo tal cual.
   G.Anim = { take: () => true, sway: s => s, sheen: s => s };
+  G.U = { freeCanvas() {} };
   G.Tiles = { BIOMES: [{ ground: 'grass' }] };
   G.TILESETS = [{ bi: 0, key: 'forest', src: 'X', vars: [{ file: 'var1.png', cells: [1, 0, 2 ** 47] }], frames: 2, dur: 0.5,
     pal: { floor: ['#111111', '#222222', '#333333', '#444444'], wall: ['#000000', '#005500', '#007700', '#00aa00'], edge: '#000000', rock: ['#1', '#2', '#3', '#4'], grass: ['#1', '#2', '#3', '#4'] } }];
   G.OBJECTS_PMD = { bigchest: { file: 'bigchest.png', w: 32, h: 31 }, trap0: { file: 'trap0.png', w: 24, h: 24 } };
   const draws = [];
-  const ctx = { drawImage: (...a) => draws.push(a), fillRect() {}, fillStyle: '', set imageSmoothingEnabled(v) {} };
+  const ctx = { drawImage: (...a) => draws.push(a), fillRect() {}, clearRect() {}, translate() {}, scale() {}, fillStyle: '', set imageSmoothingEnabled(v) {} };
   const images = [];
   class Img { set src(v) { this._src = v; images.push(this); } }
   const document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
@@ -126,10 +127,10 @@ test('tileset: the 256 neighbour masks map onto the 47 DTEF rules (the red cell 
 test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and animates the liquid; off → not ready', () => {
   const { T, draws, images } = loadTileset(true);
   assert.equal(T.ready(0), false, 'cargando');
-  assert.equal(images.length, 4, 'hoja, variación, líquido y (arte PixelLab) la roca de las paredes');
+  assert.equal(images.length, 5, 'hoja, variación, líquido, la hoja de muros y la de suelo');
   for (const im of images.slice(0, 3)) im.onload();
   assert.equal(T.ready(0), false, 'esperando también a la roca');
-  images[3].onerror();                                           // sin la roca: las paredes de antes
+  images[3].onerror(); images[4].onerror();                      // sin muros ni suelo: los de antes
   assert.equal(T.ready(0), true);
   assert.equal(T.ready(5), false, 'un bioma sin datos: el pintor de siempre');
   const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
@@ -155,12 +156,12 @@ test('PixelLab art: walls are a raised ground (floor + rock face, no wall tile);
   const face = draws.filter(d => d[0] && d[0].pxArt);
   assert.equal(face.length, 1, 'la cara de roca, de un trozo');
   assert.equal(face[0][8], 16, 'de 16 px de alto');
-  assert.equal(draws.length, 256 + 1 + 1, 'una por casilla, el suelo debajo del agua y la cara');
-  assert.ok(draws.every(d => d[0].pxArt || d[1] >= 6 * 24), 'ninguna casilla de la sección de pared');
+  assert.equal(draws.filter(d => d[0].wallTop).length, 1, 'la cima, de la hoja de muros');
+  assert.ok(draws.every(d => d[0].pxArt || d[0].wallTop || d[1] >= 6 * 24), 'ninguna casilla de la sección de pared');
   // Cofres y trampas: los generados en cuanto cargan.
-  T.preload([0]);
   const n = images.length;
-  for (const im of images.slice(n - 6)) im.onload();
+  T.preload([0]);
+  for (const im of images.slice(n)) im.onload();
   assert.ok(/objects-px\/chest\.png$/.test(T.prop(0, 'chest', 0)._src));
   assert.ok(/objects-px\/trap2\.png$/.test(T.prop(0, 'trap', 4 * 2)._src));
   // Los árboles, como antes: la pieza de pared suelta (recortada y con 2 px de hueco a los lados para el viento).
@@ -201,10 +202,10 @@ test('tileset 6b: objects in PMD style only when the tileset is ready (tree = th
   for (const im of images) im.onload();
   const tree = T.prop(0, 'tree', 0);
   assert.ok(tree && tree.width === 28 && tree.height === 26, 'el árbol es una casilla de 24 px con su hueco para el viento');
-  assert.ok(draws.some(d => d[1] === (T.RULE[0] % 6) * 24 && d[2] === ((T.RULE[0] / 6) | 0) * 24 && d[5] === 2 && d[6] === 2), 'la pieza de pared suelta (sección de pared)');
+  assert.ok(draws.some(d => d[1] === 0 && d[2] === 147 && d[4] === 26), 'la copa, de la hoja de muros');
   assert.equal(T.prop(0, 'tree', 0), tree, 'guardado');
   assert.equal(T.prop(0, 'chest', 0), null, 'el cofre pequeño, de tiles.js');
-  assert.equal(T.prop(0, 'rock', 0), null);
+  assert.ok(T.prop(0, 'rock', 0), 'la roca, de la hoja de muros');
   assert.equal(T.prop(0, 'bigchest', 0), null, 'el PNG del cofre aún cargando');
   const n = images.length;
   images[n - 1].onload();

@@ -168,11 +168,11 @@ G.Pickups = (() => {
    */
   const glowC = new Map();
   let shadowC = null;
-  function glowImg(col, f) {
-    const k = col + f;
+  function glowImg(col, f, R = 10) {
+    const k = col + f + '/' + R;
     let cv = glowC.get(k);
     if (cv) return cv;
-    const R = 10, S = R * 2 + 1;
+    const S = R * 2 + 1;
     cv = document.createElement('canvas');
     cv.width = cv.height = S;
     const g = cv.getContext('2d');
@@ -198,7 +198,7 @@ G.Pickups = (() => {
     return cv;
   }
   /** Suelta los brillos guardados (game.js purgeGfx). */
-  function purge() { for (const c of glowC.values()) G.U.freeCanvas(c); glowC.clear(); if (shadowC) G.U.freeCanvas(shadowC); shadowC = null; }
+  function purge() { for (const c of glowC.values()) G.U.freeCanvas(c); glowC.clear(); if (shadowC) G.U.freeCanvas(shadowC); shadowC = null; G.Icons.purgeChunks(); }
 
   function draw(ctx) {
     const anim = G.Anim.on, sh = shadowImg();
@@ -217,8 +217,9 @@ G.Pickups = (() => {
         ctx.drawImage(sh, Math.round(p.x - r), Math.round(p.y - r * 0.35), r * 2, r * 0.7);
       }
       ctx.globalAlpha = 0.34;
-      const gi = glowImg(p.kind === 'item' ? '#ffe14d' : k.glow, f);
-      if (gi) { const D = p.kind === 'item' ? 42 : Math.round(r * 2) * 2; ctx.drawImage(gi, Math.round(p.x - D / 2), Math.round(y - D / 2), D, D); }
+      // (Siempre a 2 unidades por píxel, como los Pokémon: el tamaño cambia con el radio del dibujo, no estirándolo.)
+      const gi = glowImg(p.kind === 'item' ? '#ffe14d' : k.glow, f, p.kind === 'item' ? 10 : Math.round(r));
+      if (gi) { const D = gi.width * 2; ctx.drawImage(gi, Math.round(p.x - D / 2), Math.round(y - D / 2), D, D); }
       ctx.globalAlpha = 1;
 
       // La moneda gira: el mismo dibujo, cada vez más estrecho.
@@ -228,10 +229,10 @@ G.Pickups = (() => {
         ctx.save();
         ctx.translate(Math.round(p.x), Math.round(y));
         ctx.scale(w, 1);
-        const ok = G.Icons.sprite(ctx, name, 0, 0, 1);
+        const ok = G.Icons.chunky(ctx, name, 0, 0);
         ctx.restore();
         if (ok) continue;
-      } else if (G.Icons.sprite(ctx, name, p.x, y, 1)) {
+      } else if (G.Icons.chunky(ctx, name, p.x, y)) {
         // Un destello en los que valen algo: los caramelos grandes, los objetos.
         if (anim && (p.kind === 'item' || p.kind === 'xpBig') && ((p.t * 0.7 + p.id) & 7) === 0) G.Icons.twinkle(ctx, p.x + 6, y - 7, (p.t * 0.7 + p.id) % 1, 2);
         continue;

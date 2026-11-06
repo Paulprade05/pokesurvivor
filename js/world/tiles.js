@@ -1151,40 +1151,28 @@ G.Tiles = (() => {
      * variant = aspecto × 9 + fotograma: 0..7 el viento, 8 pisada (se abre y se aplasta). Colores: los del bioma (ramp).
      */
     grass24(B, variant = 0) {
+      // (Estilo común, 06-11-2026) Con las reglas de los Pokémon (docs/ESTILO-ARTE.md): pocas hojas, gruesas, tres tonos planos y
+      // contorno oscuro alrededor de toda la mata. Las de 1 px sin contorno parecían de más resolución que todo lo demás.
       const look = Math.floor(variant / 9) % 3, f = variant % 9, step = f === 8;
       const P = Pix(26, 26);
-      const Gc = ramp(B.grass), hi = sortHex(B.grass)[2];
-      const shadow = pack(shade(sortHex(B.grass)[0], -0.3)), lite = mixPack(hi, '#ffffff', 0.1), tip = mixPack(hi, '#ffffff', 0.32);
+      const s0 = sortHex(B.grass), Gc = ramp(B.grass), edge = pack(shade(s0[0], -0.68));
       const ph = f / 8 * Math.PI * 2;
-      const blade = (bx, by, h, lean, i, rows) => {
+      const blade = (bx, by, h, lean, i, c0, c1) => {
         const hh = step ? Math.round(h * 0.6) : h;
-        const sw = step ? (bx < 12 ? -2.6 : 2.6) : Math.sin(ph + i * 0.9) * 1.6;      // lo que se mueve la punta
+        const sw = step ? (bx < 13 ? -2.5 : 2.5) : Math.round(Math.sin(ph + i * 1.3) * 1.5);      // sólo la punta se mueve
         for (let j = 0; j < hh; j++) {
-          const t = j / Math.max(1, hh - 1), cx = bx + (lean + sw) * t * t;
-          const half = 1.5 * (1 - t) + 0.1, tone = t > 0.66 ? 2 : t > 0.28 ? 1 : 0;
-          for (let w = -24; w <= 24; w += 24) {                                       // (se repite: sin costuras)
-            const x0 = Math.round(cx - half) + w + 1, x1 = Math.round(cx + half) + w + 1;
-            for (let x = x0; x <= x1; x++) P.set(x, by - j, rows[x === x1 && x1 > x0 ? Math.max(0, tone - 1) : tone]);
-          }
+          const t = j / Math.max(1, hh - 1), cx = Math.round(bx + (lean + sw) * t * t);
+          const w = t < 0.4 ? 2 : t < 0.8 ? 1 : 0;                                               // de 3 px a 1 px
+          for (let k = -24; k <= 24; k += 24) for (let x = cx - w; x <= cx + w; x++) P.set(x + k + 1, by - j, x <= cx - (w ? 1 : 0) ? c1 : c0);
         }
       };
-      const R = (i, s) => H(i, look * 7 + 3, s);
-      // Matas: cada una, un abanico de hojas que salen del mismo sitio. Atrás, las oscuras; delante, las claras.
-      const clumps = [[3, 14, 11, 0], [15, 13, 12, 0], [9, 19, 11, 1], [21, 20, 10, 1], [4, 24, 8, 2], [15, 25, 9, 2]];
-      const tones = [[shadow, Gc[0], Gc[1]], [Gc[0], Gc[1], lite], [Gc[1], lite, tip]];
-      let i = 0;
-      for (const [x0, y0, h0, li] of clumps) {
-        const cx = x0 + (R(i, 95) - 0.5) * 4, cy = y0 - Math.round(R(i, 96) * 2);
-        for (const a of [-1, 1, 0]) {                                                 // (la del centro, encima)
-          blade(cx + a * 2, cy, h0 - Math.abs(a) * 2 + Math.round(R(i, 92) * 3), a * 2.8 + (R(i, 94) - 0.5) * 2.2, i, tones[li]);
-          i++;
-        }
-      }
-      // En algunas matas, una flor: lo único de la hierba que no es hierba.
-      if (look === 2 && !step) {
-        const fl = pack((B.flowers || ['#ffd54a'])[0]), s = Math.round(Math.sin(ph) * 1.2);
-        P.set(16 + s, 9, fl); P.set(17 + s, 9, fl); P.set(16 + s, 10, fl); P.set(17 + s, 10, pack('#fff6c8'));
-      }
+      // Tres matas de tres hojas por casilla; la de delante, la más clara.
+      const set = [[[5, 15], [17, 13], [11, 23]], [[8, 14], [20, 16], [4, 23]], [[12, 14], [3, 17], [19, 23]]][look];
+      set.forEach(([x, y], n) => {
+        const dark = n < 2, a = dark ? Gc[0] : Gc[1], b = dark ? Gc[1] : Gc[2];
+        for (const [dx, lean, h] of [[-3, -3, 9], [3, 3, 10], [0, 0, 13]]) blade(x + dx, y, h - (dark ? 1 : 2), lean, n * 3 + dx, a, b);
+      });
+      outline(P, edge);
       return P.canvas();
     },
 
