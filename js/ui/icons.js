@@ -1175,6 +1175,67 @@ G.Icons = (() => {
     return true;
   }
 
+  /*
+   * (Estilo común, 06-11-2026) Objeto en el mundo con el píxel de los Pokémon. Los sprites de objetos son de 30 px y se dibujaban a
+   * medio píxel de los Pokémon: se notaba que eran de otra resolución. Aquí se reducen a la mitad (de cada 2×2 se queda el color que
+   * más se repite) y llevan el contorno oscuro de los Pokémon; se dibujan ×2. false si aún no ha cargado.
+   */
+  const chunks = new Map();
+  function chunkOf(name, s) {
+    let cv = chunks.get(name);
+    if (cv !== undefined) return cv;
+    const W = Math.ceil(s.w / 2) + 2, H = Math.ceil(s.h / 2) + 2, src = document.createElement('canvas');
+    src.width = s.w; src.height = s.h;
+    const g = src.getContext('2d', { willReadFrequently: true });
+    cv = null;
+    if (g) {
+      g.drawImage(s.img, s.x, s.y, s.w, s.h, 0, 0, s.w, s.h);
+      let d = null;
+      try { d = g.getImageData(0, 0, s.w, s.h); } catch (e) { /* file:// */ }
+      if (d) {
+        const a = new Uint32Array(d.data.buffer), o = new Uint32Array(W * H);
+        for (let y = 0; y < H - 2; y++) for (let x = 0; x < W - 2; x++) {
+          const n = new Map();
+          for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+            const X = x * 2 + i, Y = y * 2 + j;
+            if (X >= s.w || Y >= s.h) continue;
+            const c = a[Y * s.w + X];
+            if ((c >>> 24) > 128) n.set(c, (n.get(c) || 0) + 1);
+          }
+          let best = 0, bn = 0, tot = 0;
+          for (const [c, k] of n) { tot += k; if (k > bn) { bn = k; best = c; } }
+          if (tot >= 2) o[(y + 1) * W + x + 1] = (best | 0xff000000) >>> 0;
+        }
+        const out = o.slice(), edge = 0xff20141a;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          if (o[y * W + x]) continue;
+          if ((x > 0 && o[y * W + x - 1]) || (x < W - 1 && o[y * W + x + 1]) || (y > 0 && o[(y - 1) * W + x]) || (y < H - 1 && o[(y + 1) * W + x])) out[y * W + x] = edge;
+        }
+        cv = document.createElement('canvas');
+        cv.width = W; cv.height = H;
+        const c2 = cv.getContext('2d');
+        if (c2) { const im = c2.createImageData(W, H); new Uint32Array(im.data.buffer).set(out); c2.putImageData(im, 0, 0); } else cv = null;
+      }
+    }
+    G.U.freeCanvas(src);
+    chunks.set(name, cv);
+    return cv;
+  }
+  function chunky(ctx, name, cx, cy) {
+    const r = info(name);
+    if (r.t !== 'item') return sprite(ctx, name, cx, cy, 1);
+    const s = picOf(r);
+    if (!s.ok) return false;
+    const cv = chunkOf(name, s);
+    if (!cv) return sprite(ctx, name, cx, cy, 1);
+    const prev = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cv, Math.round(cx - cv.width), Math.round(cy - cv.height), cv.width * 2, cv.height * 2);
+    ctx.imageSmoothingEnabled = prev;
+    return true;
+  }
+  function purgeChunks() { for (const c of chunks.values()) if (c) G.U.freeCanvas(c); chunks.clear(); }
+
   /** Pide ya todos los sprites (los usa el canvas: HUD, objetos del suelo, tienda...). */
   function preload() {
     for (const k in ITEM) pic(DIR + ITEM[k] + '.png');
@@ -1224,6 +1285,6 @@ G.Icons = (() => {
     r.setProperty('--ico-cursor', `url("${url('cursor')}")`);
   }
 
-  return { canvas, url, html, draw, sprite, preload, has, twinkle, rarity, RARITY_BALL, installCss,
+  return { canvas, url, html, draw, sprite, chunky, purgeChunks, preload, has, twinkle, rarity, RARITY_BALL, installCss,
            moveArt, ITEM, TM, UI: LEGACY, TYPE_GLYPH };
 })();

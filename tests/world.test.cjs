@@ -127,10 +127,10 @@ test('tileset: the 256 neighbour masks map onto the 47 DTEF rules (the red cell 
 test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and animates the liquid; off → not ready', () => {
   const { T, draws, images } = loadTileset(true);
   assert.equal(T.ready(0), false, 'cargando');
-  assert.equal(images.length, 4, 'hoja, variación, líquido y (arte PixelLab) la roca de las paredes');
+  assert.equal(images.length, 5, 'hoja, variación, líquido, la hoja de muros y la de suelo');
   for (const im of images.slice(0, 3)) im.onload();
   assert.equal(T.ready(0), false, 'esperando también a la roca');
-  images[3].onerror();                                           // sin la roca: las paredes de antes
+  images[3].onerror(); images[4].onerror();                      // sin muros ni suelo: los de antes
   assert.equal(T.ready(0), true);
   assert.equal(T.ready(5), false, 'un bioma sin datos: el pintor de siempre');
   const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
@@ -202,7 +202,7 @@ test('tileset 6b: objects in PMD style only when the tileset is ready (tree = th
   for (const im of images) im.onload();
   const tree = T.prop(0, 'tree', 0);
   assert.ok(tree && tree.width === 28 && tree.height === 26, 'el árbol es una casilla de 24 px con su hueco para el viento');
-  assert.ok(draws.some(d => d[1] === (T.RULE[0] % 6) * 24 && d[2] === ((T.RULE[0] / 6) | 0) * 24 && d[5] === 2 && d[6] === 2), 'la pieza de pared suelta (sección de pared)');
+  assert.ok(draws.some(d => d[1] === 0 && d[2] === 147 && d[4] === 26), 'la copa, de la hoja de muros');
   assert.equal(T.prop(0, 'tree', 0), tree, 'guardado');
   assert.equal(T.prop(0, 'chest', 0), null, 'el cofre pequeño, de tiles.js');
   assert.ok(T.prop(0, 'rock', 0), 'la roca, de la hoja de muros');

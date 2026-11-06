@@ -12,6 +12,16 @@ pal({ k: "#1a1420", K: "#2e2436",
       1: "#404040", 2: "#707070", 3: "#a0a0a0", 4: "#d0d0d0" })
 ramps("kgGH", "ttTu", "krR", "mooO", "eE", "xXZ", "1234")
 
+// Contorno oscuro de 1 px, como el de los Pokémon: todo lo que está de pie lo lleva.
+const contorno = (c, x0, y0, w, h) => {
+  const m = []
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (c.is(x, y, "*")) continue
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const X = x + a, Y = y + b; return X >= x0 && Y >= y0 && X < x0 + w && Y < y0 + h && c.is(X, Y, "*") })) m.push([x, y])
+  }
+  for (const [x, y] of m) c.px(x, y, "k")
+}
+
 // ---- cosas del suelo: 16×16, se hornean en el mapa ----
 // Fila 0: hierba · 1: cueva · 2: volcán · 3: secos (arena, nieve) · 4: neutros (toman el color de la roca del bioma)
 sprite("_flores", { w: 16, h: 16 }, `
@@ -243,28 +253,27 @@ const CEL = [["_flores", "_setas", "_hojas", "_trebol", "_tocon", "_ramita"],
              ["_grietafuego", "_palo", "_hueso", "_grietafuego", "_palo", "_hueso"],
              ["_concha", "_seco", "_hueso", "_seco", "_concha", "_ramita"],
              ["_piedras", "_grieta", "_losa", "_piedras", "_grieta", "_piedras"]]
-sprite("decor", { w: 96, h: 80 }, ...CEL.flatMap((row, j) => row.map((n, i) => stamp(n, i * 16, j * 16, i > 2 ? { flip: "x" } : {}))))
+sprite("decor", { w: 96, h: 80 }, ...CEL.flatMap((row, j) => row.map((n, i) => stamp(n, i * 16, j * 16, i > 2 ? { flip: "x" } : {}))),
+  (c) => { for (let j = 0; j < 4; j++) for (let i = 0; i < 6; i++) contorno(c, i * 16, j * 16, 16, 16) })
 
 // ---- lo que se mueve: 8 fotogramas de 16×20 (world/ambient.js) ----
 // Fila 0-2: flores con viento · 3: helecho · 4: seta que brilla · 5: cristal con destello · 6: fumarola · 7: brasa que late
 anim("flora", { w: 16, h: 160, frames: 8, fps: 8 }, (c) => {
-  const f = c.frame, a = c.phase * 6.2832, S = Math.sin(a), sw = Math.round(S * 1.6)
+  const f = c.frame, a = c.phase * 6.2832, S = Math.sin(a), sw = Math.round(S * 1.2)
   const put = (x, y, col) => { if (x >= 0 && x < 16) c.px(x, y, col) }
-  // Flor: tallo que se dobla y corola arriba.
+  // Flor: tallo de 2 px que se dobla, hojas y corola gruesa.
   const flor = (row, a1, a2, cen) => {
     const y0 = row * 20, top = y0 + 8
-    for (let i = 0; i < 9; i++) { const t = i / 8, x = 8 + Math.round(sw * t * t); put(x, y0 + 17 - i, i < 4 ? "g" : "G") }
-    put(7, y0 + 15, "G"); put(9, y0 + 13, "G"); put(10, y0 + 12, "H")
+    for (let i = 0; i < 8; i++) { const t = i / 7, x = 8 + Math.round(sw * t * t); put(x, y0 + 17 - i, "g"); put(x - 1, y0 + 17 - i, i < 4 ? "G" : "g") }
+    put(5, y0 + 15, "G"); put(6, y0 + 15, "G"); put(6, y0 + 14, "H"); put(9, y0 + 14, "G"); put(10, y0 + 14, "H"); put(10, y0 + 13, "G")
     const X = 8 + sw
-    for (const [dx, dy] of [[0, -2], [-2, 0], [2, 0], [0, 2], [-1, -1], [1, -1], [-1, 1], [1, 1]]) put(X + dx, top + dy, (dx + dy) & 1 ? a2 : a1)
-    put(X, top, cen)
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.abs(dx) + Math.abs(dy) <= 3) put(X + dx, top + dy, dx + dy < 0 ? a2 : a1)
+    put(X, top, cen); put(X - 1, top, cen)
   }
-  flor(0, "y", "Y", "t"); flor(1, "p", "P", "y"); flor(2, "b", "B", "y")
-  // Helecho: tres hojas largas que se abren y cierran.
+  // Helecho: tres hojas gruesas que se abren y cierran.
   for (const [dir, h] of [[-1, 9], [1, 8], [0, 11]]) for (let i = 0; i < h; i++) {
-    const t = i / (h - 1), x = 8 + Math.round((dir * 5 + sw) * t * t), y = 3 * 20 + 18 - i
-    put(x, y, t < 0.3 ? "g" : t < 0.75 ? "G" : "H")
-    if (i % 2 === 1 && t > 0.2) { put(x - 1, y, "g"); put(x + 1, y + 1, "G") }
+    const t = i / (h - 1), x = 8 + Math.round((dir * 5 + sw) * t * t), y = 3 * 20 + 18 - i, g = t < 0.75 ? 1 : 0
+    for (let d = -g; d <= 0; d++) put(x + d, y, t < 0.3 ? "g" : d ? "H" : "G")
   }
   // Seta que brilla: el sombrero late.
   { const y = 4 * 20, br = f === 2 || f === 3 || f === 4
@@ -299,6 +308,8 @@ anim("flora", { w: 16, h: 160, frames: 8, fps: 8 }, (c) => {
   { const y = 7 * 20, br = (f >> 1) & 1
     for (let x = 4; x <= 12; x++) { put(x, y + 13, "e"); put(x, y + 17, "e") }
     for (let yy = 14; yy <= 16; yy++) { put(3, y + yy, "e"); put(13, y + yy, "e"); for (let x = 4; x <= 12; x++) put(x, y + yy, ((x + yy + f) % 3) ? (br ? "o" : "m") : (br ? "O" : "o")) } }
+  // Sólo flores, helechos, setas y fumarolas: el cristal y la brasa ya llevan su borde.
+  for (const r of [0, 1, 2, 3, 4, 6]) contorno(c, 0, r * 20, 16, 20)
 })
 
 // ---- portal de la grieta: 8 fotogramas ----

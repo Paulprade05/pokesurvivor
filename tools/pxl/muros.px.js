@@ -22,10 +22,11 @@ sprite("_bulto2", `
   bcccbb
   .bbbb.`)
 sprite("_mata", `
-  .d..c.
-  dc.cd.
-  ccdcb.
-  .bcb..`)
+  .dd.cc.
+  .dd.cc.
+  ccddccb
+  bcccccb
+  .bbbbb.`)
 sprite("_grieta", `
   a....
   .a...
@@ -100,14 +101,23 @@ sprite("_hoja", `
   .cd
   dcc
   .ba`)
+const contorno = (c, x0, y0, w, h) => {
+  const m = []
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (c.is(x, y, "*")) continue
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const X = x + a, Y = y + b; return X >= x0 && Y >= y0 && X < x0 + w && Y < y0 + h && c.is(X, Y, "*") })) m.push([x, y])
+  }
+  for (const [x, y] of m) c.px(x, y, "k")
+}
 sprite("_wallvine", { w: W, h: H }, (c) => {
-  for (const [x, L] of [[6, 11], [17, 7], [27, 13], [41, 8], [52, 12], [66, 6], [74, 14], [88, 9]]) {
+  for (const [x, L] of [[6, 11], [18, 7], [29, 13], [43, 8], [54, 12], [66, 6], [76, 14], [88, 9]]) {
     for (let y = 2; y < L; y++) {
       const xx = x + Math.round(Math.sin(y * 0.7 + x) * 0.8)
-      c.px(xx, y, y & 1 ? "b" : "a")
-      if (y % 2 === 1) c.stamp("_hoja", xx + (y % 4 === 1 ? 1 : -3), y - 1)
+      c.rect(xx, y, 2, 1, y & 1 ? "b" : "a")
+      if (y % 3 === 1) { const q = y % 6 === 1 ? 2 : -3; c.rect(xx + q, y - 1, 3, 2, "c"); c.px(xx + q + (q > 0 ? 2 : 0), y - 1, "d") }
     }
   }
+  contorno(c, 0, 0, W, H)
 })
 // Cristales (cuevas): salen de la roca, con su arista de luz.
 sprite("_crist", { outline: "k" }, `
@@ -178,7 +188,23 @@ for (let i = 0; i < 3; i++) sprite("_basa" + i, { w: 28, h: 26 }, (c) => {
   }
   for (let x = 3; x < 25; x++) { c.px(x, 24, "e"); c.px(x, 25, "k") }
 })
-sprite("_pilares", { w: 96, h: 52 }, ...[0, 1, 2].flatMap(i => [stamp("_cris" + i, i * 28, 0), stamp("_basa" + i, i * 28, 26)]))
+// Copa (bosques y praderas): sin tronco, como la mata de siempre, pero con las reglas de los Pokémon: racimos gruesos, 4 tonos planos,
+// luz arriba a la izquierda y contorno oscuro. Sus hojas se mueven con el viento (G.Anim.sway).
+const COPAS = [[[14, 13, 9], [8, 16, 6], [20, 16, 6], [14, 7, 6], [8, 9, 4], [20, 9, 4]],
+               [[13, 14, 9], [20, 12, 6], [7, 17, 5], [12, 6, 6], [19, 18, 5]],
+               [[14, 14, 10], [7, 12, 5], [21, 13, 5], [14, 6, 5], [14, 20, 6]]]
+for (let i = 0; i < 3; i++) sprite("_copa" + i, { w: 28, h: 26 }, (c) => {
+  for (const [cx, cy, r] of COPAS[i]) for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
+    const d = Math.hypot(x - cx, y - cy)
+    if (d > r || x < 1 || y < 1 || x > 26 || y > 24) continue
+    const l = ((cx - x) * 0.6 + (cy - y) * 0.8) / r
+    c.px(x, y, d > r - 1.2 && l < 0.1 ? "a" : l > 0.5 ? "d" : l > 0.05 ? "c" : l > -0.5 ? "b" : "a")
+  }
+  // Hojas sueltas en el borde: rompen la silueta redonda.
+  for (const [x, y] of [[3, 12], [24, 11], [10, 2], [19, 3], [5, 21], [22, 21]]) { c.rect(x, y, 2, 2, "c"); c.px(x, y, "d") }
+  contorno(c, 0, 0, 28, 26)
+})
+sprite("_pilares", { w: 96, h: 78 }, ...[0, 1, 2].flatMap(i => [stamp("_cris" + i, i * 28, 0), stamp("_basa" + i, i * 28, 26), stamp("_copa" + i, i * 28, 52)]))
 
 // ---- rocas: 4 celdas de 22×17 (peñasco, peñasco roto, peñasco y piedra, los dos rotos); mismas facetas que la pared ----
 const ROCAS = [[[10.5, 9, 9.5, 7]], [[8.5, 9.5, 7.5, 6.5], [16.5, 12, 4.5, 3.5]]]
@@ -216,6 +242,6 @@ sprite("_musgos", { w: 88, h: 17 }, (c) => {
 })
 
 // ---- todo junto en una hoja (una sola descarga); las filas, en tileset.js (WS) ----
-sprite("wallset", { w: W, h: 181 }, stamp("_walltop", 0, 0), stamp("_cliff", 0, 24), stamp("_walllip", 0, 40),
+sprite("wallset", { w: W, h: 207 }, stamp("_walltop", 0, 0), stamp("_cliff", 0, 24), stamp("_walllip", 0, 40),
   stamp("_wallvine", 0, 47), stamp("_wallcrystal", 0, 63), stamp("_wallmagma", 0, 79), stamp("_pilares", 0, 95),
-  stamp("_rocas", 0, 147), stamp("_musgos", 0, 164))
+  stamp("_rocas", 0, 173), stamp("_musgos", 0, 190))

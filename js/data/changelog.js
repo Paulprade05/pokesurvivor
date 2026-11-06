@@ -14,6 +14,12 @@ G.CHANGELOG = [
     ["Más vida en los mapas: flores, helechos, setas que brillan, cristales, tocones, huesos, fumarolas y brasas por el suelo, según el bioma.",
      "More life on the maps: flowers, ferns, glowing mushrooms, crystals, stumps, bones, vents and embers on the ground, depending on the biome."]],
   chg: [
+    ["Todo el mundo con el estilo de los Pokémon: contorno oscuro, trazo grueso y colores planos en la hierba, los árboles, las flores, las rocas y los objetos que se recogen.",
+     "The whole world now matches the Pokémon style: dark outlines, thick strokes and flat colors on grass, trees, flowers, rocks and pickups."],
+    ["Suelo nuevo en todos los mapas: manchas grandes de dos materiales que nunca se repiten, con matas, grietas, ondas o tablones según el sitio.",
+     "New ground on every map: large patches of two materials that never repeat, with tufts, cracks, ripples or planks depending on the place."],
+    ["Cada mapa usa los colores de su nombre: las Ruinas del Juicio ya no salen verdes ni el Bosque Encantado azul.",
+     "Each map now uses colors that fit its name: the Ruins of Judgment are no longer green, nor the Enchanted Forest blue."],
     ["En cuevas y volcanes, cristales y agujas de basalto en lugar de las piezas de antes. Rocas, charco de veneno y telaraña redibujados con el mismo estilo que los muros.",
      "Caves and volcanoes now have crystals and basalt spires instead of the old pieces. Rocks, poison puddles and webs redrawn in the same style as the walls."]] },
   { d: '2026-11-05', title: ["El juego queda en español e inglés", "The game is now in Spanish and English"], chg: [

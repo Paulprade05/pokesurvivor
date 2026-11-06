@@ -949,9 +949,9 @@ G.World = (() => {
     if (p.type === 'altar' && !p.used) {
       // Halo del orbe (el orbe va en (10, 5.5) del sprite): a píxeles y latiendo; con «Animaciones» apagado, quieto.
       const col = ORB_COL[p.kind], ox = p.x, oy = p.y - h + 2 + 5.5 * P, pu = G.Anim.tick(4, 5, p.wiggle * 3);
-      const ha = G.Pickups.glow(col, pu & 1);
+      const ha = G.Pickups.glow(col, pu & 1, pu === 2 ? 8 : 7);
       if (ha) {
-        const D = 30 + (pu === 2 ? 6 : 0);
+        const D = ha.width * 2;
         ctx.globalAlpha = 0.5;
         ctx.drawImage(ha, Math.round(ox - D / 2), Math.round(oy - D / 2), D, D);
         ctx.globalAlpha = 1;
