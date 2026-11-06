@@ -74,7 +74,13 @@ G.Tileset = (() => {
     const img = (file, put) => {
       s.left++;
       const im = new Image();
-      im.onload = () => { put(im); if (--s.left === 0 && !s.fail) { s.ok = true; if (onReady) onReady(bi); } };
+      im.onload = () => {
+        put(im);
+        if (--s.left || s.fail) return;
+        if (s.liq) toneLiq(bi, s.liq);               // (ahora, al cargar: una vez horneado el bioma ya no hay que pararse a pintarla)
+        s.ok = true;
+        if (onReady) onReady(bi);
+      };
       im.onerror = () => { s.fail = true; };
       im.src = dir + file;
     };
@@ -194,19 +200,23 @@ G.Tileset = (() => {
       const full = t === 0 && cell === FULL && fl;
       if (full) {
         // (Lo normal, la casilla limpia y sus espejos; de vez en cuando, una de las variaciones, que llevan ramitas o marcas.)
-        const h = H(tx, ty, seed + 813), n = fl.width / T, f = h < 0.93 || n <= 4 ? Math.floor(H(tx, ty, seed + 814) * 4) : 4 + Math.floor(H(tx, ty, seed + 815) * (n - 4));
+        const h = H(tx, ty, seed + 813), n = fl.width / T, f = h < 0.96 || n <= 4 ? Math.floor(H(tx, ty, seed + 814) * 4) : 4 + Math.floor(H(tx, ty, seed + 815) * (n - 4));
         g.drawImage(fl, f * T, 0, T, T, i * T, j * T, T, T);
-      } else g.drawImage(srcOf(s, m, sec, cell, tx, ty, seed), (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
+      } else {
+        const src = srcOf(s, m, sec, cell, tx, ty, seed);
+        g.drawImage(sec === 1 ? toneLiq(bi, src) : src, (sec * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, i * T, j * T, T, T);
+      }
       if (seat && t === 0) {
         const bits = has(tx, ty - 1) | has(tx + 1, ty) << 1 | has(tx, ty + 1) << 2 | has(tx - 1, ty) << 3, self = has(tx, ty);
         if (self || bits) g.drawImage(seat, bits * T, (self * 2 + (H(tx, ty, seed + 821) < 0.5 ? 0 : 1)) * T, T, T, i * T, j * T, T, T);
       }
-      if (full) decor(g, at, tx, ty, i * T, j * T, bi, seed);
+      if (full) decor(g, at, tx, ty, i * T, j * T, bi, seed, seat ? has : null);
       if (flat3d && t === 0) {
         const nW = at(tx, ty - 1) === 1, wW = at(tx - 1, ty) === 1, eW = at(tx + 1, ty) === 1;
         if (nW || wW || eW) footShade(g, i * T, j * T, m.pal.edge, nW, wW, eW);
       }
     }
+    if (G.Atmos) G.Atmos.bake(g, cx, cy, N, at, bi, seed, flat3d);     // (ambientación: tono del mapa, luz por zonas y muros en penumbra)
     cv.pmd = true;
     return cv;
   }
@@ -232,7 +242,7 @@ G.Tileset = (() => {
     const g = cv.getContext('2d');
     if (!g) { G.U.freeCanvas(cv); return null; }
     const fl = m.pal.floor.map(hex3), gr = m.pal.grass.map(hex3), ed = hex3(m.pal.edge);
-    const deep = mix3(mix3(fl[0], ed, 0.12), gr[1], 0.55), soft = mix3(fl[1], gr[1], 0.62);
+    const deep = mix3(mix3(fl[0], ed, 0.12), gr[1], 0.42), soft = mix3(fl[1], gr[1], 0.42);
     const sprig = mix3(gr[2], fl[2], 0.08), tip = gr[3] || gr[2];
     const lat = (i, j, look, n) => {
       i = (i + n) % n; j = (j + n) % n;
@@ -263,7 +273,7 @@ G.Tileset = (() => {
       for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
         const w = weight(x, y), v = cl((0.6 * bil(x, y, 4, look) + 0.4 * bil(x, y, 2, look) - 0.25) * 2);
         if (v >= w * 0.9) continue;
-        if (v < w * 0.34) put(X + x, Y + y, deep, 205); else put(X + x, Y + y, soft, 175);
+        if (v < w * 0.34) put(X + x, Y + y, deep, 190); else put(X + x, Y + y, soft, 140);
       }
       // Brotes sueltos, dentro de la mancha.
       for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) {
@@ -278,14 +288,15 @@ G.Tileset = (() => {
   }
 
   /** (Objetos integrados) Una fila de sombra justo debajo de cada dibujo y sus colores, algo más cerca del suelo: así apoyan en él. */
-  function grounded(g, cv, m) {
+  function grounded(g, cv, m, mute = 0.3) {
     let d;
     try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { return; }
-    const a = d.data, W = cv.width, fl = hex3(m.pal.floor[1]), sh = mix3(hex3(m.pal.floor[0]), hex3(m.pal.edge), 0.42), edge = hex3(m.pal.edge);
+    const a = d.data, W = cv.width, fl = hex3(m.pal.floor[1]), sh = mix3(hex3(m.pal.floor[0]), hex3(m.pal.edge), 0.42), edge = hex3(inkOf(m));
     for (let i = 0; i < a.length; i += 4) {
       if (a[i + 3] < 128 || (a[i] === edge[0] && a[i + 1] === edge[1] && a[i + 2] === edge[2])) continue;
-      const c = mix3([a[i], a[i + 1], a[i + 2]], fl, 0.14);
-      a[i] = c[0]; a[i + 1] = c[1]; a[i + 2] = c[2];
+      // (Ambientación) Rojos, amarillos y verdes a todo color eran lo que más se despegaba: pierden saturación y toman el tono del suelo.
+      const l = a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11, c = mix3([a[i], a[i + 1], a[i + 2]].map(v => v + (l - v) * mute), fl, 0.18);
+      a[i] = c[0] * 0.94; a[i + 1] = c[1] * 0.94; a[i + 2] = c[2] * 0.94;
     }
     for (let y = cv.height - 1; y > 0; y--) for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 4, u = o - W * 4;
@@ -317,11 +328,22 @@ G.Tileset = (() => {
     return m.haze;
   }
 
-  /** El contorno casi negro de los dibujos pasa al tono oscuro del tileset: los Pokémon lo llevan negro, el terreno no. */
+  /**
+   * (Ambientación) El tono del contorno de lo que está en el suelo: el suelo oscurecido, no el «oscuro del mapa» a secas. Ese sale de la pared y en
+   * muchos mapas es de otro color (verde casi negro en el Bosque Umbrío): piedras y terrones se veían con un cerco verde, pegados encima.
+   */
+  function inkOf(m) {
+    if (m.ink) return m.ink;
+    const f = hex3(m.pal.floor[0]), lum = f[0] * 0.3 + f[1] * 0.59 + f[2] * 0.11;
+    m.ink = css3(mix3(f.map(v => Math.round(v * (lum > 110 ? 0.5 : 0.62))), hex3(m.pal.edge), 0.22));
+    return m.ink;
+  }
+
+  /** El contorno casi negro de los dibujos pasa al tono del suelo: los Pokémon lo llevan negro, el terreno no. */
   function softEdge(g, cv, m) {
     let d;
     try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { return; }
-    const a = d.data, e = parseInt(m.pal.edge.slice(1), 16);
+    const a = d.data, e = parseInt(inkOf(m).slice(1), 16);
     for (let i = 0; i < a.length; i += 4) if (a[i + 3] > 200 && a[i] < 40 && a[i + 1] < 34 && a[i + 2] < 46) { a[i] = e >> 16; a[i + 1] = e >> 8 & 255; a[i + 2] = e & 255; }
     g.putImageData(d, 0, 0);
   }
@@ -363,8 +385,33 @@ G.Tileset = (() => {
       g.drawImage(im, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, 0, 0, T, T);
       g.restore();
     }));
+    muteMarks(g, cv, F.length * T);
     propCache.set(k, cv);
     return cv;
+  }
+
+  /**
+   * (Ambientación) Las variaciones del tileset traen ramitas y brotes de un color muy fuerte (las «V» amarillas del Bosque Umbrío). Lo que no es de la
+   * casilla limpia se acerca al suelo: la marca sigue ahí, como textura, sin saltar a la vista ni dejar ver que es la misma pieza repetida.
+   */
+  function muteMarks(g, cv, from) {
+    if (cv.width <= from) return;
+    let d;
+    try { d = g.getImageData(0, 0, cv.width, T); } catch (e) { return; }
+    const a = d.data, base = new Set(), w = cv.width;
+    let r = 0, gg = 0, b = 0, n = 0;
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      const i = (y * w + x) * 4;
+      base.add(a[i] << 16 | a[i + 1] << 8 | a[i + 2]);
+      r += a[i]; gg += a[i + 1]; b += a[i + 2]; n++;
+    }
+    r /= n; gg /= n; b /= n;
+    for (let y = 0; y < T; y++) for (let x = from; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (a[i + 3] < 128 || base.has(a[i] << 16 | a[i + 1] << 8 | a[i + 2])) continue;
+      a[i] += (r - a[i]) * 0.66; a[i + 1] += (gg - a[i + 1]) * 0.66; a[i + 2] += (b - a[i + 2]) * 0.66;
+    }
+    g.putImageData(d, 0, 0);
   }
 
   /** Fila de decor.png de cada suelo (null: suelos hechos, sin nada por el suelo). */
@@ -393,14 +440,17 @@ G.Tileset = (() => {
    * (Mapas con vida) De vez en cuando, una cosa del suelo horneada en el chunk: flores, setas, cristales, huesos, piedras...
    * Según el suelo del bioma. No cuesta nada al dibujar, sale de un hash (todos ven lo mismo) y no toca el terreno.
    */
-  function decor(g, at, tx, ty, x, y, bi, seed) {
+  function decor(g, at, tx, ty, x, y, bi, seed, grassAt) {
     const row = DECOR_ROW[G.Tiles.BIOMES[bi].ground];
     if (row == null || at(tx, ty - 1) === 1) return;
     const h = H(tx, ty, seed + 616);
-    if (h >= 0.07) return;
+    if (h >= 0.045) return;
     const sh = decorSheet(bi);
     if (!sh) return;
-    const r = h < 0.025 ? row : 4, c = Math.floor(H(tx, ty, seed + 617) * 6);
+    // (Ambientación) «Pocos adornos y con causa»: lo que crece, junto a la hierba; suelto en medio de la tierra parecía pegado.
+    const live = h < 0.02;
+    if (live && grassAt && !(grassAt(tx, ty) || grassAt(tx + 1, ty) || grassAt(tx - 1, ty) || grassAt(tx, ty + 1) || grassAt(tx, ty - 1))) return;
+    const r = live ? row : 4, c = Math.floor(H(tx, ty, seed + 617) * 6);
     g.drawImage(sh, c * 16, r * 16, 16, 16, x + Math.floor(H(tx, ty, seed + 618) * 8), y + Math.floor(H(tx, ty, seed + 619) * 8), 16, 16);
   }
 
@@ -431,6 +481,9 @@ G.Tileset = (() => {
       g.drawImage(s.sheet, FULL % 6 * T, ((FULL / 6) | 0) * T, T, T, x, y, T, T);
       g.drawImage(srcOf(s, m, 0, cell, tx, ty, seed), (cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, T, T);
     }
+    // (Ambientación) Como en 2D: el tono del mapa y el interior del muro en penumbra (sólo sobre lo pintado).
+    moodTone(g, cv, bi);
+    if (G.Atmos) G.Atmos.tops(g, cx, cy, N, at, bi, seed);
     return cv;
   }
   function face3d(bi) {
@@ -452,6 +505,7 @@ G.Tileset = (() => {
     [[9, 0.1], [13, 0.14], [16, 0.16], [18, 0.16]].forEach(([y, a]) => { g.globalAlpha = a; g.fillRect(0, y, W, FH3 - y); });
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'source-over';
+    moodTone(g, cv, bi);
     propCache.set(k, cv);
     return cv;
   }
@@ -587,6 +641,7 @@ G.Tileset = (() => {
       if (!cg) { G.U.freeCanvas(row); G.U.freeCanvas(c); return null; }
       cg.drawImage(row, look * (T + TM * 2), 0, T + TM * 2, T + TM, 0, 0, T + TM * 2, T + TM);
       G.U.freeCanvas(row);
+      moodTone(cg, c, bi);
       propCache.set(k, c);
       return c;
     }
@@ -636,6 +691,7 @@ G.Tileset = (() => {
       }
       g.putImageData(d, 0, 0);
     } catch (e) { /* file://: con su cuadrado, como antes */ }
+    moodTone(g, cv, bi);
     propCache.set(k, cv);
     return cv;
   }
@@ -688,7 +744,7 @@ G.Tileset = (() => {
     const im = pxImg('wallset'), m = meta[bi];
     if (!im || !m.pal) return null;
     // (Objetos integrados) Contorno entre el oscuro del mapa y su suelo: la roca sigue leyéndose, sin parecer recortada.
-    const row = ramped(im, WS.rock, [css3(mix3(hex3(m.pal.edge), hex3(m.pal.floor[0]), 0.4)), ...m.pal.rock]);
+    const row = ramped(im, WS.rock, [inkOf(m), ...m.pal.rock]);
     const moss = G.Tiles.BIOMES[bi].ground === 'grass' ? ramped(im, WS.moss, m.pal.grass) : null;
     const cv = document.createElement('canvas');
     cv.width = 22; cv.height = 17;
@@ -698,8 +754,20 @@ G.Tileset = (() => {
     g.drawImage(row, sx, 0, 22, 17, 0, 0, 22, 17);
     if (moss) { g.drawImage(moss, sx, 0, 22, 17, 0, 0, 22, 17); G.U.freeCanvas(moss); }
     G.U.freeCanvas(row);
+    moodTone(g, cv, bi);
     propCache.set(k, cv);
     return cv;
+  }
+
+  /** (Ambientación) El tono del mapa también en lo que no va en el chunk, para que no salga más vivo que el suelo que pisa. */
+  function moodTone(g, cv, bi) {
+    const c = G.Atmos && G.Atmos.mood(bi).mul;
+    if (!c) return;
+    let d;
+    try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { return; }
+    const a = d.data, [r, gg, b] = hex3(c);
+    for (let i = 0; i < a.length; i += 4) { a[i] = a[i] * r / 255; a[i + 1] = a[i + 1] * gg / 255; a[i + 2] = a[i + 2] * b / 255; }
+    g.putImageData(d, 0, 0);
   }
 
   /** (Arte PixelLab) El dibujo generado de un objeto (ya cargado), o null: cofres y trampas (los árboles, como antes). */
@@ -711,6 +779,103 @@ G.Tileset = (() => {
   /** (Arte PixelLab) ¿Es un dibujo generado? (lleva su sombra y va a la escala de los Pokémon) */
   const isPx = img => !!img && (img.pxArt === true || (img instanceof Image && /\/(objects-px|pxl)\//.test(img.src)));
 
+  /*
+   * (Ambientación) El agua no casaba con su mapa (Pico Celeste, Selva, Templo...): el tileset trae la suya, a veces de otro color que el líquido del
+   * juego (un pantano azul, una corriente eléctrica o un veneno que no se leían como tales). Aquí cada mapa la lleva del color de su BIOMES[bi].liq: los
+   * colores del agua, del más oscuro al más claro, se cambian por una escala de ese color; los líquidos que ya son de ese tono se quedan como están.
+   * Además, liq.png trae la orilla con el suelo sin el tono del mapa y se veía un cuadro claro alrededor de cada charca: ese suelo se quita.
+   * Son copias, en propCache: las imágenes del tileset no se tocan y, si Safari vacía una copia, se rehace. De la animada (la más grande) hay LIQ_MAX.
+   */
+  const LIQ_T = new Map(), LIQ_MAX = 3, liqLive = [];    // bi -> { list, floor, L, foam, keep }; liqLive: las copias animadas que hay
+  const hue = c => {
+    const [r, g, b] = c, M = Math.max(r, g, b), n = Math.min(r, g, b), d = M - n;
+    if (!d) return { h: 0, s: 0 };
+    const h = M === r ? ((g - b) / d + 6) % 6 : M === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return { h: h * 60, s: d / M };
+  };
+  const rgbKey = (a, i) => a[i] << 16 | a[i + 1] << 8 | a[i + 2];
+  function liqTable(bi) {
+    if (LIQ_T.has(bi)) return LIQ_T.get(bi);
+    const s = st[bi], B = G.Tiles.BIOMES[bi];
+    let tab = null;
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = s.liq ? T * 6 : T; cv.height = s.liq ? T * 8 : T;
+      const g = cv.getContext('2d', { willReadFrequently: true });
+      const grab = (im, sx, sy, w, h) => { g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, sx, sy, w, h, 0, 0, w, h); return g.getImageData(0, 0, w, h).data; };
+      const water = new Map(), floor = new Set();
+      let d = grab(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T);
+      for (let i = 0; i < d.length; i += 4) floor.add(rgbKey(d, i));
+      d = grab(s.sheet, (6 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T);
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128 && !floor.has(rgbKey(d, i))) water.set(rgbKey(d, i), [d[i], d[i + 1], d[i + 2]]);
+      let core = [...water.values()];
+      const L = hex3(B.liq), lh = hue(L);
+      if (s.liq) {
+        // (Lo que se ve es la capa animada: su casilla llena dice de qué color es el agua, no la quieta de debajo.)
+        d = grab(s.liq, (FULL % 6) * T, ((FULL / 6) | 0) * T, T, T);
+        const top = [];
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128 && !floor.has(rgbKey(d, i))) top.push([d[i], d[i + 1], d[i + 2]]);
+        if (top.length > T * T / 2) core = top;
+        d = grab(s.liq, 0, 0, T * 6, T * 8);
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128 && !floor.has(rgbKey(d, i))) water.set(rgbKey(d, i), [d[i], d[i + 1], d[i + 2]]);
+      }
+      G.U.freeCanvas(cv);
+      tab = { list: [...water.values()], floor, L, foam: hex3(B.foam), keep: true, wet: () => true };
+      if (core.length) {
+        const mean = core.reduce((a, c) => [a[0] + c[0] / core.length, a[1] + c[1] / core.length, a[2] + c[2] / core.length], [0, 0, 0]), mh = hue(mean);
+        // (La orilla de tierra va en las mismas casillas: si se pintara del color del agua, cada charca saldría con un marco recto.)
+        // (La lava va de rojo a amarillo sin orilla de tierra: toda es líquido.)
+        if (B.liquid !== 'lava') tab.wet = c => { const q = hue(c), e = Math.abs(q.h - mh.h); return q.s < 0.12 || Math.min(e, 360 - e) < 70; };
+        tab.list = tab.list.filter(tab.wet);
+        const dh = Math.min(Math.abs(mh.h - lh.h), 360 - Math.abs(mh.h - lh.h));
+        const luma = c => c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11;
+        tab.keep = dh < 38 && Math.abs(mh.s - lh.s) < 0.4 && Math.abs(luma(mean) - luma(L)) < 40;
+      }
+    } catch (e) { tab = null; }
+    LIQ_T.set(bi, tab);
+    return tab;
+  }
+  /** La misma imagen con el agua de su color (y, la animada, sin el suelo de la orilla). Si no se puede, la de siempre. */
+  function toneLiq(bi, src) {
+    const anim = src === st[bi].liq, tab = liqTable(bi);
+    if (!tab || (tab.keep && !anim)) return src;
+    const k = 'liq/' + bi + '/' + (anim ? 'a' : src === st[bi].sheet ? 's' : 'v' + st[bi].vars.indexOf(src));
+    if (propCache.has(k)) return propCache.get(k);
+    const cv = document.createElement('canvas');
+    cv.width = src.width; cv.height = src.height;
+    const g = cv.getContext('2d');
+    if (!g) { G.U.freeCanvas(cv); return src; }
+    g.drawImage(src, 0, 0);
+    let d;
+    try { d = g.getImageData(0, 0, cv.width, cv.height); } catch (e) { G.U.freeCanvas(cv); return src; }
+    const lum = c => c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11, a = d.data, Ls = tab.list.map(lum), lo = Math.min(...Ls), hi = Math.max(...Ls);
+    const ramp = c => {
+      const t = Math.max(0, Math.min(1, (lum(c) - lo) / Math.max(1, hi - lo)));
+      return t < 0.72 ? mix3(tab.L.map(v => v * (lum(tab.L) > 140 ? 0.76 : 0.56)), tab.L, t / 0.72) : mix3(tab.L, tab.foam, (t - 0.72) / 0.28 * 0.6);
+    };
+    const mul = anim && G.Atmos && G.Atmos.mood(bi).mul ? hex3(G.Atmos.mood(bi).mul) : null, known = new Set(tab.list.map(c => c[0] << 16 | c[1] << 8 | c[2]));
+    const seen = new Map();                          // color de origen -> color nuevo, o null si es suelo (se quita) o no es líquido
+    for (let i = 0; i < a.length; i += 4) {
+      if (a[i + 3] < 8) continue;
+      const q = rgbKey(a, i);
+      let o = seen.get(q);
+      if (o === undefined) {
+        // (La capa animada cambia de colores en cada fotograma: todo lo que no es suelo cuenta como agua.)
+        o = tab.floor.has(q) && anim ? null : tab.keep || !((anim && tab.wet([a[i], a[i + 1], a[i + 2]])) || known.has(q)) ? [a[i], a[i + 1], a[i + 2]] : ramp([a[i], a[i + 1], a[i + 2]]);
+        if (o && mul) o = o.map((v, n) => Math.round(v * mul[n] / 255));
+        seen.set(q, o);
+      }
+      if (o) { a[i] = o[0]; a[i + 1] = o[1]; a[i + 2] = o[2]; } else a[i + 3] = 0;
+    }
+    g.putImageData(d, 0, 0);
+    propCache.set(k, cv);
+    if (anim) {
+      liqLive.push(k);
+      if (liqLive.length > LIQ_MAX) { const o = liqLive.shift(); G.U.freeCanvas(propCache.get(o)); propCache.delete(o); }
+    }
+    return cv;
+  }
+
   /** ¿Tiene el líquido animado? */
   function animated(bi) { const s = st[bi]; return !!(s && s.ok && s.liq && meta[bi].frames > 1); }
 
@@ -719,11 +884,11 @@ G.Tileset = (() => {
     const s = st[bi], m = meta[bi];
     const f = Math.floor(t / Math.max(0.05, m.dur)) % m.frames;
     const cell = cellOf(at, tx, ty, 2);
-    ctx.drawImage(s.liq, (f * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, size, size);
+    ctx.drawImage(toneLiq(bi, s.liq), (f * 6 + cell % 6) * T, ((cell / 6) | 0) * T, T, T, x, y, size, size);
   }
 
   /** Suelta los árboles, rocas y caras repintados (Safari los ha vaciado, game.js gfxCheck); se rehacen al dibujar. */
-  function purge() { for (const c of propCache.values()) G.U.freeCanvas(c); propCache.clear(); }
+  function purge() { for (const c of propCache.values()) G.U.freeCanvas(c); propCache.clear(); liqLive.length = 0; }
 
   return { T, RULE, FH, FH3, haze, cliffFace, floraSheet, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
     set onReady(fn) { onReady = fn; } };

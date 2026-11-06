@@ -136,7 +136,7 @@ test('tileset: waits for its PNGs, then bakes a chunk (fill + tile per cell) and
   const terr = (tx, ty) => (tx === 3 && ty === 3 ? 1 : tx === 5 && ty === 5 ? 2 : 0);
   const cv = T.paintChunk(0, 0, 16, terr, 0, 7);
   assert.ok(cv.pmd);
-  assert.equal(draws.length, 256 + 2 + 4, 'una por casilla, el suelo debajo de la pared y del agua, y una vez los 4 espejos del suelo');
+  assert.equal(draws.length, 256 + 2 + 4 + 1, 'una por casilla, el suelo debajo de la pared y del agua, una vez los 4 espejos del suelo y la lectura del color del agua');
   assert.ok(T.animated(0));
   T.drawLiquid({ drawImage: (...a) => draws.push(a) }, 0, terr, 5, 5, 0, 0, 48, 0.6);
   assert.equal(draws[draws.length - 1][1] >= 6 * 24, true, 'segundo fotograma del líquido');
