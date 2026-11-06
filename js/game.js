@@ -1130,7 +1130,7 @@ G.Game = (() => {
    * píxel a píxel (medido el 28-10-2026: +1 a +3 ms por fotograma sobre Alta).
    */
   const D3 = (() => {
-    const PERSP = G.Camera.ULTRA;     // 0,12: arriba de la pantalla, un 12 % más pequeño; abajo, un 12 % más grande
+    const PERSP = G.Camera.ULTRA;     // 0,18: arriba de la pantalla, un 18 % más pequeño; abajo, un 18 % más grande
     const GB = 2 * G.World.GS;        // franjas del suelo: 6 filas de mundo (2 px del pintor; 2.0, casillas de 48)
     const BAND = 8;                   // alto de las franjas de la capa de aire (px de pantalla)
     const WS = 6;                     // tiras de las filas de pared (px del pintor; CAP_H = 24, 4 tiras)
@@ -1307,6 +1307,15 @@ G.Game = (() => {
           const s = 1 + a * (Y0 + Y1) / 2;
           ctx.drawImage(acv, 0, sy0, AW, sy1 - sy0, ((aox - cx) * s + hw + shX) * Kd, y, AW * s, BAND);
         }
+      }
+      // (2,5D) Lo lejano se pierde en la bruma del mapa, a franjas: es lo que más ayuda a leer la profundidad.
+      const hz = G.Tileset && G.Tileset.ready(G.World.biome) ? G.Tileset.haze(G.World.biome) : null;
+      if (hz) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const n = 7, bh = Math.ceil(Hd * 0.075);
+        ctx.fillStyle = hz.c;
+        for (let i = 0; i < n; i++) { ctx.globalAlpha = hz.a * Math.pow(1 - i / n, 1.6); ctx.fillRect(0, i * bh, cv.width, bh); }
+        ctx.globalAlpha = 1;
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       return true;

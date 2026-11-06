@@ -1152,28 +1152,29 @@ G.Tiles = (() => {
      * variant = aspecto × 9 + fotograma: 0..7 el viento, 8 pisada (se abre y se aplasta). Colores: los del bioma (ramp).
      */
     grass24(B, variant = 0) {
-      // (Estilo común, 06-11-2026) Con las reglas de los Pokémon (docs/ESTILO-ARTE.md): pocas hojas, gruesas, tres tonos planos y
-      // contorno oscuro alrededor de toda la mata. Las de 1 px sin contorno parecían de más resolución que todo lo demás.
-      const look = Math.floor(variant / 9) % 3, f = variant % 9, step = f === 8;
+      // (Hierba integrada, 06-11-2026) Como en Mundo Misterioso: matas bajas sin contorno, con la base del tono de la tierra que
+      // tienen debajo (tileset.js seatSheet) y la punta clara, y sin tocar el borde del dibujo. Las altas con contorno, en filas
+      // iguales y cortadas por los lados, parecían pegadas encima del suelo.
+      const look = Math.floor(variant / 9) % 4, f = variant % 9, step = f === 8;
       const P = Pix(26, 26);
-      const s0 = sortHex(B.grass), Gc = ramp(B.grass), edge = pack(shade(s0[0], -0.68));
+      const s0 = sortHex(B.grass), fl = sortHex(B.floor)[1];
+      const base = mixPack(s0[0], fl, 0.22), mid = pack(s0[1]), lit = mixPack(s0[2], fl, 0.1);
       const ph = f / 8 * Math.PI * 2;
-      const blade = (bx, by, h, lean, i, c0, c1) => {
-        const hh = step ? Math.round(h * 0.6) : h;
-        const sw = step ? (bx < 13 ? -2.5 : 2.5) : Math.round(Math.sin(ph + i * 1.3) * 1.5);      // sólo la punta se mueve
+      const blade = (bx, by, h, lean, i) => {
+        const hh = step ? Math.max(2, Math.round(h * 0.55)) : h;
+        const sw = step ? (lean < 0 ? -2 : 2) : Math.round(Math.sin(ph + i * 1.3));
         for (let j = 0; j < hh; j++) {
-          const t = j / Math.max(1, hh - 1), cx = Math.round(bx + (lean + sw) * t * t);
-          const w = t < 0.4 ? 2 : t < 0.8 ? 1 : 0;                                               // de 3 px a 1 px
-          for (let k = -24; k <= 24; k += 24) for (let x = cx - w; x <= cx + w; x++) P.set(x + k + 1, by - j, x <= cx - (w ? 1 : 0) ? c1 : c0);
+          const t = j / Math.max(1, hh - 1), cx = Math.round(bx + (lean + sw) * t * t), c = j < 2 ? base : t < 0.72 ? mid : lit;
+          P.set(cx, by - j, c);
+          if (t < 0.55) P.set(cx + 1, by - j, j < 2 ? base : mid);
         }
       };
-      // Tres matas de tres hojas por casilla; la de delante, la más clara.
-      const set = [[[5, 15], [17, 13], [11, 23]], [[8, 14], [20, 16], [4, 23]], [[12, 14], [3, 17], [19, 23]]][look];
-      set.forEach(([x, y], n) => {
-        const dark = n < 2, a = dark ? Gc[0] : Gc[1], b = dark ? Gc[1] : Gc[2];
-        for (const [dx, lean, h] of [[-3, -3, 9], [3, 3, 10], [0, 0, 13]]) blade(x + dx, y, h - (dark ? 1 : 2), lean, n * 3 + dx, a, b);
+      const set = [[[7, 12, 6], [17, 15, 7], [11, 22, 8]], [[15, 11, 6], [7, 18, 7], [18, 22, 7]], [[10, 16, 8], [18, 21, 6]], [[8, 12, 6], [16, 17, 8], [7, 23, 6], [19, 23, 5]]][look];
+      set.forEach(([x, y, h], n) => {
+        blade(x - 3, y, h - 2, -2, n * 3);
+        blade(x + 3, y, h - 2, 2, n * 3 + 1);
+        blade(x, y, h, 0, n * 3 + 2);
       });
-      outline(P, edge);
       return P.canvas();
     },
 

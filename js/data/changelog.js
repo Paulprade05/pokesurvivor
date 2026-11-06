@@ -6,6 +6,13 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["Hierba natural y mejor 2,5D", "Natural grass and better 2.5D"], chg: [
+    ["La hierba ya nace del suelo: manchas de brotes que se deshacen hacia los bordes y matas bajas, en lugar de filas pegadas encima.",
+     "Grass now grows from the ground: sprout patches that fade out at the edges and low tufts, instead of rows stuck on top."],
+    ["Flores, setas, adornos y rocas se apoyan mejor en el suelo y usan sus colores.",
+     "Flowers, mushrooms, decorations and rocks sit better on the ground and use its colors."],
+    ["Ultra se ve más 2,5D: cámara más inclinada, muros más altos del mismo material que el suelo, sombras del color de cada mapa y bruma a lo lejos.",
+     "Ultra looks more 2.5D: a more tilted camera, taller walls made of the same material as the ground, shadows in each map's color and haze in the distance."]] },
   { d: '2026-11-06', title: ["Mundos como los de Mundo Misterioso", "Worlds like Mystery Dungeon"], chg: [
     ["Todos los mapas se ven ahora como en Mundo Misterioso: suelo de un solo material, muros orgánicos y una franja de plantas o cristales junto a muros y agua, para que nada cambie de golpe.",
      "Every map now looks like Mystery Dungeon: a single ground material, organic walls and a strip of plants or crystals along walls and water, so nothing changes abruptly."],

@@ -122,7 +122,7 @@ G.Camera = {
   /** Radio que cubre la vista (la de este aparato, o la de un compañero si se pasa su ancho y alto). */
   // (Ultra: con la perspectiva, las esquinas de arriba quedan más lejos. persp: la de quien mira;
   // de un compañero no se sabe si juega en Ultra y spawner.js pasa ULTRA, por si acaso.)
-  ULTRA: 0.12,
+  ULTRA: 0.18,
   outerRadius(w = this.w, h = this.h, persp = this.persp) {
     const k = persp ? 1 / (1 - persp) : 1;
     return Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
