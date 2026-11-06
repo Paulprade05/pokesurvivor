@@ -64,8 +64,11 @@ G.Icons = (() => {
     rock: 'rockium-z--bag', ghost: 'ghostium-z--bag', dragon: 'dragonium-z--bag', dark: 'darkinium-z--bag',
     steel: 'steelium-z--bag', fairy: 'fairium-z--bag', ring: 'z-ring'
   };
+  // Mega-Aro y megapiedras (06-11-2026): los iconos mring y mg:<objeto>, con G.MEGA[id].ico (tools/fetch_megas.cjs).
+  const MG = { ring: 'mega-ring', 'charizardite-x': 'charizardite-x', 'alakazite': 'alakazite', 'slowbronite': 'slowbronite', 'gengarite': 'gengarite', 'kangaskhanite': 'kangaskhanite', 'aerodactylite': 'aerodactylite', 'mewtwonite-y': 'mewtwonite-y', 'steelixite': 'steelixite', 'skarmorite': 'skarmorite', 'houndoominite': 'houndoominite', 'tyranitarite': 'tyranitarite', 'sceptilite': 'sceptilite', 'gardevoirite': 'gardevoirite', 'sablenite': 'sablenite', 'mawilite': 'mawilite', 'medichamite': 'medichamite', 'manectite': 'manectite', 'sharpedonite': 'sharpedonite', 'cameruptite': 'cameruptite', 'altarianite': 'altarianite', 'banettite': 'banettite', 'chimechite': 'chimechite', 'absolite': 'absolite', 'glalitite': 'glalitite', 'latiasite': 'latiasite', 'latiosite': 'latiosite', 'blue-orb': 'blue-orb', 'red-orb': 'red-orb', 'meteorite': 'meteorite', 'lopunnite': 'lopunnite', 'lucarionite': 'lucarionite', 'galladite': 'galladite', 'darkranite': 'darkranite', 'excadrite': 'excadrite', 'scraftinite': 'scraftinite', 'eelektrossite': 'eelektrossite', 'dragalgite': 'dragalgite', 'hawluchanite': 'hawluchanite', 'zygardite': 'zygardite', 'diancite': 'diancite', 'drampanite': 'drampanite', 'zeraorite': 'zeraorite', 'tatsugirinite': 'tatsugirinite' };
   /* objetos:end */
   for (const t in ZC) ITEM[t === 'ring' ? 'zring' : 'z:' + t] = ZC[t];
+  for (const t in MG) ITEM[t === 'ring' ? 'mring' : 'mg:' + t] = MG[t];
 
   const FALLBACK = 'poke-ball';                                           // nombre desconocido
   const FILES = new Set([...Object.values(ITEM), ...Object.values(TM)]);  // también valen como nombre

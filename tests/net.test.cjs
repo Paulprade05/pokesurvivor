@@ -802,3 +802,15 @@ test('24-10-2026: without the evolution module (old data or tests) mates keep th
   assert.equal(made[0].form, 6);
   assert.deepEqual(G.preloaded, [6]);
 });
+
+test('la mega viaja en el dato de la fase: se acepta si existe y una inventada queda en 0', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/net/coop.js'), 'utf8');
+  const m = src.match(/fm: Number\.isInteger\(a\[18\]\) && (\(.*?\)) \? a\[18\] : 0/);
+  assert.ok(m, 'readState lee la fase');
+  const ok = new Function('G', 'a', 'return ' + m[1]);
+  const G = { DEX_BY: { 6: {} }, MEGA: { 10034: {} } };
+  assert.ok(ok(G, { 18: 6 }));
+  assert.ok(ok(G, { 18: 10034 }));
+  assert.ok(!ok(G, { 18: 10035 }));
+  assert.ok(!ok({ DEX_BY: { 6: {} } }, { 18: 10034 }), 'sin datos de mega, como una versión anterior');
+});

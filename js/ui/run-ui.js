@@ -391,7 +391,7 @@ G.RunUI = (() => {
     $('over-stats').innerHTML = `
       <div class="ov-top">
         <div class="ov-figs">
-          <div class="ov-tiles">${ovTile('clock', 'Tiempo', G.U.mmss(r.time))}${ovTile('up', 'Nivel', r.level)}${ovTile('ball', 'Derrotados', n(r.kills))}${ovTile('crown', 'Jefes', r.bosses)}</div>
+          <div class="ov-tiles">${ovTile('clock', 'Tiempo', G.U.mmss(r.time))}${ovTile('up', 'Nivel', r.level)}${ovTile('ball', 'Derrotados', n(r.kills))}${ovTile('crown', 'Jefes', r.bosses)}${r.megas ? ovTile('mring', 'Megas', r.megas) : ''}</div>
           ${r.judge ? `<div class="ov-judge"><span class="ico-tile s t-gold">${G.Icons.html('ball4', 30)}</span>
             <div class="grow"><span class="ov-lbl">Ante Arceus</span><b>${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div></div>` : ''}
           <div class="ov-tiles ov-dmg">${dmg('choiceband', 'Daño total', r.dealt)}${dmg('rockyhelmet', 'Daño recibido', r.taken)}${dmg('berry', 'Curación', r.healed)}</div>
@@ -532,6 +532,7 @@ G.RunUI = (() => {
    * compra. Sin nada de esto, no sale.
    */
   function zCard(pl) {
+    if (G.Mega && G.Mega.of(pl)) return megaCard(pl);
     const z = G.Combat.zOf(pl), owned = G.Shop.zOwned(), NEED = G.Shop.Z_NEED;
     const name = G.DEX_BY[pl.mon.dex] ? G.DEX_BY[pl.mon.dex].name : '';
     const ring = `<span class="ico-tile s t-gold">${G.Icons.html('zring', 30)}</span>`;
@@ -564,6 +565,25 @@ G.RunUI = (() => {
           <div class="mv-tags">${moveChips(m)}</div><small class="z-desc">${G.T(d.desc)}</small></div>
         <div class="mv-num"><b>${n(z.dealt + (z.m ? z.m.dealt || 0 : 0))}</b><small>×${z.uses}</small></div>
       </div>${owned.length > 1 ? have : ''}</section>`;
+  }
+
+  /** La megaevolución en la pausa: va en el sitio del Z (lleva una cosa u otra). */
+  function megaCard(pl) {
+    const g = G.Mega.of(pl), M = G.Mega, d = g.def, ab = d.abil ? G.Mons.abilityName(d.abil) : '';
+    const fx = d.abil && G.AbilityFX ? G.AbilityFX.of(d.abil, d) : null, n = v => Math.round(v).toLocaleString(G.I18n.locale);
+    const state = g.t > 0 ? `<span class="z-state on">${G.I18n.f('Activa: {x}', G.U.mmss(g.t))}</span>`
+      : M.ready(pl, g) ? `<span class="z-state ready">${G.Touch.active ? G.T('Lista: toca su botón') : G.I18n.f('Lista: pulsa {x}', G.Input.keyLabel('zmove'))}</span>`
+      : !M.final(pl) ? `<span class="z-state">${G.I18n.f('Llega a {x}', G.DEX_BY[pl.dex].name)}</span>`
+      : `<span class="z-state">${G.I18n.f('Energía: {x}', Math.floor(M.energy(pl, g) * 100) + ' %')}</span>`;
+    return `<section class="ps-card ps-z"><h3>Megaevolución</h3>
+      <div class="mv-row z-mv${g.t > 0 ? ' on' : ''}" style="--z-c:${M.COL}">
+        <span class="ico-tile s tint" style="--tile-c:${M.COL}">${G.Icons.html('mg:' + d.ico, 30)}</span>
+        <div class="mv-main"><div class="mv-name"><b translate="no">${G.Mons.name(d.name)}</b>${state}</div>
+          <div class="mv-tags">${G.UI.typeChips(d.types)}</div>
+          <small class="z-desc">${ab ? `<b translate="no">${ab}</b>: ${G.T(fx.d)}` : G.T('Se queda con tu habilidad.')}</small>
+          <small class="z-rule">${G.I18n.f('Se carga con {x} enemigos derrotados y dura {x} s.', M.need(), M.DUR)}</small></div>
+        <div class="mv-num"><b>${n(M.dealt(pl, g))}</b><small>×${g.uses}</small></div>
+      </div></section>`;
   }
 
   /**
@@ -630,7 +650,7 @@ G.RunUI = (() => {
     const pl = G.Game.player, z = pl && G.Combat.zOf(pl);
     return k(I.moveLabel()) + ' moverse · ' + (sl.join() === '1,2,3,4' ? k(1) + '–' + k(4) : sl.map(k).join(' '))
       + ' movimiento · ' + k(I.keyLabel('prev')) + '/' + k(I.keyLabel('next')) + ' ciclar · '
-      + (z ? k(I.keyLabel('zmove')) + ' movimiento Z · ' : '') + k('Esc') + ' pausa';
+      + (z ? k(I.keyLabel('zmove')) + ' movimiento Z · ' : G.Mega && G.Mega.of(pl) ? k(I.keyLabel('zmove')) + ' megaevolución · ' : '') + k('Esc') + ' pausa';
   }
 
   function showPause(coop = false) {

@@ -175,8 +175,8 @@ G.Coop = (() => {
              rev: num(a[12], 0, 0, 60), ch: a[13] === undefined ? undefined : a[13] ? 1 : 0, ld: num(a[14], 0, 0, 1e9),
              wa: typeof a[15] === 'string' ? a[15].slice(0, 64) : '',
              vw: num(a[16], 0, 0, 5000), vh: num(a[17], 0, 0, 5000),
-             // Fase: sólo un Pokémon que exista (si no, o de una versión anterior, 0: el que eligió).
-             fm: Number.isInteger(a[18]) && G.DEX_BY[a[18]] ? a[18] : 0 };
+             // Fase: sólo un Pokémon o una mega que exista (si no, o de una versión anterior, 0: el que eligió).
+             fm: Number.isInteger(a[18]) && (G.DEX_BY[a[18]] || (G.MEGA && G.MEGA[a[18]])) ? a[18] : 0 };
   }
 
   /** Anfitrión: dónde mira un invitado (él mismo, o el compañero vivo que mira estando caído). */

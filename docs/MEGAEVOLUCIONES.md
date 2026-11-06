@@ -1,6 +1,6 @@
 # Megaevoluciones en PokéSurvivor
 
-> **Estado:** diseño revisado el 06-11-2026, con las decisiones del dueño ya tomadas (sección 10).
+> **Estado:** programado el 06-11-2026 (PR #23, #24 y el de la rama `megas`), con las decisiones del dueño (sección 10). Sin publicar.
 > Sustituye a la propuesta del 26-10-2026, que sigue en el historial de git. Datos: PokeAPI y
 > `tracker.json` de SpriteCollab, consultados el 06-11-2026; lo del juego, sacado del código de `main`.
 
@@ -11,7 +11,7 @@
 - **Cómo se activa:** con el mismo botón y la misma tecla que el movimiento Z. Tu Pokémon lleva
   **Pulsera Z o megapiedra**, nunca las dos a la vez, como en los juegos.
 - **Cuándo:** la **Energía Mega** se llena **derrotando enemigos**. Cuesta al principio, cuando caen
-  pocos, y luego va mucho más rápido, con un mínimo de 75 s entre megas. Con la forma final y la barra llena, ya puedes.
+  pocos, y luego va mucho más rápido. Con la forma final y la barra llena, ya puedes.
 - **Qué hace falta:** el **Mega-Aro** (se gana con la primera grieta) y la **megapiedra** de ese
   Pokémon, comprada en sus Mejoras. Las dos son para siempre.
 - **Cuántas:** **43 megas** con sprite de Mundo Misterioso. Las demás entrarán con la herramienta
@@ -26,7 +26,7 @@ versión hace menos cosas.
 | Tema | Antes | Ahora | Por qué |
 |---|---|---|---|
 | **Cuándo llega** | Desde el minuto 10 y con la forma final, normalmente en el 13 | Sin minuto: una Energía que se llena desde el principio | Las partidas reales medidas han acabado hacia el minuto 18 como mucho. Con la regla vieja casi no se vería |
-| **Cómo se recarga** | Por tiempo (150 s) y por jefes | **Por enemigos derrotados**, con un mínimo de 75 s | Lo pidió el dueño: que cueste al principio y sea más fácil después. La propuesta vieja lo descartó porque se llenaría en segundos; el mínimo lo evita |
+| **Cómo se recarga** | Por tiempo (150 s) y por jefes | **Por enemigos derrotados** | Lo pidió el dueño: que cueste al principio y sea más fácil después. La propuesta vieja lo descartó porque se llenaría en segundos. Con 300 derrotados tarda de 30 a 90 s al final de la partida |
 | **Con el Z** | Dos botones; cada uno bloquea al otro mientras dura | **Uno u otro por Pokémon**, en el mismo botón | Con los dos, un Pokémon con mega iría potenciado la mitad del tiempo y los demás un 20 %. También evita el candado y una tecla nueva |
 | **Barra del móvil** | Un hueco más, con candados | **Igual que hoy**: el hueco del Z enseña la piedra | Menos botones, menos toques fallados. «Colocar los botones» no cambia |
 | **Tecla y mando** | Tecla X y botón Y nuevos | Los del Z | Nada que aprender ni que configurar |
@@ -49,7 +49,7 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 | Qué hace | Pasa a la fase siguiente | Añade un ataque muy fuerte | Transforma a tu Pokémon |
 | Hace falta | Nada | Pulsera Z + Cristal Z + 2 ataques del tipo | Mega-Aro + megapiedra + forma final |
 | Se activa | Sola | Botón | Botón (el mismo) |
-| Dura | Para siempre | 60 s, recarga 240 s | 75 s; se recarga con 300 derrotados, 75 s como mínimo |
+| Dura | Para siempre | 60 s, recarga 240 s | 75 s; se recarga con 300 derrotados |
 | Papel | Crecer | Pico corto y explosivo | Poder largo y más aguante |
 
 - **Evolución:** va antes y no se toca. La mega sólo existe en la forma final; en las ramas, en la que tenga mega.
@@ -73,18 +73,17 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 
 - Empieza a 0 y se llena con **300 enemigos derrotados**. Un jefe o un legendario cuenta como 30.
 - En grupo cuentan los derrotados de todo el equipo, y la meta sube como los enemigos que salen (×1,75 por jugador de más).
-- Mientras dura la mega no se carga. Al acabar vuelve a 0 y empieza un **mínimo de 75 s** antes de poder repetir.
+- Mientras dura la mega no se carga. Al acabar vuelve a 0 y se puede repetir en cuanto se llene: **no hay espera mínima** (06-11-2026, lo pidió el dueño).
 - Si se llena antes de la forma final, espera llena.
 
-Lo que da con los ritmos medidos con el bot (derrotados por minuto):
+Medido con el bot en partidas de 20 minutos, usando la mega en cuanto puede y sin espera mínima:
 
-| Jugador | Minutos 0-10 | Después | Primera barra llena | Megas en 18 min |
-|---|---|---|---|---|
-| Con mejoras | 60-100 | 200-600 | Minuto 4-5, y la mega al llegar a la forma final | 5 o 6 |
-| Sin mejoras | 30-40 | 30-40 | Minuto 8-10 | 1 |
+| Partida | Primera mega | Megas en 20 min |
+|---|---|---|
+| Charizard con mejoras | Minuto 7 (la barra se llenó antes y esperó a la forma final) | 4 |
+| Absol con mejoras | Minuto 13 | 3 |
 
-Sin el mínimo, al final de la partida se recargaría en menos de un minuto y la mega estaría casi
-siempre puesta. Con él, nunca pasa de la mitad del tiempo. Es el número a vigilar al medir.
+Con 600 derrotados por minuto, lo más alto medido, la mega estaría puesta el 71 % del tiempo. Es el número a vigilar.
 
 ### 3.3 Activar y acabar
 
@@ -100,7 +99,7 @@ datos**, una vez. En la partida se aplica la naturaleza, como en cualquier fase.
 
 | Qué | Regla |
 |---|---|
-| Daño | Entre **+25 % y +40 %**: rarezas 1-3 hasta +40 %, rareza 4 hasta +35 %, rareza 5 y legendarios hasta +30 % |
+| Daño | **Según la rareza:** 1 y 2, +40 %; 3, +35 %; 4, +30 %; 5 y legendarios, +25 %. Glalie y Camerupt, +25 %, porque ya están entre los mejores. La fórmula sólo reparte entre físico y especial |
 | Daño recibido | **−15 %**, además de sus defensas |
 | Velocidad | La de la fórmula, nunca más de un 10 % más lenta |
 | Vida | No cambia y no cura |
@@ -108,8 +107,8 @@ datos**, una vez. En la partida se aplica la naturaleza, como en cualquier fase.
 
 ### 3.5 Tipo
 
-Mientras dura, cuenta su tipo para la tabla de tipos, el +20 % de monotipo, el clima, los líquidos
-y las habilidades. Las **cartas de nivel siguen con la forma normal**.
+Mientras dura, cuenta su tipo para la tabla de tipos, el clima, los líquidos y las habilidades. Las
+**cartas de nivel y el +20 % de monotipo siguen con la forma normal**: si no, Groudon o Lopunny perderían ese +20 % al ganar un tipo.
 
 ### 3.6 Habilidad
 
@@ -117,8 +116,8 @@ Mientras dura, la de la mega sustituye a la tuya en todo lo que funciona en vivo
 velocidad, cada fotograma). Lo que tu habilidad dio al empezar la partida se queda. Lo que la de la
 mega sólo haría al empezar la partida no se aplica, y así no hay nada que deshacer.
 
-- **Faltan 3 efectos:** Amor Filial (+20 % de daño, sin segundo golpe), Turbotaladro (+12 % de daño
-  y atraviesa escudos) y Eelevate (flota y +0,5 % de daño por derrotado, hasta +15 %).
+- **Faltan 3 efectos:** Amor Filial (+20 % de daño, sin segundo golpe), Turbotaladro (+12 % de daño,
+  +25 % cuerpo a cuerpo) y Eelevate (flota y +0,5 % de daño por derrotado, hasta +15 %).
 - **Mantienen tu habilidad:** Darkrai, Zygarde, Zeraora y Tatsugiri, porque PokeAPI no da la suya, y
   Rayquaza, Kyogre y Groudon, porque las suyas cambian el clima de todos. La herramienta avisa si llega el dato.
 - **Clima:** Mega-Tyranitar pone tormenta de arena con el gancho que ya existe. En grupo sólo la pone el anfitrión, como hoy.
@@ -142,7 +141,7 @@ mega sólo haría al empezar la partida no se aplica, y así no hay nada que des
 
 - **Mega-Aro:** premio del logro «Al otro lado» (`rift1`, primera grieta ganada). Quien ya lo tenga
   lo recibe al actualizar, como el regalo de las Pulseras Z.
-- **Megapiedra:** se compra en las Mejoras del Pokémon y en la Tienda Kecleon, junto a las Pulseras.
+- **Megapiedra:** se compra en las Mejoras del Pokémon.
   Hace falta tener el Pokémon. **5.000** rarezas 1-3, **7.500** rareza 4, **10.000** rareza 5 y legendarios.
 - **Elegir:** con Pulsera y piedra, en Mejoras eliges cuál lleva. Sin elegir, la última comprada.
 - **Guardado:** `save.mring` (fecha), `save.mst[mega]` (fecha) y `save.pmg[dex]` (qué lleva, con fecha).
@@ -151,8 +150,8 @@ mega sólo haría al empezar la partida no se aplica, y así no hay nada que des
 - **Pokédex:** en la pestaña Evolución de su ficha, la mega después de la forma final.
 - **Pausa:** la tarjeta del Z enseña la mega si es lo que llevas, con el tiempo o el %, y qué falta.
 - **Resumen final:** cuántas megas y el daño hecho en mega.
-- **Logros:** «¡Megaevolución!» (usar una) y «Megacoleccionista» (5, 15 y todas las piedras).
-- **Iconos:** plantilla de piedra coloreada por tipo y Mega-Aro, con `pxl` y `docs/ESTILO-ARTE.md`.
+- **Logros:** «¡Megaevolución!» (usar una) y «Megacoleccionista» (5 piedras).
+- **Iconos:** los objetos oficiales de PokeAPI/sprites (`assets/items/`), como los Cristales Z. No hace falta dibujar nada.
 
 ## 5. Botón del HUD
 
@@ -223,20 +222,18 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 
 ## 7. Datos que hay que generar
 
-- `tools/fetch_megas.js` → `js/data/megas.js`: por mega, su número de PokeAPI (`10034`), especie,
+- `tools/fetch_megas.cjs` → `js/data/megas.js`: por mega, su número de PokeAPI (`10034`), especie,
   nombres en español e inglés, tipos, habilidad, stats ajustados y piedra. Se puede volver a ejecutar
   y avisa si PokeAPI o SpriteCollab cambian. Las megas no entran en `G.DEX`.
 - `tools/fetch_sprites.py`: modo de formas que baja a `assets/pokemon/{número}/` y llena `G.SPRITE_META`.
 - `tools/fetch_credits.py`: créditos de las formas. Sprites CC BY-NC 4.0, como los demás.
-- `tests/mega.test.cjs`, caso de red en `tests/net.test.cjs` y modo `--mega` en `tools/balance.cjs`.
+- `tests/mega.test.cjs` y caso de red en `tests/net.test.cjs`.
 
 ## 8. Equilibrio: cómo se mide
 
-- `tools/balance.cjs --mega`: daño por segundo y aguante con y sin mega en los minutos 10, 15 y 20.
-- `tools/equilibrio.cjs`: las filas de evolución deben salir iguales con y sin mega.
-- `tools/medir-pokemon.cjs`: ninguna mega por encima de los mejores Pokémon sin mega contando el
-  tiempo que dura, y las flojas (Mawile, Sableye, Banette) deben subir más que los legendarios.
-- Partidas con `tools/curve.cjs` con y sin mega: sin mega se debe poder seguir ganando.
+- `tools/medir-mega.cjs` (con la salida de `medir-pokemon.cjs`): ninguna mega por encima del mejor Pokémon sin mega.
+- `tools/equilibrio.cjs`: las filas de los ataques deben salir iguales.
+- `tools/curve.cjs --mega`: partidas con el bot que megaevoluciona en cuanto puede.
 
 ## 9. Riesgos
 
@@ -252,7 +249,7 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 ## 10. Decisiones del dueño (06-11-2026)
 
 1. **Mega y Z:** uno u otro por Pokémon.
-2. **Duración:** temporal, y se recarga con enemigos derrotados, de modo que al principio cueste y luego sea más fácil.
+2. **Duración:** temporal, y se recarga con enemigos derrotados, de modo que al principio cueste y luego sea más fácil. Sin espera mínima entre megas.
 3. **Quién:** las 43 con sprite, también legendarios.
 4. **Las que no tienen sprite:** esperan a SpriteCollab.
 5. **Pokémon que faltan:** entran los 8 con andar. Los otros 51 esperan a SpriteCollab.

@@ -668,7 +668,7 @@ G.Game = (() => {
     guard('Reg', () => G.Reg.end(dead, { coins, parts, judge, record }));
     overArgs = [{
       dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10, judge,
-      moves: pl.moves, caught, dealt: pl.dmgDealt, taken: pl.dmgTaken, healed: pl.healed,
+      moves: pl.moves, caught, dealt: pl.dmgDealt, taken: pl.dmgTaken, healed: pl.healed, megas: pl.mg ? pl.mg.uses : 0,
       // (Con los nombres traducidos, 29-10-2026: antes salían las claves, «recogidas» también en inglés o chino.)
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${G.T(PART_NAME[k])} ${v}`).join(' · ') +
                  (mul > 1 ? ` · ×${mul.toFixed(2)} ${G.T('Fortuna')}` : '')

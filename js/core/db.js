@@ -93,6 +93,8 @@ G.DB = (() => {
       pabil: {},              // dex -> [0|1|2, fecha]: la habilidad cambiada con Cápsula (2 = oculta)
       zc: {},                 // tipo -> fecha: Cristales Z comprados (24-10-2026; para siempre, se juntan al fusionar)
       pz: {},                 // dex -> fecha: Pulsera Z de ese Pokémon (movimientos Z por Pokémon; igual que zc)
+      mst: {},                // mega -> fecha: megapiedras (para siempre, como zc)
+      pmg: {},                // dex -> ['mega'|'z', fecha]: qué lleva si tiene las dos (Mejoras)
       pzt: {},                // dex -> tipo: el Z que va si empatan dos cristales (Mejoras → Pulsera Z, data/shop.js)
       pzDone: true,           // ya se regaló la Pulsera Z a quien tenía cristales de antes (migrate)
       prec: {},               // dex -> [mejor tiempo, mejor nivel, más derrotados, más jefes] con él (data/families.js)
@@ -160,7 +162,7 @@ G.DB = (() => {
    * idempotente: si un aparato con la versión de antes vuelve a traer una preevolución,
    * se pasa otra vez y queda igual (por eso todo es «el mayor», no sumas).
    */
-  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pzt', 'pjudg', 'prec'];
+  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pmg', 'pzt', 'pjudg', 'prec'];
   const famOk = () => !!(G.Fam && G.Fam.ready());
   const isPre = d => !!G.DEX_BY[d] && !G.Fam.isFinal(+d);
 
@@ -333,6 +335,17 @@ G.DB = (() => {
       else s.zc[t] = n(s.zc[t]);
     }
     // Pulseras Z: Pokémon que existen, con su fecha de compra.
+    // Megapiedras: la mega tiene que existir. Qué lleva: 'mega' o 'z' con su fecha.
+    if (!isObj(s.mst)) s.mst = {};
+    for (const id of Object.keys(s.mst)) {
+      if ((G.MEGA && !G.MEGA[id]) || !n(s.mst[id])) delete s.mst[id];
+      else s.mst[id] = n(s.mst[id]);
+    }
+    if (!isObj(s.pmg)) s.pmg = {};
+    for (const d of Object.keys(s.pmg)) {
+      const p = s.pmg[d];
+      if (!Array.isArray(p) || (p[0] !== 'mega' && p[0] !== 'z') || (G.DEX_BY && !G.DEX_BY[d])) delete s.pmg[d];
+    }
     if (!isObj(s.pz)) s.pz = {};
     for (const d of Object.keys(s.pz)) {
       if ((G.DEX_BY && !G.DEX_BY[d]) || !n(s.pz[d])) delete s.pz[d];
@@ -534,10 +547,13 @@ G.DB = (() => {
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
     // (y Cristales Z y Pulseras Z: comprado en cualquier aparato, lo tienes en todos, una vez).
-    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz']) {
+    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz', 'mst']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }
+    // Qué lleva cada Pokémon: lo último que se eligió.
+    r.pmg = r.pmg || {};
+    for (const d in older.pmg || {}) if (!r.pmg[d] || (+older.pmg[d][1] || 0) > (+r.pmg[d][1] || 0)) r.pmg[d] = older.pmg[d];
     r.pzDone = !!(r.pzDone || older.pzDone);
     // Misiones del mismo día/semana: el mayor progreso y lo ya recogido.
     const mo = older.missions || {}, mr = r.missions = r.missions || {};

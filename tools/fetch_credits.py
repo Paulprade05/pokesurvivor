@@ -11,6 +11,7 @@ donde el autor es un nombre o un ID de Discord ("<@!123...>"). Los IDs se
 traducen con el credit_names.txt de la raiz del repo.
 """
 import io
+import json
 import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -43,11 +44,22 @@ def main():
 
     dexes = sorted(int(d) for d in os.listdir(ASSETS) if d.isdigit())
 
+    # Las megas van por su número de PokeAPI: su carpeta es la de su especie y forma (tools/fetch_megas.cjs).
+    forms = {}
+    jobs = os.path.join(ROOT, 'tools', 'cache', 'megas.json')
+    if os.path.exists(jobs):
+        with io.open(jobs, encoding='utf-8') as f:
+            forms = {j['id']: f"{j['dex']:04d}/{j['form']}" for j in json.load(f)}
+
     def one(dex):
         # Créditos del sprite normal y del shiny (que puede ser de otro artista).
-        txt = fetch(f'{RAW}/sprite/{dex:04d}/credits.txt')
-        if os.path.isdir(os.path.join(ASSETS, str(dex), 's')):
-            txt += '\n' + fetch(f'{RAW}/sprite/{dex:04d}/0000/0001/credits.txt')
+        if dex in forms:
+            txt = fetch(f'{RAW}/sprite/{forms[dex]}/credits.txt')
+            txt += '\n' + fetch(f'{RAW}/sprite/{forms[dex]}/0001/credits.txt')
+        else:
+            txt = fetch(f'{RAW}/sprite/{dex:04d}/credits.txt')
+            if os.path.isdir(os.path.join(ASSETS, str(dex), 's')):
+                txt += '\n' + fetch(f'{RAW}/sprite/{dex:04d}/0000/0001/credits.txt')
         authors = []
         for line in txt.splitlines():
             parts = line.split('\t')

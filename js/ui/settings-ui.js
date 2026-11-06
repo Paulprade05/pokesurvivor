@@ -141,7 +141,7 @@ G.SettingsUI = (() => {
       + keyRow(`${['m1', 'm2', 'm3', 'm4'].map(a => keyBtn(a)).join('')} o clic en el icono`, 'elegir ataque')
       + keyRow(`${keyBtn('prev')} / ${keyBtn('next')}`, 'ataque anterior / siguiente')
       + keyRow(`<kbd>Esc</kbd> / ${keyBtn('pause')}`, 'pausa')
-      + keyRow(keyBtn('zmove'), 'movimiento Z')
+      + keyRow(keyBtn('zmove'), 'movimiento Z o mega')
       + keyRow('<kbd>1</kbd>–<kbd>3</kbd>', 'elegir carta al subir de nivel')
       + keyRow(['up', 'down', 'left', 'right'].map(a => keyBtn(a)).join(''), 'teclas de más para moverte (las de siempre siguen valiendo)')
       + '</div>'
