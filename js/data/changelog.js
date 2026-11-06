@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-06', title: ["8 Pokémon nuevos", "8 new Pokémon"], new: [
+    ["Entran 8 Pokémon: Rolycoly, Cufant, Copperajah, Bombirdier, Jellicent, Sirfetch'd, Toedscool y Pecharunt. Copperajah es la evolución de Cufant, y Sirfetch'd la de Farfetch'd: si tenías Farfetch'd, ahora tienes a Sirfetch'd con todo lo que le habías mejorado.",
+     "8 new Pokémon: Rolycoly, Cufant, Copperajah, Bombirdier, Jellicent, Sirfetch'd, Toedscool and Pecharunt. Copperajah evolves from Cufant and Sirfetch'd from Farfetch'd: if you had Farfetch'd, you now have Sirfetch'd with all its upgrades."],
+    ["Pecharunt aparece en las grietas, con su llegada y su ataque propios.",
+     "Pecharunt appears in rifts, with its own entrance and attack."]] },
   { d: '2026-11-06', title: ["Pantalla negra en iPhone", "Black screen on iPhone"], fix: [
     ["Si en plena partida el mapa y los Pokémon desaparecen y queda todo negro, el juego ahora se da cuenta y lo vuelve a dibujar solo, sin cortar la partida. Sale el aviso «Dibujo recuperado».",
      "If the map and Pokémon disappear mid-run and everything goes black, the game now notices and redraws it by itself, without stopping the run. You'll see a \"Graphics recovered\" notice."],

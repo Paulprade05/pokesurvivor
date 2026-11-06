@@ -637,7 +637,7 @@ G.I18n.add({
   'Puedes borrar tu cuenta cuando quieras (se borran también tu apodo, tus amigos y tus marcas):': 'You can delete your account whenever you want (your nickname, friends and records are deleted too):',
   'Borrar mi cuenta y mi partida': 'Delete my account and my game',
   'PokéSurvivor necesita JavaScript para funcionar. Actívalo para jugar.': 'PokéSurvivor needs JavaScript to work. Please enable it to play.',
-  'Fan game gratuito de supervivencia con 966 Pokémon de las 9 regiones: elige tu compañero, sobrevive a las hordas, evoluciona tus ataques, enfréntate a legendarios y juega en cooperativo con hasta 4 amigos.': 'A free survival fan game with 966 Pokémon from all 9 regions: choose your partner, survive the hordes, evolve your moves, take on legendaries and play co-op with up to 4 friends.',
+  'Fan game gratuito de supervivencia con 974 Pokémon de las 9 regiones: elige tu compañero, sobrevive a las hordas, evoluciona tus ataques, enfréntate a legendarios y juega en cooperativo con hasta 4 amigos.': 'A free survival fan game with 974 Pokémon from all 9 regions: choose your partner, survive the hordes, evolve your moves, take on legendaries and play co-op with up to 4 friends.',
   'Guía del juego': 'Game guide',
   // donaciones
   'Apoyar': 'Support', 'Apoyar el proyecto': 'Support the project', 'Donar en Ko-fi': 'Donate on Ko-fi', 'Más información': 'More info',
@@ -1483,6 +1483,9 @@ G.I18n.add({
   "+12 % de probabilidad de golpe crítico y críticos un 30 % más fuertes.": "+12% critical hit chance and critical hits 30% stronger.",
   "+15 % de probabilidad de golpe crítico y críticos un 30 % más fuertes.": "+15% critical hit chance and critical hits 30% stronger.",
   "Al recibir un golpe se tambalea: esquiva el 20 % de los golpes durante 3 s.": "When hit it staggers: dodges 20% of hits for 3 s.",
+  "+10 % de daño; a los enemigos envenenados, +25 %.": "+10% damage; +25% against poisoned enemies.",
+  "+15 % de daño a los enemigos envenenados.": "+15% damage against poisoned enemies.",
+  "Los golpes le calientan la caldera: +25 % de velocidad un momento.": "Hits stoke its boiler: +25% speed for a moment.",
   "Recibe un 12 % menos de daño físico.": "Takes 12% less physical damage.",
   "+12 % de daño con movimientos físicos; con menos de la mitad de vida, +40 %.": "+12% damage with physical moves; below half HP, +40%.",
   "+30 % de daño con movimientos físicos, pero 1 de cada 8 golpes físicos sale flojo.": "+30% damage with physical moves, but 1 in 8 physical hits comes out weak.",

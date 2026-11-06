@@ -9,7 +9,7 @@ Todo lo técnico ya está preparado en el código. Falta lo que sólo puedes hac
 |---|---|
 | `index.html` | Título y descripción pensados para búsquedas ("juego Pokémon gratis online", "estilo Survivor.io"), dirección canónica, tarjetas para redes (Open Graph / Twitter), datos estructurados `VideoGame` (gratis, 1-4 jugadores, navegador/Android/iOS) y un texto real mientras carga (con `<h1>`). |
 | `guia/` | Guía con cómo se juega, características, consejos y **preguntas frecuentes** (con datos `FAQPage`, que Google puede enseñar desplegables en los resultados). |
-| `pokedex/` | Los 966 Pokémon jugables con sus tipos y sprites: atrae búsquedas tipo "juego con Pikachu gratis". |
+| `pokedex/` | Los 974 Pokémon jugables con sus tipos y sprites: atrae búsquedas tipo "juego con Pikachu gratis". |
 | `404.html` | Página de "no existe" con enlaces al juego (GitHub Pages la usa sola). |
 | `robots.txt` | Permite rastrear todo menos `tools/` y `docs/`, e indica el sitemap. |
 | `sitemap.xml` | Las páginas que hay que indexar. |

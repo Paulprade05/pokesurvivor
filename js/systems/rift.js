@@ -293,7 +293,7 @@ G.Rift = (() => {
     800: 'prism shards', 801: 'bloom gears', 802: 'shadow wisps', 807: 'bolt wind', 808: 'cells gears', 809: 'erupt gears',
     888: 'dive swords', 889: 'crystal hex', 890: 'eternal smoke', 891: 'quake aura', 892: 'quake wind', 894: 'braille bolts',
     895: 'braille wisps', 896: 'quake ice', 897: 'shadow fog', 898: 'warp leaves', 905: 'storm hearts', 1004: 'erupt runes',
-    1007: 'quake sun', 1015: 'shadow toxic', 1016: 'bloom hearts', 1017: 'quake leaves', 1024: 'prism hex'
+    1007: 'quake sun', 1015: 'shadow toxic', 1016: 'bloom hearts', 1017: 'quake leaves', 1024: 'prism hex', 1025: 'bubble toxic'
   };
   const APPEAR_TYPE = { fire: 'erupt embers', ground: 'quake sand', water: 'whirl bubbles', electric: 'bolt sparks', flying: 'dive feathers', dragon: 'coil wisps',
                         fighting: 'quake aura', normal: 'dive stars', psychic: 'warp aura', fairy: 'warp petals', ghost: 'shadow wisps', dark: 'shadow smoke',

@@ -574,13 +574,13 @@ def game_en():
     s = s.replace('<head>\n<meta charset="utf-8">', '<head>\n<meta charset="utf-8">\n<base href="../">', 1)
     rep = [
         ('<title>PokéSurvivor – Juego Pokémon gratis online estilo Survivor.io</title>', '<title>PokéSurvivor – Free online Pokémon survival game (Survivor.io style)</title>'),
-        ('content="Sobrevive a hordas de Pokémon con tu compañero en este fan game gratis para navegador y móvil: 966 Pokémon, shinies, legendarios y cooperativo con amigos. Sin descargas ni anuncios."',
+        ('content="Sobrevive a hordas de Pokémon con tu compañero en este fan game gratis para navegador y móvil: 974 Pokémon, shinies, legendarios y cooperativo con amigos. Sin descargas ni anuncios."',
          f'content="Survive hordes of Pokémon with your partner in this free fan game for browser and mobile: {N} Pokémon, shinies, legendaries and online co-op with friends. No downloads, no ads."'),
         ('<link rel="canonical" href="https://pokesurvivor.com/">', '<link rel="canonical" href="https://pokesurvivor.com/en/">'),
         ('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">'),
         ('<meta property="og:url" content="https://pokesurvivor.com/">', '<meta property="og:url" content="https://pokesurvivor.com/en/">'),
         ('<meta property="og:title" content="PokéSurvivor – Sobrevive a las hordas Pokémon">', '<meta property="og:title" content="PokéSurvivor – Survive the Pokémon hordes">'),
-        ('<meta property="og:description" content="Fan game gratis para navegador y móvil: 966 Pokémon, shinies, legendarios y cooperativo hasta 4 amigos. Sin descargas ni anuncios.">',
+        ('<meta property="og:description" content="Fan game gratis para navegador y móvil: 974 Pokémon, shinies, legendarios y cooperativo hasta 4 amigos. Sin descargas ni anuncios.">',
          f'<meta property="og:description" content="A free fan game for browser and mobile: {N} Pokémon, shinies, legendaries and co-op with up to 4 friends. No downloads, no ads.">'),
         ('<meta name="twitter:title" content="PokéSurvivor – Sobrevive a las hordas Pokémon">', '<meta name="twitter:title" content="PokéSurvivor – Survive the Pokémon hordes">'),
         ('<meta name="twitter:description" content="Fan game gratis para navegador y móvil, con cooperativo hasta 4. Sin descargas ni anuncios.">',
