@@ -66,25 +66,59 @@ G.U = {
    * (iPhone: ataques invisibles, 02-11-2026) ¿Siguen con su dibujo los lienzos guardados? Safari en iOS
    * puede vaciarlos sin avisar (memoria justa, al volver de otra app, si se reinicia su proceso de
    * gráficos): los sprites guardados de los ataques salían transparentes y no se veía ningún ataque.
-   * Un lienzo testigo de 1×1 pintado una vez: si ya no tiene su píxel, se han vaciado todos.
-   * Devuelve false si se han vaciado (y prepara otro testigo).
+   * (Pantalla negra, 06-11-2026) El testigo de antes era de 1×1 y con willReadFrequently: va en la memoria normal, justo
+   * donde Safari NO vacía, así que no se enteraba. Ahora son dos lienzos como los del juego (32×32, como los iconos de
+   * los ataques, y 320×320, como un chunk) y se leen como los lee el juego: con drawImage a un lienzo aparte.
+   * Devuelve false si alguno se ha vaciado (y prepara otros).
    */
   canvasAlive() {
     const U = G.U;
     try {
       if (!U._probe) {
-        const c = document.createElement('canvas');
-        c.width = c.height = 1;
-        const x = c.getContext('2d', { willReadFrequently: true });
-        if (!x) return true;                       // (sin memoria ahora mismo: se mira la próxima vez)
-        x.fillStyle = '#ff0000'; x.fillRect(0, 0, 1, 1);
-        U._probe = x;
+        const reader = document.createElement('canvas');
+        reader.width = reader.height = 1;
+        const rx = reader.getContext('2d', { willReadFrequently: true });
+        const made = [32, 320].map(S => {
+          const c = document.createElement('canvas');
+          c.width = c.height = S;
+          const x = c.getContext('2d');
+          if (x) { x.fillStyle = '#ff0000'; x.fillRect(0, 0, S, S); }
+          return x ? c : null;
+        });
+        if (!rx || !made[0] || !made[1]) {         // (sin memoria ahora mismo: se mira la próxima vez)
+          U.freeCanvas(reader); made.forEach(c => U.freeCanvas(c));
+          return true;
+        }
+        U._probe = { rx, made };
         return true;
       }
-      if (U._probe.getImageData(0, 0, 1, 1).data[3] === 255) return true;
+      const { rx, made } = U._probe;
+      let ok = true;
+      for (const c of made) {
+        rx.clearRect(0, 0, 1, 1);
+        rx.drawImage(c, c.width >> 1, c.height >> 1, 1, 1, 0, 0, 1, 1);
+        if (rx.getImageData(0, 0, 1, 1).data[3] !== 255) ok = false;
+      }
+      if (ok) return true;
     } catch (e) { return true; }                   // (file://: no deja leer; se da por bueno)
-    U.freeCanvas(U._probe.canvas); U._probe = null;
+    U._probe.made.forEach(c => U.freeCanvas(c)); U.freeCanvas(U._probe.rx.canvas); U._probe = null;
     return false;
+  },
+
+  /**
+   * (Pantalla negra, 06-11-2026) Lo que le pasa al dibujo, para poder verlo después: las últimas 40 cosas en
+   * localStorage (ps.gfx.log) y, si hay partida, también en su registro (sale en «Mis partidas» y, contado, en el
+   * resumen anónimo). kind: 'negro', 'recuperado', 'vaciado', 'fotograma', 'nan', 'perdido'...
+   */
+  gfxLog(kind, info = '') {
+    const line = kind + (info ? ' ' + String(info).slice(0, 200) : '');
+    console.warn('[gfx] ' + line);
+    try { if (G.Reg) G.Reg.ev('gfx', line); } catch (e) { /* (el registro nunca corta el juego) */ }
+    try {
+      const k = 'ps.gfx.log', a = JSON.parse(localStorage.getItem(k) || '[]');
+      a.push([Date.now(), line]);
+      localStorage.setItem(k, JSON.stringify(a.slice(-40)));
+    } catch (e) { /* (sin localStorage: sólo en la consola) */ }
   },
 
   /** "3:07" a partir de segundos. */

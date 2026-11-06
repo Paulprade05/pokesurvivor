@@ -223,6 +223,8 @@ G.HUD = (() => {
 
   // Degradados guardados (crearlos en cada fotograma cuesta); se rehacen si cambia el tamaño.
   let xpTop = null, xpTopW = 0, xpCard = null, cardG = null, lowG = null, lowW = 0, lowH = 0, xpCardS = null, cardGS = null;
+  /** Olvida los degradados guardados: se rehacen al dibujar (game.js, al recuperar el dibujo). */
+  function purge() { xpTop = xpCard = cardG = lowG = xpCardS = cardGS = null; }
   const bosses = [];                 // jefes vivos (la lista se reutiliza)
 
   /** Poca vida: los bordes de la pantalla laten en rojo (lento y suave con «Menos destellos»). */
@@ -1285,6 +1287,6 @@ G.HUD = (() => {
     return tall ? [x - sa.right, top + D.P / 2 + sa.top] : [x - Math.min(44, sa.right), top + D.P / 2 + Math.min(20, sa.top)];
   }
 
-  return { draw, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault, pads,
+  return { draw, purge, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault, pads,
            F, N, C, panel, pill, arrow, outlined, midX, place };
 })();

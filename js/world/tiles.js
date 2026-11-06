@@ -1557,7 +1557,7 @@ G.Tiles = (() => {
     return P.canvas();
   }
 
-  function clearProps() { propCache.clear(); }
+  function clearProps() { propCache.clear(); shadowCache.clear(); }
 
   return { T, RAISE, CAP_H, BIOMES, NORMAL, ARENA, ARENA_THEMES, ARENA_TYPES, paintChunk, propSprite, grass24, shadow, clearProps,
            /** Índice de bioma de la arena de un tipo. */

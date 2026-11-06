@@ -1088,16 +1088,39 @@ G.World = (() => {
    * (antes, 0,5 en las esquinas; y en Ultra, una luz que oscurecía arriba).
    */
   let vig = null, vigW = 0, vigH = 0;
-  function drawVignette(ctx, w, h) {
-    if (!vig || vigW !== w || vigH !== h) {
-      vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.4, w / 2, h / 2, Math.max(w, h) * 0.8);
-      vig.addColorStop(0, 'rgba(0,0,0,0)');
-      vig.addColorStop(1, 'rgba(0,0,0,.14)');
-      vigW = w; vigH = h;
+  function drawVignette(ctx, w, h) { drawEdge(ctx, w, h, '0,0,0', 0.14, 0.4, 0.8); }
+
+  /*
+   * Oscurecer (o aclarar, la niebla) los bordes de la pantalla: el círculo va de min(w, h)·r0 a max(w, h)·r1.
+   * (Pantalla negra, 06-11-2026) Antes, un degradado guardado que se rellenaba por toda la pantalla justo antes del
+   * HUD: es lo único que va ahí en todas las partidas y es negro. Si Safari deja de pintarlo bien (ver docs), tapa el
+   * mundo entero con negro y deja el HUD encima, como en las capturas. Ahora va horneado en un lienzo pequeño: si se
+   * pierde, sale transparente (sin viñeta) y no puede tapar nada.
+   */
+  const edges = new Map();           // color -> { cv, w, h, a, r0, r1 }
+  function drawEdge(ctx, w, h, rgb, a, r0, r1) {
+    let e = edges.get(rgb);
+    if (!e || e.w !== w || e.h !== h) {
+      if (e) G.U.freeCanvas(e.cv);
+      edges.delete(rgb);
+      const W = 128, H = Math.max(8, Math.round(W * h / w)), k = W / w, cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const g = cv.getContext('2d');
+      if (!g) { G.U.freeCanvas(cv); return; }
+      const gr = g.createRadialGradient(W / 2, H / 2, Math.min(w, h) * r0 * k, W / 2, H / 2, Math.max(w, h) * r1 * k);
+      gr.addColorStop(0, 'rgba(' + rgb + ',0)');
+      gr.addColorStop(1, 'rgba(' + rgb + ',' + a + ')');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, W, H);
+      e = { cv, w, h };
+      edges.set(rgb, e);
     }
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, w, h);
+    const prev = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(e.cv, 0, 0, w, h);
+    ctx.imageSmoothingEnabled = prev;
   }
+  function purgeEdges() { for (const e of edges.values()) G.U.freeCanvas(e.cv); edges.clear(); }
 
   return {
     grassField,
@@ -1116,11 +1139,11 @@ G.World = (() => {
       for (const k of [...images.keys()]) { const [cx, cy] = k.split(',').map(Number); if (near(cx, cy)) { G.U.freeCanvas(images.get(k)); images.delete(k); } }
       lastC = null;
     },
-    get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette, drawChestRing,
+    get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette, drawEdge, drawChestRing,
     // (Ultra 3D, ultra3d.js) Los datos de un chunk (terreno y objetos), el terreno de una casilla y si el bioma va con tileset.
     N, chunk: chunkData, terrainAt, pmdOn: bi => pmdOn(bi), get seed() { return seed; },
     /** Suelta los chunks horneados (se vuelven a hornear al dibujarlos): sin memoria de lienzos o al perder el lienzo. */
-    purge() { dropImages(images); if (fade) dropImages(fade.images); },
+    purge() { dropImages(images); if (fade) dropImages(fade.images); purgeEdges(); },
     get biome() { return biome; }
   };
 })();

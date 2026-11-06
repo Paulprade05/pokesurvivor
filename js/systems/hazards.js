@@ -173,9 +173,14 @@ G.Hazards = (() => {
     d[o + 3] = Math.round(oa * 255);
   }
   function hash(a, b) { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
-  function remember(k, v) { if (decals.size > 64) purge(); decals.set(k, v); return v; }
+  // Al pasar el tope, las viejas se sueltan al empezar el siguiente dibujo, no aquí: draw() pide dos imágenes por aviso
+  // (marca y relleno) y al guardar la segunda se soltaba la primera, que ya tenía en la mano. drawImage de un lienzo
+  // de tamaño 0 lanza un error que cortaba el fotograma entero (y gfx: purgeGfx soltaba todo lo horneado).
+  let stale = [];
+  function remember(k, v) { if (decals.size > 64) { stale.push(...decals.values()); decals.clear(); } decals.set(k, v); return v; }
+  function freeStale() { for (const c of stale) G.U.freeCanvas(c); stale = []; }
   /** Suelta las marcas guardadas (se vuelven a pintar al dibujar). */
-  function purge() { for (const c of decals.values()) G.U.freeCanvas(c); decals.clear(); }
+  function purge() { freeStale(); for (const c of decals.values()) G.U.freeCanvas(c); decals.clear(); stripes = null; }
 
   /** Zona: suelo oscurecido y agrietado con un aro de runas. R = radio en mundo. */
   function zoneDecal(color, R) {
@@ -262,6 +267,7 @@ G.Hazards = (() => {
   function draw(ctx) {
     if (!list.length) return;
     const blink = Math.sin(performance.now() / 60) > 0;
+    if (stale.length) freeStale();
     const pl = G.Game.player, r = pl ? pl.r : 12;
     // «Avisos de alto contraste» (daltónicos): negro y blanco con rayas, sin el color del tipo.
     const hi = !!G.Settings.get('hazardHi'), calm = G.Settings.get('calm');
