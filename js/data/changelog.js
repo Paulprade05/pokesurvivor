@@ -22,6 +22,14 @@ G.CHANGELOG = [
      "Vacuum Wave: the «+50% push» card now pushes harder."],
     ["Taladradora (Magnitud evolucionada) hace más críticos, como decía su carta: +15 % de crítico.",
      "Drill Run (evolved Magnitude) now lands more critical hits, as its card said: +15% critical-hit rate."]] },
+  { d: '2026-11-07', title: ["Más jefes, grietas fijas y Sobrefusión", "More bosses, set rifts and Overfusion"], new: [
+    ["Sobrefusión: cuando ya tienes un grupo de 4 ataques fusionados, al ganar un vínculo en una grieta puedes elegir la carta «Sobrefusión» en vez de unir ataques nuevos: ese grupo pega un 15 % más, hasta 3 veces (+45 %). Se ve con una ★ en su hueco. Así merece la pena seguir entrando en las grietas.",
+     "Overfusion: once you have a group of 4 fused moves, when you win a bond in a rift you can pick the \"Overfusion\" card instead of bonding new moves: that group hits 15% harder, up to 3 times (+45%). A ★ on its slot shows it. Rifts are now worth entering until the end."]],
+  chg: [
+    ["Sale un jefe cada 2 minutos y medio (antes, cada 3), en un momento al azar de hasta 22 segundos antes o después: 2:30, 5:00, 7:30… hasta el 27:30. Los dos últimos siguen siendo dos jefes a la vez.",
+     "A boss now comes every 2 and a half minutes (before, every 3), at a random moment up to 22 seconds before or after: 2:30, 5:00, 7:30… up to 27:30. The last two are still two bosses at once."],
+    ["Las grietas legendarias salen cada 5 minutos (a los 5, 10, 15, 20 y 25), también con hasta 22 segundos de margen. Si a la vez toca jefe, primero sale el jefe y la grieta se abre en cuanto lo derrotas; mientras la grieta está abierta, no llega el siguiente jefe.",
+     "Legendary rifts now open every 5 minutes (at 5, 10, 15, 20 and 25), also with up to 22 seconds of leeway. If a boss is due at the same time, the boss comes first and the rift opens as soon as you defeat it; while the rift is open, the next boss won't come."]] },
   { d: '2026-11-07', title: ["19 megas más y Charizard Y", "19 more Megas and Charizard Y"], new: [
     ["19 megaevoluciones más, de 43 a 62: Mega-Venusaur, Mega-Charizard Y, Mega-Blastoise, Mega-Beedrill, Mega-Pidgeot, Mega-Pinsir, Mega-Gyarados, Mega-Mewtwo X, Mega-Ampharos, Mega-Scizor, Mega-Heracross, Mega-Blaziken, Mega-Swampert, Mega-Aggron, Mega-Salamence, Mega-Metagross, Mega-Garchomp, Mega-Abomasnow y Mega-Audino. Cada una tiene su versión con mega en el gacha y su megapiedra en Mejoras, como las demás.",
      "19 more Mega Evolutions, from 43 to 62: Mega Venusaur, Mega Charizard Y, Mega Blastoise, Mega Beedrill, Mega Pidgeot, Mega Pinsir, Mega Gyarados, Mega Mewtwo X, Mega Ampharos, Mega Scizor, Mega Heracross, Mega Blaziken, Mega Swampert, Mega Aggron, Mega Salamence, Mega Metagross, Mega Garchomp, Mega Abomasnow and Mega Audino. Each has its Mega version in the gacha and its Mega Stone in Upgrades, like the others."],

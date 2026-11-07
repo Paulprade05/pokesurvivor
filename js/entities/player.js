@@ -37,6 +37,7 @@ G.Player = class Player {
     this.active = 0;           // hueco activo
     this.maxMoves = 4;         // huecos
     this.bonds = 0;            // vínculos por usar (premio de los legendarios)
+    this.over = 0;             // sobrefusiones: vínculos de sobra con los 4 ataques ya fusionados (ver overFuse)
 
     // patk / satk: Danza Espada y Danza Dragón (físico) y Maquinación (especial).
     this.buffs = {
@@ -188,7 +189,7 @@ G.Player = class Player {
    */
   moveK(m) {
     if (!m || m.z) return 1;
-    return m.evolved ? Player.EVO_K : Player.MOVE_K;
+    return (m.evolved ? Player.EVO_K : Player.MOVE_K) * this.overK(m);
   }
   static get EVO_K() { return 0.74; }
   static get MOVE_K() { return 1.08; }
@@ -295,6 +296,31 @@ G.Player = class Player {
     const grow = this.slots.find(s => s.length > 1 && s.length < Player.BOND_MAX);
     if (grow) return loose.length ? { mode: 'add', group: grow, loose } : null;
     return loose.length >= 2 ? { mode: 'pair', group: null, loose } : null;
+  }
+
+  // Sobrefusión (07-11-2026, lo eligió el dueño: con los 4 ataques fusionados la grieta ya no valía la pena, porque el
+  // vínculo sólo unía ataques recién aprendidos en un 2.º grupo). Con un grupo lleno (BOND_MAX), el vínculo puede ir, con
+  // una carta más en la pantalla del vínculo (game.js offerBond, run-ui.js renderBond), a subir el daño de sus ataques
+  // OVER_K, hasta OVER_MAX veces (+45 %). Es de cada
+  // jugador: en grupo, cada uno su daño (el invitado manda el golpe ya hecho, 'h'), nada nuevo por la red.
+  static get OVER_K() { return 0.15; }
+  static get OVER_MAX() { return 3; }
+  /** El grupo lleno (los 4 fusionados) o null. */
+  fullGroup() { return this.slots.find(s => s.length >= Player.BOND_MAX) || null; }
+  /** ¿Puede gastar un vínculo en una sobrefusión? */
+  canOverFuse() { return this.bonds > 0 && this.over < Player.OVER_MAX && !!this.fullGroup(); }
+  /** Gasta un vínculo: +OVER_K de daño al grupo lleno. */
+  overFuse() {
+    if (!this.canOverFuse()) return false;
+    this.over++;
+    this.bonds = Math.max(0, this.bonds - 1);
+    return true;
+  }
+  /** Multiplicador de la sobrefusión para `m` (1 si no está en el grupo lleno). */
+  overK(m) {
+    if (!this.over) return 1;
+    const g = this.fullGroup();
+    return g && g.includes(m) ? 1 + Player.OVER_K * this.over : 1;
   }
 
   /** Junta `moves` (sueltos) en el grupo `group` (o en uno nuevo) y gasta un vínculo. */

@@ -460,6 +460,7 @@ G.RunUI = (() => {
     const step2 = opt.mode === 'pair' && first;
     $('bond-sub').textContent = opt.mode === 'add' ? 'Elige qué movimiento se une a ' + names(opt.group)
       : step2 ? '¿Con cuál unes ' + G.T(first.name) + '?' : 'Elige el primer movimiento que vas a unir';
+    if (opt.over && !step2) $('bond-sub').textContent = 'Une movimientos o elige la Sobrefusión';
     $('bond-back').classList.toggle('hidden', !step2);
     bond.list = step2 ? opt.loose.filter(m => m !== first) : opt.loose;
     const box = $('bond-cards');
@@ -472,9 +473,25 @@ G.RunUI = (() => {
         badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name), chips: moveChips(m, false), desc,
         evo: evoHtml(m, G.LevelUp.evoNeed(m, G.Game.player), 'pc-evo') }, i, () => pickBond(i)));
     });
+    // (07-11-2026) Sobrefusión: con un grupo de 4 ya hecho, la última carta sube su daño en vez de unir ataques nuevos.
+    if (opt.over && !step2) {
+      const o = opt.over, pct = Math.round(o.k * 100);
+      box.appendChild(cardEl({ cls: 'bond', icon: 'bond', tile: 'tint', tileC: '#ff8ad8',
+        badge: badge('★' + o.n + ' → ★' + (o.n + 1), 'ghost'), title: G.T('Sobrefusión'),
+        desc: G.I18n.f('{x} pegan un {x} % más (en total, +{x} %).', names(o.group), pct, pct * (o.n + 1)) },
+        bond.list.length, () => pickBond('over')));
+      box.lastChild.dataset.over = '1';
+    }
   }
 
   function pickBond(i) {
+    if (bond && bond.opt.over && !(bond.opt.mode === 'pair' && bond.first) && (i === 'over' || i === bond.list.length) && !guarded()) {
+      const cb = bond.cb;
+      bond = null;
+      G.UI.hide('scr-bond');
+      cb('over');
+      return;
+    }
     if (!bond || !bond.list[i] || guarded()) return;
     const m = bond.list[i];
     if (bond.opt.mode === 'pair' && !bond.first) {
