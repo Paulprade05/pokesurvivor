@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-07', title: ["Más megas y cartas sin movimiento", "More Megas and steady cards"], chg: [
+    ["La versión con mega sale más: entre todas, 0,5 % por tirada en el gacha de su región, y nunca menos de 0,1 % cada una. La garantía de 1.500 tiradas no cambia.",
+     "Mega versions appear more often: together they have 0.5% per pull in their region's gacha, and never less than 0.1% each. The 1,500-pull guarantee stays the same."],
+    ["Al subir de nivel, el icono de los ataques y las pasivas se queda quieto.",
+     "When you level up, the attack and passive icons now stay still."]] },
   { d: '2026-11-07', title: ["Los cofres se abren con un botón", "Chests open with a button"], chg: [
     ["Los cofres ahora se abren tú mismo: acércate y pulsa la F (A en el mando). El normal se abre con una pulsación y el de candado manteniendo pulsado mientras se llena el aro; si sueltas o te alejas antes de tiempo, no se abre.",
      "You now open chests yourself: walk up and press F (A on a controller). A normal chest opens with one press and a locked chest by holding while the ring fills; let go or walk away too soon and it stays closed."],
