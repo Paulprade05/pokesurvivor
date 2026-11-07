@@ -30,6 +30,7 @@ puntos de relleno sin causa, repetir con variantes y mover sólo lo que se mover
 | Pokémon (966) | `assets/pokemon/` | Hojas PMDCollab | Muy buenos | Sí | Buena | Sin tocar |
 | Interfaz (menú, cartas, HUD) | `css/style.css`, `js/ui/` | HTML y lienzo | Cuidada, ya con entradas animadas | Sí | Buena | Brillo en Jugar, logo que flota, iconos de las cartas que respiran |
 | Iconos de objetos (110) | `assets/items/` | PNG | Buenos | No | Buena | Sin tocar |
+| Iconos de ataques (140) | `js/data/move-art.js` y `js/ui/icons.js` | Datos de 30×30, hechos con pxl (133) y en código (7) | Buenos | No | Buena | Rehechos el 07-11-2026 |
 
 ## Lo que queda sin tocar a propósito
 - **Pokémon, objetos, iconos y suelos**: son buenos y de otros autores (créditos en `CREDITS.md`).

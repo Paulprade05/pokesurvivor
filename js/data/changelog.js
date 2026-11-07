@@ -6,6 +6,14 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-07', title: ["Iconos de ataques nuevos", "New attack icons"], chg: [
+    ["Nuevos iconos para casi todos los ataques (133 de 140): ahora enseñan lo que hace cada uno, como la mano que parte una tabla en Golpe Kárate o las fauces de Mordisco. Se ven en el Compendio, las cartas, la barra de ataques y la pausa.",
+     "New icons for almost every attack (133 of 140): they now show what each one does, like the hand breaking a board for Karate Chop or the jaws for Bite. You'll see them in the Compendium, cards, attack bar and pause menu."],
+    ["El cartel de «¡Nuevo!» y el de nivel pasan a la esquina de la carta, para que se vea el icono entero.",
+     "The \"New!\" and level tags move to the corner of the card, so you can see the whole icon."]],
+  fix: [
+    ["En móviles tumbados bajos, el icono de las cartas ya no se sale de su recuadro.",
+     "On short phones in landscape, card icons no longer stick out of their frame."]] },
   { d: '2026-11-07', title: ["Los cofres se abren con un botón", "Chests open with a button"], chg: [
     ["Los cofres ahora se abren tú mismo: acércate y pulsa la F (A en el mando). El normal se abre con una pulsación y el de candado manteniendo pulsado mientras se llena el aro; si sueltas o te alejas antes de tiempo, no se abre.",
      "You now open chests yourself: walk up and press F (A on a controller). A normal chest opens with one press and a locked chest by holding while the ring fills; let go or walk away too soon and it stays closed."],
