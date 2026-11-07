@@ -2353,3 +2353,38 @@ G.I18n.add({
   "Megaevoluciones": "Mega Evolutions",
   "Con las dos megapiedras, eliges cuál al megaevolucionar.": "With both Mega Stones, you choose which one when you Mega Evolve."
 });
+
+// (7-11-2026, auditoría de ataques) Cartas de daño con su número de verdad (moves.js, honestUps): el mismo texto con otro %.
+G.I18n.add({
+  "+1 abrojo": "+1 caltrop", "Abrojos un 30% más grandes": "Caltrops 30% bigger", "+1 abrojo y -25% recarga": "+1 caltrop and -25% cooldown",
+  "+{x}% daño": "+{x}% damage",
+  "Golpea en 360° y +{x}% daño": "Hits in 360° and +{x}% damage",
+  "+{x}% daño y más ancho": "+{x}% damage and wider",
+  "Chorro más ancho y +{x}% daño": "Wider stream and +{x}% damage",
+  "+1 llama y +{x}% daño": "+1 flame and +{x}% damage",
+  "+2 lianas a los lados y +{x}% daño": "+2 vines to the sides and +{x}% damage",
+  "+1 hoja y +{x}% daño": "+1 leaf and +{x}% damage",
+  "+1 orbe y +{x}% daño": "+1 orb and +{x}% damage",
+  "+30% radio y +{x}% daño": "+30% radius and +{x}% damage",
+  "+2 saltos y +{x}% daño": "+2 jumps and +{x}% damage",
+  "+1 enemigo levantado y +{x}% daño": "+1 enemy lifted and +{x}% damage",
+  "+30% radio de la onda y +{x}% daño": "+30% shockwave radius and +{x}% damage",
+  "+{x}% de daño y de alcance": "+{x}% damage and range",
+  "+30% de alcance y +{x}% daño": "+30% range and +{x}% damage",
+  "+{x}% daño y +30% radio": "+{x}% damage and +30% radius",
+  "+{x}% daño y +15% de crítico": "+{x}% damage and +15% critical-hit rate",
+  "+1 bumerán y +{x}% daño": "+1 boomerang and +{x}% damage",
+  "+50% duración y +{x}% daño": "+50% duration and +{x}% damage",
+  "-25% recarga y +{x}% daño": "-25% cooldown and +{x}% damage",
+  "Atrae más fuerte y +{x}% daño": "Pulls harder and +{x}% damage",
+  "+1 proyectil y +{x}% daño": "+1 projectile and +{x}% damage",
+  "+50% empuje y +{x}% daño": "+50% push and +{x}% damage",
+  "+{x}% daño y +1 onda": "+{x}% damage and +1 wave",
+  "Se parte una vez más y +{x}% daño": "Splits one more time and +{x}% damage",
+  "Gira más fuerte y +{x}% daño": "Spins harder and +{x}% damage",
+  "+3 golpes en la nube y +{x}% daño": "+3 blows in the cloud and +{x}% damage",
+  "Gira un 30% más rápido y +{x}% daño": "Spins 30% faster and +{x}% damage",
+  "+10% de vida quitada y +{x}% daño": "+10% HP removed and +{x}% damage",
+  "+1 aliado y +{x}% daño": "+1 ally and +{x}% damage",
+  "+1 ave y +{x}% daño": "+1 bird and +{x}% damage"
+});

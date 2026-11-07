@@ -6,6 +6,22 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-07', title: ["Ataques que cumplen lo que dicen", "Attacks that do what they say"], chg: [
+    ["Las cartas de daño dicen ahora el daño de verdad. En 68 ataques, el ajuste de equilibrio entre niveles iba escondido en todas sus cartas: una de «-25% recarga» quitaba algo de daño sin decirlo y la de «+45% daño» daba menos. Ahora va entero en sus cartas de daño, con su número (por ejemplo, Ascuas: «+6% daño»). El nivel 1 y el nivel máximo pegan igual que antes.",
+     "Damage cards now show the real damage. In 68 attacks, the balance adjustment between levels was hidden across all their cards: a «-25% cooldown» card quietly took some damage away and the «+45% damage» one gave less. Now it all goes into their damage cards, with the real number (for example, Ember: «+6% damage»). Level 1 and max level hit the same as before."],
+    ["Púas: la carta «+30% radio de explosión» pasa a «Abrojos un 30% más grandes», que es lo que hace ahora (Amplitud también los agranda).",
+     "Spikes: the «+30% explosion radius» card becomes «Caltrops 30% bigger», which is what it now does (Amplitude makes them bigger too)."],
+    ["Fuego Fatuo y Bucle Arena: su última carta pierde la «+50% duración» y el «Atrae más fuerte», que no hacían nada, y se queda en su daño.",
+     "Will-O-Wisp and Sand Tomb: their last card drops the «+50% duration» and «Pulls harder», which did nothing, and keeps its damage."]],
+  fix: [
+    ["Sustituto: el muñeco que se quita para dejar sitio al nuevo ahora también estalla. Antes, al nivel 5 ya no estallaba ninguno y hacía menos daño que al nivel 4.",
+     "Substitute: the doll removed to make room for a new one now also explodes. Before, at level 5 none exploded any more and it dealt less damage than at level 4."],
+    ["Golpe Aéreo: «más ancho» y Amplitud agrandan de verdad su tajo en X.",
+     "Aerial Ace: «wider» and Amplitude now really make its X slash bigger."],
+    ["Onda Vacío: la carta «+50% empuje» ya empuja más.",
+     "Vacuum Wave: the «+50% push» card now pushes harder."],
+    ["Taladradora (Magnitud evolucionada) hace más críticos, como decía su carta: +15 % de crítico.",
+     "Drill Run (evolved Magnitude) now lands more critical hits, as its card said: +15% critical-hit rate."]] },
   { d: '2026-11-07', title: ["19 megas más y Charizard Y", "19 more Megas and Charizard Y"], new: [
     ["19 megaevoluciones más, de 43 a 62: Mega-Venusaur, Mega-Charizard Y, Mega-Blastoise, Mega-Beedrill, Mega-Pidgeot, Mega-Pinsir, Mega-Gyarados, Mega-Mewtwo X, Mega-Ampharos, Mega-Scizor, Mega-Heracross, Mega-Blaziken, Mega-Swampert, Mega-Aggron, Mega-Salamence, Mega-Metagross, Mega-Garchomp, Mega-Abomasnow y Mega-Audino. Cada una tiene su versión con mega en el gacha y su megapiedra en Mejoras, como las demás.",
      "19 more Mega Evolutions, from 43 to 62: Mega Venusaur, Mega Charizard Y, Mega Blastoise, Mega Beedrill, Mega Pidgeot, Mega Pinsir, Mega Gyarados, Mega Mewtwo X, Mega Ampharos, Mega Scizor, Mega Heracross, Mega Blaziken, Mega Swampert, Mega Aggron, Mega Salamence, Mega Metagross, Mega Garchomp, Mega Abomasnow and Mega Audino. Each has its Mega version in the gacha and its Mega Stone in Upgrades, like the others."],
