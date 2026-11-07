@@ -270,6 +270,8 @@ BOT.pick = function (cards, cardInfo) {
     if (!BOT.on) return orig();
     const pl = G.Game.player; if (!pl) return [0, 0];
     const r = G.Rift.rift;
+    // (07-11-2026) Cada grieta que se abre en el mapa: cuándo, a qué distancia, y si había jefe (en RESULT, «abiertas=»).
+    if (r && r !== BOT.lastRift && window.M) { BOT.lastRift = r; M.opened = M.opened || []; M.opened.push({ t: T(), d: Math.round(G.U.dist(pl.x, pl.y, r.x, r.y)), boss: G.EnemyMgr.bossAlive() ? 1 : 0 }); }
     BOT.target = r && !G.EnemyMgr.bossAlive() ? { x: r.x, y: r.y - 10 } : null;
     swapSupport(pl);
     // Un cofre al alcance: se pulsa y se mantiene (el pequeño se abre con lo primero; el grande, con lo segundo).
@@ -497,11 +499,11 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       if (s.over || s.t >= cap || (judgeAt != null && Date.now() - judgeAt >= 2000) || Date.now() - t0 > 90 * 60 * 1000) break;
     }
     const blog = await page.evaluate(() => BOT.log.filter(l => /evolu|aviso: ¡|err/.test(l)).slice(-30).join(' | '));
-    const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas }));
+    const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas, opened: M.opened || [] }));
     const reg = await page.evaluate(() => { try { const r = G.Reg.build(), o = {}; for (const id in r.moves) { const m = r.moves[id]; o[id] = { d: m.dealt, b: m.boss, a: m.active, l: m.lvl, e: m.evolved ? 1 : 0, g: m.group, h: m.hits, k: m.kills }; } return { dur: r.dur, lvl: r.lvl, kills: r.kills, dealt: r.dealt, taken: r.taken, healed: r.healed, bossesN: r.bossesN, item: r.item, cards: r.statsTaken, moves: o, en: r.tl.map(x => x[7]), keys: r.tlKeys, tl: r.tl, ev: r.ev, takenBy: r.takenBy, bosses: r.bosses, kinds: r.kinds }; } catch (e) { return null; } });
     if (reg) log(`${tag} REG ${JSON.stringify(reg)}`);
     log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} fus=${s.fz} sobre=${s.ov} ` +
-        `jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
+        `abiertas=${JSON.stringify(meas.opened)} jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
   } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
   finally { await browser.close(); server.close(); }
 }

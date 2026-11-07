@@ -16,6 +16,7 @@ darte sueño (te duermes a los 2 s), hacerte resbalar (hielo), atraerte, empujar
 - **Grietas**: una cada 5 min (5, 10, 15, 20 y 25), ±22,5 s (`G.Rift.plan`). Con un jefe vivo esperan; y si en su marca
   también toca jefe (siempre), primero sale y cae ese jefe (`G.Spawner.bossDue(mark)`). Si pasan 150 s de su marca sin poder
   abrirse, se pierde (`RIFT_LATE`). Ninguna en los 2 min antes de Arceus.
+  Mientras hay una grieta abierta en el mapa, el siguiente jefe espera (`spawner.js`: si llegaba en sus 45 s, no se entraba).
 - Antes: jefes en los minutos 3, 6, 9 … 27 y grietas al azar (cada 30 s un 20 % que subía con cada fallo, desde el minuto 4).
 - Cooperativo: los dos calendarios los sortea y los usa sólo quien manda; la grieta llega como siempre (`'rift'`).
 - **Sobrefusión** (`Player.overFuse`): con un grupo de 4 fusionados, la pantalla del vínculo trae la carta «Sobrefusión»
