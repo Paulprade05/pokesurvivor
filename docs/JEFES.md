@@ -8,6 +8,19 @@ No hay dos firmas iguales en la tabla (lo comprueba `tests/jefes.test.cjs`). Lo 
 (no te mueves un momento y luego un rato no te pasa otra vez), confundirte (vas al revés), quemarte (daño unos segundos),
 darte sueño (te duermes a los 2 s), hacerte resbalar (hielo), atraerte, empujarte o lanzarte. Se ve encima de tu Pokémon.
 
+## Calendario (07-11-2026)
+
+- **Jefes del mapa**: uno cada 2,5 min (`BOSS_SLOTS` en `js/data/enemies.js`: 2:30, 5:00 … 27:30; los dúos, a las 25:00 y
+  27:30), cada uno en un momento al azar de ±22,5 s alrededor de su marca (`BOSS_JIT`; `at` de cada jefe, `mark` su marca).
+  Siguen las esperas de siempre (`BOSS_GAP` 45 s, `bossLate`, como mucho 2 vivos).
+- **Grietas**: una cada 5 min (5, 10, 15, 20 y 25), ±22,5 s (`G.Rift.plan`). Con un jefe vivo esperan; y si en su marca
+  también toca jefe (siempre), primero sale y cae ese jefe (`G.Spawner.bossDue(mark)`). Si pasan 150 s de su marca sin poder
+  abrirse, se pierde (`RIFT_LATE`). Ninguna en los 2 min antes de Arceus.
+- Antes: jefes en los minutos 3, 6, 9 … 27 y grietas al azar (cada 30 s un 20 % que subía con cada fallo, desde el minuto 4).
+- Cooperativo: los dos calendarios los sortea y los usa sólo quien manda; la grieta llega como siempre (`'rift'`).
+- **Sobrefusión** (`Player.overFuse`): con los 4 ataques fusionados, cada vínculo de sobra da +15 % de daño al grupo, hasta
+  3 veces (+45 %); ★N en el hueco. Tests: `tests/calendario.test.cjs` y `tests/sobrefusion.test.cjs`.
+
 ## Versión 2.0: fases, tope de daño, desgaste y sitios (bloque 3, 31-10-2026)
 
 Todo lo decide quien manda (solitario o anfitrión); a la red no va nada nuevo (la vida, la burbuja, el empujón, la furia
