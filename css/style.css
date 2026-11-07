@@ -2837,6 +2837,15 @@ body.touch .dx-tab { min-height: var(--tap); }
 .rate-row small { display: block; color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
 .rate-row .ico-tile { box-shadow: inset 0 0 0 1px var(--line-2); }
 .rate-row .rate-pct { flex: none; color: var(--ink); font: 700 var(--fs-l)/1 var(--font-display); font-variant-numeric: tabular-nums; }
+/* Lo que hace falta para usar una mega (Compendio y Pokédex; G.UI.megaSteps). */
+.mega-steps { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.mega-steps li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 4px 8px 4px 4px; border-radius: 8px; background: rgba(255, 255, 255, .04); }
+.mega-steps .ms-ico { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: var(--muted); background: rgba(255, 255, 255, .06); }
+.mega-steps li.on .ms-ico { color: var(--shadow); background: var(--bond); }
+.mega-steps .ms-txt { min-width: 0; align-self: center; }
+.mega-steps b { display: block; font-weight: 600; font-size: var(--fs-s); line-height: 1.3; }
+.mega-steps small { display: block; color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
+.gr-mega-now { display: none; }
 .gacha-rules { margin: 10px 0 0; color: var(--muted); font-size: var(--fs-s); line-height: 1.5; }
 
 /* ---- Gacha: pie con los botones de tirar ---- */
@@ -2922,9 +2931,9 @@ body.touch .dx-tab { min-height: var(--tap); }
   box-shadow: 0 10px 24px rgba(0, 0, 0, .35), 0 0 18px color-mix(in srgb, var(--rc) 38%, transparent);
   animation: pc-in .32s var(--ease-pop) both;
 }
-.pull-card.r4, .pull-card.r5, .pull-card.shiny { animation: pc-in .32s var(--ease-pop) both, pc-glow 1.4s ease-in-out .32s infinite alternate; }
+.pull-card.r4, .pull-card.r5, .pull-card.r6, .pull-card.shiny { animation: pc-in .32s var(--ease-pop) both, pc-glow 1.4s ease-in-out .32s infinite alternate; }
 /* Legendarias y shiny: un destello que cruza la carta. */
-.pull-card.r5::after, .pull-card.shiny::after {
+.pull-card.r5::after, .pull-card.r6::after, .pull-card.shiny::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .22) 50%, transparent 62%) -150% 0 / 250% 100% no-repeat;
   animation: pc-sheen 2.6s ease-in-out .5s infinite;
@@ -3457,6 +3466,7 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   #scr-gacha .rate-row > .grow { grid-area: name; min-width: 0; }
   #scr-gacha .rate-row b { font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #scr-gacha .rate-row small { display: none; }
+  #scr-gacha .gr-mega-now { display: inline; }             /* (el subtítulo de la rareza Mega, que aquí no cabe) */
   #scr-gacha .rate-row .rate-pct { grid-area: pct; justify-self: end; font-size: 14px; line-height: 1.1; }
   /* Reglas: tras la «i», encima de las fichas. */
   #scr-gacha .gacha-rules { display: none; margin: 0; font-size: 11px; line-height: 1.4; }
@@ -5332,6 +5342,8 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   padding: 2px 10px; border-radius: var(--rad-pill); background: rgba(5, 10, 26, .78); border: 1px solid rgba(255, 203, 5, .5);
   font: 600 12px/1.4 var(--font-display); color: var(--c-yellow);
 }
+.lay-open { display: grid; place-items: center; border-radius: 50%; background: rgba(11, 21, 48, .78); border: 3px solid var(--c-yellow); box-shadow: 0 2px 0 rgba(0, 0, 0, .24); }
+.lay-open img { width: 50%; height: auto; pointer-events: none; image-rendering: pixelated; }
 .lay-pause { border-radius: 50%; background: rgba(11, 21, 48, .78); border: 1.5px solid rgba(255, 255, 255, .4); box-shadow: 0 2px 0 rgba(0, 0, 0, .24); }
 .lay-pause b { position: absolute; top: calc(50% - 8px); width: 4.5px; height: 16px; border-radius: 2.25px; background: var(--ink); }
 .lay-pause b:first-child { left: calc(50% - 6.5px); }

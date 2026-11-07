@@ -5,7 +5,7 @@
  *   En la partida:  stick izquierdo o cruceta   moverse
  *                   LB / RB (o LT / RT)         ataque anterior / siguiente
  *                   Start                       pausa
- *                   A                           saltar la animación de Arceus
+ *                   A                           abrir cofres (mantenido, el de candado) · saltar la animación de Arceus
  *                   X                           movimiento Z (con su Cristal Z)
  *                   stick derecho               apuntar (con "Apuntar a mano" en Accesibilidad)
  *   En menús, cartas y pausa:
@@ -331,7 +331,8 @@ G.Pad = (() => {
       if (hit(BT.LB) || hit(BT.LT)) G.Input.virtualAct('prev');
       if (hit(BT.RB) || hit(BT.RT)) G.Input.virtualAct('next');
       if (hit(BT.START) || hit(BT.BACK)) G.Input.virtual('escape');
-      if (hit(BT.A)) G.Input.virtual('space');
+      if (hit(BT.A)) { G.Input.virtual('space'); G.Input.virtualAct('open'); }
+      if (now[BT.A]) G.Input.virtualHold('open');
       if (hit(BT.X)) G.Input.virtualAct('zmove');
     }
   }
@@ -354,6 +355,8 @@ G.Pad = (() => {
     /** Stick derecho, si se está empujando: [x, y] o null; y cuándo se usó por última vez. */
     aim() { return aimVec[0] || aimVec[1] ? aimVec : null; },
     get aimAt() { return aimAt; },
+    /** ¿Se ha usado el mando hace poco? Entonces los avisos enseñan su botón. */
+    get recent() { return act >= 0 && performance.now() - (used[act] || -1e9) < 20000; },
     /** Nombre del mando conectado ('' si no hay). */
     get name() { const p = pad(); return p ? p.id || 'Mando' : ''; }
   };

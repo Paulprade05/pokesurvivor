@@ -8,11 +8,11 @@
  * Objetos del escenario (props), dibujados ordenados por Y con las entidades:
  *   tree    bloquea, indestructible (cobertura)
  *   rock    bloquea, se rompe; puede soltar experiencia, monedas o bayas
- *   chest   bloquea, se rompe; suelta un buen botín
+ *   chest   bloquea, los ataques no le hacen nada; se abre con el botón (interact.js) y suelta un buen botín
  *   grass   hierba alta, no bloquea; se corta con cualquier ataque
  *   altar   torre de poder: al tocarla da un poder temporal (una vez)
  *   spring  manantial: cura mientras estás encima; se agota y se recarga
- *   bigchest cofre con candado: se abre quedándote al lado unos segundos
+ *   bigchest cofre con candado: se abre manteniendo pulsado el botón a su lado unos segundos
  *   trap    trampa (veneno, pegajosa, explosiva): salta al pisarla, también
  *           con los enemigos
  *   (la lógica de los interactivos está en systems/interact.js; cómo se
@@ -397,14 +397,14 @@ G.World = (() => {
   const PROP = {
     tree:  { solid: true,  hp: Infinity, r: 13 },
     rock:  { solid: true,  hp: 34,       r: 12 },
-    chest: { solid: true,  hp: 22,       r: 12 },
+    chest: { solid: true,  hp: Infinity, r: 12 },
     grass: { solid: false, hp: 1,        r: 14 },
     altar:    { solid: true,  hp: Infinity, r: 9 },
     spring:   { solid: false, hp: Infinity, r: 22, flat: true },
     bigchest: { solid: true,  hp: Infinity, r: 14 },
     trap:     { solid: false, hp: Infinity, r: 9, flat: true }
   };
-  const SPECIAL = new Set(['altar', 'spring', 'bigchest', 'trap']);
+  const SPECIAL = new Set(['altar', 'spring', 'chest', 'bigchest', 'trap']);
 
   function makeProp(type, tx, ty, kind = 0) {
     const d = PROP[type];
@@ -533,7 +533,7 @@ G.World = (() => {
     return out;
   }
 
-  /** Objetos interactivos (altares, manantiales, cofres con candado, trampas) cerca. */
+  /** Objetos interactivos (altares, manantiales, cofres, trampas) cerca. */
   function specialsNear(x, y, r) {
     const out = [];
     const c0x = Math.floor((x - r) / CW), c1x = Math.floor((x + r) / CW);
@@ -546,7 +546,7 @@ G.World = (() => {
     return out;
   }
 
-  /** Roca o cofre más cercano (para apuntar cuando no hay enemigos). */
+  /** Roca más cercana (para apuntar cuando no hay enemigos): los cofres ya no se rompen a golpes. */
   function nearestBreakable(x, y, r) {
     let best = null, bd = r * r;
     for (const p of propsInCircle(x, y, r)) {
@@ -970,7 +970,6 @@ G.World = (() => {
         ctx.globalAlpha = 1;
       }
     }
-    if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
     const dy = block ? 4 : p.type === 'grass' ? 4 : 2;
     const x = Math.round((p.x - w / 2) / 2) * 2, y = Math.round((p.y - h + dy) / 2) * 2;       // (sobre la rejilla de los píxeles de arte)
     if (p.type !== 'grass' && !block) {
@@ -997,6 +996,8 @@ G.World = (() => {
     if (wc) { ctx.globalAlpha = 0.6; ctx.drawImage(wc, x, y, w, h); }
     // (Sin save/restore por objeto: sólo se toca la transparencia y aquí se deja como estaba.)
     ctx.globalAlpha = 1;
+    // (Encima del cofre: detrás, el arte nuevo lo tapaba y el progreso no se veía.)
+    if (p.type === 'bigchest' && p.open > 0) drawChestRing(ctx, p, h / 2);
   }
 
   /** El aro de «abriendo» del cofre con candado, a dy por encima de sus pies (también lo usa el Ultra 3D). */
@@ -1004,7 +1005,7 @@ G.World = (() => {
     ctx.save();
     ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(p.x, p.y - dy, 26, -Math.PI / 2, -Math.PI / 2 + 6.2832 * Math.min(1, p.open / G.Interact.CHEST_TIME));
+    ctx.arc(p.x, p.y - dy, 36, -Math.PI / 2, -Math.PI / 2 + 6.2832 * Math.min(1, p.open / G.Interact.CHEST_TIME));
     ctx.stroke();
     ctx.restore();
   }

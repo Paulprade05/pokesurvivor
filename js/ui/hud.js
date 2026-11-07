@@ -1004,6 +1004,10 @@ G.HUD = (() => {
     }
     ctx.restore();
 
+    // ---------- cofre al alcance: el aviso con su tecla (PC) o el botón táctil ----------
+    const ch = G.Interact.near;
+    if (ch && G.Game.state === 'playing' && !G.Rift.traveling) drawChestCue(ctx, w, h, ch, touch);
+
     // ---------- botón de pausa (táctil): círculo azul noche con dos barras ----------
     if (touch) {
       // (De serie arriba a la derecha; en vertical, justo debajo de la barra de estado.
@@ -1250,6 +1254,56 @@ G.HUD = (() => {
     G.Touch.addButton(x * kb, y * kb, S * kb, S * kb, () => { if (G.Game.state === 'playing') M.use(pl); }, 4 * kb);
   }
 
+  /**
+   * Con un cofre a tu alcance (G.Interact.near). PC: encima del cofre, su tecla y qué hacer.
+   * Táctil: un botón que sólo existe mientras tanto; en el de candado se va llenando su aro.
+   * Se abre en interact.js (acción 'open'): aquí sólo se pulsa, y el botón cuenta como mantenido.
+   */
+  function drawChestCue(ctx, w, h, c, touch) {
+    const big = c.type === 'bigchest', f = big ? G.U.clamp(c.open / G.Interact.CHEST_TIME, 0, 1) : 0;
+    if (!touch) {
+      const p = G.Camera.toScreen(c.x, c.y - 72), key = G.Pad.recent ? 'A' : String(G.Input.keyLabel('open'));
+      const txt = big ? 'Mantén para abrir' : 'Abrir';
+      ctx.font = F(600, 13);
+      const tw = ctx.measureText(txt).width;
+      ctx.font = N(900, 12);
+      const kw = Math.max(20, ctx.measureText(key).width + 12), PH = 26, pw = kw + tw + 18;
+      const x = G.U.clamp(p.x - pw / 2, 4, Math.max(4, w - pw - 4)), y = p.y - PH;
+      panel(ctx, x, y, pw, PH, PH / 2, 1, C.panel2, C.yellow, 1.5);
+      panel(ctx, x + 4, y + 4, kw, PH - 8, 8, 1, C.yellow, null);
+      ctx.fillStyle = C.yellowInk;
+      ctx.textAlign = 'center';
+      ctx.fillText(key, x + 4 + kw / 2, y + 17.5);
+      ctx.font = F(600, 13);
+      ctx.fillStyle = C.ink;
+      ctx.textAlign = 'left';
+      ctx.fillText(txt, x + kw + 10, y + 17.5);
+      return;
+    }
+    const s = openSize(w, h), o = G.Touch.spot('open', w, h);
+    const q = o ? [o[0] * w, o[1] * h] : padDefault('open', w, h);
+    const cx = G.U.clamp(q[0], s / 2 + 4, w - s / 2 - 4), cy = G.U.clamp(q[1], s / 2 + 4, h - s / 2 - 4);
+    ctx.beginPath(); ctx.arc(cx, cy, s / 2, 0, 6.2832);
+    ctx.fillStyle = f > 0 ? C.panel2 : C.panel; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = big ? 'rgba(255,255,255,.28)' : C.yellow; ctx.stroke();
+    if (f > 0) {
+      ctx.beginPath(); ctx.arc(cx, cy, s / 2, -Math.PI / 2, -Math.PI / 2 + f * 6.2832);
+      ctx.lineWidth = 5; ctx.strokeStyle = C.yellow; ctx.stroke();
+    }
+    const img = G.Tileset && G.Tileset.pxImg(c.type);
+    if (img) {
+      const ih = s * 0.42, iw = ih * img.width / img.height;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, cx - iw / 2, cy - ih * 0.72, iw, ih);
+      ctx.restore();
+    }
+    ctx.font = F(700, 11);
+    ctx.textAlign = 'center';
+    outlined(ctx, big ? 'Mantén' : 'Abrir', cx, cy + s * 0.32, C.yellow, 3, s - 8);
+    G.Touch.addButton(cx - s / 2, cy - s / 2, s, s, () => { if (G.Game.state === 'playing') G.Input.virtualAct('open'); }, 6, 'open');
+  }
+
   // ---------------- cooperativo ----------------
 
   /**
@@ -1353,12 +1407,33 @@ G.HUD = (() => {
    * pantalla. Para «Colocar los botones» (layout-ui.js): lo mismo que hace draw.
    */
   function padDefault(k, w, h) {
+    if (k === 'open') return openDefault(w, h);
     const sa = G.Touch.safeArea(), tall = h > w, D = pads(w, h), top = small(w, h) ? 8 : tall ? 14 : 12;
     if (k === 'bar') return [tall ? w / 2 : w / 2 - (D.S + D.IG) / 2, h - D.S / 2 - D.BOT - Math.min(28, sa.bottom)];
     const x = w - D.P / 2 - D.PM;
     return tall ? [x - sa.right, top + D.P / 2 + sa.top] : [x - Math.min(44, sa.right), top + D.P / 2 + Math.min(20, sa.top)];
   }
 
-  return { draw, purge, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault, pads,
+  /** Lado del botón de abrir cofres (es grande: se mantiene pulsado con el pulgar). */
+  const openSize = (w, h) => small(w, h) ? 58 : 68;
+  /**
+   * Dónde va de serie el botón de abrir cofres, por su centro: abajo a la derecha o, si ahí hay
+   * algo, el primer sitio libre de la lista. Mira dónde están de verdad la barra (con su nombre y el
+   * vínculo encima), la pausa y el joystick fijo, también si el jugador los ha movido.
+   */
+  function openDefault(w, h) {
+    const sa = G.Touch.safeArea(), D = pads(w, h), s = openSize(w, h), M = 12;
+    const pos = k => { const p = G.Touch.spot(k, w, h); return p ? [p[0] * w, p[1] * h] : padDefault(k, w, h); };
+    const b = pos('bar'), bw = 6 * D.S + 3 * D.GAP + 2 * D.IG, up = D.S / 2 + 56;
+    const pa = pos('pause'), st = G.Settings.get('stickMode') === 'fixed' ? G.Touch.stickBase(w, h) : null, sr = G.Touch.R(w, h) * 2.2;
+    const rx = w - s / 2 - M - Math.min(44, sa.right), lx = s / 2 + M + Math.min(44, sa.left);
+    const by = h - s / 2 - M - Math.min(21, sa.bottom), ay = b[1] - up - M - s / 2;
+    const free = ([x, y]) => !(Math.abs(x - b[0]) < bw / 2 + s / 2 + M && y + s / 2 + M > b[1] - up && y - s / 2 - M < b[1] + D.S / 2)
+      && Math.hypot(x - pa[0], y - pa[1]) > s / 2 + D.P / 2 + M && (!st || Math.hypot(x - st.x, y - st.y) > s / 2 + sr);
+    const spots = [[rx, by], [rx, ay], [lx, by], [lx, ay], [rx, h * 0.45], [lx, h * 0.45]];
+    return spots.find(free) || spots[0];
+  }
+
+  return { draw, purge, roundRect, bar, hpColor, scale: scaleFor, lay, edgeX, edgeY, fit: fitFont, padDefault, pads, openSize,
            F, N, C, panel, pill, arrow, outlined, midX, place };
 })();

@@ -1,7 +1,7 @@
 /* ============ layout-ui.js — colocar los botones (móvil) ============
  * Ajustes > Controles > Colocar los botones: se ven los ataques (con el
- * objeto), la pausa y, si es fijo, el joystick, y se arrastran a donde se
- * quiera. Se guarda el centro de cada cosa en proporción a la pantalla
+ * objeto), la pausa, el botón de abrir cofres (en partida sólo sale con un cofre
+ * al alcance) y, si es fijo, el joystick, y se arrastran a donde se quiera. Se guarda el centro de cada cosa en proporción a la pantalla
  * (G.Settings 'pad' en horizontal y 'padP' en vertical: cada orientación la
  * suya); lo que no se mueve se queda en su sitio de siempre.
  * El HUD (hud.js) y el joystick (touch.js) leen esas posiciones.
@@ -11,6 +11,7 @@
  */
 G.LayoutUI = (() => {
   const N = 4;
+  const THINGS = ['bar', 'pause', 'stick', 'open'];
   /** Medidas de la barra (objeto + 4 huecos) y de la pausa en esta pantalla, como en hud.js. */
   function dims(w, h) {
     const D = G.HUD.pads(w, h);
@@ -36,6 +37,7 @@ G.LayoutUI = (() => {
     const top = G.Touch.safeArea().top, { S, BAR_W, P } = dims(w, h);
     if (k === 'bar') return [G.U.clamp(x, 6 + BAR_W / 2, Math.max(6 + BAR_W / 2, w - BAR_W / 2 - 6)), G.U.clamp(y, Math.max(24, top + 6) + S / 2, h - S / 2 - 6)];
     if (k === 'pause') return [G.U.clamp(x, 4 + P / 2, w - 4 - P / 2), G.U.clamp(y, Math.max(10, top + 4) + P / 2, h - 4 - P / 2)];
+    if (k === 'open') { const s = G.HUD.openSize(w, h) / 2; return [G.U.clamp(x, s + 4, w - s - 4), G.U.clamp(y, s + 4, h - s - 4)]; }
     const r = G.Touch.R(w, h);
     return [G.U.clamp(x, r + 4, w - r - 4), G.U.clamp(y, r + 4, h - r - 4)];
   }
@@ -52,6 +54,7 @@ G.LayoutUI = (() => {
       <div class="lay-thing lay-bar" data-k="bar"><div class="lay-slot item">${G.Icons.html('leftovers', 30)}</div>${slots}<span class="lay-tag">Ataques</span></div>
       <div class="lay-thing lay-pause" data-k="pause"><b></b><b></b></div>
       <div class="lay-thing lay-stick" data-k="stick"><div class="knob"></div><span class="lay-tag">Joystick</span></div>
+      <div class="lay-thing lay-open" data-k="open"><img class="pix" src="assets/objects-px/chest.png" alt="" draggable="false"><span class="lay-tag">Abrir cofre</span></div>
       <div class="box lay-panel" role="dialog" aria-labelledby="lay-title">
         <h3 id="lay-title">Colocar los botones</h3>
         <p class="lay-sub">Arrastra los botones a donde quieras</p>
@@ -80,7 +83,8 @@ G.LayoutUI = (() => {
     el.querySelector('#lay-reset').onclick = () => {
       moved = {}; mode = 'float';
       const w = innerWidth, h = innerHeight, d = G.Touch.stickDef(w, h);
-      pos = { bar: G.HUD.padDefault('bar', w, h), pause: G.HUD.padDefault('pause', w, h), stick: [d[0] * w, d[1] * h] };
+      // (El de abrir cofres, al final: su sitio de serie depende de dónde queden los demás al guardar.)
+      pos = { bar: G.HUD.padDefault('bar', w, h), pause: G.HUD.padDefault('pause', w, h), stick: [d[0] * w, d[1] * h], open: G.HUD.padDefault('open', w, h) };
       for (const k in pos) pos[k] = fit(k, pos[k][0], pos[k][1], w, h);
       dirty = true;
       paint();
@@ -116,7 +120,7 @@ G.LayoutUI = (() => {
   function load() {
     const w = innerWidth, h = innerHeight;
     pos = {}; moved = {};
-    for (const k of ['bar', 'pause', 'stick']) {
+    for (const k of THINGS) {
       const c = current(k, w, h);
       pos[k] = fit(k, c[0], c[1], w, h);
       moved[k] = !!G.Touch.spot(k, w, h);
@@ -125,7 +129,7 @@ G.LayoutUI = (() => {
     // Si en esta orientación ya se había movido algo sin guardar, se recupera.
     const d = draft[keyOf(w, h)];
     if (d) {
-      for (const k of ['bar', 'pause', 'stick']) {
+      for (const k of THINGS) {
         moved[k] = !!d[k];
         let c;
         if (d[k]) c = [d[k][0] * w, d[k][1] * h];
@@ -148,6 +152,7 @@ G.LayoutUI = (() => {
     place('bar', BAR_W, S);
     place('pause', PR * 2, PR * 2);              // (el círculo; lo que se toca en la partida, 40 px)
     place('stick', r * 2, r * 2).classList.toggle('hidden', mode !== 'fixed');
+    place('open', G.HUD.openSize(w, h), G.HUD.openSize(w, h));
     el.querySelectorAll('#lay-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
     // Se juega de pie y tumbado: cada orientación tiene su colocación.
     const tall = innerHeight > innerWidth;

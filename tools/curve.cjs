@@ -31,7 +31,8 @@
  * --quiere id,id,...  (4-11-2026) las cartas sólo ofrecen esos ataques y empieza con el primero: mide un equipo concreto.
  *                     Con ataques cortos el bot juega pegado a la horda (closeRange).
  * --pref Réplica,Propulsión,...  esas pasivas antes que las demás (por nombre de carta).
- * El bot va a por el cofre grande, los altares, los manantiales si va mal de vida y los cofres pequeños (4-11-2026).
+ * El bot va a por el cofre grande, los altares, los manantiales si va mal de vida y los cofres pequeños (4-11-2026); los abre
+ * con la acción 'open', como una persona: pulsa el pequeño y mantiene el grande (7-11-2026).
  * Al acabar, una línea REG con el daño de cada ataque (G.Reg: dealt, boss, active, lvl, evolved), para contrastar el modelo.
  * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall); «dir» = vida/daño/geo del director
  * (geo: lo que tarda en caer un enemigo normal, ver systems/director.js) y el informe da sus medianas.
@@ -199,7 +200,7 @@ BOT.pick = function (cards, cardInfo) {
     else if (BOT.target) { tx = BOT.target.x; ty = BOT.target.y; tw = 1.4; }
     else {
       // (4-11-2026) Como una persona: el cofre grande (hay que quedarse al lado), el altar, el manantial si va mal de vida
-      // y los cofres pequeños que se rompen a golpes, antes que seguir recogiendo.
+      // y los cofres pequeños (cerca, antes que seguir recogiendo). Se abren en G.Input.axis, de abajo.
       const low = window.V ? V.hp / pl.maxHp < 0.55 : pl.hp / pl.maxHp < 0.55;
       let gd = 1e12, goal = null;
       for (const p of G.World.specialsNear(pl.x, pl.y, 620)) {
@@ -210,8 +211,12 @@ BOT.pick = function (cards, cardInfo) {
       }
       if (goal) { tx = goal.x; ty = goal.y; tw = 1.3; }
       else {
-        const br = G.World.nearestBreakable(pl.x, pl.y, 260);
-        if (br && br.type === 'chest') { tx = br.x; ty = br.y; tw = 1.1; }
+        let cd = 260 * 260, br = null;
+        for (const p of G.World.specialsNear(pl.x, pl.y, 260)) {
+          const d2 = (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2;
+          if (p.type === 'chest' && d2 < cd) { cd = d2; br = p; }
+        }
+        if (br) { tx = br.x; ty = br.y; tw = 1.1; }
         else {
           let bd = 1e12, best = null;
           for (const p of G.Pickups.all()) { const d2 = (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2; if (d2 < bd) { bd = d2; best = p; } }
@@ -267,6 +272,8 @@ BOT.pick = function (cards, cardInfo) {
     const r = G.Rift.rift;
     BOT.target = r && !G.EnemyMgr.bossAlive() ? { x: r.x, y: r.y - 10 } : null;
     swapSupport(pl);
+    // Un cofre al alcance: se pulsa y se mantiene (el pequeño se abre con lo primero; el grande, con lo segundo).
+    if (G.Interact.near) { G.Input.virtualAct('open'); G.Input.virtualHold('open'); }
     return smart(pl);
   };
   const visible = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };

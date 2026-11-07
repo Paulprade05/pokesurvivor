@@ -142,6 +142,7 @@ G.SettingsUI = (() => {
       + keyRow(`${keyBtn('prev')} / ${keyBtn('next')}`, 'ataque anterior / siguiente')
       + keyRow(`<kbd>Esc</kbd> / ${keyBtn('pause')}`, 'pausa')
       + keyRow(keyBtn('zmove'), 'movimiento Z o mega')
+      + keyRow(keyBtn('open'), 'abrir cofres (el de candado, mantén pulsado)')
       + keyRow('<kbd>1</kbd>–<kbd>3</kbd>', 'elegir carta al subir de nivel')
       + keyRow(['up', 'down', 'left', 'right'].map(a => keyBtn(a)).join(''), 'teclas de más para moverte (las de siempre siguen valiendo)')
       + '</div>'
@@ -175,16 +176,16 @@ G.SettingsUI = (() => {
       + keyRow(`${PAD('Stick izq.')} o ${PAD('Cruceta')}`, 'moverse · elegir en los menús')
       + keyRow(`${PAD('LB')} / ${PAD('RB')}`, 'ataque anterior / siguiente')
       + keyRow(PAD('Start'), 'pausa')
-      + keyRow(PAD('A'), 'pulsar (en los menús) · saltar la animación de Arceus')
+      + keyRow(PAD('A'), 'pulsar (en los menús) · abrir cofres (el de candado, mantén pulsado) · saltar la animación de Arceus')
       + keyRow(PAD('X'), 'movimiento Z')
       + keyRow(PAD('B'), 'atrás / cerrar')
       + keyRow(PAD('Y'), 'cambiar las cartas al subir de nivel')
       + keyRow(PAD('Stick der.'), 'desplazar las listas · apuntar (si activas Apuntar a mano en Accesibilidad)')
       + '</div>';
-    const mobile = section('En móvil o tablet', 'Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar.')
+    const mobile = section('En móvil o tablet', 'Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Cerca de un cofre sale un botón para abrirlo.')
       + list(choice('stickMode', [['fixed', 'Fijo'], ['float', 'Flotante']], 'Joystick', 'Fijo: siempre en el mismo sitio. Flotante: aparece donde pones el dedo.'),
         choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']], 'Tamaño del joystick', 'Cuánto hay que arrastrar el dedo.'),
-        action('Colocar los botones', 'Pon los ataques, la pausa y el joystick (fijo, si quieres) donde quieras de la pantalla.',
+        action('Colocar los botones', 'Pon los ataques, la pausa, el botón de abrir cofres y el joystick (fijo, si quieres) donde quieras de la pantalla.',
           '<button type="button" class="btn small" id="set-layout">Colocar</button>'));
     // Con el dedo: primero lo del móvil y sin las teclas de PC (vuelven al usar ratón o teclado).
     return G.Touch.active ? mobile + pad

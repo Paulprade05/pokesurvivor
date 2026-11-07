@@ -447,10 +447,10 @@ G.Audio = (() => {
     burst(o) {
       hiss(0.5, 0.14, 'bandpass', 400, 4000, 0, 0.8);
       const r = (o && o.rarity) || 1;
-      const chord = [[523, 659, 784], [587, 740, 880], [659, 831, 988], [698, 880, 1047], [784, 988, 1175, 1568]][r - 1];
+      const chord = [[523, 659, 784], [587, 740, 880], [659, 831, 988], [698, 880, 1047], [784, 988, 1175, 1568], [880, 1109, 1319, 1760]][r - 1];
       chord.forEach(f => tone('triangle', f, f, 0.6 + r * 0.15, 0.04));
     },
-    reveal(o) { INST.bell(ctx.currentTime, [523, 659, 784, 988, 1319][((o && o.rarity) || 1) - 1], 0.3, 0.8, sfxBus); },
+    reveal(o) { INST.bell(ctx.currentTime, [523, 659, 784, 988, 1319, 1568][((o && o.rarity) || 1) - 1], 0.3, 0.8, sfxBus); },
     rift:    () => { [196, 233, 277, 330].forEach((f, i) => INST.pad(ctx.currentTime + i * 0.08, f, 1.4, 1.2, sfxBus)); hiss(0.9, 0.08, 'bandpass', 900, 300); },
     legend:  () => { arp('square', [523, 659, 784, 1047, 1319, 1568], 0.08, 0.3, 0.05); SFX.shiny(); },
     gameover: () => arp('triangle', [523, 440, 349, 262], 0.2, 0.35, 0.08),

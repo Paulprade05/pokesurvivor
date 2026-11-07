@@ -4,6 +4,7 @@
  * Teclas que se pueden cambiar (Ajustes > Controles, ajuste 'keys' = { acción: código }):
  *   m1-m4 ataque 1-4 · prev / next ataque anterior / siguiente · pause pausa ·
  *   zmove movimiento Z (la Z, la tecla de abajo a la izquierda) ·
+ *   open abrir cofres (la F; el cofre con candado, manteniéndola) ·
  *   up / down / left / right teclas de más para moverse.
  * Esc siempre pausa y cierra, WASD y las flechas siempre mueven y las cartas
  * de nivel siempre van con 1-4 (y el clic).
@@ -13,6 +14,7 @@ G.Input = (() => {
   const pressed = new Set();   // se limpia cada frame
   const vacts = new Set();     // acciones pulsadas con el mando (se limpia cada frame)
   const vkeys = new Set();     // teclas que simula el mando (Esc, Espacio, R): valen para tap(), no para act()
+  const vheld = new Set();     // acciones mantenidas con el mando o por el bot (se limpia cada frame)
   let mx = 0, my = 0, mdown = false;
 
   const MOVE_KEYS = {
@@ -20,9 +22,9 @@ G.Input = (() => {
     left: ['keya', 'arrowleft'], right: ['keyd', 'arrowright']
   };
   const MOVE_SET = new Set([].concat(...Object.values(MOVE_KEYS)));
-  const ACTIONS = ['m1', 'm2', 'm3', 'm4', 'prev', 'next', 'pause', 'zmove', 'up', 'down', 'left', 'right'];
+  const ACTIONS = ['m1', 'm2', 'm3', 'm4', 'prev', 'next', 'pause', 'zmove', 'open', 'up', 'down', 'left', 'right'];
   const DEF_KEYS = { m1: ['digit1', 'numpad1'], m2: ['digit2', 'numpad2'], m3: ['digit3', 'numpad3'], m4: ['digit4', 'numpad4'],
-    prev: ['keyq'], next: ['keye', 'tab'], pause: ['keyp'], zmove: ['keyz'], up: [], down: [], left: [], right: [] };
+    prev: ['keyq'], next: ['keye', 'tab'], pause: ['keyp'], zmove: ['keyz'], open: ['keyf'], up: [], down: [], left: [], right: [] };
 
   // (El autorrelleno de Chrome manda keydown sin code ni key.)
   function code(e) { return (e.code || e.key || '').toLowerCase(); }
@@ -183,12 +185,16 @@ G.Input = (() => {
     held(c) { return down.has(c); },
     /** true sólo en el frame en que se pulsó. */
     tap(c) { return pressed.has(c) || vkeys.has(c); },
-    /** true en el frame en que se pulsó la tecla de una acción ('m1'..'m4', 'prev', 'next', 'pause', 'zmove'), o desde el mando. */
+    /** true en el frame en que se pulsó la tecla de una acción ('m1'..'m4', 'prev', 'next', 'pause', 'zmove', 'open'), o desde el mando. */
     act(a) { return vacts.has(a) || any(binds()[a] || [], pressed); },
+    /** true mientras la acción siga mantenida: tecla, mando o botón táctil (G.Touch.held). */
+    actHeld(a) { return vheld.has(a) || any(binds()[a] || [], down) || !!(G.Touch && G.Touch.held(a)); },
     /** Una pulsación que no viene del teclado (el mando): cuenta como tecla en este fotograma. */
     virtual(c) { vkeys.add(c); },
     /** Lo mismo con una acción: el mando no depende de las teclas elegidas. */
     virtualAct(a) { vacts.add(a); },
+    /** La acción sigue mantenida en este fotograma (el mando; el bot de tools/curve.cjs). */
+    virtualHold(a) { vheld.add(a); },
     /** Nombre de la tecla de una acción ('Q', '1', 'Espacio'...), o '—' si no tiene. */
     keyLabel(a) { binds(); return labels[a] || '—'; },
     codeLabel, moveLabel, bind,
@@ -205,6 +211,6 @@ G.Input = (() => {
     /** Dónde apunta el ratón en el mundo (el lienzo ocupa toda la ventana). */
     // (Ultra: con la perspectiva de la cámara, el punto del suelo que hay bajo el ratón.)
     mouseWorld() { return G.Camera.persp ? G.Camera.toWorld(mx, my) : { x: G.Camera.left() + mx / G.Camera.scale, y: G.Camera.top() + my / G.Camera.scale }; },
-    endFrame() { pressed.clear(); vkeys.clear(); vacts.clear(); }
+    endFrame() { pressed.clear(); vkeys.clear(); vacts.clear(); vheld.clear(); }
   };
 })();
