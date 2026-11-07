@@ -94,6 +94,8 @@ G.DB = (() => {
       zc: {},                 // tipo -> fecha: Cristales Z comprados (24-10-2026; para siempre, se juntan al fusionar)
       pz: {},                 // dex -> fecha: Pulsera Z de ese Pokémon (movimientos Z por Pokémon; igual que zc)
       mst: {},                // mega -> fecha: megapiedras (para siempre, como zc)
+      mop: {},                // mega -> fecha: versión con mega, del gacha; deja comprar la piedra (como mst)
+      pityM: {},              // generación del banner -> tiradas sin versión con mega (como pity)
       pmg: {},                // dex -> ['mega'|'z', fecha]: qué lleva si tiene las dos (Mejoras)
       pzt: {},                // dex -> tipo: el Z que va si empatan dos cristales (Mejoras → Pulsera Z, data/shop.js)
       pzDone: true,           // ya se regaló la Pulsera Z a quien tenía cristales de antes (migrate)
@@ -341,6 +343,12 @@ G.DB = (() => {
       if ((G.MEGA && !G.MEGA[id]) || !n(s.mst[id])) delete s.mst[id];
       else s.mst[id] = n(s.mst[id]);
     }
+    // Versión con mega: quien ya compró la piedra la tiene conseguida, para siempre.
+    if (!isObj(s.mop)) s.mop = {};
+    for (const id of Object.keys(s.mop)) { if (n(s.mop[id])) s.mop[id] = n(s.mop[id]); else delete s.mop[id]; }
+    for (const id of Object.keys(s.mst)) if (!s.mop[id]) s.mop[id] = s.mst[id];
+    if (!isObj(s.pityM)) s.pityM = {};
+    for (const g of Object.keys(s.pityM)) s.pityM[g] = n(s.pityM[g]);
     if (!isObj(s.pmg)) s.pmg = {};
     for (const d of Object.keys(s.pmg)) {
       const p = s.pmg[d];
@@ -547,7 +555,7 @@ G.DB = (() => {
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
     // (y Cristales Z y Pulseras Z: comprado en cualquier aparato, lo tienes en todos, una vez).
-    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz', 'mst']) {
+    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz', 'mst', 'mop']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }

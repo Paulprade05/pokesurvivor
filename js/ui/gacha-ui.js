@@ -223,7 +223,7 @@ G.GachaUI = (() => {
     // tumbado van en fichas y las reglas salen con la «i» (en el resto, siempre a la vista).
     const rates = $('gacha-rates');
     rates.innerHTML = `<h3><span>Probabilidades</span><button type="button" class="icon-btn plain gr-info" aria-expanded="${rulesOn}" ` +
-      `aria-label="Reglas del gacha" title="Reglas del gacha">${G.UI.svg('info')}</button></h3><div class="rate-list">` + G.Gacha.ratesFor(gen).slice().reverse().map(([r, w]) => `
+      `aria-label="Reglas del gacha" title="Reglas del gacha">${G.UI.svg('info')}</button></h3><div class="rate-list">` + megaRow(s) + G.Gacha.ratesFor(gen).slice().reverse().map(([r, w]) => `
       <div class="rate-row" style="--rc:${G.Gacha.RARITY_COLOR[r]}"><span class="ico-tile s round">${ico(G.Icons.RARITY_BALL[r])}</span>
         <span class="grow"><b>${G.Gacha.RARITY_NAME[r]}</b><small>${G.Gacha.pool(r, gen).length} Pokémon</small></span>
         <b class="rate-pct">${w.toLocaleString(G.I18n.locale)}%</b></div>`).join('') +
@@ -232,6 +232,7 @@ G.GachaUI = (() => {
       <p class="gacha-rules">· La tirada ×10 garantiza al menos una Épica.<br>
        · A las ${G.Gacha.PITY_5} tiradas sin Legendaria en un banner, la siguiente lo es.<br>
        · Los repetidos dan Pokémonedas. Los shiny no se repiten.<br>
+       ${G.Gacha.megasIn(gen).length ? `· ${G.I18n.f('Versión con mega: sale si ya tienes ese Pokémon, cada una 1 de cada {x} tiradas, y no se repite. A las {x} tiradas sin ninguna, la siguiente lo es. No da la mega: deja comprar su megapiedra en Mejoras.', num(1 / G.Gacha.MEGA_RATE), num(G.Gacha.PITY_M))}<br><span class="gr-mega-now">· Mega: ${megaNow(s)}<br></span>` : ''}
        · Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.</p>`;
     rates.classList.toggle('rules-on', rulesOn);
     rates.querySelector('.gr-info').onclick = () => {
@@ -297,6 +298,21 @@ G.GachaUI = (() => {
     const kd = Math.max(1, Math.floor(k * dpr + 1e-6));
     slot.style.width = 176 * kd / dpr + 'px';
     slot.style.height = 170 * kd / dpr + 'px';
+  }
+
+  const num = v => v.toLocaleString(G.I18n.locale);
+  /** La rareza Mega en las probabilidades: cada una por su lado y lo que te queda en esta región. */
+  function megaNow(s) {
+    const ids = G.Gacha.megasIn(gen), left = G.Gacha.megaPool(s, gen).length, pity = (s.pityM && s.pityM[gen]) || 0;
+    return left ? G.I18n.f('Cada una. Pueden salir {x} · {x} / {x} sin ninguna', left, num(pity), num(G.Gacha.PITY_M))
+      : ids.every(id => G.Gacha.megaOpen(s, id)) ? G.T('Todas conseguidas') : G.T('Primero consigue sus Pokémon');
+  }
+  function megaRow(s) {
+    if (!G.Gacha.megasIn(gen).length) return '';
+    const sub = megaNow(s);
+    return `<div class="rate-row" style="--rc:${G.Gacha.RARITY_COLOR[G.Gacha.R_MEGA]}"><span class="ico-tile s round">${G.Icons.html('mring', 30)}</span>
+      <span class="grow"><b>${G.Gacha.RARITY_NAME[G.Gacha.R_MEGA]}</b><small>${sub}</small></span>
+      <b class="rate-pct">${num(G.Gacha.MEGA_RATE * 100)}%</b></div>`;
   }
 
   const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -365,27 +381,27 @@ G.GachaUI = (() => {
   }
 
   function card(r, mode) {
-    const mon = G.DEX_BY[r.dex];
+    const mon = G.DEX_BY[r.dex], mg = r.mega ? G.MEGA[r.mega] : null, look = r.mega || r.dex;
     const [w, h] = CARD_CV[mode];
     const col = r.shiny ? '#9ae6ff' : G.Gacha.RARITY_COLOR[r.rarity];
     const c = document.createElement('div');
     c.className = 'pull-card r' + r.rarity + (r.shiny ? ' shiny' : '') + (r.isNew ? ' is-new' : ' is-dup');
     c.style.setProperty('--rc', col);
     // Escala entera: ×3 en la carta grande si cabe entero; si no, ×2 como todas.
-    const m = G.Sprites.animMeta(r.dex, 'Idle');
+    const m = G.Sprites.animMeta(look, 'Idle');
     const k = mode === 'one' && (m ? m.ay : 24) * 3 <= h * 0.8 ? 3 : 2;
     const stage = document.createElement('div');
     stage.className = 'pc-stage';
     stage.innerHTML = `<span class="pc-ball">${G.Icons.rarity(r.rarity, 30)}</span>`;
-    stage.appendChild(G.UI.spriteCanvas(r.dex, w, h, { lively: r.rarity >= 4 || r.shiny, scale: k, shiny: r.shiny }));
+    stage.appendChild(G.UI.spriteCanvas(look, w, h, { lively: r.rarity >= 4 || r.shiny, scale: k, shiny: r.shiny }));
     c.appendChild(stage);
     // Nuevo: con qué naturaleza y habilidad te ha tocado (la oculta, en dorado).
-    const ab = r.isNew ? G.Mons.abilityOf(r.dex) : null;
-    const who = ab ? `<div class="pmon" translate="no">${G.Mons.name(G.Mons.natureOf(r.dex).n)} · <span class="${ab.slot === 2 ? 'gold' : ''}">${G.Mons.abilityName(ab.id)}</span></div>` : '';
-    const flag = r.isNew
+    const ab = r.isNew && !mg ? G.Mons.abilityOf(r.dex) : null;
+    const who = mg ? `<div class="pmon">${G.I18n.f('Compra {x} en sus Mejoras', `<span translate="no">${G.Mons.name(mg.stone)}</span>`)}</div>` : ab ? `<div class="pmon" translate="no">${G.Mons.name(G.Mons.natureOf(r.dex).n)} · <span class="${ab.slot === 2 ? 'gold' : ''}">${G.Mons.abilityName(ab.id)}</span></div>` : '';
+    const flag = mg ? `<span class="badge gold pc-flag">${G.T('¡VERSIÓN MEGA!')}</span>` : r.isNew
       ? `<span class="badge ${r.shiny ? 'pc-shiny' : 'gold'} pc-flag">${r.shiny ? '¡SHINY NUEVO!' : '¡NUEVO!'}</span>`
       : `<span class="pc-flag pc-dup"><span>Repetido</span><span class="pc-refund">${ico('coin')}<b>+${r.refund.toLocaleString(G.I18n.locale)}</b></span></span>`;
-    c.insertAdjacentHTML('beforeend', `<div class="pc-txt"><b class="pc-name">${r.shiny ? G.Icons.html('shiny', 16) : ''}<span>${mon.name}</span></b>${who}${flag}</div>`);
+    c.insertAdjacentHTML('beforeend', `<div class="pc-txt"><b class="pc-name">${r.shiny ? G.Icons.html('shiny', 16) : ''}<span>${mg ? G.Mons.name(mg.name) : mon.name}</span></b>${who}${flag}</div>`);
     return c;
   }
 

@@ -72,7 +72,7 @@ G.Slots = (() => {
         if (k === 2 && big) {
           // Suspense: el último rodillo frena despacio y las luces parpadean.
           st.frenzy = 1;
-          st.led = r.shiny ? '¡¿SHINY?!' : r.rarity === 5 ? '¡¿LEGENDARIO?!' : '¡¿ÉPICO?!';
+          st.led = r.shiny ? '¡¿SHINY?!' : r.rarity === 6 ? '¡¿MEGA?!' : r.rarity === 5 ? '¡¿LEGENDARIO?!' : '¡¿ÉPICO?!';
           st.ledCol = colOf(r);
           await tween(v => { st.reels[2].speed = v; }, 520, 120, ten ? 0.5 : 1.1);
         }
@@ -87,9 +87,9 @@ G.Slots = (() => {
       st.led = (r.shiny ? 'SHINY · ' : '') + G.Gacha.RARITY_NAME[r.rarity].toUpperCase();
       st.ledCol = colOf(r);
       G.Audio.sfx('reveal', { rarity: r.rarity });
-      if (r.rarity === 5) G.Audio.sfx('legend');
+      if (r.rarity >= 5) G.Audio.sfx('legend');
       if (r.shiny) G.Audio.sfx('shiny');
-      if (big) burst(colOf(r), r.rarity === 5 || r.shiny ? 60 : 30);
+      if (big) burst(colOf(r), r.rarity >= 5 || r.shiny ? 60 : 30);
       st.tray.push({ sym: symOf(r), y: 104, vy: 0, done: false });
       await wait(ten ? (big ? 0.7 : 0.28) : 1.0);
     }

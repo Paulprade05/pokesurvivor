@@ -10,6 +10,8 @@
  * Botones del HUD (iconos de ataque, pausa): el HUD los registra en cada
  * fotograma con addButton(); un toque (o un clic con el ratón) sobre uno lo
  * pulsa en vez de abrir el joystick. Varios dedos a la vez funcionan.
+ * Uno con nombre (el de abrir cofres: 'open') cuenta además como mantenido
+ * hasta levantar el dedo (held), aunque el dedo resbale fuera de él.
  *
  * Portátil con pantalla táctil: un toque pasa el HUD a modo móvil y volver a
  * usar el ratón o el teclado lo devuelve al modo PC.
@@ -24,6 +26,8 @@ G.Touch = (() => {
   let buttons = [];
   let touchAt = 0;                    // último toque (lo que simula el navegador después no es el ratón)
   let missed = null;                  // el último dedo que no cogió el joystick (estaba ocupado)
+  const holds = new Map();            // dedo ('t' + identifier) o puntero ('p' + pointerId) → botón mantenido
+  let touchEvents = false;            // ¿este aparato manda touchstart? Entonces los dedos se siguen por ahí
 
   // Tamaño de la pantalla de juego (el del lienzo; si aún no lo hay, el de la ventana).
   const cw = () => (cv && cv.clientWidth) || innerWidth, ch = () => (cv && cv.clientHeight) || innerHeight;
@@ -84,7 +88,12 @@ G.Touch = (() => {
     addEventListener('keydown', e => { if (active && G.Input.gameKey(e)) toPc(e); }, true);
     // Sin ningún dedo en la pantalla no puede haber joystick.
     for (const ev of ['touchstart', 'touchend', 'touchcancel']) {
-      document.addEventListener(ev, e => { touchAt = performance.now(); if (ev !== 'touchstart' && !e.touches.length && (!stick || stick.touch)) reset(); }, { capture: true, passive: true });
+      document.addEventListener(ev, e => {
+        touchAt = performance.now();
+        if (ev === 'touchstart') return;
+        fingersUp(e);
+        if (!e.touches.length && (!stick || stick.touch)) reset();
+      }, { capture: true, passive: true });
     }
     document.addEventListener('selectstart', e => {
       if (!e.target.closest || !e.target.closest('input, textarea, [contenteditable]')) e.preventDefault();
@@ -116,7 +125,15 @@ G.Touch = (() => {
         const m = missed; missed = null;
         if (m && performance.now() - m.at < 500) take(m.id, m.x, m.y, true);
       }
-      for (const t of e.changedTouches) { const b = hit(t.clientX, t.clientY); if (b) press(b); }
+      // En iPhone a veces se pierden el pointerdown y el pointerup de un segundo dedo: los
+      // dedos mantenidos se siguen con touchstart / touchend (lo apuntado por pointerdown, fuera).
+      if (!touchEvents) { touchEvents = true; holds.clear(); }
+      for (const t of e.changedTouches) {
+        const b = hit(t.clientX, t.clientY);
+        if (!b) continue;
+        hold('t' + t.identifier, b);
+        press(b);
+      }
     }, { passive: false });
   }
 
@@ -137,11 +154,24 @@ G.Touch = (() => {
     b.fn();
   }
 
+  function hold(id, b) { if (b.hold) holds.set(id, b.hold); }
+  /** Quita los dedos levantados (también los que ya no están en la pantalla aunque no haya llegado su aviso). */
+  function fingersUp(e) {
+    const on = new Set();
+    for (const t of e.touches) on.add('t' + t.identifier);
+    for (const id of [...holds.keys()]) if (id[0] === 't' && !on.has(id)) holds.delete(id);
+  }
+
   function down(e) {
     const touchy = e.pointerType !== 'mouse';
     if (touchy) setActive(true);
     const b = hit(e.clientX, e.clientY);
-    if (b) { e.preventDefault(); press(b); return; }
+    if (b) {
+      e.preventDefault();
+      if (!touchy || !touchEvents) hold('p' + e.pointerId, b);
+      press(b);
+      return;
+    }
     if (!touchy || !G.Game || G.Game.state !== 'playing') return;
     // Ocupado: se apunta por si el del joystick resulta que ya no está (ver touchstart).
     if (stick) { missed = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() }; return; }
@@ -172,10 +202,16 @@ G.Touch = (() => {
   }
 
   function up(e) {
+    holds.delete('p' + e.pointerId);
     if (missed && e.pointerId === missed.id) missed = null;
     if (stick && e.pointerId === stick.id) stick = null;
   }
-  function reset() { stick = null; missed = null; }
+  function reset() { stick = null; missed = null; holds.clear(); }
+  /** ¿Hay un dedo (o el ratón) manteniendo ese botón? */
+  function held(name) {
+    for (const v of holds.values()) if (v === name) return true;
+    return false;
+  }
 
   function setActive(v) {
     if (active === v) return;
@@ -225,7 +261,7 @@ G.Touch = (() => {
 
   /** El HUD vacía y vuelve a registrar sus botones cada fotograma. */
   function clearButtons() { buttons = []; }
-  function addButton(x, y, w, h, fn, pad = 6) { buttons.push({ x, y, w, h, fn, pad }); }
+  function addButton(x, y, w, h, fn, pad = 6, hold = null) { buttons.push({ x, y, w, h, fn, pad, hold }); }
 
   /** Dibuja el joystick (coordenadas de pantalla, CSS px). */
   function draw(ctx) {
@@ -261,6 +297,6 @@ G.Touch = (() => {
     ctx.restore();
   }
 
-  return { init, bind, vector, draw, drawStick, clearButtons, addButton, reset, safeArea, resetSafe, spot, stickBase, stickDef, R, STICK_DEF,
+  return { init, bind, vector, draw, drawStick, clearButtons, addButton, held, reset, safeArea, resetSafe, spot, stickBase, stickDef, R, STICK_DEF,
            get active() { return active; }, get stick() { return stick; } };
 })();

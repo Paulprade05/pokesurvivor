@@ -9,7 +9,7 @@ function boot(save) {
   const G = { U: { TYPE_NAME: { fire: 'Fuego' }, clamp: (v, a, b) => Math.min(b, Math.max(a, v)) },
               DB: { save, commit() {} }, Moves: { Z: {} }, Coop: { active: false } };
   const ctx = vm.createContext({ G, console, performance: { now: () => 0 }, Intl, Math, Date, Object });
-  for (const f of ['js/data/pokedex.js', 'js/data/megas.js', 'js/data/shop.js', 'js/systems/mega.js']) load(ctx, f);
+  for (const f of ['js/data/pokedex.js', 'js/data/megas.js', 'js/data/shop.js', 'js/systems/gacha.js', 'js/systems/mega.js']) load(ctx, f);
   return G;
 }
 const sv = o => Object.assign({ coins: 50000, owned: { 6: 1, 94: 1, 150: 1, 303: 1 }, ach: {}, mst: {}, pz: {}, pmg: {} }, o);
@@ -56,6 +56,7 @@ test('comprar: hace falta el Aro y el Pokémon; precio por rareza; no se compra 
   const s = sv();
   const G = boot(s);
   const gengar = G.MEGA_OF[94][0], mawile = G.MEGA_OF[303][0], mewtwo = G.MEGA_OF[150][0], latias = G.MEGA_OF[380][0];
+  s.mop = { [gengar]: 1, [latias]: 1 };                  // (la versión con mega: tests/mega-desbloqueo.test.cjs)
   assert.equal(G.Shop.buy('mg:' + gengar).ok, false);
   s.ach.rift1 = 1;
   assert.equal(G.Shop.buy('mg:' + latias).ok, false, 'no tienes a Latias');
@@ -93,7 +94,7 @@ function db(save, older) {
 }
 test('guardado: las megapiedras se unen al fusionar y qué lleva, lo último elegido', () => {
   const { src } = db();
-  assert.ok(/'zc', 'pz', 'mst'\]/.test(src), 'mst va en la unión');
+  assert.ok(/'zc', 'pz', 'mst', 'mop'\]/.test(src), 'mst y mop van en la unión');
   assert.ok(src.includes("r.pmg[d] = older.pmg[d]"), 'pmg se funde por fecha');
   assert.ok(/'pbind', 'pban', 'pz', 'pmg'/.test(src), 'pmg pasa a la forma final como pz');
 });
@@ -102,5 +103,8 @@ test('textos: todo lo de la mega tiene su inglés', () => {
   const en = fs.readFileSync(path.join(root, 'js/data/lang-en.js'), 'utf8');
   for (const k of ['¡{x} megaevoluciona en {x}!', '¡Megaevolución lista!', 'Mega: derrota enemigos', 'Mega: al llegar a {x}', 'Megaevolución', 'Activa: {x}',
     'Lista: toca su botón', 'Lista: pulsa {x}', 'Llega a {x}', 'Energía: {x}', 'Se queda con tu habilidad.', 'Se carga con {x} enemigos derrotados y dura {x} s.',
-    'Lleva la megapiedra', 'Lleva la Pulsera Z', 'Con mega', 'Megapiedra', 'Megacoleccionista']) assert.ok(en.includes(JSON.stringify(k) + ':'), k);
+    'Lleva la megapiedra', 'Lleva la Pulsera Z', 'Con mega', 'Megapiedra', 'Megacoleccionista',
+    'Mega-Aro', 'Versión con mega', 'Cada una. Pueden salir {x} · {x} / {x} sin ninguna', 'Todas conseguidas', 'Primero consigue sus Pokémon', '¡VERSIÓN MEGA!', '¡¿MEGA?!',
+    'Compra {x} en sus Mejoras', 'Sale en el gacha de su región.', 'Se gana con tu primera grieta.', 'Se compra en sus Mejoras por {x} Pokémonedas.',
+    'Antes necesitas su versión con mega: sale en el gacha.']) assert.ok(en.includes(JSON.stringify(k) + ':'), k);
 });
