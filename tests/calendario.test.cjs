@@ -131,9 +131,9 @@ test('calendario: partida simulada, jefe primero y grieta al caer, en solitario 
       const B = enemies().Enemies.rollRun().bosses;
       let bi = 0, deadAt = -1;
       const opened = [], killT = 25 + Math.random() * 70;    // cada jefe tarda de 25 a 95 s en caer
-      for (let t = 0; t < 1800; t += 0.5) {
+      for (let t = 0; t < 1800; t += 0.5) {   // (spawner: con una grieta abierta, el jefe espera: !R.rift)
         G.Game.st.time = t;
-        if (!st.alive && B[bi] && t >= B[bi].at) { const m = B[bi].mark; while (B[bi] && B[bi].mark === m) bi++; st.alive = true; deadAt = t + killT; }
+        if (!st.alive && B[bi] && t >= B[bi].at && !R.rift) { const m = B[bi].mark; while (B[bi] && B[bi].mark === m) bi++; st.alive = true; deadAt = t + killT; }
         if (st.alive && t >= deadAt) st.alive = false;
         st.due = new Set(B.slice(bi).map(b => b.mark));
         const had = !!R.rift;
@@ -154,4 +154,10 @@ test('calendario: partida simulada, jefe primero y grieta al caer, en solitario 
   for (let t = 0; t < 1800; t += 1) { g.G.Game.st.time = t; g.R.update(1, g.G.Game.player, t); }
   assert.equal(g.R.rift, null);
   assert.equal(g.sent.length, 0);
+});
+
+test('calendario: con una grieta abierta en el mapa el siguiente jefe espera (spawner.js)', () => {
+  const src = source('js/systems/spawner.js');
+  assert.match(src, /const group = b && t >= b\.at && !G\.Rift\.rift && /);
+  assert.match(src, /if \(G\.Rift\.inArena \|\| G\.Judgment\.active\) return;/, 'y en la arena no sale ninguno');
 });
