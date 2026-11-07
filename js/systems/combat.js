@@ -4611,13 +4611,14 @@ G.Combat = (() => {
           } });
         return true;
       }
-      addField({ tag: 'cal', owner: pl, ghost, m, x: pl.x, y: pl.y, pts, life: m.dur || 8, pad: 120, dmg,
+      // (7-11-2026, auditoría) El tamaño de los abrojos sale de su radio (60 de base = 8 px): «+30%» y Amplitud no hacían nada.
+      addField({ tag: 'cal', owner: pl, ghost, m, x: pl.x, y: pl.y, pts, life: m.dur || 8, pad: 120, dmg, cr: 8 * (m.radius || 60) / 60,
         upd(f) {
           let alive = 0;
           for (const c of f.pts) {
             if (!c.live) continue;
             alive++;
-            for (const e of G.EnemyMgr.queryCircle(c.x, c.y, 8)) {
+            for (const e of G.EnemyMgr.queryCircle(c.x, c.y, f.cr)) {
               if (e.dead || e.flying) continue;
               c.live = false;
               if (G.Camera.sees(c.x, c.y, 20)) G.FX.burst(c.x, c.y - 2, '#cad6e2', 5, 70);
@@ -4629,7 +4630,7 @@ G.Combat = (() => {
         },
         dg(ctx, f, own) {
           ctx.globalAlpha = own * Math.min(1, (f.life - f.t) * 2, f.t * 8);
-          for (const c of f.pts) if (c.live) G.VFX.draw(ctx, 'caltrop', 'steel', c.x, c.y - 2, { scale: 0.9 });
+          for (const c of f.pts) if (c.live) G.VFX.draw(ctx, 'caltrop', 'steel', c.x, c.y - 2, { scale: 0.9 * f.cr / 8 });
         } });
       mxTrim(pl, 'cal', 4, m.id);
       return true;
@@ -4938,7 +4939,8 @@ G.Combat = (() => {
     const skip = new Set();
     hit(pl, e, dmg, colOf(m), Math.cos(pl.aim), Math.sin(pl.aim), m.knock || 0, m);
     skip.add(e.id);
-    areaHit(pl, m, e.x, e.y, 40, dmg * 0.7, { col: colOf(m), skip });
+    // (7-11-2026, auditoría) El tajo en X es tan ancho como el ataque (40 de base): «más ancho» y Amplitud no hacían nada.
+    areaHit(pl, m, e.x, e.y, m.width || 40, dmg * 0.7, { col: colOf(m), skip });
     if (real(e)) stAdd(e, 'daze', 0.5);
     G.Audio.sfx('shot', { kind: 'melee', type: 'flying' });
   }
@@ -5619,7 +5621,8 @@ G.Combat = (() => {
           if (f.done || f.t < 0.2) return false;
           f.done = true;
           if (G.Camera.sees(f.x, f.y, 40)) { G.FX.ring(f.x, f.y, 4, f.r, '#90d2ff', 0.25, 4); G.FX.burst(f.x, f.y - 8, '#90d2ff', 12, 170); G.Audio.sfx('thud'); }
-          const n = areaHit(f.owner, f.m, f.x, f.y, f.r, f.dmg, { col: '#3a7cff', knock: 60 });
+          // (7-11-2026, auditoría) El empujón sale de su número (330 de base = 60): «+50% empuje» no hacía nada.
+          const n = areaHit(f.owner, f.m, f.x, f.y, f.r, f.dmg, { col: '#3a7cff', knock: 60 * (f.m.knock || 330) / 330 });
           if (f.m.evolved && n > 0 && !f.ghost) {
             for (let i = 0; i < n; i++) f.owner.addBuff('patk', 0.06, 5 * pkOf(f.m).dur, 6, 'vacuum-wave');
             G.FX.ring(f.owner.x, f.owner.y, f.owner.r * 2.6, f.owner.r, '#ff9c6c', 0.3, 3);
@@ -8142,7 +8145,10 @@ G.Combat = (() => {
   function doll(pl, m) {
     const g = ghost, a = pl.aim + Math.PI + G.U.rand(-0.5, 0.5);
     const x = pl.x + Math.cos(a) * 26, y = pl.y + Math.sin(a) * 20;
-    mxTrim(pl, 'doll', Math.max(1, m.count | 0) - 1);
+    // (7-11-2026, auditoría) El que se quita para dejar sitio al nuevo también estalla: antes se iba sin explotar y, con
+    //  «+50% duración», ya ninguno llegaba a su final y el nivel 5 hacía menos daño que el 4.
+    const olds = fields.filter(f => isMx(f, pl, 'doll'));
+    for (let i = 0; i < olds.length - (Math.max(1, m.count | 0) - 1); i++) { dollBoom(olds[i]); olds[i].gone = true; }
     const hp = g ? Infinity : pl.maxHp * 0.25;
     addField({ owner: pl, m, tag: 'doll', x, y, life: m.dur || 6, hp, hp0: hp, lure: 0, spike: 0.4, touch: new Map(), pad: 70,
       R: 160 * ((m.range || 280) / 280), dmg: atk(pl, m), hitT: 0,

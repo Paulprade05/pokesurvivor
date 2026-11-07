@@ -895,6 +895,12 @@ G.HUD = (() => {
           const fl = 1 - (now - (gm.castAt || 0)) / 180;
           if (fl > 0) { ctx.globalAlpha = fl * 0.55; ctx.fillStyle = '#fff'; ctx.fillRect(cx, cy, CC, CC); ctx.globalAlpha = 1; }
         }
+        // Sobrefusión (07-11-2026): «★N» dorado en la esquina de abajo a la derecha del grupo lleno.
+        if (pl.over > 0 && g.length >= G.Player.BOND_MAX) {
+          ctx.font = F(800, cmp ? 11 : 12);
+          ctx.textAlign = 'right';
+          outlined(ctx, '★' + pl.over, x + S + (cmp ? 5 : 6), y + S + (cmp ? 3 : 4), '#FFD86B', 3);
+        }
       } else {
         // recarga: barrido de reloj (lo oscuro es lo que falta) y, si falta mucho, los segundos
         const cdFrac = cdOf(m);

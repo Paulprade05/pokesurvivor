@@ -33,17 +33,19 @@
  * unos segundos después, sin la animación.
  */
 G.Rift = (() => {
-  // (0.14 hasta el 11-10-2026: más grietas para que se vean los vínculos)
-  // Menos azar (12-10-2026): cada vez que no sale, la siguiente es más
-  // probable (20 %, 40 %, 60 %, 80 %, 100 %): como mucho 2,5 min sin grieta.
-  // Desde 2 min antes de la Sentencia de Arceus (minuto 30) ya no se abren.
-  const CHECK = 30, CHANCE = 0.2, TTL = 45;
+  // (0.14 hasta el 11-10-2026: más grietas para que se vean los vínculos. Del 12-10-2026 al 07-11-2026, cada 30 s un 20 %
+  //  que subía con cada fallo, 40 %, 60 %..., desde el minuto 4: como mucho 2,5 min sin grieta.)
+  // 07-11-2026 (pedido del dueño): una grieta cada RIFT_EVERY s (minutos 5, 10, 15, 20 y 25), cada una en un momento al azar
+  // de ±RIFT_JIT s alrededor de su marca (plan(), lo sortea quien manda). Con un jefe vivo espera; y si en su marca también
+  // toca jefe (todas: los jefes van cada 2,5 min), espera a que ése salga y caiga (primero el jefe, lo eligió el dueño). Si
+  // pasa RIFT_LATE s de su marca sin poder abrirse, se pierde. Desde 2 min antes de la Sentencia (minuto 30) ya no se abren.
+  const RIFT_EVERY = 300, RIFT_JIT = 22.5, RIFT_LATE = 150, TTL = 45;
   // (29-10-2026: desde el minuto 4, no desde el 1:15: medido con tools/curve.cjs, una grieta en el minuto 2 con el nivel 10
   //  sólo quitaba 2 minutos de experiencia y ahí se caía.)
   // (2.0, casillas de 48) ARENA_R, SPOTS, SPOTS_IN y PLAYERS_IN van en baldosas de U = 32 unidades de mundo (las casillas
   //  de antes): así las distancias no cambian. La arena se manda en casillas de verdad (cfg.r = ARENA_R·U/TS, ~7,3).
   const U = 32;
-  const ARENA_R = 11, ARENA_TIME = 120, FROM = 240;
+  const ARENA_R = 11, ARENA_TIME = 120;
   // Cuántos legendarios según el minuto y los jugadores; vida de cada uno (respecto a
   // uno solo) y segundos de arena según cuántos son.
   const legendsFor = (t, np) => G.U.clamp((t >= 1200 ? 3 : t >= 600 ? 2 : 1) + (np >= 3 ? 1 : 0), 1, 3);
@@ -68,11 +70,30 @@ G.Rift = (() => {
   let rift = null;          // { x, y, ttl, t }
   let arena = null;         // { tx, ty, r, dex, dexes, shiny, shinies, time, x, y, back, biome, t, phase, endT, bossIds }
   let zone = null;          // dónde estaba la última arena { x, y, r } (ver leftBehind)
-  let checkT = CHECK, asked = false, downT = 0, misses = 0;
+  let asked = false, downT = 0;
+  let sched = [], schedI = 0, retryT = 0;   // calendario de grietas de esta partida: [{ mark, at }] (sólo cuenta el de quien manda)
   const authority = () => !G.Coop.active || G.Coop.isHost;
   const TS = () => G.World.TS;
 
-  function reset() { rift = null; arena = null; zone = null; checkT = CHECK; asked = false; downT = 0; misses = 0; travel = null; intro = null; pendingLgi = null; }
+  function reset() { rift = null; arena = null; zone = null; asked = false; downT = 0; travel = null; intro = null; pendingLgi = null; sched = plan(); schedI = 0; retryT = 0; }
+
+  /** Calendario de grietas de una partida: una por marca de RIFT_EVERY s, ±RIFT_JIT s, hasta 2 min antes de la Sentencia. */
+  function plan(end = (G.Judgment && G.Judgment.AT || 1800) - 120) {
+    const out = [];
+    for (let m = RIFT_EVERY; m + RIFT_JIT < end; m += RIFT_EVERY)
+      out.push({ mark: m, at: Math.round((m + (Math.random() * 2 - 1) * RIFT_JIT) * 10) / 10 });
+    return out;
+  }
+
+  /** ¿Puede abrirse ya la siguiente grieta del calendario? (lo mira quien manda) */
+  function due(time) {
+    while (sched[schedI] && time > sched[schedI].mark + RIFT_LATE) schedI++;   // se pasó su hueco (p. ej. con un jefe que no caía)
+    const s = sched[schedI];
+    if (!s || time < s.at) return false;
+    if (G.EnemyMgr.bossAlive()) return false;                                  // con un jefe vivo, espera
+    if (G.Spawner.bossDue && G.Spawner.bossDue(s.mark)) return false;          // primero el jefe de su misma marca
+    return true;
+  }
 
   /**
    * ¿Sigue este jugador en la arena aunque aquí ya se haya vuelto al mapa?
@@ -92,16 +113,10 @@ G.Rift = (() => {
       rift.ttl -= dt;
       if (rift.ttl <= 0) { rift = null; return; }
       if (!arena && !pl.dead && G.U.dist2(pl.x, pl.y, rift.x, rift.y - 10) < 30 * 30) enter();
-    } else if (!arena && authority() && time > FROM && time < G.Judgment.AT - 120) {
-      checkT -= dt;
-      if (checkT <= 0) {
-        checkT = CHECK;
-        if (G.EnemyMgr.bossAlive()) return;           // con un jefe vivo no cuenta como intento
-        // Si no hay sitio libre para la grieta, se vuelve a probar a los 5 s sin
-        // perder lo acumulado (antes se perdía la grieta "segura").
-        if (Math.random() < CHANCE * (1 + misses)) { if (open()) misses = 0; else checkT = 5; }
-        else misses++;
-      }
+    } else if (!arena && authority() && time < G.Judgment.AT - 120) {
+      if (retryT > 0) retryT -= dt;
+      // Si no hay sitio libre para la grieta, se vuelve a probar a los 5 s.
+      else if (due(time)) { if (open()) schedI++; else retryT = 5; }
     }
     if (arena) arenaTick(dt, pl);
   }
@@ -720,6 +735,8 @@ G.Rift = (() => {
     get inArena() { return !!arena; },
     get timeLeft() { return arena ? Math.max(0, arena.time - arena.t) : 0; },
     debugOpen() { open(); },
+    /** (07-11-2026, para las pruebas) calendario de grietas: [{ mark, at }], la siguiente y si ya puede abrirse. */
+    RIFT_EVERY, RIFT_JIT, RIFT_LATE, plan, due, get schedule() { return sched; }, get schedNext() { return sched[schedI] || null; },
     /** Para pruebas: arena de un tipo ya (y, si se dice, con `n` legendarios; `dex`: el primero). */
     debugArena(type, n, dex) { start(type, n, dex); },
     /** Para pruebas: la próxima grieta, con `n` legendarios. */

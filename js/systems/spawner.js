@@ -405,8 +405,10 @@ G.Spawner = (() => {
     // que ya lleve BOSS_LATE s de retraso; y nunca dos con menos de BOSS_GAP s
     // (al volver de una grieta larga salían dos en fotogramas seguidos). Los de
     // un mismo minuto (los dúos del final) salen juntos, por lados opuestos.
+    // (07-11-2026) Con una grieta abierta en el mapa, el siguiente jefe espera a que se cierre o a volver de la arena: la grieta
+    //  sale al caer el jefe de su marca y, si el siguiente llegaba en sus 45 s, ya no se podía entrar (medido: 4 de 5 grietas).
     const b = G.Enemies.BOSSES[bossIdx];
-    const group = b && t >= b.at && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive()) ? [b] : null;
+    const group = b && t >= b.at && !G.Rift.rift && t - lastBossT >= BOSS_GAP && (t - b.at > bossLate(t) || !G.EnemyMgr.bossAlive()) ? [b] : null;
     if (group) while (G.Enemies.BOSSES[bossIdx + group.length] && G.Enemies.BOSSES[bossIdx + group.length].at === b.at) group.push(G.Enemies.BOSSES[bossIdx + group.length]);
     if (group && mapBosses() + group.length <= MAP_BOSS_MAX) {
       const pl = anchor(), a0 = Math.random() * 6.2832;
@@ -540,5 +542,8 @@ G.Spawner = (() => {
            /** Para pruebas: un enemigo (o, con `boss`, un jefe) del minuto `t` con estos jugadores (×N en cooperativo). */
            debugMake(def, t, who, boss) { players = who; return boss ? spawnBoss(who[0], t, def, 0, [0, 0]) : make(def, 0, 0, t, { noChamp: true }); },
            /** Para pruebas: el calendario de jefes salta al minuto `t` (los anteriores ya no salen). */
+           /** ¿Queda por salir algún jefe del calendario de la marca `mark` (s)? Para la grieta (rift.js): con jefe y grieta en la
+            *  misma marca (minutos 5, 10, 15...), primero el jefe (07-11-2026, lo eligió el dueño). */
+           bossDue(mark) { const B = G.Enemies.BOSSES; for (let i = bossIdx; i < B.length; i++) if (B[i].mark === mark) return true; return false; },
            debugBossesFrom(t) { bossIdx = 0; while (G.Enemies.BOSSES[bossIdx] && G.Enemies.BOSSES[bossIdx].at < t) bossIdx++; lastBossT = -Infinity; } };
 })();

@@ -20,8 +20,8 @@
  *   - nivel máximo y evolucionado: si el valor pasa de ALTO, baja a OBJ; si no llega a BAJO
  *     (y no es venenoso: el veneno no cuenta en el valor), sube a SUBE.
  *   - nivel 1: sólo baja si pasa de ALTO1 (a OBJ1); los flojos al nivel 1 se quedan (ya suben con el nivel).
- *   - Los factores del nivel 1 y del máximo van a DMG_K de moves.js (entre medias, en proporción al
- *     nivel); el del evolucionado, a lo que multiplica su evolución (`mods.dmg`).
+ *   - Los factores del nivel 1 y del máximo van a DMG_K de moves.js (entre medias, en sus cartas de daño:
+ *     honestUps, 7-11-2026); el del evolucionado, a lo que multiplica su evolución (`mods.dmg`).
  */
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');

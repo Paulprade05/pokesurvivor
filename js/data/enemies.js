@@ -54,17 +54,26 @@ G.Enemies = (() => {
   //  29-10-2026: los de los minutos 3 a 12, otra vez algo menos de vida y de daño (antes 1050/2400/4400/7600 PV y
   //  26/34/42/50): con todas las mejoras, la primera caída solía llegar con el jefe del 9 o el del 12 en pantalla.
   //  El del 9, otra vez (revisión 2: 3700 → 3000 PV): a un Garchomp que iba flojo le duraba hasta el minuto 16.)
+  // (07-11-2026, pedido del dueño) Un jefe cada 2,5 min (antes cada 3: minutos 3, 6, 9... 27), cada uno en un momento al azar
+  //  de ±BOSS_JIT s alrededor de su marca (`at` es la marca; el momento de verdad va en el `at` del jefe, ver bossDef). Vida, daño
+  //  y BST, los de la tabla de antes leídos en el minuto nuevo; la experiencia, ×5/6 (salen 6 jefes donde antes 5: la misma por
+  //  minuto). Los dúos, los dos últimos (25:00 y 27:30, antes 24 y 27). Tabla de antes (minuto: PV, daño, xp):
+  //  3: 720 20 220 · 6: 1700 26 420 · 9: 3000 36 680 · 12: 6400 43 1000 · 15: 13000 58 1800 · 18: 18000 64 2400 · 21: 22000 70
+  //  2900 · 24: 20000 72 2400 ×2 · 27: 25000 78 2900 ×2.
+  const BOSS_EVERY = 150, BOSS_JIT = 22.5;
   const BOSS_SLOTS = [
-    { at: 180, hp: 720,   dmg: 20, xp: 220,  bst: [490, 545] },
-    { at: 360, hp: 1700,  dmg: 26, xp: 420,  bst: [520, 580] },
-    { at: 540, hp: 3000,  dmg: 36, xp: 680,  bst: [540, 600] },
-    { at: 720, hp: 6400,  dmg: 43, xp: 1000, bst: [580, 700] },
-    { at: 900, hp: 13000, dmg: 58, xp: 1800, bst: [600, 700] },
+    { at: 150,  hp: 600,   dmg: 18, xp: 160,  bst: [490, 545] },
+    { at: 300,  hp: 1370,  dmg: 24, xp: 295,  bst: [510, 570] },
+    { at: 450,  hp: 2350,  dmg: 31, xp: 460,  bst: [530, 590] },
+    { at: 600,  hp: 4130,  dmg: 38, xp: 655,  bst: [555, 635] },
+    { at: 750,  hp: 7500,  dmg: 45, xp: 945,  bst: [585, 700] },
+    { at: 900,  hp: 13000, dmg: 58, xp: 1500, bst: [600, 700] },
     // Tramo final (23-10-2026): n = cuántos salen a la vez (cada uno con esta vida).
-    { at: 1080, hp: 18000, dmg: 64, xp: 2400, bst: [580, 720] },
-    { at: 1260, hp: 22000, dmg: 70, xp: 2900, bst: [580, 720] },
-    { at: 1440, hp: 20000, dmg: 72, xp: 2400, bst: [560, 720], n: 2 },
-    { at: 1620, hp: 25000, dmg: 78, xp: 2900, bst: [560, 720], n: 2 }
+    { at: 1050, hp: 17170, dmg: 63, xp: 1915, bst: [585, 715] },
+    { at: 1200, hp: 20670, dmg: 68, xp: 2280, bst: [580, 720] },
+    { at: 1350, hp: 21000, dmg: 71, xp: 2210, bst: [570, 720] },
+    { at: 1500, hp: 21670, dmg: 74, xp: 2140, bst: [560, 720], n: 2 },
+    { at: 1650, hp: 25800, dmg: 79, xp: 2480, bst: [560, 720], n: 2 }
   ];
   // Voladores pequeños para los enjambres (los que tengan sprite y floten).
   const SWARM = [41, 415, 165, 193, 12, 15, 527, 278, 333, 425, 267, 742, 92, 81];
@@ -175,7 +184,11 @@ G.Enemies = (() => {
     }
     const used = new Set();
     bosses = [];
-    for (const slot of BOSS_SLOTS) for (let k = 0; k < (slot.n || 1); k++) bosses.push(bossDef(slot, used));
+    // (07-11-2026) Un momento al azar por franja (los dos de un dúo, el mismo: salen juntos). Sólo cuenta el del anfitrión.
+    for (const slot of BOSS_SLOTS) {
+      const at = Math.round((slot.at + G.U.rand(-BOSS_JIT, BOSS_JIT)) * 10) / 10;
+      for (let k = 0; k < (slot.n || 1); k++) bosses.push(Object.assign(bossDef(slot, used), { at, mark: slot.at }));
+    }
     const sw = SWARM.filter(d => G.SPRITE_META[d] && G.SPRITE_META[d].hv && G.DEX_BY[d]);
     swarmDex = G.U.pickN(sw.length ? sw : [41], 2);
     return { cast, bosses };
@@ -426,7 +439,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, bossTtk, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, BOSS_EVERY, BOSS_JIT, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, bossTtk, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };
