@@ -540,5 +540,8 @@ G.Spawner = (() => {
            /** Para pruebas: un enemigo (o, con `boss`, un jefe) del minuto `t` con estos jugadores (×N en cooperativo). */
            debugMake(def, t, who, boss) { players = who; return boss ? spawnBoss(who[0], t, def, 0, [0, 0]) : make(def, 0, 0, t, { noChamp: true }); },
            /** Para pruebas: el calendario de jefes salta al minuto `t` (los anteriores ya no salen). */
+           /** ¿Queda por salir algún jefe del calendario de la marca `mark` (s)? Para la grieta (rift.js): con jefe y grieta en la
+            *  misma marca (minutos 5, 10, 15...), primero el jefe (07-11-2026, lo eligió el dueño). */
+           bossDue(mark) { const B = G.Enemies.BOSSES; for (let i = bossIdx; i < B.length; i++) if (B[i].mark === mark) return true; return false; },
            debugBossesFrom(t) { bossIdx = 0; while (G.Enemies.BOSSES[bossIdx] && G.Enemies.BOSSES[bossIdx].at < t) bossIdx++; lastBossT = -Infinity; } };
 })();
