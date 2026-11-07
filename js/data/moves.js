@@ -1042,6 +1042,31 @@
     ]
   });
   // -- fin: ataques únicos (Lucha, Veneno, Tierra, Volador, Psíquico, Bicho) --
+  /*
+   * (7-11-2026, auditoría de ataques, tools/auditoria-ataques.cjs) Cartas que prometían algo que su mecánica no usa:
+   * Púas no explota (son abrojos: el radio es su tamaño); Fuego Fatuo se relanza antes de acabar (la duración nunca
+   * contaba) y Bucle Arena no atrae (los de dentro no salen). Mismos números que su familia, sin lo que no hacía nada.
+   */
+  Object.assign(LADDER_BY_ID, {
+    'spikes': [
+      { t: '+1 abrojo',                     m: { count: 1 } },
+      { t: '+50% daño',                     m: { dmg: 1.50 } },
+      { t: 'Abrojos un 30% más grandes',    m: { radius: 1.30 } },
+      { t: '+1 abrojo y -25% recarga',      m: { count: 1, cd: 0.75 } }
+    ],
+    'will-o-wisp': [
+      { t: '+50% daño',                     m: { dmg: 1.50 } },
+      { t: 'Dispara un 35% más rápido',     m: { rate: 0.74 } },
+      { t: '+1 a la vez',                   m: { count: 1 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } }
+    ],
+    'sand-tomb': [
+      { t: '+40% daño',                     m: { dmg: 1.40 } },
+      { t: '+30% radio',                    m: { radius: 1.30 } },
+      { t: '+50% duración',                 m: { dur: 1.50 } },
+      { t: '+40% daño',                     m: { dmg: 1.40 } }
+    ]
+  });
 
   // Pool de movimientos por tipo. El pool `normal` lo tienen todos.
   const POOL = {};
@@ -1080,8 +1105,9 @@
   /*
    * Equilibrio (2-11-2026, lo pidió el dueño: «baja los que están muy fuertes para que todos estén a la par»):
    * los que se salían, medidos con tools/balance.cjs y tools/equilibrio.cjs, quedan cerca de la media (valor
-   * ~1,1) y los muy flojos suben a ~0,75. DMG_K[id] = [× al nivel 1, × al nivel máximo]; entre medias, en
-   * proporción al nivel (instance). Así un ataque que sólo se pasaba al subirlo no pierde nada al nivel 1.
+   * ~1,1) y los muy flojos suben a ~0,75. DMG_K[id] = [× al nivel 1, × al nivel máximo]; entre medias, lo que
+   * dicen sus cartas de daño (desde el 7-11-2026: honestUps, abajo). Así un ataque que sólo se pasaba al subirlo no
+   * pierde nada al nivel 1.
    * Lo de la evolución va en su propia evolución (EVO_UQ y siguientes: `mods.dmg` y su texto).
    */
   const DMG_K = {
@@ -1108,9 +1134,35 @@
     'rapid-spin': [1.2, 1.2], 'scale-shot': [1.5, 1.5], 'substitute': [6, 6], 'twister': [1.3, 1.3],
     'water-shuriken': [2.1, 2.1], 'whirlwind': [1.25, 1.25], 'will-o-wisp': [1, 0.9]
   };
+  /*
+   * (7-11-2026, auditoría de ataques, tools/auditoria-ataques.cjs) Cartas honradas: el paso de DMG_K del nivel 1 al
+   * máximo ya no se reparte a escondidas por todos los niveles (una carta de «-25% recarga» quitaba un 8 % de daño sin
+   * decirlo y la de «+45% daño» daba un 34 %). Va entero en las cartas de daño de ese ataque, con su número de verdad en
+   * el texto: el nivel 1 (× DMG_K[0]) y el máximo (× DMG_K[1]) quedan igual (±1 %); entre medias, lo que dicen las cartas.
+   */
+  const DMG_RE = /([+-])(\d+)% (de )?daño/;
+  const HONEST = new Set();
+  function honestUps(m, ups) {
+    const k = DMG_K[m.id];
+    if (!k || k[0] === k[1]) return ups;
+    const D = ups.map((u, i) => (u.m.dmg != null && DMG_RE.test(u.t) ? i : -1)).filter(i => i >= 0);
+    if (!D.length) return ups;
+    const per = Math.pow(k[1] / k[0], 1 / D.length);
+    // (La última carta de daño cuadra el total con lo redondeado de las otras: el máximo queda igual al 0,5 %.)
+    const want = D.reduce((x, i) => x * ups[i].m.dmg, 1) * k[1] / k[0];
+    let got = 1;
+    HONEST.add(m.id);
+    return ups.map((u, i) => {
+      if (!D.includes(i)) return u;
+      const raw = i === D[D.length - 1] ? want / got : u.m.dmg * per;
+      const dmg = Math.round(raw * 100) / 100, p = Math.round((dmg - 1) * 100);
+      got *= dmg;
+      return { t: u.t.replace(DMG_RE, (s, sg, n, de) => `${p < 0 ? '-' : '+'}${Math.abs(p)}% ${de || ''}daño`), m: Object.assign({}, u.m, { dmg }) };
+    });
+  }
   for (const m of RAW) {
     m.cat = m.kind === 'buff' ? null : PHYSICAL.has(m.id) ? 'physical' : 'special';
-    m.ups = LADDER_BY_ID[m.id] || LADDERS[m.kind];
+    m.ups = honestUps(m, LADDER_BY_ID[m.id] || LADDERS[m.kind]);
     m.maxLvl = m.ups.length + 1;
     BY_ID[m.id] = m;
   }
@@ -1143,9 +1195,10 @@
     if (s.dmg != null) s.dmg *= dmgK(id, lvl, def);
     return s;
   }
-  /** El factor de equilibrio (DMG_K) de un ataque a su nivel. */
+  /** El factor de equilibrio (DMG_K) de un ataque a su nivel (los de cartas honradas, el del nivel 1: el resto va en sus cartas). */
   function dmgK(id, lvl, def) {
     const k = DMG_K[id];
+    if (k && HONEST.has(id)) return k[0];
     return k ? k[0] + (k[1] - k[0]) * (lvl - 1) / Math.max(1, def.maxLvl - 1) : 1;
   }
 
@@ -1357,7 +1410,7 @@
     'bonemerang':     { t: 'En el punto más lejano, el hueso se queda girando como una hélice antes de volver.', mods: { dmg: 1.8, count: 1 } },
     'spikes':         { t: '×2,2 daño y +2 abrojos. Una grieta une los abrojos: hace mucho daño a los que la cruzan (el doble a los grandes) y se traga a los pequeños que ya están tocados.', mods: { dmg: 2.2, count: 2 } },
     'sand-tomb':      { t: 'Una estampida: cada 0,5 s sale de la arena una línea de pisotones en una dirección al azar.', mods: { dmg: 1.6, radius: 1.2 } },
-    'magnitude':      { t: 'Un taladro que perfora en línea sin parar, escupe piedras a los lados y hace más críticos.', mods: { dmg: 2.5 } },
+    'magnitude':      { t: 'Un taladro que perfora en línea sin parar, escupe piedras a los lados y hace más críticos.', mods: { dmg: 2.35, crit2: 0.15 } },   // (7-11-2026, auditoría: «más críticos» no tenía nada: +15 %; ×2,5 → ×2,35 lo compensa)
     'bone-club':      { t: 'El hueso arde en fuego fantasma: al clavarse, un círculo que daña y maldice (más daño recibido).', mods: { dmg: 1.75 } },
     'mud-bomb':       { t: 'El barro se seca en arena ardiente que quema; con sol o en el volcán dura el doble.', mods: { dmg: 1.3, count: 1, burn: 1 } },
     'gust':           { t: 'Los remolinos se juntan en un huracán grande que confunde; con lluvia, el doble de grande.', mods: { dmg: 5.8 } },
