@@ -169,6 +169,18 @@ G.Shop = (() => {
   /** La mega de este Pokémon (0: no tiene). */
   const megaId = dex => { const l = G.MEGA_OF && G.MEGA_OF[dex]; return l ? l[0] : 0; };
   const stoneHas = id => { const s = save(); return !!(s && s.mst && s.mst[id]); };
+  /** ¿Tienes su versión con mega? Sale en el gacha (G.Gacha) y deja comprar la piedra. */
+  const megaOpen = id => { const s = save(); return !!s && G.Gacha.megaOpen(s, id); };
+  /**
+   * Qué lleva hecho cada paso para usar la mega de este Pokémon, en orden, o null si no tiene.
+   * { id, mon, open, aro, stone, gen, price }
+   */
+  function megaNeeds(dex) {
+    const s = save(), id = megaId(dex);
+    if (!s || !id) return null;
+    return { id, mon: !!(s.owned && s.owned[dex]), open: megaOpen(id), aro: aroHas(), stone: stoneHas(id),
+             gen: G.DEX_BY[dex].gen, price: stonePrice(id) };
+  }
   /** Tus megapiedras (ids de mega). */
   const stonesOwned = () => { const s = save(); return Object.keys((s && s.mst) || {}).filter(id => G.MEGA && G.MEGA[id]); };
   function stonePrice(id) {
@@ -207,6 +219,7 @@ G.Shop = (() => {
       const id = +key.slice(3), m = G.MEGA && G.MEGA[id];
       if (!m || !(s.owned && s.owned[m.dex])) return { ok: false };
       if (stoneHas(id)) return { ok: false, error: 'Ya tienes esa megapiedra.' };
+      if (!megaOpen(id)) return { ok: false, error: 'Antes necesitas su versión con mega: sale en el gacha.' };
       if (!aroHas()) return { ok: false, error: 'Antes necesitas el Mega-Aro: gana tu primera grieta.' };
       if (s.coins < stonePrice(id)) return { ok: false, error: 'No tienes Pokémonedas suficientes.' };
       s.coins -= stonePrice(id);
@@ -251,5 +264,5 @@ G.Shop = (() => {
 
   return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today,
            Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zPref, zSetPref, zState,
-           aroHas, megaId, stoneHas, stonesOwned, stonePrice, wears, setWear };
+           aroHas, megaId, stoneHas, megaOpen, megaNeeds, stonesOwned, stonePrice, wears, setWear };
 })();

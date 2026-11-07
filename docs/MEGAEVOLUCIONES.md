@@ -1,6 +1,7 @@
 # Megaevoluciones en PokéSurvivor
 
 > **Estado:** programado el 06-11-2026 (PR #23, #24 y el de la rama `megas`), con las decisiones del dueño (sección 10). Sin publicar.
+> **Cambio del 07-11-2026:** para poder comprar la piedra hace falta antes la **versión con mega**, que sale en el gacha (sección 4).
 > Sustituye a la propuesta del 26-10-2026, que sigue en el historial de git. Datos: PokeAPI y
 > `tracker.json` de SpriteCollab, consultados el 06-11-2026; lo del juego, sacado del código de `main`.
 
@@ -12,8 +13,9 @@
   **Pulsera Z o megapiedra**, nunca las dos a la vez, como en los juegos.
 - **Cuándo:** la **Energía Mega** se llena **derrotando enemigos**. Cuesta al principio, cuando caen
   pocos, y luego va mucho más rápido. Con la forma final y la barra llena, ya puedes.
-- **Qué hace falta:** el **Mega-Aro** (se gana con la primera grieta) y la **megapiedra** de ese
-  Pokémon, comprada en sus Mejoras. Las dos son para siempre.
+- **Qué hace falta:** el Pokémon, su **versión con mega** (sale en el gacha, más difícil que un
+  legendario), el **Mega-Aro** (se gana con la primera grieta) y la **megapiedra** de ese Pokémon,
+  comprada en sus Mejoras. Todo es para siempre.
 - **Cuántas:** **43 megas** con sprite de Mundo Misterioso. Las demás entrarán con la herramienta
   de datos cuando SpriteCollab las dibuje.
 
@@ -47,7 +49,7 @@ los dos sprites), piedras en grietas y gacha, clima de los invitados en grupo y 
 | | Evolución | Movimiento Z | **Megaevolución** |
 |---|---|---|---|
 | Qué hace | Pasa a la fase siguiente | Añade un ataque muy fuerte | Transforma a tu Pokémon |
-| Hace falta | Nada | Pulsera Z + Cristal Z + 2 ataques del tipo | Mega-Aro + megapiedra + forma final |
+| Hace falta | Nada | Pulsera Z + Cristal Z + 2 ataques del tipo | Versión con mega + Mega-Aro + megapiedra + forma final |
 | Se activa | Sola | Botón | Botón (el mismo) |
 | Dura | Para siempre | 60 s, recarga 240 s | 75 s; se recarga con 300 derrotados |
 | Papel | Crecer | Pico corto y explosivo | Poder largo y más aguante |
@@ -141,17 +143,58 @@ mega sólo haría al empezar la partida no se aplica, y así no hay nada que des
 
 - **Mega-Aro:** premio del logro «Al otro lado» (`rift1`, primera grieta ganada). Quien ya lo tenga
   lo recibe al actualizar, como el regalo de las Pulseras Z.
+- **Versión con mega:** se consigue en el gacha, y sin ella no se puede comprar la piedra (sección 4.1).
 - **Megapiedra:** se compra en las Mejoras del Pokémon.
-  Hace falta tener el Pokémon. **5.000** rarezas 1-3, **7.500** rareza 4, **10.000** rareza 5 y legendarios.
+  Hace falta tener el Pokémon, su versión con mega y el Mega-Aro. **5.000** rarezas 1-3, **7.500** rareza 4, **10.000** rareza 5 y legendarios.
 - **Elegir:** con Pulsera y piedra, en Mejoras eliges cuál lleva. Sin elegir, la última comprada.
-- **Guardado:** `save.mring` (fecha), `save.mst[mega]` (fecha) y `save.pmg[dex]` (qué lleva, con fecha).
-  Como Cristales y Pulseras: al fusionar aparatos se unen y nunca se pierden.
-- **Compendio:** sección «Megaevoluciones» con sprite, tipos, habilidad, piedra y cómo se consigue.
-- **Pokédex:** en la pestaña Evolución de su ficha, la mega después de la forma final.
+- **Guardado:** el Mega-Aro es el logro `rift1`; `save.mop[mega]` (versión con mega, fecha), `save.mst[mega]` (piedra, fecha),
+  `save.pityM[región]` (tiradas sin ninguna) y `save.pmg[dex]` (qué lleva, con fecha).
+  Como Cristales y Pulseras: al fusionar aparatos se unen y nunca se pierden. `pityM` funciona como `pity`: manda la versión más reciente.
+- **Mejoras:** la tarjeta de la piedra dice qué falta y su botón sigue apagado hasta tenerlo.
+- **Compendio:** en la ficha del Pokémon, la mega con sus datos y la lista de pasos.
+- **Pokédex:** en la pestaña Evolución de su ficha, la mega y la misma lista (`G.UI.megaSteps`): lo que tienes, con ✓; lo que falta, con candado y cómo se consigue.
 - **Pausa:** la tarjeta del Z enseña la mega si es lo que llevas, con el tiempo o el %, y qué falta.
 - **Resumen final:** cuántas megas y el daño hecho en mega.
 - **Logros:** «¡Megaevolución!» (usar una) y «Megacoleccionista» (5 piedras).
 - **Iconos:** los objetos oficiales de PokeAPI/sprites (`assets/items/`), como los Cristales Z. No hace falta dibujar nada.
+
+### 4.1 Versión con mega (07-11-2026)
+
+Lo pidió el dueño: «puedes desbloquear al pokemon normal pero también puedes desbloquear su versión con mega, eso solamente te permite tener la oportunidad de desbloquear la mega de ese pokemon como mejora en su apartado». Y más difícil que un legendario.
+
+**Regla (`js/systems/gacha.js`):**
+
+- Nueva rareza **Mega**, por encima de Legendaria, en el banner de la región de ese Pokémon y con los mismos tickets.
+- **Cada una tiene 1 entre 1.000** en cada tirada de su banner. Si hay varias posibles, se suman.
+- **Sólo sale si ya tienes el Pokémon normal, y nunca se repite.** Si no hay ninguna posible, esa región no cambia en nada.
+- **Garantía:** a las **1.500 tiradas sin ninguna** en ese banner, la siguiente lo es. El contador sólo avanza si hay alguna posible y vuelve a cero al salir una.
+- **No da la mega:** deja comprar la piedra. No da monedas y no hay versión shiny.
+- **No toca lo demás:** las tasas, la garantía de legendaria (la tirada Mega cuenta como tirada sin legendaria) ni el ×10, donde cuenta como Épica o mejor.
+- **Las megas de legendarios siguen la misma regla.** Son 10: hay que tener antes al legendario.
+- **Galar no tiene megas:** allí no cambia nada.
+
+**Cuánto más difícil que un legendario.** Tiradas de media en el banner de su región, con 3.000 y 20.000 simulaciones por caso, y teniendo todos los Pokémon normales de esa región. El gacha de legendarios se midió con el código real; el de megas, con un modelo de la misma regla:
+
+| Región | Megas | Legendaria cualquiera | Primera mega cualquiera | Un legendario concreto | Una mega concreta | Veces más |
+|---|---:|---:|---:|---:|---:|---:|
+| Kanto | 7 | 43 | 143 | 253 | 947 | 3,7 |
+| Johto | 4 | 44 | 249 | 314 | 932 | 3,0 |
+| Hoenn | 18 | 44 | 55 | 565 | 990 | 1,8 |
+| Sinnoh | 4 | 43 | 248 | 644 | 926 | 1,4 |
+| Teselia | 3 | 43 | 328 | 587 | 898 | 1,5 |
+| Kalos | 4 | 44 | 251 | 312 | 925 | 3,0 |
+| Alola | 2 | 44 | 472 | 582 | 862 | 1,5 |
+| Paldea | 1 | 44 | 771 | 577 | 771 | 1,3 |
+
+- Una mega concreta sale en **770-990 tiradas**, unas **30 partidas completas** (30 tickets como mucho por partida).
+- La comparación justa es entre uno concreto y otro concreto. **La primera mega cualquiera puede salir antes que un legendario concreto**, y en Hoenn con todo desbloqueado la rareza suma 1,8 %, más que Legendaria (1,5 %). Por eso el gacha enseña «0,1 %, cada una» y no la suma.
+- Si tienes pocos Pokémon de esa región, salen menos megas: la primera tarda más.
+
+**Quien ya compró la piedra:** la conserva, la puede usar igual y cuenta como versión con mega conseguida (`db.js`, `sanitize`; `mst` pasa a `mop`, también en la nube). Nunca sale en el gacha lo que ya tienes. El precio de la piedra y el Mega-Aro no cambian.
+
+**Riesgo conocido:** una versión anterior del juego no sabe unir `mop` al fusionar. Si un aparato viejo, sin actualizar, escribe en la nube después de conseguir una versión con mega en otro, esa versión se puede perder, salvo que ya estuviera comprada la piedra, que siempre se recupera. Sólo puede pasar en los minutos que tarda en actualizarse ese aparato (`updater.js`).
+
+**A vigilar:** el logro «Megacoleccionista» (5 piedras) es ahora mucho más difícil, unas 5 versiones con mega. No se ha tocado.
 
 ## 5. Botón del HUD
 
@@ -243,7 +286,7 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 | PokeAPI sin habilidad de Z-A | Conservan tu habilidad; la herramienta avisa |
 | Cambiar de habilidad a media partida | Sólo ganchos en vivo; prueba de entrar y salir 10 veces |
 | Versión anterior en el grupo | `wv` y el dato de fase; una mega desconocida se ve como el normal |
-| Perder lo comprado al fusionar | Unión, con prueba, como los Cristales Z |
+| Perder lo comprado al fusionar | Unión, con prueba, como los Cristales Z. También `mop` |
 | Sprite de mega que no carga a tiempo | Se precarga al llegar a la forma final; sin hoja, se queda el sprite normal |
 
 ## 10. Decisiones del dueño (06-11-2026)
@@ -253,6 +296,13 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 3. **Quién:** las 43 con sprite, también legendarios.
 4. **Las que no tienen sprite:** esperan a SpriteCollab.
 5. **Pokémon que faltan:** entran los 8 con andar. Los otros 51 esperan a SpriteCollab.
+
+Decisiones del 07-11-2026 (sección 4.1):
+
+6. **Dónde:** en el mismo gacha, con rareza Mega.
+7. **Dificultad:** 1 de cada 1.000 tiradas cada una, con garantía a las 1.500.
+8. **Piedras ya compradas:** se respetan, sin compensación.
+9. **Megas de legendarios:** la misma regla que las demás.
 
 ## 11. Orden de trabajo
 

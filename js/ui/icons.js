@@ -1287,7 +1287,7 @@ G.Icons = (() => {
    * Rareza como Poké Ball: Poké (Común), Super (Poco común), Ultra (Rara),
    * Lujo (Épica) y Master (Legendaria).
    */
-  const RARITY_BALL = { 1: 'ball', 2: 'ball2', 3: 'ball3', 4: 'ballLux', 5: 'ball4' };
+  const RARITY_BALL = { 1: 'ball', 2: 'ball2', 3: 'ball3', 4: 'ballLux', 5: 'ball4', 6: 'mring' };
   function rarity(n, size = 12) {
     return `<span class="rarity-ball" title="${(G.Gacha && G.Gacha.RARITY_NAME[n]) || ''}">${html(RARITY_BALL[n] || 'ball', size)}</span>`;
   }

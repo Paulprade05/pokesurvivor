@@ -719,7 +719,7 @@ G.MenuUI = (() => {
       return `<tr class="${d === dex ? 'on' : ''}"><th scope="row">${esc(G.DEX_BY[d].name)}</th>${STATS.map(([k]) =>
         `<td class="${nat.up === k ? 'up' : nat.down === k ? 'down' : ''}">${statTxt(k, f[k])}</td>`).join('')}</tr>`; }).join('');
     const mgId = G.Shop.megaId(dex), mgD = mgId ? G.MEGA[mgId] : null;
-    const megaBox = mgD ? `<section class="dx-sec"><h4 class="dx-h">${G.T('Megaevolución')}</h4><p class="dx-start">${G.Icons.html('mg:' + mgD.ico, 30)}<span><b class="gold" translate="no">${esc(G.Mons.name(mgD.name))}</b> · ${G.UI.typeChips(mgD.types)} · <span translate="no">${esc(G.Mons.name(mgD.stone))}</span></span></p></section>` : '';
+    const megaBox = mgD ? `<section class="dx-sec"><h4 class="dx-h">${G.T('Megaevolución')}</h4><p class="dx-start">${G.Icons.html('mg:' + mgD.ico, 30)}<span><b class="gold" translate="no">${esc(G.Mons.name(mgD.name))}</b> · ${G.UI.typeChips(mgD.types)} · <span translate="no">${esc(G.Mons.name(mgD.stone))}</span></span></p>${G.UI.megaSteps(dex)}</section>` : '';
     return `${intro}${megaBox}
       <div class="dx-evo-row">${steps}</div>
       ${sib}
@@ -1157,18 +1157,19 @@ G.MenuUI = (() => {
    * piedra, aquí se elige cuál lleva: una cosa u otra, en el mismo botón de la partida.
    */
   function megaCard(mon) {
-    const s = G.DB.save, id = G.Shop.megaId(upgDex), d = G.MEGA[id], aro = G.Shop.aroHas(), has = G.Shop.stoneHas(id);
+    const s = G.DB.save, id = G.Shop.megaId(upgDex), d = G.MEGA[id], aro = G.Shop.aroHas(), has = G.Shop.stoneHas(id), open = G.Shop.megaOpen(id);
     const price = G.Shop.stonePrice(id), both = has && G.Shop.ringHas(upgDex), w = G.Shop.wears(upgDex);
     const el = document.createElement('div');
-    el.className = 'upg-card upg-ring' + (has ? ' is-max' : '');
-    const sub = !aro ? G.T('Consigue el Mega-Aro ganando tu primera grieta.')
+    el.className = 'upg-card upg-ring' + (has ? ' is-max' : !open ? ' is-locked' : '');
+    const sub = !open ? G.T('Primero consigue su versión con mega.') + ' ' + G.UI.megaOpenHow(upgDex)
+      : !aro ? G.T('Consigue el Mega-Aro ganando tu primera grieta.')
       : G.I18n.f('En la partida se carga derrotando enemigos y se transforma en {x}. Lleva piedra o Pulsera Z, no las dos.', G.Mons.name(d.name));
     el.innerHTML = `
-      <span class="ico-tile s${has ? ' t-gold' : ''}">${G.Icons.html(aro ? 'mg:' + d.ico : 'mring', 30)}</span>
+      <span class="ico-tile s${has ? ' t-gold' : ''}">${G.Icons.html(aro || !open ? 'mg:' + d.ico : 'mring', 30)}</span>
       <div class="upg-info"><div class="upg-top"><b translate="no">${G.Mons.name(d.stone)}</b><span class="upg-num"><b>${has ? 1 : 0}</b>/1</span></div>
         <small>${sub}</small>${upgPips(has ? 1 : 0, 1)}</div>
       <div class="upg-acts">${has ? `<span class="badge gold upg-maxed">${G.UI.svg('check', 14)}<span>${G.T('Máx.')}</span></span>`
-        : `<button class="btn small gold ic upg-buy" type="button" data-buy data-sfx="none" ${!aro || s.coins < price ? 'disabled' : ''}>${G.Icons.html('coin', 30)}<span>${price.toLocaleString(G.I18n.locale)}</span></button>`}</div>
+        : `<button class="btn small gold ic upg-buy" type="button" data-buy data-sfx="none" ${!open || !aro || s.coins < price ? 'disabled' : ''}>${G.Icons.html('coin', 30)}<span>${price.toLocaleString(G.I18n.locale)}</span></button>`}</div>
       ${both ? `<div class="upg-more"><button class="btn small ghost ic upg-pick${w === 'mega' ? ' on' : ''}" type="button" data-wear="mega">${G.Icons.html('mg:' + d.ico, 30)}<span>${G.T('Lleva la megapiedra')}</span></button>
         <button class="btn small ghost ic upg-pick${w === 'z' ? ' on' : ''}" type="button" data-wear="z">${G.Icons.html('zring', 30)}<span>${G.T('Lleva la Pulsera Z')}</span></button></div>` : ''}`;
     const b = el.querySelector('[data-buy]');
