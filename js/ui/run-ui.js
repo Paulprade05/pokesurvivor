@@ -567,23 +567,30 @@ G.RunUI = (() => {
       </div>${owned.length > 1 ? have : ''}</section>`;
   }
 
-  /** La megaevolución en la pausa: va en el sitio del Z (lleva una cosa u otra). */
+  /**
+   * La megaevolución en la pausa: va en el sitio del Z (lleva una cosa u otra). Con dos (X e Y)
+   * y sin estar activa, las dos, y que se elige al megaevolucionar.
+   */
   function megaCard(pl) {
-    const g = G.Mega.of(pl), M = G.Mega, d = g.def, ab = d.abil ? G.Mons.abilityName(d.abil) : '';
-    const fx = d.abil && G.AbilityFX ? G.AbilityFX.of(d.abil, d) : null, n = v => Math.round(v).toLocaleString(G.I18n.locale);
+    const g = G.Mega.of(pl), M = G.Mega, n = v => Math.round(v).toLocaleString(G.I18n.locale);
     const state = g.t > 0 ? `<span class="z-state on">${G.I18n.f('Activa: {x}', G.U.mmss(g.t))}</span>`
       : M.ready(pl, g) ? `<span class="z-state ready">${G.Touch.active ? G.T('Lista: toca su botón') : G.I18n.f('Lista: pulsa {x}', G.Input.keyLabel('zmove'))}</span>`
       : !M.final(pl) ? `<span class="z-state">${G.I18n.f('Llega a {x}', G.DEX_BY[pl.dex].name)}</span>`
       : `<span class="z-state">${G.I18n.f('Energía: {x}', Math.floor(M.energy(pl, g) * 100) + ' %')}</span>`;
-    return `<section class="ps-card ps-z"><h3>Megaevolución</h3>
-      <div class="mv-row z-mv${g.t > 0 ? ' on' : ''}" style="--z-c:${M.COL}">
+    const ids = g.t > 0 ? [g.id] : [g.id, ...g.ids.filter(i => i !== g.id)];   // (la última usada, primero: la del botón)
+    const row = (d, first) => {
+      const ab = d.abil ? G.Mons.abilityName(d.abil) : '', fx = d.abil && G.AbilityFX ? G.AbilityFX.of(d.abil, d) : null;
+      return `<div class="mv-row z-mv${g.t > 0 ? ' on' : ''}" style="--z-c:${M.COL}">
         <span class="ico-tile s tint" style="--tile-c:${M.COL}">${G.Icons.html('mg:' + d.ico, 30)}</span>
-        <div class="mv-main"><div class="mv-name"><b translate="no">${G.Mons.name(d.name)}</b>${state}</div>
+        <div class="mv-main"><div class="mv-name"><b translate="no">${G.Mons.name(d.name)}</b>${first ? state : ''}</div>
           <div class="mv-tags">${G.UI.typeChips(d.types)}</div>
           <small class="z-desc">${ab ? `<b translate="no">${ab}</b>: ${G.T(fx.d)}` : G.T('Se queda con tu habilidad.')}</small>
-          <small class="z-rule">${G.I18n.f('Se carga con {x} enemigos derrotados y dura {x} s.', M.need(), M.DUR)}</small></div>
-        <div class="mv-num"><b>${n(M.dealt(pl, g))}</b><small>×${g.uses}</small></div>
-      </div></section>`;
+          ${first ? `<small class="z-rule">${G.I18n.f('Se carga con {x} enemigos derrotados y dura {x} s.', M.need(), M.DUR)}${ids.length > 1 ? ' ' + G.T('Con las dos megapiedras, eliges cuál al megaevolucionar.') : ''}</small>` : ''}</div>
+        ${first ? `<div class="mv-num"><b>${n(M.dealt(pl, g))}</b><small>×${g.uses}</small></div>` : ''}
+      </div>`;
+    };
+    return `<section class="ps-card ps-z"><h3>Megaevolución</h3>
+      ${ids.map((id, i) => row(G.MEGA[id], i === 0)).join('')}</section>`;
   }
 
   /**

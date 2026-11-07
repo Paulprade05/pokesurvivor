@@ -539,14 +539,14 @@ G.CompendiumUI = (() => {
     if (line.length > 1) {
       h += sec('Evolución', `<p class="cmp-note cmp-line">${line.map(d => `<b class="${d === +dex ? 'gold' : ''}">${esc(G.DEX_BY[d].name)}</b>`).join('<i class="evo-arr" aria-hidden="true"> → </i>')}</p>`);
     }
-    // Su megaevolución (docs/MEGAEVOLUCIONES.md).
-    const mid = G.Shop && G.Shop.megaId ? G.Shop.megaId(dex) : 0, mg = mid ? G.MEGA[mid] : null;
-    if (mg) {
+    // Sus megaevoluciones (docs/MEGAEVOLUCIONES.md; Charizard y Mewtwo tienen dos, X e Y).
+    for (const mid of (G.Shop && G.Shop.megaIds ? G.Shop.megaIds(+dex) : [])) {
+      const mg = G.MEGA[mid];
       const mfx = mg.abil && G.AbilityFX ? G.AbilityFX.of(mg.abil, mg) : null, ma = G.AbilityFX ? mg.atk / p.atk : 1;
       h += sec('Megaevolución', `<p class="cmp-note"><span class="ico-tile s tint" style="--tile-c:${G.Mega.COL}">${G.Icons.html('mg:' + mg.ico, 30)}</span> <b class="gold" translate="no">${esc(G.Mons.name(mg.name))}</b> ${G.UI.typeChips(mg.types)}</p>`
         + `<div class="cmp-kv"><div><span class="cmp-k">Daño</span><b>+${Math.round((ma - 1) * 100)} %</b><small><span>${esc(G.T('Y recibe un 15 % menos de daño.'))}</span></small></div>`
         + `<div><span class="cmp-k">Habilidad</span>${mg.abil ? `<b translate="no">${esc(G.Mons.abilityName(mg.abil))}</b><small><span>${esc(G.T(mfx.d))}</span>${mfx.d2 ? ` <span>${esc(G.T(mfx.d2))}</span>` : ''}</small>` : `<b>${esc(G.T('Se queda con la tuya'))}</b>`}</div>`
-        + `<div><span class="cmp-k">Megapiedra</span><b translate="no">${esc(G.Mons.name(mg.stone))}</b></div></div>${G.UI.megaSteps(dex)}`);
+        + `<div><span class="cmp-k">Megapiedra</span><b translate="no">${esc(G.Mons.name(mg.stone))}</b></div></div>${G.UI.megaSteps(+dex, mid)}`);
     }
     h += '<div class="cmp-kv">'
       + (st ? `<div><span class="cmp-k">Ataque inicial</span>${moveBtn(st)}</div>` : '')

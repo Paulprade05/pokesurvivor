@@ -2,6 +2,7 @@
 
 > **Estado:** programado el 06-11-2026 (PR #23, #24 y el de la rama `megas`), con las decisiones del dueño (sección 10). Sin publicar.
 > **Cambio del 07-11-2026:** para poder comprar la piedra hace falta antes la **versión con mega**, que sale en el gacha (sección 4).
+> **Cambio del 07-11-2026 (2):** de 43 a **62 megas**: 19 con el sprite de seguimiento de pokeemerald-expansion, y Charizard y Mewtwo con dos (X e Y), que se eligen al megaevolucionar (sección 6.1).
 > Sustituye a la propuesta del 26-10-2026, que sigue en el historial de git. Datos: PokeAPI y
 > `tracker.json` de SpriteCollab, consultados el 06-11-2026; lo del juego, sacado del código de `main`.
 
@@ -16,8 +17,11 @@
 - **Qué hace falta:** el Pokémon, su **versión con mega** (sale en el gacha, más difícil que un
   legendario), el **Mega-Aro** (se gana con la primera grieta) y la **megapiedra** de ese Pokémon,
   comprada en sus Mejoras. Todo es para siempre.
-- **Cuántas:** **43 megas** con sprite de Mundo Misterioso. Las demás entrarán con la herramienta
-  de datos cuando SpriteCollab las dibuje.
+- **Cuántas:** **62 megas**: 43 con sprite de Mundo Misterioso y 19 con el de seguimiento de
+  pokeemerald-expansion (sólo andar y quieto). Si SpriteCollab dibuja una de esas 19, la herramienta
+  pasa a la suya; las demás entrarán cuando haya sprite en alguna de las dos.
+- **Dos megas:** Charizard y Mewtwo tienen X e Y, cada una con su versión con mega y su piedra. Con
+  las dos piedras, al megaevolucionar sale una carta para elegir (sección 6.1).
 
 ## 1. Qué ha cambiado respecto a la propuesta de octubre, y por qué
 
@@ -101,7 +105,7 @@ datos**, una vez. En la partida se aplica la naturaleza, como en cualquier fase.
 
 | Qué | Regla |
 |---|---|
-| Daño | **Según la rareza:** 1 y 2, +40 %; 3, +35 %; 4, +30 %; 5 y legendarios, +25 %. Glalie y Camerupt, +25 %, porque ya están entre los mejores. La fórmula sólo reparte entre físico y especial |
+| Daño | **Según la rareza:** 1 y 2, +40 %; 3, +35 %; 4, +30 %; 5 y legendarios, +25 %. Glalie, Camerupt y Abomasnow, +25 %, porque ya están entre los mejores. La fórmula sólo reparte entre físico y especial |
 | Daño recibido | **−15 %**, además de sus defensas |
 | Velocidad | La de la fórmula, nunca más de un 10 % más lenta |
 | Vida | No cambia y no cura |
@@ -120,7 +124,8 @@ mega sólo haría al empezar la partida no se aplica, y así no hay nada que des
 
 - **Faltan 3 efectos:** Amor Filial (+20 % de daño, sin segundo golpe), Turbotaladro (+12 % de daño,
   +25 % cuerpo a cuerpo) y Eelevate (flota y +0,5 % de daño por derrotado, hasta +15 %).
-- **Mantienen tu habilidad:** Darkrai, Zygarde, Zeraora y Tatsugiri, porque PokeAPI no da la suya, y
+- **Mantienen tu habilidad:** Darkrai, Zygarde, Zeraora y Tatsugiri, porque PokeAPI no da la suya;
+  Pinsir y Salamence, porque su Piel Celeste (aerilate) aún no tiene efecto en el juego; y
   Rayquaza, Kyogre y Groudon, porque las suyas cambian el clima de todos. La herramienta avisa si llega el dato.
 - **Clima:** Mega-Tyranitar pone tormenta de arena con el gancho que ya existe. En grupo sólo la pone el anfitrión, como hoy.
 
@@ -210,7 +215,7 @@ Es el hueco del Z, con el mismo tamaño y la misma tecla.
 | Lista | Halo que late (quieto con «Menos sacudidas») y aviso una vez |
 | Activa | Barra que se vacía y segundos que quedan |
 
-## 6. Las 43 megas
+## 6. Las 62 megas
 
 **Tipos:** «nuevo ⟵ de antes» si cambia. **Daño, velocidad, aguante:** cambio con las fórmulas, antes
 de los ajustes de 3.4. **✳:** habilidad que falta programar. **Sprite:** ✅ completo · ⚠️ a medias, se
@@ -262,15 +267,76 @@ usa lo que hay · ✨ con shiny.
 | 807 | Mega-Zeraora | Zeraoranita | Eléctrico | ¿? (PokeAPI no la da) | +18 % | +3 % | ±0 % | ✅ ✨ |
 | 978 | Mega-Tatsugiri (Curvada) | Tatsugirita | Dragón/Agua | ¿? (PokeAPI no la da) | +6 % | +4 % | +11 % | ✅ ✨ |
 
-**Fuera por ahora:** 54 formas sin sprite (entre ellas Mega-Charizard Y, Venusaur, Blastoise, Garchomp,
-Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y Dialga Primigenio (no es oficial).
+Y las 19 del 07-11-2026, con el sprite de seguimiento de pokeemerald-expansion (columnas: el daño y la
+velocidad **finales**, ya ajustados, frente a su Pokémon; sprite 32×32, 2 cuadros, con shiny):
+
+| Nº | Megaevolución | Piedra | Tipos | Habilidad | Daño | Vel. |
+|---:|---|---|---|---|---:|---:|
+| 3 | Mega-Venusaur | Venusaurita | Planta/Veneno | Sebo | ×1,30 | ±0 % |
+| 6 | Mega-Charizard Y | Charizardita Y | Fuego/Volador | Sequía | ×1,30 | ±0 % |
+| 9 | Mega-Blastoise | Blastoisita | Agua | Megadisparador | ×1,30 | ±0 % |
+| 15 | Mega-Beedrill | Beedrillita | Bicho/Veneno | Adaptable | ×1,40 | +26 % |
+| 18 | Mega-Pidgeot | Pidgeotita | Normal/Volador | Indefenso | ×1,35 | +7 % |
+| 127 | Mega-Pinsir | Pinsirita | Bicho/Volador ⟵ Bicho | Piel Celeste ✳ (se queda la tuya) | ×1,30 | +7 % |
+| 130 | Mega-Gyarados | Gyaradosita | Agua/Siniestro ⟵ Agua/Volador | Rompemoldes | ×1,30 | ±0 % |
+| 150 | Mega-Mewtwo X | Mewtwoita X | Psíquico/Lucha ⟵ Psíquico | Impasible | ×1,25 | ±0 % |
+| 181 | Mega-Ampharos | Ampharosita | Eléctrico/Dragón ⟵ Eléctrico | Rompemoldes | ×1,30 | −4 % |
+| 212 | Mega-Scizor | Scizorita | Bicho/Acero | Experto | ×1,30 | +5 % |
+| 214 | Mega-Heracross | Heracrossita | Bicho/Lucha | Encadenado | ×1,30 | −4 % |
+| 257 | Mega-Blaziken | Blazikenita | Fuego/Lucha | Impulso | ×1,30 | +7 % |
+| 260 | Mega-Swampert | Swampertita | Agua/Tierra | Nado Rápido | ×1,30 | +4 % |
+| 306 | Mega-Aggron | Aggronita | Acero ⟵ Acero/Roca | Filtro | ×1,30 | ±0 % |
+| 373 | Mega-Salamence | Salamencita | Dragón/Volador | Piel Celeste ✳ (se queda la tuya) | ×1,25 | +7 % |
+| 376 | Mega-Metagross | Metagrossita | Acero/Psíquico | Garra Dura | ×1,25 | +16 % |
+| 445 | Mega-Garchomp | Garchompita | Dragón/Tierra | Poder Arena | ×1,25 | −3 % |
+| 460 | Mega-Abomasnow | Abomasnowita | Planta/Hielo | Nevada | ×1,25 (frenada) | −10 % |
+| 531 | Mega-Audino | Audinita | Normal/Hada ⟵ Normal | Alma Cura | ×1,35 | ±0 % |
+
+**Fuera por ahora:** 35 formas sin sprite en ninguna de las dos fuentes (casi todas las de Z-A; en
+pokeemerald-expansion no hay ninguna de esas), Mega-Floette (Floette no es forma final) y Dialga Primigenio (no es oficial).
+
+### 6.1 Las 19 de pokeemerald-expansion y las dos megas (07-11-2026)
+
+- **Sprite:** `graphics/pokemon/<especie>/<mega|mega_x|mega_y>/overworld.png` de
+  [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) (RHH), con sus paletas
+  normal y shiny. Es de 192×32: frente ×2, espalda ×2 y lado ×2 mirando a la izquierda (se voltea para
+  la derecha). Se monta en la hoja del juego (2 × 8 direcciones) **sin ampliar**: Mega-Charizard Y mide
+  unos 30×27 px de dibujo y Mega-Charizard X (SpriteCollab) unos 39×26. Los más grandes (Gyarados,
+  Abomasnow, Pidgeot, Metagross) llenan los 32×32. Ancla: el pie más bajo de los 6 cuadros, 1,5 px por encima.
+- **Animaciones:** sólo Idle (2 cuadros, 0,5 s cada uno) y Walk (2 cuadros, 0,15 s). Atacar, cargar,
+  recibir daño y caer usan Idle, como ya hacía el juego con lo que falta.
+- **Herramientas:** `tools/fetch_megas.cjs` mira primero SpriteCollab; si una mega oficial de PokeAPI no
+  tiene cuerpo allí, busca su carpeta en pokeemerald-expansion y la apunta en `tools/cache/megas.json`
+  (`rhh`). `python tools/fetch_sprites.py --megas` baja el PNG y las paletas a `tools/cache/rhh/` y monta
+  `Idle.png`, `Walk.png` y `s/` (shiny). Después, `python tools/hover_flags.py`, como siempre (si no, las
+  megas que flotan pierden su marca). Volver a ejecutarlas deja lo mismo. `tools/fetch_credits.py` se
+  salta estas 19: sus créditos van a mano en `CREDITS.md`. Iconos de piedra: `node tools/fetch_items.js`
+  con la tabla `MG` de `js/ui/icons.js`.
+- **Créditos:** princess-phoenix, larryturbo y kidkatt (DeviantArt), según el `CREDITS.md` de
+  pokeemerald-expansion (PR #5874). No hay licencia escrita: el dueño aprobó usarlos con crédito el 07-11-2026.
+- **Dos megas por Pokémon:** `G.MEGA_OF[dex]` tiene las dos. Cada una es aparte: su versión con mega en
+  el gacha (pueden salir las dos, cada una una vez), su piedra y su precio. `G.Shop.megaIds(dex)` da
+  todas; `G.Shop.megaWorn(dex)`, las de piedra comprada (con Mega-Aro), la última comprada primero.
+  Mega o Pulsera Z sigue siendo una cosa u otra (`save.pmg`), sin datos nuevos en el guardado.
+- **Elegir:** lo decidió el dueño, «al megaevolucionar». Con las dos piedras, al pulsar el botón sale
+  la carta de las ramas (`G.EvoUI.showMega`, desde `G.Game.offerMega`) con las dos megas, sus tipos,
+  habilidad y stats; la partida se para (en grupo, para todos, como con las ramas). Teclas 1 y 2 o
+  clic/toque. Con una sola piedra no sale carta. El botón del HUD lleva la piedra de la última usada.
+- **Pantallas:** Mejoras, una tarjeta por piedra; Pokédex (pestaña Evolución) y Compendio, las dos con
+  su lista de pasos (`G.UI.megaSteps(dex, id)`); pausa, las dos mientras no está activa.
+- **Cooperativo:** no cambia: la mega viaja por su número en el dato de la fase (`a[18]`).
+- **Equilibrio (`tools/medir-mega.cjs`):** ninguna pasa al mejor sin mega (Glaceon, 2,57) al ritmo
+  rápido. Mega-Abomasnow daba 2,50 (2,70 en el pico, la más alta) y está en el 5 % mejor, como Glalie y
+  Camerupt: se frena a ×1,25 (2,36). En el pico quedan por encima Mega-Glalie (2,58, ya era así) y
+  Mega-Blaziken (2,59). No cuenta habilidades: Impulso de Blaziken no está medido.
 
 ## 7. Datos que hay que generar
 
 - `tools/fetch_megas.cjs` → `js/data/megas.js`: por mega, su número de PokeAPI (`10034`), especie,
   nombres en español e inglés, tipos, habilidad, stats ajustados y piedra. Se puede volver a ejecutar
   y avisa si PokeAPI o SpriteCollab cambian. Las megas no entran en `G.DEX`.
-- `tools/fetch_sprites.py`: modo de formas que baja a `assets/pokemon/{número}/` y llena `G.SPRITE_META`.
+- `tools/fetch_sprites.py`: modo de formas que baja a `assets/pokemon/{número}/` y llena `G.SPRITE_META`
+  (las de pokeemerald-expansion, como se cuenta en 6.1).
 - `tools/fetch_credits.py`: créditos de las formas. Sprites CC BY-NC 4.0, como los demás.
 - `tests/mega.test.cjs` y caso de red en `tests/net.test.cjs`.
 

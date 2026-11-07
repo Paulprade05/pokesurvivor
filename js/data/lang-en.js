@@ -2347,5 +2347,9 @@ G.I18n.add({
   "Animaciones": "Animations",
   "Dibujo recuperado": "Graphics recovered",
   "Fallos de dibujo": "Drawing errors",
-  "Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.": "Trees and grass in the wind, critters, water, pickups and attack flourishes. Turn it off if your device struggles: the world stays still and attacks are still shown."
+  "Árboles y hierba con viento, bichos, agua, recogidas y adornos de los ataques. Apágalo si el aparato va justo: el mundo se queda quieto y los ataques se siguen viendo.": "Trees and grass in the wind, critters, water, pickups and attack flourishes. Turn it off if your device struggles: the world stays still and attacks are still shown.",
+  "¡{x} va a megaevolucionar!": "{x} is Mega Evolving!",
+  "Elige su megaevolución": "Choose its Mega Evolution",
+  "Megaevoluciones": "Mega Evolutions",
+  "Con las dos megapiedras, eliges cuál al megaevolucionar.": "With both Mega Stones, you choose which one when you Mega Evolve."
 });

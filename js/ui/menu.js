@@ -718,8 +718,10 @@ G.MenuUI = (() => {
     const rows = line.map(d => { const f = G.Mons.formFor(dex, d);
       return `<tr class="${d === dex ? 'on' : ''}"><th scope="row">${esc(G.DEX_BY[d].name)}</th>${STATS.map(([k]) =>
         `<td class="${nat.up === k ? 'up' : nat.down === k ? 'down' : ''}">${statTxt(k, f[k])}</td>`).join('')}</tr>`; }).join('');
-    const mgId = G.Shop.megaId(dex), mgD = mgId ? G.MEGA[mgId] : null;
-    const megaBox = mgD ? `<section class="dx-sec"><h4 class="dx-h">${G.T('Megaevolución')}</h4><p class="dx-start">${G.Icons.html('mg:' + mgD.ico, 30)}<span><b class="gold" translate="no">${esc(G.Mons.name(mgD.name))}</b> · ${G.UI.typeChips(mgD.types)} · <span translate="no">${esc(G.Mons.name(mgD.stone))}</span></span></p>${G.UI.megaSteps(dex)}</section>` : '';
+    // Sus megas (Charizard y Mewtwo, dos: X e Y), cada una con lo que hace falta.
+    const mgIds = G.Shop.megaIds(dex);
+    const megaBox = mgIds.length ? `<section class="dx-sec"><h4 class="dx-h">${G.T(mgIds.length > 1 ? 'Megaevoluciones' : 'Megaevolución')}</h4>${mgIds.map(id => { const mgD = G.MEGA[id];
+      return `<p class="dx-start">${G.Icons.html('mg:' + mgD.ico, 30)}<span><b class="gold" translate="no">${esc(G.Mons.name(mgD.name))}</b> · ${G.UI.typeChips(mgD.types)} · <span translate="no">${esc(G.Mons.name(mgD.stone))}</span></span></p>${G.UI.megaSteps(dex, id)}`; }).join('')}${mgIds.length > 1 ? `<p class="dx-note">${G.T('Con las dos megapiedras, eliges cuál al megaevolucionar.')}</p>` : ''}</section>` : '';
     return `${intro}${megaBox}
       <div class="dx-evo-row">${steps}</div>
       ${sib}
@@ -1047,7 +1049,7 @@ G.MenuUI = (() => {
         if (u.id === 'start' && lvl > 0 && startOpen) box.appendChild(startPicker());
         if (u.id === 'start2' && lvl > 0 && start2Open) box.appendChild(start2Picker());
       }
-      if (g.id === 'moves') { box.appendChild(ringCard(mon)); if (G.Shop.megaId(upgDex)) box.appendChild(megaCard(mon)); if (zTypeOpen && zTypeCan()) box.appendChild(zTypePicker(mon)); }
+      if (g.id === 'moves') { box.appendChild(ringCard(mon)); for (const id of G.Shop.megaIds(upgDex)) box.appendChild(megaCard(mon, id)); if (zTypeOpen && zTypeCan()) box.appendChild(zTypePicker(mon)); }
     }
     box.appendChild(bindPanel());
     if (body) body.scrollTop = top;
@@ -1153,17 +1155,21 @@ G.MenuUI = (() => {
   }
 
   /**
-   * Megaevolución (06-11-2026): el Mega-Aro y la megapiedra de este Pokémon. Con Pulsera Z y
-   * piedra, aquí se elige cuál lleva: una cosa u otra, en el mismo botón de la partida.
+   * Megaevolución (06-11-2026): el Mega-Aro y una megapiedra de este Pokémon (id; Charizard y
+   * Mewtwo tienen dos tarjetas, X e Y). Con Pulsera Z y piedra, aquí se elige cuál lleva: una
+   * cosa u otra, en el mismo botón de la partida (en la última piedra comprada). Con las dos
+   * piedras, X o Y se elige al megaevolucionar.
    */
-  function megaCard(mon) {
-    const s = G.DB.save, id = G.Shop.megaId(upgDex), d = G.MEGA[id], aro = G.Shop.aroHas(), has = G.Shop.stoneHas(id), open = G.Shop.megaOpen(id);
-    const price = G.Shop.stonePrice(id), both = has && G.Shop.ringHas(upgDex), w = G.Shop.wears(upgDex);
+  function megaCard(mon, id) {
+    const s = G.DB.save, d = G.MEGA[id], aro = G.Shop.aroHas(), has = G.Shop.stoneHas(id), open = G.Shop.megaOpen(id);
+    const worn = G.Shop.megaWorn(upgDex), two = G.Shop.megaIds(upgDex).length > 1;
+    const price = G.Shop.stonePrice(id), both = has && G.Shop.ringHas(upgDex) && worn[0] === id, w = G.Shop.wears(upgDex);
     const el = document.createElement('div');
     el.className = 'upg-card upg-ring' + (has ? ' is-max' : !open ? ' is-locked' : '');
     const sub = !open ? G.T('Primero consigue su versión con mega.') + ' ' + G.UI.megaOpenHow(upgDex)
       : !aro ? G.T('Consigue el Mega-Aro ganando tu primera grieta.')
-      : G.I18n.f('En la partida se carga derrotando enemigos y se transforma en {x}. Lleva piedra o Pulsera Z, no las dos.', G.Mons.name(d.name));
+      : (two ? G.T('Con las dos megapiedras, eliges cuál al megaevolucionar.') + ' ' : '')   // (delante: en el móvil se corta a dos líneas)
+        + G.I18n.f('En la partida se carga derrotando enemigos y se transforma en {x}. Lleva piedra o Pulsera Z, no las dos.', G.Mons.name(d.name));
     el.innerHTML = `
       <span class="ico-tile s${has ? ' t-gold' : ''}">${G.Icons.html(aro || !open ? 'mg:' + d.ico : 'mring', 30)}</span>
       <div class="upg-info"><div class="upg-top"><b translate="no">${G.Mons.name(d.stone)}</b><span class="upg-num"><b>${has ? 1 : 0}</b>/1</span></div>

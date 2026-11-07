@@ -2,7 +2,9 @@
  * Diseño: docs/MEGAEVOLUCIONES.md. Tu Pokémon lleva la megapiedra (G.Shop.wears) y usa
  * el botón, la tecla y el hueco del movimiento Z: llevan una cosa u otra, nunca las dos.
  *
- * pl.mg = { id, def, k0: lo contado cuando empezó a cargar, t: lo que le queda activo,
+ * pl.mg = { id, def: la mega (la última usada), ids: las que puede usar (con X e Y, las dos:
+ *           se elige al pulsar, con una carta como las de rama; G.Game.offerMega),
+ *           k0: lo contado cuando empezó a cargar, t: lo que le queda activo,
  *           uses, dealt, d0, base, own, r, wr,
  *           said: ya avisó de que está lista, hintAt: cuándo enseñar la pista }
  * o null si tu Pokémon no lleva la piedra.
@@ -30,8 +32,9 @@ G.Mega = (() => {
   function of(pl) {
     if (!pl || pl.remote) return null;
     if (pl.mg === undefined) {
-      const id = G.Shop && G.Shop.wears && G.Shop.wears(pl.dex) === 'mega' ? G.Shop.megaId(pl.dex) : 0;
-      pl.mg = id ? { id, def: G.MEGA[id], k0: 0, t: 0, uses: 0, dealt: 0, d0: 0, base: null, own: '', r: 0, wr: 0, said: false, hintAt: 0 } : null;
+      const ids = G.Shop && G.Shop.wears && G.Shop.wears(pl.dex) === 'mega' ? G.Shop.megaWorn(pl.dex).filter(i => G.MEGA[i]) : [];
+      const id = ids[0] || 0;
+      pl.mg = id ? { id, ids, def: G.MEGA[id], k0: 0, t: 0, uses: 0, dealt: 0, d0: 0, base: null, own: '', r: 0, wr: 0, said: false, hintAt: 0 } : null;
     }
     return pl.mg;
   }
@@ -55,11 +58,17 @@ G.Mega = (() => {
     pl.r = r; pl.wr = wr;                // se ve más grande, pero choca igual que antes
   }
 
-  /** Pulsar el botón. → true si ha megaevolucionado. */
-  function use(pl) {
+  /**
+   * Pulsar el botón. → true si ha megaevolucionado. Con dos megas (X e Y) y sin id, sale la
+   * carta para elegir (la partida se para) y megaevoluciona al elegir.
+   */
+  function use(pl, id) {
     const g = of(pl);
     if (!g || pl.dead) return false;
     if (!ready(pl, g)) { g.hintAt = performance.now(); G.Audio.sfx('error'); return false; }
+    if (id && !g.ids.includes(id)) return false;
+    if (!id && g.ids.length > 1 && G.Game.offerMega && G.Game.offerMega(g.ids, pick => use(pl, pick))) return false;
+    if (id) { g.id = id; g.def = G.MEGA[id]; }
     const mon = G.Mons.formFor(pl.dex, g.id);
     mon.name = G.Mons.name(g.def.name);
     g.base = pl.mon; g.own = pl.abilId;
@@ -96,7 +105,7 @@ G.Mega = (() => {
   function tick(dt, pl) {
     const g = of(pl);
     if (!g) return;
-    if (!g.pre && pl.form === pl.dex) { g.pre = true; G.Sprites.preload([g.id], 8000, pl.shinyWant); }
+    if (!g.pre && pl.form === pl.dex) { g.pre = true; G.Sprites.preload(g.ids, 8000, pl.shinyWant); }
     if (g.t > 0) {
       g.t -= dt;
       if (g.t <= 0) end(pl, g);
