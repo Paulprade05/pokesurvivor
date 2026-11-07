@@ -60,10 +60,10 @@ test('sin el Pokémon normal no sale, ni cuenta para la garantía', () => {
 });
 
 test('con el Pokémon: da la versión con mega, no la piedra, y no da monedas', () => {
-  const s = sv({ owned: { 6: { at: 1 } } }), id = mega(6), coins = s.coins;
+  const s = sv({ owned: { 94: { at: 1 } } }), id = mega(94), coins = s.coins;   // (Gengar: una sola mega)
   G.Gacha.debugForceMega(1);
   const r = G.Gacha.pull(s, 1, 1);
-  assert.deepEqual(clone(r[0]), { dex: 6, mega: id, rarity: 6, shiny: false, isNew: true, refund: 0 });
+  assert.deepEqual(clone(r[0]), { dex: 94, mega: id, rarity: 6, shiny: false, isNew: true, refund: 0 });
   assert.ok(s.mop[id]);
   assert.equal(Object.keys(s.mst).length, 0, 'la piedra se compra aparte');
   assert.equal(s.coins, coins);
@@ -71,12 +71,12 @@ test('con el Pokémon: da la versión con mega, no la piedra, y no da monedas', 
 });
 
 test('tasa: 0,5 % entre todas, y nunca menos de 0,1 % cada una', () => {
-  const owned = { 6: { at: 1 }, 65: { at: 1 } };          // dos de Kanto
+  const owned = { 94: { at: 1 }, 65: { at: 1 } };         // dos de Kanto
   assert.equal(G.Gacha.megaPool(sv({ owned }), 1).length, 2);
   const hit = (own, v) => withRandom(v, () => !!G.Gacha.pull(sv({ owned: own }), 1, 1)[0].mega);
   assert.equal(hit(owned, 0.0049), true);
   assert.equal(hit(owned, 0.0051), false);
-  const one = { 6: { at: 1 } };
+  const one = { 94: { at: 1 } };
   assert.equal(hit(one, 0.0049), true);
   assert.equal(hit(one, 0.0051), false);
   // Con más de 5 posibles manda 0,1 % cada una: ninguna región baja de lo que tenía.
@@ -91,10 +91,10 @@ test('tasa: 0,5 % entre todas, y nunca menos de 0,1 % cada una', () => {
 });
 
 test('garantía: a las 1.500 tiradas sin ninguna, y vuelve a cero; no se repite', () => {
-  const s = sv({ owned: { 6: { at: 1 } }, pityM: { 1: 1498 } });
+  const s = sv({ owned: { 94: { at: 1 } }, pityM: { 1: 1498 } });
   assert.ok(!withRandom(0.5, () => G.Gacha.pull(s, 1, 1))[0].mega);
   const r = withRandom(0.5, () => G.Gacha.pull(s, 1, 1));
-  assert.equal(r[0].mega, mega(6));
+  assert.equal(r[0].mega, mega(94));
   assert.equal(s.pityM[1], 0);
   // Ya la tienes: no vuelve a salir y el contador se queda parado.
   G.Gacha.debugForceMega(3);

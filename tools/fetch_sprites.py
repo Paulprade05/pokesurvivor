@@ -7,6 +7,7 @@ a assets/pokemon/ y genera js/data/sprites-meta.js.
     python tools/fetch_sprites.py            # todos los que existan (1-1025)
     python tools/fetch_sprites.py 1 151      # sólo un rango de la Pokédex
     python tools/fetch_sprites.py --megas    # las formas de tools/fetch_megas.cjs, en assets/pokemon/{su id}/
+                                             # (las de pokeemerald-expansion: sólo Idle y Walk, 32×32)
     python tools/fetch_sprites.py --ext      # sólo las animaciones extra (Sleep.png, Ext.png y
                                              # More.png) de los que ya están, sin tocar las 7 de
                                              # siempre (--ext 1 151: sólo ese rango)
@@ -496,12 +497,107 @@ def do_form(job):
     return job['id'], meta
 
 
+RHH = 'https://raw.githubusercontent.com/rh-hideout/pokeemerald-expansion/master/graphics/pokemon'
+RHH_CELL = 32
+# Duraciones (1/60 s) de los 2 cuadros: quieto, despacio; andando, el paso de los juegos de GBA.
+RHH_DUR = {'Idle': [30, 30], 'Walk': [9, 9]}
+
+
+def read_pal(data):
+    """Paleta JASC-PAL (16 colores) → [r, g, b, ...]."""
+    lines = data.decode('ascii', 'replace').splitlines()
+    n = int(lines[2])
+    out = []
+    for line in lines[3:3 + n]:
+        out += [int(v) for v in line.split()[:3]]
+    return out
+
+
+def rhh_sheet(src, pal):
+    """
+    overworld.png de pokeemerald-expansion (con paleta, 6 cuadros de 32×32: frente ×2, espalda ×2,
+    lado ×2 mirando a la izquierda; el índice 0 es el fondo) → hoja del juego de 2 columnas × 8 filas
+    (Down, DownRight, Right, UpRight, Up, UpLeft, Left, DownLeft), sin ampliar.
+    """
+    im = src.copy()
+    im.putpalette(pal + [0] * (768 - len(pal)))
+    rgba = im.convert('RGBA')
+    px, idx = rgba.load(), src.load()
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            if idx[x, y] == 0:
+                px[x, y] = (0, 0, 0, 0)
+    C = RHH_CELL
+    cell = lambda i: rgba.crop((i * C, 0, (i + 1) * C, C))
+    front, back = [cell(0), cell(1)], [cell(2), cell(3)]
+    left = [cell(4), cell(5)]
+    right = [c.transpose(Image.FLIP_LEFT_RIGHT) for c in left]
+    rows = [front, right, right, right, back, left, left, left]
+    sheet = Image.new('RGBA', (C * 2, C * 8), (0, 0, 0, 0))
+    for r, fr in enumerate(rows):
+        for c, f in enumerate(fr):
+            sheet.paste(f, (c * C, r * C))
+    return sheet
+
+
+def do_rhh(job, shadow):
+    """Una mega con el sprite de seguimiento de pokeemerald-expansion (ver tools/fetch_megas.cjs)."""
+    out_dir = os.path.join(OUT_ASSETS, str(job['id']))
+    base = f"{RHH}/{job['rhh']}"
+    cache = os.path.join(CACHE, 'rhh', *job['rhh'].split('/'))
+
+    def get(name):
+        path = os.path.join(cache, name)
+        if os.path.exists(path):
+            return open(path, 'rb').read()
+        data = fetch(f'{base}/{name}')
+        if data:
+            os.makedirs(cache, exist_ok=True)
+            with open(path, 'wb') as f:
+                f.write(data)
+        return data
+
+    png, npal = get('overworld.png'), get('overworld_normal.pal')
+    if not png or not npal:
+        return job['id'], None
+    src = Image.open(io.BytesIO(png))
+    if src.mode != 'P' or src.size != (RHH_CELL * 6, RHH_CELL):
+        print(f"    ! {job['rhh']}: overworld.png de {src.size} {src.mode}, se esperaba 192x32 con paleta")
+        return job['id'], None
+    # Ancla: el centro, y por abajo el pie más bajo de los 6 cuadros (un poco por encima, como la sombra).
+    sp = src.load()
+    bottom = max(y for x in range(src.width) for y in range(src.height) if sp[x, y] != 0)
+    ax, ay = RHH_CELL / 2 - 0.5, bottom - 1.5
+    os.makedirs(out_dir, exist_ok=True)
+    sheet = rhh_sheet(src, read_pal(npal))
+    meta = {'s': shadow, 'a': {}}
+    for name, d in RHH_DUR.items():
+        save_image(sheet, os.path.join(out_dir, name + '.png'))
+        meta['a'][name] = {'w': RHH_CELL, 'h': RHH_CELL, 'n': 2, 'r': 8, 'd': d, 'ax': ax, 'ay': ay}
+    spal = get('overworld_shiny.pal') if job.get('shiny') else None
+    if spal:
+        sdir = os.path.join(out_dir, 's')
+        os.makedirs(sdir, exist_ok=True)
+        ssheet = rhh_sheet(src, read_pal(spal))
+        for name in RHH_DUR:
+            save_image(ssheet, os.path.join(sdir, name + '.png'))
+        meta['sh'] = 1
+    return job['id'], meta
+
+
 def main_megas():
     """--megas: las formas que ha elegido tools/fetch_megas.cjs; no toca a los Pokémon."""
     jobs = json.load(open(os.path.join(CACHE, 'megas.json'), encoding='utf-8'))
     metas, failed = read_meta(), []
+
+    def one(job):
+        if job.get('rhh'):
+            # La sombra, la de su Pokémon (SpriteCollab).
+            return do_rhh(job, (metas.get(job['dex']) or {}).get('s', 1))
+        return do_form(job)
+
     with ThreadPoolExecutor(max_workers=8) as ex:
-        for mid, meta in ex.map(do_form, jobs):
+        for mid, meta in ex.map(one, jobs):
             if meta:
                 metas[mid] = meta
             else:

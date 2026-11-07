@@ -14,23 +14,25 @@ function boot(save) {
 }
 const sv = o => Object.assign({ coins: 50000, owned: { 6: 1, 94: 1, 150: 1, 303: 1 }, ach: {}, mst: {}, pz: {}, pmg: {} }, o);
 
-test('datos: 43 megas, todas de formas finales con sprite, nombres en es/en y daño según la rareza', () => {
+test('datos: 62 megas, todas de formas finales con sprite, nombres en es/en y daño según la rareza', () => {
   const G = boot(sv());
   const ctx = vm.createContext({ G });
   load(ctx, 'js/data/sprites-meta.js');
   load(ctx, 'js/data/evolutions.js');
   const ids = Object.keys(G.MEGA);
-  assert.equal(ids.length, 43);
+  assert.equal(ids.length, 62);
+  // Las 19 con el sprite de seguimiento de pokeemerald-expansion (07-11-2026): sólo Idle y Walk.
+  const RHH = new Set([10033, 10035, 10036, 10040, 10041, 10043, 10045, 10046, 10047, 10050, 10053, 10058, 10060, 10064, 10069, 10073, 10076, 10089, 10090]);
   const K = { 1: 1.4, 2: 1.4, 3: 1.35, 4: 1.3, 5: 1.25 };
   const kids = new Set(Object.values(G.EVO).map(r => r.f).filter(f => Object.keys(G.EVO).some(k => G.EVO[k].f === f && G.DEX_BY[k])));
   for (const id of ids) {
     const m = G.MEGA[id], p = G.DEX_BY[m.dex];
     assert.ok(p && !kids.has(m.dex), m.name[0] + ' no es de forma final');
-    assert.ok(G.SPRITE_META[id] && G.SPRITE_META[id].a.Idle && G.SPRITE_META[id].a.Walk && G.SPRITE_META[id].a.Attack, m.name[0] + ' sin sprite');
+    assert.ok(G.SPRITE_META[id] && G.SPRITE_META[id].a.Idle && G.SPRITE_META[id].a.Walk && (RHH.has(+id) || G.SPRITE_META[id].a.Attack), m.name[0] + ' sin sprite');
     assert.ok(fs.existsSync(path.join(root, 'assets/pokemon', id, 'Idle.png')), m.name[0]);
     assert.ok(fs.existsSync(path.join(root, 'assets/items', m.ico + '.png')), m.ico);
     assert.equal(m.name.length, 2); assert.equal(m.stone.length, 2);
-    const want = m.dex === 362 || m.dex === 323 ? 1.25 : K[p.leg ? 5 : p.rarity];   // Glalie y Camerupt, frenados
+    const want = m.dex === 362 || m.dex === 323 || m.dex === 460 ? 1.25 : K[p.leg ? 5 : p.rarity];   // Glalie, Camerupt y Abomasnow, frenados
     assert.ok(Math.abs(m.atk / p.atk - want) < 0.02, m.name[0] + ' ' + m.atk / p.atk);
     assert.equal(m.hp, p.hp, m.name[0] + ': la vida no cambia');
     assert.ok(m.spd >= Math.round(p.spd * 0.9), m.name[0] + ' lenta');
