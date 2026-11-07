@@ -65,8 +65,8 @@ test('todos los ataques valen la pena: los flojos suben y Tajo Cruzado baja', ()
   // Tajo Cruzado no pasa de ×2,2 de su escalera; al nivel 1 sigue en ×1,2.
   const cc = M.BY_ID['cross-chop'];
   assert.ok(Math.abs(k('cross-chop', 1) - 1.2) < 1e-9);
-  const ups = cc.ups.reduce((t, u) => t * (u.m.dmg || 1), 1);
-  assert.ok(Math.abs(k('cross-chop', cc.maxLvl) / ups - 2.2) < 1e-9, `×${k('cross-chop', cc.maxLvl) / ups}`);
+  // (7-11-2026, auditoría: el paso de ×1,2 a ×2,2 va ahora en su carta de daño, la de «+45%» de las aspas: ver honestUps.)
+  assert.ok(Math.abs(k('cross-chop', cc.maxLvl) / 1.45 - 2.2) < 0.01, `×${k('cross-chop', cc.maxLvl) / 1.45}`);
 });
 
 test('Rayo Carga: Réplica reparte el daño, y las ráfagas apuntan al enemigo de ese lado', () => {

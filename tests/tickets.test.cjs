@@ -11,7 +11,8 @@ function load(search = '') {
 }
 const T = load();
 
-test('tickets: 30 when reaching Arceus at 30:00 with all 11 calendar bosses', () => {
+test('tickets: 30 when reaching Arceus at 30:00 with all 13 calendar bosses', () => {
+  assert.equal(T.forRun(1800, 13, true), 30);
   assert.equal(T.forRun(1800, 11, true), 30);
   assert.equal(T.forRun(1800, 0, false), 18);
   assert.equal(T.forRun(0, 0, false), 0);
@@ -20,9 +21,11 @@ test('tickets: 30 when reaching Arceus at 30:00 with all 11 calendar bosses', ()
 });
 
 test('tickets: every 5-minute slice pays 3 to 8, with no bosses or with all of them; the total never drops nor passes 30', () => {
-  // Jefes del calendario: minutos 3, 6, 9, 12, 15, 18, 21, 24 (×2), 27 (×2), vencidos a los 20 o a los 45 s.
-  const AT = [180, 360, 540, 720, 900, 1080, 1260, 1440, 1440, 1620, 1620];
-  for (const lag of [null, 20, 45]) {
+  // Jefes del calendario: antes minutos 3, 6, 9, 12, 15, 18, 21, 24 (×2), 27 (×2); desde el 07-11-2026 cada 2,5 min (2:30 ...
+  // 27:30, dúos a las 25:00 y 27:30, ±22,5 s), vencidos a los 20 o a los 45 s (o a los 22,5 + 45).
+  const OLD = [180, 360, 540, 720, 900, 1080, 1260, 1440, 1440, 1620, 1620];
+  const NEW = [150, 300, 450, 600, 750, 900, 1050, 1200, 1350, 1500, 1500, 1650, 1650];
+  for (const [AT, lag] of [[OLD, null], [OLD, 20], [OLD, 45], [NEW, 20], [NEW, 45], [NEW, 67.5]]) {
     let prev = 0, last = 0;
     for (let t = 0; t <= 1800; t += 1) {
       const nb = lag == null ? 0 : AT.filter(a => a + lag <= t).length;
