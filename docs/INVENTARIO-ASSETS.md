@@ -28,7 +28,7 @@ puntos de relleno sin causa, repetir con variantes y mover sólo lo que se mover
 | Rayos y tajos | `fx.js` | Bloques | Bien | Sí | Buena | Golpe nuevo al final del rayo; el tajo, igual |
 | Orbes y objetos del suelo | `pickup.js` + `assets/items/` | PNG de PokeAPI | Sprites bien; brillo con círculos lisos, uno por objeto | Saltito | Regular | Brillo y sombra ya hechos y a píxeles (más baratos que antes), moneda que gira, destello al coger |
 | Pokémon (966) | `assets/pokemon/` | Hojas PMDCollab | Muy buenos | Sí | Buena | Sin tocar |
-| Interfaz (menú, cartas, HUD) | `css/style.css`, `js/ui/` | HTML y lienzo | Cuidada, ya con entradas animadas | Sí | Buena | Brillo en Jugar, logo que flota, iconos de las cartas que respiran |
+| Interfaz (menú, cartas, HUD) | `css/style.css`, `js/ui/` | HTML y lienzo | Cuidada, ya con entradas animadas | Sí | Buena | Brillo en Jugar y logo que flota. Los iconos de las cartas van fijos (07-11-2026) |
 | Iconos de objetos (110) | `assets/items/` | PNG | Buenos | No | Buena | Sin tocar |
 
 ## Lo que queda sin tocar a propósito

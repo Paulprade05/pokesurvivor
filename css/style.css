@@ -5912,7 +5912,7 @@ button.ico-tile:hover { filter: brightness(1.2); }
 }
 
 /* ---------- Arte animado (05-11-2026) ----------
- * Adornos de la interfaz: un brillo que cruza Jugar, el logo que flota y los iconos de las cartas de nivel que respiran.
+ * Adornos de la interfaz: un brillo que cruza Jugar y el logo que flota. Los iconos de las cartas de nivel se quedan fijos (07-11-2026).
  * Con el ajuste «Animaciones» apagado (html.no-anim, world/anim.js) no hay ninguno. Sólo transform y opacity: no repintan. */
 html:not(.no-anim) .menu-item.play { position: relative; overflow: hidden; }
 html:not(.no-anim) .menu-item.play::after {
@@ -5923,5 +5923,3 @@ html:not(.no-anim) .menu-item.play::after {
 @keyframes play-sheen { 0%, 62% { transform: translateX(-160%) skewX(-18deg); } 100% { transform: translateX(640%) skewX(-18deg); } }
 html:not(.no-anim) #scr-menu .logo .t1 { animation: logo-float 4.6s ease-in-out infinite; }
 @keyframes logo-float { 50% { transform: translateY(-4px); } }
-html:not(.no-anim) .pick-card .pc-ico > img { animation: ico-breathe 2.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.7s); }
-@keyframes ico-breathe { 50% { transform: translateY(-3px) scale(1.04); } }
