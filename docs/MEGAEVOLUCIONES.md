@@ -165,7 +165,7 @@ Lo pidió el dueño: «puedes desbloquear al pokemon normal pero también puedes
 **Regla (`js/systems/gacha.js`):**
 
 - Nueva rareza **Mega**, por encima de Legendaria, en el banner de la región de ese Pokémon y con los mismos tickets.
-- **Cada una tiene 1 entre 1.000** en cada tirada de su banner. Si hay varias posibles, se suman.
+- **Entre todas tienen 0,5 %** en cada tirada de su banner, y **nunca menos de 0,1 % cada una** (`megaRate`). Con 5 posibles o menos son 0,5 %; con más, 0,1 % por cada una. Lo pidió el dueño el 07-11-2026 («sube la probabilidad de mega a un 0,5 %»), y eligió esta lectura para que ninguna región baje de lo que tenía: antes era 0,1 % cada una.
 - **Sólo sale si ya tienes el Pokémon normal, y nunca se repite.** Si no hay ninguna posible, esa región no cambia en nada.
 - **Garantía:** a las **1.500 tiradas sin ninguna** en ese banner, la siguiente lo es. El contador sólo avanza si hay alguna posible y vuelve a cero al salir una.
 - **No da la mega:** deja comprar la piedra. No da monedas y no hay versión shiny.
@@ -175,19 +175,21 @@ Lo pidió el dueño: «puedes desbloquear al pokemon normal pero también puedes
 
 **Cuánto más difícil que un legendario.** Tiradas de media en el banner de su región, con 3.000 y 20.000 simulaciones por caso, y teniendo todos los Pokémon normales de esa región. El gacha de legendarios se midió con el código real; el de megas, con un modelo de la misma regla:
 
-| Región | Megas | Legendaria cualquiera | Primera mega cualquiera | Un legendario concreto | Una mega concreta | Veces más |
-|---|---:|---:|---:|---:|---:|---:|
-| Kanto | 7 | 43 | 143 | 253 | 947 | 3,7 |
-| Johto | 4 | 44 | 249 | 314 | 932 | 3,0 |
-| Hoenn | 18 | 44 | 55 | 565 | 990 | 1,8 |
-| Sinnoh | 4 | 43 | 248 | 644 | 926 | 1,4 |
-| Teselia | 3 | 43 | 328 | 587 | 898 | 1,5 |
-| Kalos | 4 | 44 | 251 | 312 | 925 | 3,0 |
-| Alola | 2 | 44 | 472 | 582 | 862 | 1,5 |
-| Paldea | 1 | 44 | 771 | 577 | 771 | 1,3 |
+| Región | Megas | Tasa al empezar | Legendaria cualquiera | Primera mega cualquiera | Un legendario concreto | Una mega concreta | Veces más |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Kanto | 7 | 0,7 % | 43 | 144 | 253 | 718 | 2,8 |
+| Johto | 4 | 0,5 % | 44 | 200 | 314 | 498 | 1,6 |
+| Hoenn | 18 | 1,8 % | 44 | 56 | 565 | 895 | 1,6 |
+| Sinnoh | 4 | 0,5 % | 43 | 199 | 644 | 502 | 0,8 |
+| Teselia | 3 | 0,5 % | 43 | 200 | 587 | 399 | 0,7 |
+| Kalos | 4 | 0,5 % | 44 | 202 | 312 | 500 | 1,6 |
+| Alola | 2 | 0,5 % | 44 | 201 | 582 | 301 | 0,5 |
+| Paldea | 1 | 0,5 % | 44 | 199 | 577 | 199 | 0,3 |
 
-- Una mega concreta sale en **770-990 tiradas**, unas **30 partidas completas** (30 tickets como mucho por partida).
-- La comparación justa es entre uno concreto y otro concreto. **La primera mega cualquiera puede salir antes que un legendario concreto**, y en Hoenn con todo desbloqueado la rareza suma 1,8 %, más que Legendaria (1,5 %). Por eso el gacha enseña «0,1 %, cada una» y no la suma.
+- Una mega concreta sale en **200-900 tiradas**, entre 7 y 30 partidas completas (30 tickets como mucho por partida). Antes eran 770-990.
+- **Sinnoh, Teselia, Alola y Paldea ya no son más difíciles que su legendario.** El dueño lo vio antes de elegir y lo aceptó (07-11-2026): cambia lo que pidió antes de que la mega fuera más difícil. Con una sola mega, 0,5 % son siempre unas 200 tiradas.
+- La garantía de 1.500 no cambia. A 0,5 % sólo llega una de cada 1.800 veces: queda como red, no como camino.
+- La comparación justa es entre uno concreto y otro concreto. **La primera mega cualquiera puede salir antes que un legendario concreto**, y en Hoenn con todo desbloqueado la rareza suma 1,8 %, más que Legendaria (1,5 %). El gacha enseña la tasa de ahora entre todas, que baja de 1,8 % a 0,5 % según las consigues.
 - Si tienes pocos Pokémon de esa región, salen menos megas: la primera tarda más.
 
 **Quien ya compró la piedra:** la conserva, la puede usar igual y cuenta como versión con mega conseguida (`db.js`, `sanitize`; `mst` pasa a `mop`, también en la nube). Nunca sale en el gacha lo que ya tienes. El precio de la piedra y el Mega-Aro no cambian.
@@ -300,7 +302,7 @@ Metagross y casi todas las de Z-A), Mega-Floette (Floette no es forma final) y D
 Decisiones del 07-11-2026 (sección 4.1):
 
 6. **Dónde:** en el mismo gacha, con rareza Mega.
-7. **Dificultad:** 1 de cada 1.000 tiradas cada una, con garantía a las 1.500.
+7. **Dificultad:** 0,5 % entre todas y nunca menos de 0,1 % cada una, con garantía a las 1.500.
 8. **Piedras ya compradas:** se respetan, sin compensación.
 9. **Megas de legendarios:** la misma regla que las demás.
 

@@ -519,7 +519,7 @@ G.UI = (() => {
   /** Dónde se consigue la versión con mega de un Pokémon. */
   function megaOpenHow(dex) {
     const b = G.Gacha.BANNERS[G.DEX_BY[dex].gen - 1];
-    return G.I18n.f('Sale en el gacha de {x}, 1 de cada {x} tiradas.', G.T(b.name), (1 / G.Gacha.MEGA_RATE).toLocaleString(G.I18n.locale));
+    return G.I18n.f('Sale en el gacha de {x}, con al menos {x} % por tirada entre todas las de esa región.', G.T(b.name), (G.Gacha.MEGA_RATE * 100).toLocaleString(G.I18n.locale));
   }
   /** Lo que hace falta para usar la mega de un Pokémon, con lo que ya tienes marcado (Compendio y Pokédex). */
   function megaSteps(dex) {

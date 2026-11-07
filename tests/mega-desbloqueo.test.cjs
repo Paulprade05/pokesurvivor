@@ -70,15 +70,24 @@ test('con el Pokémon: da la versión con mega, no la piedra, y no da monedas', 
   assert.equal(s.pity[1], 1, 'cuenta como tirada sin legendaria');
 });
 
-test('tasa: cada una, 1 de cada 1.000, sumando las que pueden salir', () => {
+test('tasa: 0,5 % entre todas, y nunca menos de 0,1 % cada una', () => {
   const owned = { 6: { at: 1 }, 65: { at: 1 } };          // dos de Kanto
   assert.equal(G.Gacha.megaPool(sv({ owned }), 1).length, 2);
   const hit = (own, v) => withRandom(v, () => !!G.Gacha.pull(sv({ owned: own }), 1, 1)[0].mega);
-  assert.equal(hit(owned, 0.0019), true);
-  assert.equal(hit(owned, 0.0021), false);
+  assert.equal(hit(owned, 0.0049), true);
+  assert.equal(hit(owned, 0.0051), false);
   const one = { 6: { at: 1 } };
-  assert.equal(hit(one, 0.0009), true);
-  assert.equal(hit(one, 0.0011), false);
+  assert.equal(hit(one, 0.0049), true);
+  assert.equal(hit(one, 0.0051), false);
+  // Con más de 5 posibles manda 0,1 % cada una: ninguna región baja de lo que tenía.
+  const all = {};
+  for (const id of G.Gacha.megasIn(1)) all[G.MEGA[id].dex] = { at: 1 };
+  const n = G.Gacha.megaPool(sv({ owned: all }), 1).length;
+  assert.ok(n > 5);
+  assert.equal(hit(all, n / 1000 - 0.0001), true);
+  assert.equal(hit(all, n / 1000 + 0.0001), false);
+  assert.equal(G.Gacha.megaRate(0), 0);
+  assert.equal(G.Gacha.megaRate(5), 0.005);
 });
 
 test('garantía: a las 1.500 tiradas sin ninguna, y vuelve a cero; no se repite', () => {
