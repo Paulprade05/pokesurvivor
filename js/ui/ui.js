@@ -516,8 +516,27 @@ G.UI = (() => {
     return cv;
   }
 
+  /** Dónde se consigue la versión con mega de un Pokémon. */
+  function megaOpenHow(dex) {
+    const b = G.Gacha.BANNERS[G.DEX_BY[dex].gen - 1];
+    return G.I18n.f('Sale en el gacha de {x}, 1 de cada {x} tiradas.', G.T(b.name), (1 / G.Gacha.MEGA_RATE).toLocaleString(G.I18n.locale));
+  }
+  /** Lo que hace falta para usar la mega de un Pokémon, con lo que ya tienes marcado (Compendio y Pokédex). */
+  function megaSteps(dex) {
+    const n = G.Shop.megaNeeds(dex);
+    if (!n) return '';
+    const name = G.DEX_BY[dex].name, stone = G.Mons.name(G.MEGA[n.id].stone);
+    const steps = [
+      [n.mon, name, G.T('Sale en el gacha de su región.')],
+      [n.open, G.T('Versión con mega'), megaOpenHow(dex)],
+      [n.aro, G.T('Mega-Aro'), G.T('Se gana con tu primera grieta.')],
+      [n.stone, stone, G.I18n.f('Se compra en sus Mejoras por {x} Pokémonedas.', n.price.toLocaleString(G.I18n.locale))]
+    ];
+    return `<ol class="mega-steps">${steps.map(([ok, t, how]) => `<li class="${ok ? 'on' : ''}"><span class="ms-ico">${svg(ok ? 'check' : 'lock', 14)}</span><span class="ms-txt"><b translate="no">${t}</b>${ok ? '' : `<small>${how}</small>`}</span></li>`).join('')}</ol>`;
+  }
+
   return { $, show, hide, hideAll, isOpen, chrome, refreshCoins, toast, ask, typeChips, stars, confirmDelete, saveNow, REPO,
-           sprite, spriteCanvas, tick, initChrome, soundControls, hueSwap, otherTab, svg, icons,
+           sprite, spriteCanvas, megaOpenHow, megaSteps, tick, initChrome, soundControls, hueSwap, otherTab, svg, icons,
            /** ¿Está puesto el aviso de «abierto en otra pestaña»? (bloquea teclado y mando) */
            tabBlocked: () => !!tabEl && !tabEl.classList.contains('hidden') };
 })();

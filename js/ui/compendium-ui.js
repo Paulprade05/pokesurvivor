@@ -546,7 +546,7 @@ G.CompendiumUI = (() => {
       h += sec('Megaevolución', `<p class="cmp-note"><span class="ico-tile s tint" style="--tile-c:${G.Mega.COL}">${G.Icons.html('mg:' + mg.ico, 30)}</span> <b class="gold" translate="no">${esc(G.Mons.name(mg.name))}</b> ${G.UI.typeChips(mg.types)}</p>`
         + `<div class="cmp-kv"><div><span class="cmp-k">Daño</span><b>+${Math.round((ma - 1) * 100)} %</b><small><span>${esc(G.T('Y recibe un 15 % menos de daño.'))}</span></small></div>`
         + `<div><span class="cmp-k">Habilidad</span>${mg.abil ? `<b translate="no">${esc(G.Mons.abilityName(mg.abil))}</b><small><span>${esc(G.T(mfx.d))}</span>${mfx.d2 ? ` <span>${esc(G.T(mfx.d2))}</span>` : ''}</small>` : `<b>${esc(G.T('Se queda con la tuya'))}</b>`}</div>`
-        + `<div><span class="cmp-k">Megapiedra</span><b translate="no">${esc(G.Mons.name(mg.stone))}</b><small><span>${esc(G.T('Se compra en sus Mejoras. Hace falta el Mega-Aro, de tu primera grieta ganada.'))}</span></small></div></div>`);
+        + `<div><span class="cmp-k">Megapiedra</span><b translate="no">${esc(G.Mons.name(mg.stone))}</b></div></div>${G.UI.megaSteps(dex)}`);
     }
     h += '<div class="cmp-kv">'
       + (st ? `<div><span class="cmp-k">Ataque inicial</span>${moveBtn(st)}</div>` : '')

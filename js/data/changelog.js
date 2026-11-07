@@ -6,6 +6,16 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-07', title: ["Versión con mega en el gacha", "Mega versions in the gacha"], new: [
+    ["Nueva rareza Mega, por encima de Legendaria: cada Pokémon con mega tiene su versión con mega, que sale en el gacha de su región 1 de cada 1.000 tiradas. Sólo sale si ya tienes el Pokémon normal y nunca se repite, y a las 1.500 tiradas sin ninguna en esa región, la siguiente lo es.",
+     "New Mega rarity, above Legendary: each Pokémon with a Mega has a Mega version, which appears in its region's gacha 1 in 1,000 pulls. It only appears if you own the regular Pokémon and never repeats, and after 1,500 pulls without one in that region, the next one is."]],
+  chg: [
+    ["La versión con mega no da la mega: te deja comprar su megapiedra en las Mejoras de ese Pokémon. El Mega-Aro y el precio de la piedra no cambian.",
+     "The Mega version doesn't give you the Mega: it lets you buy its Mega Stone in that Pokémon's Upgrades. The Mega Ring and the stone's price stay the same."],
+    ["Las megapiedras que ya hayas comprado siguen siendo tuyas y cuentan como versión con mega conseguida.",
+     "Mega Stones you already bought stay yours and count as an unlocked Mega version."],
+    ["Mejoras, el Compendio y la Pokédex enseñan qué te falta para usar cada mega.",
+     "Upgrades, the Compendium and the Pokédex show what you still need to use each Mega."]] },
   { d: '2026-11-06', title: ["Niebla y ambiente en el mundo", "Fog and atmosphere in the world"], new: [
     ["El mundo tiene ambiente: bancos de niebla que se mueven despacio pegados al suelo, zonas de luz y de sombra y un tono propio en cada mapa. La niebla va por debajo de enemigos, disparos, avisos y recompensas, así que nunca tapa nada.",
      "The world has atmosphere now: slow banks of fog hugging the ground, patches of light and shadow, and a mood of its own for each map. The fog stays under enemies, shots, warnings and rewards, so it never hides anything."],
