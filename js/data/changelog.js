@@ -6,6 +6,13 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-07', title: ["Los cofres se abren con un botón", "Chests open with a button"], chg: [
+    ["Los cofres ahora se abren tú mismo: acércate y pulsa la F (A en el mando). El normal se abre con una pulsación y el de candado manteniendo pulsado mientras se llena el aro; si sueltas o te alejas antes de tiempo, no se abre.",
+     "You now open chests yourself: walk up and press F (A on a controller). A normal chest opens with one press and a locked chest by holding while the ring fills; let go or walk away too soon and it stays closed."],
+    ["En el móvil, cerca de un cofre aparece un botón para abrirlo y desaparece al alejarte. Puedes moverlo en Ajustes > Controles > Colocar los botones.",
+     "On mobile, a button appears near a chest and goes away when you leave. You can move it in Settings > Controls > Place the buttons."],
+    ["Los ataques ya no rompen el cofre normal: ya no se abre solo por el camino.",
+     "Attacks no longer break normal chests, so they won't open by accident on your way past."]] },
   { d: '2026-11-06', title: ["Niebla y ambiente en el mundo", "Fog and atmosphere in the world"], new: [
     ["El mundo tiene ambiente: bancos de niebla que se mueven despacio pegados al suelo, zonas de luz y de sombra y un tono propio en cada mapa. La niebla va por debajo de enemigos, disparos, avisos y recompensas, así que nunca tapa nada.",
      "The world has atmosphere now: slow banks of fog hugging the ground, patches of light and shadow, and a mood of its own for each map. The fog stays under enemies, shots, warnings and rewards, so it never hides anything."],

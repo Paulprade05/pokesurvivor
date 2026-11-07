@@ -1,18 +1,22 @@
-/* ============ interact.js — altares, manantiales, cofres con candado y trampas ============
+/* ============ interact.js — altares, manantiales, cofres y trampas ============
  * Los objetos los coloca world.js (repartidos por bloques para que todas las
  * partidas tengan parecidos, y uno de cada cerca del inicio; las trampas, sueltas);
  * aquí está lo que pasa al tocarlos. Todo se mira alrededor de TU Pokémon:
  *
  *   altar     torre de poder: da un poder de 25 s (Furia, Rayo, Imán o Prisa) y se apaga
  *   spring    cura mientras estás encima; se agota y se recarga sola
- *   bigchest  quédate a su lado CHEST_TIME segundos (mientras te atacan) y se
- *             abre: monedas, tickets y experiencia para subir un nivel
+ *   chest     cofre normal: con él a tu alcance, una pulsación de la acción 'open'
+ *             (F, A del mando o el botón táctil del HUD) y se abre. Los ataques no le hacen nada
+ *   bigchest  cofre con candado: la misma acción, MANTENIDA CHEST_TIME segundos a su lado
+ *             (mientras te atacan). Al soltar o alejarte no se abre y lo hecho se va
+ *             perdiendo. Da monedas, tickets y experiencia para subir un nivel
  *   trap      salta al pisarla (tú o un enemigo) y afecta a todo lo cercano:
  *             veneno, pegajosa (ralentiza) o explosiva
  *
- * Cooperativo: altares y manantiales son de cada uno (en cada ordenador); el
- * cofre y las trampas se rompen como cualquier objeto y el anfitrión reparte
- * el botín y el daño a los enemigos (ver world.destroyProp y coop.propBroken).
+ * Cooperativo: altares y manantiales son de cada uno (en cada ordenador); los
+ * cofres y las trampas se quitan del mapa como cualquier objeto y el anfitrión
+ * reparte el botín y el daño a los enemigos (ver world.destroyProp y coop.propBroken):
+ * si dos abren el mismo a la vez, el botín sale una vez (world: 'broken').
  */
 G.Interact = (() => {
   const CHEST_TIME = 3.5, CHEST_DUO = 1.6;   // con dos al lado: unos 2,2 s
@@ -27,10 +31,13 @@ G.Interact = (() => {
   const SPRING_WET = 0.15;      // carga con la que un manantial seco vuelve a curar (world.js lo dibuja seco por debajo)
   const authority = () => !G.Coop.active || G.Coop.isHost;
   let healShown = 0, healAcc = 0;
+  let near = null;              // el cofre a tu alcance (el más cercano): lo miran el HUD y el bot
 
   function update(dt, pl) {
     if (!pl) return;
-    for (const p of G.World.specialsNear(pl.x, pl.y, 720)) {
+    const list = G.World.specialsNear(pl.x, pl.y, 720);
+    chests(dt, pl, list);
+    for (const p of list) {
       const d2 = G.U.dist2(pl.x, pl.y, p.x, p.type === 'spring' || p.type === 'trap' ? p.y - 8 : p.y);
       switch (p.type) {
         case 'spring': spring(dt, pl, p, d2); break;
@@ -38,16 +45,6 @@ G.Interact = (() => {
           // Contando el tamaño de tu Pokémon: uno grande (Reshiram, Zekrom...) choca
           // con el altar antes de llegar a 30 y no lo podía activar.
           if (!p.used && !pl.dead && d2 < Math.max(30, p.r + pl.r + 14) ** 2) usePower(pl, p);
-          break;
-        case 'bigchest':
-          if (!pl.dead && d2 < Math.max(46, p.r + pl.r + 24) ** 2) {
-            if (p.open === 0) G.Audio.sfx('select');
-            // En grupo, con un compañero al lado se abre más deprisa (cuentan 2 como
-            // mucho, #71). Cada ordenador lleva su cuenta; al abrirse se rompe para
-            // todos como siempre (World.breakProp) y el botín sale una vez.
-            p.open += dt * (G.Coop.active && mateAt(p) ? CHEST_DUO : 1);
-            if (p.open >= CHEST_TIME) { p.open = 0; G.Reg.ev('cofre'); G.World.breakProp(p); }
-          } else if (p.open > 0) p.open = Math.max(0, p.open - dt * 1.5);
           break;
         case 'trap':
           if (!pl.dead && d2 < 13 * 13) G.World.breakProp(p);
@@ -57,10 +54,43 @@ G.Interact = (() => {
     }
   }
 
+  /** Hasta dónde llega un Pokémon para abrir este cofre. */
+  const reach = (p, o) => Math.max(46, p.r + o.r + 24);
+
+  /**
+   * Los cofres, sólo el más cercano a tu alcance y sólo si puedes actuar: caído o con la
+   * pausa abierta en grupo (la partida sigue, pl.frozen), ni aviso ni botón. Con las cartas
+   * o la pausa en solitario esto no corre: el progreso se queda como estaba.
+   */
+  function chests(dt, pl, list) {
+    const can = !pl.dead && !pl.frozen;
+    let bd = Infinity;
+    near = null;
+    for (const p of list) {
+      if (p.type !== 'chest' && p.type !== 'bigchest') continue;
+      const d2 = G.U.dist2(pl.x, pl.y, p.x, p.y);
+      if (can && d2 < reach(p, pl) ** 2 && d2 < bd) { bd = d2; near = p; }
+    }
+    const held = !!near && G.Input.actHeld('open');
+    for (const p of list) if (p.open > 0 && !(held && p === near)) p.open = Math.max(0, p.open - dt * 1.5);
+    if (!near) return;
+    const c = near;
+    if (c.type === 'chest') {
+      if (G.Input.act('open')) { near = null; G.Reg.ev('cofre', 'peq'); G.World.breakProp(c); }
+    } else if (held) {
+      if (c.open === 0) G.Audio.sfx('select');
+      // En grupo, con un compañero al lado se abre más deprisa (cuentan 2 como
+      // mucho, #71). Cada ordenador lleva su cuenta; al abrirse se quita para
+      // todos como siempre (World.breakProp) y el botín sale una vez.
+      c.open += dt * (G.Coop.active && mateAt(c) ? CHEST_DUO : 1);
+      if (c.open >= CHEST_TIME) { c.open = 0; near = null; G.Reg.ev('cofre'); G.World.breakProp(c); }
+    }
+  }
+
   /** ¿Hay un compañero en pie junto a este cofre? */
   function mateAt(p) {
     for (const o of G.Coop.puppets()) {
-      if (!o.dead && G.U.dist2(o.x, o.y, p.x, p.y) < Math.max(46, p.r + o.r + 24) ** 2) return true;
+      if (!o.dead && G.U.dist2(o.x, o.y, p.x, p.y) < reach(p, o) ** 2) return true;
     }
     return false;
   }
@@ -142,5 +172,5 @@ G.Interact = (() => {
     }
   }
 
-  return { update, trapEffect, POWERS, CHEST_TIME };
+  return { update, trapEffect, POWERS, CHEST_TIME, get near() { return near; } };
 })();

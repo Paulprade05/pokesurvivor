@@ -5332,6 +5332,8 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   padding: 2px 10px; border-radius: var(--rad-pill); background: rgba(5, 10, 26, .78); border: 1px solid rgba(255, 203, 5, .5);
   font: 600 12px/1.4 var(--font-display); color: var(--c-yellow);
 }
+.lay-open { display: grid; place-items: center; border-radius: 50%; background: rgba(11, 21, 48, .78); border: 3px solid var(--c-yellow); box-shadow: 0 2px 0 rgba(0, 0, 0, .24); }
+.lay-open img { width: 50%; height: auto; pointer-events: none; image-rendering: pixelated; }
 .lay-pause { border-radius: 50%; background: rgba(11, 21, 48, .78); border: 1.5px solid rgba(255, 255, 255, .4); box-shadow: 0 2px 0 rgba(0, 0, 0, .24); }
 .lay-pause b { position: absolute; top: calc(50% - 8px); width: 4.5px; height: 16px; border-radius: 2.25px; background: var(--ink); }
 .lay-pause b:first-child { left: calc(50% - 6.5px); }

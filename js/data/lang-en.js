@@ -170,7 +170,9 @@ G.I18n.add({
   'Criptomonedas': 'Cryptocurrencies', 'Web oficial': 'Official website',
   'Esta no es la web oficial: la partida sólo se guarda en este navegador. El juego oficial y gratis está en pokesurvivor.com.': 'This is not the official website: your game is only saved in this browser. The official, free game is at pokesurvivor.com.',
   'Colocar los botones': 'Place the buttons', 'Colocar': 'Place',
-  'Pon los ataques, la pausa y el joystick (fijo, si quieres) donde quieras de la pantalla.': 'Put the attacks, the pause button and the joystick (fixed, if you like) anywhere on the screen.',
+  'Pon los ataques, la pausa, el botón de abrir cofres y el joystick (fijo, si quieres) donde quieras de la pantalla.': 'Put the attacks, the pause button, the open-chest button and the joystick (fixed, if you like) anywhere on the screen.',
+  'Abrir cofre': 'Open chest', 'Abrir': 'Open', 'Mantén': 'Hold', 'Mantén para abrir': 'Hold to open',
+  'abrir cofres (el de candado, mantén pulsado)': 'open chests (hold for the locked one)',
   'Arrastra los botones a donde quieras': 'Drag the buttons wherever you want', 'Gira el móvil: se juega en horizontal.': 'Turn your phone: the game is played in landscape.',
   'Joystick': 'Joystick', 'Flotante': 'Floating', 'Fijo': 'Fixed', 'Ataques': 'Attacks',
   'Flotante: aparece donde pones el dedo. Fijo: siempre en el mismo sitio.': 'Floating: it appears where you put your finger. Fixed: always in the same place.',
@@ -428,7 +430,7 @@ G.I18n.add({
   'Moverte, cambiar de ataque y manejar los menús con el mando.': 'Move, switch attacks and use the menus with a controller.',
   'El mando vibra al recibir daño (si el mando y el navegador lo permiten).': 'The controller vibrates when you take damage (if your controller and browser support it).',
   'Stick izq.': 'Left stick', 'Cruceta': 'D-pad', 'Stick der.': 'Right stick', 'moverse · elegir en los menús': 'move · choose in menus',
-  'pulsar (en los menús) · saltar la animación de Arceus': 'press (in menus) · skip the Arceus cutscene',
+  'pulsar (en los menús) · abrir cofres (el de candado, mantén pulsado) · saltar la animación de Arceus': 'press (in menus) · open chests (hold for the locked one) · skip the Arceus cutscene',
   'atrás / cerrar': 'back / close', 'cambiar las cartas al subir de nivel': 'reroll the cards when leveling up',
   'desplazar las listas': 'scroll lists',
   'desplazar las listas · apuntar (si activas Apuntar a mano en Accesibilidad)': 'scroll lists · aim (if you turn on Manual aim in Accessibility)',
@@ -1317,7 +1319,7 @@ G.I18n.add({
   "Charcos": "Pools",
   "Chaparrón": "Shower",
   // ---------------- Joystick fijo (23-10-2026) ----------------
-  "Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar.": "Drag the joystick to move. Tap an attack at the bottom to switch to it and the button at the top right to pause.",
+  "Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Cerca de un cofre sale un botón para abrirlo.": "Drag the joystick to move. Tap an attack at the bottom to switch to it and the button at the top right to pause. Near a chest, a button appears to open it.",
   "Fijo: siempre en el mismo sitio. Flotante: aparece donde pones el dedo.": "Fixed: always in the same place. Floating: appears where you put your finger.",
   // ---------------- Menú: tocar el compañero (23-10-2026) ----------------
   "Ver en la colección": "View in the collection",

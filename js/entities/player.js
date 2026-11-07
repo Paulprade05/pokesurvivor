@@ -607,7 +607,7 @@ G.Player = class Player {
     // El jefe sólo cuenta si algún ataque del hueco le llega (#186, #208: con uno
     // cuerpo a cuerpo y el jefe a 200 px te quedabas quieto sin pegar a los de al
     // lado). Los de un vínculo que no le lleguen pegan al más cercano (combat.js).
-    // Sin enemigos, apunta a la roca o cofre más cercano.
+    // Sin enemigos, apunta a la roca más cercana.
     const all = G.EnemyMgr.all();
     const m = this.activeMove();
     const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam' || m.kind === 'lob' || m.kind === 'cross' ||
