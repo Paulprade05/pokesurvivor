@@ -194,6 +194,8 @@ G.I18n.add({
   'Se lanzará a la vez que {x}.': 'It will fire at the same time as {x}.',
   '¡Vínculo! {x} movimientos a la vez': 'Bond! {x} moves at once',
   'Guardas el vínculo: aprende otro movimiento para usarlo': 'Bond saved: learn another move to use it',
+  '¡Sobrefusión!': 'Overfusion!', '¡Sobrefusión ★{x}! Tus ataques fusionados pegan +{x} %': 'Overfusion ★{x}! Your fused moves hit +{x}%',
+  'Sobrefusión al máximo: guardas el vínculo': 'Overfusion maxed: bond saved',
   '¡Se ha abierto una grieta misteriosa!': 'A mysterious rift has opened!', 'Has entrado en la grieta…': 'You entered the rift…',
   'La grieta os ha expulsado…': 'The rift threw you out…', '{x} ha dejado la partida': '{x} left the game', '{x} ha vuelto': '{x} is back', '{x}: reconectando…': '{x}: reconnecting…',
   '+1 ticket': '+1 ticket', '¡Ticket ×10!': 'Ticket ×10!', '· ×{x} Fortuna': '· ×{x} Fortune',

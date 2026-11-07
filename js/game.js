@@ -832,7 +832,17 @@ G.Game = (() => {
     if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen) || G.EvoUI.isOpen()) return;
     const opt = pl.bondOptions();
     if (!opt) {
-      if (!quiet) G.Spawner.say('Guardas el vínculo: aprende otro movimiento para usarlo', 3, true);
+      // (07-11-2026) Con los 4 ataques ya fusionados: sobrefusión, +15 % de daño al grupo (hasta 3 veces). Sin cartas.
+      if (pl.canOverFuse() && pl.overFuse()) {
+        G.Reg.ev('sobrefusion', pl.over);
+        G.Audio.sfx('legend');
+        G.FX.ring(pl.x, pl.y, 8, 150, '#ff8ad8', 0.85, 7);
+        G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffd86b', 46, 260);
+        G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, '¡Sobrefusión!', '#ff8ad8', true);
+        G.Spawner.say(G.I18n.f('¡Sobrefusión ★{x}! Tus ataques fusionados pegan +{x} %', pl.over, Math.round(pl.over * G.Player.OVER_K * 100)), 3.2, true);
+        return;
+      }
+      if (!quiet) G.Spawner.say(pl.fullGroup() ? 'Sobrefusión al máximo: guardas el vínculo' : 'Guardas el vínculo: aprende otro movimiento para usarlo', 3, true);
       return;
     }
     // Se para el juego; en grupo, para todos hasta que cada uno elige (G.Coop.holdStart).

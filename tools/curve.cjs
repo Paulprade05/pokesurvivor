@@ -468,7 +468,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       s = await page.evaluate(() => {
         const pl = G.Game.player;
         if (G.Mega && G.Mega.of(pl) && G.Mega.ready(pl, G.Mega.of(pl))) G.Mega.use(pl);
-        return { t: Math.round(G.Game.st.time), mg: pl.mg ? pl.mg.uses : 0, lv: pl.level, max: Math.round(pl.maxHp), form: (G.DEX_BY[pl.form] || {}).name, kills: pl.kills, en: G.EnemyMgr.count,
+        return { t: Math.round(G.Game.st.time), mg: pl.mg ? pl.mg.uses : 0, ov: pl.over || 0, fz: Math.max(0, ...pl.slots.map(g => g.length)), lv: pl.level, max: Math.round(pl.maxHp), form: (G.DEX_BY[pl.form] || {}).name, kills: pl.kills, en: G.EnemyMgr.count,
           boss: G.EnemyMgr.bosses().map(e => e.name + (e.legend ? '*' : '') + ':' + Math.round(100 * e.hp / e.maxHp) + '%').join(','), arena: G.Rift.inArena, judge: G.Judgment.active,
           over: G.Game.state === 'over', moves: pl.moves.map(m => m.id + m.lvl + (m.evolved ? '*' : '')).join(' '), dmg: Object.assign({}, DMG), vhp: Math.round(V.hp), deaths: V.deaths.slice(),
           dealt: Math.round(pl.dmgDealt), ttk: M.ttk.splice(0), cards: Object.assign({}, pl.statsTaken), t1: pl.t1, t10: pl.t10,
@@ -500,7 +500,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
     const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas }));
     const reg = await page.evaluate(() => { try { const r = G.Reg.build(), o = {}; for (const id in r.moves) { const m = r.moves[id]; o[id] = { d: m.dealt, b: m.boss, a: m.active, l: m.lvl, e: m.evolved ? 1 : 0, g: m.group, h: m.hits, k: m.kills }; } return { dur: r.dur, lvl: r.lvl, kills: r.kills, dealt: r.dealt, taken: r.taken, healed: r.healed, bossesN: r.bossesN, item: r.item, cards: r.statsTaken, moves: o, en: r.tl.map(x => x[7]), keys: r.tlKeys, tl: r.tl, ev: r.ev, takenBy: r.takenBy, bosses: r.bosses, kinds: r.kinds }; } catch (e) { return null; } });
     if (reg) log(`${tag} REG ${JSON.stringify(reg)}`);
-    log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} ` +
+    log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} fus=${s.fz} sobre=${s.ov} ` +
         `jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
   } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
   finally { await browser.close(); server.close(); }
