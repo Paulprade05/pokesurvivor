@@ -298,8 +298,10 @@ G.Player = class Player {
     return loose.length >= 2 ? { mode: 'pair', group: null, loose } : null;
   }
 
-  // Sobrefusión (07-11-2026, lo eligió el dueño: con los 4 ataques fusionados la grieta ya no valía la pena). Con el grupo
-  // lleno (BOND_MAX), cada vínculo de sobra sube el daño de sus ataques OVER_K, hasta OVER_MAX veces (+45 %). Es de cada
+  // Sobrefusión (07-11-2026, lo eligió el dueño: con los 4 ataques fusionados la grieta ya no valía la pena, porque el
+  // vínculo sólo unía ataques recién aprendidos en un 2.º grupo). Con un grupo lleno (BOND_MAX), el vínculo puede ir, con
+  // una carta más en la pantalla del vínculo (game.js offerBond, run-ui.js renderBond), a subir el daño de sus ataques
+  // OVER_K, hasta OVER_MAX veces (+45 %). Es de cada
   // jugador: en grupo, cada uno su daño (el invitado manda el golpe ya hecho, 'h'), nada nuevo por la red.
   static get OVER_K() { return 0.15; }
   static get OVER_MAX() { return 3; }

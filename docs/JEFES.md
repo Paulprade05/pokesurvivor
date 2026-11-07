@@ -18,8 +18,8 @@ darte sueño (te duermes a los 2 s), hacerte resbalar (hielo), atraerte, empujar
   abrirse, se pierde (`RIFT_LATE`). Ninguna en los 2 min antes de Arceus.
 - Antes: jefes en los minutos 3, 6, 9 … 27 y grietas al azar (cada 30 s un 20 % que subía con cada fallo, desde el minuto 4).
 - Cooperativo: los dos calendarios los sortea y los usa sólo quien manda; la grieta llega como siempre (`'rift'`).
-- **Sobrefusión** (`Player.overFuse`): con los 4 ataques fusionados, cada vínculo de sobra da +15 % de daño al grupo, hasta
-  3 veces (+45 %); ★N en el hueco. Tests: `tests/calendario.test.cjs` y `tests/sobrefusion.test.cjs`.
+- **Sobrefusión** (`Player.overFuse`): con un grupo de 4 fusionados, la pantalla del vínculo trae la carta «Sobrefusión»
+  (+15 % de daño a ese grupo, hasta 3 veces: +45 %); si no hay nada que unir, va directa. ★N en el hueco. Tests: `tests/calendario.test.cjs` y `tests/sobrefusion.test.cjs`.
 
 ## Versión 2.0: fases, tope de daño, desgaste y sitios (bloque 3, 31-10-2026)
 

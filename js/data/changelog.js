@@ -7,8 +7,8 @@
  */
 G.CHANGELOG = [
   { d: '2026-11-07', title: ["Más jefes, grietas fijas y Sobrefusión", "More bosses, set rifts and Overfusion"], new: [
-    ["Sobrefusión: cuando ya tienes los 4 ataques fusionados, cada vínculo que ganes en una grieta hace que pegue un 15 % más todo ese grupo, hasta 3 veces (+45 %). Se ve con una ★ en el hueco del grupo. Así merece la pena seguir entrando en las grietas.",
-     "Overfusion: once all 4 of your moves are fused, every bond you win in a rift makes that whole group hit 15% harder, up to 3 times (+45%). A ★ on the group's slot shows it. Rifts are now worth entering until the end."]],
+    ["Sobrefusión: cuando ya tienes un grupo de 4 ataques fusionados, al ganar un vínculo en una grieta puedes elegir la carta «Sobrefusión» en vez de unir ataques nuevos: ese grupo pega un 15 % más, hasta 3 veces (+45 %). Se ve con una ★ en su hueco. Así merece la pena seguir entrando en las grietas.",
+     "Overfusion: once you have a group of 4 fused moves, when you win a bond in a rift you can pick the \"Overfusion\" card instead of bonding new moves: that group hits 15% harder, up to 3 times (+45%). A ★ on its slot shows it. Rifts are now worth entering until the end."]],
   chg: [
     ["Sale un jefe cada 2 minutos y medio (antes, cada 3), en un momento al azar de hasta 22 segundos antes o después: 2:30, 5:00, 7:30… hasta el 27:30. Los dos últimos siguen siendo dos jefes a la vez.",
      "A boss now comes every 2 and a half minutes (before, every 3), at a random moment up to 22 seconds before or after: 2:30, 5:00, 7:30… up to 27:30. The last two are still two bosses at once."],

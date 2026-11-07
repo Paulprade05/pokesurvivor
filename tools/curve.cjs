@@ -284,7 +284,7 @@ BOT.pick = function (cards, cardInfo) {
     try {
       if (visible('scr-levelup')) { const cards = [...document.querySelectorAll('#cards .pick-card')]; if (cards.length) cards[BOT.pick(cards, cardInfo)].click(); }
       else if (visible('scr-item')) { const c = document.querySelector('#item-cards .pick-card'); if (c) c.click(); }
-      else if (visible('scr-bond')) { const c = document.querySelector('#bond-cards .pick-card'); if (c) c.click(); }
+      else if (visible('scr-bond')) { const c = document.querySelector('#bond-cards .pick-card[data-over]') || document.querySelector('#bond-cards .pick-card'); if (c) c.click(); }   // (07-11-2026: la sobrefusión antes que un 2.º grupo)
       else if (visible('scr-evo')) { const c = document.querySelector('#evo-cards .pick-card'); if (c) c.click(); }
       if (G.Rift.traveling) G.Rift.skipTravel();
     } catch (e) { BOT.log.push('bot err ' + e.message); }

@@ -57,10 +57,25 @@ test('sobrefusión: entra en el daño de los ataques del grupo (moveK), con y si
   assert.equal(p.overK(mv('suelto')), 1, 'un ataque que no es del grupo no cambia');
 });
 
-test('sobrefusión: game.js la aplica al recibir un vínculo sin nada que fusionar; textos en inglés', () => {
+test('sobrefusión: carta en la pantalla del vínculo con un grupo de 4; directa si no hay nada que unir; textos en inglés', () => {
   const g = source('js/game.js');
-  assert.match(g, /pl\.canOverFuse\(\) && pl\.overFuse\(\)/);
+  assert.match(g, /opt\.over = pl\.canOverFuse\(\)/, 'la pantalla del vínculo sabe si cabe');
+  assert.match(g, /if \(picked === 'over'\) \{ overFuse\(\); return; \}/, 'elegir la carta gasta el vínculo en la sobrefusión');
+  assert.match(g, /if \(!opt\) \{[\s\S]{0,200}if \(overFuse\(\)\) return;/, 'sin nada que unir, directa');
+  const ui = source('js/ui/run-ui.js');
+  assert.match(ui, /if \(opt\.over && !step2\)/);
+  assert.match(ui, /i === 'over' \|\| i === bond\.list\.length/, 'con la tecla: la siguiente a las de unir');
   const en = source('js/data/lang-en.js');
-  for (const k of ["'¡Sobrefusión!'", "'¡Sobrefusión ★{x}! Tus ataques fusionados pegan +{x} %'", "'Sobrefusión al máximo: guardas el vínculo'"])
+  for (const k of ["'¡Sobrefusión!'", "'¡Sobrefusión ★{x}! Tus ataques fusionados pegan +{x} %'", "'Sobrefusión al máximo: guardas el vínculo'",
+                   "'Sobrefusión'", "'Une movimientos o elige la Sobrefusión'", "'{x} pegan un {x} % más (en total, +{x} %).'"])
     assert.ok(en.includes(k), k);
+});
+
+test('sobrefusión: con un 2.º grupo a medias sigue cabiendo (el grupo de 4 es el que sube)', () => {
+  const p = pl([['a', 'b', 'c', 'd'], ['e', 'f'], ['g']], 1);
+  assert.ok(p.bondOptions(), 'se puede unir g al 2.º grupo');
+  assert.equal(p.canOverFuse(), true, '...o sobrefusionar');
+  assert.equal(p.overFuse(), true);
+  assert.ok(Math.abs(p.overK(p.slots[0][0]) - 1.15) < 1e-9);
+  assert.equal(p.overK(p.slots[1][0]), 1, 'el 2.º grupo no');
 });

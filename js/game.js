@@ -827,24 +827,31 @@ G.Game = (() => {
    * de nivel en grupo, pausa), vuelve a salir al cerrarla.
    * @param quiet  no avisar si todavía no se puede
    */
+  /** Sobrefusión: gasta un vínculo en +15 % de daño al grupo de 4 (Player.overFuse), con su aviso. */
+  function overFuse() {
+    if (!pl.canOverFuse() || !pl.overFuse()) return false;
+    G.Reg.ev('sobrefusion', pl.over);
+    G.Audio.sfx('legend');
+    G.FX.ring(pl.x, pl.y, 8, 150, '#ff8ad8', 0.85, 7);
+    G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffd86b', 46, 260);
+    G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, '¡Sobrefusión!', '#ff8ad8', true);
+    G.Spawner.say(G.I18n.f('¡Sobrefusión ★{x}! Tus ataques fusionados pegan +{x} %', pl.over, Math.round(pl.over * G.Player.OVER_K * 100)), 3.2, true);
+    return true;
+  }
+
   function offerBond(quiet = false) {
     if (!pl || pl.bonds <= 0 || pl.dead || (state !== 'playing' && state !== 'held') || G.Rift.inArena) return;
     if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen) || G.EvoUI.isOpen()) return;
     const opt = pl.bondOptions();
     if (!opt) {
-      // (07-11-2026) Con los 4 ataques ya fusionados: sobrefusión, +15 % de daño al grupo (hasta 3 veces). Sin cartas.
-      if (pl.canOverFuse() && pl.overFuse()) {
-        G.Reg.ev('sobrefusion', pl.over);
-        G.Audio.sfx('legend');
-        G.FX.ring(pl.x, pl.y, 8, 150, '#ff8ad8', 0.85, 7);
-        G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffd86b', 46, 260);
-        G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, '¡Sobrefusión!', '#ff8ad8', true);
-        G.Spawner.say(G.I18n.f('¡Sobrefusión ★{x}! Tus ataques fusionados pegan +{x} %', pl.over, Math.round(pl.over * G.Player.OVER_K * 100)), 3.2, true);
-        return;
-      }
+      // (07-11-2026) Sin ataques sueltos que unir y con un grupo de 4: sobrefusión directa (no hay nada más que elegir).
+      if (overFuse()) return;
       if (!quiet) G.Spawner.say(pl.fullGroup() ? 'Sobrefusión al máximo: guardas el vínculo' : 'Guardas el vínculo: aprende otro movimiento para usarlo', 3, true);
       return;
     }
+    // (07-11-2026, lo eligió el dueño) Con un grupo de 4 ya hecho, la pantalla del vínculo trae también la carta de
+    // sobrefusión (+15 % a ese grupo, hasta 3 veces): el 2.º grupo, de ataques recién aprendidos, no compensaba la grieta.
+    opt.over = pl.canOverFuse() ? { group: pl.fullGroup(), n: pl.over, k: G.Player.OVER_K } : null;
     // Se para el juego; en grupo, para todos hasta que cada uno elige (G.Coop.holdStart).
     state = 'choice';
     if (G.Coop.active) G.Coop.holdStart();
@@ -860,6 +867,7 @@ G.Game = (() => {
       G.Audio.sfx('levelup');
       G.RunUI.showBond(opt, picked => {
         try {
+          if (picked === 'over') { overFuse(); return; }
           const group = pl.fuse(picked, opt.group);
           G.Reg.ev('vinculo', group.map(m => m.id));
           G.Audio.sfx('legend');
