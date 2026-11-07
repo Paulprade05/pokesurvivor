@@ -14,7 +14,7 @@
  * Shiny: 1 de cada 100 tiradas sale en su versión shiny.
  * Repetidos: se convierten en Pokémonedas (los shiny repetidos, el triple).
  * Versión con mega (07-11-2026, docs/MEGAEVOLUCIONES.md §4): rareza por encima de Legendaria.
- *   - cada una, 1 de cada 1.000 tiradas en el banner de su región (MEGA_RATE);
+ *   - entre todas, 0,5 % por tirada en el banner de su región (MEGA_RATE), y nunca menos de 0,1 % cada una (MEGA_MIN);
  *   - sólo si ya tienes el Pokémon normal, y nunca se repite (megaPool);
  *   - a las 1.500 tiradas sin ninguna en ese banner, la siguiente lo es (PITY_M; sólo cuenta si hay alguna posible);
  *   - no da la mega: te deja comprar su megapiedra en Mejoras (G.Shop.buy).
@@ -43,7 +43,7 @@ G.Gacha = (() => {
   // Repetidos: ahora casi todo lo que sale es 3★ (antes 1★ y 2★), así que una Rara repetida
   // da 30 (era 60) y una Poco común 25 (era 30): de media, lo mismo por tirada que antes.
   const REFUND = { 1: 15, 2: 25, 3: 30, 4: 120, 5: 300, 6: 0 };
-  const MEGA_RATE = 1 / 1000, PITY_M = 1500, R_MEGA = 6;
+  const MEGA_RATE = 5 / 1000, MEGA_MIN = 1 / 1000, PITY_M = 1500, R_MEGA = 6;
   let forceShiny = 0;           // para pruebas y vídeos: las N próximas salen shiny
   let forceMega = 0;            // lo mismo, con la versión con mega
 
@@ -123,12 +123,15 @@ G.Gacha = (() => {
   /** Las que pueden salir ahora: tienes el Pokémon normal y aún no la has conseguido. */
   const megaPool = (save, gen) => megasIn(gen).filter(id => save.owned[G.MEGA[id].dex] && !megaOpen(save, id));
 
+  /** Probabilidad por tirada de que salga una, con `left` posibles: 0,5 % entre todas, salvo si a 0,1 % cada una suman más. */
+  const megaRate = left => left ? Math.max(MEGA_RATE, left * MEGA_MIN) : 0;
+
   /** ¿Sale una versión con mega en esta tirada? → su id o 0. */
   function rollMega(save, gen) {
     const list = megaPool(save, gen);
     if (!list.length) return 0;
     const n = save.pityM[gen] = (save.pityM[gen] || 0) + 1;
-    if (n < PITY_M && !(forceMega > 0 && forceMega--) && Math.random() >= list.length * MEGA_RATE) return 0;
+    if (n < PITY_M && !(forceMega > 0 && forceMega--) && Math.random() >= megaRate(list.length)) return 0;
     const id = G.U.pick(list);
     save.pityM[gen] = 0;
     save.mop[id] = Date.now();
@@ -196,7 +199,7 @@ G.Gacha = (() => {
   }
 
   return { debugForceShiny(n = 1) { forceShiny = n; }, debugForceMega(n = 1) { forceMega = n; },
-           costOf, PITY_5, PITY_M, MEGA_RATE, R_MEGA, SHINY_RATE, REFUND, RARITY_NAME, RARITY_COLOR, BANNERS,
+           costOf, PITY_5, PITY_M, MEGA_RATE, MEGA_MIN, megaRate, R_MEGA, SHINY_RATE, REFUND, RARITY_NAME, RARITY_COLOR, BANNERS,
            /** (Por compatibilidad: las del banner de Kanto. Las de cada uno, ratesFor(gen).) */
            get RATES() { return ratesFor(1); },
            pool, all, ratesFor, featured, pull, megasIn, megaPool, megaOpen };

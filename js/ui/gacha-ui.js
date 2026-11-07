@@ -232,7 +232,7 @@ G.GachaUI = (() => {
       <p class="gacha-rules">· La tirada ×10 garantiza al menos una Épica.<br>
        · A las ${G.Gacha.PITY_5} tiradas sin Legendaria en un banner, la siguiente lo es.<br>
        · Los repetidos dan Pokémonedas. Los shiny no se repiten.<br>
-       ${G.Gacha.megasIn(gen).length ? `· ${G.I18n.f('Versión con mega: sale si ya tienes ese Pokémon, cada una 1 de cada {x} tiradas, y no se repite. A las {x} tiradas sin ninguna, la siguiente lo es. No da la mega: deja comprar su megapiedra en Mejoras.', num(1 / G.Gacha.MEGA_RATE), num(G.Gacha.PITY_M))}<br><span class="gr-mega-now">· Mega: ${megaNow(s)}<br></span>` : ''}
+       ${G.Gacha.megasIn(gen).length ? `· ${G.I18n.f('Versión con mega: sale si ya tienes ese Pokémon y no se repite. Entre todas, {x} % por tirada; si pueden salir más de {x}, {x} % cada una. A las {x} tiradas sin ninguna, la siguiente lo es. No da la mega: deja comprar su megapiedra en Mejoras.', num(G.Gacha.MEGA_RATE * 100), Math.round(G.Gacha.MEGA_RATE / G.Gacha.MEGA_MIN), num(G.Gacha.MEGA_MIN * 100), num(G.Gacha.PITY_M))}<br><span class="gr-mega-now">· Mega: ${megaNow(s)}<br></span>` : ''}
        · Los tickets se consiguen jugando: 1 cada 100 s de partida, 1 más por cada jefe vencido y otro al llegar a Arceus (como mucho 30 por partida). También con misiones y logros.</p>`;
     rates.classList.toggle('rules-on', rulesOn);
     rates.querySelector('.gr-info').onclick = () => {
@@ -304,7 +304,7 @@ G.GachaUI = (() => {
   /** La rareza Mega en las probabilidades: cada una por su lado y lo que te queda en esta región. */
   function megaNow(s) {
     const ids = G.Gacha.megasIn(gen), left = G.Gacha.megaPool(s, gen).length, pity = (s.pityM && s.pityM[gen]) || 0;
-    return left ? G.I18n.f('Cada una. Pueden salir {x} · {x} / {x} sin ninguna', left, num(pity), num(G.Gacha.PITY_M))
+    return left ? G.I18n.f('Entre todas. Pueden salir {x} · {x} / {x} sin ninguna', left, num(pity), num(G.Gacha.PITY_M))
       : ids.every(id => G.Gacha.megaOpen(s, id)) ? G.T('Todas conseguidas') : G.T('Primero consigue sus Pokémon');
   }
   function megaRow(s) {
@@ -312,7 +312,7 @@ G.GachaUI = (() => {
     const sub = megaNow(s);
     return `<div class="rate-row" style="--rc:${G.Gacha.RARITY_COLOR[G.Gacha.R_MEGA]}"><span class="ico-tile s round">${G.Icons.html('mring', 30)}</span>
       <span class="grow"><b>${G.Gacha.RARITY_NAME[G.Gacha.R_MEGA]}</b><small>${sub}</small></span>
-      <b class="rate-pct">${num(G.Gacha.MEGA_RATE * 100)}%</b></div>`;
+      <b class="rate-pct">${num(G.Gacha.megaRate(G.Gacha.megaPool(s, gen).length || 1) * 100)}%</b></div>`;
   }
 
   const wait = ms => new Promise(r => setTimeout(r, ms));

@@ -46,8 +46,8 @@
  *
  * Sólo el movimiento ACTIVO se ejecuta. Se cambia con 1-4 / Q / E.
  *
- * El icono no se guarda aquí: G.Icons lo compone (emblema del tipo +
- * insignia de la familia), ver ui/icons.js.
+ * El icono no se guarda aquí: está en data/move-art.js, y los pocos que no, en
+ * ui/icons.js (ID_ART). Un ataque nuevo sin icono usa el dibujo de su familia.
  *
  * Las mejoras (lvl 1 -> 5) salen de una escalera común por `kind` (o de la
  * propia del movimiento, LADDER_BY_ID: Canto Mortal y Brecha Negra):

@@ -104,7 +104,7 @@ test('textos: todo lo de la mega tiene su inglés', () => {
   for (const k of ['¡{x} megaevoluciona en {x}!', '¡Megaevolución lista!', 'Mega: derrota enemigos', 'Mega: al llegar a {x}', 'Megaevolución', 'Activa: {x}',
     'Lista: toca su botón', 'Lista: pulsa {x}', 'Llega a {x}', 'Energía: {x}', 'Se queda con tu habilidad.', 'Se carga con {x} enemigos derrotados y dura {x} s.',
     'Lleva la megapiedra', 'Lleva la Pulsera Z', 'Con mega', 'Megapiedra', 'Megacoleccionista',
-    'Mega-Aro', 'Versión con mega', 'Cada una. Pueden salir {x} · {x} / {x} sin ninguna', 'Todas conseguidas', 'Primero consigue sus Pokémon', '¡VERSIÓN MEGA!', '¡¿MEGA?!',
+    'Mega-Aro', 'Versión con mega', 'Entre todas. Pueden salir {x} · {x} / {x} sin ninguna', 'Todas conseguidas', 'Primero consigue sus Pokémon', '¡VERSIÓN MEGA!', '¡¿MEGA?!',
     'Compra {x} en sus Mejoras', 'Sale en el gacha de su región.', 'Se gana con tu primera grieta.', 'Se compra en sus Mejoras por {x} Pokémonedas.',
     'Antes necesitas su versión con mega: sale en el gacha.']) assert.ok(en.includes(JSON.stringify(k) + ':'), k);
 });
