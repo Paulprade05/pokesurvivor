@@ -225,6 +225,9 @@ G.Icons = (() => {
    * Se pinta por capas con figuras sencillas; cada capa se sombrea sola (luz
    * arriba a la izquierda, sombra abajo a la derecha) y se perfila con el
    * contorno, que la separa de lo que tiene debajo.
+   * Desde el 07-11-2026 casi todos llevan un dibujo propio hecho con pxl, en
+   * js/data/move-art.js, que muestra lo que hace el ataque. Lo de aquí queda para
+   * los siete de ID_ART y como dibujo de partida de un ataque nuevo sin icono.
    */
   // Colores de cada tipo: sombra, base, luz, brillo, acento y acento oscuro.
   const ART_PAL = {
@@ -807,10 +810,25 @@ G.Icons = (() => {
 
   const arts = new Map();       // id -> { px: índices 30×30, pal: colores (null si vacío) }
 
+  /** Un icono de js/data/move-art.js (dibujado con pxl, ver tools/pxl/ataques.cjs): sus colores, «:» y los tramos. */
+  const ART_ABC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';
+  function unpackArt(s) {
+    const cut = s.indexOf(':'), pal = [null], px = new Uint8Array(900);
+    for (let i = 0; i < cut; i += 2) pal.push(G.MOVE_ART_PAL[ART_ABC.indexOf(s[i]) * 64 + ART_ABC.indexOf(s[i + 1])]);
+    for (let i = cut + 1, at = 0; i < s.length; i += 2) {
+      const n = ART_ABC.indexOf(s[i + 1]) + 1;
+      px.fill(ART_ABC.indexOf(s[i]), at, at + n);
+      at += n;
+    }
+    return { px, pal };
+  }
+
   /** Dibujo de un ataque: { px, pal } (null si no existe). */
   function moveArt(id) {
     let a = arts.get(id);
     if (a) return a;
+    const drawn = G.MOVE_ART && G.MOVE_ART[id];
+    if (drawn) { a = unpackArt(drawn); arts.set(id, a); return a; }
     const m = G.Moves && G.Moves.BY_ID[id];
     if (!m) return null;
     const type = own(ART_PAL, m.type) ? m.type : 'normal';
