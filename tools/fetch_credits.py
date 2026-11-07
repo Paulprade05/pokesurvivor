@@ -49,7 +49,11 @@ def main():
     jobs = os.path.join(ROOT, 'tools', 'cache', 'megas.json')
     if os.path.exists(jobs):
         with io.open(jobs, encoding='utf-8') as f:
-            forms = {j['id']: f"{j['dex']:04d}/{j['form']}" for j in json.load(f)}
+            jl = json.load(f)
+        forms = {j['id']: f"{j['dex']:04d}/{j['form']}" for j in jl if j.get('form')}
+        # Las de pokeemerald-expansion (j['rhh']) no son de SpriteCollab: sus créditos van a mano en CREDITS.md.
+        other = {j['id'] for j in jl if j.get('rhh')}
+        dexes = [d for d in dexes if d not in other]
 
     def one(dex):
         # Créditos del sprite normal y del shiny (que puede ser de otro artista).

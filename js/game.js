@@ -434,11 +434,41 @@ G.Game = (() => {
       end();
     }
   }
-  /** Cierra la carta de rama sin elegir (vuelve a salir enseguida). */
+  /**
+   * Megaevolución con dos megas (Charizard y Mewtwo: X e Y): se elige con la misma carta que
+   * las ramas; mientras, todo parado. cb(id) al elegir. → false si no se puede abrir ahora.
+   */
+  let megaPick = false;
+  function offerMega(ids, cb) {
+    if (!pl || pl.dead || state !== 'playing' || G.EvoUI.isOpen()) return false;
+    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return false;
+    state = 'choice';
+    megaPick = true;
+    if (G.Coop.active) G.Coop.holdStart();
+    const end = () => {
+      megaPick = false;
+      if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
+      if (G.Coop.active) G.Coop.holdEnd();
+      afterLevelUp();
+    };
+    try {
+      G.Audio.sfx('confirm');
+      G.EvoUI.showMega(pl, ids, id => { try { cb(id); } finally { end(); } });
+    } catch (e) {
+      console.error('[Game] no se pudo abrir la elección de mega:', e);
+      G.EvoUI.closeChoice();
+      end();
+      return false;
+    }
+    return true;
+  }
+
+  /** Cierra la carta de rama (o la de la mega) sin elegir: la de rama vuelve a salir enseguida; la mega sigue lista. */
   function cancelEvo() {
     if (!G.EvoUI.isOpen()) return;
     G.EvoUI.closeChoice();
-    if (pl && pl.evo) pl.evo.wait = null;
+    if (megaPick) megaPick = false;
+    else if (pl && pl.evo) pl.evo.wait = null;
     if (G.Coop.active) G.Coop.holdEnd();
   }
 
@@ -1678,7 +1708,7 @@ G.Game = (() => {
   })();
 
   return {
-    init, startRun, everyone, levelXp, flash, offerBond,
+    init, startRun, everyone, levelXp, flash, offerBond, offerMega,
     /** Para pruebas: salta el reloj de la run. */
     debugTime(t) { tampered = true; time = t; },
     /** Para grabar vídeos: cámara lenta (0,5 = mitad de velocidad). */

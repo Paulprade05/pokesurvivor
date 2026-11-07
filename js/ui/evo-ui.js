@@ -2,7 +2,8 @@
  * La lógica (qué fase toca y cuándo) está en systems/mons.js (G.Evo); aquí:
  *   - el aviso al evolucionar: un cartel pequeño encima de la barra de ataques, breve (tú y, en
  *     grupo, los demás)
- *   - la carta para elegir rama (Eevee, Tyrogue, Wurmple...), al estilo de las de nivel
+ *   - la carta para elegir rama (Eevee, Tyrogue, Wurmple...), al estilo de las de nivel, y la
+ *     misma para elegir mega con dos (Charizard y Mewtwo: X e Y; 07-11-2026)
  *   - la piedra u objeto que aparece en el suelo cerca de ti (se dibuja en el mundo)
  *   - la línea de la ficha de la colección: cómo empieza y cómo evoluciona en partida
  * Los textos van en español (el juego los traduce); los nombres de los objetos
@@ -168,8 +169,8 @@ G.EvoUI = (() => {
     el.className = 'scr dim hidden';
     el.innerHTML = `<div class="box pick-box evo-box">
       <header class="pick-head">
-        <div class="pick-title"><span class="ico-tile pick-ico">${G.Icons.html('up', 30)}</span><h2 id="evo-title"></h2></div>
-        <p class="sub"><span>${T('Elige su evolución')}</span><span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd>…</span></p>
+        <div class="pick-title"><span class="ico-tile pick-ico" id="evo-ico">${G.Icons.html('up', 30)}</span><h2 id="evo-title"></h2></div>
+        <p class="sub"><span id="evo-sub">${T('Elige su evolución')}</span><span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd>…</span></p>
       </header>
       <div id="evo-cards" class="cards pick-cards evo-cards"></div>
     </div>`;
@@ -185,6 +186,8 @@ G.EvoUI = (() => {
     const el = screen();
     choiceCb = cb; choiceOpts = opts.slice();
     $('evo-title').textContent = G.I18n.f('¡{x} va a evolucionar!', T(NAME(pl.form)));
+    $('evo-sub').textContent = T('Elige su evolución');
+    $('evo-ico').innerHTML = G.Icons.html('up', 30);
     const box = $('evo-cards');
     box.innerHTML = '';
     box.classList.toggle('many', opts.length > 3);
@@ -206,6 +209,40 @@ G.EvoUI = (() => {
         <span class="evo-stats">${statsHtml(G.Mons.formFor(pl.dex, dex))}</span>
         ${tail.length ? `<span class="evo-hint">${tail.map(x => `<i class="evo-arr" aria-hidden="true">→</i><span>${esc(NAME(x))}</span>`).join('')}</span>` : ''}</span>`;
       c.querySelector('.pc-ico').appendChild(G.UI.spriteCanvas(dex, 80, 80, { scale: 2, lively: true, shiny: !!pl.shinyWant && G.Sprites.hasShiny(dex) }));
+      c.onclick = () => pick(i);
+      box.appendChild(c);
+    });
+    open(el);
+  }
+
+  /**
+   * Las megas que puede usar (ids de G.MEGA; Charizard y Mewtwo, X e Y). cb(id) al elegir.
+   * Cada carta: el sprite, sus tipos, su habilidad y sus stats, como las de rama.
+   */
+  function showMega(pl, ids, cb) {
+    const el = screen();
+    choiceCb = cb; choiceOpts = ids.slice();
+    $('evo-title').textContent = G.I18n.f('¡{x} va a megaevolucionar!', T(NAME(pl.dex)));
+    $('evo-sub').textContent = T('Elige su megaevolución');
+    $('evo-ico').innerHTML = G.Icons.html('mring', 30);
+    const box = $('evo-cards');
+    box.innerHTML = '';
+    box.classList.remove('many');
+    box.classList.add('guard');
+    ids.forEach((id, i) => {
+      const d = G.MEGA[id], col = G.U.TYPE_COLOR[d.types[0]];
+      const ab = d.abil ? G.Mons.abilityName(d.abil) : '';
+      const c = document.createElement('div');
+      c.className = 'card pick-card evo-card mega-card';
+      c.style.setProperty('--i', i);
+      c.style.setProperty('--pc', col);
+      c.dataset.sfx = 'none';
+      c.innerHTML = `<span class="key">${i + 1}</span>
+        <span class="pc-art"><span class="ico-tile pc-ico tint" style="--tile-c:${col}"></span></span>
+        <span class="pc-txt"><span class="nm" translate="no">${esc(G.Mons.name(d.name))}</span><span class="pc-chips">${G.UI.typeChips(d.types)}</span>
+        <span class="ds evo-how">${G.Icons.html('mg:' + d.ico, 30)}${ab ? `<span translate="no">${esc(ab)}</span>` : `<span>${T('Se queda con tu habilidad.')}</span>`}</span>
+        <span class="evo-stats">${statsHtml(G.Mons.formFor(pl.dex, id))}</span></span>`;
+      c.querySelector('.pc-ico').appendChild(G.UI.spriteCanvas(id, 80, 80, { scale: 2, shiny: !!pl.shinyWant && G.Sprites.hasShiny(id) }));
       c.onclick = () => pick(i);
       box.appendChild(c);
     });
@@ -318,6 +355,6 @@ G.EvoUI = (() => {
     G.Spawner.say(G.I18n.f('Empiezas como {x}: evoluciona en la partida', T(NAME(pl.form))), 3.2, true);
   }
 
-  return { howHtml, dexLine, evolved, mateEvolved, tick, showChoice, pick, closeChoice, isOpen,
+  return { howHtml, dexLine, evolved, mateEvolved, tick, showChoice, showMega, pick, closeChoice, isOpen,
            dropItem, itemTick, drawable, clear, startHint, itemName };
 })();

@@ -6,6 +6,14 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-07', title: ["19 megas más y Charizard Y", "19 more Megas and Charizard Y"], new: [
+    ["19 megaevoluciones más, de 43 a 62: Mega-Venusaur, Mega-Charizard Y, Mega-Blastoise, Mega-Beedrill, Mega-Pidgeot, Mega-Pinsir, Mega-Gyarados, Mega-Mewtwo X, Mega-Ampharos, Mega-Scizor, Mega-Heracross, Mega-Blaziken, Mega-Swampert, Mega-Aggron, Mega-Salamence, Mega-Metagross, Mega-Garchomp, Mega-Abomasnow y Mega-Audino. Cada una tiene su versión con mega en el gacha y su megapiedra en Mejoras, como las demás.",
+     "19 more Mega Evolutions, from 43 to 62: Mega Venusaur, Mega Charizard Y, Mega Blastoise, Mega Beedrill, Mega Pidgeot, Mega Pinsir, Mega Gyarados, Mega Mewtwo X, Mega Ampharos, Mega Scizor, Mega Heracross, Mega Blaziken, Mega Swampert, Mega Aggron, Mega Salamence, Mega Metagross, Mega Garchomp, Mega Abomasnow and Mega Audino. Each has its Mega version in the gacha and its Mega Stone in Upgrades, like the others."],
+    ["Charizard y Mewtwo tienen dos megas, X e Y, cada una con su piedra. Si llevas las dos, al megaevolucionar eliges cuál con una carta, y la partida se para mientras.",
+     "Charizard and Mewtwo have two Megas, X and Y, each with its own stone. If you carry both, you choose which one with a card when you Mega Evolve, and the run pauses meanwhile."]],
+  chg: [
+    ["Estas 19 usan los sprites de seguimiento de pokeemerald-expansion (de princess-phoenix, larryturbo y kidkatt), porque SpriteCollab aún no las tiene: andan y se quedan quietas, y al atacar o recibir daño no cambian de postura.",
+     "These 19 use the follower sprites from pokeemerald-expansion (by princess-phoenix, larryturbo and kidkatt), since SpriteCollab doesn't have them yet: they walk and stand, but don't change pose when attacking or getting hit."]] },
   { d: '2026-11-07', title: ["Más megas y cartas sin movimiento", "More Megas and steady cards"], chg: [
     ["La versión con mega sale más: entre todas, 0,5 % por tirada en el gacha de su región, y nunca menos de 0,1 % cada una. La garantía de 1.500 tiradas no cambia.",
      "Mega versions appear more often: together they have 0.5% per pull in their region's gacha, and never less than 0.1% each. The 1,500-pull guarantee stays the same."],

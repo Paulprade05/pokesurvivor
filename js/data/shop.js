@@ -166,18 +166,30 @@ G.Shop = (() => {
 
   /** ¿Tienes el Mega-Aro? Es el premio del logro de la primera grieta: vale para quien ya lo tuviera. */
   const aroHas = () => { const s = save(); return !!(s && s.ach && s.ach.rift1); };
-  /** La mega de este Pokémon (0: no tiene). */
-  const megaId = dex => { const l = G.MEGA_OF && G.MEGA_OF[dex]; return l ? l[0] : 0; };
+  /** Las megas de este Pokémon (ids; Charizard y Mewtwo tienen dos, X e Y). */
+  const megaIds = dex => (G.MEGA_OF && G.MEGA_OF[dex]) || [];
+  /** La primera mega de este Pokémon (0: no tiene). Para saber si tiene; para cuál lleva, megaWorn. */
+  const megaId = dex => megaIds(dex)[0] || 0;
   const stoneHas = id => { const s = save(); return !!(s && s.mst && s.mst[id]); };
+  /**
+   * Las megas que puede usar en la partida: las de piedra comprada, la última comprada primero
+   * (con dos, se elige al megaevolucionar: G.Mega). Sin Mega-Aro no cuenta ninguna.
+   */
+  function megaWorn(dex) {
+    const s = save();
+    if (!s || !aroHas()) return [];
+    return megaIds(dex).filter(stoneHas).sort((a, b) => (+s.mst[b] || 0) - (+s.mst[a] || 0) || a - b);
+  }
   /** ¿Tienes su versión con mega? Sale en el gacha (G.Gacha) y deja comprar la piedra. */
   const megaOpen = id => { const s = save(); return !!s && G.Gacha.megaOpen(s, id); };
   /**
-   * Qué lleva hecho cada paso para usar la mega de este Pokémon, en orden, o null si no tiene.
-   * { id, mon, open, aro, stone, gen, price }
+   * Qué lleva hecho cada paso para usar una mega de este Pokémon (id; sin él, la primera),
+   * en orden, o null si no tiene. { id, mon, open, aro, stone, gen, price }
    */
-  function megaNeeds(dex) {
-    const s = save(), id = megaId(dex);
-    if (!s || !id) return null;
+  function megaNeeds(dex, id) {
+    const s = save();
+    if (!id) id = megaId(dex);
+    if (!s || !id || !megaIds(dex).includes(id)) return null;
     return { id, mon: !!(s.owned && s.owned[dex]), open: megaOpen(id), aro: aroHas(), stone: stoneHas(id),
              gen: G.DEX_BY[dex].gen, price: stonePrice(id) };
   }
@@ -190,13 +202,14 @@ G.Shop = (() => {
   /**
    * Qué lleva este Pokémon: 'mega', 'z' o null. Como en los juegos, una cosa u otra.
    * Con las dos, la que elegiste en Mejoras (save.pmg[dex] = ['mega'|'z', fecha]) o la última comprada.
+   * (Con dos megapiedras, X e Y, cuenta la última; cuál se usa se elige al megaevolucionar.)
    */
   function wears(dex) {
-    const s = save(), mg = stoneHas(megaId(dex)) && aroHas(), z = ringHas(dex);
+    const s = save(), worn = megaWorn(dex), mg = worn.length > 0, z = ringHas(dex);
     if (!mg || !z) return mg ? 'mega' : z ? 'z' : null;
     const p = s.pmg && s.pmg[dex];
     if (p && (p[0] === 'mega' || p[0] === 'z')) return p[0];
-    return (+s.mst[megaId(dex)] || 0) >= (+s.pz[dex] || 0) ? 'mega' : 'z';
+    return (+s.mst[worn[0]] || 0) >= (+s.pz[dex] || 0) ? 'mega' : 'z';
   }
   /** Elige qué lleva. Sin guardar: lo hace quien llama. */
   function setWear(dex, w) {
@@ -264,5 +277,5 @@ G.Shop = (() => {
 
   return { ITEMS, ORDER, count, take, tmCount, takeTm, dailyTms, tmPrice, buy, today,
            Z_NAME, Z_TYPES, Z_PRICE, Z_NEED, RING_PRICE, zHas, zOwned, ringHas, zPref, zSetPref, zState,
-           aroHas, megaId, stoneHas, megaOpen, megaNeeds, stonesOwned, stonePrice, wears, setWear };
+           aroHas, megaIds, megaId, megaWorn, stoneHas, megaOpen, megaNeeds, stonesOwned, stonePrice, wears, setWear };
 })();

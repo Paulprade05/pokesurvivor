@@ -128,6 +128,24 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+### Megaevoluciones sin sprite de Mundo Misterioso
+
+19 megas que SpriteCollab no tiene dibujadas (Venusaur, Charizard Y, Blastoise, Beedrill, Pidgeot,
+Pinsir, Gyarados, Mewtwo X, Ampharos, Scizor, Heracross, Blaziken, Swampert, Aggron, Salamence,
+Metagross, Garchomp, Abomasnow y Audino; carpetas `assets/pokemon/10033` a `10090`) usan los sprites
+de seguimiento de [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion), de
+**RHH (Rom Hacking Hideout)**, añadidos en su PR #5874. Sus autores, según el `CREDITS.md` de ese
+proyecto («Mega Evolution Overworld Sprite Credits»):
+
+- [princess-phoenix](https://www.deviantart.com/princess-phoenix)
+- [larryturbo](https://www.deviantart.com/larryturbo)
+- [kidkatt](https://www.deviantart.com/kidkatt)
+
+Son arte de aficionados de Pokémon (© Nintendo, Creatures, GAME FREAK) sin licencia escrita; se usan
+como recurso de la comunidad, sin fines comerciales y con este crédito. Se convierten sin cambiar el
+dibujo con `tools/fetch_megas.cjs` y `python tools/fetch_sprites.py --megas`. Si SpriteCollab dibuja
+alguna, pasa a usarse la suya. `tools/fetch_credits.py` no toca esta sección.
+
 ## Tilesets del mundo
 
 Las casillas del suelo, las paredes y el agua (`assets/tiles-pmd/`, desde la versión 2.0) son los tilesets de
