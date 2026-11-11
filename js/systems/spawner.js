@@ -334,7 +334,8 @@ G.Spawner = (() => {
     for (let i = gap; i < n; i++) {
       const [x, y] = ringPoint(pl, a0 + i / n * 6.2832, 30);
       if (players.length > 1 && seenByAnyone(x, y)) continue;
-      if (!fly && !G.World.isFree(x, y, 14)) continue;
+      // (11-11-2026) Como freePoint: también con camino hasta ti (no dentro de una bolsa cerrada, de donde no saldría).
+      if (!fly && (!G.World.isFree(x, y, 14) || G.Path.reachable(x, y, pl) === false)) continue;
       make(def, x, y, t, { noChamp: true });
     }
     say('¡Te están rodeando!', 2.2, false, LOW);
