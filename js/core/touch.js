@@ -172,7 +172,8 @@ G.Touch = (() => {
       press(b);
       return;
     }
-    if (!touchy || !G.Game || G.Game.state !== 'playing') return;
+    // (Y en la aldea del menú, paseando: js/world/village.js.)
+    if (!touchy || !G.Game || (G.Game.state !== 'playing' && !(G.Village && G.Village.walking()))) return;
     // Ocupado: se apunta por si el del joystick resulta que ya no está (ver touchstart).
     if (stick) { missed = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() }; return; }
     if (take(e.pointerId, e.clientX, e.clientY, e.pointerType === 'touch')) e.preventDefault();

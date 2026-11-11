@@ -42,7 +42,8 @@ G.Updater = (() => {
   function safe() {
     if (G.DB.leaving) return false;                                       // cerrando sesión: que acabe antes
     if (!G.Game || G.Game.state !== 'ui') return false;                   // en partida o en el resumen
-    if (['scr-gacha', 'scr-upgrades', 'scr-settings', 'scr-install'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
+    // (11-11-2026) También dentro de la Tienda Kecleon: comprando. Paseando por la aldea del menú sí se recarga (es «fuera de partida»).
+    if (['scr-gacha', 'scr-upgrades', 'scr-shop', 'scr-settings', 'scr-install'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
     // Una pregunta o ventana propia abierta (G.UI.ask: «¿Salir?», «¿Empezar igualmente?», «¿Quitar a X de tus amigos?»; el
     // apodo; un perfil): que se conteste antes. (Con confirm() la página se paraba y no se podía recargar; con G.UI.ask, sí.)
     if (document.querySelector('.ask-scr, .scr.modal:not(.hidden)')) return false;
