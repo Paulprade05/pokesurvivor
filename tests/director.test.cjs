@@ -94,14 +94,14 @@ test('una caída de verdad (dead) cuenta como peligro, también la de un compañ
   assert.equal(D.danger, true, 'compañero al 10 %');
 });
 
-test('el daño sólo sube desde el minuto 3, con su tope por reloj y como mucho ×1,5', () => {
+test('el daño sólo sube desde el minuto 3, con su tope por reloj y como mucho ×1,3 (11-11-2026; antes ×1,5)', () => {
   const D = load(), pl = me();
   play(D, pl, 0, 170, 5, 1);
   assert.equal(D.dmg(), 1);
   play(D, pl, 200, 400, 5, 1);
   assert.ok(D.dmg() > 1.1 && D.dmg() <= D.dmgMaxAt(600) + 1e-9, 'minuto 10: ' + D.dmg());
   play(D, pl, 600, 1300, 5, 1);
-  assert.ok(D.dmg() > 1.45 && D.dmg() <= 1.5 + 1e-9, 'final: ' + D.dmg());
+  assert.ok(D.dmg() > 1.27 && D.dmg() <= 1.3 + 1e-9, 'final: ' + D.dmg());
 });
 
 test('no cuenta jefes, esbirros, estampidas ni los que explotan solos', () => {

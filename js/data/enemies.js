@@ -187,7 +187,7 @@ G.Enemies = (() => {
     // (07-11-2026) Un momento al azar por franja (los dos de un dúo, el mismo: salen juntos). Sólo cuenta el del anfitrión.
     for (const slot of BOSS_SLOTS) {
       const at = Math.round((slot.at + G.U.rand(-BOSS_JIT, BOSS_JIT)) * 10) / 10;
-      for (let k = 0; k < (slot.n || 1); k++) bosses.push(Object.assign(bossDef(slot, used), { at, mark: slot.at }));
+      for (let k = 0; k < (slot.n || 1); k++) bosses.push(Object.assign(bossDef(slot, used), { at, mark: slot.at, duo: (slot.n || 1) > 1 }));
     }
     const sw = SWARM.filter(d => G.SPRITE_META[d] && G.SPRITE_META[d].hv && G.DEX_BY[d]);
     swarmDex = G.U.pickN(sw.length ? sw : [41], 2);
@@ -266,9 +266,18 @@ G.Enemies = (() => {
 
   // (El "tiempo extra" del minuto 60 se quitó al llegar la Sentencia de Arceus,
   //  que acaba todas las partidas en el minuto 30: ver systems/judgment.js.)
+  /*
+   * (11-11-2026, el dueño: «desde el minuto 22 es muy difícil sobrevivir aunque lo tenga todo al máximo y vaya esquivando».)
+   * Medido con tools/curve.cjs (12 partidas con todas las mejoras): del 15 al 19 se reciben 2-5 vidas por minuto y del 22 al
+   * 29, 8-17. El golpe de un enemigo normal (tramo × scale.dmg × lateDmg de spawner.js) se multiplicaba por 1,47 del minuto
+   * 20 al 25 y por 2,2 del 20 al 30, con tu vida casi igual. Desde DMG_KNEE (el tiempo efectivo del minuto 20) el daño sube
+   * la mitad de rápido (DMG_LATE_K): ×1,21 al 25 y ×1,53 al 30 con lo de spawner.js. La vida y la velocidad, como antes.
+   */
+  const DMG_KNEE = 525, DMG_LATE_K = 0.5;
+  const effDmg = e => (e > DMG_KNEE ? DMG_KNEE + (e - DMG_KNEE) * DMG_LATE_K : e);
   function scale(t) {
     const e = eff(t);
-    return { hp: 1 + e / 95, dmg: 1 + e / 420, spd: 1 + Math.min(0.35, e / 1400) };
+    return { hp: 1 + e / 95, dmg: 1 + effDmg(e) / 420, spd: 1 + Math.min(0.35, e / 1400) };
   }
 
   /**
@@ -336,7 +345,8 @@ G.Enemies = (() => {
    * Los jefes ya traen su vida base creciente (1.400 ... 16.000), así que
    * escalan mucho más suave: con la curva normal el último llegaba a 168.000 PV.
    */
-  function bossScale(t) { const e = eff(t); return { hp: 1 + e / 600, dmg: 1 + e / 600, spd: 1 }; }
+  // (11-11-2026) Su daño, también la mitad de rápido desde el minuto 20 (effDmg, ver scale).
+  function bossScale(t) { const e = eff(t); return { hp: 1 + e / 600, dmg: 1 + effDmg(e) / 600, spd: 1 }; }
 
   /** Tramo que toca en el segundo `t` (con el tiempo efectivo). */
   function tierAt(t) { const e = eff(t); let ti = 0; TIERS.forEach((tr, i) => { if (e >= tr.from) ti = i; }); return ti; }
@@ -439,7 +449,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, BOSS_EVERY, BOSS_JIT, rollRun, scale, eff, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, bossTtk, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
+    TIERS, BOSS_SLOTS, BOSS_EVERY, BOSS_JIT, rollRun, scale, eff, effDmg, DMG_KNEE, xpLag, xpAt, XP_AT, hpBase, HP_BASE, bossHp, bossCap, bossTtk, LEG_TTK, BOSS_TTK, earlyK, earlyHp, youngK, bossScale, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, swarmDef,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };
