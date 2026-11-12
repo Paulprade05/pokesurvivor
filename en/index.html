@@ -125,7 +125,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/style.css?v=e26e1e5819">
+<link rel="stylesheet" href="css/style.css?v=bb1b91574c">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -261,10 +261,18 @@
   <div class="vil-hud" id="vil-hud">
     <button class="vil-go" id="vil-go" type="button" aria-expanded="false" aria-controls="vil-quick" title="Ir a cualquier sitio sin andar"><span class="vil-go-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5z"/><path d="M9 4v13M15 6.5v13"/></svg></span><span class="lbl">Ir a…</span></button>
     <div class="box vil-quick hidden" id="vil-quick" role="dialog" aria-label="Ir a"></div>
+    <!-- (12-11-2026) Tu choza: piezas que se compran con monedas (js/ui/home-ui.js; se ven en la aldea). -->
+    <div class="box vil-home hidden" id="vil-home" role="dialog" aria-label="Tu choza"></div>
     <button class="vil-act hidden" id="vil-act" type="button"><span class="vil-act-ico" id="vil-act-ico" aria-hidden="true"></span><span class="vil-act-txt"><b id="vil-act-t"></b><small id="vil-act-s"></small></span><kbd class="vil-key" id="vil-key">E</kbd></button>
   </div>
-  <div class="vil-loading hidden" id="vil-loading" role="status">Preparando la aldea…</div>
 </section>
+<!-- (12-11-2026) Mientras se prepara la aldea (al volver de una partida): un velo como el del título, nunca el menú clásico. -->
+<div class="boot vil-loading hidden" id="vil-loading" role="status">
+  <div class="boot-in">
+    <h1 class="wordmark">PokéSurvivor</h1>
+    <p class="boot-ld">Preparando la aldea…</p>
+  </div>
+</div>
 
 <!-- ====== Barra de arriba (ui.js: chrome, refreshCoins y sus iconos) ======
      Izquierda: monedas y tickets. Derecha: perfil y .tb-menu, que en pantalla
@@ -961,6 +969,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=668605dc9a"></script>
+<script defer src="js/app.min.js?v=10545a4dbd"></script>
 </body>
 </html>

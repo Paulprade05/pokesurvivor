@@ -131,6 +131,10 @@ test('aldea: el actualizador sigue igual (fuera de partida) y espera también en
   const g = read('js/game.js');
   assert.match(g.slice(g.indexOf('function startRun')), /G\.Village\.sleep\(\)/);
   assert.match(g, /state === 'ui' && G\.Village && G\.Village\.frame\(/);
+  // Al volver de la partida, el aviso de «contexto perdido» del lienzo que se soltó no tumba la aldea nueva.
+  const v3 = read('js/world/village3d.js');
+  assert.match(v3, /if \(c === glcv\) lost = true/);
+  assert.match(v3.slice(v3.indexOf('function start('), v3.indexOf('function start(') + 400), /lost = false/);
 });
 
 test('aldea: la pantalla del título espera a la aldea (carga directa) y boot.js no ofrece recargar mientras', async () => {

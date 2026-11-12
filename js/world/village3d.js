@@ -53,10 +53,13 @@ G.Village3D = (() => {
 
   function start(THREE) {
     T = THREE;
-    glcv = document.createElement('canvas');
+    const c = glcv = document.createElement('canvas');
     glcv.width = glcv.height = 16;
-    glcv.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
-    glcv.addEventListener('webglcontextrestored', () => { lost = false; drop(true); });
+    lost = false;
+    // (Sólo el lienzo de ahora: al soltar la aldea, free() pierde el contexto a propósito y el aviso del lienzo viejo llega
+    //  más tarde; si contaba, la aldea rehecha al volver de la partida se daba por perdida y salía el menú clásico.)
+    c.addEventListener('webglcontextlost', e => { e.preventDefault(); if (c === glcv) lost = true; });
+    c.addEventListener('webglcontextrestored', () => { if (c !== glcv) return; lost = false; drop(true); });
     renderer = new T.WebGLRenderer({ canvas: glcv, antialias: false, alpha: false, depth: true, stencil: false,
       powerPreference: G.U.IOS ? 'default' : 'high-performance', preserveDrawingBuffer: false });
     renderer.setPixelRatio(1);

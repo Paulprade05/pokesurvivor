@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-12', title: ["La aldea del bosque y tu choza", "The forest village and your hut"], new: [
+    ["Tu choza se personaliza con Pokémonedas: forma (choza, vaina, seta gigante o casa-árbol), techo, paredes, color, luces, decoración, tótem y una mascota en la puerta, uno de tus Pokémon. Entra en «Tu choza» para probar cada pieza antes de comprarla. Se guarda en tu partida y en la nube.",
+     "Customize your hut with PokéCoins: shape (hut, pod, giant mushroom or tree house), roof, walls, color, lights, decoration, totem and a pet by the door, one of your Pokémon. Go into “Your hut” to try each piece before buying it. It is saved in your game and in the cloud."]
+  ], chg: [
+    ["La aldea ahora está en un bosque misterioso, construida por los Pokémon: casi siempre de noche, con setas, vainas, lianas y cristales que brillan, cables de luz, hologramas y niebla baja. Para jugar, entra en la Flor del Portal.",
+     "The village is now in a mysterious forest, built by Pokémon: almost always at night, with glowing mushrooms, pods, vines and crystals, light cables, holograms and low mist. To play, go into the Portal Flower."],
+    ["El juego se queda en la pantalla del título hasta que la aldea está cargada del todo: ya no se ve el menú de antes ni la aldea a medio montar.",
+     "The game stays on the title screen until the village is fully loaded: you no longer see the old menu or a half-built village."]
+  ], fix: [
+    ["Al volver de una partida podía salir el menú de antes en vez de la aldea.",
+     "After a run, the old menu could show up instead of the village."]
+  ] },
   { d: '2026-11-12', title: ["Enemigos que ya no se atascan", "Enemies no longer get stuck"], fix: [
     ["Los Pokémon salvajes grandes ya no se quedan temblando en el sitio junto a un charco o pegados a una pared: siguen su camino hacia ti.",
      "Big wild Pokémon no longer jitter in place next to a pond or pressed against a wall: they keep coming at you."],
