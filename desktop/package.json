@@ -1,0 +1,20 @@
+{
+  "name": "pokesurvivor-desktop",
+  "productName": "PokeSurvivor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PokéSurvivor para Windows (prototipo con Electron). Envuelve la versión web compilada.",
+  "main": "main.cjs",
+  "scripts": {
+    "copiar": "node copiar-web.cjs",
+    "start": "node copiar-web.cjs && electron .",
+    "sin-tope": "node copiar-web.cjs && electron . --sin-tope",
+    "empaquetar": "node copiar-web.cjs && node empaquetar.cjs",
+    "medir": "node medir-fps.cjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.3.1",
+    "playwright-core": "1.65.0"
+  }
+}
