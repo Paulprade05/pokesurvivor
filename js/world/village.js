@@ -14,6 +14,10 @@
  *     y el joystick.
  *   - Sigue siendo «fuera de partida» (G.Game.state 'ui'): el actualizador avisa y recarga igual.
  *   - Al empezar una partida se suelta todo lo de la GPU (sleep) y al volver se rehace.
+ * (12-11-2026, pedido del dueño) «Que siempre cargue directamente la aldea»: la pantalla del título no cambia hasta que la
+ * aldea está lista (prepare, desde Flow.boot: three.js, el tileset, la escena y los sprites). Mientras se rehace (al
+ * volver de una partida) se ve un velo como el del título, nunca el menú clásico ni una aldea a medio montar: el clásico
+ * sólo sale si falla el 3D. Tu choza se personaliza con monedas (data/home.js, ui/home-ui.js) y se ve aquí.
  */
 G.Village = (() => {
   const $ = id => document.getElementById(id);
@@ -27,6 +31,7 @@ G.Village = (() => {
   let target = null;                     // andar hasta un sitio (toque o clic): { x, y, then }
   let solids = [];                       // { x0, y0, x1, y1 } o { x, y, r } (mundo)
   let tileWait = 0, lastPartner = '';
+  let pet = null, holo = null, homeKey = '', homeOpen = false, homePreview = null, prepP = null;
 
   // ---------------- ¿aldea o menú clásico? ----------------
   function webgl() {
@@ -66,11 +71,11 @@ G.Village = (() => {
     if (!wanted()) { classic(false); return; }
     loadThree();
     if (three === 'fail') { fail(threeErr || 'three.js'); return; }
-    if (three !== 'ready') { classic(true); return; }
+    if (three !== 'ready') { waiting(); return; }
     const BI = V().BI;
     if (!G.Tileset.ready(BI)) {
       G.Tileset.preload([BI]);
-      classic(true);
+      waiting();
       if (!tileWait) {
         const t1 = performance.now();
         tileWait = setInterval(() => {
@@ -86,37 +91,67 @@ G.Village = (() => {
       if (!G.Village3D.started) G.Village3D.start(T);
       if (!G.Village3D.ready) {
         const err = G.Village3D.build();
-        if (err) { fail(err); return; }
+        if (err) { fail(err, true); return; }
         spawnAll();
       }
-    } catch (e) { fail(String(e && e.message || e)); return; }
+    } catch (e) { fail(String(e && e.message || e), true); return; }
     enter();
   }
 
-  function fail(why) {
+  /*
+   * soft: un fallo que puede pasarse solo (al construir la escena o al perder el contexto: en el iPhone, sin memoria justo
+   * al acabar la partida). Antes cualquier fallo dejaba el menú clásico para toda la sesión, y el dueño volvía de cada
+   * partida al menú antiguo (12-11-2026). Ahora se reintenta con el velo del título puesto (hasta SOFT_TRIES veces seguidas);
+   * sólo si sigue fallando, o si es un fallo de verdad (sin WebGL, sin three.js, sin tileset), sale el clásico.
+   */
+  const SOFT_TRIES = 3;
+  let softTries = 0, softT = 0;
+  function fail(why, soft) {
+    try { G.Village3D.free(); } catch (e) { /* nada */ }
+    if (soft && softTries < SOFT_TRIES) {
+      softTries++;
+      console.warn('[Aldea] se reintenta (' + softTries + '/' + SOFT_TRIES + '):', why);
+      for (const n of npcs) { try { G.Village3D.unsprite(n); } catch (e) { /* nada */ } }
+      npcs = []; pl = null; pet = null; holo = null; followers = []; lastPartner = ''; homeKey = ''; prepP = null;
+      waiting();
+      clearTimeout(softT);
+      softT = setTimeout(() => { softT = 0; if (G.UI.isOpen('scr-menu') && !active) show(); }, 700 * softTries);
+      return;
+    }
     failed = why || 'error';
     console.warn('[Aldea] menú clásico:', failed);
-    try { G.Village3D.free(); } catch (e) { /* nada */ }
     classic(false);
   }
 
-  /** Menú clásico (con loading: mientras se prepara la aldea, un aviso pequeño). */
-  function classic(loading) {
+  /** Menú clásico (sólo si falla el 3D). */
+  function classic() {
     active = false;
     const scr = $('scr-menu');
     if (!scr) return;
     scr.classList.remove('village');
     setQuick(false);
-    $('vil-loading') && $('vil-loading').classList.toggle('hidden', !loading);
+    veil(false);
     if (G.MenuUI && G.MenuUI.fitTiles) requestAnimationFrame(() => G.MenuUI.fitTiles());
   }
+  /** Mientras se prepara la aldea: el velo del título (nada del menú clásico por debajo). */
+  function waiting() {
+    active = false;
+    const scr = $('scr-menu');
+    if (!scr) return;
+    scr.classList.add('village');
+    setQuick(false);
+    veil(true);
+  }
+  let veilOn = false;
+  function veil(on) { veilOn = !!on; const v = $('vil-loading'); if (v) v.classList.toggle('hidden', !on); }
 
   function enter() {
     const scr = $('scr-menu');
     const was = active;
     active = true;
+    softTries = 0;
     scr.classList.add('village');
-    $('vil-loading').classList.add('hidden');
+    veil(false);
     // Tu Pokémon (si lo has cambiado en la Pokédex, el nuevo).
     const s = G.DB.save, dex = s && G.DEX_BY[s.partner] ? s.partner : 25, shiny = !!(s && s.partnerShiny && G.DB.ownsShiny(dex));
     if (dex + '/' + shiny !== lastPartner) {
@@ -130,7 +165,93 @@ G.Village = (() => {
       snapCam();
     }
     if (!was) { snapCam(); renderAcc = 1; walkPrev = false; target = null; buildQuick(); }
+    syncHome();
     refreshQuick();
+  }
+
+  // ---------------- tu choza (data/home.js) ----------------
+  /** Pone la choza como la tienes (o como la estás probando en la tienda de la choza), su mascota y su holograma. */
+  function syncHome() {
+    if (!G.Home || !G.Village3D.ready) return;
+    const cfg = Object.assign({}, G.Home.current(), homePreview || {});
+    const s = G.DB.save, pd = s && G.DEX_BY[s.partner] ? s.partner : 25;
+    const key = JSON.stringify(cfg) + pd;
+    if (key === homeKey) return;
+    homeKey = key;
+    const info = G.Village3D.setHome(cfg) || {};
+    const H0 = V().PLACES.find(p => p.id === 'home');
+    // Lo que no se puede pisar: el tótem y el proyector del holograma.
+    solids = solids.filter(o => !o.home);
+    if (cfg.totem && cfg.totem !== 'none') solids.push({ x: tile(H0.x) - 82, y: tile(H0.y) + 44, r: 18, home: true });
+    if (info.holo) solids.push({ x: info.holo[0], y: info.holo[1], r: 14, home: true });
+    // Mascota: uno de tus Pokémon, quieto en su cojín.
+    if (pet && pet.anim.dex !== cfg.pet) { G.Village3D.unsprite(pet); npcs = npcs.filter(n => n !== pet); pet = null; }
+    if (cfg.pet && !pet) {
+      pet = mon(cfg.pet, false);
+      const still = G.Sprites.can(cfg.pet, 'Sleep') ? 'Sleep' : 'Idle';
+      Object.assign(pet, { home: [tile(V().PET[0]), tile(V().PET[1])], wander: 0, mode: 'still', tt: 1, li: 0, isPet: true,
+        lines: ['(Descansa feliz en su cojín.)', '(Se alegra de verte en casa.)', '(Vigila tu choza mientras estás fuera.)'],
+        cast: { still, emote: '♥' } });
+      pet.x = pet.home[0]; pet.y = pet.home[1]; pet.anim.dir = 0;
+      if (still === 'Sleep') G.Sprites.sheet(cfg.pet, 'Sleep');
+      npcs.push(pet);
+    }
+    // Holograma: tu Pokémon, de luz, girando sobre el proyector.
+    if (holo && (!info.holo || holo.anim.dex !== pd)) { G.Village3D.unsprite(holo); holo = null; }
+    if (info.holo && !holo) { holo = mon(pd, false); holo.holo = true; holo.x = info.holo[0]; holo.y = info.holo[1]; }
+  }
+  /** La tienda de la choza (ui/home-ui.js): abierta o cerrada (la cámara va a tu choza) y la pieza que se prueba. */
+  function homePanel(on) {
+    homeOpen = !!on && active;
+    if (!homeOpen) homePreview = null;
+    if (homeOpen) { target = null; setQuick(false); }
+    syncHome();
+  }
+  function previewHome(cfg) { homePreview = cfg || null; syncHome(); }
+
+  /*
+   * Carga directa (pedido del dueño): Flow.boot espera a esto antes de quitar la pantalla del título.
+   * → promesa: true si la aldea queda lista; false si no se usa (falla el 3D: menú clásico) o si tarda más de maxMs
+   * (entonces se sigue cargando y, hasta que esté, se ve el velo del título).
+   */
+  function prepare(maxMs = 20000) {
+    if (prepP) return prepP;
+    prepP = new Promise(res => {
+      if (!wanted()) { res(false); return; }
+      const t0 = performance.now();
+      let iv = 0;
+      const end = v => { clearInterval(iv); res(v); };
+      loadThree();
+      G.Tileset.preload([V().BI]);
+      const step = () => {
+        const late = performance.now() - t0 > maxMs;
+        if (three === 'fail') { fail(threeErr || 'three.js'); end(false); return; }
+        if (failed) { end(false); return; }
+        if (three !== 'ready' || !G.Tileset.ready(V().BI)) { if (late) end(false); return; }
+        if (!G.Village3D.ready) {
+          try {
+            if (!G.Village3D.started) G.Village3D.start(T);
+            const err = G.Village3D.build();
+            if (err) { fail(err, true); end(false); return; }
+            spawnAll();
+            // Un dibujo de prueba (sin enseñarlo): sube las texturas y prepara los shaders mientras sigue el título.
+            const VG = V();
+            G.Village3D.render({ cx: VG.W * TS / 2, cy: VG.H * TS / 2, w: 960, h: 540, scale: 1, K: 0.18 }, 0, 0, light(phase()));
+          } catch (e) { fail(String(e && e.message || e), true); end(false); return; }
+        }
+        if (spritesReady() || late) end(true);
+      };
+      iv = setInterval(step, 100);
+      step();
+    });
+    return prepP;
+  }
+  /** ¿Están cargados los sprites de tu Pokémon y de los de la aldea? (si no, empiezan a cargarse) */
+  function spritesReady() {
+    const s = G.DB && G.DB.save, dex = s && G.DEX_BY[s.partner] ? s.partner : 25, shiny = !!(s && s.partnerShiny && G.DB.ownsShiny(dex));
+    let ok = G.Sprites.ready(dex, 'Idle', shiny) && G.Sprites.ready(dex, 'Walk', shiny);
+    for (const n of npcs) if (!G.Sprites.ready(n.anim.dex, 'Idle')) ok = false;
+    return ok;
   }
 
   // ---------------- entidades ----------------
@@ -143,6 +264,8 @@ G.Village = (() => {
   function spawnAll() {
     for (const n of npcs) G.Village3D.unsprite(n);
     npcs = []; followers = []; trail = [];
+    if (holo) G.Village3D.unsprite(holo);
+    pet = null; holo = null; homeKey = '';
     if (pl) { G.Village3D.unsprite(pl); }
     lastPartner = '';
     pl = null;
@@ -210,10 +333,13 @@ G.Village = (() => {
     const VG = V(), W = VG.W * TS, Hh = VG.H * TS;
     // Que no se salga del plano (con lo que se ve de más por arriba con la perspectiva).
     const hw = view.w / 2, hh = view.h / 2;
-    // Cerca del Árbol del Portal la cámara sube un poco: se ve más copa (tu Pokémon queda más abajo).
-    const tree = V().PLACES[0], kx = Math.max(0, 1 - Math.abs(pl.x - tile(tree.x)) / tile(7)), ky = Math.max(0, 1 - Math.abs(pl.y - tile(tree.door[1] + 1)) / tile(5));
+    // Con la tienda de la choza abierta, la cámara mira tu choza (a la izquierda: el panel va a la derecha).
+    let fx0 = pl.x, fy0 = pl.y;
+    if (homeOpen) { const h = V().PLACES.find(p => p.id === 'home'); fx0 = tile(h.x) + Math.min(view.w * 0.22, 300); fy0 = tile(h.y) + 40; }
+    // Cerca de la Flor del Portal la cámara sube un poco: se ve la flor entera (tu Pokémon queda más abajo).
+    const tree = V().PLACES[0], kx = Math.max(0, 1 - Math.abs(fx0 - tile(tree.x)) / tile(7)), ky = Math.max(0, 1 - Math.abs(fy0 - tile(tree.door[1] + 1)) / tile(5));
     const up = 120 * Math.min(1, kx * 1.4) * Math.min(1, ky * 1.4);
-    const x = Math.max(hw, Math.min(W - hw, pl.x)), y = Math.max(hh * 1.02, Math.min(Hh - hh * 0.9, pl.y - 20 - up));
+    const x = Math.max(hw, Math.min(W - hw, fx0)), y = Math.max(hh * 1.02, Math.min(Hh - hh * 0.9, fy0 - 20 - up));
     return [W < view.w ? W / 2 : x, Hh < view.h ? Hh / 2 : y];
   }
   function snapCam() { if (!pl) return; camSize(); const [x, y] = camTarget(); view.cx = x; view.cy = y; }
@@ -227,15 +353,16 @@ G.Village = (() => {
   }
 
   // ---------------- ciclo del día ----------------
-  // [fase, luz ambiente rgb, su fuerza, sol rgb, su fuerza, altura del sol, noche 0..1, atardecer 0..1]
+  // (12-11-2026) Bosque bioluminiscente: casi siempre de noche (luz de luna azul y violeta). Un rato del ciclo amanece
+  // con bruma verde (algo más de luz y más niebla) y vuelve la noche; lo que brilla, brilla siempre (más de noche).
+  // [fase, luz ambiente rgb, su fuerza, luna rgb, su fuerza, altura, noche 0..1, bruma 0..1, niebla]
   const KEYS = [
-    [0.00, [1, 0.86, 0.8], 0.56, [1, 0.78, 0.6], 0.42, 0.5, 0.2, 0.5],
-    [0.08, [1, 1, 1], 0.6, [1, 0.97, 0.92], 0.5, 0.93, 0, 0],
-    [0.52, [1, 1, 1], 0.6, [1, 0.97, 0.92], 0.5, 0.93, 0, 0],
-    [0.62, [1, 0.84, 0.72], 0.54, [1, 0.64, 0.4], 0.44, 0.42, 0.1, 1],
-    [0.70, [0.44, 0.5, 0.84], 0.62, [0.55, 0.65, 1], 0.16, 0.8, 1, 0],
-    [0.92, [0.44, 0.5, 0.84], 0.62, [0.55, 0.65, 1], 0.16, 0.8, 1, 0],
-    [1.00, [1, 0.86, 0.8], 0.56, [1, 0.78, 0.6], 0.42, 0.5, 0.2, 0.5]
+    [0.00, [0.42, 0.48, 0.86], 0.62, [0.6, 0.7, 1], 0.26, 0.85, 1, 0, 1],
+    [0.40, [0.42, 0.48, 0.86], 0.62, [0.6, 0.7, 1], 0.26, 0.85, 1, 0, 1],
+    [0.52, [0.5, 0.66, 0.8], 0.66, [0.7, 0.95, 0.9], 0.3, 0.6, 0.65, 1, 1.5],
+    [0.66, [0.56, 0.74, 0.78], 0.7, [0.85, 1, 0.9], 0.34, 0.7, 0.5, 0.6, 1.3],
+    [0.78, [0.5, 0.5, 0.86], 0.64, [0.66, 0.66, 1], 0.28, 0.8, 0.85, 0.2, 1],
+    [1.00, [0.42, 0.48, 0.86], 0.62, [0.6, 0.7, 1], 0.26, 0.85, 1, 0, 1]
   ];
   let phaseOverride = null;
   function phase() {
@@ -251,9 +378,9 @@ G.Village = (() => {
     while (i < KEYS.length - 2 && KEYS[i + 1][0] <= ph) i++;
     const a = KEYS[i], b = KEYS[i + 1], k = Math.max(0, Math.min(1, (ph - a[0]) / Math.max(1e-6, b[0] - a[0])));
     const L = (u, v) => u + (v - u) * k, L3 = (u, v) => u.map((x, j) => L(x, v[j]));
-    const day = Math.max(0, Math.min(1, (ph - 0.04) / 0.62));
+    // La luna va despacio de un lado a otro (las sombras se rehacen sólo cuando cambia: ver village3d.js setLight).
     return { amb: L3(a[1], b[1]), ai: L(a[2], b[2]), sun: L3(a[3], b[3]), si: L(a[4], b[4]), el: L(a[5], b[5]), night: L(a[6], b[6]), dusk: L(a[7], b[7]),
-      az: ph > 0.68 && ph < 0.95 ? -2.0 : -0.9 - day * 1.5 };
+      mist: L(a[8], b[8]), az: -1.1 - Math.round(ph * 12) / 12 * 1.2 };
   }
 
   // ---------------- cada fotograma ----------------
@@ -266,7 +393,7 @@ G.Village = (() => {
   }
   /** ¿Se está paseando? (la aldea a la vista, sin nada encima ni el desplegable abierto) */
   function walking() {
-    if (!active || quick || !G.Game || G.Game.state !== 'ui' || !G.UI.isOpen('scr-menu')) return false;
+    if (!active || quick || homeOpen || !G.Game || G.Game.state !== 'ui' || !G.UI.isOpen('scr-menu')) return false;
     const tap = $('tap-start'), boot = $('boot');
     if ((tap && !tap.classList.contains('hidden')) || (boot && !boot.classList.contains('hidden'))) return false;
     return !covered();
@@ -275,7 +402,7 @@ G.Village = (() => {
   /** game.js: el fondo del menú. → true si lo ha dibujado la aldea (y entonces no va Backdrop). */
   function frame(ctx, w, h, dpr, real) {
     if (!active || !G.UI.isOpen('scr-menu') || !pl) return false;
-    if (G.Village3D.lost) { fail('contexto WebGL perdido'); return false; }
+    if (G.Village3D.lost) { fail('contexto WebGL perdido', true); return false; }
     const dt = Math.min(1 / 20, Math.max(0, real || 0));
     const cov = covered(), walk = walking();
     if (cov === 2) { walkPrev = false; return true; }          // tapada: se queda quieta (como el fondo del menú)
@@ -330,6 +457,7 @@ G.Village = (() => {
   /** Con algo encima: los demás siguen a lo suyo; tu Pokémon, quieto. */
   function idle(dt) {
     pl.anim.loop('Idle'); pl.anim.update(dt);
+    if (homeOpen) { const [tx, ty] = camTarget(); view.cx = G.U.damp(view.cx, tx, 5, dt); view.cy = G.U.damp(view.cy, ty, 5, dt); }
     npcTick(dt);
     if (near) { near = null; prompt(); }
   }
@@ -483,6 +611,7 @@ G.Village = (() => {
     if (what === 'goals') G.GoalsUI.open('missions');
     else if (what === 'ach') G.GoalsUI.open('ach');
     else if (what === 'profile') G.GoalsUI.open('profile');
+    else if (what === 'home') { if (G.HomeUI) G.HomeUI.open(); else return false; }
     else if (what === 'settings') { const b = $('btn-settings'); if (b) b.click(); else return false; }
     else if (what === 'news') { const b = $('btn-news'); if (b) b.click(); else return false; }
     else if (what === 'partner') { const b = $('menu-stage'); if (b) b.click(); else return false; }
@@ -530,14 +659,15 @@ G.Village = (() => {
   // ---------------- dibujo ----------------
   /** Alto (mundo) de lo que hay encima de un sitio: ahí va su nombre. */
   function labelZ(p) {
-    const L = p.look;
-    return { tent: 48 + (L.r || 1.7) * TS * 0.95 + 26, stall: 146, hut: 128, house: 156, board: 112, case: 96, podium: 100, mailbox: 84, pc: 86, tree: 124 }[L.kind] || 100;
+    return (G.Village3D.top && G.Village3D.top(p.id)) || 110;
   }
 
   function draw(ctx, w, h, dpr, dt) {
     for (const n of npcs) G.Village3D.sprite(n);
     pl.z = 0;
     G.Village3D.sprite(pl);
+    if (holo) { holo.z = 16 + Math.sin(t * 1.6) * 4; holo.anim.dir = Math.floor(t * 1.3) % 8; holo.anim.loop('Idle'); holo.anim.update(dt); G.Village3D.sprite(holo); }
+    view.player = pl;
     view.mail = mailUnread();
     const r = G.Village3D.render(view, t, dt, light(phase()));
     if (!r) return;
@@ -633,12 +763,14 @@ G.Village = (() => {
   }
 
   // ---------------- desplegable «Ir a…» ----------------
-  const ORDER = ['play', 'upgrades', 'gacha', 'dex', 'shop', 'bag', 'goals', 'ach', 'compendium', 'friends', 'rank', 'profile', 'news', 'settings'];
+  const ORDER = ['play', 'upgrades', 'gacha', 'dex', 'shop', 'bag', 'home', 'goals', 'ach', 'compendium', 'friends', 'rank', 'profile', 'news', 'settings'];
+  /** Lo del desplegable que no es un sitio de la aldea. */
+  const EXTRA = { profile: { name: 'Tu perfil', sub: 'Tu perfil y tus partidas', icon: 'crown' } };
   function buildQuick() {
     const box = $('vil-quick');
     if (!box || box.dataset.built) return;
     box.dataset.built = '1';
-    const byGo = Object.fromEntries(V().PLACES.map(p => [p.go, p]));
+    const byGo = Object.assign(Object.fromEntries(V().PLACES.map(p => [p.go, p])), EXTRA);
     box.innerHTML = '<header class="vq-head"><span class="vq-title">' + G.T('Ir a') + '</span>' +
       '<button class="icon-btn" id="vil-quick-close" type="button" aria-label="' + G.T('Cerrar') + '" title="' + G.T('Cerrar') + '">' + G.UI.svg('close') + '</button></header>' +
       '<button class="vq-partner" id="vq-partner" type="button"></button>' +
@@ -700,13 +832,17 @@ G.Village = (() => {
     if (!G.Village3D) return;
     for (const n of npcs) G.Village3D.unsprite(n);
     if (pl) G.Village3D.unsprite(pl);
-    npcs = []; pl = null; followers = []; lastPartner = '';
+    if (holo) G.Village3D.unsprite(holo);
+    npcs = []; pl = null; followers = []; lastPartner = ''; pet = null; holo = null; homeKey = '';
     G.Village3D.free();
     active = false; quick = false; lastShot = null;
+    if (homeOpen && G.HomeUI) G.HomeUI.close(true);
+    homeOpen = false; homePreview = null;
   }
 
-  return { init, show, frame, sleep, go, walking, wanted, nearest: () => near,
-    get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : three === 'loading' ? 'loading' : 'classic'; },
+  return { init, show, frame, sleep, go, walking, wanted, prepare, homePanel, previewHome, syncHome, nearest: () => near,
+    get homeOpen() { return homeOpen; },
+    get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : (three === 'loading' || veilOn) ? 'loading' : 'classic'; },
     get failed() { return failed; }, get quickOpen() { return quick; },
     places: () => V().PLACES.map(p => ({ id: p.id, go: p.go, name: p.name })), ORDER,
     /** Para pruebas y capturas. */

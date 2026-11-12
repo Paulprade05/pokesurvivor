@@ -1333,11 +1333,44 @@ html.rot .rotate { display: none !important; }
 body.touch .vil-act { left: auto; right: max(18px, var(--sa-r)); bottom: max(18px, var(--sa-b)); transform: none; min-height: 60px; padding-right: 18px; }
 body.touch .vil-act { animation-name: va-in-t; }
 @keyframes va-in-t { from { opacity: 0; transform: translateY(8px) scale(.94); } }
-.vil-loading {
-  position: absolute; left: 50%; bottom: max(16px, var(--sa-b)); transform: translateX(-50%); padding: 6px 14px; border-radius: var(--rad-pill);
-  background: var(--chrome); color: var(--muted); font-size: var(--fs-s); pointer-events: none;
+/* (12-11-2026) Mientras se prepara la aldea: el velo del título (es un .boot), por encima de la barra de arriba. */
+.vil-loading { z-index: var(--z-boot); }
+/* Tu choza (js/ui/home-ui.js): panel a la derecha; a la izquierda se ve tu choza en la aldea. */
+.vil-home {
+  position: absolute; top: calc(var(--bar-top) + var(--bar-h) + 6px); right: max(16px, var(--sa-r)); bottom: max(16px, var(--sa-b));
+  display: flex; flex-direction: column; width: min(420px, calc(100vw - max(16px, var(--sa-l)) - max(16px, var(--sa-r))));
+  padding: 10px 12px 12px; border-radius: var(--rad-l); background: var(--surface-float); box-shadow: var(--sh-pop);
+  animation: vq-in var(--t-med) var(--ease);
 }
-#scr-menu.village .vil-loading { display: none; }
+.vh-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.vh-title { flex: 1; font: 600 var(--fs-l)/1.2 var(--font-display); }
+.vh-coins { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-m)/1 var(--font-display); color: var(--c-yellow); }
+.vh-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.vh-tab { padding: 6px 10px; border: 0; border-radius: var(--rad-pill); background: var(--card); color: var(--ink); font: 600 var(--fs-s)/1 var(--font-display); cursor: pointer; }
+.vh-tab:hover { background: var(--card-hi); }
+.vh-tab.on { background: var(--c-yellow); color: var(--c-on-yellow); }
+.vh-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
+.vh-item { display: flex; flex-direction: column; gap: 2px; min-height: 64px; padding: 8px 10px; border: 2px solid transparent; border-radius: var(--rad-m);
+  background: var(--card); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.vh-item:hover, .vh-item:focus-visible { background: var(--card-hi); }
+.vh-item.on { border-color: var(--c-yellow); }
+.vh-item b { font: 600 var(--fs-m)/1.15 var(--font-display); }
+.vh-item small { color: var(--muted); font-size: var(--fs-xs); line-height: 1.25; }
+.vh-item .vh-st { margin-top: auto; font: 600 var(--fs-xs)/1.2 var(--font-display); color: var(--c-yellow); }
+.vh-item .vh-st.own { color: #8fe3a8; }
+.vh-item .vh-st.worn { color: var(--muted); }
+.vh-sw { display: inline-block; width: 14px; height: 14px; margin-right: 4px; border-radius: 50%; vertical-align: -2px; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); }
+.vh-pets { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+.vh-pet { align-items: center; min-height: 0; padding: 4px; text-align: center; }
+.vh-pet canvas { width: 64px; height: 54px; image-rendering: pixelated; }
+.vh-pet b { font-size: var(--fs-xs); }
+.vh-foot { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.vh-desc { min-height: 2.5em; margin: 0; color: var(--muted); font-size: var(--fs-s); }
+@media (max-height: 520px) {
+  .vil-home { top: calc(var(--bar-top) + var(--bar-h) - 2px); width: min(400px, 52vw); }
+  .vh-item { min-height: 52px; padding: 6px 8px; }
+  .vh-desc { min-height: 0; }
+}
 @media (max-height: 520px) {
   .vil-go { top: calc(var(--bar-top) + var(--bar-h) - 2px); min-height: 40px; }
   .vil-quick { top: calc(var(--bar-top) + var(--bar-h) + 42px); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - 40px); }

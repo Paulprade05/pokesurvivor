@@ -1,11 +1,16 @@
 /* ============ village3d.js — la aldea del menú en WebGL (three.js) ============
  * Mezcla 2D y 3D como el juego en Ultra 3D (ultra3d.js):
  *   - el suelo y los Pokémon son 2D: el suelo, horneado con el tileset de Mundo Misterioso (tileset.js paintChunk, como un
- *     chunk del mundo) más los caminos y la plaza; los Pokémon, sus sprites de siempre en cuadros de pie (un trozo de su hoja);
- *   - setos, carpas, el árbol del portal y los decorados son 3D de verdad, con geometría propia, luz y sombras duras.
+ *     chunk del mundo) más el musgo, los caminos y la plaza; los Pokémon, sus sprites de siempre en cuadros de pie;
+ *   - el bosque del borde, las chozas, la Flor del Portal y los decorados son 3D de verdad, con luz y sombras duras.
  * La cámara es la de Ultra: la homografía del suelo de G.Camera (q = 1 − a·dv) con lo alto subiendo en la pantalla, escrita
  * como matriz de proyección. Se dibuja a la escala del arte (24 px por casilla, 0,5 px por unidad de mundo) en un lienzo
  * WebGL pequeño, y village.js lo pasa a la pantalla sin suavizar: píxeles nítidos, como el resto.
+ *
+ * (12-11-2026) Bosque bioluminiscente (decisión del dueño): casi siempre de noche, con lo que brilla hecho con materiales
+ * que se encienden solos (emisivos: no hacen falta luces de verdad, que en el iPhone cuestan), halos de color en el suelo,
+ * niebla baja (dos capas que se deslizan), esporas que flotan y la tecnología de la tribu (cables, cristales, hologramas).
+ * Tu choza (data/home.js) va aparte, en su grupo: se rehace sola al cambiar una pieza (setHome).
  *
  * Ejes (los de three.js): X al este, Y arriba, Z al sur (hacia la cámara). Un punto del juego (x, y) es (x, 0, y).
  *
@@ -20,16 +25,19 @@ G.Village3D = (() => {
   let built = false, lost = false, failed = '';
   let Wl = 0, Hl = 0;
   const P = new Float64Array(16);
-  const anim = [];                       // cosas que se mueven: { fn(t, dt) }
-  const disposables = [];                // geometrías, materiales y texturas para free()
+  let anim = [];                         // cosas que se mueven: { fn(t, dt) }
+  let disposables = [];                  // geometrías, materiales y texturas para free()
+  let sink = null;                       // dónde van las mallas (la escena o el grupo de tu choza)
   let sprites = new Map();               // entidad -> { mesh, mat, shadow, tex: Map(img -> textura) }
   const baseTex = new Map();             // img -> textura base (las de cada entidad la comparten: una subida a la GPU)
   let uni = null;                        // uniformes compartidos (tiempo, tinte, jugador)
-  let lights = null;                     // materiales que se encienden de noche
-  let shadowSun = null, shadowAt = -1;
-  let pondTex = null, pondFrames = 1, fountainTex = null;
-  let flags = [];
-  let edgeCol = '#104743';
+  let glowList = [];                     // materiales que brillan solos: { m, base, ph }
+  let shadowSun = null;
+  let pondTex = null, pondCol = null;
+  let mailPivot = null;
+  let edgeCol = '#000000';
+  let home = null;                       // { group, disp, anim, key, holo, top }
+  const tops = {};                       // id del sitio -> alto (mundo) de lo de encima: ahí va su nombre (village.js)
 
   // ---------------- arranque ----------------
   /** ¿Hay WebGL? (sin crear three.js: si no, three.js lo diría con un error en la consola) */
@@ -45,14 +53,17 @@ G.Village3D = (() => {
 
   function start(THREE) {
     T = THREE;
-    glcv = document.createElement('canvas');
+    const c = glcv = document.createElement('canvas');
     glcv.width = glcv.height = 16;
-    glcv.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
-    glcv.addEventListener('webglcontextrestored', () => { lost = false; drop(true); });
+    lost = false;
+    // (Sólo el lienzo de ahora: al soltar la aldea, free() pierde el contexto a propósito y el aviso del lienzo viejo llega
+    //  más tarde; si contaba, la aldea rehecha al volver de la partida se daba por perdida y salía el menú clásico.)
+    c.addEventListener('webglcontextlost', e => { e.preventDefault(); if (c === glcv) lost = true; });
+    c.addEventListener('webglcontextrestored', () => { if (c !== glcv) return; lost = false; drop(true); });
     renderer = new T.WebGLRenderer({ canvas: glcv, antialias: false, alpha: false, depth: true, stencil: false,
       powerPreference: G.U.IOS ? 'default' : 'high-performance', preserveDrawingBuffer: false });
     renderer.setPixelRatio(1);
-    renderer.setClearColor(0x16301c, 1);
+    renderer.setClearColor(0x050a12, 1);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = T.BasicShadowMap;          // sombras duras: píxeles, como el arte
     renderer.shadowMap.autoUpdate = false;
@@ -87,15 +98,20 @@ G.Village3D = (() => {
   const shade = (h, k) => css(hex(h).map(v => k >= 0 ? v + (255 - v) * k : v * (1 + k)));
   const H = (x, y, s) => G.VILLAGE.hash(x, y, s);
   /** Rampa de 4 tonos (oscuro → claro) a partir de uno. */
-  const ramp = (h) => [shade(h, -0.42), shade(h, -0.2), h, shade(h, 0.28)];
+  const ramp = (h) => [shade(h, -0.45), shade(h, -0.22), h, shade(h, 0.3)];
   /** Pinta w×h píxeles con fn(x, y) → color (o null: transparente). */
   function pix(w, h, fn) {
     const [c, g] = canvas(w, h);
+    const id = g.createImageData(w, h), d = id.data, cache = new Map();
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const col = fn(x, y);
       if (!col) continue;
-      g.fillStyle = col; g.fillRect(x, y, 1, 1);
+      let v = cache.get(col);
+      if (!v) { v = hex(col); cache.set(col, v); }
+      const o = (y * w + x) * 4;
+      d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; d[o + 3] = 255;
     }
+    g.putImageData(id, 0, 0);
     return c;
   }
   /** Ruido de 4 tonos con grano de `k` píxeles (madera, hojas, piedra...). */
@@ -103,12 +119,22 @@ G.Village3D = (() => {
     const n = H(x / k | 0, y / k | 0, seed) * 0.65 + H(x, y, seed + 1) * 0.35;
     return tones[n < 0.18 ? 0 : n < 0.5 ? 1 : n < 0.84 ? 2 : 3];
   });
+  /** Ruido suave (0..1) con celdas de `s` px: manchas de musgo y niebla. */
+  function vn(x, y, s, seed) {
+    const fx0 = x / s, fy0 = y / s, x0 = Math.floor(fx0), y0 = Math.floor(fy0), tx = fx0 - x0, ty = fy0 - y0;
+    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const a = H(x0, y0, seed), b = H(x0 + 1, y0, seed), c = H(x0, y0 + 1, seed), d = H(x0 + 1, y0 + 1, seed);
+    return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+  }
 
-  const WOOD = ['#4e321c', '#6c4628', '#8c5e36', '#ad7c4a'];
-  const STONE = ['#5f5c56', '#7f7b72', '#a19c8e', '#c4bea9'];
-  const BARK = ['#3e2818', '#573922', '#71492c', '#8c5e3a'];
-  const LEAF = ['#24552c', '#357a36', '#4f9c40', '#7cc458'];
+  const WOOD = ['#3a2418', '#52341f', '#6c4628', '#8a5e38'];
+  const STONE = ['#2e3338', '#424a50', '#58626a', '#727e86'];
+  const BARK = ['#1e1612', '#2c201a', '#3c2c22', '#4e3a2c'];
+  const LEAF = ['#0e2a24', '#16402f', '#1f573c', '#2e7048'];
+  const MOSS = ['#13281f', '#1a3428', '#22412f', '#2d5238'];
+  const METAL = ['#3a4450', '#55606c', '#76828e', '#a4b0ba'];
   const GOLD = ['#8a5a12', '#c08a1e', '#e8b838', '#fff08a'];
+  const CYAN = '#5ff0ff', PINK = '#ff7ad8', GREEN = '#7cff7a', AMBER = '#ffc04a', VIOLET = '#b07aff';
 
   // ---------------- materiales ----------------
   const mats = new Map();
@@ -124,16 +150,58 @@ G.Village3D = (() => {
     return m;
   }
   const plain = (col, opts) => lambert('c' + col + JSON.stringify(opts || {}), null, Object.assign({ color: col }, opts || {}));
+  /** Material que brilla solo (setas, cristales, luces de la tribu). base: cuánto; se aviva de noche y late despacio. */
+  function glowM(col, base = 1, opts = {}) {
+    const key = 'g' + col + base + JSON.stringify(opts);
+    let m = mats.get(key);
+    if (m) return m;
+    m = new T.MeshLambertMaterial(Object.assign({ color: shade(col, -0.55), emissive: new T.Color(col), emissiveIntensity: base, side: T.FrontSide }, opts));
+    if (opts.flatShading) m.flatShading = true;
+    mats.set(key, m);
+    disposables.push(m);
+    glowList.push({ m, base, ph: H(col.length, base * 10, hex(col)[0]) * 6.28 });
+    return m;
+  }
+  /** Lo mismo con textura (lo brillante de la textura brilla: emissiveMap). */
+  function glowTexM(key, make, col, base = 1, opts = {}) {
+    let m = mats.get(key);
+    if (m) return m;
+    const t = make();
+    m = new T.MeshLambertMaterial(Object.assign({ map: t, emissive: new T.Color(col), emissiveMap: t, emissiveIntensity: base, side: T.FrontSide }, opts));
+    mats.set(key, m);
+    disposables.push(m);
+    glowList.push({ m, base, ph: H(key.length, 3, 7) * 6.28 });
+    return m;
+  }
+  /** Sin luz: siempre del mismo color (hologramas, puertas encendidas). */
+  function basic(key, make, opts = {}) {
+    let m = mats.get(key);
+    if (m) return m;
+    m = new T.MeshBasicMaterial(Object.assign({ map: make ? make() : null }, opts));
+    mats.set(key, m);
+    disposables.push(m);
+    return m;
+  }
   const woodM = () => lambert('wood', () => tex(planks(32, 32), true));
   const stoneM = () => lambert('stone', () => tex(bricks(32, 32), true));
-  // Corteza: vetas verticales que se cortan y nudos (sin rayas iguales: con la textura repetida parecía un tonel).
+  const mossStoneM = () => glowTexM('mstone', () => tex(pix(32, 32, (x, y) => {
+    const row = y >> 3, off = row % 2 ? 6 : 0;
+    if (y % 8 === 7 || ((x + off) % 12) === 11) return '#0c1012';
+    const m = vn(x, y, 6, 52);
+    if (m > 0.66) return H(x, y, 53) > 0.93 ? '#7cffb0' : MOSS[m > 0.8 ? 3 : 2];
+    const n = H((x + off) / 12 | 0, row, 51);
+    return STONE[y % 8 === 0 ? 3 : n < 0.35 ? 1 : 2];
+  }), true), '#ffffff', 0.25);
+  // Corteza oscura: vetas verticales que se cortan y nudos.
   const barkM = () => lambert('bark', () => tex(pix(32, 32, (x, y) => {
     const v = H(x, (y + (H(x, 0, 6) * 32 | 0)) >> 3, 5), k = H(x >> 2, y >> 2, 7);
     if ((x * 7 + (y >> 2) * 3) % 23 === 0 && k > 0.6) return BARK[0];
     return BARK[v < 0.25 ? 0 : v < 0.6 ? 1 : v < 0.9 ? 2 : 3];
   }), true), { flat: true });
   const leafM = () => lambert('leaf', () => tex(noisy(32, 32, LEAF, 21), true), { flat: true });
-  const goldM = () => lambert('gold', () => tex(noisy(8, 8, GOLD, 31, 1), true), { emissive: new T.Color(0x3a2a00) });
+  const goldM = () => lambert('gold', () => tex(noisy(8, 8, GOLD, 31, 1), true), { emissive: new T.Color(0x5a3a00) });
+  const metalM = () => lambert('metal', () => tex(pix(16, 16, (x, y) => (x === 0 || y === 0) ? METAL[0] : (x === 3 && y === 3) || (x === 12 && y === 12) ? METAL[3] : METAL[H(x >> 2, y >> 2, 44) > 0.5 ? 1 : 2]), true));
+  const paleM = () => lambert('pale', () => tex(pix(8, 16, (x, y) => ['#9a94a0', '#b4aebc', '#cec8d4', '#e2dce6'][(H(x, y >> 1, 33) * 4) | 0]), true));
 
   function planks(w, h) {
     return pix(w, h, (x, y) => {
@@ -151,30 +219,30 @@ G.Village3D = (() => {
       return STONE[y % 8 === 0 ? 3 : n < 0.35 ? 1 : 2];
     });
   }
-  /** Rayas verticales (lonas de las carpas): n rayas alternas a/b, con costura y sombra abajo. */
-  function stripes(n, a, b, hpx = 24) {
-    const ra = ramp(a), rb = ramp(b), sw = 8;
+  /** Escamas de hojas grandes (las vainas y techos): n columnas con su nervio oscuro, del color c. */
+  function scales(n, c, hpx = 32, seed = 0) {
+    const r = ramp(c), sw = 8;
     return pix(n * sw, hpx, (x, y) => {
-      const r = (x / sw | 0) % 2 ? rb : ra, lx = x % sw;
-      if (lx === 0) return r[1];
-      if (y >= hpx - 2) return r[0];
-      if (y >= hpx - 5) return r[1];
-      return lx === sw - 1 ? r[1] : (y < 2 ? r[3] : r[2]);
+      const lx = x % sw, row = (y / 5) | 0, off = (row % 2) * 4, sx = (x + off) % sw, sy = y % 5;
+      if (lx === 0) return r[0];                                    // costilla de madera
+      if (sy === 4) return r[1];
+      const k = Math.abs(sx - 3.5) / 4;
+      if (sy === 0 && k < 0.6) return r[3];
+      return H(x >> 1, y, 61 + seed) > 0.86 ? r[1] : r[2];
     });
   }
 
   // ---------------- geometría: lo quieto, juntado por material ----------------
   // Cada pieza se apunta con su material y su matriz; al acabar, una malla por material (pocas llamadas de dibujo) y otra
   // con los contornos (casco invertido del tono oscuro del mapa).
-  let batch = null;
-  const tmpM = () => new T.Matrix4();
+  let batch = null, hulls = [];
   function put(geo, mat, at, o = {}) {
     const m = at instanceof T.Matrix4 ? at : compose(at);
     let g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(m);
     if (!g.attributes.uv) g.setAttribute('uv', new T.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     if (o.uv) { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * o.uv[0], uv.getY(i) * o.uv[1]); }
-    // ghost: sólo su contorno (la pieza de verdad va aparte, p. ej. una lona abierta que necesita un casco cerrado).
+    // ghost: sólo su contorno (la pieza de verdad va aparte, p. ej. una pieza abierta que necesita un casco cerrado).
     if (!o.ghost) {
       const k = mat.uuid;
       if (!batch.has(k)) batch.set(k, { mat, list: [], cast: false });
@@ -196,10 +264,9 @@ G.Village3D = (() => {
     }
     geo.dispose && !geo.__keep && geo.dispose();
   }
-  let hulls = [];
   /** {x, y, z, rx, ry, rz, sx, sy, sz} → matriz. */
   function compose(a = {}) {
-    const m = new T.Matrix4(), q = new T.Quaternion().setFromEuler(new T.Euler(a.rx || 0, a.ry || 0, a.rz || 0));
+    const m = new T.Matrix4(), q = new T.Quaternion().setFromEuler(new T.Euler(a.rx || 0, a.ry || 0, a.rz || 0, a.order || 'XYZ'));
     m.compose(new T.Vector3(a.x || 0, a.y || 0, a.z || 0), q, new T.Vector3(a.sx || a.s || 1, a.sy || a.s || 1, a.sz || a.s || 1));
     return m;
   }
@@ -233,16 +300,25 @@ G.Village3D = (() => {
     if (hulls.length) {
       const hm = new T.MeshBasicMaterial({ color: edgeCol, side: T.BackSide });
       disposables.push(hm);
-      const mesh = new T.Mesh(merge(hulls), hm);
-      fixed(mesh);
+      fixed(new T.Mesh(merge(hulls), hm));
     }
     batch = null; hulls = [];
   }
   function fixed(o) {
     o.matrixAutoUpdate = false; o.updateMatrix(); o.frustumCulled = false;
     o.traverse(c => { c.frustumCulled = false; });
-    scene.add(o);
+    (sink || scene).add(o);
     return o;
+  }
+  /** Una malla suelta (lo que se mueve: no va en el lote). */
+  function loose(geo, mat, x, y, z, order) {
+    disposables.push(geo);
+    const mesh = new T.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.frustumCulled = false;
+    if (order != null) mesh.renderOrder = order;
+    (sink || scene).add(mesh);
+    return mesh;
   }
 
   // Piezas
@@ -250,6 +326,8 @@ G.Village3D = (() => {
   const cyl = (rt, rb, h, n = 8, open = false) => new T.CylinderGeometry(rt, rb, h, n, 1, open);
   const cone = (r, h, n = 8, open = false) => new T.ConeGeometry(r, h, n, 1, open);
   const ball = (r, d = 1) => new T.IcosahedronGeometry(r, d);
+  const cap = (r, n = 10) => new T.SphereGeometry(r, n, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+  const lathe = (pts, n = 10) => new T.LatheGeometry(pts.map(([x, y]) => new T.Vector2(x, y)), n);
   /** Prisma de tejado a dos aguas (largo en X): ancho w, fondo d, alto h. */
   function gable(w, d, h) {
     const g = new T.BufferGeometry(), x0 = -w / 2, x1 = w / 2, z0 = -d / 2, z1 = d / 2;
@@ -257,15 +335,17 @@ G.Village3D = (() => {
     const tri = (a, b, c, ua, ub, uc) => { p.push(...a, ...b, ...c); uv.push(...ua, ...ub, ...uc); };
     const qd = (a, b, c, d2, U) => { tri(a, b, c, [0, 0], [U, 0], [U, 1]); tri(a, c, d2, [0, 0], [U, 1], [0, 1]); };
     const U = w / 32;
-    qd([x0, 0, z1], [x1, 0, z1], [x1, h, 0], [x0, h, 0], U);           // sur
-    qd([x1, 0, z0], [x0, 0, z0], [x0, h, 0], [x1, h, 0], U);           // norte
-    tri([x0, 0, z0], [x0, 0, z1], [x0, h, 0], [0, 0], [1, 0], [0.5, 1]); // oeste
-    tri([x1, 0, z1], [x1, 0, z0], [x1, h, 0], [0, 0], [1, 0], [0.5, 1]); // este
+    qd([x0, 0, z1], [x1, 0, z1], [x1, h, 0], [x0, h, 0], U);
+    qd([x1, 0, z0], [x0, 0, z0], [x0, h, 0], [x1, h, 0], U);
+    tri([x0, 0, z0], [x0, 0, z1], [x0, h, 0], [0, 0], [1, 0], [0.5, 1]);
+    tri([x1, 0, z1], [x1, 0, z0], [x1, h, 0], [0, 0], [1, 0], [0.5, 1]);
     g.setAttribute('position', new T.Float32BufferAttribute(p, 3));
     g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
     g.computeVertexNormals();
     return g;
   }
+  /** Cristal: octaedro estirado (caras planas). */
+  function crystal(r, h) { const g = new T.OctahedronGeometry(r, 0); g.scale(1, h / r, 1); return g; }
 
   // ---------------- suelo ----------------
   function paintGround() {
@@ -282,50 +362,80 @@ G.Village3D = (() => {
       const t = G.Tileset.top3d(cx, cy, N, at, BI, seed);
       if (t) { tg.drawImage(t, cx * N * A, cy * N * A); G.U.freeCanvas(t); }
     }
-    paths(g, b, A);
-    return { ground: cv, tops: tc };
+    const glow = forest(g, b, A);
+    return { ground: cv, tops: tc, glow };
   }
-  /** Caminos de tierra y la plaza de losas, a píxeles y con el borde irregular (sobre el suelo horneado). */
-  function paths(g, b, A) {
-    const VG = V(), W = VG.W, Hh = VG.H, k = A / 1;
-    const DIRT = ['#7c5c34', '#94703e', '#a8834a', '#bf9a5c'], DARK = '#5e4426';
+  /**
+   * Encima del suelo del tileset: musgo a manchas, caminos de tierra oscura con piedras que brillan en el borde y la
+   * plaza de losas con un anillo de runas. A píxeles (ImageData: en el iPhone, un fillRect por píxel tardaba segundos).
+   * → el lienzo de lo que brilla (mapa emisivo del suelo).
+   */
+  function forest(g, b, A) {
+    const VG = V(), W = VG.W, Hh = VG.H, w = W * A, h = Hh * A;
+    const img = g.getImageData(0, 0, w, h), d = img.data;
+    const [gc, gg] = canvas(w, h);
+    const gimg = gg.createImageData(w, h), e = gimg.data;
+    const set = (o, c) => { const v = hex(c); d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; };
+    const lit = (o, c) => { const v = hex(c); e[o] = v[0]; e[o + 1] = v[1]; e[o + 2] = v[2]; e[o + 3] = 255; };
+    const DIRT = ['#241a14', '#2e2118', '#3a2a1e', '#4a3626'], EDGE = '#1a120e';
+    const SLATE = ['#1c2228', '#262e36', '#323c46', '#3e4a56'];
     const sample = (arr, fx, fy) => {
       const x = fx - 0.5, y = fy - 0.5, x0 = Math.floor(x), y0 = Math.floor(y), tx = x - x0, ty = y - y0;
       const v = (i, j) => (i < 0 || j < 0 || i >= W || j >= Hh) ? 0 : arr[j * W + i];
       return (v(x0, y0) * (1 - tx) + v(x0 + 1, y0) * tx) * (1 - ty) + (v(x0, y0 + 1) * (1 - tx) + v(x0 + 1, y0 + 1) * tx) * ty;
     };
-    const P = VG.PLAZA;
-    for (let py = 0; py < Hh * A; py += 1) for (let px = 0; px < W * A; px += 1) {
-      const fx = px / A, fy = py / A;
-      // Plaza: losas irregulares con junta oscura y un anillo de piedra más oscura en el borde.
-      const d = Math.hypot(fx - P.x, fy - P.y);
-      if (d < P.r + (H(px >> 2, py >> 2, 91) - 0.5) * 0.18) {
-        const sx = Math.floor(px / 7 + (Math.floor(py / 6) % 2) * 0.5), sy = Math.floor(py / 6);
-        const edge = d > P.r - 0.45;
-        const joint = (px % 7 === 0 && !(Math.floor(py / 6) % 2)) || (px % 7 === 3 && Math.floor(py / 6) % 2) || py % 6 === 0;
-        const n = H(sx, sy, 92);
-        let col = joint ? STONE[0] : STONE[n < 0.3 ? 1 : n < 0.85 ? 2 : 3];
-        if (edge && !joint) col = STONE[n < 0.5 ? 1 : 0];
-        g.fillStyle = col; g.fillRect(px, py, 1, 1);
+    const P = VG.PLAZA, gl = [CYAN, GREEN, CYAN, PINK];
+    for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+      const o = (py * w + px) * 4, fx = px / A, fy = py / A, tx = fx | 0, ty = fy | 0;
+      if (VG.terrainAt(tx, ty) !== 0) continue;
+      // Plaza: losas oscuras irregulares y un anillo de runas que brilla.
+      const dd = Math.hypot(fx - P.x, fy - P.y);
+      if (dd < P.r + (H(px >> 2, py >> 2, 91) - 0.5) * 0.18) {
+        const row = Math.floor(py / 6), sx = Math.floor(px / 7 + (row % 2) * 0.5);
+        const joint = (px % 7 === 0 && !(row % 2)) || (px % 7 === 3 && row % 2) || py % 6 === 0;
+        const n = H(sx, row, 92);
+        set(o, joint ? '#0e1216' : SLATE[n < 0.3 ? 1 : n < 0.85 ? 2 : 3]);
+        const ring = Math.abs(dd - (P.r - 0.62));
+        if (ring < 0.05) { set(o, '#0e1216'); }
+        else if (ring < 0.13) {
+          // Runas: rayas cortas con huecos, a lo largo del anillo.
+          const a = Math.atan2(fy - P.y, fx - P.x), k = ((a + Math.PI) / (Math.PI * 2) * 48) % 1;
+          if (k > 0.15 && k < 0.75 && H(Math.floor((a + 4) * 7.6), 0, 97) > 0.3) { set(o, '#2a6a7a'); lit(o, '#2aa8b8'); }
+        }
         continue;
       }
       const p = sample(b.path, fx, fy);
-      if (p <= 0.05) continue;
       const n = H(px >> 1, py >> 1, 93);
-      if (p + (n - 0.5) * 0.34 < 0.42) continue;
-      const v = H(px, py, 94);
-      let col = DIRT[v < 0.16 ? 0 : v < 0.6 ? 1 : v < 0.92 ? 2 : 3];
-      if (p + (n - 0.5) * 0.34 < 0.5) col = DARK;            // borde de tierra húmeda
-      if (H(px >> 1, py >> 1, 95) > 0.985) col = STONE[3];   // guijarros
-      g.fillStyle = col; g.fillRect(px, py, 1, 1);
+      if (p > 0.05 && p + (n - 0.5) * 0.34 >= 0.42) {
+        const v = H(px, py, 94);
+        set(o, DIRT[v < 0.16 ? 0 : v < 0.6 ? 1 : v < 0.92 ? 2 : 3]);
+        if (p + (n - 0.5) * 0.34 < 0.5) {
+          set(o, EDGE);
+          // Piedras que brillan en el borde (de dos en dos píxeles).
+          if (H(px >> 1, py >> 1, 95) > 0.93) { const c = gl[(H(px >> 3, py >> 3, 96) * 4) | 0]; set(o, shade(c, -0.3)); lit(o, c); }
+        }
+        continue;
+      }
+      // Musgo a manchas (y algún punto que brilla).
+      const m = vn(px, py, 12, 81) * 0.6 + vn(px, py, 4, 82) * 0.4;
+      if (m > 0.3) {
+        const k = H(px, py, 83);
+        set(o, MOSS[m > 0.68 ? 3 : m > 0.5 ? 2 : k < 0.3 ? 0 : 1]);
+        if (m > 0.62 && H(px >> 1, py >> 1, 84) > 0.985) { const c = H(px >> 2, py >> 2, 85) > 0.5 ? GREEN : CYAN; set(o, c); lit(o, shade(c, -0.25)); }
+      }
     }
+    g.putImageData(img, 0, 0);
+    gg.putImageData(gimg, 0, 0);
+    return gc;
   }
 
   function buildGround() {
     const VG = V(), W = VG.W, Hh = VG.H;
-    const { ground, tops } = paintGround();
-    const gt = tex(ground), mat = new T.MeshLambertMaterial({ map: gt });
+    const { ground, tops: topC, glow } = paintGround();
+    const gt = tex(ground), et = tex(glow);
+    const mat = new T.MeshLambertMaterial({ map: gt, emissive: new T.Color(0xffffff), emissiveMap: et, emissiveIntensity: 1 });
     disposables.push(mat);
+    glowList.push({ m: mat, base: 1, ph: 0 });
     const geo = new T.PlaneGeometry(W * TS, Hh * TS);
     disposables.push(geo);
     const mesh = new T.Mesh(geo, mat);
@@ -335,9 +445,10 @@ G.Village3D = (() => {
     mat.depthWrite = false;                 // lo que está de pie nunca queda tapado por el suelo (pies y sombras 2D)
     mesh.renderOrder = -10;
     fixed(mesh);
-    // Setos levantados: arriba, la pieza de pared del tileset (top3d); delante y a los lados, la cara de roca (face3d).
+    // El bosque del borde levantado: arriba, la pieza de pared del tileset (copas de pino, top3d); delante y a los
+    // lados, su cara (face3d).
     const face = G.Tileset.face3d(VG.BI);
-    const topT = tex(tops), topM = new T.MeshLambertMaterial({ map: topT, side: T.FrontSide });
+    const topT = tex(topC), topM = new T.MeshLambertMaterial({ map: topT, side: T.FrontSide });
     disposables.push(topM);
     let faceM = null;
     if (face) {
@@ -347,7 +458,7 @@ G.Village3D = (() => {
       faceM = new T.MeshLambertMaterial({ map: tex(fc, true) });
       disposables.push(faceM);
     }
-    const HW = 40, FW = face ? face.width * PX : 96;
+    const HW = 46, FW = face ? face.width * PX : 96;
     const A = { pos: [], nor: [], uv: [] }, F = { pos: [], nor: [], uv: [] };
     const quad = (o, a, b2, c, d, n, uv) => {
       for (const k of [0, 1, 2, 0, 2, 3]) {
@@ -360,7 +471,6 @@ G.Village3D = (() => {
       if (at(tx, ty) !== 1) continue;
       const x0 = tx * TS, x1 = x0 + TS, z0 = ty * TS, z1 = z0 + TS;
       const u0 = tx / W, u1 = (tx + 1) / W, v0 = 1 - (ty + 1) / Hh, v1 = 1 - ty / Hh;
-      // (orden visto desde fuera: abajo-izq., abajo-der., arriba-der., arriba-izq.)
       quad(A, [x0, HW, z1], [x1, HW, z1], [x1, HW, z0], [x0, HW, z0], [0, 1, 0], [u0, v0, u1, v0, u1, v1, u0, v1]);
       if (at(tx, ty + 1) !== 1) quad(F, [x0, 0, z1], [x1, 0, z1], [x1, HW, z1], [x0, HW, z1], [0, 0, 1], [x0 / FW, 0, x1 / FW, 0, x1 / FW, 1, x0 / FW, 1]);
       if (at(tx - 1, ty) !== 1) quad(F, [x0, 0, z0], [x0, 0, z1], [x0, HW, z1], [x0, HW, z0], [-1, 0, 0], [z0 / FW, 0, z1 / FW, 0, z1 / FW, 1, z0 / FW, 1]);
@@ -380,13 +490,12 @@ G.Village3D = (() => {
     mk(A, topM); mk(F, faceM);
   }
 
-  // ---------------- agua: el estanque (capa animada del tileset) y la fuente ----------------
+  // ---------------- agua: la charca (capa animada del tileset, teñida de luz) ----------------
   function buildWater() {
     const VG = V(), BI = VG.BI, A = G.Tileset.T;
     if (!G.Tileset.animated(BI)) return;
     const meta = (G.TILESETS || []).find(m => m.bi === BI);
-    const frames = meta ? meta.frames : 1, dur = meta ? meta.dur : 0.4;
-    // Casillas de agua: su caja.
+    const frames = meta ? meta.frames : 1, dur = meta ? Math.max(0.25, meta.dur * 2) : 0.4;
     let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
     for (let ty = 0; ty < VG.H; ty++) for (let tx = 0; tx < VG.W; tx++) if (VG.terrainAt(tx, ty) === 2) { x0 = Math.min(x0, tx); y0 = Math.min(y0, ty); x1 = Math.max(x1, tx); y1 = Math.max(y1, ty); }
     if (x1 < 0) return;
@@ -399,9 +508,8 @@ G.Village3D = (() => {
     }
     pondTex = tex(c);
     pondTex.repeat.set(1 / frames, 1);
-    pondFrames = frames;
     const m = new T.MeshBasicMaterial({ map: pondTex, transparent: true, alphaTest: 0.5, depthWrite: false });
-    m.color = uni.tintCol;
+    pondCol = m.color;
     disposables.push(m);
     const geo = new T.PlaneGeometry(w * TS, h * TS);
     disposables.push(geo);
@@ -411,18 +519,18 @@ G.Village3D = (() => {
     mesh.renderOrder = -8;
     fixed(mesh);
     anim.push({ fn: t => { pondTex.offset.x = (Math.floor(t / dur) % frames) / frames; } });
+    glow(41.6 * TS, 31 * TS, 150, CYAN, 0.6);
   }
 
   // ---------------- modelos ----------------
   const tile = v => v * TS;
 
-  /** Letreros: los iconos de los sitios en un atlas (una sola textura). */
+  /** Letreros: los iconos de los sitios en un atlas (una sola textura). Brillan un poco: de noche se leen. */
   let signs = null;
   function signAtlas() {
     if (signs) return signs;
     const list = V().PLACES, S = 24, [c, g] = canvas(S * list.length, S);
     list.forEach((p, i) => {
-      // Tabla de madera con su borde y el icono encima.
       g.fillStyle = WOOD[0]; g.fillRect(i * S, 0, S, S);
       g.fillStyle = WOOD[2]; g.fillRect(i * S + 1, 1, S - 2, S - 2);
       g.fillStyle = WOOD[3]; g.fillRect(i * S + 1, 1, S - 2, 1);
@@ -430,13 +538,13 @@ G.Village3D = (() => {
       try { G.Icons.draw(g, p.icon, i * S + 2, 2, S - 4); } catch (e) { /* sin icono */ }
     });
     const t = tex(c, false, true);
-    const m = new T.MeshLambertMaterial({ map: t });
+    const m = new T.MeshLambertMaterial({ map: t, emissive: new T.Color(0xffffff), emissiveMap: t, emissiveIntensity: 0.45 });
     disposables.push(m);
     signs = { mat: m, tex: t, canvas: c, n: list.length, S };
-    // Los iconos pueden no haber llegado aún: se repintan un par de veces.
     let tries = 0;
     const again = () => {
-      if (!signs || tries++ > 4) { if (signs && signs.canvas) { G.U.freeCanvas(signs.canvas); signs.canvas = null; } return; }
+      // (Al acabar, el lienzo se suelta cuando se haya subido a la GPU: la aldea se monta en el título, antes de dibujarse.)
+      if (!signs || tries++ > 4) { if (signs && signs.canvas) { const sg = signs; t.onUpdate = () => { if (sg.canvas) { G.U.freeCanvas(sg.canvas); sg.canvas = null; } t.onUpdate = null; }; t.needsUpdate = true; } return; }
       list.forEach((p, i) => { try { G.Icons.draw(g, p.icon, i * S + 2, 2, S - 4); } catch (e) { /* nada */ } });
       t.needsUpdate = true;
       setTimeout(again, 1200);
@@ -453,433 +561,693 @@ G.Village3D = (() => {
     put(g, s.mat, { x, y, z }, { hull: 1.6, cast: false });
     put(box(w + 4, w + 4, 4), woodM(), { x, y, z: z - 2.6 }, { hull: false });
   }
-
-  /** Bandera que ondea (la mueve anim). */
-  function flag(x, y, z, col, w = 22, h = 13) {
-    const g = new T.PlaneGeometry(w, h, 5, 1);
-    g.translate(w / 2, 0, 0);
-    const m = new T.MeshLambertMaterial({ color: col, side: T.DoubleSide });
-    disposables.push(g, m);
-    const mesh = new T.Mesh(g, m);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = false;
-    mesh.frustumCulled = false;
-    scene.add(mesh);
-    const p = g.attributes.position, base = Float32Array.from(p.array), ph = Math.random() * 6;
-    flags.push({ fn: t => {
-      for (let i = 0; i < p.count; i++) {
-        const bx = base[i * 3], k = bx / w;
-        p.setZ(i, base[i * 3 + 2] + Math.sin(t * 5 + ph + bx * 0.25) * 3.2 * k);
-        p.setY(i, base[i * 3 + 1] + Math.sin(t * 3.4 + ph + bx * 0.2) * 1.2 * k);
-      }
-      p.needsUpdate = true;
-    } });
-  }
-
-  function tent(p, i) {
-    const L = p.look, r = tile(L.r), n = L.shape, wallH = 48, roofH = r * 0.95, X = tile(p.x), Z = tile(p.y), sx = L.wide ? 1.32 : 1;
-    const th = n === 4 ? Math.PI / 4 : Math.PI / n;          // una cara plana mirando al sur
-    const wall = lambert('tw' + i, () => tex(stripes(n, L.a, L.b), true));
-    const roof = lambert('tr' + i, () => tex(stripes(n, L.a, L.b, 32), true), { flat: true });
-    const trim = lambert('tt' + i, () => tex(pix(16, 8, (x, y) => {
-      // Faldón de picos: triángulos colgando (transparente entre picos).
-      const lx = x % 8, d = Math.abs(lx - 3.5);
-      if (y < 3) return y === 0 ? shade(L.trim, 0.25) : L.trim;
-      return d < (8 - y) * 0.9 ? (y === 7 - (d | 0) ? shade(L.trim, -0.35) : shade(L.trim, -0.1)) : null;
-    }), true), { alphaTest: 0.5, side: T.DoubleSide });
-    // Paredes (cilindro abierto) y tejado (cono): rayas alternas, una por cara.
-    const wg = cyl(r, r * 1.03, wallH, n, true); wg.rotateY(th);
-    put(wg, wall, { x: X, y: wallH / 2, z: Z, sx }, { hull: false });
-    const hull = cyl(r, r * 1.03, wallH, n); hull.rotateY(th);
-    put(hull, wall, { x: X, y: wallH / 2, z: Z, sx }, { hull: 2.4, ghost: true });
-    const rg = cone(r * 1.2, roofH, n, true); rg.rotateY(th);
-    put(rg, roof, { x: X, y: wallH + roofH / 2 - 2, z: Z, sx }, { hull: false });
-    const rh = cone(r * 1.2, roofH, n); rh.rotateY(th);
-    put(rh, roof, { x: X, y: wallH + roofH / 2 - 2, z: Z, sx }, { hull: 2.4, ghost: true });
-    const vg = cyl(r * 1.21, r * 1.21, 10, n * 2, true); vg.rotateY(th);
-    put(vg, trim, { x: X, y: wallH - 6, z: Z, sx }, { hull: false, cast: false });
-    // Puerta: la entrada oscura con las lonas recogidas a los lados.
-    const ap = r * Math.cos(Math.PI / n) * 1.0 + 1.2, dw = Math.min(46, r * 0.62), dh = 40;
-    const door = lambert('door' + i, () => tex(pix(16, 16, (x, y) => {
-      const cxp = 7.5, top = 3 + Math.abs(x - cxp) * 0.5;
-      if (y < top - 1) return null;
-      if (x < 3 || x > 12) return (y > 4 + (x < 3 ? x : 15 - x) * 2) ? null : shade(L.b, -0.15);
-      if (y < top) return shade(L.a, -0.5);
-      return y > 13 ? '#1a1010' : (H(x, y, 3) > 0.9 ? '#3a2420' : '#2a1816');
+  /** Puerta encendida: un arco con la luz de dentro (sin luz: siempre se ve). */
+  function doorM(col) {
+    return basic('door' + col, () => tex(pix(16, 20, (x, y) => {
+      const cx = 7.5, top = 3 + Math.pow(Math.abs(x - cx) / 7.5, 2) * 5;
+      if (y < top - 1 || x < 1 || x > 14) return null;
+      if (y < top + 0.6 || x < 2 || x > 13) return '#1a1210';
+      const k = (y - top) / (20 - top);
+      return k > 0.75 ? shade(col, -0.55) : k > 0.4 ? shade(col, -0.3) : shade(col, -0.1);
     })), { alphaTest: 0.5 });
-    put(new T.PlaneGeometry(dw, dh), door, { x: X, y: dh / 2, z: Z + ap * (n === 4 ? 1.0 : 1) }, { hull: false, cast: false });
-    // Remate: mástil, bola y banderín (o la Poké Ball gigante del gacha).
-    const topY = wallH + roofH - 4;
-    if (L.ball) {
-      const bm = lambert('pball', () => tex(pix(16, 16, (x, y) => y < 7 ? (y < 2 ? '#ff7a7a' : '#e03030') : y < 9 ? '#202020' : (y > 13 ? '#c8c8c8' : '#f4f4f4')), true), { flat: true });
-      put(new T.SphereGeometry(17, 10, 8), bm, { x: X, y: topY + 14, z: Z }, { hull: 2.2 });
-      put(cyl(5, 5, 3, 10), plain('#f4f4f4'), { x: X, y: topY + 14, z: Z + 16, rx: Math.PI / 2 }, { hull: 1.4 });
-    } else {
-      put(cyl(1.6, 1.6, 30, 5), woodM(), { x: X, y: topY + 15, z: Z }, { hull: 1 });
-      put(ball(4, 0), goldM(), { x: X, y: topY + 31, z: Z }, { hull: 1.2 });
-      flag(X + 1.6, topY + 24, Z, L.flag);
-    }
-    // Letrero colgado sobre la puerta.
-    sign(i, 26, X, wallH + 10, Z + ap * 1.08 + 4);
-    // Estacas y cuerdas (dos a cada lado).
-    for (const s of [-1, 1]) put(box(4, 12, 4), woodM(), { x: X + s * (r * sx + 14), y: 6, z: Z + r * 0.4 }, { hull: 1.2 });
+  }
+  /** Antena de la tribu con su luz que parpadea. */
+  function antenna(x, y, z, col, h = 34) {
+    put(cyl(1.4, 2, h, 5), metalM(), { x, y: y + h / 2, z }, { hull: 1 });
+    put(box(10, 2, 2), metalM(), { x, y: y + h * 0.7, z }, { hull: false });
+    blink(x, y + h + 3, z, col);
+  }
+  function blink(x, y, z, col, r = 3.4) {
+    const m = new T.MeshBasicMaterial({ color: col });
+    disposables.push(m);
+    const mesh = loose(ball(r, 0), m, x, y, z);
+    const ph = H(x | 0, z | 0, 5) * 6;
+    anim.push({ fn: t => { mesh.visible = Math.sin(t * 2.4 + ph) > -0.4; } });
+    return mesh;
   }
 
+  /** Vaina de la tribu (las carpas): un capullo de hojas sobre costillas de madera, con su anillo de luz. */
+  const FORMS = {
+    bulb: [[0.92, 0], [1, 0.16], [1.04, 0.36], [0.96, 0.56], [0.74, 0.76], [0.44, 0.9], [0.14, 0.98], [0, 1]],
+    dome: [[1, 0], [1.03, 0.22], [0.94, 0.5], [0.7, 0.78], [0.36, 0.95], [0, 1]],
+    cone: [[1, 0], [0.96, 0.24], [0.74, 0.5], [0.46, 0.74], [0.18, 0.93], [0, 1]],
+    wide: [[1, 0], [1.03, 0.22], [0.94, 0.5], [0.7, 0.78], [0.36, 0.95], [0, 1]]
+  };
+  function pod(p, i) {
+    const L = p.look, R = tile(L.r), X = tile(p.x), Z = tile(p.y), sx = L.wide ? 1.32 : 1;
+    const Hh = { bulb: 128, dome: 112, cone: 136, wide: 104 }[L.form] || 120;
+    const prof = FORMS[L.form] || FORMS.dome, n = 10;
+    const shell = lambert('pod' + i, () => tex(scales(n, L.a, 32, i), true), { flat: true });
+    const g = lathe(prof.map(([r, y]) => [r * R, y * Hh]), n);
+    g.rotateY(Math.PI / n);
+    put(g, shell, { x: X, y: 0, z: Z, sx }, { hull: 2.4 });
+    // Anillos de luz (abajo y arriba): aros finos del color de la carpa.
+    const rAt = yk => { for (let k = 1; k < prof.length; k++) if (prof[k][1] >= yk) { const a = prof[k - 1], b = prof[k], u = (yk - a[1]) / (b[1] - a[1]); return (a[0] + (b[0] - a[0]) * u) * R; } return 0; };
+    for (const yk of [0.3, 0.72]) {
+      const tg = new T.TorusGeometry(rAt(yk) + 1.5, 2.2, 4, 20); tg.rotateX(Math.PI / 2);
+      put(tg, glowM(L.glow, 1.1), { x: X, y: yk * Hh, z: Z, sx }, { hull: false, cast: false });
+    }
+    // Puerta encendida y su letrero.
+    const zf = Z + rAt(0.2) + 1.6;
+    put(new T.PlaneGeometry(40, 50), doorM(L.glow), { x: X, y: 25, z: zf }, { hull: false, cast: false });
+    sign(i, 24, X, 66, Z + rAt(0.5) + 4);
+    glow(X, zf + 10, 70, L.glow, 0.8);
+    // Remate: la Poké Ball que brilla (gacha) o una antena.
+    if (L.ball) {
+      const bm = glowTexM('pball', () => tex(pix(16, 16, (x, y) => y < 7 ? (y < 2 ? '#ff9a9a' : '#e83a5a') : y < 9 ? '#101010' : (y > 13 ? '#b8b8c8' : '#f4f4f8')), true), '#ffffff', 0.35, { flatShading: true });
+      put(new T.SphereGeometry(18, 10, 8), bm, { x: X, y: Hh + 14, z: Z }, { hull: 2.2 });
+      put(cyl(5, 5, 3, 10), glowM('#ffffff', 0.9), { x: X, y: Hh + 14, z: Z + 17, rx: Math.PI / 2 }, { hull: 1.4 });
+      sparkle(X, Hh + 20, Z, 8);
+    } else antenna(X, Hh - 4, Z, L.glow);
+    // Raíces que la sujetan al suelo.
+    for (const s of [-1, 1]) {
+      const rg = cone(7, 40, 5); rg.rotateZ(Math.PI / 2); rg.translate(20, 0, 0);
+      put(rg, barkM(), compose({ x: X + s * R * sx * 0.92, y: 5, z: Z + R * 0.35, ry: s > 0 ? -0.4 : Math.PI + 0.4, rz: -0.25 }), { hull: 1.4 });
+    }
+    tops[p.id] = Hh + (L.ball ? 40 : 30);
+  }
+
+  /** Tienda Kecleon: mostrador de raíz, toldo de holograma y frutas que brillan. */
   function stall(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y), w = tile(p.w) - 10;
-    // Pared del fondo, mostrador delante, postes y toldo a rayas con picos.
-    put(box(w, 74, 10), woodM(), { x: X, y: 37, z: Z - 24 });
+    put(box(w, 74, 10), lambert('weave', () => tex(scales(4, '#2a5a3a', 32, 9), true)), { x: X, y: 37, z: Z - 24 });
     put(box(w - 8, 34, 26), woodM(), { x: X, y: 17, z: Z + 30 });
-    put(box(w - 4, 4, 30), lambert('woodTop', () => tex(pix(16, 16, (x, y) => WOOD[y % 5 === 0 ? 1 : 3]), true)), { x: X, y: 36, z: Z + 30 }, { hull: 1.2 });
-    // (El toldo va alto y corto, pegado a la pared del fondo: con la cámara desde arriba, uno largo tapaba a Kecleon.)
+    put(box(w - 4, 4, 30), glowM(L.glow, 0.45), { x: X, y: 36, z: Z + 30 }, { hull: 1.2 });
     for (const sx of [-1, 1]) {
-      put(box(6, 116, 6), woodM(), { x: X + sx * (w / 2 - 3), y: 58, z: Z - 24 }, { hull: 1.2 });
-      put(box(6, 94, 6), woodM(), { x: X + sx * (w / 2 - 3), y: 47, z: Z + 4 }, { hull: 1.2 });
+      put(box(6, 116, 6), barkM(), { x: X + sx * (w / 2 - 3), y: 58, z: Z - 24 }, { hull: 1.2 });
+      put(box(6, 94, 6), barkM(), { x: X + sx * (w / 2 - 3), y: 47, z: Z + 4 }, { hull: 1.2 });
     }
-    const aw = lambert('aw' + i, () => tex(stripes(8, L.a, L.b, 16), true), { side: T.DoubleSide, flat: true });
-    put(new T.PlaneGeometry(w + 16, 40), aw, compose({ x: X, y: 104, z: Z - 8, rx: -Math.PI / 2 + 0.6 }), { hull: 1.6 });
-    const trim = lambert('awt' + i, () => tex(pix(16, 8, (x, y) => {
-      const lx = x % 8, d = Math.abs(lx - 3.5), col = (x >> 3) % 2 ? L.b : L.a;
-      return y < 2 ? col : d < (8 - y) * 0.8 ? shade(col, y > 5 ? -0.3 : -0.1) : null;
-    }), true), { alphaTest: 0.5, side: T.DoubleSide });
-    put(new T.PlaneGeometry(w + 16, 12), trim, { x: X, y: 86, z: Z + 9 }, { hull: false, cast: false, uv: [(w + 16) / 32, 1] });
-    // Género: manzanas, bayas y cajas sobre el mostrador.
-    const fruit = [['#d83a2a', -40], ['#3a6ad8', -22], ['#e8b030', 18], ['#d83a2a', 34], ['#8a3ac0', 50]];
-    for (const [col, dx] of fruit) put(ball(6, 1), plain(col, { flat: true }), { x: X + dx, y: 44, z: Z + 30 + (H(dx, 1, 3) - 0.5) * 10 }, { hull: 1.2 });
+    // Toldo: un panel de luz (alto y corto, pegado al fondo: con la cámara desde arriba, uno largo tapaba a Kecleon).
+    const holo = basic('holo' + L.glow, () => tex(pix(16, 8, (x, y) => (y === 0 || y === 7 || x % 8 === 0) ? shade(L.glow, 0.2) : (y % 2 ? shade(L.glow, -0.35) : shade(L.glow, -0.15)), true)),
+      { transparent: true, opacity: 0.7, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
+    const aw = new T.Mesh(new T.PlaneGeometry(w + 16, 40), holo);
+    disposables.push(aw.geometry);
+    aw.position.set(X, 104, Z - 8); aw.rotation.x = -Math.PI / 2 + 0.6; aw.frustumCulled = false; aw.renderOrder = 12;
+    (sink || scene).add(aw);
+    anim.push({ fn: t => { holo.opacity = 0.55 + 0.15 * Math.sin(t * 3.1) * Math.sin(t * 7.7); } });
+    for (const s of [-1, 0, 1]) { put(cyl(0.6, 0.6, 14, 3), metalM(), { x: X + s * 46, y: 93, z: Z + 4 }, { hull: false, cast: false }); put(ball(4, 0), glowM([CYAN, PINK, GREEN][s + 1], 1.2), { x: X + s * 46, y: 85, z: Z + 4 }, { hull: 1 }); }
+    const fruit = [[PINK, -40], [CYAN, -22], [AMBER, 18], [PINK, 34], [VIOLET, 50]];
+    for (const [col, dx] of fruit) put(ball(6, 1), glowM(col, 0.7, { flatShading: true }), { x: X + dx, y: 44, z: Z + 30 + (H(dx, 1, 3) - 0.5) * 10 }, { hull: 1.2 });
     put(box(22, 14, 16), woodM(), { x: X - 2, y: 45, z: Z + 28 }, { hull: 1.2 });
     sign(i, 26, X, 132, Z - 20);
+    glow(X, Z + 40, 80, L.glow, 0.7);
+    tops[p.id] = 146;
   }
 
-  function hut(p, i, house = false) {
-    const X = tile(p.x), Z = tile(p.y), w = tile(p.w) - 8, d = tile(p.h) - 12, wh = house ? 70 : 62;
-    const wallM = house
-      ? lambert('plaster', () => tex(pix(32, 32, (x, y) => (x % 16 === 0 || y === 31 || y === 0) ? WOOD[1] : (H(x >> 1, y >> 1, 61) > 0.8 ? '#e6d8b4' : '#f2e6c6')), true))
-      : woodM();
-    put(box(w, wh, d), wallM, { x: X, y: wh / 2, z: Z });
-    const roofCol = house ? '#c0453a' : '#7a5a3a';
-    const roofM = lambert('roof' + house, () => tex(pix(32, 32, (x, y) => {
-      const r = ramp(roofCol), row = y >> 2, off = (row % 2) * 4;
-      if (y % 4 === 3) return r[0];
-      return (x + off) % 8 === 0 ? r[1] : H((x + off) >> 3, row, 62) > 0.7 ? r[3] : r[2];
-    }), true), { flat: true });
-    put(gable(w + 22, d + 22, house ? 58 : 46), roofM, { x: X, y: wh - 2, z: Z }, { uv: [1, (d + 22) / 32 * 0.5] });
-    // Puerta y ventanas (de noche se encienden).
-    const doorM = lambert('hdoor', () => tex(pix(12, 20, (x, y) => (x === 0 || x === 11 || y === 0) ? WOOD[0] : (x === 8 && y === 11) ? GOLD[3] : WOOD[(x % 4 === 0) ? 1 : 2])));
-    put(box(26, 42, 3), doorM, { x: X + (house ? -22 : 0), y: 21, z: Z + d / 2 + 1.5 }, { hull: 1.2 });
-    if (house) {
-      for (const dx of [26]) put(box(26, 22, 3), lights.window, { x: X + dx, y: 40, z: Z + d / 2 + 1.5 }, { hull: 1.6 });
-      put(box(30, 8, 8), woodM(), { x: X + 26, y: 26, z: Z + d / 2 + 4 }, { hull: 1.2 });
-      for (let k = 0; k < 4; k++) put(ball(4, 0), plain(['#e84a6a', '#f0d040', '#e84a6a', '#ffffff'][k], { flat: true }), { x: X + 16 + k * 7, y: 32, z: Z + d / 2 + 5 }, { hull: false, cast: false });
-      put(box(16, 40, 16), stoneM(), { x: X + w / 2 - 16, y: wh + 42, z: Z - 6 });
-      smoke(X + w / 2 - 16, wh + 64, Z - 6);
-    } else {
-      put(cyl(11, 11, 26, 8), woodM(), { x: X + w / 2 + 2, y: 13, z: Z + d / 2 + 8 }, { hull: 1.4 });
+  /** Almacén: una seta gigante con su puerta en el pie y lunares que brillan. */
+  function mush(p, i) {
+    const L = p.look, X = tile(p.x), Z = tile(p.y);
+    put(cyl(40, 48, 70, 10), paleM(), { x: X, y: 35, z: Z }, { hull: 2 });
+    const capM = lambert('mcap' + i, () => tex(pix(32, 16, (x, y) => { const r = ramp(L.a); return y > 13 ? r[0] : H(x >> 1, y >> 1, 71) > 0.8 ? r[3] : r[2]; }), true), { flat: true });
+    put(cap(92, 12), capM, { x: X, y: 62, z: Z, sy: 0.56 }, { hull: 2.6 });
+    for (let k = 0; k < 9; k++) {
+      const a = k * 2.4 + 0.3, rr = 30 + (k % 3) * 18, yy = 62 + Math.sqrt(Math.max(0, 1 - (rr / 92) ** 2)) * 92 * 0.56;
+      put(ball(7 - (k % 3), 0), glowM(L.glow, 1), { x: X + Math.cos(a) * rr, y: yy, z: Z + Math.sin(a) * rr * 0.9, sy: 0.4 }, { hull: false, cast: false });
     }
-    sign(i, 24, X + (house ? -22 : 0), 56, Z + d / 2 + 4);
+    put(new T.PlaneGeometry(30, 42), doorM(AMBER), { x: X, y: 21, z: Z + 47.5 }, { hull: false, cast: false });
+    put(new T.PlaneGeometry(14, 12), doorM(AMBER), { x: X + 26, y: 46, z: Z + 42 }, { hull: false, cast: false });
+    put(cyl(11, 11, 26, 8), woodM(), { x: X + 62, y: 13, z: Z + 36 }, { hull: 1.4 });
+    sign(i, 22, X, 56, Z + 47);
+    glow(X, Z + 60, 70, AMBER, 0.6);
+    tops[p.id] = 128;
   }
 
+  /** Tótem de misiones: dos postes tallados y una pantalla de holograma con los encargos. */
   function board(p, i) {
-    const X = tile(p.x), Z = tile(p.y), w = tile(p.w) - 14;
-    for (const s of [-1, 1]) put(box(7, 92, 7), woodM(), { x: X + s * (w / 2 - 2), y: 46, z: Z });
-    const cork = lambert('cork', () => tex(pix(48, 24, (x, y) => {
-      // Corcho con papeles clavados (misiones).
-      const papers = [[3, 3, 10, 9], [16, 2, 11, 12], [30, 4, 9, 8], [41, 3, 5, 9], [6, 14, 12, 8], [22, 15, 10, 7], [35, 14, 10, 8]];
+    const L = p.look, X = tile(p.x), Z = tile(p.y), w = tile(p.w) - 14;
+    for (const s of [-1, 1]) {
+      put(box(9, 96, 9), lambert('carved', () => tex(pix(8, 32, (x, y) => (y % 8 === 0) ? WOOD[0] : (y % 8 === 3 && (x === 2 || x === 5)) ? '#101010' : WOOD[x === 0 ? 1 : 2]), true)), { x: X + s * (w / 2 - 2), y: 48, z: Z }, { hull: 1.4 });
+      put(crystal(5, 12), glowM(L.glow, 1.2, { flatShading: true }), { x: X + s * (w / 2 - 2), y: 106, z: Z }, { hull: 1 });
+    }
+    const screen = basic('bscreen', () => tex(pix(48, 24, (x, y) => {
+      const papers = [[3, 3, 10, 8], [16, 2, 11, 10], [30, 4, 9, 7], [41, 3, 5, 8], [6, 14, 12, 7], [22, 15, 10, 6], [35, 14, 10, 7]];
       for (const [px0, py0, pw, ph] of papers) if (x >= px0 && x < px0 + pw && y >= py0 && y < py0 + ph) {
-        if (y === py0 && x === px0 + (pw >> 1)) return '#d83a3a';
-        return (y - py0) % 2 === 0 && y > py0 + 1 && x > px0 && x < px0 + pw - 1 ? '#8a8a98' : '#f4f0e4';
+        if (y === py0 || x === px0) return '#d8ffff';
+        return (y - py0) % 2 === 0 && x > px0 + 1 && x < px0 + pw - 1 ? '#5ac8d8' : '#2a7a8a';
       }
-      if (x === 0 || y === 0 || x === 47 || y === 23) return WOOD[1];
-      return H(x, y, 71) > 0.5 ? '#b8864e' : '#a6763e';
-    })));
-    put(box(w, 50, 5), cork, { x: X, y: 60, z: Z + 3 });
-    put(gable(w + 18, 22, 14), lambert('roofb', () => tex(noisy(16, 16, ramp('#3a7a4a'), 72), true), { flat: true }), { x: X, y: 88, z: Z });
+      if (x === 0 || y === 0 || x === 47 || y === 23) return '#8af4ff';
+      return y % 3 === 0 ? '#0c3038' : '#0a242c';
+    })), { transparent: true, opacity: 0.86 });
+    const sc = loose(new T.PlaneGeometry(w, 50), screen, X, 60, Z + 3, 6);
+    anim.push({ fn: t => { screen.opacity = 0.8 + 0.08 * Math.sin(t * 9) * (Math.sin(t * 1.7) > 0.8 ? 1 : 0.2); sc.position.y = 60 + Math.sin(t * 1.5) * 0.8; } });
+    put(gable(w + 18, 22, 14), lambert('roofb', () => tex(noisy(16, 16, ramp('#1f573c'), 72), true), { flat: true }), { x: X, y: 88, z: Z });
     sign(i, 20, X, 22, Z + 6);
+    glow(X, Z + 20, 70, L.glow, 0.8);
+    tops[p.id] = 124;
   }
 
+  /** Vitrina de logros: pedestal de piedra con musgo, la copa que flota y cristales. */
   function showcase(p, i) {
-    const X = tile(p.x), Z = tile(p.y);
-    put(box(78, 14, 50), stoneM(), { x: X, y: 7, z: Z });
-    put(box(62, 26, 38), stoneM(), { x: X, y: 27, z: Z });
-    // Copa dorada (torno) y dos medallas.
+    const L = p.look, X = tile(p.x), Z = tile(p.y);
+    put(box(78, 14, 50), mossStoneM(), { x: X, y: 7, z: Z });
+    put(box(62, 26, 38), mossStoneM(), { x: X, y: 27, z: Z });
     const prof = [[0, 0], [12, 0], [12, 3], [4, 6], [4, 16], [16, 24], [19, 40], [14, 40], [12, 28], [0, 26]].map(([x, y]) => new T.Vector2(x, y));
-    put(new T.LatheGeometry(prof, 10), goldM(), { x: X, y: 40, z: Z }, { hull: 1.6 });
-    for (const s of [-1, 1]) put(cyl(8, 8, 3, 10), goldM(), { x: X + s * 30, y: 52, z: Z + 6, rx: Math.PI / 2 - 0.2 }, { hull: 1.2 });
-    for (const s of [-1, 1]) put(box(3, 22, 3), plain('#3a5ad8'), { x: X + s * 30, y: 64, z: Z + 3 }, { hull: false, cast: false });
+    const cup = loose(new T.LatheGeometry(prof, 10), goldM(), X, 46, Z);
+    anim.push({ fn: t => { cup.position.y = 46 + Math.sin(t * 1.6) * 3; cup.rotation.y = t * 0.6; } });
+    for (const s of [-1, 1]) put(crystal(6, 20), glowM(L.glow, 1, { flatShading: true }), { x: X + s * 30, y: 56, z: Z + 4, rz: s * 0.25 }, { hull: 1.2 });
+    const ring = new T.TorusGeometry(26, 1.6, 4, 20); ring.rotateX(Math.PI / 2);
+    put(ring, glowM(L.glow, 1.2), { x: X, y: 41, z: Z }, { hull: false, cast: false });
     sign(i, 18, X, 20, Z + 26);
     sparkle(X, 70, Z, 10);
+    glow(X, Z + 10, 70, L.glow, 0.8);
+    tops[p.id] = 104;
   }
 
   function podium(p, i) {
-    const X = tile(p.x), Z = tile(p.y);
+    const L = p.look, X = tile(p.x), Z = tile(p.y);
     const step = (dx, h, col, num) => {
-      const m = lambert('pod' + num, () => tex(pix(16, 16, (x, y) => {
-        // Número del puesto (1, 2 o 3) en la cara.
-        const D = { 1: ['.##.', '###.', '.##.', '.##.', '.##.', '####'], 2: ['###.', '...#', '.##.', '#...', '#...', '####'], 3: ['###.', '...#', '.##.', '...#', '...#', '###.'] }[num];
-        const gx = x - 6, gy = y - 5;
-        if (gx >= 0 && gx < 4 && gy >= 0 && gy < 6 && D[gy][gx] === '#') return '#ffffff';
-        return y < 2 ? shade(col, 0.3) : (y > 13 ? shade(col, -0.25) : col);
-      })));
+      const D = { 1: ['.##.', '###.', '.##.', '.##.', '.##.', '####'], 2: ['###.', '...#', '.##.', '#...', '#...', '####'], 3: ['###.', '...#', '.##.', '...#', '...#', '###.'] }[num];
+      const on = (x, y) => { const gx = x - 6, gy = y - 5; return gx >= 0 && gx < 4 && gy >= 0 && gy < 6 && D[gy][gx] === '#'; };
+      const m = glowTexM('podn' + num, () => tex(pix(16, 16, (x, y) => on(x, y) ? '#ffffff' : null)), L.glow, 1);
+      m.map = tex(pix(16, 16, (x, y) => on(x, y) ? '#ffffff' : y < 2 ? shade(col, 0.3) : (y > 13 ? shade(col, -0.25) : col)));
       put(box(50, h, 46), m, { x: X + dx, y: h / 2, z: Z });
     };
-    step(0, 48, '#d8a828', 1); step(-52, 32, '#9aa4b4', 2); step(52, 22, '#b8743a', 3);
+    step(0, 48, '#4a5a66', 1); step(-52, 32, '#3e4a56', 2); step(52, 22, '#343e48', 3);
     const prof = [[0, 0], [9, 0], [9, 2], [3, 5], [3, 12], [12, 17], [14, 30], [10, 30], [9, 21], [0, 19]].map(([x, y]) => new T.Vector2(x, y));
     put(new T.LatheGeometry(prof, 10), goldM(), { x: X, y: 48, z: Z }, { hull: 1.6 });
     sign(i, 18, X - 52, 46, Z + 18);
     sparkle(X, 86, Z, 8);
+    glow(X, Z + 16, 80, L.glow, 0.6);
+    tops[p.id] = 104;
   }
 
   function mailbox(p, i) {
-    const X = tile(p.x), Z = tile(p.y);
-    put(box(6, 46, 6), woodM(), { x: X, y: 23, z: Z });
-    const red = plain('#d0403a', { flat: true });
-    put(box(28, 18, 36), red, { x: X, y: 52, z: Z });
-    const top = cyl(14, 14, 36, 10); top.rotateX(Math.PI / 2);
-    put(top, red, { x: X, y: 61, z: Z }, { hull: 1.6 });
-    put(box(22, 3, 2), plain('#202020'), { x: X, y: 56, z: Z + 18.5 }, { hull: false, cast: false });
-    // Banderita: arriba si hay novedades sin leer (village.js: mailFlag).
-    const fm = new T.Mesh(new T.BoxGeometry(2.4, 18, 2.4), plain('#f0d040'));
-    const fl = new T.Mesh(new T.BoxGeometry(10, 7, 2), plain('#f0d040'));
+    const L = p.look, X = tile(p.x), Z = tile(p.y);
+    put(cyl(3, 5, 46, 5), barkM(), { x: X, y: 23, z: Z });
+    put(ball(19, 1), lambert('mpod', () => tex(scales(4, '#7a5a2a', 16, 4), true), { flat: true }), { x: X, y: 58, z: Z, sx: 0.9, sz: 1.1, sy: 0.85 }, { hull: 1.8 });
+    put(box(18, 3, 2), glowM(L.glow, 1.2), { x: X, y: 58, z: Z + 20 }, { hull: false, cast: false });
+    const fm = new T.Mesh(new T.BoxGeometry(2.4, 18, 2.4), plain('#e8e0c8'));
+    const fl = new T.Mesh(new T.BoxGeometry(10, 7, 2), glowM(AMBER, 1.3));
     fl.position.set(5, 7, 0);
     const pivot = new T.Group();
     pivot.add(fm, fl);
     fm.position.y = 9;
-    pivot.position.set(X + 16, 50, Z + 6);
+    pivot.position.set(X + 16, 54, Z + 6);
     disposables.push(fm.geometry, fl.geometry);
-    scene.add(pivot);
+    (sink || scene).add(pivot);
     mailPivot = pivot;
-    sign(i, 14, X, 30, Z + 4);
+    sign(i, 14, X, 30, Z + 6);
+    glow(X, Z + 14, 44, L.glow, 0.6);
+    tops[p.id] = 90;
   }
-  let mailPivot = null;
 
+  /** Terminal de ajustes: un tocón con su pantalla y cables. */
   function pc(p, i) {
-    const X = tile(p.x), Z = tile(p.y);
-    put(box(52, 40, 34), lambert('pcb', () => tex(pix(16, 16, (x, y) => y === 0 ? '#c8d0dc' : (x === 0 || x === 15) ? '#6a7484' : (y % 5 === 4 ? '#7a8494' : '#98a2b2')), true)), { x: X, y: 20, z: Z });
-    const screen = lambert('pcs', () => tex(pix(20, 14, (x, y) => {
-      if (x === 0 || y === 0 || x === 19 || y === 13) return '#2a3040';
+    const L = p.look, X = tile(p.x), Z = tile(p.y);
+    put(cyl(28, 34, 36, 9), barkM(), { x: X, y: 18, z: Z }, { hull: 2 });
+    put(cyl(28, 28, 2, 9), lambert('rings', () => tex(pix(16, 16, (x, y) => { const r = Math.hypot(x - 7.5, y - 7.5); return (r | 0) % 3 === 0 ? WOOD[1] : WOOD[3]; }))), { x: X, y: 37, z: Z }, { hull: false });
+    const screen = glowTexM('pcs', () => tex(pix(20, 14, (x, y) => {
+      if (x === 0 || y === 0 || x === 19 || y === 13) return '#1a2a38';
       const cx = x - 9.5, cy = y - 6.5, r = Math.hypot(cx, cy);
-      if (r < 4.6 && r > 2 && (Math.atan2(cy, cx) * 8 / Math.PI | 0) % 2 === 0) return '#e8f4ff';
-      if (r <= 2.2 && r > 1) return '#e8f4ff';
-      return y % 3 === 0 ? '#3a8ad8' : '#4aa0f0';
-    })), { emissive: new T.Color(0x1a4a80) });
+      if (r < 4.6 && r > 2 && (Math.atan2(cy, cx) * 8 / Math.PI | 0) % 2 === 0) return '#e8ffff';
+      if (r <= 2.2 && r > 1) return '#e8ffff';
+      return y % 3 === 0 ? '#2a8aa8' : '#3aa8c8';
+    })), '#ffffff', 0.9);
     put(box(46, 32, 6), screen, compose({ x: X, y: 58, z: Z + 2, rx: -0.18 }), { hull: 1.6 });
-    put(box(56, 4, 40), plain('#5a6474'), { x: X, y: 41, z: Z }, { hull: 1.2 });
-    sign(i, 14, X + 22, 26, Z + 18);
+    put(box(8, 22, 6), metalM(), { x: X, y: 44, z: Z - 2 }, { hull: 1 });
+    for (const s of [-1, 1]) {
+      const cg = new T.TorusGeometry(16, 1.4, 3, 8, Math.PI); cg.rotateY(Math.PI / 2);
+      put(cg, plain('#14181c'), { x: X + s * 22, y: 4, z: Z + 18 }, { hull: false, cast: false });
+    }
+    sign(i, 14, X + 22, 26, Z + 26);
+    glow(X, Z + 26, 56, L.glow, 0.8);
+    tops[p.id] = 92;
   }
 
-  /** El monumento: un árbol enorme con un portal en el tronco (decisión del dueño). */
-  function portalTree(p, i) {
-    const X = tile(p.x), Z = tile(p.y);
-    // Raíces que se abren en el suelo, tronco grueso y algo torcido, copa de muchas bolas de hojas.
-    for (let k = 0; k < 7; k++) {
-      const a = (k / 7) * Math.PI * 2 + 0.3, len = 70 + H(k, 1, 81) * 40;
-      const g = cone(18 + H(k, 2, 81) * 8, len, 5); g.rotateZ(Math.PI / 2); g.translate(len / 2, 0, 0);
-      put(g, barkM(), compose({ x: X + Math.cos(a) * 50, y: 8, z: Z + Math.sin(a) * 34, ry: -a, rz: -0.22 }), { hull: 2 });
+  /*
+   * El monumento: la Flor del Portal (decisión del dueño). Una flor enorme, abierta hacia la cámara, con el portal que
+   * gira en el centro, un aro de la tribu con sus luces, estambres que brillan y hojas grandes en el suelo.
+   * (Con la cámara desde arriba lo alto sube en la pantalla lo que mide: por eso los pétalos se echan hacia atrás y la
+   *  flor queda ancha y baja.)
+   */
+  function flower(p, i) {
+    const X = tile(p.x), Z = tile(p.y), cy = 74, cz = Z + 40;
+    // Hojas en el suelo y raíces.
+    const bigLeaf = lambert('bleaf', () => tex(pix(16, 32, (x, y) => (x === 7 || x === 8) ? '#5aa860' : ((x + y) % 7 === 0 ? '#245a34' : '#2e7040')), true), { flat: true });
+    // (Sólo a los lados: delante tapaban los escalones.)
+    for (const k of [0, 1, 5, 6]) {
+      const a = Math.PI * (0.05 + k / 6 * 0.9) + Math.PI, len = 80 + H(k, 3, 81) * 26;
+      const lg = ball(1, 1); lg.scale(len * 0.55, 6, 26);
+      put(lg, bigLeaf, { x: X + Math.cos(a) * len * 0.7, y: 6, z: Z + 10 - Math.sin(a) * len * 0.45, ry: -a }, { hull: 2 });
     }
-    // (Con la cámara desde arriba lo alto sube en la pantalla lo que mide: un árbol alto se sale por arriba. Por eso es más
-    //  ancho que alto, con la copa baja justo encima del portal, como un árbol viejo enorme.)
-    put(cyl(80, 96, 84, 11), barkM(), { x: X, y: 42, z: Z }, { hull: 2.6 });
-    put(cyl(62, 80, 52, 10), barkM(), { x: X + 4, y: 110, z: Z - 6 }, { hull: 2.6 });
-    // Ramas gruesas hacia los lados (salen de debajo de la copa).
-    for (const [dx, dy, rz, len] of [[-40, 120, 1.05, 120], [44, 126, -1.0, 124], [-10, 132, 0.25, 70]]) {
-      const g = cyl(11, 22, len, 6); g.translate(0, len / 2, 0);
-      put(g, barkM(), compose({ x: X + dx, y: dy, z: Z - 10, rz }), { hull: 1.8 });
+    // Tallo grueso detrás del portal.
+    put(cyl(26, 36, cy + 10, 9), lambert('stem', () => tex(noisy(16, 16, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 83), true)), { x: X, y: (cy + 10) / 2, z: Z }, { hull: 2.2 });
+    // Pétalos: un anillo de óvalos alrededor del portal, abiertos y echados hacia atrás.
+    const petal = glowTexM('petal', () => tex(pix(16, 32, (x, y) => {
+      const c = Math.abs(x - 7.5);
+      if (c < 1 && y > 4) return '#ffd0f4';                                       // nervio que brilla
+      return y > 26 ? '#5a2a7a' : y > 16 ? (c > 5 ? '#8a3aa8' : '#b04ac0') : (c > 5 ? '#c45ab8' : '#e070c8');
+    }), true), '#ff7ad8', 0.35, { flatShading: true });
+    const NP = 11;
+    for (let k = 0; k < NP; k++) {
+      const a = (k / NP) * Math.PI * 2 + 0.15, len = 74 + (k % 2) * 10;
+      if (Math.sin(a) < -0.6) continue;               // (los de abajo se meterían en el suelo)
+      const r0 = 52, px = X + Math.cos(a) * (r0 + len * 0.42), py = cy + Math.sin(a) * (r0 + len * 0.42) * 0.82;
+      // Elipsoide aplastado: largo en su eje, girado hacia fuera y echado hacia atrás.
+      const g = ball(1, 1); g.scale(len * 0.32, len * 0.5, 7);
+      put(g, petal, compose({ x: px, y: Math.max(8, py), z: cz - 18 - Math.max(0, Math.sin(a)) * 26, rz: a - Math.PI / 2, rx: -0.55, order: 'ZXY' }), { hull: 2.2 });
     }
-    // Copa: bolas de hojas (caras planas), anchas y bajas; las de delante, por encima del arco del portal.
-    const blobs = [[0, 196, -34, 112], [-128, 168, -22, 88], [132, 172, -26, 90], [-66, 234, -56, 86], [74, 236, -60, 88],
-                   [0, 262, -74, 76], [-196, 146, -8, 62], [200, 150, -12, 64], [-60, 160, 22, 66], [64, 164, 20, 68], [0, 150, 30, 58]];
-    for (const [dx, dy, dz, r] of blobs) put(ball(r, 1), leafM(), { x: X + dx, y: dy, z: Z + dz, sy: 0.7 }, { hull: 2.6 });
-    // Lianas que cuelgan.
-    const vine = lambert('vine', () => tex(pix(4, 32, (x, y) => (x === 1 || (x === 2 && y % 6 < 2)) ? LEAF[(y % 5) ? 1 : 2] : (x === 0 && y % 7 === 3) ? LEAF[3] : null)), { alphaTest: 0.5, side: T.DoubleSide });
-    for (const [dx, len, dz] of [[-110, 70, 40], [-150, 50, 30], [118, 64, 40], [160, 44, 30], [-70, 30, 70], [76, 34, 70]]) put(new T.PlaneGeometry(8, len), vine, { x: X + dx, y: 138 - len / 2, z: Z + dz }, { hull: false, cast: false });
-    // El portal: un arco hundido en el tronco, con su marco de corteza clara y el remolino dentro (shader).
-    const pw = 64, ph = 86, pz = Z + 84;
-    const rim = lambert('rim', () => tex(noisy(8, 16, ['#6a4a2c', '#8a6238', '#a87a46', '#c89a5c'], 82), true));
-    const arch = new T.TorusGeometry(pw / 2 + 4, 6, 4, 12, Math.PI);
-    put(arch, rim, { x: X, y: ph - pw / 2, z: pz - 2 }, { hull: 1.6 });
-    for (const s of [-1, 1]) put(box(12, ph - pw / 2, 10), rim, { x: X + s * (pw / 2 + 4), y: (ph - pw / 2) / 2, z: pz - 2 }, { hull: 1.6 });
-    put(box(pw + 30, 6, 24), stoneM(), { x: X, y: 3, z: pz + 14 }, { hull: 1.4 });
-    put(box(pw + 50, 4, 22), stoneM(), { x: X, y: 2, z: pz + 34 }, { hull: 1.4 });
-    portal(X, ph, pz, pw);
-    // Setas que brillan entre las raíces (de noche, más).
-    for (const [dx, dz, s] of [[-96, 40, 1], [-80, 62, 0.8], [100, 44, 1.1], [86, 66, 0.8], [-40, 76, 0.7], [44, 80, 0.7]]) {
-      put(cyl(1.6 * s, 2.2 * s, 9 * s, 5), plain('#f4ead0'), { x: X + dx, y: 4.5 * s, z: Z + dz }, { hull: false, cast: false });
-      put(new T.SphereGeometry(7 * s, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2), lights.mush, { x: X + dx, y: 8 * s, z: Z + dz }, { hull: 1.2, cast: false });
+    // Aro de la tribu alrededor del portal, con luces.
+    const ring = new T.TorusGeometry(50, 5, 5, 24);
+    put(ring, metalM(), { x: X, y: cy, z: cz }, { hull: 1.6 });
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * Math.PI * 2;
+      put(box(6, 6, 6), glowM(k % 2 ? CYAN : PINK, 1.3), { x: X + Math.cos(a) * 50, y: cy + Math.sin(a) * 50, z: cz + 4, rz: a }, { hull: 1 });
     }
-    sparkle(X, 150, Z + 40, 16, true);
+    portal(X, cy, cz + 1, 46);
+    // Estambres que brillan, a los lados del aro.
+    for (const [dx, dy, h] of [[-66, -18, 36], [-58, 30, 30], [66, -18, 36], [58, 30, 30], [-30, 58, 26], [30, 58, 26]]) {
+      put(cyl(1.2, 1.6, h, 4), plain('#d8f0c0'), compose({ x: X + dx, y: cy + dy + h / 2, z: cz + 6, rz: -dx / 200 }), { hull: false, cast: false });
+      put(ball(4.5, 0), glowM('#fff27a', 1.3), { x: X + dx - dx / 200 * h, y: cy + dy + h, z: cz + 6 }, { hull: 1 });
+    }
+    // Escalones de piedra delante y cables hasta los pilones.
+    put(box(110, 6, 24), mossStoneM(), { x: X, y: 3, z: cz + 34 }, { hull: 1.4 });
+    put(box(140, 4, 22), mossStoneM(), { x: X, y: 2, z: cz + 54 }, { hull: 1.4 });
+    cable([X - 50, 30, cz], [tile(19.6), 58, tile(9.2)], 24);
+    cable([X + 50, 30, cz], [tile(26.4), 58, tile(9.2)], 24);
+    sparkle(X, cy + 50, cz, 18, true);
+    glow(X, cz + 30, 150, PINK, 1);
+    glow(X, cz + 40, 90, CYAN, 0.8);
+    tops[p.id] = 200;
   }
 
-  /** El remolino del portal: un shader a píxeles (bandas que giran), con su arco recortado. */
-  function portal(X, ph, z, pw) {
+  /** El remolino del portal: un shader a píxeles (bandas que giran) en un disco. */
+  function portal(X, y, z, r) {
     const m = new T.ShaderMaterial({
       uniforms: { uTime: uni.time, uGlow: uni.night },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: [
         'varying vec2 vUv; uniform float uTime; uniform float uGlow;',
         'void main(){',
-        '  vec2 q = (floor(vUv * vec2(32.0, 43.0)) + 0.5) / vec2(32.0, 43.0);',
-        '  vec2 p = vec2(q.x * 2.0 - 1.0, q.y * 43.0 / 32.0 * 2.0 - 43.0 / 32.0);',
-        '  float topY = 43.0 / 32.0 - 1.0;',
-        '  float inside = p.y < topY ? step(abs(p.x), 0.94) : step(length(vec2(p.x, p.y - topY)), 0.94);',
-        '  if (inside < 0.5) discard;',
-        '  vec2 c = vec2(p.x, p.y - topY * 0.4);',
+        '  vec2 q = (floor(vUv * 46.0) + 0.5) / 46.0;',
+        '  vec2 c = q * 2.0 - 1.0;',
         '  float r = length(c), a = atan(c.y, c.x);',
-        '  float sw = sin(a * 3.0 + r * 9.0 - uTime * 2.6);',
-        '  float b = step(0.15, sw) + step(0.7, sw);',
-        '  vec3 col = b < 0.5 ? vec3(0.13, 0.07, 0.32) : b < 1.5 ? vec3(0.33, 0.2, 0.78) : vec3(0.55, 0.62, 1.0);',
-        '  if (r < 0.22 + 0.05 * sin(uTime * 3.0)) col = vec3(0.86, 0.94, 1.0);',
-        '  col *= 0.85 + 0.35 * uGlow;',
+        '  if (r > 1.0) discard;',
+        '  float sw = sin(a * 3.0 + r * 10.0 - uTime * 2.4);',
+        '  float b = step(0.1, sw) + step(0.68, sw);',
+        '  vec3 col = b < 0.5 ? vec3(0.16, 0.05, 0.3) : b < 1.5 ? vec3(0.62, 0.22, 0.78) : vec3(0.4, 0.95, 1.0);',
+        '  if (r < 0.2 + 0.05 * sin(uTime * 3.0)) col = vec3(0.95, 1.0, 1.0);',
+        '  if (r > 0.9) col = vec3(1.0, 0.6, 0.95);',
+        '  col *= 0.85 + 0.3 * uGlow;',
         '  gl_FragColor = vec4(col, 1.0);',
         '}'
       ].join('\n')
     });
-    const g = new T.PlaneGeometry(pw, ph);
-    disposables.push(m, g);
-    const mesh = new T.Mesh(g, m);
-    mesh.position.set(X, ph / 2, z);
-    mesh.frustumCulled = false;
-    scene.add(mesh);
+    const g = new T.CircleGeometry(r, 24);
+    disposables.push(m);
+    loose(g, m, X, y, z);
+  }
+
+  /** Cable de luz colgando de a a b ([x, alto, z] en mundo) con bombillas cada `step`. */
+  function cable(a, b, step = 28) {
+    const L = Math.hypot(b[0] - a[0], b[2] - a[2]), n = Math.max(4, Math.round(L / 10)), sag = Math.min(40, L * 0.16);
+    const pt = u => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u - Math.sin(u * Math.PI) * sag, a[2] + (b[2] - a[2]) * u];
+    const dark = plain('#101418');
+    for (let k = 0; k < n; k++) {
+      const p0 = pt(k / n), p1 = pt((k + 1) / n), dx = p1[0] - p0[0], dy = p1[1] - p0[1], dz = p1[2] - p0[2], len = Math.hypot(dx, dy, dz);
+      const g = cyl(0.9, 0.9, len, 3);
+      g.translate(0, len / 2, 0);
+      const q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(dx / len, dy / len, dz / len));
+      put(g, dark, new T.Matrix4().compose(new T.Vector3(...p0), q, new T.Vector3(1, 1, 1)), { hull: false, cast: false });
+    }
+    const nb = Math.max(1, Math.round(L / step)), cols = [CYAN, PINK, GREEN, AMBER];
+    for (let k = 1; k < nb; k++) { const p = pt(k / nb); put(ball(2.6, 0), glowM(cols[k % 4], 1.4), { x: p[0], y: p[1] - 3, z: p[2] }, { hull: false, cast: false }); }
+  }
+
+  // ---------------- tu choza (data/home.js) ----------------
+  /*
+   * Va en su propio grupo: al cambiar una pieza se suelta y se rehace (sin tocar lo demás). cfg: G.Home.current()
+   * → { holo: [x, y] | null } (dónde va el holograma de tu Pokémon, que pone village.js como un sprite).
+   */
+  function setHome(cfg) {
+    if (!built || !scene) return null;
+    const key = JSON.stringify(cfg || {});
+    if (home && home.key === key) return home.info;
+    if (home) {
+      scene.remove(home.group);
+      for (const d of home.disp) { try { d.dispose(); } catch (e) { /* nada */ } }
+      glowList = glowList.filter(g => !home.mats.includes(g.m));
+      anim = anim.filter(a => !home.anim.includes(a));
+    }
+    const group = new T.Group();
+    scene.add(group);
+    const keepD = disposables, keepA = anim, keepB = batch, keepH = hulls, keepG = glowList.length;
+    const disp = [], hAnim = [];
+    disposables = disp; anim = hAnim; sink = group; batch = new Map(); hulls = [];
+    let info = { holo: null };
+    const homeMats = [];
+    homeSpark = [];
+    try {
+      info = buildHome(cfg || G.Home.DEFAULT, homeMats);
+      flush();
+      if (homeSpark.length) particles(3, homeSpark, ['#fff6b0', '#ffffff', '#b8e0ff', '#ffb8f0'], 2, true);
+    } catch (e) { console.warn('[Aldea] choza:', e); batch = null; hulls = []; }
+    homeSpark = null;
+    for (const g of glowList.slice(keepG)) homeMats.push(g.m);
+    // Los materiales que se han hecho para la choza se sueltan con ella: fuera de las cachés (si no, quedarían muertos).
+    for (const d of disp) if (d && d.isMaterial) { mats.forEach((v, k) => { if (v === d) mats.delete(k); }); glowMats.forEach((v, k) => { if (v === d) glowMats.delete(k); }); }
+    disposables = keepD; anim = keepA.concat(hAnim); sink = null; batch = keepB; hulls = keepH;
+    home = { group, disp, anim: hAnim, mats: homeMats, key, info };
+    renderer.shadowMap.needsUpdate = true;
+    return info;
+  }
+  /** Colores de la choza: techo según el color elegido (o el natural de cada techo); luces. */
+  const ROOF_NAT = { leaf: '#2e7048', straw: '#b8904a', petal: '#d0609a', crystal: '#5ff0ff', solar: '#26345e' };
+  function buildHome(c, homeMats) {
+    const p = V().PLACES.find(q => q.id === 'home');
+    const X = tile(p.x), Z = tile(p.y), Hm = G.Home;
+    const colIt = Hm.item('color', c.color), lightIt = Hm.item('lights', c.lights);
+    const roofCol = (colIt && colIt.look) || ROOF_NAT[c.roof] || ROOF_NAT.leaf;
+    const rainbow = lightIt && lightIt.look === 'rainbow';
+    const lc = rainbow ? CYAN : (lightIt && lightIt.look) || CYAN;
+    // Las luces de la choza: un material suyo (el arcoíris cambia de color poco a poco).
+    const lightM = new T.MeshLambertMaterial({ color: shade(lc, -0.5), emissive: new T.Color(lc), emissiveIntensity: 1.2 });
+    disposables.push(lightM);
+    glowList.push({ m: lightM, base: 1.2, ph: 1 });
+    const doorMat = new T.MeshBasicMaterial({ map: doorM('#ffffff').map, alphaTest: 0.5, color: new T.Color(lc) });
+    disposables.push(doorMat);
+    if (rainbow) {
+      const hsl = new T.Color();
+      anim.push({ fn: t => { hsl.setHSL((t * 0.05) % 1, 0.85, 0.62); lightM.emissive.copy(hsl); doorMat.color.copy(hsl); } });
+    }
+    // Materiales del techo y de las paredes.
+    const roofM = c.roof === 'crystal'
+      ? glowTexM('hcrys' + roofCol, () => tex(pix(16, 16, (x, y) => { const d = (x + y * 2) % 16, e = (x * 3 - y + 32) % 11; return d === 0 || e === 0 ? '#ffffff' : (x + y) % 9 < 3 ? shade(roofCol, 0.15) : (x * y) % 7 < 2 ? shade(roofCol, -0.45) : shade(roofCol, -0.2); }), true), '#ffffff', 0.55, { flatShading: true })
+      : c.roof === 'solar'
+        ? glowTexM('hsolar' + roofCol + lc, () => tex(pix(16, 16, (x, y) => (x % 8 === 0 || y % 8 === 0) ? lc : (x + y) % 5 === 0 ? shade(roofCol, 0.3) : roofCol), true), lc, 0.6, { flatShading: true })
+        : c.roof === 'straw'
+          ? lambert('hstraw' + roofCol, () => tex(pix(16, 16, (x, y) => { const r = ramp(roofCol); return y % 4 === 3 ? r[0] : H(x, y >> 2, 31) > 0.7 ? r[3] : H(x >> 1, y, 32) > 0.4 ? r[2] : r[1]; }), true), { flat: true })
+          : c.roof === 'petal'
+            ? glowTexM('hpetal' + roofCol, () => tex(pix(16, 16, (x, y) => { const r = ramp(roofCol), sx = (x + ((y >> 3) % 2) * 4) % 8; return y % 8 === 7 ? r[0] : (sx === 4 && y % 8 > 1 ? '#ffffff' : (Math.abs(sx - 4) > 3 ? r[1] : r[2])); }), true), roofCol, 0.25, { flatShading: true })
+            : lambert('hleaf' + roofCol, () => tex(scales(6, roofCol, 32, 7), true), { flat: true });
+    const wallM = c.walls === 'roots'
+      ? lambert('hroots', () => tex(pix(16, 16, (x, y) => { const k = (x + Math.round(Math.sin(y * 0.8) * 2) + 16) % 6; return k === 0 ? BARK[0] : k < 3 ? BARK[2] : BARK[3]; }), true))
+      : c.walls === 'stone' ? mossStoneM()
+        : c.walls === 'metal' ? metalM() : woodM();
+    const S = c.shape;
+    let hTop = 110, frontZ = Z + 54, doorY = 22, doorW = 32, doorH = 44, roofTop = [X, 110, Z];
+    if (S === 'pod') {
+      const R = 66, Hh = 124, prof = FORMS.bulb;
+      const low = lathe(prof.slice(0, 3).map(([r, y]) => [r * R, y * Hh]), 10); low.rotateY(Math.PI / 10);
+      put(low, wallM, { x: X, y: 0, z: Z }, { hull: 2.4 });
+      const top = lathe(prof.slice(2).map(([r, y]) => [r * R, y * Hh]), 10); top.rotateY(Math.PI / 10);
+      put(top, roofM, { x: X, y: 0, z: Z }, { hull: 2.4 });
+      const tg = new T.TorusGeometry(R * 1.04 + 1.5, 2.4, 4, 20); tg.rotateX(Math.PI / 2);
+      put(tg, lightM, { x: X, y: Hh * 0.36, z: Z }, { hull: false, cast: false });
+      hTop = Hh; frontZ = Z + R * 1.0 + 1.6; roofTop = [X, Hh - 4, Z];
+    } else if (S === 'mush') {
+      put(cyl(40, 48, 66, 10), wallM, { x: X, y: 33, z: Z }, { hull: 2 });
+      put(cap(86, 12), roofM, { x: X, y: 58, z: Z, sy: 0.6 }, { hull: 2.6 });
+      for (let k = 0; k < 7; k++) { const a = k * 2.6 + 0.5, rr = 26 + (k % 3) * 16, yy = 58 + Math.sqrt(Math.max(0, 1 - (rr / 86) ** 2)) * 86 * 0.6; put(ball(6 - (k % 3), 0), lightM, { x: X + Math.cos(a) * rr, y: yy, z: Z + Math.sin(a) * rr * 0.9, sy: 0.4 }, { hull: false, cast: false }); }
+      hTop = 58 + 86 * 0.6; frontZ = Z + 47.5; roofTop = [X, hTop - 2, Z];
+    } else if (S === 'tree') {
+      put(cyl(44, 56, 84, 10), wallM, { x: X, y: 42, z: Z }, { hull: 2.4 });
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + 0.4, len = 46;
+        const g = cone(12, len, 5); g.rotateZ(Math.PI / 2); g.translate(len / 2, 0, 0);
+        put(g, barkM(), compose({ x: X + Math.cos(a) * 46, y: 6, z: Z + Math.sin(a) * 40, ry: -a, rz: -0.3 }), { hull: 1.8 });
+      }
+      for (const [dx, dy, dz, r] of [[0, 112, -6, 62], [-56, 96, 4, 42], [58, 98, 2, 44], [0, 136, -24, 46], [-26, 92, 34, 34], [30, 94, 32, 34]])
+        put(ball(r, 1), roofM, { x: X + dx, y: dy, z: Z + dz, sy: 0.7 }, { hull: 2.6 });
+      put(new T.PlaneGeometry(14, 12), doorMat, { x: X + 26, y: 60, z: Z + 52 }, { hull: false, cast: false });
+      hTop = 160; frontZ = Z + 55; roofTop = [X, 150, Z - 10];
+    } else {
+      put(cyl(56, 60, 52, 10), wallM, { x: X, y: 26, z: Z }, { hull: 2.2 });
+      put(cone(76, 62, 10), roofM, { x: X, y: 52 + 29, z: Z, ry: Math.PI / 10 }, { hull: 2.4 });
+      const tg = new T.TorusGeometry(58, 2.2, 4, 20); tg.rotateX(Math.PI / 2);
+      put(tg, lightM, { x: X, y: 50, z: Z }, { hull: false, cast: false });
+      hTop = 52 + 62; frontZ = Z + 59.5; roofTop = [X, hTop - 6, Z];
+    }
+    put(new T.PlaneGeometry(doorW, doorH), doorMat, { x: X, y: doorY, z: frontZ }, { hull: false, cast: false });
+    put(box(doorW + 8, 4, 4), lightM, { x: X, y: doorY + doorH / 2 + 2, z: frontZ + 1 }, { hull: 1 });
+    sign(V().PLACES.indexOf(p), 20, X, doorY + doorH / 2 + 16, frontZ + 2);
+    glow(X, frontZ + 24, 80, lc, 0.9);
+    // Decoración.
+    const front = frontZ + 6;
+    if (c.deco === 'pots') {
+      for (const s of [-1, 1]) {
+        put(cyl(9, 7, 12, 8), lambert('pot', () => tex(noisy(8, 8, ['#5a3020', '#7a4428', '#94583a', '#b0704a'], 34), true)), { x: X + s * 34, y: 6, z: front + 6 }, { hull: 1.2 });
+        put(cyl(1.5, 2, 10, 4), paleM(), { x: X + s * 34, y: 16, z: front + 6 }, { hull: false });
+        put(cap(8, 8), lightM, { x: X + s * 34, y: 20, z: front + 6, sy: 0.7 }, { hull: 1 });
+        put(cap(5, 8), glowM(s > 0 ? PINK : GREEN, 1), { x: X + s * 28, y: 13, z: front + 10, sy: 0.7 }, { hull: 1 });
+      }
+    } else if (c.deco === 'flags') {
+      const cols = ['#e8486a', '#f4d040', '#5ff0ff', '#7cff7a', '#ff7ad8', '#ffffff'];
+      const fm = cols.map(col => lambert('flag' + col, null, { color: col, side: T.DoubleSide }));
+      const a = [X - 72, 66, front - 8], b = [X + 72, 66, front - 8];
+      cable(a, b, 400);
+      for (let k = 1; k < 9; k++) {
+        const u = k / 9, px = a[0] + (b[0] - a[0]) * u, py = a[1] - Math.sin(u * Math.PI) * 23;
+        const g = new T.BufferGeometry();
+        g.setAttribute('position', new T.Float32BufferAttribute([-6, 0, 0, 6, 0, 0, 0, -12, 0], 3));
+        g.computeVertexNormals();
+        put(g, fm[k % fm.length], { x: px, y: py, z: front - 7 }, { hull: false, cast: false });
+      }
+      for (const s of [-1, 1]) put(cyl(2, 2.5, 66, 5), barkM(), { x: X + s * 72, y: 33, z: front - 8 }, { hull: 1 });
+    } else if (c.deco === 'lanterns') {
+      for (let k = 0; k < 5; k++) {
+        const a = Math.PI * (0.1 + k * 0.2), px = X - Math.cos(a) * 92, pz = Z + Math.sin(a) * 76;
+        put(cyl(0.5, 0.5, 14, 3), plain('#101418'), { x: px, y: 58, z: pz }, { hull: false, cast: false });
+        put(box(7, 9, 7), lightM, { x: px, y: 47, z: pz }, { hull: 1 });
+        glow(px, pz, 30, lc, 0.5);
+      }
+    } else if (c.deco === 'antenna') {
+      antenna(roofTop[0] + 6, roofTop[1] - 6, roofTop[2], lc, 46);
+      const dish = cap(12, 8); dish.rotateX(-Math.PI / 2 - 0.5);
+      put(dish, metalM(), { x: roofTop[0] + 6, y: roofTop[1] + 26, z: roofTop[2] + 4 }, { hull: 1.2 });
+    } else if (c.deco === 'holo') {
+      put(cyl(12, 14, 5, 10), metalM(), { x: X + 78, y: 2.5, z: Z + 44 }, { hull: 1.2 });
+      put(cyl(10, 10, 1, 10), lightM, { x: X + 78, y: 5.5, z: Z + 44 }, { hull: false, cast: false });
+      glow(X + 78, Z + 44, 36, lc, 0.7);
+    }
+    // Tótem.
+    if (c.totem !== 'none') {
+      const tx = X - 82, tz = Z + 44;
+      if (c.totem === 'crystal') {
+        put(cyl(16, 20, 10, 8), mossStoneM(), { x: tx, y: 5, z: tz }, { hull: 1.4 });
+        const cm = glowM(lc, 1.1, { flatShading: true });
+        const cr = loose(crystal(13, 30), cm, tx, 44, tz);
+        homeMats.push(cm);
+        anim.push({ fn: t => { cr.rotation.y = t * 0.8; cr.position.y = 44 + Math.sin(t * 1.4) * 4; } });
+        sparkle(tx, 46, tz, 8);
+        glow(tx, tz, 50, lc, 0.9);
+      } else {
+        const face = lambert('tface', () => tex(pix(8, 8, (x, y) => (y === 2 && (x === 2 || x === 5)) || (y === 5 && x > 1 && x < 6) ? '#101010' : y === 0 ? WOOD[3] : WOOD[2]), true));
+        for (let k = 0; k < 3; k++) put(box(22 - k * 2, 20, 18), face, { x: tx, y: 10 + k * 20, z: tz }, { hull: 1.4 });
+        put(box(46, 6, 8), woodM(), { x: tx, y: 52, z: tz }, { hull: 1.2 });
+        if (c.totem === 'holo') {
+          for (let k = 0; k < 3; k++) put(box(12, 4, 2), lightM, { x: tx, y: 8 + k * 20, z: tz + 9.5 }, { hull: false, cast: false });
+          const ring = new T.TorusGeometry(16, 1.4, 3, 16); ring.rotateX(Math.PI / 2);
+          const rm = loose(ring, lightM, tx, 72, tz);
+          anim.push({ fn: t => { rm.position.y = 72 + Math.sin(t * 2) * 3; rm.rotation.z = Math.sin(t) * 0.2; } });
+          glow(tx, tz, 44, lc, 0.7);
+        }
+      }
+    }
+    // El cojín de la mascota.
+    if (c.pet) put(cyl(18, 20, 5, 10), lambert('cushion', () => tex(noisy(8, 8, ['#5a2a6a', '#7a3a8a', '#9a4aa8', '#c070c8'], 35), true)), { x: tile(V().PET[0]), y: 2.5, z: tile(V().PET[1]) }, { hull: 1.2 });
+    tops.home = hTop + 26;
+    return { holo: c.deco === 'holo' ? [X + 78, Z + 44] : null, top: hTop + 26 };
   }
 
   // ---------------- decorados ----------------
   function decor(d) {
     const X = tile(d.x || 0), Z = tile(d.y || 0);
     switch (d.k) {
-      case 'tree': {
+      case 'gtree': {
         const s = d.s || 1;
-        put(cyl(6 * s, 10 * s, 46 * s, 6), barkM(), { x: X, y: 23 * s, z: Z }, { hull: 1.6 });
-        const tops = [[0, 70, 0, 34], [-18, 58, 6, 24], [20, 60, 4, 26], [2, 92, -4, 24]];
-        for (const [dx, dy, dz, r] of tops) put(ball(r * s, 1), leafM(), { x: X + dx * s, y: dy * s, z: Z + dz * s, sy: 0.85 }, { hull: 2.2 });
+        put(cyl(10 * s, 18 * s, 64 * s, 7), barkM(), { x: X, y: 32 * s, z: Z }, { hull: 1.8 });
+        for (let k = 0; k < 4; k++) {
+          const a = k * 1.7 + H(d.x, d.y, 1) * 3, len = 30 * s;
+          const g = cone(7 * s, len, 4); g.rotateZ(Math.PI / 2); g.translate(len / 2, 0, 0);
+          put(g, barkM(), compose({ x: X + Math.cos(a) * 12 * s, y: 4, z: Z + Math.sin(a) * 10 * s, ry: -a, rz: -0.3 }), { hull: 1.4 });
+        }
+        const tps = [[0, 84, 0, 44], [-26, 70, 8, 30], [28, 72, 6, 32], [2, 108, -6, 30]];
+        for (const [dx, dy, dz, r] of tps) put(ball(r * s, 1), leafM(), { x: X + dx * s, y: dy * s, z: Z + dz * s, sy: 0.78 }, { hull: 2.4 });
+        // Hongos de repisa que brillan en el tronco y una liana de luz.
+        const c = [CYAN, PINK, GREEN][(H(d.x * 3, d.y * 3, 2) * 3) | 0];
+        for (const [dy, a] of [[22, 0.4], [36, -0.6]]) put(cap(7 * s, 8), glowM(c, 0.9), { x: X + Math.sin(a) * 12 * s, y: dy * s, z: Z + Math.cos(a) * 12 * s, sy: 0.35 }, { hull: 1, cast: false });
+        vine(X - 24 * s, 66 * s, Z + 30 * s, 34 * s, c);
+        vine(X + 30 * s, 64 * s, Z + 26 * s, 26 * s, c);
         break;
       }
-      case 'lamp': {
-        // (Con la cámara desde arriba, un tejadillo que sobresale tapa lo que tiene debajo lo mismo que sobresale: casi no sobresale.)
-        put(box(5, 50, 5), woodM(), { x: X, y: 25, z: Z });
-        put(box(15, 3, 15), woodM(), { x: X, y: 51.5, z: Z }, { hull: 1.2 });
-        put(box(12, 17, 12), lights.lamp, { x: X, y: 61.5, z: Z }, { hull: 1.4 });
-        put(box(3, 17.4, 12.4), woodM(), { x: X, y: 61.5, z: Z }, { hull: false, cast: false });
-        put(cone(10, 8, 4), plain('#4a3a2a', { flat: true }), { x: X, y: 74, z: Z, ry: Math.PI / 4 }, { hull: 1.2 });
-        glow(X, Z, 46);
+      case 'shroom': {
+        const c = d.c || CYAN;
+        for (let k = 0; k < 4; k++) {
+          const s = 0.6 + H(d.x * 5, k, 3) * 0.7, dx = (H(k, d.x * 7, 4) - 0.5) * 34, dz = (H(k, d.y * 7, 5) - 0.5) * 22, h = 12 + s * 14;
+          put(cyl(1.8 * s, 2.6 * s, h, 5), paleM(), { x: X + dx, y: h / 2, z: Z + dz }, { hull: false, cast: false });
+          put(cap(8 * s + 3, 8), capM(c), { x: X + dx, y: h - 1, z: Z + dz, sy: 0.6 }, { hull: 1.2, cast: false });
+        }
+        glow(X, Z, 46, c, 0.8);
         break;
       }
-      case 'torch': {
-        put(cyl(3, 4, 54, 5), woodM(), { x: X, y: 27, z: Z }, { hull: 1.2 });
-        put(cyl(7, 4, 8, 6), plain('#3a3a3a'), { x: X, y: 56, z: Z }, { hull: 1.2 });
-        flame(X, 60, Z);
-        glow(X, Z, 44, true);
+      case 'bulb': {
+        // Farol-flor: tallo curvo, una hoja y la flor que cuelga encendida.
+        const stem = lambert('bstem', () => tex(noisy(8, 8, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 36), true));
+        put(cyl(2, 3, 58, 5), stem, { x: X, y: 29, z: Z }, { hull: 1 });
+        put(cyl(1.6, 2, 18, 5), stem, compose({ x: X + 6, y: 62, z: Z, rz: -1.1 }), { hull: 1 });
+        put(ball(8, 1), glowM(AMBER, 1.2, { flatShading: true }), { x: X + 13, y: 58, z: Z, sy: 1.2 }, { hull: 1.4, cast: false });
+        put(cap(10, 6), lambert('bpetal', null, { color: '#2e7a50', side: T.DoubleSide }), { x: X + 13, y: 64, z: Z, sy: 0.5 }, { hull: 1 });
+        glow(X + 8, Z, 54, AMBER, 0.9);
         break;
       }
-      case 'bench': {
-        put(box(50, 4, 14), woodM(), { x: X, y: 14, z: Z });
-        put(box(50, 12, 3), woodM(), { x: X, y: 24, z: Z - 7 });
-        for (const s of [-1, 1]) put(box(4, 14, 12), woodM(), { x: X + s * 20, y: 7, z: Z }, { hull: 1 });
+      case 'pylon': {
+        const c = d.c || CYAN;
+        put(cyl(13, 16, 12, 6), mossStoneM(), { x: X, y: 6, z: Z }, { hull: 1.6 });
+        put(crystal(9, 30), glowM(c, 1.2, { flatShading: true }), { x: X, y: 42, z: Z }, { hull: 1.4, cast: false });
+        for (const y of [28, 54]) { const r = new T.TorusGeometry(10, 1.6, 3, 12); r.rotateX(Math.PI / 2); put(r, metalM(), { x: X, y, z: Z }, { hull: false }); }
+        glow(X, Z, 60, c, 1);
         break;
       }
-      case 'barrel': put(cyl(13, 12, 28, 8), lambert('barrel', () => tex(pix(16, 16, (x, y) => (y === 3 || y === 12) ? '#3a3a40' : WOOD[(x % 4 === 0) ? 1 : 2]), true)), { x: X, y: 14, z: Z }); break;
-      case 'crate': put(box(26, 24, 26), lambert('crate', () => tex(pix(16, 16, (x, y) => (x === 0 || y === 0 || x === 15 || y === 15 || x === y || x === 15 - y) ? WOOD[0] : WOOD[2]))), { x: X, y: 12, z: Z, ry: H(d.x * 10, d.y * 10, 3) * 0.6 }); break;
-      case 'rock': put(ball(16, 0), stoneM(), { x: X, y: 6, z: Z, sy: 0.6, ry: H(d.x * 9, d.y * 9, 4) * 3 }, { hull: 1.6 }); break;
+      case 'spring': {
+        // Manantial de la plaza: aro de piedra, agua que brilla y un cristal que flota encima.
+        put(cyl(54, 58, 16, 12, true), mossStoneM(), { x: X, y: 8, z: Z }, { hull: false });
+        put(cyl(54, 58, 16, 12), mossStoneM(), { x: X, y: 8, z: Z }, { hull: 2.4, ghost: true });
+        const rim = new T.TorusGeometry(56, 5, 4, 14); rim.rotateX(Math.PI / 2);
+        put(rim, mossStoneM(), { x: X, y: 16, z: Z }, { hull: 1.4 });
+        const wm = basic('swater', () => tex(pix(32, 32, (x, y) => {
+          const r = Math.hypot(x - 15.5, y - 15.5);
+          return ((r * 1.4 + Math.atan2(y - 15.5, x - 15.5) * 2) | 0) % 4 === 0 ? '#8affff' : r > 14 ? '#1a6a7a' : '#2aa0b0';
+        })), {});
+        const w = loose(new T.CircleGeometry(52, 16), wm, X, 13, Z, -5);
+        w.rotation.x = -Math.PI / 2;
+        anim.push({ fn: t => { w.rotation.z = t * 0.25; } });
+        const cm = glowM(CYAN, 1.3, { flatShading: true });
+        const cr = loose(crystal(12, 26), cm, X, 66, Z);
+        anim.push({ fn: t => { cr.rotation.y = t * 0.7; cr.position.y = 66 + Math.sin(t * 1.2) * 5; } });
+        for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; put(crystal(6, 16), glowM(k ? PINK : GREEN, 1, { flatShading: true }), { x: X + Math.cos(a) * 44, y: 20, z: Z + Math.sin(a) * 38, rz: Math.cos(a) * 0.4, rx: Math.sin(a) * 0.4 }, { hull: 1.2, cast: false }); }
+        spray(X, 18, Z);
+        glow(X, Z, 120, CYAN, 1);
+        break;
+      }
+      case 'log': {
+        const lg = cyl(9, 9, 52, 7); lg.rotateZ(Math.PI / 2);
+        put(lg, barkM(), { x: X, y: 9, z: Z }, { hull: 1.4 });
+        put(box(40, 3, 10), lambert('mosstop', () => tex(noisy(8, 8, MOSS, 37), true)), { x: X, y: 18, z: Z }, { hull: false });
+        put(cap(4, 6), glowM(GREEN, 1), { x: X + 18, y: 15, z: Z + 7, sy: 0.6 }, { hull: false, cast: false });
+        break;
+      }
+      case 'pod': put(ball(13, 1), lambert('seedpod', () => tex(scales(4, '#6a4a2a', 16, 3), true), { flat: true }), { x: X, y: 13, z: Z, sy: 1.15 }, { hull: 1.6 });
+        put(cyl(13.5, 13.5, 2, 10, true), glowM(GREEN, 1), { x: X, y: 13, z: Z }, { hull: false, cast: false }); break;
+      case 'crate': put(box(26, 24, 26), lambert('crate', () => tex(pix(16, 16, (x, y) => (x === 0 || y === 0 || x === 15 || y === 15) ? METAL[1] : (x === y || x === 15 - y) ? WOOD[0] : WOOD[2]))), { x: X, y: 12, z: Z, ry: H(d.x * 10, d.y * 10, 3) * 0.6 });
+        put(box(27, 2, 27), glowM(CYAN, 0.8), { x: X, y: 16, z: Z, ry: H(d.x * 10, d.y * 10, 3) * 0.6 }, { hull: false, cast: false }); break;
+      case 'rock': put(ball(16, 0), mossStoneM(), { x: X, y: 6, z: Z, sy: 0.6, ry: H(d.x * 9, d.y * 9, 4) * 3 }, { hull: 1.6 }); break;
+      case 'fern': {
+        const fm = lambert('fern', () => tex(pix(8, 24, (x, y) => (x === 3 || x === 4) ? LEAF[1] : (Math.abs(x - 3.5) < 4 - y / 8 && (y % 3)) ? LEAF[(x + y) % 4 === 0 ? 3 : 2] : null), true), { alphaTest: 0.5, side: T.DoubleSide });
+        for (let k = 0; k < 6; k++) {
+          const a = k / 6 * Math.PI * 2 + H(d.x, d.y, 9);
+          const g = new T.PlaneGeometry(12, 40); g.translate(0, 20, 0);
+          put(g, fm, compose({ x: X, y: 0, z: Z, ry: -a, rx: 0.9, order: 'YXZ' }), { hull: false, cast: false });
+        }
+        break;
+      }
+      case 'totem': {
+        const c = d.c || CYAN;
+        put(box(14, 64, 14), lambert('carved', () => tex(pix(8, 32, (x, y) => (y % 8 === 0) ? WOOD[0] : (y % 8 === 3 && (x === 2 || x === 5)) ? '#101010' : WOOD[x === 0 ? 1 : 2]), true)), { x: X, y: 32, z: Z }, { hull: 1.4 });
+        for (let k = 0; k < 3; k++) put(box(8, 3, 1), glowM(c, 1.2), { x: X, y: 14 + k * 18, z: Z + 7.5 }, { hull: false, cast: false });
+        const hm = basic('thol' + c, () => tex(pix(8, 8, (x, y) => (y % 2 === 0) ? c : shade(c, -0.4))), { transparent: true, opacity: 0.6, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
+        const hp = loose(new T.PlaneGeometry(16, 16), hm, X, 82, Z, 12);
+        anim.push({ fn: t => { hp.rotation.y = t * 1.2; hp.position.y = 82 + Math.sin(t * 2.2) * 2; hm.opacity = 0.45 + 0.2 * Math.sin(t * 6); } });
+        glow(X, Z, 40, c, 0.8);
+        break;
+      }
       case 'well': {
-        put(cyl(26, 28, 24, 10, true), stoneM(), { x: X, y: 12, z: Z }, { hull: false });
-        put(cyl(26, 28, 24, 10), stoneM(), { x: X, y: 12, z: Z }, { hull: 2.2, ghost: true });
-        put(cyl(22, 22, 2, 10), plain('#2a4a7a'), { x: X, y: 18, z: Z }, { hull: false, cast: false });
-        for (const s of [-1, 1]) put(box(5, 52, 5), woodM(), { x: X + s * 24, y: 26, z: Z }, { hull: 1 });
-        put(gable(64, 40, 18), lambert('roof' + true, null), { x: X, y: 52, z: Z });
+        put(cyl(26, 28, 22, 10, true), mossStoneM(), { x: X, y: 11, z: Z }, { hull: false });
+        put(cyl(26, 28, 22, 10), mossStoneM(), { x: X, y: 11, z: Z }, { hull: 2.2, ghost: true });
+        put(cyl(22, 22, 2, 10), glowM(CYAN, 1.1), { x: X, y: 17, z: Z }, { hull: false, cast: false });
+        const arch = new T.TorusGeometry(26, 4, 4, 10, Math.PI);
+        put(arch, barkM(), { x: X, y: 22, z: Z }, { hull: 1.4 });
+        put(crystal(4, 10), glowM(PINK, 1.2, { flatShading: true }), { x: X, y: 40, z: Z }, { hull: 1 });
+        glow(X, Z, 50, CYAN, 0.8);
         break;
       }
       case 'fence': {
         const x0 = tile(d.a[0]), z0 = tile(d.a[1]), x1 = tile(d.b[0]), z1 = tile(d.b[1]), L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 30));
-        for (let k = 0; k <= n; k++) put(box(5, 24, 5), woodM(), { x: x0 + (x1 - x0) * k / n, y: 12, z: z0 + (z1 - z0) * k / n }, { hull: 1 });
+        for (let k = 0; k <= n; k++) {
+          const px = x0 + (x1 - x0) * k / n, pz = z0 + (z1 - z0) * k / n;
+          put(cyl(2.4, 3.4, 26, 5), barkM(), { x: px, y: 13, z: pz, rz: (H(k, 1, 2) - 0.5) * 0.2 }, { hull: 1 });
+          if (k % 2 === 0) put(ball(2.4, 0), glowM(GREEN, 1.2), { x: px, y: 28, z: pz }, { hull: false, cast: false });
+        }
         const ry = -Math.atan2(z1 - z0, x1 - x0);
-        for (const y of [9, 18]) put(box(L, 3, 2), woodM(), { x: (x0 + x1) / 2, y, z: (z0 + z1) / 2, ry }, { hull: false });
+        for (const y of [9, 18]) put(box(L, 3, 3), barkM(), { x: (x0 + x1) / 2, y, z: (z0 + z1) / 2, ry }, { hull: false });
         break;
       }
-      case 'fountain': {
-        put(cyl(54, 58, 20, 10, true), stoneM(), { x: X, y: 10, z: Z }, { hull: false });
-        put(cyl(54, 58, 20, 10), stoneM(), { x: X, y: 10, z: Z }, { hull: 2.4, ghost: true });
-        // Borde de piedra (un aro: el agua se ve dentro), columna y la taza de arriba (abierta).
-        const rim = new T.TorusGeometry(56, 5, 4, 12); rim.rotateX(Math.PI / 2);
-        put(rim, stoneM(), { x: X, y: 20, z: Z }, { hull: 1.4 });
-        put(cyl(10, 14, 50, 8), stoneM(), { x: X, y: 30, z: Z }, { hull: 1.6 });
-        put(cyl(24, 12, 10, 8, true), stoneM(), { x: X, y: 58, z: Z }, { hull: false });
-        put(cyl(24, 12, 10, 8), stoneM(), { x: X, y: 58, z: Z }, { hull: 1.6, ghost: true });
-        water(X, Z, 52, 16); water(X, Z, 21, 61);
-        spray(X, 66, Z);
-        break;
-      }
+      case 'cable': cable([tile(d.a[0]), d.a[2], tile(d.a[1])], [tile(d.b[0]), d.b[2], tile(d.b[1])]); break;
       case 'flowers': for (let k = 0; k < 9; k++) {
-        const a = H(d.x * 7, d.y * 7, k) * 6.28, rr = 8 + H(k, d.x * 3, 9) * 22, col = ['#e8486a', '#f4d040', '#ffffff', '#9a6ae8'][k % 4];
+        const a = H(d.x * 7, d.y * 7, k) * 6.28, rr = 8 + H(k, d.x * 3, 9) * 22, col = [CYAN, PINK, GREEN, VIOLET][k % 4];
         flowerTuft(X + Math.cos(a) * rr, Z + Math.sin(a) * rr * 0.7, col);
       } break;
       case 'reeds': for (let k = 0; k < 6; k++) reed(X + (H(k, d.x * 5, 1) - 0.5) * 40, Z + (H(k, d.y * 5, 2) - 0.5) * 20); break;
     }
   }
+  /** Sombrero de seta que brilla: el centro claro, el borde más oscuro y lunares. */
+  const capM = c => glowTexM('cap' + c, () => tex(pix(16, 8, (x, y) => (y < 3 && (x * 5 + y * 3) % 7 === 0) ? '#ffffff' : y < 2 ? shade(c, 0.35) : y < 5 ? c : shade(c, -0.35)), true), '#ffffff', 0.85, { flatShading: true });
+  /** Liana de luz que cuelga (sin luz: brilla siempre). */
+  function vine(x, y, z, len, col) {
+    const m = basic('vine' + col, () => tex(pix(4, 32, (px, py) => (px === 1 || (px === 2 && py % 6 < 2)) ? ((py % 5) ? shade(col, -0.35) : col) : (px === 0 && py % 7 === 3) ? col : null)), { alphaTest: 0.5, side: T.DoubleSide });
+    put(new T.PlaneGeometry(6, len), m, { x, y: y - len / 2, z }, { hull: false, cast: false });
+  }
 
   // ---------------- cosas que se mueven ----------------
-  /** Agua de la fuente: la casilla llena del líquido animado, en un disco. */
-  function water(X, Z, r, y) {
-    if (!fountainTex) {
-      const BI = V().BI, A = G.Tileset.T, meta = (G.TILESETS || []).find(m => m.bi === BI) || { frames: 1, dur: 0.4 };
-      const fr = G.Tileset.animated(BI) ? meta.frames : 1;
-      const [c, g] = canvas(A * fr, A);
-      g.fillStyle = '#3a7ad8'; g.fillRect(0, 0, c.width, c.height);
-      const full = () => 2;
-      for (let f = 0; f < fr; f++) if (G.Tileset.animated(BI)) G.Tileset.drawLiquid(g, BI, full, 0, 0, f * A, 0, A, (f + 0.5) * meta.dur);
-      fountainTex = tex(c, true);
-      fountainTex.repeat.set(1 / fr, 1);
-      anim.push({ fn: t => { fountainTex.offset.x = (Math.floor(t / meta.dur) % fr) / fr; } });
-    }
-    const m = new T.MeshBasicMaterial({ map: fountainTex });
-    m.color = uni.tintCol;
-    disposables.push(m);
-    const g = new T.CircleGeometry(r, 12);
-    disposables.push(g);
-    const mesh = new T.Mesh(g, m);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(X, y, Z);
-    mesh.frustumCulled = false;
-    scene.add(mesh);
-  }
-
-  /** Llama de antorcha: dos cuadros de colores que parpadean. */
-  function flame(X, y, Z) {
-    const m = new T.MeshBasicMaterial({ color: 0xffb030 }), m2 = new T.MeshBasicMaterial({ color: 0xfff0a0 });
-    const g = new T.PlaneGeometry(10, 16), g2 = new T.PlaneGeometry(5, 9);
-    disposables.push(m, m2, g, g2);
-    const a = new T.Mesh(g, m), b = new T.Mesh(g2, m2);
-    a.position.set(X, y + 8, Z + 1); b.position.set(X, y + 6, Z + 2);
-    a.frustumCulled = b.frustumCulled = false;
-    scene.add(a, b);
-    const ph = Math.random() * 6;
-    anim.push({ fn: t => {
-      const k = 0.82 + 0.18 * Math.sin(t * 13 + ph) * Math.sin(t * 7.3 + ph);
-      a.scale.set(1, k, 1); a.position.y = y + 8 * k;
-      b.scale.set(1, 0.7 + 0.3 * k, 1);
-    } });
-  }
-
-  /** Halo de luz en el suelo (de noche): círculo a escalones que se suma. */
-  let glowMat = null;
-  const glows = [];
-  function glow(X, Z, r, warm = false) {
-    if (!glowMat) {
+  /** Halo de luz de color en el suelo: círculo a escalones que se suma (de noche, más). */
+  const glowMats = new Map();
+  let glowMeshes = [];
+  function glow(X, Z, r, col = AMBER, k = 1) {
+    const key = col + k;
+    let m = glowMats.get(key);
+    if (!m) {
       const c = pix(32, 32, (x, y) => {
         const d = Math.hypot(x - 15.5, (y - 15.5) * 1.35) / 16;
-        return d < 0.4 ? 'rgba(255,210,140,.34)' : d < 0.7 ? 'rgba(255,196,120,.2)' : d < 1 ? 'rgba(255,186,110,.09)' : null;
+        return d < 0.4 ? '#575757' : d < 0.7 ? '#333333' : d < 1 ? '#171717' : null;
       });
-      glowMat = new T.MeshBasicMaterial({ map: tex(c), transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0 });
-      disposables.push(glowMat);
+      m = new T.MeshBasicMaterial({ map: tex(c), color: new T.Color(col), transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0 });
+      m.__k = k;
+      disposables.push(m);
+      glowMats.set(key, m);
     }
     const g = new T.PlaneGeometry(r * 2, r * 2);
     disposables.push(g);
-    const mesh = new T.Mesh(g, glowMat);
+    const mesh = new T.Mesh(g, m);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(X, 0.6, Z);
     mesh.renderOrder = -6;
     mesh.frustumCulled = false;
-    scene.add(mesh);
-    glows.push(mesh);
+    (sink || scene).add(mesh);
+    glowMeshes.push(mesh);
   }
 
-  // Partículas: un solo shader (modos: luciérnagas, pétalos que caen, humo, chispas, salpicaduras).
+  /** Niebla baja: dos capas de nubes a píxeles que se deslizan despacio (cubren los pies: parece que caminan en ella). */
+  let mistMats = [];
+  function buildMist() {
+    if (fx() === 0) return;
+    const VG = V(), W = VG.W * TS, Hh = VG.H * TS;
+    const mk = () => pix(64, 64, (x, y) => {
+      const n = vn(x, y, 16, 501) * 0.6 + vn(x, y, 6, 502) * 0.4;
+      // (vn no es periódico: los bordes se igualan mezclando con la otra punta)
+      const n2 = vn((x + 32) % 64, (y + 32) % 64, 16, 501) * 0.6 + vn((x + 32) % 64, (y + 32) % 64, 6, 502) * 0.4;
+      const k = Math.min(1, Math.min(x, 63 - x, y, 63 - y) / 12), v = n * k + n2 * (1 - k);
+      return v > 0.68 ? '#7ab8c8' : v > 0.58 ? '#4a8090' : v > 0.5 ? '#2a4a58' : null;
+    });
+    for (const [y, op, sp, rep] of [[7, 0.16, 6, 12], [30, 0.07, -4, 8]]) {
+      const t = tex(mk(), true);
+      t.repeat.set(rep, rep * Hh / W);
+      const m = new T.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: op, blending: T.AdditiveBlending });
+      m.__op = op;
+      disposables.push(m);
+      mistMats.push(m);
+      const g = new T.PlaneGeometry(W, Hh);
+      disposables.push(g);
+      const mesh = new T.Mesh(g, m);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(W / 2, y, Hh / 2);
+      mesh.renderOrder = 15;
+      mesh.frustumCulled = false;
+      scene.add(mesh);
+      anim.push({ fn: tt => { t.offset.x = (tt * sp / 900) % 1; t.offset.y = (tt * sp / 2600) % 1; } });
+    }
+  }
+
+  // Partículas: un solo shader (modos: esporas que flotan, esporas que caen, humo, chispas, salpicaduras).
   const PV = [
     'attribute float aSeed; attribute vec3 aCol; uniform float uTime; uniform float uMode; uniform float uSize; uniform float uAlpha;',
     'varying float vA; varying vec3 vC;',
@@ -887,11 +1255,11 @@ G.Village3D = (() => {
     '  vec3 p = position; float s = aSeed; vC = aCol;',
     '  if (uMode < 0.5) {',
     '    p.x += sin(uTime * 0.6 + s * 6.28) * 40.0 + sin(uTime * 1.7 + s * 17.0) * 8.0;',
-    '    p.z += cos(uTime * 0.45 + s * 12.0) * 26.0; p.y += 14.0 + sin(uTime * 1.1 + s * 3.0) * 10.0;',
+    '    p.z += cos(uTime * 0.45 + s * 12.0) * 26.0; p.y += 14.0 + sin(uTime * 1.1 + s * 3.0) * 10.0 + s * 40.0;',
     '    vA = smoothstep(0.3, 1.0, sin(uTime * 2.2 + s * 40.0) * 0.5 + 0.5);',
     '  } else if (uMode < 1.5) {',
-    '    float c = fract(uTime * 0.05 + s);',
-    '    p.y = 200.0 * (1.0 - c); p.x += sin(uTime * 1.3 + s * 20.0) * 18.0 + c * 90.0; p.z += c * 50.0;',
+    '    float c = fract(uTime * 0.035 + s);',
+    '    p.y = 160.0 * (1.0 - c); p.x += sin(uTime * 1.3 + s * 20.0) * 18.0 + c * 50.0; p.z += c * 30.0;',
     '    vA = min(1.0, (1.0 - c) * 5.0) * min(1.0, c * 10.0);',
     '  } else if (uMode < 2.5) {',
     '    float c = fract(uTime * 0.16 + s);',
@@ -902,9 +1270,9 @@ G.Village3D = (() => {
     '    p.y += c * 40.0 + sin(s * 31.0) * 10.0; p.x += sin(s * 50.0 + uTime) * 18.0; p.z += cos(s * 70.0) * 12.0;',
     '    vA = sin(c * 3.1416) * step(0.5, fract(uTime * 3.0 + s * 7.0));',
     '  } else {',
-    '    float c = fract(uTime * 0.9 + s);',
+    '    float c = fract(uTime * 0.5 + s);',
     '    float a = s * 6.2832;',
-    '    p.x += cos(a) * c * 30.0; p.z += sin(a) * c * 22.0; p.y += c * (1.0 - c) * 70.0 - 6.0;',
+    '    p.x += cos(a) * c * 26.0; p.z += sin(a) * c * 20.0; p.y += c * (1.0 - c) * 120.0;',
     '    vA = 1.0 - c;',
     '  }',
     '  vA *= uAlpha;',
@@ -912,7 +1280,6 @@ G.Village3D = (() => {
     '  gl_PointSize = uSize;',
     '}'].join('\n');
   const PF = 'varying float vA; varying vec3 vC; void main(){ if (vA < 0.06) discard; gl_FragColor = vec4(vC, vA);\n#include <colorspace_fragment>\n}';
-  const particleSets = [];
   function particles(mode, pts, cols, size, add, alphaU) {
     const n = pts.length, pos = new Float32Array(n * 3), seed = new Float32Array(n), col = new Float32Array(n * 3);
     pts.forEach((p, i) => {
@@ -930,30 +1297,30 @@ G.Village3D = (() => {
     const o = new T.Points(g, m);
     o.frustumCulled = false;
     o.renderOrder = 20;
-    scene.add(o);
-    particleSets.push(o);
+    (sink || scene).add(o);
     return o;
   }
-  const smokeQ = [], sparkQ = [], sprayQ = [];
-  function smoke(x, y, z) { smokeQ.push([x, y, z]); }
-  function sparkle(x, y, z, n, big) { for (let k = 0; k < n; k++) sparkQ.push([x + (H(k, x, 1) - 0.5) * (big ? 180 : 50), y + (H(k, y, 2) - 0.5) * (big ? 120 : 30), z + (H(k, z, 3) - 0.5) * (big ? 60 : 20)]); }
+  const sparkQ = [], sprayQ = [];
+  let homeSpark = null;
+  function sparkle(x, y, z, n, big) { const q = sink && homeSpark ? homeSpark : sparkQ; for (let k = 0; k < n; k++) q.push([x + (H(k, x, 1) - 0.5) * (big ? 180 : 50), y + (H(k, y, 2) - 0.5) * (big ? 120 : 30), z + (H(k, z, 3) - 0.5) * (big ? 60 : 20)]); }
   function spray(x, y, z) { sprayQ.push([x, y, z]); }
 
-  /** Matas de hierba que se mecen (y se apartan al pasar tu Pokémon) y flores: un shader con todas juntas. */
+  /** Matas de hierba que se mecen (y se apartan al pasar tu Pokémon) y flores que brillan: un shader con todas. */
   const tufts = [];
   function flowerTuft(x, z, col) { tufts.push([x, z, 3, col]); }
   function reed(x, z) { tufts.push([x, z, 4, null]); }
   function buildTufts() {
     const VG = V(), b = VG.build(), pal = G.Tileset.pal(VG.BI);
-    const GR = pal ? pal.grass : ['#598031', '#7bb244', '#9ae055', '#c6ff8c'];
-    // En la hierba alta: matas sueltas (menos en calidad baja).
+    const GR = pal ? pal.grass : ['#14362c', '#1c4b3e', '#245e4d', '#3e7163'];
     const dens = fx() === 0 ? 0.25 : fx() === 1 ? 0.55 : 1;
     for (let ty = 0; ty < VG.H; ty++) for (let tx = 0; tx < VG.W; tx++) {
       if (!b.grass[ty * VG.W + tx]) continue;
-      for (let k = 0; k < 3; k++) if (H(tx, ty, 300 + k) < dens * 0.9) tufts.push([(tx + 0.15 + H(tx, ty, 310 + k) * 0.7) * TS, (ty + 0.2 + H(tx, ty, 320 + k) * 0.7) * TS, (H(tx, ty, 330 + k) * 3) | 0, null]);
+      for (let k = 0; k < 3; k++) if (H(tx, ty, 300 + k) < dens * 0.9) {
+        const kind = H(tx, ty, 340 + k) > 0.9 ? 3 : (H(tx, ty, 330 + k) * 3) | 0;
+        tufts.push([(tx + 0.15 + H(tx, ty, 310 + k) * 0.7) * TS, (ty + 0.2 + H(tx, ty, 320 + k) * 0.7) * TS, kind, kind === 3 ? [CYAN, GREEN, PINK][(H(tx, ty, 350 + k) * 3) | 0] : null]);
+      }
     }
     if (!tufts.length) return;
-    // Atlas: 5 dibujos de 12×14 (3 matas, flor, juncos).
     const [c, g] = canvas(60, 14);
     const drawTuft = (o, kind) => {
       const blades = kind === 0 ? [[2, 9], [5, 13], [8, 11], [10, 8]] : kind === 1 ? [[3, 12], [6, 10], [9, 13]] : [[1, 8], [4, 11], [6, 13], [9, 10], [11, 7]];
@@ -965,12 +1332,10 @@ G.Village3D = (() => {
       g.fillStyle = GR[0]; g.fillRect(o + 2, 13, 9, 1);
     };
     drawTuft(0, 0); drawTuft(12, 1); drawTuft(24, 2);
-    // flor (tallo y una cabeza blanca que se tiñe con el color de cada una)
+    // flor (tallo y una cabeza blanca que se tiñe con el color de cada una: esa brilla)
     g.fillStyle = GR[1]; g.fillRect(36 + 6, 6, 1, 8); g.fillStyle = GR[2]; g.fillRect(36 + 4, 10, 2, 1); g.fillRect(36 + 7, 9, 2, 1);
-    g.fillStyle = '#ffffff'; for (const [dx, dy] of [[5, 3], [7, 3], [4, 4], [6, 4], [8, 4], [5, 5], [7, 5]]) g.fillRect(36 + dx, dy, 1, 1);
-    g.fillStyle = '#f4d040'; g.fillRect(36 + 6, 4, 1, 1);
-    // juncos
-    for (const [bx, bh] of [[3, 13], [6, 11], [9, 12]]) { g.fillStyle = '#5a7a3a'; g.fillRect(48 + bx, 14 - bh, 1, bh); g.fillStyle = '#7a4a2a'; g.fillRect(48 + bx, 14 - bh, 1, 3); }
+    g.fillStyle = '#ffffff'; for (const [dx, dy] of [[5, 3], [7, 3], [4, 4], [6, 4], [8, 4], [5, 5], [7, 5], [6, 2]]) g.fillRect(36 + dx, dy, 1, 1);
+    for (const [bx, bh] of [[3, 13], [6, 11], [9, 12]]) { g.fillStyle = '#2a4a3a'; g.fillRect(48 + bx, 14 - bh, 1, bh); g.fillStyle = '#5a3a2a'; g.fillRect(48 + bx, 14 - bh, 1, 3); }
     const t = tex(c);
     const n = tufts.length, pos = new Float32Array(n * 18), base = new Float32Array(n * 12), uv = new Float32Array(n * 12), col = new Float32Array(n * 18);
     const w = 24, hgt = 28;
@@ -999,7 +1364,8 @@ G.Village3D = (() => {
         '  vec2 d = aBase - uPlayer.xz; float L = length(d);',
         '  if (L < 46.0 && L > 0.1) { float f = (46.0 - L) / 46.0; p.x += d.x / L * f * 9.0 * k; p.y -= f * 6.0 * k; }',
         '  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }'].join('\n'),
-      fragmentShader: 'uniform sampler2D uMap; uniform vec3 uTint; varying vec2 vUv; varying vec3 vC; void main(){ vec4 c = texture2D(uMap, vUv); if (c.a < 0.5) discard; vec3 col = c.rgb; if (col.r > 0.95 && col.g > 0.95 && col.b > 0.95) col = vC; gl_FragColor = vec4(col * uTint, 1.0);\n#include <colorspace_fragment>\n}',
+      // Lo blanco de la textura (cabezas de las flores) toma su color y brilla (sin el tinte de la noche).
+      fragmentShader: 'uniform sampler2D uMap; uniform vec3 uTint; varying vec2 vUv; varying vec3 vC; void main(){ vec4 c = texture2D(uMap, vUv); if (c.a < 0.5) discard; vec3 col = c.rgb * uTint; if (c.r > 0.95 && c.g > 0.95 && c.b > 0.95) col = vC; gl_FragColor = vec4(col, 1.0);\n#include <colorspace_fragment>\n}',
       transparent: true, depthWrite: true
     });
     disposables.push(geo, m);
@@ -1019,10 +1385,10 @@ G.Village3D = (() => {
       cam3 = new T.Camera();
       cam3.matrixAutoUpdate = false;
       const pal = G.Tileset.pal(V().BI);
-      edgeCol = pal ? pal.edge : '#104743';
-      uni = { time: { value: 0 }, night: { value: 0 }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
+      edgeCol = pal ? pal.edge : '#000000';
+      uni = { time: { value: 0 }, night: { value: 1 }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
       amb = new T.AmbientLight(0xffffff, 0.6 * Math.PI);
-      sun = new T.DirectionalLight(0xffffff, 0.5 * Math.PI);
+      sun = new T.DirectionalLight(0xffffff, 0.3 * Math.PI);
       sun.castShadow = fx() > 0;
       const ms = mobile() ? 512 : 1024;
       sun.shadow.mapSize.set(ms, ms);
@@ -1032,37 +1398,32 @@ G.Village3D = (() => {
       sc.updateProjectionMatrix();
       sun.target.position.set(V().W * TS / 2, 0, V().H * TS / 2);
       scene.add(amb, sun, sun.target);
-      lights = {
-        lamp: new T.MeshLambertMaterial({ color: 0xffe8a0, emissive: new T.Color(0xffb040), emissiveIntensity: 0 }),
-        window: new T.MeshLambertMaterial({ color: 0x8ab0d8, emissive: new T.Color(0xffc060), emissiveIntensity: 0 }),
-        mush: new T.MeshLambertMaterial({ color: 0x60c8ff, emissive: new T.Color(0x40a0ff), emissiveIntensity: 0.15, flatShading: true })
-      };
-      disposables.push(lights.lamp, lights.window, lights.mush);
       batch = new Map();
       buildGround();
       buildWater();
       V().PLACES.forEach((p, i) => {
         const k = p.look.kind;
-        if (k === 'tent') tent(p, i); else if (k === 'stall') stall(p, i); else if (k === 'hut') hut(p, i); else if (k === 'house') hut(p, i, true);
+        if (k === 'pod') pod(p, i); else if (k === 'stall') stall(p, i); else if (k === 'mush') mush(p, i);
         else if (k === 'board') board(p, i); else if (k === 'case') showcase(p, i); else if (k === 'podium') podium(p, i);
-        else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'tree') portalTree(p, i);
+        else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'flower') flower(p, i);
       });
       for (const d of V().DECOR) decor(d);
       flush();
       buildTufts();
-      // Partículas: pétalos de día, luciérnagas de noche, humo de la chimenea, chispas doradas y la fuente.
+      buildMist();
+      // Partículas: esporas que flotan (siempre) y que caen, chispas y el manantial.
       const VG = V(), f = fx();
-      const nFly = f === 0 ? 14 : f === 1 ? 26 : 44, nPet = f === 0 ? 10 : f === 1 ? 20 : 34;
+      const nFly = f === 0 ? 14 : f === 1 ? 24 : 36, nPet = f === 0 ? 6 : f === 1 ? 12 : 18;
       const spots = (n, s) => Array.from({ length: n }, (_, i) => [(3 + H(i, s, 1) * (VG.W - 6)) * TS, 0, (3 + H(i, s, 2) * (VG.H - 6)) * TS]);
-      uni.flyA = { value: 0 }; uni.petA = { value: 1 };
-      particles(0, spots(nFly, 1), ['#d8ff70', '#fff490', '#a8ff90'], 2, true, uni.flyA);
-      particles(1, spots(nPet, 2), ['#ffc0d8', '#ffffff', '#ffe08a', '#c8f0a0'], 2, false, uni.petA);
-      if (smokeQ.length) particles(2, smokeQ.flatMap(p => Array.from({ length: 8 }, () => p)), ['#d8d8d8', '#bcbcbc'], 3, false);
-      if (sparkQ.length) particles(3, sparkQ, ['#fff6b0', '#ffffff', '#b8e0ff'], 2, true);
-      if (sprayQ.length) particles(4, sprayQ.flatMap(p => Array.from({ length: f === 0 ? 8 : 18 }, () => p)), ['#cfe8ff', '#ffffff', '#8ac0ff'], 2, false);
-      smokeQ.length = sparkQ.length = sprayQ.length = 0;
+      uni.flyA = { value: 1 }; uni.petA = { value: 0.7 };
+      particles(0, spots(nFly, 1), [CYAN, GREEN, '#d8ff70', PINK], 2, true, uni.flyA);
+      particles(1, spots(nPet, 2), ['#8affff', '#c0ffd0', '#ffc0f0'], 2, true, uni.petA);
+      if (sparkQ.length) particles(3, sparkQ, ['#fff6b0', '#ffffff', '#b8e0ff', '#ffb8f0'], 2, true);
+      if (sprayQ.length) particles(4, sprayQ.flatMap(p => Array.from({ length: f === 0 ? 8 : 18 }, () => p)), ['#8affff', '#ffffff', '#5ff0ff'], 2, true);
+      sparkQ.length = sprayQ.length = 0;
       built = true;
-      shadowAt = -1;
+      shadowSun = null;
+      setHome(G.Home ? G.Home.current() : null);
       return '';
     } catch (e) {
       console.warn('[Aldea] no se pudo construir:', e);
@@ -1078,13 +1439,12 @@ G.Village3D = (() => {
   function shadowMat(R) {
     let m = shadowMats.get(R);
     if (m) return m;
-    // Sombra a píxeles (como sprites.js drawShadow): una elipse en escalones, sin suavizar.
     const h = Math.max(1, Math.round(R * 0.42));
     const c = pix(R * 2, h * 2, (x, y) => {
       const w = Math.round(Math.sqrt(Math.max(0, 1 - Math.pow((y + 0.5 - h) / h, 2))) * R);
       return x >= R - w && x < R + w ? '#000000' : null;
     });
-    m = new T.MeshBasicMaterial({ map: tex(c), transparent: true, opacity: 0.34, depthWrite: false });
+    m = new T.MeshBasicMaterial({ map: tex(c), transparent: true, opacity: 0.4, depthWrite: false });
     disposables.push(m);
     shadowMats.set(R, m);
     return m;
@@ -1101,15 +1461,16 @@ G.Village3D = (() => {
     }
     return t;
   }
-  /** Pone (o actualiza) el sprite de una entidad: { anim (G.Sprites.Animator), x, y, z?, hide? }. */
+  /** Pone (o actualiza) el sprite de una entidad: { anim (G.Sprites.Animator), x, y, z?, hide?, holo? }. */
   function sprite(e) {
     if (!built) return;
     let s = sprites.get(e);
     if (!s) {
       if (!planeGeo) { planeGeo = new T.PlaneGeometry(1, 1); planeGeo.__keep = true; }
       const mat = new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true });
+      if (e.holo) { mat.depthWrite = false; mat.blending = T.AdditiveBlending; mat.alphaTest = 0.3; }
       const mesh = new T.Mesh(planeGeo, mat);
-      mesh.frustumCulled = false; mesh.renderOrder = 5;
+      mesh.frustumCulled = false; mesh.renderOrder = e.holo ? 13 : 5;
       const meta = G.Sprites.meta(e.anim.dex), R = Math.round([5, 8, 12][Math.max(0, Math.min(2, meta ? meta.s : 1))] * e.anim.scale);
       const shadow = new T.Mesh(planeGeo, shadowMat(R));
       shadow.rotation.x = -Math.PI / 2;
@@ -1128,7 +1489,7 @@ G.Village3D = (() => {
     const own = sh === G.Sprites.sheet(a.dex, a.cur, a.shiny);
     const ok = !e.hide && m && sh && sh.ready && sh.img.width;
     s.mesh.visible = !!ok;
-    s.shadow.visible = !!ok && !e.noShadow;
+    s.shadow.visible = !!ok && !e.noShadow && !e.holo;
     if (!ok) return;
     let t = s.tex.get(sh.img);
     if (!t) { t = baseOf(sh.img).clone(); s.tex.set(sh.img, t); }
@@ -1138,48 +1499,48 @@ G.Village3D = (() => {
     t.repeat.set(m.w / W, m.h / Hh);
     t.offset.set(sx / W, 1 - (sy + m.h) / Hh);
     const k = PX * a.scale;
-    // Pies en (x, y) sobre la rejilla del arte, como sprites.js.
     const left = Math.round((e.x - m.ax * k) / PX) * PX, top = Math.round((m.ay * k + (e.z || 0)) / PX) * PX;
     s.mesh.scale.set(m.w * k, m.h * k, 1);
     s.mesh.position.set(left + m.w * k / 2, top - m.h * k / 2, e.y + 1);
-    s.mesh.renderOrder = 5;
     const sh2 = Math.max(1, Math.round(s.R * 0.42)) * 2 * PX;
     s.shadow.position.set(Math.round((e.x) / PX) * PX, 0.8, Math.round(e.y / PX) * PX - sh2 / 2 + PX);
-    s.mat.color.setRGB(e.flash ? 1.6 : 1, e.flash ? 1.6 : 1, e.flash ? 1.6 : 1);
+    if (e.holo) { const fl = 0.75 + 0.25 * Math.sin(uni.time.value * 11) * Math.sin(uni.time.value * 3.3); s.mat.color.setRGB(0.25 * fl, 0.95 * fl, 1.1 * fl); return; }
+    // De noche los Pokémon se tiñen algo (sin perderse: la mitad del tinte del suelo).
+    const tc = uni.tintCol, f = e.flash ? 1.6 : 1;
+    s.mat.color.setRGB(f * (0.45 + tc.r * 0.55), f * (0.45 + tc.g * 0.55), f * (0.45 + tc.b * 0.55));
   }
   function unsprite(e) {
     const s = sprites.get(e);
     if (!s) return;
-    scene.remove(s.mesh, s.shadow);
+    if (scene) scene.remove(s.mesh, s.shadow);
     s.mat.dispose();
     for (const t of s.tex.values()) t.dispose();
     sprites.delete(e);
   }
 
-  // ---------------- luz del día ----------------
+  // ---------------- luz ----------------
   /*
-   * Ciclo corto (decisión del dueño): l = { amb: [r,g,b], ai, sun: [r,g,b], si, az, el, night (0..1), dusk (0..1) }.
-   * De día, el suelo sale con el color justo del tileset (amb 0,6 + sol 0,5 · 0,8 = 1, como Ultra 3D).
+   * Ciclo corto (decisión del dueño), casi siempre de noche: l = { amb: [r,g,b], ai, sun: [r,g,b], si, az, el, night
+   * (0..1: cuánto brilla lo que brilla), dusk, mist }.
    */
-  function setLight(l) {
+  function setLight(l, t) {
     amb.color.setRGB(...l.amb); amb.intensity = l.ai * Math.PI;
     sun.color.setRGB(...l.sun); sun.intensity = l.si * Math.PI;
     const ce = Math.cos(l.el), dir = [Math.cos(l.az) * ce, Math.sin(l.el), Math.sin(l.az) * ce];
     const c = sun.target.position;
     sun.position.set(c.x + dir[0] * 2000, dir[1] * 2000, c.z + dir[2] * 2000);
-    // Tinte de lo que no lleva luz (hierba, agua): lo que le llega al suelo.
     const k = Math.max(0, dir[1]);
     const tr = l.amb[0] * l.ai + l.sun[0] * l.si * k, tg = l.amb[1] * l.ai + l.sun[1] * l.si * k, tb = l.amb[2] * l.ai + l.sun[2] * l.si * k;
     uni.tint.value.set(tr, tg, tb);
     uni.tintCol.setRGB(tr, tg, tb);
     uni.night.value = l.night;
-    lights.lamp.emissiveIntensity = l.night * 1.4 + l.dusk * 0.6;
-    lights.window.emissiveIntensity = l.night * 1.1 + l.dusk * 0.4;
-    lights.mush.emissiveIntensity = 0.15 + l.night * 1.2;
-    if (glowMat) glowMat.opacity = Math.min(1, l.night * 1.2 + l.dusk * 0.4);
-    uni.flyA.value = l.night;
-    uni.petA.value = 1 - l.night;
-    // Sombras: se rehacen sólo si el sol se ha movido (todo lo que da sombra está quieto).
+    if (pondCol) pondCol.setRGB(Math.min(1.4, tr * 0.8 + 0.12), Math.min(1.4, tg * 1.1 + 0.2), Math.min(1.4, tb * 1.2 + 0.26));
+    const gk = 0.55 + 0.6 * l.night;
+    for (const g of glowList) g.m.emissiveIntensity = g.base * gk * (1 + 0.1 * Math.sin(t * 1.3 + g.ph));
+    for (const m of glowMats.values()) m.opacity = Math.min(1, (0.45 + l.night * 0.75) * m.__k);
+    for (const m of mistMats) m.opacity = m.__op * (l.mist == null ? 1 : l.mist);
+    uni.flyA.value = 0.55 + l.night * 0.45;
+    uni.petA.value = 0.5 + l.night * 0.3;
     const key = Math.round(l.az * 40) + ',' + Math.round(l.el * 40);
     if (key !== shadowSun) { shadowSun = key; renderer.shadowMap.needsUpdate = true; }
   }
@@ -1194,7 +1555,6 @@ G.Village3D = (() => {
     const wl = Math.min(1400, Math.ceil(view.w * KL) + 4), hl = Math.min(1000, Math.ceil(view.h * KL) + 4);
     if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; renderer.setSize(Wl, Hl, false); }
     const hw = view.w / 2, hh = view.h / 2, a = view.K / hh, b = a;
-    // Cámara pegada a la rejilla del arte (sin «nadar»); el resto se corrige al pasarlo a la pantalla.
     const cxs = Math.round(view.cx * KL) / KL, czs = Math.round(view.cy * KL) / KL;
     const Cx = Math.round(Wl / 2), Cy = Math.round(Hl / 2);
     const R = view.scale / KL;
@@ -1203,7 +1563,6 @@ G.Village3D = (() => {
     const w = [0, -b, -a, 1 + a * czs];
     const xr = [2 * KL / Wl, 0, 0, -2 * KL * cxs / Wl].map((v, i) => v + (2 * Cx / Wl - 1) * w[i]);
     const yr = [0, 2 * KL / Hl, -2 * KL / Hl, 2 * KL * czs / Hl].map((v, i) => v + (1 - 2 * Cy / Hl) * w[i]);
-    // Profundidad: z = A − B/w (w de 0,3 a 2,5; lo cercano, w pequeño, delante).
     const A = 1.2727, B = 0.6818;
     const zr = w.map((v, i) => A * v + (i === 3 ? -B : 0));
     P.set([...xr, ...yr, ...zr, ...w]);
@@ -1211,9 +1570,9 @@ G.Village3D = (() => {
     cam3.projectionMatrixInverse.copy(cam3.projectionMatrix).invert();
     view.proj = { cxs, czs, Cx, Cy, a, b, R, ox, oy };
     uni.time.value = t;
-    setLight(light);
+    if (view.player) uni.player.value.set(view.player.x, 0, view.player.y);
+    setLight(light, t);
     for (const o of anim) o.fn(t, dt);
-    for (const o of flags) o.fn(t, dt);
     if (mailPivot) mailPivot.rotation.z = view.mail ? 0 : -Math.PI / 2;
     try { renderer.render(scene, cam3); } catch (e) { console.warn('[Aldea] fallo al dibujar:', e); return null; }
     return { cv: glcv, Wl, Hl, ox, oy, k: R };
@@ -1240,14 +1599,15 @@ G.Village3D = (() => {
   function drop(gpuGone) {
     for (const e of [...sprites.keys()]) { try { unsprite(e); } catch (er) { /* nada */ } }
     sprites = new Map();
+    const all = disposables.concat(home ? home.disp : []);
     if (!gpuGone) {
-      for (const d of disposables) { try { d.dispose(); } catch (e) { /* nada */ } }
+      for (const d of all) { try { d.dispose(); } catch (e) { /* nada */ } }
       for (const t of baseTex.values()) { try { t.dispose(); } catch (e) { /* nada */ } }
     }
-    disposables.length = 0; baseTex.clear(); mats.clear(); shadowMats.clear();
-    anim.length = 0; flags = []; glows.length = 0; particleSets.length = 0; tufts.length = 0;
+    disposables = []; baseTex.clear(); mats.clear(); shadowMats.clear(); glowMats.clear();
+    anim = []; glowList = []; glowMeshes = []; mistMats = []; tufts.length = 0; home = null; homeSpark = null;
     if (signs && signs.canvas) G.U.freeCanvas(signs.canvas);
-    signs = null; glowMat = null; pondTex = null; fountainTex = null; mailPivot = null; planeGeo = null; batch = null; hulls = [];
+    signs = null; pondTex = null; pondCol = null; mailPivot = null; planeGeo = null; batch = null; hulls = []; sink = null;
     scene = null; built = false; shadowSun = null;
   }
   function free() {
@@ -1260,7 +1620,9 @@ G.Village3D = (() => {
     Wl = Hl = 0;
   }
 
-  return { probe, start, build, render, sprite, unsprite, toScreen, toWorld, free,
+  return { probe, start, build, render, sprite, unsprite, toScreen, toWorld, free, setHome,
+    /** Alto (mundo) de lo de encima de un sitio (su nombre va ahí). */
+    top: id => tops[id] || 0,
     get ready() { return built && !lost; }, get lost() { return lost; }, get started() { return !!renderer; }, get failed() { return failed; },
     /** Para depurar (sólo con ?dev): la escena. */
     get scene() { return /[?&]dev\b/.test(location.search) ? scene : null; },
