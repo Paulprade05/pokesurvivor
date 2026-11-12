@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-12', title: ["La aldea: el menú se pasea", "The village: walk around the menu"], new: [
+    ["El menú principal es ahora una aldea Pokémon: mueves a tu Pokémon con el teclado, el joystick o el mando, y cada carpa abre un apartado (Mejoras, Gacha, Pokédex, Tienda Kecleon, Almacén, misiones, logros, Compendio, Grupo, Ranking, tu casa con tu perfil, el buzón de novedades y el PC de ajustes). Al acercarte sale «Entrar». Para jugar, ve al Árbol del Portal.",
+     "The main menu is now a Pokémon village: move your Pokémon with the keyboard, joystick or controller, and each tent opens a section (Upgrades, Gacha, Pokédex, Kecleon Shop, Storehouse, missions, achievements, Compendium, Group, Leaderboard, your house with your profile, the news mailbox and the settings PC). Get close and «Enter» appears. To play, go to the Portal Tree."],
+    ["La aldea está viva: un Pokémon tendero en cada carpa y Pokémon que pasean, te hablan, reaccionan y a veces te siguen un rato. Pasa del día a la noche en unos 10 minutos, con farolillos, luciérnagas, agua y hierba que se mueve.",
+     "The village is alive: a shopkeeper Pokémon at each tent and Pokémon that wander, talk to you, react and sometimes follow you for a while. It goes from day to night in about 10 minutes, with lanterns, fireflies, water and swaying grass."],
+    ["Botón «Ir a…» (o Esc, o Start en el mando): abre cualquier apartado sin andar. También puedes tocar o hacer clic en una carpa para ir hasta ella.",
+     "«Go to…» button (or Esc, or Start on a controller): opens any section without walking. You can also tap or click a tent to walk to it."],
+    ["Si tu aparato no tiene WebGL, sale el menú de siempre.",
+     "If your device has no WebGL, the usual menu shows up."]] },
   { d: '2026-11-07', title: ["Ataques que cumplen lo que dicen", "Attacks that do what they say"], chg: [
     ["Las cartas de daño dicen ahora el daño de verdad. En 68 ataques, el ajuste de equilibrio entre niveles iba escondido en todas sus cartas: una de «-25% recarga» quitaba algo de daño sin decirlo y la de «+45% daño» daba menos. Ahora va entero en sus cartas de daño, con su número (por ejemplo, Ascuas: «+6% daño»). El nivel 1 y el nivel máximo pegan igual que antes.",
      "Damage cards now show the real damage. In 68 attacks, the balance adjustment between levels was hidden across all their cards: a «-25% cooldown» card quietly took some damage away and the «+45% damage» one gave less. Now it all goes into their damage cards, with the real number (for example, Ember: «+6% damage»). Level 1 and max level hit the same as before."],

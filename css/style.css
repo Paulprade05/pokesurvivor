@@ -1339,8 +1339,8 @@ body.touch .vil-act { animation-name: va-in-t; }
 }
 #scr-menu.village .vil-loading { display: none; }
 @media (max-height: 520px) {
-  .vil-go { top: calc(var(--bar-top) + var(--bar-h) - 12px); min-height: 40px; }
-  .vil-quick { top: calc(var(--bar-top) + var(--bar-h) + 32px); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - 40px); }
+  .vil-go { top: calc(var(--bar-top) + var(--bar-h) - 2px); min-height: 40px; }
+  .vil-quick { top: calc(var(--bar-top) + var(--bar-h) + 42px); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - 40px); }
   .vq-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .vq-item { min-height: 44px; }
 }
