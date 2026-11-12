@@ -15,8 +15,8 @@ G.CHANGELOG = [
     ["El juego se queda en la pantalla del título hasta que la aldea está cargada del todo: ya no se ve el menú de antes ni la aldea a medio montar.",
      "The game stays on the title screen until the village is fully loaded: you no longer see the old menu or a half-built village."]
   ], fix: [
-    ["Al volver de una partida podía salir el menú de antes en vez de la aldea.",
-     "After a run, the old menu could show up instead of the village."]
+    ["Al acabar una partida (al caer, al ganar o al abandonarla) se volvía al menú antiguo en vez de a la aldea. Ahora siempre vuelves a la aldea; si tarda en montarse, sigue la pantalla del título hasta que está lista.",
+     "When a run ended (falling, winning or quitting), you went back to the old menu instead of the village. Now you always return to the village; if it takes a moment to build, the title screen stays until it is ready."]
   ] },
   { d: '2026-11-12', title: ["Enemigos que ya no se atascan", "Enemies no longer get stuck"], fix: [
     ["Los Pokémon salvajes grandes ya no se quedan temblando en el sitio junto a un charco o pegados a una pared: siguen su camino hacia ti.",

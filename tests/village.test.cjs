@@ -10,7 +10,7 @@ function data() {
 }
 
 /** Carga village.js con una página de mentira. gl: ¿hay WebGL? */
-function load({ gl = true } = {}) {
+function load({ gl = true, v3 = null, tiles = false, three = false } = {}) {
   const calls = [];
   const els = {};
   const el = id => els[id] || (els[id] = {
@@ -36,15 +36,15 @@ function load({ gl = true } = {}) {
     Audio: { sfx() {} },
     GoalsUI: { open: t => calls.push('goals:' + t) },
     HomeUI: { open: () => calls.push('home:open') },
-    Tileset: { enabled: () => true, ready: () => false, preload() {} },
+    Tileset: { enabled: () => true, ready: () => tiles, preload() {} },
     Settings: { fx: 2 },
     Game: { state: 'ui' },
     T: s => s, U: { damp: (a, b) => b, pick: a => a[0] },
-    Village3D: { probe: () => gl, started: false, ready: false, free() {} },
+    Village3D: v3 || { probe: () => gl, started: false, ready: false, free() {} },
     MenuUI: {}
   };
-  const ctx = vm.createContext({ G, document, location: { search: '', protocol: 'http:' }, addEventListener() {}, setTimeout: () => 0, setInterval: () => 0, clearInterval() {},
-    requestAnimationFrame: () => 0, console: { warn() {}, log() {} }, Math, JSON, window: {}, sessionStorage: { getItem: () => null, setItem() {} },
+  const ctx = vm.createContext({ G, document, location: { search: '', protocol: 'http:' }, addEventListener() {}, setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {},
+    requestAnimationFrame: () => 0, console: { warn() {}, log() {} }, Math, JSON, window: three ? { PS_THREE: {} } : {}, sessionStorage: { getItem: () => null, setItem() {} },
     localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 }, innerWidth: 1280, innerHeight: 720 });
   vm.runInContext(read('js/world/village.js'), ctx);
   return { V: G.Village, G, calls, el };
@@ -135,6 +135,52 @@ test('aldea: el actualizador sigue igual (fuera de partida) y espera también en
   const v3 = read('js/world/village3d.js');
   assert.match(v3, /if \(c === glcv\) lost = true/);
   assert.match(v3.slice(v3.indexOf('function start('), v3.indexOf('function start(') + 400), /lost = false/);
+});
+
+test('aldea: al acabar la partida se vuelve a la aldea (fallo del dueño: «te lleva al menú antiguo»)', () => {
+  // Todos los finales (morir, ganar, salir desde la pausa; en grupo, al salir de la sala) acaban en MenuUI.open → Village.show.
+  const g = read('js/game.js'), m = read('js/ui/menu.js');
+  const flow = g.slice(g.indexOf('G.Flow = {'));
+  assert.ok(g.includes('() => { pl = null; G.Flow.afterRun(); }'), 'el resumen termina en Flow.afterRun');
+  assert.ok(flow.slice(flow.indexOf('afterRun()')).includes('this.goMenu()'));
+  assert.ok(flow.slice(flow.indexOf('goMenu()'), flow.indexOf('afterRun()')).includes('G.MenuUI.open()'));
+  const open = m.slice(m.indexOf('  function open() {'));
+  assert.ok(open.slice(0, open.search(/\r?\n  \}\r?\n/)).includes('G.Village.show()'), 'MenuUI.open termina en la aldea');
+  // Si rehacer la aldea falla al volver (sin memoria en el iPhone, contexto perdido), se reintenta con el velo del título:
+  // nada de menú clásico hasta el cuarto fallo seguido.
+  let builds = 0;
+  const v3 = { probe: () => true, started: false, ready: false, start() { this.started = true; }, build() { builds++; return 'sin lienzo'; }, free() { this.started = false; } };
+  const { V, el } = load({ gl: true, v3, tiles: true, three: true });
+  for (let k = 1; k <= 3; k++) {
+    V.show();
+    assert.equal(builds, k);
+    assert.equal(V.mode, 'loading', 'intento ' + k + ': el velo, no el clásico');
+    assert.equal(el('vil-loading').classList.contains('hidden'), false);
+    assert.equal(el('scr-menu').classList.contains('village'), true);
+    assert.equal(V.failed, '');
+  }
+  V.show();
+  assert.equal(V.mode, 'classic', 'si sigue fallando, el clásico (respaldo)');
+  assert.equal(el('vil-loading').classList.contains('hidden'), true);
+});
+
+test('aldea: el aviso tardío de «contexto perdido» del lienzo soltado no tumba la aldea rehecha', () => {
+  const handlers = [];
+  const canvas = () => { const c = { width: 0, height: 0, on: {}, addEventListener(t, fn) { this.on[t] = fn; } }; handlers.push(c); return c; };
+  const T = { WebGLRenderer: function () { return { setPixelRatio() {}, setClearColor() {}, shadowMap: {}, dispose() {}, forceContextLoss() {} }; }, BasicShadowMap: 0 };
+  const ctx = vm.createContext({ G: { U: { IOS: false, freeCanvas() {} }, Settings: { fx: 2 }, VILLAGE: data() }, document: { createElement: canvas }, location: { search: '' }, console: { warn() {} }, Math, JSON, setTimeout: () => 0 });
+  vm.runInContext(read('js/world/village3d.js'), ctx);
+  const V3 = ctx.G.Village3D;
+  V3.start(T);
+  const old = handlers[0];
+  V3.free();                         // al empezar la partida
+  V3.start(T);                       // al volver
+  old.on.webglcontextlost({ preventDefault() {} });   // llega tarde el aviso del lienzo viejo
+  assert.equal(V3.lost, false);
+  handlers[1].on.webglcontextlost({ preventDefault() {} });   // el de ahora sí cuenta
+  assert.equal(V3.lost, true);
+  V3.free(); V3.start(T);
+  assert.equal(V3.lost, false, 'al empezar de nuevo, sin perder');
 });
 
 test('aldea: la pantalla del título espera a la aldea (carga directa) y boot.js no ofrece recargar mientras', async () => {

@@ -91,17 +91,35 @@ G.Village = (() => {
       if (!G.Village3D.started) G.Village3D.start(T);
       if (!G.Village3D.ready) {
         const err = G.Village3D.build();
-        if (err) { fail(err); return; }
+        if (err) { fail(err, true); return; }
         spawnAll();
       }
-    } catch (e) { fail(String(e && e.message || e)); return; }
+    } catch (e) { fail(String(e && e.message || e), true); return; }
     enter();
   }
 
-  function fail(why) {
+  /*
+   * soft: un fallo que puede pasarse solo (al construir la escena o al perder el contexto: en el iPhone, sin memoria justo
+   * al acabar la partida). Antes cualquier fallo dejaba el menú clásico para toda la sesión, y el dueño volvía de cada
+   * partida al menú antiguo (12-11-2026). Ahora se reintenta con el velo del título puesto (hasta SOFT_TRIES veces seguidas);
+   * sólo si sigue fallando, o si es un fallo de verdad (sin WebGL, sin three.js, sin tileset), sale el clásico.
+   */
+  const SOFT_TRIES = 3;
+  let softTries = 0, softT = 0;
+  function fail(why, soft) {
+    try { G.Village3D.free(); } catch (e) { /* nada */ }
+    if (soft && softTries < SOFT_TRIES) {
+      softTries++;
+      console.warn('[Aldea] se reintenta (' + softTries + '/' + SOFT_TRIES + '):', why);
+      for (const n of npcs) { try { G.Village3D.unsprite(n); } catch (e) { /* nada */ } }
+      npcs = []; pl = null; pet = null; holo = null; followers = []; lastPartner = ''; homeKey = ''; prepP = null;
+      waiting();
+      clearTimeout(softT);
+      softT = setTimeout(() => { softT = 0; if (G.UI.isOpen('scr-menu') && !active) show(); }, 700 * softTries);
+      return;
+    }
     failed = why || 'error';
     console.warn('[Aldea] menú clásico:', failed);
-    try { G.Village3D.free(); } catch (e) { /* nada */ }
     classic(false);
   }
 
@@ -124,12 +142,14 @@ G.Village = (() => {
     setQuick(false);
     veil(true);
   }
-  function veil(on) { const v = $('vil-loading'); if (v) v.classList.toggle('hidden', !on); }
+  let veilOn = false;
+  function veil(on) { veilOn = !!on; const v = $('vil-loading'); if (v) v.classList.toggle('hidden', !on); }
 
   function enter() {
     const scr = $('scr-menu');
     const was = active;
     active = true;
+    softTries = 0;
     scr.classList.add('village');
     veil(false);
     // Tu Pokémon (si lo has cambiado en la Pokédex, el nuevo).
@@ -212,12 +232,12 @@ G.Village = (() => {
           try {
             if (!G.Village3D.started) G.Village3D.start(T);
             const err = G.Village3D.build();
-            if (err) { fail(err); end(false); return; }
+            if (err) { fail(err, true); end(false); return; }
             spawnAll();
             // Un dibujo de prueba (sin enseñarlo): sube las texturas y prepara los shaders mientras sigue el título.
             const VG = V();
             G.Village3D.render({ cx: VG.W * TS / 2, cy: VG.H * TS / 2, w: 960, h: 540, scale: 1, K: 0.18 }, 0, 0, light(phase()));
-          } catch (e) { fail(String(e && e.message || e)); end(false); return; }
+          } catch (e) { fail(String(e && e.message || e), true); end(false); return; }
         }
         if (spritesReady() || late) end(true);
       };
@@ -382,7 +402,7 @@ G.Village = (() => {
   /** game.js: el fondo del menú. → true si lo ha dibujado la aldea (y entonces no va Backdrop). */
   function frame(ctx, w, h, dpr, real) {
     if (!active || !G.UI.isOpen('scr-menu') || !pl) return false;
-    if (G.Village3D.lost) { fail('contexto WebGL perdido'); return false; }
+    if (G.Village3D.lost) { fail('contexto WebGL perdido', true); return false; }
     const dt = Math.min(1 / 20, Math.max(0, real || 0));
     const cov = covered(), walk = walking();
     if (cov === 2) { walkPrev = false; return true; }          // tapada: se queda quieta (como el fondo del menú)
@@ -822,7 +842,7 @@ G.Village = (() => {
 
   return { init, show, frame, sleep, go, walking, wanted, prepare, homePanel, previewHome, syncHome, nearest: () => near,
     get homeOpen() { return homeOpen; },
-    get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : three === 'loading' ? 'loading' : 'classic'; },
+    get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : (three === 'loading' || veilOn) ? 'loading' : 'classic'; },
     get failed() { return failed; }, get quickOpen() { return quick; },
     places: () => V().PLACES.map(p => ({ id: p.id, go: p.go, name: p.name })), ORDER,
     /** Para pruebas y capturas. */
