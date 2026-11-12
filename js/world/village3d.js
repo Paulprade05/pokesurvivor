@@ -760,7 +760,7 @@ G.Village3D = (() => {
       const [ac, ag] = canvas(256, 256), [ec, eg] = canvas(256, 256);
       ag.drawImage(memo('fbark', () => bark(128, ['#1a1410', '#261c16', '#34261c', '#463426'], 9)), 0, 0);
       ag.drawImage(memo('fpine', () => foliage(128, ['#0b2426', '#123638', '#1b4e4a', '#2c6e5c'], 23)), 128, 0);
-      ag.drawImage(memo('fleaf', () => foliage(128, ['#0e2a3a', '#163e4e', '#1f5a62', '#2f7e78'], 29)), 0, 128);
+      ag.drawImage(memo('fleaf', () => foliage(128, ['#0f2c32', '#174444', '#205e54', '#33806a'], 29)), 0, 128);
       ag.drawImage(memo('fcap', () => capTex('#e8e4f0', 5)), 128, 128, 128, 64);
       ag.fillStyle = '#bff8ff'; ag.fillRect(128, 192, 128, 64);
       eg.fillStyle = '#000000'; eg.fillRect(0, 0, 256, 256);
@@ -776,16 +776,17 @@ G.Village3D = (() => {
     disposables.push(mat, hullM);
     glowList.push({ m: mat, base: 1, ph: 1.3 });
     const R = { bark: [0, 0], pine: [0.5, 0], leaf: [0, 0.5], cap: [0.5, 0.5, 0.25], pod: [0.5, 0.75, 0.25] };
-    // Una pieza con sus uv llevadas a su trozo del atlas (con 3 px de margen: los mipmaps no se mezclan).
+    // Una pieza con sus uv llevadas a su trozo del atlas (con 10 px de margen: de lejos, los mipmaps no mezclan el sombrero
+    // blanco ni las vainas con las hojas).
     const part = (g, at, r) => {
-      const q = g.index ? g.toNonIndexed() : g, uv = q.attributes.uv, [u0, v0, vh = 0.5] = R[r], m = 3 / 256;
+      const q = g.index ? g.toNonIndexed() : g, uv = q.attributes.uv, [u0, v0, vh = 0.5] = R[r], m = 10 / 256;
       for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + m + uv.getX(i) * (0.5 - 2 * m), 1 - (v0 + m + (1 - uv.getY(i)) * (vh - 2 * m)));
       q.applyMatrix4(compose(at));
       if (q !== g) g.dispose();
       return q;
     };
     // Las piezas a dos detalles: la planta (q = 1; en Máxima, más redonda) y su contorno (q = 0: basta la silueta).
-    const hi = G.Settings && G.Settings.max ? 2 : 1;
+    const hi = mobile() || fx() < 2 ? 1 : 2;      // (PC con calidad alta: copas más redondas)
     const CY = (rt, rb, h, n) => new T.CylinderGeometry(rt, rb, h, n, 1, false), CO = (r, h, n) => new T.ConeGeometry(r, h, n, 1, false);
     const BL = (r, q) => new T.IcosahedronGeometry(r, q ? hi : 0), CAP = (r, q) => new T.SphereGeometry(r, q ? 14 : 8, q ? 5 : 3, 0, Math.PI * 2, 0, Math.PI / 2);
     const KIND = {
@@ -793,7 +794,7 @@ G.Village3D = (() => {
       round: q => [part(CY(4, 6.5, 52, q ? 8 : 5), { y: 26 }, 'bark'),
         part(BL(30, q), { y: 74 }, 'leaf'), part(BL(22, q), { x: -20, y: 60, z: 6 }, 'leaf'), part(BL(20, q), { x: 18, y: 64, z: -5 }, 'leaf')].concat(q ? [
         part(BL(2.6, 0), { x: -8, y: 46, z: 18 }, 'pod'), part(BL(2.2, 0), { x: 16, y: 50, z: 14 }, 'pod'), part(BL(2.4, 0), { x: -26, y: 44, z: 2 }, 'pod')] : []),
-      shroom: q => [part(CY(4, 6, 36, q ? 8 : 5), { y: 18 }, 'bark'), part(CAP(24, q), { y: 34, sy: 0.42 }, 'cap')],
+      shroom: q => [part(CY(4, 6, 36, q ? 8 : 5), { y: 18 }, 'bark'), part(CAP(24, q), { y: 34, sy: 0.42 }, 'cap')].concat(q ? [part(CY(23, 6, 3, 14), { y: 33 }, 'bark')] : []),   // (láminas oscuras debajo del sombrero)
       bush: q => [part(BL(14, q), { y: 8, sy: 0.75 }, 'leaf'), part(BL(11, q), { x: -12, y: 6, z: 4, sy: 0.7 }, 'leaf'), part(BL(10, q), { x: 11, y: 6, z: -3, sy: 0.7 }, 'leaf')]
         .concat(q ? [part(BL(1.8, 0), { x: 4, y: 13, z: 10 }, 'pod')] : [])
     };
@@ -860,7 +861,7 @@ G.Village3D = (() => {
       for (let q = 0; q < count; q++) {
         const h = H(tx, ty, 660 + q);
         let kind;
-        if (south) kind = h < 0.78 ? 'bush' : 'shroom';
+        if (south) kind = h < 0.9 ? 'bush' : 'shroom';
         else if (edge && q > 0) kind = h < 0.55 ? 'bush' : h < 0.8 ? 'shroom' : 'round';
         else kind = h < 0.42 ? 'pine' : h < 0.82 ? 'round' : 'shroom';
         // Pegada al lado abierto (las de delante) o suelta dentro de la casilla; siempre dentro de ella.

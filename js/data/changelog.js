@@ -6,6 +6,20 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-12', title: ["Gráficos pulidos en todo el juego", "Polished graphics across the whole game"], new: [
+    ["Nueva calidad Máxima para PC (Ajustes › Gráficos): Ultra con todo, más resolución, bordes suavizados, sombras más finas, brillo de verdad en el fuego, los rayos y las luces, más partículas y, en la aldea, más árboles. En la app de Windows se elige sola.",
+     "New Max quality for PC (Settings › Graphics): Ultra with everything, higher resolution, smoothed edges, finer shadows, real glow on fire, beams and lights, more particles and, in the village, more trees. The Windows app picks it on its own."]
+  ], chg: [
+    ["Las rocas y los cofres del mundo son 3D lisos, como en la aldea: rocas redondeadas con musgo y grietas suaves, y cofres de tablas con la tapa abombada, flejes y cerradura de oro que brillan. En Ultra también las paredes, nítidas y con sombras suaves. En PC se ven así también sin Ultra.",
+     "World rocks and chests are smooth 3D, like in the village: rounded rocks with moss and soft cracks, and plank chests with a domed lid, gold bands and a gold lock that shine. In Ultra the walls too, sharp and with soft shadows. On PC they look like this even without Ultra."],
+    ["El borde de la aldea es ahora un bosque denso: pinos, árboles de copa redonda con vainas que brillan, setas gigantes que se encienden de noche y matas, que se mecen con el viento. Chocas con el bosque justo donde lo ves.",
+     "The village edge is now a dense forest: pines, round-crowned trees with glowing pods, giant mushrooms that light up at night and bushes, swaying in the wind. You bump into the forest right where you see it."],
+    ["La niebla, las manchas de luz y sombra del suelo y la penumbra de las paredes son suaves, sin cuadros.",
+     "The mist, the light and shadow patches on the ground and the shade of the walls are smooth, without blocks."],
+    ["Los golpes, las explosiones y tus disparos dan luz; los jefes llevan un aura que late y un aro de luz a los pies, y las grietas, una luz violeta y una columna de luz. Tu Pokémon y los demás siguen en pixel art nítido.",
+     "Hits, explosions and your shots give off light; bosses have a pulsing aura and a ring of light at their feet, and rifts have a violet glow and a column of light. Your Pokémon and the others are still crisp pixel art."],
+    ["Al empezar una partida, la pantalla se abre en un círculo desde tu Pokémon.",
+     "When a run starts, the screen opens in a circle from your Pokémon."]] },
   { d: '2026-11-12', title: ["La aldea, más nítida y sin atravesar cosas", "A sharper village where you no longer walk through things"], chg: [
     ["La aldea se ve mucho más nítida: el 3D se dibuja a la resolución de tu pantalla y con bordes suavizados, los modelos tienen formas redondas y texturas suaves, y las luces del bosque brillan con un halo. Tu Pokémon y los de la aldea siguen en pixel art, pero sin píxeles borrosos ni torcidos.",
      "The village looks much sharper: the 3D is drawn at your screen's resolution with smoothed edges, models have round shapes and smooth textures, and the forest lights glow with a halo. Your Pokémon and the village ones are still pixel art, but without blurry or uneven pixels."],
