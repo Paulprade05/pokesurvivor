@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-12', title: ["Enemigos que ya no se atascan", "Enemies no longer get stuck"], fix: [
+    ["Los Pokémon salvajes grandes ya no se quedan temblando en el sitio junto a un charco o pegados a una pared: siguen su camino hacia ti.",
+     "Big wild Pokémon no longer jitter in place next to a pond or pressed against a wall: they keep coming at you."],
+    ["Un enemigo que acaba dentro de una roca (tras un empujón o al aparecer) sale al momento por el hueco libre más cercano, en vez de verse metido en la piedra unos segundos.",
+     "An enemy that ends up inside a rock (after a push or when appearing) gets out at once through the nearest free spot, instead of being seen inside the stone for a few seconds."],
+    ["Los Pokémon enormes chocan con las rocas y los árboles con un tamaño más pequeño, como el tuyo: ya caben por los pasos entre árboles en vez de quedarse contra ellos.",
+     "Huge Pokémon now bump into rocks and trees with a smaller size, like yours: they fit through the gaps between trees instead of getting stuck against them."],
+    ["Si aun así un enemigo lleva unos segundos sin moverse lejos de ti, sale por delante fuera de la vista o da un saltito por su camino.",
+     "If an enemy still hasn't moved for a few seconds away from you, it comes back in ahead of you out of sight or hops forward along its path."]] },
   { d: '2026-11-07', title: ["Ataques que cumplen lo que dicen", "Attacks that do what they say"], chg: [
     ["Las cartas de daño dicen ahora el daño de verdad. En 68 ataques, el ajuste de equilibrio entre niveles iba escondido en todas sus cartas: una de «-25% recarga» quitaba algo de daño sin decirlo y la de «+45% daño» daba menos. Ahora va entero en sus cartas de daño, con su número (por ejemplo, Ascuas: «+6% daño»). El nivel 1 y el nivel máximo pegan igual que antes.",
      "Damage cards now show the real damage. In 68 attacks, the balance adjustment between levels was hidden across all their cards: a «-25% cooldown» card quietly took some damage away and the «+45% damage» one gave less. Now it all goes into their damage cards, with the real number (for example, Ember: «+6% damage»). Level 1 and max level hit the same as before."],

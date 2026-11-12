@@ -37,6 +37,7 @@ G.Path = (() => {
   // Coste de ENTRAR en una casilla según lo que es (World.cellAt: 0 suelo, 1 bloquea, 2 agua, 3 lava...), en recto.
   const COST = [[5, 0, 10, 0], [5, 0, 3, 0], [5, 0, 5, 5]];
   const DIAG = c => (c * 1.4 + 0.5) | 0;
+  const CENTER = 6;                    // (11-11-2026) a menos de esto del centro de su casilla, «en el centro» (dirFor)
   const CHEAP = 5, SHOT = -1;          // (modos de clearLine: si no, el coste máximo de las casillas que cruza)
   const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
   const players = new Map();         // jugador -> { f: [campo por clave], need: [último segundo en que se pidió] }
@@ -46,7 +47,7 @@ G.Path = (() => {
   let clock = 0;
   const stats = { builds: 0, ms: 0, maxMs: 0 };
 
-  const sizeOf = e => (e.r > 0.7 * G.World.TS ? 2 : e.aiBig || e.r > 0.47 * G.World.TS ? 1 : 0);
+  const sizeOf = e => { const r = e.wr || e.r; return r > 0.7 * G.World.TS ? 2 : e.aiBig || r > 0.47 * G.World.TS ? 1 : 0; };   // (con su radio contra el terreno)
   /** Clase de campo de un enemigo (0 walk, 1 swim, 2 lava). */
   function clsOf(e) {
     if (e.mv === 'swim') return 1;
@@ -204,7 +205,7 @@ G.Path = (() => {
     const TS = G.World.TS;
     if (!e.aiStrict) {
       // Con vista despejada hasta el jugador, en línea recta (más natural). Cada 0,2 s por enemigo (es lo más caro).
-      if (e.losAt == null || clock - e.losAt > 0.2 || clock < e.losAt) { e.losAt = clock; e.los = clearLine(f, e.x, e.y, pl.x, pl.y, e.r * 0.9, CHEAP); }
+      if (e.losAt == null || clock - e.losAt > 0.2 || clock < e.losAt) { e.losAt = clock; e.los = clearLine(f, e.x, e.y, pl.x, pl.y, (e.wr || e.r) * 0.9, CHEAP); }
       if (e.los) return null;
     }
     // Siguiente casilla del camino (la vecina más barata, sin cortar esquinas).
@@ -217,14 +218,37 @@ G.Path = (() => {
       if (k >= 4 && !diagOk(COST[(f.key / 3) | 0], f.ok, f.code, ty * N + x, y * N + tx, y * N + x)) continue;
       best = v; bx = x; by = y;
     }
-    if (bx === tx && by === ty) return null;
+    if (bx === tx && by === ty) { e.pathGo = null; return null; }
+    const atx = f.ox + tx, aty = f.oy + ty;
+    // (11-11-2026, atascos) Ya decidido ir del centro de su casilla a la vecina: sigue hasta entrar en ella (como mucho
+    //  1 s). Antes, un enemigo grande (la prueba de la línea va con el ancho de su cuerpo y desde el centro también
+    //  fallaba) cambiaba cada fotograma entre «a la vecina» y «al centro de la mía» y se quedaba temblando en el sitio.
+    const go = e.pathGo;
+    if (go && go.k === f.key && clock - go.t < 1 && clock >= go.t && Math.abs(go.tx - atx) <= 1 && Math.abs(go.ty - aty) <= 1 && (go.tx !== atx || go.ty !== aty)) {
+      const gi = (go.ty - f.oy) * N + (go.tx - f.ox);
+      if (go.tx - f.ox >= 0 && go.ty - f.oy >= 0 && go.tx - f.ox < N && go.ty - f.oy < N && f.dist[gi] < here) return G.U.norm((go.tx + 0.5) * TS - e.x, (go.ty + 0.5) * TS - e.y);
+    }
+    e.pathGo = null;
     let gx = (f.ox + bx + 0.5) * TS, gy = (f.oy + by + 0.5) * TS;
     // Si va descentrado y el atajo hasta esa casilla roza un obstáculo, primero al centro de la suya
     // (así no se engancha en las esquinas). Desatascándose, siempre por los centros.
-    const cx = (f.ox + tx + 0.5) * TS, cy = (f.oy + ty + 0.5) * TS;
+    const cx = (atx + 0.5) * TS, cy = (aty + 0.5) * TS;
     // (Por casillas que no cuesten más que la suya o la siguiente: no se mete en un lago por la esquina.)
     const C = COST[(f.key / 3) | 0], lim = Math.max(5, C[f.code[L.i]], C[f.code[by * N + bx]]);
-    if ((!e.aiStrict || Math.abs(e.x - cx) > TS * 0.3 || Math.abs(e.y - cy) > TS * 0.3) && !clearLine(f, e.x, e.y, gx, gy, e.r * 0.9, lim)) { gx = cx; gy = cy; }
+    const off = Math.max(Math.abs(e.x - cx), Math.abs(e.y - cy)), dc = Math.hypot(e.x - cx, e.y - cy);
+    // «En el centro»: a menos de CENTER; desatascándose, a menos de 0,3 casillas; o si yendo al centro no se acerca
+    // (un cuerpo grande pegado a una pared no llega nunca al centro de su casilla: antes iba y venía sin parar).
+    const pc = e.pathC, same = pc && pc.tx === atx && pc.ty === aty && clock - pc.t < 0.2 && clock >= pc.t;
+    const stall = same && dc > pc.d - 0.3 ? pc.n + 1 : 0;
+    const centred = off <= CENTER || (e.aiStrict > 0 && off <= TS * 0.3) || stall >= 4;
+    if (!centred && !clearLine(f, e.x, e.y, gx, gy, (e.wr || e.r) * 0.9, lim)) {
+      gx = cx; gy = cy;
+      e.pathC = { tx: atx, ty: aty, d: same ? Math.min(dc, pc.d) : dc, n: stall, t: clock };
+    } else {
+      e.pathC = null;
+      // Desde el centro, de casilla a casilla vecina del campo siempre se cabe: se compromete hasta llegar.
+      if (centred) e.pathGo = { k: f.key, tx: f.ox + bx, ty: f.oy + by, t: clock };
+    }
     return G.U.norm(gx - e.x, gy - e.y);
   }
 
@@ -302,7 +326,7 @@ G.Path = (() => {
   function clearTo(e, x, y, pl) {
     const L = fieldOf(e, pl);
     if (!L) return null;
-    return clearLine(L.f, e.x, e.y, x, y, e.r * 0.9, CHEAP, true);
+    return clearLine(L.f, e.x, e.y, x, y, (e.wr || e.r) * 0.9, CHEAP, true);
   }
 
   /**

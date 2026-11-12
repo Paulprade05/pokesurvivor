@@ -32,7 +32,7 @@
  */
 G.EnemyAI = (() => {
   const TAU = Math.PI * 2;
-  const STUCK_W = 1.2, STRICT = 1.5, WALL_T = 2, STUCK_MAX = 4;
+  const STUCK_W = 1.2, STRICT = 1.5, WALL_T = 2, STUCK_MAX = 4, HARD = 3.5;
   const DIG_MAX = 2, DIG_SINK = 0.45, DIG_UNDER = 2.2, DIG_RISE = 0.6;
   const MELEE_OUT = new Set(['ranged', 'fan', 'beamer', 'zoner', 'healer', 'summoner', 'thief', 'stampede']);
   const SUPPORT = new Set(['healer', 'shielder', 'summoner']);
@@ -140,6 +140,16 @@ G.EnemyAI = (() => {
     }
     const touching = dist < e.r + pl.r + 10;
     const TS = G.World.TS;
+    // (11-11-2026) Red de seguridad, sólo por lo que se ha movido: lo de abajo mide el avance con lo que le falta por el
+    //  camino (e.pathV), y eso salta al cambiar de campo (grande ↔ normal) o al moverte tú: había enemigos quietos
+    //  contra una pared 30-80 s sin que el desatasco llegara a saltar. Si en HARD s no se ha movido ¾ de casilla, lejos
+    //  de ti (no esperando en el corro de alrededor) y sin nada que lo pare (raíces, arenas...), se le saca como a uno
+    //  atascado. Nunca a los jefes (se plantan a lanzar sus ataques).
+    const P = e.aiP || (e.aiP = { x: e.x, y: e.y, t: 0 });
+    const waiting = dist < 150 && (e.pathV == null || e.pathV <= 15);
+    if (e.boss || touching || holding || e.noClip || waiting || spd < 8 || (e.sts && (e.sts.root || e.sts.sink)) ||
+        Math.abs(e.x - P.x) + Math.abs(e.y - P.y) > TS * 0.75) { P.x = e.x; P.y = e.y; P.t = 0; }
+    else if ((P.t += dt) > HARD) { P.x = e.x; P.y = e.y; P.t = 0; unstick(e, pl); return; }
     const m = e.pathV != null ? e.pathV / 5 * TS : dist;
     let w = e.aiW;
     if (!w || touching || holding || e.noClip) { e.aiW = { t: 0, m, x: e.x, y: e.y, hit: false }; e.aiStuckT = 0; return; }

@@ -32,6 +32,10 @@
    * Con 3 curanderos encima deshacen como mucho ~1/3 de lo que pegas, y los
    * escudos (uno cada 6 s) ~1/5: tarda más, pero siempre cae.
    */
+  // (11-11-2026, atascos) Radio contra el terreno (World.collide y los campos de pathing.js; como el WALL_R del jugador):
+  //  el cuerpo sigue con su radio para golpes y empujones, pero choca con las rocas como mucho con WALL_R. Los enormes
+  //  (radio 30-50, campeones ×1,5, jefes) no cabían por huecos que el camino sí daba por buenos y se quedaban contra la pared.
+  const WALL_R = 28;
   const RD_TAU = 6, BOSS_HEAL_S = 0.4, BOSS_SHIELD_S = 1.2;
   // s entre dos curas al mismo enemigo, de cualquier curandero (un poco menos que
   // la recarga de un curandero, 3,5 s: uno solo sigue curando como antes).
@@ -99,6 +103,7 @@
       this.scale = boss ? bossScale(def.dex) : 1;
       this.anim = new G.Sprites.Animator(def.dex, this.scale);
       this.r = G.Sprites.bodyRadius(def.dex, this.scale);
+      this.wr = Math.min(this.r, WALL_R);
       this.bodyH = G.Sprites.bodyHeight(def.dex, this.scale);
 
       this.maxHp = Math.round(def.hp * sc.hp);
@@ -172,6 +177,7 @@
       this.scale = 1.5;
       this.anim = new G.Sprites.Animator(this.dex, this.scale, this.shiny);
       this.r = G.Sprites.bodyRadius(this.dex, this.scale);
+      this.wr = Math.min(this.r, WALL_R);
       this.bodyH = G.Sprites.bodyHeight(this.dex, this.scale);
       if (look) return;
       this.maxHp = this.hp = Math.round(this.maxHp * 3.5);

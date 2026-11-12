@@ -583,11 +583,10 @@ G.World = (() => {
             const d = Math.sqrt(d2);
             e.x += dx / d * (r - d); e.y += dy / d * (r - d);
           } else {
-            // Centro dentro de la caja: sal por el lado más cercano.
-            const l = e.x - bx0, rr = bx1 - e.x, u = e.y - by0, b = by1 - e.y;
-            const m = Math.min(l, rr, u, b);
-            if (m === l) e.x = bx0 - r; else if (m === rr) e.x = bx1 + r;
-            else if (m === u) e.y = by0 - r; else e.y = by1 + r;
+            // Centro dentro de la caja: sal hacia la casilla sin pared más cercana (11-11-2026: antes, por el lado más
+            //  cercano a secas; dentro de un bloque grande de roca iba de casilla en casilla sin salir y el enemigo se
+            //  veía metido en la roca 1-3 s, hasta que el desatasco lo sacaba).
+            escapeWall(e, r, tx, ty);
           }
         }
         const p = c.pa[ci];
@@ -603,6 +602,34 @@ G.World = (() => {
       }
     }
     return hit;
+  }
+
+  /**
+   * (11-11-2026) Con el centro dentro de la pared (tx, ty): al punto más cercano de la casilla sin pared ni objeto
+   * sólido más cercana (anillos de hasta 4 casillas), metido r (como mucho media casilla) hacia su centro. Pasa poco
+   * (empujones, aparecer, saltos): el coste no importa. Sin ninguna libre, por el lado más cercano, como antes.
+   */
+  function escapeWall(e, r, tx, ty) {
+    const bx0 = tx * TS, by0 = ty * TS;
+    let best = null, bd = Infinity;
+    for (let k = 1; k <= 4 && !best; k++) {
+      for (let j = -k; j <= k; j++) for (let i = -k; i <= k; i++) {
+        if (Math.max(Math.abs(i), Math.abs(j)) !== k) continue;
+        const c = chunkAt(tx + i, ty + j), ci = (ty + j - c.cy * N) * N + (tx + i - c.cx * N);
+        if (c.solid[ci]) continue;
+        const x0 = (tx + i) * TS, y0 = (ty + j) * TS;
+        const qx = G.U.clamp(e.x, x0, x0 + TS), qy = G.U.clamp(e.y, y0, y0 + TS), d = (qx - e.x) ** 2 + (qy - e.y) ** 2;
+        if (d < bd) { bd = d; best = [qx, qy, x0 + TS / 2, y0 + TS / 2]; }
+      }
+    }
+    if (best) {
+      const [qx, qy, cx, cy] = best, dx = cx - qx, dy = cy - qy, l = Math.hypot(dx, dy) || 1, s = Math.min(r, TS / 2, l);
+      e.x = qx + dx / l * s; e.y = qy + dy / l * s;
+      return;
+    }
+    const l = e.x - bx0, rr = bx0 + TS - e.x, u = e.y - by0, b = by0 + TS - e.y, m = Math.min(l, rr, u, b);
+    if (m === l) e.x = bx0 - r; else if (m === rr) e.x = bx0 + TS + r;
+    else if (m === u) e.y = by0 - r; else e.y = by0 + TS + r;
   }
 
   /** ¿Choca un proyectil aquí? Devuelve 'wall', el prop sólido, o null. */
