@@ -1,35 +1,43 @@
 /* ============ ultra3d.js — Ultra 3D: paredes, rocas y cofres en 3D de verdad (WebGL, three.js) ============
  * Pedido del dueño (01-11-2026): con la calidad Ultra, las paredes, las piedras y los cofres con volumen de verdad, no un
- * 3D pintado, pero sin dejar de ser pixel art. Es sólo dibujo: choques, reparto de objetos y red no cambian.
+ * 3D pintado. Es sólo dibujo: choques, reparto de objetos y red no cambian.
+ *
+ * (12-11-2026, pulido pedido por el dueño: «que los muros, rocas y cofres tengan el mismo estilo de pulición que la aldea»)
+ * Lo mismo que se hizo en la aldea del menú (village3d.js):
+ *  - a la resolución de la pantalla (en PC; con tope de píxeles y calidad automática que la baja si van lentos los
+ *    fotogramas) y con antialias (MSAA). En móvil, a la escala de siempre (no cuesta más) y ampliado suavizado;
+ *  - las rocas, lisas: una esfera deformada con ruido suave, sombreado continuo, textura suave del tono de roca del mapa
+ *    (con mipmaps), musgo y grietas suaves al romperse, y su contorno del tono oscuro del mapa;
+ *  - los cofres, modelados: cuerpo de tablas con las esquinas redondeadas, tapa abombada, flejes y cerradura de oro que
+ *    brillan (Phong) y un halo de luz en el suelo; el cofre con candado, granate y con más oro;
+ *  - las paredes: su pixel art del tileset (arriba y la cara) se muestrea nítido (crisp, como el suelo de la aldea) y la
+ *    cara se oscurece suave hacia el pie (oclusión);
+ *  - luz de cielo y suelo (HemisphereLight) y sombras con el borde suave (PCF; en Máxima, mapa de 4096).
  *
  * Cómo va:
- *  - three.js (js/vendor/three/, r160, MIT) se carga sólo con Ultra y el ajuste «Ultra en 3D» encendidos (como módulo,
- *    three-boot.js). Sin WebGL, si falla o si se pierde el contexto, vuelve solo el Ultra 2D de siempre (world.js levanta
- *    las paredes dibujadas otra vez). Necesita el tileset de Mundo Misterioso del bioma: sin él, también el 2D.
+ *  - three.js (js/vendor/three/, r160, MIT) se carga sólo con Ultra (o Máxima) y el ajuste «Ultra en 3D» encendidos (como
+ *    módulo, three-boot.js). Sin WebGL, si falla o si se pierde el contexto, vuelve solo el Ultra 2D de siempre (world.js
+ *    levanta las paredes dibujadas otra vez). Necesita el tileset de Mundo Misterioso del bioma: sin él, también el 2D.
  *  - La cámara es la misma de game.js (D3 / G.Camera.toScreen): la homografía del suelo q = 1 − a·dv, escrita como matriz
  *    de proyección de una cámara de verdad. Lo alto (z, en unidades de mundo «de pantalla»: sube en la pantalla lo que
  *    mide) va como los sprites de pie: a la escala del sitio que pisa. Así encaja casilla a casilla con el suelo 2D, los
  *    Pokémon y los proyectiles.
- *  - Se dibuja a la escala del arte (24 px por casilla: 0,5 px por unidad de mundo) en un lienzo WebGL pequeño, con la
- *    cámara pegada a esa rejilla, y se pasa a la pantalla sin suavizar: píxeles nítidos, como el resto.
  *  - Orden de dibujo: cada fila de pared y cada roca o cofre entra en el orden por Y de game.js como los demás objetos.
  *    Lo seguido sin nada 2D en medio va en una sola pasada (render con tijera + drawImage de ese trozo), así un Pokémon
  *    detrás de una pared queda tapado y uno delante, encima.
- *  - Geometría: por chunk, una malla por fila con paredes (arriba + caras), con la luz del arte (arriba a la izquierda) y
- *    sombras de verdad (también en el suelo: un plano que sólo recibe sombra, que va justo después del suelo). Texturas:
- *    las de tileset.js (top3d / face3d: el mismo dibujo del Ultra 2D), los cofres de PixelLab recortados y rocas de pocos
- *    polígonos con los tonos de roca del bioma. Contorno oscuro por «casco invertido» (rocas y cofres).
- *  - Memoria (iPhone): lienzo pequeño, un mapa de sombras de 1024 (512 en móvil), los lienzos de las texturas se sueltan
- *    al subirlas y los chunks que se dejan de ver se liberan.
+ *  - Geometría: por chunk, una malla por fila con paredes (arriba + caras), y sombras de verdad (también en el suelo: un
+ *    plano que sólo recibe sombra, que va justo después del suelo). Contorno oscuro por «casco invertido».
+ *  - Memoria (iPhone): en móvil el lienzo pequeño de siempre, un mapa de sombras de 512 y sin MSAA; los lienzos de las
+ *    texturas se sueltan al subirlas y los chunks que se dejan de ver se liberan.
  */
 G.Ultra3D = (() => {
-  const KL = 0.5;            // px del lienzo 3D por unidad de mundo (24 px de arte por casilla de 48)
+  let KL = 0.5;              // px del lienzo 3D por unidad de mundo (lo pone begin según la pantalla y la calidad)
   const HW = 40;             // alto de las paredes (20 px de arte: G.Tileset.FH3, cara de roca y su pie en sombra)
   const KEEP = 6;            // chunks con mallas guardados de más (además de los de la vista y su margen)
   const OWN = { rock: 1, chest: 1, bigchest: 1 };
   const L = [-0.45 / 1.25, -0.6 / 1.25, 1 / 1.25];          // hacia la luz (arriba a la izquierda y del norte)
-  let T = null, state = 'idle', lost = false;
-  let renderer = null, glcv = null, scene, cam3, sun, plane, frame = 0, tinted = -1;
+  let T = null, state = 'idle', lost = false, gl2 = false, aniso = 1, mob = false;
+  let renderer = null, glcv = null, scene, cam3, sun, hemi, plane, frame = 0, tinted = -1;
   let Wl = 0, Hl = 0, R = 1, Ox = 0, Oy = 0;
   const P = new Float64Array(16);                          // la proyección (por filas), también para las cajas de tijera
   const chunks = new Map();                                // "cx,cy" -> { c, bi, rows: [{ ty, mesh }], tex, top, used }
@@ -38,8 +46,15 @@ G.Ultra3D = (() => {
   let shared = null;                                       // geometrías y materiales de rocas y cofres (los mismos siempre)
   let shownRows = [], nBuilt = 0, nPass = 0, shadowDirty = true;                                      // filas de la vista (para game.js)
   const lay = new Set();                                   // objetos en la capa de la pasada actual
+  let glowSeen = [];                                       // cofres a la vista este fotograma (su halo en el suelo)
 
-  const wanted = () => !!(G.Settings.ultra && G.Settings.get('ultra3d') !== false && G.Tileset && G.Tileset.enabled());
+  /*
+   * (Pulido 12-11-2026) En PC, con calidad alta, las rocas y los cofres van en 3D también con la vista normal (sin
+   * Ultra): se dibujan con la misma cámara sin perspectiva (game.js D3 con persp 0). Las paredes siguen siendo el tileset
+   * plano de Mundo Misterioso (con la penumbra suave de atmos.js). En móvil, la vista normal sigue en 2D: no cuesta más.
+   */
+  const flatOk = () => !G.U.IOS && !G.Settings.touch && G.Settings.fx >= 2;
+  const wanted = () => !!((G.Settings.ultra || flatOk()) && G.Settings.get('ultra3d') !== false && G.Tileset && G.Tileset.enabled());
   /** ¿Van las paredes en 3D? (con Ultra y el ajuste; la primera vez pide three.js) */
   function on() {
     if (!wanted()) return false;
@@ -62,6 +77,7 @@ G.Ultra3D = (() => {
 
   function start() {
     try {
+      mob = !!(G.U.IOS || G.Settings.touch);
       glcv = document.createElement('canvas');
       glcv.width = glcv.height = 16;
       glcv.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
@@ -71,35 +87,46 @@ G.Ultra3D = (() => {
       const probe = document.createElement('canvas'), gl = probe.getContext('webgl2') || probe.getContext('webgl');
       if (!gl) throw Error('sin WebGL');
       const lc = gl.getExtension('WEBGL_lose_context');
-      if (lc) lc.loseContext();                            // (suelta el de la prueba al momento)
-      renderer = new T.WebGLRenderer({ canvas: glcv, antialias: false, alpha: true, depth: true, stencil: false,
+      if (lc) lc.loseContext();
+      // (Pulido) Antialias en PC; en móvil, como siempre (el lienzo pequeño, sin MSAA: memoria y batería).
+      renderer = new T.WebGLRenderer({ canvas: glcv, antialias: !mob, alpha: true, depth: true, stencil: false,
         powerPreference: 'high-performance', preserveDrawingBuffer: false });
       renderer.setPixelRatio(1);
       renderer.setClearColor(0x000000, 0);
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = T.BasicShadowMap;          // sombras duras: píxeles, como el arte
+      renderer.shadowMap.type = mob ? T.BasicShadowMap : T.PCFSoftShadowMap;      // (PC: borde de sombra suave)
       renderer.shadowMap.autoUpdate = false;
+      const cap = renderer.capabilities || {};
+      gl2 = !!cap.isWebGL2;
+      aniso = Math.min(mob ? 2 : 8, cap.getMaxAnisotropy ? cap.getMaxAnisotropy() : 1);
       scene = new T.Scene();
       scene.matrixWorldAutoUpdate = false;
       cam3 = new T.Camera();
       cam3.matrixAutoUpdate = false;
       // Luz del arte: de arriba a la izquierda y algo del norte (la cara de delante, en sombra suave como en el 2D).
       // Lambert de three r160: lo que llega se divide entre π; arriba sale el color justo de la textura (0,6 + 0,5·0,8 = 1).
-      const amb = new T.AmbientLight(0xffffff, 0.6 * Math.PI);
+      // (Pulido) La luz de ambiente es de cielo y suelo: lo que mira abajo y los lados, algo más oscuros (como en la aldea).
+      // (Los ejes del juego llevan z arriba: la luz de cielo va de +z.)
+      hemi = new T.HemisphereLight(0xffffff, 0x8a8478, 0.6 * Math.PI);
+      hemi.position.set(0, 0, 1);
+      hemi.updateMatrixWorld();
       sun = new T.DirectionalLight(0xffffff, 0.5 * Math.PI);
       sun.castShadow = true;
-      const ms = G.U.IOS || G.Settings.touch ? 512 : 1024;
+      const ms = mob ? 512 : G.Settings.max ? 4096 : 2048;
       sun.shadow.mapSize.set(ms, ms);
-      sun.shadow.bias = -0.0015;
+      sun.shadow.bias = mob ? -0.0015 : -0.0006;
+      sun.shadow.normalBias = mob ? 0 : 0.6;
+      sun.shadow.radius = 3;
       sun.shadow.camera.near = 10; sun.shadow.camera.far = 3000;
       // (three.js también mira las capas de las luces: en todas, si no las pasadas salen negras.)
-      amb.layers.enableAll(); sun.layers.enableAll();
-      scene.add(amb, sun, sun.target);
+      hemi.layers.enableAll(); sun.layers.enableAll();
+      scene.add(hemi, sun, sun.target);
       plane = new T.Mesh(new T.PlaneGeometry(1, 1), new T.ShadowMaterial({ opacity: 0.38, side: T.DoubleSide }));
       plane.receiveShadow = true;
       plane.layers.set(2);
       plane.frustumCulled = false;
       scene.add(plane);
+      Q.init();
       state = 'ready';
     } catch (e) {
       state = 'fail';
@@ -108,10 +135,32 @@ G.Ultra3D = (() => {
     }
   }
 
+  /*
+   * Calidad automática (como la de la aldea, Q de village3d.js). q: la parte de la resolución nativa que se dibuja. Si los
+   * fotogramas van por debajo de ~42 FPS un par de segundos, baja un escalón; si van holgados un rato, sube. En móvil no
+   * cuenta: va siempre a la escala del arte (la de antes). Con Máxima, hasta toda la resolución; con Ultra, el 85 %.
+   */
+  const Q = {
+    STEPS: [1, 0.85, 0.72, 0.6, 0.5], i: 0, ema: 1 / 60, slow: 0, fast: 0, last: 0,
+    init() { let i = 0; try { i = +localStorage.getItem('ps.u3.q') || 0; } catch (e) { /* nada */ } this.i = Math.max(0, Math.min(this.STEPS.length - 1, i | 0)); },
+    get q() { return this.STEPS[this.i]; },
+    save() { try { localStorage.setItem('ps.u3.q', String(this.i)); } catch (e) { /* nada */ } },
+    tune() {
+      const now = performance.now(), dt = (now - this.last) / 1000;
+      this.last = now;
+      if (!(dt > 0) || dt > 0.25) return;
+      this.ema += (dt - this.ema) * 0.08;
+      if (this.ema > 1 / 42) { this.slow += dt; this.fast = 0; } else if (this.ema < 1 / 57) { this.fast += dt; this.slow = 0; } else { this.slow = Math.max(0, this.slow - dt); this.fast = 0; }
+      if (this.slow > 1.8 && this.i < this.STEPS.length - 1) { this.i++; this.slow = 0; this.ema = 1 / 50; this.save(); }
+      else if (this.fast > 8 && this.i > 0) { this.i--; this.fast = 0; this.save(); }
+    }
+  };
+
   // ---------------- texturas y materiales ----------------
+  /** Pixel art (paredes del tileset): sin mipmaps; con WebGL2 filtrado lineal y muestreo nítido (crisp); si no, el más cercano. */
   function tex(cv, repeat = false) {
     const t = new T.CanvasTexture(cv);
-    t.magFilter = t.minFilter = T.NearestFilter;
+    t.magFilter = t.minFilter = gl2 ? T.LinearFilter : T.NearestFilter;
     t.generateMipmaps = false;
     t.colorSpace = T.SRGBColorSpace;
     if (repeat) t.wrapS = T.RepeatWrapping;
@@ -119,11 +168,39 @@ G.Ultra3D = (() => {
     t.onUpdate = () => { if (!repeat) G.U.freeCanvas(cv); };
     return t;
   }
-  const lambert = map => new T.MeshLambertMaterial({ map, side: T.DoubleSide, shadowSide: T.DoubleSide });
+  /** Textura suave de un modelo (roca, madera): lineal con mipmaps y anisotropía. */
+  function stex(cv) {
+    const t = new T.CanvasTexture(cv);
+    t.magFilter = T.LinearFilter;
+    t.minFilter = T.LinearMipmapLinearFilter;
+    t.generateMipmaps = true;
+    t.anisotropy = aniso;
+    t.colorSpace = T.SRGBColorSpace;
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.onUpdate = () => { G.U.freeCanvas(cv); t.onUpdate = null; };
+    return t;
+  }
+  // Muestreo nítido del pixel art: cada texel, un cuadrado limpio con el borde suavizado medio píxel (como village3d.js).
+  const CRISP = ['vec4 crispTex(sampler2D t, vec2 uv) {',
+    '  vec2 sz = vec2(textureSize(t, 0)), p = uv * sz, s = floor(p + 0.5);',
+    '  vec2 d = max(fwidth(p), vec2(1e-4));',
+    '  p = s + clamp((p - s) / d, -0.5, 0.5);',
+    '  return texture2D(t, p / sz);', '}'].join('\n');
+  function crisp(m) {
+    if (!gl2) return m;
+    m.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', CRISP + '\nvoid main() {')
+        .replace('#include <map_fragment>', '#ifdef USE_MAP\n  diffuseColor *= crispTex(map, vMapUv);\n#endif');
+    };
+    m.customProgramCacheKey = () => 'u3crisp';
+    return m;
+  }
+  const lambert = (map, vc = false) => crisp(new T.MeshLambertMaterial({ map, side: T.DoubleSide, shadowSide: T.DoubleSide, vertexColors: vc }));
+  const K = () => G.Village3D && G.Village3D.paint;          // texturas suaves de la aldea (soft, pn, tone...)
 
   function faceMat(bi) {
     let m = faceMats.get(bi);
-    if (!m) { const cv = G.Tileset.face3d(bi); if (!cv) return null; m = lambert(tex(cv, true)); m.fw = cv.width; faceMats.set(bi, m); }
+    if (!m) { const cv = G.Tileset.face3d(bi); if (!cv) return null; m = lambert(tex(cv, true), true); m.fw = cv.width; faceMats.set(bi, m); }
     return m;
   }
 
@@ -142,32 +219,52 @@ G.Ultra3D = (() => {
     return (h >>> 0) / 4294967296;
   }
 
-  /** Textura de roca del bioma (16×16, sus 4 tonos de roca; rota: con grietas). */
+  /*
+   * Textura de roca del bioma (128 px, se repite sin costura): sus 4 tonos de roca en tonos continuos, vetas, motas de
+   * mineral y musgo del verde del mapa a manchas. Rota: grietas oscuras con el borde suave.
+   */
   function rockMat(bi, cracked) {
     const k = bi + (cracked ? 'x' : '');
     let m = rockMats.get(k);
     if (m) return m;
-    const pal = G.Tileset.pal(bi);
-    const tone = pal ? pal.rock : ['#55535e', '#73717f', '#8e8c9d', '#a7a4b8'], edge = pal ? pal.edge : '#141414';
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = 16;
-    const g = cv.getContext('2d');
-    if (!g) return null;
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const n = H(x >> 1, y >> 1, 31) * 0.6 + H(x, y, 32) * 0.4;
-      g.fillStyle = tone[n < 0.12 ? 0 : n < 0.45 ? 1 : n < 0.85 ? 2 : 3];
-      g.fillRect(x, y, 1, 1);
+    const pal = G.Tileset.pal(bi), kit = K();
+    const tones = pal ? pal.rock : ['#55535e', '#73717f', '#8e8c9d', '#a7a4b8'], edge = pal ? pal.edge : '#141414';
+    const moss = pal && pal.grass ? pal.grass : ['#205420', '#2c742c', '#379237', '#61b061'];
+    const S = mob ? 64 : 128;
+    let cv;
+    if (kit) {
+      const { soft, pn, tone, rgb, mixc, sstep } = kit, sc = S / 128;
+      cv = soft(S, S, (x, y) => {
+        const n = pn(x, y, 40 * sc, 31, S), d = pn(x, y, 10 * sc, 33, S);
+        const vein = 0.5 + 0.5 * Math.sin((x * 0.6 + y + n * 40 * sc) * 6.2832 * 3 / S);
+        let c = tone(tones, 0.15 + n * 0.75 + (d - 0.5) * 0.55 + (vein - 0.5) * 0.18);
+        const mo = pn(x, y, 30 * sc, 35, S);
+        if (mo > 0.58) c = mixc(c, tone(moss, 0.2 + (d - 0.3) * 0.8), sstep(0.58, 0.68, mo) * 0.75);
+        if (d > 0.8) c = mixc(c, rgb(tones[3]), (d - 0.8) * 2.5);
+        return c;
+      });
+    } else {
+      cv = document.createElement('canvas');
+      cv.width = cv.height = 16;
+      const g = cv.getContext('2d');
+      if (!g) return null;
+      g.fillStyle = tones[2]; g.fillRect(0, 0, 16, 16);
     }
-    g.fillStyle = tone[0];
-    for (const [x, y] of [[3, 4], [4, 4], [11, 9], [12, 10], [7, 13]]) g.fillRect(x, y, 1, 1);
     if (cracked) {
-      g.fillStyle = edge;
-      for (const [x, y] of [[8, 1], [8, 2], [7, 3], [7, 4], [8, 5], [9, 6], [9, 7], [10, 8], [2, 9], [3, 10], [4, 10], [5, 11], [13, 3], [14, 4]]) g.fillRect(x, y, 1, 1);
+      const g = cv.getContext('2d');
+      if (g) {
+        // Grietas: líneas quebradas con el borde suavizado (el lienzo las dibuja con antialias); se repiten por los bordes.
+        g.strokeStyle = edge; g.lineCap = g.lineJoin = 'round'; g.lineWidth = Math.max(1.5, cv.width / 48);
+        for (let c = 0; c < 4; c++) {
+          let x = H(c, 1, 81) * cv.width, y = H(c, 2, 81) * cv.height, a = H(c, 3, 81) * 6.28;
+          g.beginPath(); g.moveTo(x, y);
+          for (let s = 0; s < 6; s++) { a += (H(c, s, 82) - 0.5) * 1.6; x += Math.cos(a) * cv.width / 9; y += Math.sin(a) * cv.height / 9; g.lineTo(x, y); }
+          g.stroke();
+        }
+      }
     }
-    const t = tex(cv, true);
-    t.wrapT = T.RepeatWrapping;
-    t.onUpdate = null;
-    // (Con el tono de cada cara, en los colores del vértice: con sólo la luz, una roca de pocas caras se veía lisa.)
+    const t = stex(cv);
+    // (Con un tono por vértice: oscuro abajo, claro arriba. La luz hace el resto.)
     m = new T.MeshLambertMaterial({ map: t, vertexColors: true, side: T.FrontSide, shadowSide: T.DoubleSide });
     rockMats.set(k, m);
     return m;
@@ -175,10 +272,13 @@ G.Ultra3D = (() => {
 
   // ---------------- geometría ----------------
   /** Un cuadrilátero (a abajo-izq., b abajo-der., c arriba-der., d arriba-izq., visto desde fuera) con su normal y uv. */
-  function quad(A, a, b, c, d, n, uv) {
+  function quad(A, a, b, c, d, n, uv, col) {
     for (const k of [0, 1, 2, 0, 2, 3]) {
       const p = [a, b, c, d][k];
       A.pos.push(p[0], p[1], p[2]); A.nor.push(n[0], n[1], n[2]); A.uv.push(uv[k * 2], uv[k * 2 + 1]);
+      // Tono del vértice (oclusión): las caras de la pared, más oscuras al pie.
+      const v = col ? (p[2] <= 0.01 ? col[0] : col[1]) : 1;
+      A.col.push(v, v, v);
     }
   }
   const rect = (u0, v0, u1, v1) => [u0, v0, u1, v0, u1, v1, u0, v1];
@@ -188,17 +288,9 @@ G.Ultra3D = (() => {
     g.setAttribute('position', new T.Float32BufferAttribute(A.pos, 3));
     g.setAttribute('normal', new T.Float32BufferAttribute(A.nor, 3));
     g.setAttribute('uv', new T.Float32BufferAttribute(A.uv, 2));
+    if (A.col) g.setAttribute('color', new T.Float32BufferAttribute(A.col, 3));
     if (groups) for (const [s, n, m] of groups) g.addGroup(s, n, m);
     return g;
-  }
-
-  /** Una caja (x0..x1, y0..y1, z0..z1) con una uv por cara: { top, front, west, east, back } (rect). */
-  function box(A, x0, y0, z0, x1, y1, z1, f) {
-    if (f.top) quad(A, [x0, y1, z1], [x1, y1, z1], [x1, y0, z1], [x0, y0, z1], [0, 0, 1], f.top);
-    if (f.front) quad(A, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], [0, 1, 0], f.front);
-    if (f.west) quad(A, [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1], [-1, 0, 0], f.west);
-    if (f.east) quad(A, [x1, y1, z0], [x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [1, 0, 0], f.east);
-    if (f.back) quad(A, [x1, y0, z0], [x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [0, -1, 0], f.back);
   }
 
   /** Las mallas de las paredes de un chunk: una por fila (arriba con la textura del chunk; las caras, con la de roca). */
@@ -209,11 +301,12 @@ G.Ultra3D = (() => {
     const fm = faceMat(bi), cv = G.Tileset.top3d(cx, cy, N, at, bi, W.seed);
     if (!fm || !cv) { if (cv) G.U.freeCanvas(cv); return null; }
     e.tex = tex(cv);
-    e.top = lambert(e.tex);
+    e.top = lambert(e.tex, true);
     const FW = fm.fw * 2;                                // ancho de la textura de roca en el mundo (2 por px de arte)
+    const AO = [0.6, 1];                                 // tono de la cara al pie y arriba
     for (let j = 0; j < N; j++) {
       const ty = cy * N + j, y0 = ty * TS, y1 = y0 + TS;
-      const A = { pos: [], nor: [], uv: [] }, F = { pos: [], nor: [], uv: [] };
+      const A = { pos: [], nor: [], uv: [], col: [] }, F = { pos: [], nor: [], uv: [], col: [] };
       const wall = i => at(cx * N + i, ty) === 1;
       for (let i = 0; i < N; i++) {
         if (!wall(i)) continue;
@@ -227,13 +320,13 @@ G.Ultra3D = (() => {
         const tx = cx * N + i;
         if (!wall(i)) continue;
         const x0 = tx * TS, x1 = x0 + TS;
-        if (at(tx, ty + 1) !== 1) quad(F, [x0, y1, 0], [x1, y1, 0], [x1, y1, HW], [x0, y1, HW], [0, 1, 0], rect(x0 / FW, 0, x1 / FW, 1));
-        if (at(tx - 1, ty) !== 1) quad(F, [x0, y0, 0], [x0, y1, 0], [x0, y1, HW], [x0, y0, HW], [-1, 0, 0], rect(y0 / FW, 0, y1 / FW, 1));
-        if (at(tx + 1, ty) !== 1) quad(F, [x1, y1, 0], [x1, y0, 0], [x1, y0, HW], [x1, y1, HW], [1, 0, 0], rect(y0 / FW, 0, y1 / FW, 1));
+        if (at(tx, ty + 1) !== 1) quad(F, [x0, y1, 0], [x1, y1, 0], [x1, y1, HW], [x0, y1, HW], [0, 1, 0], rect(x0 / FW, 0, x1 / FW, 1), AO);
+        if (at(tx - 1, ty) !== 1) quad(F, [x0, y0, 0], [x0, y1, 0], [x0, y1, HW], [x0, y0, HW], [-1, 0, 0], rect(y0 / FW, 0, y1 / FW, 1), AO);
+        if (at(tx + 1, ty) !== 1) quad(F, [x1, y1, 0], [x1, y0, 0], [x1, y0, HW], [x1, y1, HW], [1, 0, 0], rect(y0 / FW, 0, y1 / FW, 1), AO);
       }
       if (!A.pos.length) continue;
       const nA = A.pos.length / 3, nF = F.pos.length / 3;
-      for (const k of ['pos', 'nor', 'uv']) A[k].push(...F[k]);
+      for (const k of ['pos', 'nor', 'uv', 'col']) A[k].push(...F[k]);
       const mesh = new T.Mesh(geo(A, [[0, nA, 0], [nA, nF, 1]]), [e.top, fm]);
       setup(mesh, true);
       e.rows.push({ ty, mesh, x0: cx * N * TS, x1: (cx + 1) * N * TS });
@@ -260,111 +353,184 @@ G.Ultra3D = (() => {
   }
 
   // ---------------- rocas y cofres ----------------
-  /** Las piezas que no cambian: 2 rocas de pocos polígonos (con su contorno) y 2 cofres (texturas de chest.png recortadas). */
+  /*
+   * Las piezas se hacen con las de three.js (Y arriba) y se pasan a los ejes del juego (x al este, y al sur, z arriba):
+   * (X, Y, Z) → (X, Z, Y). Ese cambio es un espejo, igual que la cámara del juego respecto a la de three.js: lo de fuera
+   * sigue mirando a la cámara y las normales, hacia fuera.
+   */
+  function toGame(g) {
+    const p = g.attributes.position, n = g.attributes.normal;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i); p.setY(i, p.getZ(i)); p.setZ(i, y);
+      if (n) { const ny = n.getY(i); n.setY(i, n.getZ(i)); n.setZ(i, ny); }
+    }
+    p.needsUpdate = true; if (n) n.needsUpdate = true;
+    g.computeBoundingBox();
+    return g;
+  }
+  /** Junta los vértices repetidos (costuras y polos de la esfera): así las normales salen continuas. */
+  function weld(g) {
+    const p = g.attributes.position, idx = g.index ? g.index.array : null, map = new Map(), pos = [], remap = new Int32Array(p.count);
+    for (let i = 0; i < p.count; i++) {
+      const k = Math.round(p.getX(i) * 1e4) + ',' + Math.round(p.getY(i) * 1e4) + ',' + Math.round(p.getZ(i) * 1e4);
+      let j = map.get(k);
+      if (j === undefined) { j = pos.length / 3; map.set(k, j); pos.push(p.getX(i), p.getY(i), p.getZ(i)); }
+      remap[i] = j;
+    }
+    const tri = [], n = idx ? idx.length : p.count;
+    for (let t = 0; t < n; t += 3) {
+      const a = remap[idx ? idx[t] : t], b = remap[idx ? idx[t + 1] : t + 1], c = remap[idx ? idx[t + 2] : t + 2];
+      if (a !== b && b !== c && a !== c) tri.push(a, b, c);
+    }
+    const o = new T.BufferGeometry();
+    o.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    o.setIndex(tri);
+    g.dispose();
+    return o;
+  }
+  /** Ruido suave en 3D (valor con interpolación suave) para deformar las rocas. */
+  function n3(x, y, z, s) {
+    const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z), fx = x - x0, fy = y - y0, fz = z - z0;
+    const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+    const h = (a, b, c) => H(x0 + a + (z0 + c) * 131, y0 + b, s);
+    const l = (a, b, t) => a + (b - a) * t;
+    return l(l(l(h(0, 0, 0), h(1, 0, 0), u), l(h(0, 1, 0), h(1, 1, 0), u), v), l(l(h(0, 0, 1), h(1, 0, 1), u), l(h(0, 1, 1), h(1, 1, 1), u), v), w);
+  }
+  /** Una roca lisa: esfera deformada (ruido suave), aplastada, con la base plana y sus tonos por vértice. */
+  function rockGeo(look) {
+    const seg = mob ? [14, 9] : [22, 14];
+    let g = weld(new T.SphereGeometry(1, seg[0], seg[1]));
+    const p = g.attributes.position, col = [], uv = [];
+    const W = look ? 19 : 17, D = 10.5, Hh = look ? 13 : 16;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const r = 0.74 + 0.44 * n3(x * 1.7 + 3, y * 1.7 + look * 7, z * 1.7, 91) + 0.14 * n3(x * 4.5, y * 4.5, z * 4.5 + look * 5, 92);
+      // (Y de three.js = alto) la parte de abajo, hundida en el suelo (la base plana a 0).
+      p.setXYZ(i, x * W * r, Math.max(0, y * 0.6 + 0.4) * Hh * r, z * D * r);
+    }
+    g.computeVertexNormals();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), t = Math.min(1, y / Hh);
+      const v = 0.62 + 0.5 * t;                            // oscuro al pie, claro arriba
+      col.push(v, v, v);
+      uv.push((x + z * 0.5) / 30, (y - z * 0.4) / 30);
+    }
+    g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+    g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    return toGame(g);
+  }
+  /** Su contorno: la misma roca un poco más grande (se dibujan sus caras de dentro). */
+  function hullOf(g, k) {
+    if (!g.boundingBox) g.computeBoundingBox();
+    const h = g.clone(), bb = g.boundingBox, c = new T.Vector3();
+    bb.getCenter(c); c.z = 0;
+    h.translate(-c.x, -c.y, -6); h.scale(k[0], k[1], k[2]); h.translate(c.x, c.y, 6);
+    return h;
+  }
+
+  /** Las piezas que no cambian: 2 rocas lisas (con su contorno) y 2 cofres modelados. */
   function sharedParts() {
     if (shared) return shared;
-    const chest = G.Tileset.pxImg('chest'), big = G.Tileset.pxImg('bigchest');
-    if (!chest || !big) return null;
     const s = { rocks: [], hullMat: new T.MeshBasicMaterial({ color: 0x141010, side: T.BackSide }) };
-    // Rocas: un icosaedro aplastado con las esquinas movidas (las mismas en cada vértice repetido), la base plana.
-    // (Los ejes del juego —x al este, y al sur, z arriba— son un espejo de los de three.js: se da la vuelta al orden de los
-    //  vértices de cada triángulo para que lo de fuera mire a la cámara, y cada normal, hacia fuera de la roca.)
     for (let look = 0; look < 2; look++) {
-      const g = new T.IcosahedronGeometry(1, 0), p = g.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-        const h = H(Math.round(x * 9), Math.round(y * 9) + look * 31, Math.round(z * 9) + 7);
-        const k = 0.78 + h * 0.44;
-        x *= (look ? 19 : 17) * k; y *= 10 * k; z = (z * 0.6 + 0.4) * (look ? 13 : 16) * k;
-        p.setXYZ(i, x, y, Math.max(0, z));
-      }
-      const v = new T.Vector3(), a = new T.Vector3(), b = new T.Vector3(), n = new T.Vector3(), nor = [], uv = [], col = [];
-      for (let i = 0; i < p.count; i += 3) {
-        // (vuelta: 0 1 2 → 0 2 1)
-        const x1 = p.getX(i + 1), y1 = p.getY(i + 1), z1 = p.getZ(i + 1);
-        p.setXYZ(i + 1, p.getX(i + 2), p.getY(i + 2), p.getZ(i + 2)); p.setXYZ(i + 2, x1, y1, z1);
-        v.fromBufferAttribute(p, i); a.fromBufferAttribute(p, i + 1).sub(v); b.fromBufferAttribute(p, i + 2).sub(v);
-        n.crossVectors(a, b).normalize();
-        const c = new T.Vector3().fromBufferAttribute(p, i).add(a.add(v)).add(b.add(v)).divideScalar(3).sub(new T.Vector3(0, 0, 6));
-        if (n.dot(c) < 0) n.negate();
-        // Cada cara, uno de 3 tonos según mira a la luz (como una roca de pixel art: cara clara, media y oscura).
-        const d = n.x * L[0] + n.y * L[1] + n.z * L[2], tone = d > 0.75 ? 1.15 : d > 0.35 ? 0.85 : 0.6;
-        for (let k = 0; k < 3; k++) { nor.push(n.x, n.y, n.z); col.push(tone, tone, tone); }
-      }
-      for (let i = 0; i < p.count; i++) uv.push((p.getX(i) + p.getY(i) * 0.4) / 32, (p.getZ(i) - p.getY(i) * 0.5) / 32);
-      g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
-      g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
-      g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-      const hull = g.clone();
-      hull.translate(0, 0, -6); hull.scale(1.13, 1.18, 1.12); hull.translate(0, 0, 6);
-      s.rocks.push({ g, hull });
+      const g = rockGeo(look);
+      s.rocks.push({ g, hull: hullOf(g, [1.1, 1.14, 1.08]) });
     }
-    // Cofres: tapa (arriba y su frente), cuerpo (su frente) y lados, del dibujo de tools/chest3d.py (chest.png 21×21, bigchest 29×27).
-    s.chest = chestParts(chest, { w: 20, lidTop: [0, 8], lidFront: [8, 12], body: [12, 18] });
-    s.big = chestParts(big, { w: 28, lidTop: [0, 11], lidFront: [11, 16], body: [16, 24] });
+    s.chest = chestParts(false);
+    s.big = chestParts(true);
     return (shared = s);
   }
 
-  function crop(img, x, y, w, h) {
-    const cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
-    const g = cv.getContext('2d');
-    if (!g) return null;
-    // (Las esquinas transparentes del dibujo, en 3D, salían negras: debajo va el dibujo corrido 1 px, que las rellena.)
-    g.drawImage(img, x + 1, y, w, h, 0, 0, w, h);
-    g.drawImage(img, x - 1, y, w, h, 0, 0, w, h);
-    g.drawImage(img, x, y, w, h, 0, 0, w, h);
-    return cv;
+  /** Caja con las esquinas redondeadas (r) de w×h×d, centrada (ejes de three.js), con sus normales suaves. */
+  function roundBox(w, h, d, r, n = 3) {
+    const g = new T.BoxGeometry(w, h, d, n * 2, n * 2, n * 2), p = g.attributes.position, nr = g.attributes.normal;
+    const hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r, v = new T.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const ix = Math.max(-hx, Math.min(hx, x)), iy = Math.max(-hy, Math.min(hy, y)), iz = Math.max(-hz, Math.min(hz, z));
+      v.set(x - ix, y - iy, z - iz);
+      if (v.lengthSq() < 1e-8) continue;
+      v.normalize();
+      p.setXYZ(i, ix + v.x * r, iy + v.y * r, iz + v.z * r);
+      nr.setXYZ(i, v.x, v.y, v.z);
+    }
+    return g;
   }
-
-  /** Lo de dentro del cofre (se ve al levantar la tapa): la tapa vista desde arriba, a oscuras, con el borde y (en el
-   *  cuerpo) unas monedas. */
-  function chestInside(img, w, D, coins) {
-    const cv = crop(img, 0, 0, w, D);
-    const g = cv && cv.getContext('2d');
-    if (!g) return cv;
-    g.fillStyle = 'rgba(16,8,6,0.78)';
-    g.fillRect(1, 1, w - 2, D - 2);
-    if (!coins) return cv;
-    g.fillStyle = '#ecc04a';
-    for (let i = 0; i < 7; i++) g.fillRect(3 + ((i * 7) % (w - 6)), 2 + ((i * 3) % Math.max(1, D - 4)), 2, 1);
-    g.fillStyle = '#fff0a8';
-    for (let i = 0; i < 3; i++) g.fillRect(5 + ((i * 11) % (w - 8)), 3 + ((i * 2) % Math.max(1, D - 5)), 1, 1);
-    return cv;
+  /** Tapa abombada: medio cilindro tumbado (largo w en X), de fondo d y alto h, apoyado en y = 0 (ejes de three.js). */
+  function domeLid(w, d, h, seg = 14) {
+    const g = new T.CylinderGeometry(d / 2, d / 2, w, seg, 1, false, 0, Math.PI);
+    g.rotateZ(Math.PI / 2);                              // el eje, a lo largo de X; la mitad abombada, arriba (y ≥ 0)
+    g.scale(1, (h / (d / 2)), 1);
+    return g;
   }
+  /** Coloca una pieza de three.js (Y arriba) en los ejes del juego, con su caja en (x, y, z) del juego. */
+  function place(g, x, y, z) { toGame(g); g.translate(x, y, z); g.computeBoundingBox(); return g; }
 
-  /** Un cofre: medidas en px de arte (×2 en el mundo); filas de la imagen para cada parte. */
-  function chestParts(img, L) {
-    const D = L.lidTop[1] - L.lidTop[0], hl = L.lidFront[1] - L.lidFront[0], hb = L.body[1] - L.body[0], w = L.w;
-    const mat = cv => lambert(tex(cv));
-    const m = {
-      top: mat(crop(img, 0, L.lidTop[0], w, D)), lidF: mat(crop(img, 0, L.lidFront[0], w, hl)), body: mat(crop(img, 0, L.body[0], w, hb)),
-      lidS: mat(crop(img, 0, L.lidFront[0], Math.min(D, w), hl)), bodyS: mat(crop(img, 0, L.body[0], Math.min(D, w), hb)),
-      inside: mat(chestInside(img, w, D, true)), under: mat(chestInside(img, w, D, false))
+  /*
+   * Un cofre (medidas de mundo, como el dibujo de antes): cuerpo de tablas con las esquinas redondeadas, tapa abombada
+   * con el giro en el borde de atrás (el cofre con candado la levanta al abrirse), flejes, cerradura de oro y, dentro,
+   * monedas. big: el cofre con candado (granate, más grande, con más oro).
+   */
+  function chestParts(big) {
+    const kit = K();
+    const X = big ? 28 : 20, Y = big ? 22 : 16, Zb = big ? 16 : 12, Zl = big ? 10 : 8;
+    const woodT = big ? ['#2a0f1c', '#5e1a36', '#86284a', '#ab3e62'] : ['#2e1a12', '#5c3520', '#83502c', '#a86c3c'];
+    const wood = kit ? new T.MeshLambertMaterial({ map: stex(kit.planks(mob ? 64 : 128, woodT, big ? 47 : 43)) })
+      : new T.MeshLambertMaterial({ color: woodT[2] });
+    const woodL = kit ? new T.MeshLambertMaterial({ map: stex(kit.planks(mob ? 64 : 128, woodT.map(c => kit.shade(c, 0.16)), big ? 48 : 44)) })
+      : new T.MeshLambertMaterial({ color: woodT[3] });
+    const gold = new T.MeshPhongMaterial({ color: 0xe0ac34, specular: 0xfff0b0, shininess: 70, emissive: 0x3a2400 });
+    const dark = new T.MeshLambertMaterial({ color: 0x160a06 });
+    const coin = new T.MeshPhongMaterial({ color: 0xf0c048, specular: 0xffffff, shininess: 90, emissive: 0x6a4a08 });
+    const m = { wood, gold, dark, coin, woodL };
+    const r = big ? 3 : 2.4, B = [], Lp = [];
+    // Cuerpo (de y = −Y a 0, z de 0 a Zb): las tablas y el borde de arriba un poco más claro.
+    B.push([place(roundBox(2 * X, Zb, Y, r), 0, -Y / 2, Zb / 2), 0]);
+    // Dentro, a oscuras, con monedas (se ve al levantar la tapa).
+    B.push([place(new T.BoxGeometry(2 * X - 2 * r, 0.6, Y - 2 * r), 0, -Y / 2, Zb - 1.2), 2]);
+    for (let i = 0; i < (big ? 9 : 5); i++) {
+      const cx = (H(i, 1, 61) - 0.5) * (2 * X - 10), cy = -Y / 2 + (H(i, 2, 61) - 0.5) * (Y - 8);
+      B.push([place(new T.CylinderGeometry(2.4, 2.4, 0.8, 10), cx, cy, Zb - 0.6 + H(i, 3, 61) * 0.8), 3]);
+    }
+    // Flejes de oro: dos verticales en el cuerpo y el ribete de abajo.
+    for (const sx of [-1, 1]) B.push([place(roundBox(3.4, Zb + 0.6, Y + 1.2, 1, 1), sx * (X - (big ? 7 : 5)), -Y / 2, Zb / 2), 1]);
+    B.push([place(roundBox(2 * X + 1, 2.4, Y + 1, 1, 1), 0, -Y / 2, 1.3), 1]);
+    if (big) B.push([place(roundBox(2 * X + 1, 2, Y + 1, 0.9, 1), 0, -Y / 2, Zb - 1), 1]);
+    // Cerradura (delante, entre el cuerpo y la tapa) con el ojo de la llave.
+    const lk = big ? [8, 9, 3] : [6, 7, 2.4];
+    B.push([place(roundBox(lk[0], lk[1], lk[2], 1.2, 1), 0, 0.6, Zb - lk[1] / 2 + 2), 1]);
+    B.push([place(new T.CylinderGeometry(0.9, 0.9, 1, 8).rotateX(Math.PI / 2), 0, 0.6 + lk[2] / 2 + 0.2, Zb - lk[1] / 2 + 2.6), 2]);
+    // La tapa: de y = 0 (el giro, atrás) a Y (delante), z de 0 a Zl. Tablas abombadas y flejes que la abrazan.
+    Lp.push([place(domeLid(2 * X, Y, Zl, mob ? 10 : 16), 0, Y / 2, 0), 4]);
+    for (const sx of [-1, 1]) Lp.push([place(domeLid(3.4, Y + 1.2, Zl + 0.7, mob ? 10 : 16), sx * (X - (big ? 7 : 5)), Y / 2, 0), 1]);
+    if (big) Lp.push([place(domeLid(3, Y + 1.2, Zl + 0.7, mob ? 10 : 16), 0, Y / 2, 0), 1]);
+    // Su cara de dentro (por debajo): con la tapa levantada queda de pie detrás del cofre, mirándote.
+    Lp.push([place(new T.BoxGeometry(2 * X - 1, 0.4, Y - 1), 0, Y / 2, 0.2), 2]);
+    const join = list => {
+      // Una geometría con un grupo por material (madera, oro, oscuro, monedas, madera de la tapa).
+      const out = { pos: [], nor: [], uv: [], groups: [] };
+      for (let mi = 0; mi < 5; mi++) {
+        const s0 = out.pos.length / 3;
+        for (const [g, k] of list) {
+          if (k !== mi) continue;
+          const q = g.index ? g.toNonIndexed() : g;
+          out.pos.push(...q.attributes.position.array); out.nor.push(...q.attributes.normal.array);
+          out.uv.push(...(q.attributes.uv ? q.attributes.uv.array : new Float32Array(q.attributes.position.count * 2)));
+          if (q !== g) q.dispose();
+        }
+        const n = out.pos.length / 3 - s0;
+        if (n) out.groups.push([s0, n, mi]);
+      }
+      for (const [g] of list) g.dispose();
+      return geo(out, out.groups);
     };
-    const X = w, Y = D * 2, Zb = hb * 2, Zl = hl * 2;   // (mundo) ancho, fondo, alto del cuerpo y de la tapa
-    const x0 = -X, x1 = X, y0 = -Y, y1 = 0, U = rect(0, 0, 1, 1);
-    const B = { pos: [], nor: [], uv: [] };
-    box(B, x0, y0, 0, x1, y1, Zb, { front: U });
-    const nf = B.pos.length / 3;
-    box(B, x0, y0, 0, x1, y1, Zb, { west: U, east: U, back: U });
-    const ns = B.pos.length / 3;
-    // Arriba del cuerpo, lo de dentro: con la tapa levantada se ve (antes, un hueco negro: el cofre parecía partido).
-    box(B, x0, y0, 0, x1, y1, Zb - 0.05, { top: U });
-    const body = geo(B, [[0, nf, 0], [nf, ns - nf, 1], [ns, B.pos.length / 3 - ns, 2]]);
-    // La tapa, con el giro en el borde de atrás (y = y0, z = Zb): el cofre con candado la levanta al abrirse.
-    const Lg = { pos: [], nor: [], uv: [] };
-    box(Lg, x0, 0, 0, x1, Y, Zl, { top: U });
-    const n1 = Lg.pos.length / 3;
-    box(Lg, x0, 0, 0, x1, Y, Zl, { front: U });
-    const n2 = Lg.pos.length / 3;
-    box(Lg, x0, 0, 0, x1, Y, Zl, { west: U, east: U, back: U });
-    const n3 = Lg.pos.length / 3;
-    // Por debajo, su cara de dentro: la tapa levantada queda de pie detrás del cofre, mirándote.
-    quad(Lg, [x0, 0, 0], [x1, 0, 0], [x1, Y, 0], [x0, Y, 0], [0, 0, -1], U);
-    const lid = geo(Lg, [[0, n1, 0], [n1, n2 - n1, 1], [n2, n3 - n2, 2], [n3, Lg.pos.length / 3 - n3, 3]]);
-    // (Sin el contorno negro de las rocas: el dibujo ya lleva el suyo y, con los dos, el borde salía muy gordo.)
-    return { m, body, lid, Y, Zb, Zl, X };
+    // Las uv de las tablas, a escala del mundo (las de cada pieza van de 0 a 1: en un cofre ancho, tablas enormes).
+    const scaleUv = (g, k) => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * k, uv.getY(i) * k * 0.5); };
+    for (const [g, k] of B) if (k === 0) scaleUv(g, big ? 1.4 : 1);
+    for (const [g, k] of Lp) if (k === 4) scaleUv(g, big ? 1.4 : 1);
+    const body = join(B), lid = join(Lp);
+    const hulls = [hullOf(body, [1.06, 1.1, 1.05]), lid.clone().scale(1.05, 1.07, 1.1)];
+    return { m, body, lid, hulls, Y, Zb, Zl, X };
   }
 
   function makeProp(p) {
@@ -378,13 +544,15 @@ G.Ultra3D = (() => {
       o.add(mesh, hull);
       it = { obj: o, mesh, kind: 'rock', h: 26 };
     } else {
-      const c = p.type === 'bigchest' ? s.big : s.chest;
-      const body = new T.Mesh(c.body, [c.m.body, c.m.bodyS, c.m.inside]);
+      const c = p.type === 'bigchest' ? s.big : s.chest, mats = [c.m.wood, c.m.gold, c.m.dark, c.m.coin, c.m.woodL];
+      const body = new T.Mesh(c.body, mats), bh = new T.Mesh(c.hulls[0], s.hullMat);
+      bh.hull = true;
       const pivot = new T.Group();
       pivot.position.set(0, -c.Y, c.Zb);
-      const lid = new T.Mesh(c.lid, [c.m.top, c.m.lidF, c.m.lidS, c.m.under]);
-      pivot.add(lid);
-      o.add(body, pivot);
+      const lid = new T.Mesh(c.lid, mats), lh = new T.Mesh(c.hulls[1], s.hullMat);
+      lh.hull = true;
+      pivot.add(lid, lh);
+      o.add(body, bh, pivot);
       it = { obj: o, mesh: body, lid, pivot, kind: p.type, h: c.Zb + c.Zl + 14, c };
     }
     // Donde está: centrado en su casilla, apoyado en el suelo (los pies del objeto, p.y, están 4 por encima del borde).
@@ -409,13 +577,14 @@ G.Ultra3D = (() => {
       const want = p.flash > 0;
       if (want !== !!it.flashing) {
         it.flashing = want;
-        it.mesh.material = want ? [flashOf(c.m.body), flashOf(c.m.bodyS), flashOf(c.m.inside)] : [c.m.body, c.m.bodyS, c.m.inside];
-        it.lid.material = want ? [flashOf(c.m.top), flashOf(c.m.lidF), flashOf(c.m.lidS), flashOf(c.m.under)] : [c.m.top, c.m.lidF, c.m.lidS, c.m.under];
+        const ms = [c.m.wood, c.m.gold, c.m.dark, c.m.coin, c.m.woodL];
+        it.mesh.material = it.lid.material = want ? ms.map(flashOf) : ms;
       }
       // El cofre con candado levanta la tapa mientras lo abres, hasta dejarla de pie detrás (con 0,55 rad se veía casi sólo
       // su canto: parecía que al cofre le faltaba un trozo).
       const a = it.kind === 'bigchest' ? 1.9 * Math.min(1, p.open / G.Interact.CHEST_TIME) : 0;
       if (it.pivot.rotation.x !== a) { it.pivot.rotation.x = a; it.obj.updateMatrixWorld(true); shadowDirty = true; }
+      glowSeen.push(it);
     }
     return it;
   }
@@ -442,7 +611,7 @@ G.Ultra3D = (() => {
     faceMats.clear(); rockMats.clear(); flashMats.clear();
     if (shared) {
       for (const r of shared.rocks) { r.g.dispose(); r.hull.dispose(); }
-      for (const c of [shared.chest, shared.big]) { c.body.dispose(); c.lid.dispose(); for (const k in c.m) kill(c.m[k]); }
+      for (const c of [shared.chest, shared.big]) { c.body.dispose(); c.lid.dispose(); for (const h of c.hulls) h.dispose(); for (const k in c.m) kill(c.m[k]); }
       shared.hullMat.dispose();
       shared = null; tinted = -1;
     }
@@ -453,6 +622,20 @@ G.Ultra3D = (() => {
   function proj(x, y, z) {
     const w = P[12] * x + P[13] * y + P[14] * z + P[15];
     return [((P[0] * x + P[1] * y + P[2] * z + P[3]) / w + 1) * Wl / 2, (1 - (P[4] * x + P[5] * y + P[6] * z + P[7]) / w) * Hl / 2];
+  }
+
+  /**
+   * Resolución del lienzo 3D (px por unidad de mundo). Kd: px del lienzo del juego por unidad; Wd×Hd, su tamaño.
+   *  - móvil: 0,5 (la escala del arte, como siempre: lo que costaba antes);
+   *  - PC: la del juego por la calidad automática (Máxima: toda; Ultra: el 85 %), con tope de píxeles por pantalla.
+   */
+  function scaleFor(Kd, Wd, Hd) {
+    if (mob) return 0.5;
+    Q.tune();
+    const cap = G.Settings.max ? 4.2e6 : 2.4e6;
+    let k = Kd * (G.Settings.max ? 1 : 0.85) * Q.q;
+    k = Math.min(k, Kd * Math.sqrt(cap / Math.max(1, Wd * Hd)));
+    return Math.max(0.5, k);
   }
 
   /**
@@ -470,11 +653,14 @@ G.Ultra3D = (() => {
       tinted = bi;
     }
     frame++;
-    // Tamaño del lienzo 3D: la pantalla a la escala del arte (y como mucho 1024: memoria de lienzos).
-    const wl = Math.min(1024, Math.ceil(Wd * KL / Kd) + 2), hl = Math.min(1024, Math.ceil(Hd * KL / Kd) + 2);
+    glowSeen = [];
+    // Tamaño del lienzo 3D (y como mucho 4096 de lado: memoria de lienzos).
+    KL = scaleFor(Kd, Wd, Hd);
+    const lim = mob ? 1024 : 4096;
+    const wl = Math.min(lim, Math.ceil(Wd * KL / Kd) + 2), hl = Math.min(lim, Math.ceil(Hd * KL / Kd) + 2);
     if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; renderer.setSize(Wl, Hl, false); }    // (el atlas crece en render())
     R = Kd / KL;
-    // Cámara pegada a la rejilla de píxeles del arte (sin «nadar» al moverse); el resto se corrige al pasarlo a la pantalla.
+    // Cámara pegada a la rejilla de píxeles del lienzo 3D (sin «nadar» al moverse); el resto se corrige al pasarlo a la pantalla.
     const hw = cam.w / 2, hh = cam.h / 2, a = cam.persp / hh, b = a;
     const cxs = Math.round(cam.x * KL) / KL, cys = Math.round(cam.y * KL) / KL;
     const Cx = Math.round(hw * KL), Cy = Math.round(hh * KL);
@@ -485,19 +671,23 @@ G.Ultra3D = (() => {
     const xr = [2 * KL / Wl, 0, 0, -2 * KL * cxs / Wl].map((v, i) => v + (2 * Cx / Wl - 1) * w[i]);
     const yr = [0, KL, -KL, -KL * cys].map((v, i) => -2 * v / Hl + (1 - 2 * Cy / Hl) * w[i]);
     // Profundidad: z = 5/3 − (4/3)/w (w de 0,5 a 2: de sobra; lo cercano, w más pequeño, delante).
-    const zr = w.map((v, i) => 5 / 3 * v + (i === 3 ? -4 / 3 : 0));
+    // (Vista normal, sin perspectiva: w es 1 en todas partes y la profundidad saldría igual para todo. Entonces, lo de más
+    //  al sur y lo más alto, delante: z = −(y − cy + z) / 3000.)
+    const zr = a > 1e-7 ? w.map((v, i) => 5 / 3 * v + (i === 3 ? -4 / 3 : 0)) : [0, -1 / 3000, -1 / 3000, cys / 3000];
     P.set([...xr, ...yr, ...zr, ...w]);
     cam3.projectionMatrix.set(...P);
     cam3.projectionMatrixInverse.copy(cam3.projectionMatrix).invert();
 
     // Lo que se ve (como D3): más ancho arriba. Con margen para las sombras de lo que queda justo fuera.
-    const K = cam.persp, ex = hw / (1 - K) + 60, top = cam.y - hh / (1 - K) - 60, bot = cam.y + hh / (1 + K) + 60 + HW;
+    const Kp = cam.persp, ex = hw / (1 - Kp) + 60, top = cam.y - hh / (1 - Kp) - 60, bot = cam.y + hh / (1 + Kp) + 60 + HW;
     const CW = W.CW, N = W.N, TS = W.TS;
     const c0 = Math.floor((cam.x - ex - 200) / CW), c1 = Math.floor((cam.x + ex + 200) / CW);
     const r0 = Math.floor((top - 200) / CW), r1 = Math.floor((bot + 100) / CW);
     let built = 0;
     shownRows = [];
-    for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+    const walls = !!G.Settings.ultra;                       // (vista normal: sólo rocas y cofres; las paredes, en el suelo 2D)
+    if (!walls && chunks.size) for (const k of [...chunks.keys()]) dropChunk(k);
+    for (let cy = r0; cy <= r1 && walls; cy++) for (let cx = c0; cx <= c1; cx++) {
       const k = cx + ',' + cy;
       let e = chunks.get(k);
       if (e && (e.bi !== bi || e.c !== W.chunk(cx, cy))) { dropChunk(k); e = null; }
@@ -600,15 +790,17 @@ G.Ultra3D = (() => {
     nPass++;
   }
 
+  let tris = 0, calls = 0;
   /** Dibuja las sombras del suelo y todos los lotes del fotograma en el lienzo 3D. */
   function render(list) {
     // Sitio de cada lote, debajo de las sombras del suelo (como mucho 4 pantallas: si no caben, con el anterior).
     let y = Hl, prev = null;
+    const AT = mob ? 4 : 3;                                    // (PC, a la resolución de la pantalla: 3 pantallas de atlas)
     for (const b of list) {
       b.x = Math.max(0, Math.floor(b.x0) - 2); b.y = Math.max(0, Math.floor(b.y0) - 2);
       b.w = Math.min(Wl, Math.ceil(b.x1) + 2) - b.x; b.h = Math.min(Hl, Math.ceil(b.y1) + 2) - b.y;
       if (b.w <= 0 || b.h <= 0) { b.ay = -1; continue; }
-      if (y + b.h > 4 * Hl && prev) {
+      if (y + b.h > AT * Hl && prev) {
         prev.objs.push(...b.objs);
         const x1 = Math.max(prev.x + prev.w, b.x + b.w), y1 = Math.max(prev.y + prev.h, b.y + b.h);
         prev.x = Math.min(prev.x, b.x); prev.w = x1 - prev.x;
@@ -618,8 +810,9 @@ G.Ultra3D = (() => {
       }
       b.ay = prev ? prev.ay + prev.h : Hl; y = b.ay + b.h; prev = b;
     }
-    const H = Math.min(4 * Hl, Math.ceil(y / Hl) * Hl);
+    const H = Math.min(AT * Hl, Math.ceil(y / Hl) * Hl);
     if (glcv.height < H) renderer.setSize(Wl, H, false);
+    tris = calls = 0;
     // El mapa de sombras (si toca), con todas las capas (three.js sólo mete las que ve la cámara) y sin dibujar nada.
     if (renderer.shadowMap.needsUpdate) {
       renderer.setScissorTest(true);
@@ -628,36 +821,75 @@ G.Ultra3D = (() => {
       renderer.render(scene, cam3);
     }
     draw(0, 0, 0, Wl, Hl, 2);                                    // el plano que recibe las sombras
+    tris += renderer.info.render.triangles; calls += renderer.info.render.calls;
     for (const b of list) {
       if (b.ay < 0) continue;
       for (const o of b.objs) o.traverse(m => { m.layers.enable(1); lay.add(m); });
       draw(b.ay - b.y, b.x, b.y, b.w, b.h, 1);
+      tris += renderer.info.render.triangles; calls += renderer.info.render.calls;
       for (const m of lay) m.layers.disable(1);
       lay.clear();
     }
   }
 
+  /*
+   * El halo de los cofres en el suelo (luz dorada que late, más fuerte en el de candado): un degradado guardado que se
+   * suma (lighter), justo después de las sombras y antes de todo lo de pie. Sin coste por píxel en el móvil: un drawImage.
+   */
+  let glowC = null;
+  function glowImg() {
+    if (glowC) return glowC;
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    if (!g) return null;
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,214,110,0.9)'); gr.addColorStop(0.35, 'rgba(255,190,70,0.4)'); gr.addColorStop(1, 'rgba(255,170,40,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return (glowC = c);
+  }
   /** Las sombras de lo 3D en el suelo (después del suelo y antes de todo lo de pie). */
   function ground(ctx) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // (Pulido) Ampliado suavizado: lo 3D ya no es pixel art (en PC va casi a la resolución de la pantalla).
+    ctx.imageSmoothingEnabled = R > 1.01;
     ctx.drawImage(glcv, 0, 0, Wl, Hl, Ox, Oy, Wl * R, Hl * R);
+    const gi = G.Settings.fx > 0 && glowSeen.length ? glowImg() : null;
+    if (gi) {
+      const t = performance.now() / 1000;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.imageSmoothingEnabled = true;
+      for (const it of glowSeen) {
+        const p = it.p, big = it.kind === 'bigchest', [u, v] = proj(p.x, p.y - 12, 2);
+        const s = (big ? 120 : 84) * (KL * R) * (1 + Math.sin(t * 2.2 + p.x * 0.01) * 0.06), k = (big ? 0.42 : 0.26) * (1 + Math.sin(t * 2.2 + p.x * 0.01) * 0.25);
+        ctx.globalAlpha = Math.min(1, k);
+        ctx.drawImage(gi, u * R + Ox - s / 2, v * R + Oy - s * 0.32, s, s * 0.64);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.imageSmoothingEnabled = false;
   }
 
   /** Pega un lote en la pantalla (en su sitio del orden por Y). */
   function blit(ctx, b) {
     if (b.ay < 0) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = R > 1.01;
     ctx.drawImage(glcv, b.x, b.ay, b.w, b.h, b.x * R + Ox, b.y * R + Oy, b.w * R, b.h * R);
+    ctx.imageSmoothingEnabled = false;
   }
 
   /** Suelta todo lo de la GPU (sin memoria de lienzos, game.js purgeGfx); se rehace al dibujar. */
   function free() { if (state === 'ready') dropAll(); }
 
-  /** Para medir: chunks, filas, objetos y llamadas de dibujo del último render. */
+  /** Para medir: chunks, filas, objetos y llamadas de dibujo y triángulos del último fotograma. */
   function stats() {
-    return { built: nBuilt, passes: nPass, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl],
-      calls: renderer ? renderer.info.render.calls : 0, mem: renderer ? { ...renderer.info.memory } : null };
+    return { built: nBuilt, passes: nPass, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
+      aa: !mob, calls, tris, mem: renderer ? { ...renderer.info.memory } : null };
   }
 
-  return { on, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; } };
+  /** ¿Van las rocas y los cofres en 3D con la vista normal (sin Ultra)? (game.js dibuja entonces por D3 sin perspectiva) */
+  const flat = () => !G.Settings.ultra && flatOk() && on();
+
+  return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; } };
 })();

@@ -33,7 +33,7 @@ G.Game = (() => {
     ctx = cv.getContext('2d');
     resize();
     addEventListener('resize', resizeSoon);
-    G.Settings.on(k => { if (k === 'eco') resize(); });      // ahorro de energía: cambia la resolución
+    G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });      // ahorro de energía y Máxima: cambian la resolución
     // iPhone: al girarlo o al abrirlo desde la pantalla de inicio avisa del
     // cambio ANTES de recolocar la página, y con esas medidas viejas el juego
     // se quedaba estirado. Se vuelve a medir cuando el lienzo cambia de verdad
@@ -231,7 +231,8 @@ G.Game = (() => {
     // Resolución interna como mucho ×1,5: en pantallas ×2 dibujar el doble de
     // píxeles era de lo que más costaba, y con el pixel art no se nota.
     // Con «Ahorro de energía», ×1 (menos calor y batería en portátiles y móviles).
-    const d = Math.min(G.Settings.get('eco') ? 1 : 1.5, window.devicePixelRatio || 1);
+    // (12-11-2026) Con la calidad Máxima (PC), hasta ×2: texto, HUD y bordes nítidos en pantallas de alta densidad.
+    const d = Math.min(G.Settings.get('eco') ? 1 : G.Settings.max ? 2 : 1.5, window.devicePixelRatio || 1);
     const cw = cv.clientWidth, ch = cv.clientHeight;
     if (!cw || !ch) return;
     G.Touch.resetSafe();
@@ -1377,7 +1378,8 @@ G.Game = (() => {
       for (const e of ens) if (e.y <= -1e8) e.draw(gx);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      for (let r = 0; r < GH; r += GB) {
+      if (!K) ctx.drawImage(gcv, 0, 0, GW, GH, ((ox - cx) + hw + shX) * Kd, (oy - cy + hh + shY) * Kd, GW * Kd, GH * Kd);   // (sin perspectiva: de una vez)
+      else for (let r = 0; r < GH; r += GB) {
         const v0 = oy + r - cy, v1 = v0 + GB;
         const y0 = Math.round((v0 / (1 - a * v0) + hh + shY) * Kd), y1 = Math.round((v1 / (1 - a * v1) + hh + shY) * Kd);
         if (y1 <= 0 || y1 <= y0) continue;
@@ -1496,7 +1498,8 @@ G.Game = (() => {
         for (const e of ens) if (e.y >= 1e8) e.draw(ax);
         // (Sin suavizar: nítido y bastante más barato que con suavizado.)
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        for (let y = 0; y < Hd; y += BAND) {
+        if (!K) ctx.drawImage(acv, 0, 0, AW, AH, (aox - cx + hw + shX) * Kd, (aoy - cy + hh + shY) * Kd, AW, AH);      // (sin perspectiva: de una vez)
+        else for (let y = 0; y < Hd; y += BAND) {
           const Y0 = y / Kd - hh - shY, Y1 = (y + BAND) / Kd - hh - shY;
           const sy0 = (cy + Y0 / (1 + a * Y0) - aoy) * Kd, sy1 = (cy + Y1 / (1 + a * Y1) - aoy) * Kd;
           if (sy1 <= 0 || sy0 >= AH) continue;
@@ -1505,7 +1508,7 @@ G.Game = (() => {
         }
       }
       // (2,5D) Lo lejano se pierde en la bruma del mapa, a franjas: es lo que más ayuda a leer la profundidad.
-      const hz = G.Tileset && G.Tileset.ready(G.World.biome) ? G.Tileset.haze(G.World.biome) : null;
+      const hz = K && G.Tileset && G.Tileset.ready(G.World.biome) ? G.Tileset.haze(G.World.biome) : null;
       if (hz) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         const n = 7, bh = Math.ceil(Hd * 0.075);
@@ -1562,8 +1565,10 @@ G.Game = (() => {
     if (stone) ents.push(stone);
     // (iPhone: ataques invisibles, 02-11-2026) Ultra sin memoria para su lienzo del suelo: antes el fotograma
     // salía vacío (ni ataques); ahora ese fotograma va en 2D, como sin Ultra.
-    if (!G.Camera.persp || !D3.draw(G.Camera, ents, true)) {
-      if (G.Camera.persp) ctx.clearRect(0, 0, w, h);
+    // (Pulido 12-11-2026) En PC con calidad alta, rocas y cofres en 3D también sin Ultra: el mismo camino, sin perspectiva.
+    const d3 = G.Camera.persp || G.Ultra3D.flat();
+    if (!d3 || !D3.draw(G.Camera, ents, true)) {
+      if (d3) ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.scale(G.Camera.scale, G.Camera.scale);
       G.Camera.apply(ctx);

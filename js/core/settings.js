@@ -2,8 +2,11 @@
  * Se guardan en el navegador (no en la cuenta): cada PC o móvil tiene los
  * suyos. El volumen lo guarda audio.js aparte.
  *
- *   quality     'auto' | 'ultra' | 'high' | 'mid' | 'low'   efectos y partículas; 'ultra' es 'high' y
+ *   quality     'auto' | 'max' | 'ultra' | 'high' | 'mid' | 'low'   efectos y partículas; 'ultra' es 'high' y
  *               además el mapa en 2,5D como los juegos de DS (world.js). Auto nunca lo elige.
+ *               'max' (Máxima, 12-11-2026) es Ultra con todo: más resolución, antialias, sombras finas, brillo de verdad
+ *               (bloom), más partículas y, en la aldea, más árboles y niebla más lejos. Se elige sola en la app de
+ *               Windows (window.pokeEscritorio) la primera vez; en la web de PC, a mano. En móvil no se ofrece.
  *   dmgNumbers  true/false                        números de daño
  *   calm        true/false                        menos sacudidas y destellos
  *   fps         true/false                        contador de FPS
@@ -40,6 +43,8 @@
  */
 G.Settings = (() => {
   const KEY = 'ps.settings';
+  // La app de Windows (Electron, desktop/preload.cjs) se presenta con window.pokeEscritorio.
+  const DESK = typeof window !== 'undefined' && !!window.pokeEscritorio && window.pokeEscritorio.esEscritorio !== false;
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
     padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true };
@@ -49,7 +54,11 @@ G.Settings = (() => {
     // Hasta el 23-10-2026 el joystick era flotante de serie (y se guardaba con los demás
     // ajustes aunque nadie lo eligiera): pasa a fijo una vez; quien quiera, vuelve a cambiarlo.
     if (!old.stickV) { old.stickMode = 'fixed'; old.stickV = 2; }
+    // (12-11-2026) En la app de Windows, la primera vez, calidad Máxima (después manda lo que elijas en Ajustes).
+    const first = DESK && !old.qDesk;
+    if (first) { old.qDesk = 1; if (!old.quality || old.quality === 'auto') old.quality = 'max'; }
     Object.assign(s, old);
+    if (first) localStorage.setItem(KEY, JSON.stringify(s));
   } catch (e) { /* nada */ }
   const fns = new Set();
 
@@ -79,9 +88,13 @@ G.Settings = (() => {
     get, set, sample, DEF,
     on(fn) { fns.add(fn); },
     get all() { return Object.assign({}, s); },
-    get fx() { return s.quality === 'auto' ? autoLevel : s.quality === 'high' || s.quality === 'ultra' ? 2 : s.quality === 'mid' ? 1 : 0; },
-    /** Mapa en 2,5D (calidad Ultra). */
-    get ultra() { return s.quality === 'ultra'; },
+    get fx() { return s.quality === 'auto' ? autoLevel : s.quality === 'high' || s.quality === 'ultra' || s.quality === 'max' ? 2 : s.quality === 'mid' ? 1 : 0; },
+    /** Mapa en 2,5D (calidad Ultra, y también Máxima). */
+    get ultra() { return s.quality === 'ultra' || s.quality === 'max'; },
+    /** Calidad Máxima (escritorio): más resolución, antialias, sombras finas, bloom y más partículas. */
+    get max() { return s.quality === 'max'; },
+    /** ¿Va en la app de Windows? */
+    get desk() { return DESK; },
     get autoLevel() { return autoLevel; },
     get touch() { return touchy; }
   };
