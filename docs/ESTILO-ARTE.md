@@ -1,6 +1,6 @@
 # Estilo del arte del mundo
 
-El mundo se ve como Mundo Misterioso: Exploradores del Cielo, y todo lo que se dibuje tiene que encajar ahí. Última revisión: 06-11-2026.
+El mundo se ve como Mundo Misterioso: Exploradores del Cielo, y todo lo que se dibuje tiene que encajar ahí. Última revisión: 12-11-2026.
 
 ## Cómo se ve un mundo de Mundo Misterioso
 Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como los pinta el juego.
@@ -49,7 +49,15 @@ Capturas de Exploradores del Cielo en Mystery Dungeon Franchise Wiki. Se toma la
 - Tilesets: `assets/tiles-pmd/`, con `tools/fetch_tiles.py`.
 - Hierba: `tiles.js grass24` y `tileset.js seatSheet`. Objetos del suelo: `icons.js chunky`.
 
+## La aldea del menú (3D)
+Desde el 12-11-2026 (pedido del dueño: «que no esté todo tan pixelado, los modelados 3D principalmente»):
+- **Los modelos son 3D liso**: texturas suaves con mipmaps, formas redondas, antialias y halos de luz. No llevan píxeles.
+- **El pixel art sigue siendo pixel art**: el suelo del tileset, los Pokémon, los letreros, las pantallas y la hierba se ven nítidos a cualquier escala (`village3d.js crispTex`): ni borrosos ni con píxeles de distinto ancho.
+- **Contorno**: los modelos llevan el casco oscuro del tono del mapa (`edge` del tileset), nunca negro puro.
+- **Efectos**: niebla, halos, esporas y portal, suaves (no a escalones).
+
 ## Lo que no cumple y por qué
+- **Aldea del menú:** el 3D va liso a propósito (arriba); la regla 3 vale para su pixel art, no para los modelos.
+- **Efectos que giran en la partida:** se dibujan desde una copia ampliada ×4 con suavizado (`vfx.js bigOf`): los píxeles se ven iguales y sin dientes, aunque no caigan en la rejilla.
 - **Ultra:** la perspectiva cambia la escala con la altura, así que los píxeles no pueden ser iguales.
 - **Pokémon a otra escala:** jefes y formas grandes se escalan y sus píxeles son mayores o menores que los del mapa.
-- **Efectos que giran:** no pueden caer sobre la rejilla.

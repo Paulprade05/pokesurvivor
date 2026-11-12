@@ -6,6 +6,20 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-12', title: ["La aldea, más nítida y sin atravesar cosas", "A sharper village where you no longer walk through things"], chg: [
+    ["La aldea se ve mucho más nítida: el 3D se dibuja a la resolución de tu pantalla y con bordes suavizados, los modelos tienen formas redondas y texturas suaves, y las luces del bosque brillan con un halo. Tu Pokémon y los de la aldea siguen en pixel art, pero sin píxeles borrosos ni torcidos.",
+     "The village looks much sharper: the 3D is drawn at your screen's resolution with smoothed edges, models have round shapes and smooth textures, and the forest lights glow with a halo. Your Pokémon and the village ones are still pixel art, but without blurry or uneven pixels."],
+    ["Calidad automática en la aldea: si tu móvil va justo, baja la resolución poco a poco para que vaya fluida, y la sube cuando sobra.",
+     "Automatic quality in the village: if your phone struggles, the resolution goes down little by little so it runs smoothly, and goes back up when there is room."],
+    ["La charca es redonda, los bordes del bosque tienen pinos de verdad y la Tienda Kecleon un toldo de hojas. La niebla, las esporas y el portal de la flor ya no se ven a cuadros.",
+     "The pond is round, the forest edges have real pine trees and the Kecleon Shop has a leaf awning. The mist, the spores and the flower portal no longer look blocky."],
+    ["Los ataques que giran (brasas, rocas, huesos...) se dibujan con el borde suave, sin dientes.",
+     "Spinning attacks (embers, rocks, bones...) are drawn with smooth edges, without jagged steps."]],
+  fix: [
+    ["En la aldea tu Pokémon ya no atraviesa las cosas: choca con lo que se ve (carpas, tu choza, árboles, rocas, tótems, la valla, el banco, las setas, la Flor del Portal y los Pokémon quietos como Snorlax). Si alguna vez acabas metido en algo, sales solo.",
+     "In the village your Pokémon no longer walks through things: it bumps into what you see (tents, your hut, trees, rocks, totems, the fence, the bench, the mushrooms, the Portal Flower and resting Pokémon like Snorlax). If you ever end up inside something, you get out on your own."],
+    ["Arreglado lo que no cuadraba en la aldea: las raíces que parecían pinchos negros, el toldo de la Tienda Kecleon que tapaba a tu Pokémon, los números del podio repetidos encima, la valla de un palo fino y las lianas que parecían pinchos.",
+     "Fixed what looked off in the village: roots that looked like black spikes, the Kecleon Shop awning that covered your Pokémon, the podium numbers repeated on top, the thin-stick fence and vines that looked like spikes."]] },
   { d: '2026-11-12', title: ["La aldea del bosque y tu choza", "The forest village and your hut"], new: [
     ["Tu choza se personaliza con Pokémonedas: forma (choza, vaina, seta gigante o casa-árbol), techo, paredes, color, luces, decoración, tótem y una mascota en la puerta, uno de tus Pokémon. Entra en «Tu choza» para probar cada pieza antes de comprarla. Se guarda en tu partida y en la nube.",
      "Customize your hut with PokéCoins: shape (hut, pod, giant mushroom or tree house), roof, walls, color, lights, decoration, totem and a pet by the door, one of your Pokémon. Go into “Your hut” to try each piece before buying it. It is saved in your game and in the cloud."]
