@@ -629,10 +629,30 @@ G.VFX = (() => {
     return cv;
   }
 
+  /** Copia ampliada ×4 (al píxel más cercano) de un sprite, para dibujarlo girado con suavizado. null si no hay lienzo. */
+  const bigs = new Map();
+  const BIG_MAX = 120, BIG_K = 4;
+  function bigOf(cv, key) {
+    let b = bigs.get(key);
+    if (b) { bigs.delete(key); bigs.set(key, b); return b; }
+    if (Date.now() < noCanvasUntil || !cv.width || !cv.height || cv.width * cv.height > 4096) return null;
+    b = document.createElement('canvas');
+    b.width = cv.width * BIG_K; b.height = cv.height * BIG_K;
+    const c = b.getContext('2d');
+    if (!c) { G.U.freeCanvas(b); noCanvasUntil = Date.now() + 1000; return null; }
+    c.imageSmoothingEnabled = false;
+    c.drawImage(cv, 0, 0, b.width, b.height);
+    while (bigs.size >= BIG_MAX) { const [ok, oc] = bigs.entries().next().value; bigs.delete(ok); G.U.freeCanvas(oc); }
+    bigs.set(key, b);
+    return b;
+  }
+
   /** Suelta los lienzos guardados (sin memoria, o si Safari los ha vaciado); se rehacen al dibujar. */
   function purge() {
     for (const c of cache.values()) G.U.freeCanvas(c);
     cache.clear();
+    for (const c of bigs.values()) G.U.freeCanvas(c);
+    bigs.clear();
     noCanvasUntil = 0;
   }
 
@@ -652,7 +672,12 @@ G.VFX = (() => {
       ctx.rotate(a);
     }
     if (o.flip) ctx.scale(-1, 1);
-    if (cv) ctx.drawImage(cv, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k);
+    // (Pulido 12-11-2026, «algunos efectos se ven en bloques») Girado, el pixel art al píxel más cercano salía con dientes
+    // y píxeles de distinto ancho. Ahora, si gira, se dibuja desde una copia ampliada ×4 (cada píxel, 4×4) con suavizado:
+    // los píxeles siguen nítidos y sólo se suaviza su borde. Sin girar, como siempre (cae en la rejilla del arte).
+    const big = a && cv ? bigOf(cv, shape + '|' + pal + '|' + ((o.frame || 0) | 0) % (S.frames || 1)) : null;
+    if (big) { ctx.imageSmoothingEnabled = true; ctx.drawImage(big, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k); }
+    else if (cv) ctx.drawImage(cv, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k);
     else {
       const f = ((o.frame || 0) | 0) % (S.frames || 1);
       paint(ctx, gridOf(S, shape, f, shape + '|' + pal + '|' + f), S, pal, -S.w * k / 2, -S.h * k / 2, k);

@@ -10,7 +10,8 @@
  * monedas (data/home.js).
  *
  * Unidades: casillas de 48 de mundo (24 px de arte), x al este, y al sur. Los sitios llevan su centro (x, y), su planta
- * (w × h, lo que no se puede pisar) y su puerta (door: donde hay que estar para entrar, delante de la fachada sur).
+ * (w × h: dónde se toca o se hace clic para ir y dónde va su nombre) y su puerta (door: donde hay que estar para entrar,
+ * delante de la fachada sur). Lo que choca no sale de aquí, sino de los modelos 3D (village3d.js solids, abajo hits).
  * El plano se construye con build(): suelo, el bosque del borde (pared del tileset: pinos), la charca y las máscaras de
  * caminos, plaza y hierba alta. Todo sale de un hash fijo: siempre la misma aldea.
  */
@@ -97,7 +98,7 @@ G.VILLAGE = (() => {
   const BYE = ['¡Hasta luego!', '¡Me vuelvo a casa!', '¡Adiós!'];
 
   /*
-   * Decorados 3D (village3d.js). Los que se pueden pisar no llevan r.
+   * Decorados 3D (village3d.js). r: lo que abultaba antes (ya no choca con eso: chocan los modelos; se deja de referencia).
    *   gtree: árbol enorme del bosque (con lianas y hongos que brillan); shroom: setas luminosas (c: cian, rosa o verde);
    *   bulb: farol-flor; pylon: pilón de cristal de energía; spring: el manantial de la plaza; log: banco de tronco;
    *   pod: vaina de semillas; crate: caja de la tribu con su luz; rock: roca con musgo que brilla; fern: helecho;
@@ -203,5 +204,94 @@ G.VILLAGE = (() => {
     return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : b.terr[ty * W + tx];
   }
 
-  return { W, H, TS, BI, PLACES, PET, CAST, DECOR, PATHS, PATH_W, PLAZA, POND, GRASS, SPAWN, FOLLOW, BYE, build, terrainAt, hash };
+  // ---------------- choques (pulido 12-11-2026) ----------------
+  /*
+   * Lo que choca sale de los modelos 3D (village3d.js solids: el casco convexo de cada pieza que toca el suelo), así que
+   * lo que se ve es lo que choca. Aquí, las cuentas (también las usan los tests): casco convexo, distancia con signo a una
+   * figura, un índice por casillas y el relleno de lo que se alcanza andando.
+   */
+  /** Casco convexo de puntos [x, y] (cadena monótona). */
+  function hull(pts) {
+    const P = pts.map(p => [Math.round(p[0] * 4) / 4, Math.round(p[1] * 4) / 4]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], up = [];
+    for (const p of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    lo.pop(); up.pop();
+    return lo.concat(up);
+  }
+  /** Distancia con signo de (x, y) a una figura: { pts } (polígono convexo) o { x, y, r } (círculo). Dentro, negativa. */
+  function sdist(s, x, y) {
+    if (s.r != null) return Math.hypot(x - s.x, y - s.y) - s.r;
+    const P = s.pts, n = P.length;
+    let best = 1e9, pos = 0, neg = 0;
+    for (let i = 0; i < n; i++) {
+      const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ey = b[1] - a[1], L = ex * ex + ey * ey;
+      const c = ex * (y - a[1]) - ey * (x - a[0]);
+      if (c > 0) pos++; else if (c < 0) neg++;
+      const t = L ? Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / L)) : 0;
+      const d = Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t);
+      if (d < best) best = d;
+    }
+    return pos && neg ? best : -best;
+  }
+  /** Índice por casillas de una lista de figuras (cada una, en las casillas que toca con un margen de `pad`). */
+  function index(list, pad = 24) {
+    const cells = new Map();
+    for (const s of list) {
+      let x0, y0, x1, y1;
+      if (s.r != null) { x0 = s.x - s.r; x1 = s.x + s.r; y0 = s.y - s.r; y1 = s.y + s.r; }
+      else { x0 = y0 = 1e9; x1 = y1 = -1e9; for (const [px, py] of s.pts) { x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); } }
+      s.bb = [x0, y0, x1, y1];
+      for (let cy = Math.floor((y0 - pad) / TS); cy <= Math.floor((y1 + pad) / TS); cy++) for (let cx = Math.floor((x0 - pad) / TS); cx <= Math.floor((x1 + pad) / TS); cx++) {
+        const k = cy * 1000 + cx;
+        let c = cells.get(k);
+        if (!c) cells.set(k, c = []);
+        c.push(s);
+      }
+    }
+    return { cells, list };
+  }
+  /**
+   * ¿Choca un círculo (x, y, r) con algo del índice? from: [x, y] de donde viene; si ya estaba metido en una figura,
+   * puede moverse si sale (no se queda atascado nunca).
+   */
+  function hits(ix, x, y, r, from) {
+    const c = ix.cells.get(Math.floor(y / TS) * 1000 + Math.floor(x / TS));
+    if (!c) return false;
+    for (const s of c) {
+      const b = s.bb;
+      if (x + r < b[0] || x - r > b[2] || y + r < b[1] || y - r > b[3]) continue;
+      const d = sdist(s, x, y) - r;
+      if (d >= 0) continue;
+      if (from && d > sdist(s, from[0], from[1]) - r + 1e-3) continue;
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Lo que se alcanza andando desde (sx, sy) en una rejilla de `step`: free(x, y) dice si se puede estar en el centro de
+   * cada celda. → { step, cw, ch, seen: Uint8Array (1: se llega) }.
+   */
+  function flood(free, sx, sy, step = 12) {
+    const cw = Math.ceil(W * TS / step), ch = Math.ceil(H * TS / step), ok = new Int8Array(cw * ch).fill(-1), seen = new Uint8Array(cw * ch);
+    const fr = i => { if (ok[i] < 0) ok[i] = free((i % cw + 0.5) * step, ((i / cw | 0) + 0.5) * step) ? 1 : 0; return ok[i] === 1; };
+    const s0 = Math.floor(sy / step) * cw + Math.floor(sx / step);
+    if (!fr(s0)) return { step, cw, ch, seen, ok };
+    const q = [s0];
+    seen[s0] = 1;
+    while (q.length) {
+      const i = q.pop(), x = i % cw, y = i / cw | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= cw || ny >= ch) continue;
+        const j = ny * cw + nx;
+        if (!seen[j] && fr(j)) { seen[j] = 1; q.push(j); }
+      }
+    }
+    return { step, cw, ch, seen, ok };
+  }
+
+  return { W, H, TS, BI, PLACES, PET, CAST, DECOR, PATHS, PATH_W, PLAZA, POND, GRASS, SPAWN, FOLLOW, BYE, build, terrainAt, hash,
+    hull, sdist, index, hits, flood };
 })();

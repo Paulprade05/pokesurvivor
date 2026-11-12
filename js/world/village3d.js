@@ -4,8 +4,8 @@
  *     chunk del mundo) más el musgo, los caminos y la plaza; los Pokémon, sus sprites de siempre en cuadros de pie;
  *   - el bosque del borde, las chozas, la Flor del Portal y los decorados son 3D de verdad, con luz y sombras duras.
  * La cámara es la de Ultra: la homografía del suelo de G.Camera (q = 1 − a·dv) con lo alto subiendo en la pantalla, escrita
- * como matriz de proyección. Se dibuja a la escala del arte (24 px por casilla, 0,5 px por unidad de mundo) en un lienzo
- * WebGL pequeño, y village.js lo pasa a la pantalla sin suavizar: píxeles nítidos, como el resto.
+ * como matriz de proyección. Se dibuja en un lienzo WebGL a la resolución de la pantalla (ver «pulido» abajo) y village.js
+ * lo pasa al lienzo del juego.
  *
  * (12-11-2026) Bosque bioluminiscente (decisión del dueño): casi siempre de noche, con lo que brilla hecho con materiales
  * que se encienden solos (emisivos: no hacen falta luces de verdad, que en el iPhone cuestan), halos de color en el suelo,
@@ -14,15 +14,30 @@
  *
  * Ejes (los de three.js): X al este, Y arriba, Z al sur (hacia la cámara). Un punto del juego (x, y) es (x, 0, y).
  *
- * Memoria (iPhone): un solo lienzo WebGL pequeño, texturas soltadas al subirlas (sus lienzos), lo quieto juntado en pocas
- * mallas (una por material), mapa de sombras de 512 en móvil y sin sombras en calidad baja. free() lo suelta todo (al
- * empezar una partida): la aldea se rehace al volver.
+ * Memoria (iPhone): un solo lienzo WebGL, texturas soltadas al subirlas (sus lienzos), lo quieto juntado en pocas
+ * mallas (una por material), mapa de sombras más pequeño en móvil y sin sombras en calidad baja. free() lo suelta todo
+ * (al empezar una partida): la aldea se rehace al volver.
+ *
+ * (12-11-2026, pulido pedido por el dueño: «que no esté todo tan pixelado y se vea más nítido, los modelados 3D
+ *  principalmente y algunos efectos») Antes se dibujaba a la escala del arte (0,5 px por unidad: un lienzo de 484×274 en
+ *  una pantalla de 1280×720) y se ampliaba sin suavizar. Ahora:
+ *   - se dibuja a la resolución de la pantalla (con su devicePixelRatio, con tope de píxeles) y con antialias;
+ *   - la calidad se ajusta sola (Q): si van lentos los fotogramas, baja la resolución por escalones, y sube si sobra;
+ *   - los modelos llevan texturas suaves (más grandes, con mipmaps) y más segmentos, sin sombreado plano;
+ *   - lo que es pixel art (el suelo del tileset, los Pokémon, los letreros y las pantallas) se muestrea «nítido»
+ *     (crisp: cada texel es un cuadrado limpio con el borde suavizado), nunca borroso ni con píxeles torcidos;
+ *   - lo que brilla lleva un halo de luz (bloom barato: un solo dibujo de puntos que se suman), la niebla, los halos
+ *     del suelo, las esporas y el portal son suaves en lugar de a escalones;
+ *   - lo que choca sale de la geometría (solids): cada pieza que toca el suelo deja su huella (casco convexo) y
+ *     village.js choca con eso. Lo que se ve es lo que choca (tests/village-solids.test.cjs).
  */
 G.Village3D = (() => {
   const V = () => G.VILLAGE;
-  const TS = 48, KL = 0.5, PX = 2;
-  let T = null, renderer = null, glcv = null, scene = null, cam3 = null, amb = null, sun = null;
-  let built = false, lost = false, failed = '';
+  const TS = 48, PX = 2;
+  let KL = 0.5;                          // px del lienzo por unidad de mundo (lo pone render según la pantalla y la calidad)
+  let gl2 = false, aniso = 1;
+  let T = null, renderer = null, glcv = null, scene = null, cam3 = null, amb = null, sun = null, hemi = null;
+  let built = false, lost = false, failed = '', dry = false;   // dry: sin pintar texturas (collect, en los tests)
   let Wl = 0, Hl = 0;
   const P = new Float64Array(16);
   let anim = [];                         // cosas que se mueven: { fn(t, dt) }
@@ -60,18 +75,45 @@ G.Village3D = (() => {
     //  más tarde; si contaba, la aldea rehecha al volver de la partida se daba por perdida y salía el menú clásico.)
     c.addEventListener('webglcontextlost', e => { e.preventDefault(); if (c === glcv) lost = true; });
     c.addEventListener('webglcontextrestored', () => { if (c !== glcv) return; lost = false; drop(true); });
-    renderer = new T.WebGLRenderer({ canvas: glcv, antialias: false, alpha: false, depth: true, stencil: false,
+    // Antialias (MSAA) salvo en calidad baja. El tamaño del lienzo lo pone render (ya en píxeles físicos).
+    renderer = new T.WebGLRenderer({ canvas: glcv, antialias: fx() > 0, alpha: false, depth: true, stencil: false,
       powerPreference: G.U.IOS ? 'default' : 'high-performance', preserveDrawingBuffer: false });
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x050a12, 1);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = T.BasicShadowMap;          // sombras duras: píxeles, como el arte
+    renderer.shadowMap.type = fx() > 1 ? T.PCFShadowMap : T.BasicShadowMap;   // borde de sombra suavizado (salvo calidad baja)
     renderer.shadowMap.autoUpdate = false;
     renderer.sortObjects = true;
+    const cap = renderer.capabilities || {};
+    gl2 = !!cap.isWebGL2;
+    aniso = Math.min(4, cap.getMaxAnisotropy ? cap.getMaxAnisotropy() : 1);
+    Q.init();
   }
 
   const fx = () => (G.Settings ? G.Settings.fx : 2);
   const mobile = () => !!(G.U.IOS || (G.Settings && G.Settings.touch));
+
+  /*
+   * Calidad automática (pedido: «el iPhone importa»). q: la parte de la resolución nativa que se dibuja (1 = toda).
+   * La calidad de los ajustes pone el tope (alta: hasta 2 px físicos por px CSS; media: 1,5; baja: 1 y sin antialias)
+   * y un tope de píxeles por fotograma (menos en móvil). tune(dt) mira lo que tardan los fotogramas mientras paseas: si van
+   * por debajo de ~40 FPS un par de segundos, baja un escalón; si van holgados un rato, sube. El escalón se recuerda.
+   */
+  const Q = {
+    STEPS: [1, 0.85, 0.7, 0.58, 0.48], i: 0, ema: 1 / 60, slow: 0, fast: 0, fixed: null,
+    init() { let i = 0; try { i = +localStorage.getItem('ps.vil.q') || 0; } catch (e) { /* nada */ } this.i = Math.max(0, Math.min(this.STEPS.length - 1, i | 0)); this.ema = 1 / 60; this.slow = this.fast = 0; },
+    get q() { return this.fixed != null ? this.fixed : this.STEPS[this.i]; },
+    dprCap() { const f = fx(); return f === 0 ? 1 : f === 1 ? 1.5 : 2; },
+    maxPx() { const f = fx(), m = mobile(); return (f === 0 ? 0.9e6 : f === 1 ? (m ? 1.4e6 : 2.4e6) : (m ? 2.2e6 : 4.2e6)); },
+    save() { try { localStorage.setItem('ps.vil.q', String(this.i)); } catch (e) { /* nada */ } },
+    tune(dt) {
+      if (this.fixed != null || !(dt > 0) || dt > 0.25) return;
+      this.ema += (dt - this.ema) * 0.08;
+      if (this.ema > 1 / 40) { this.slow += dt; this.fast = 0; } else if (this.ema < 1 / 56) { this.fast += dt; this.slow = 0; } else { this.slow = Math.max(0, this.slow - dt); this.fast = 0; }
+      if (this.slow > 1.6 && this.i < this.STEPS.length - 1) { this.i++; this.slow = 0; this.ema = 1 / 50; this.save(); }
+      else if (this.fast > 8 && this.i > 0) { this.i--; this.fast = 0; this.save(); }
+    }
+  };
 
   // ---------------- texturas ----------------
   function canvas(w, h) {
@@ -82,16 +124,60 @@ G.Village3D = (() => {
     g.imageSmoothingEnabled = false;
     return [c, g];
   }
+  /**
+   * Textura de pixel art (suelo, letreros, pantallas, puertas): sin mipmaps. Con WebGL2 se filtra lineal y el material
+   * la muestrea nítida (crisp); si no, al píxel más cercano.
+   */
   function tex(c, repeat = false, keep = false) {
     const t = new T.CanvasTexture(c);
-    t.magFilter = t.minFilter = T.NearestFilter;
+    t.magFilter = t.minFilter = gl2 ? T.LinearFilter : T.NearestFilter;
     t.generateMipmaps = false;
     t.colorSpace = T.SRGBColorSpace;
     if (repeat) t.wrapS = t.wrapT = T.RepeatWrapping;
     // (iPhone) El lienzo ya no hace falta al subirla: se suelta (si se pierde el contexto, se rehace todo).
     if (!keep) t.onUpdate = () => { G.U.freeCanvas(c); t.onUpdate = null; };
+    t.userData.crisp = true;
     disposables.push(t);
     return t;
+  }
+  /** Si el material lleva pixel art (texturas de tex()), se muestrea nítido. */
+  const fin = m => ((m.map && m.map.userData.crisp) || (m.emissiveMap && m.emissiveMap.userData.crisp) ? crisp(m) : m);
+  /** Textura suave de un modelo (madera, corteza, hojas...): filtrado lineal con mipmaps y anisotropía. */
+  function stex(c, repeat = true) {
+    const t = new T.CanvasTexture(c);
+    t.magFilter = T.LinearFilter;
+    t.minFilter = T.LinearMipmapLinearFilter;
+    t.generateMipmaps = true;
+    t.anisotropy = aniso;
+    t.colorSpace = T.SRGBColorSpace;
+    if (repeat) t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.onUpdate = () => { G.U.freeCanvas(c); t.onUpdate = null; };
+    disposables.push(t);
+    return t;
+  }
+  /*
+   * Muestreo nítido del pixel art (crisp): cada texel se ve como un cuadrado limpio a cualquier escala (también con la
+   * perspectiva, que cambia el tamaño con la altura), con el borde suavizado medio píxel de pantalla. Ni borroso como el
+   * lineal ni con píxeles de distinto ancho como el más cercano. Se cambia el muestreo del mapa y del mapa emisivo de los
+   * materiales de three.js (crisp(m)) y de los shaders propios (CRISP).
+   */
+  const CRISP = [
+    'vec4 crispTex(sampler2D t, vec2 uv) {',
+    '  vec2 sz = vec2(textureSize(t, 0)), p = uv * sz, s = floor(p + 0.5);',
+    '  vec2 d = max(fwidth(p), vec2(1e-4));',
+    '  p = s + clamp((p - s) / d, -0.5, 0.5);',
+    '  return texture2D(t, p / sz);',
+    '}'].join('\n');
+  function crisp(m) {
+    if (!gl2) return m;
+    m.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader
+        .replace('void main() {', CRISP + '\nvoid main() {')
+        .replace('#include <map_fragment>', '#ifdef USE_MAP\n  diffuseColor *= crispTex(map, vMapUv);\n#endif')
+        .replace('#include <emissivemap_fragment>', '#ifdef USE_EMISSIVEMAP\n  totalEmissiveRadiance *= crispTex(emissiveMap, vEmissiveMapUv).rgb;\n#endif');
+    };
+    m.customProgramCacheKey = () => 'crisp';
+    return m;
   }
   const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   const css = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
@@ -101,6 +187,7 @@ G.Village3D = (() => {
   const ramp = (h) => [shade(h, -0.45), shade(h, -0.22), h, shade(h, 0.3)];
   /** Pinta w×h píxeles con fn(x, y) → color (o null: transparente). */
   function pix(w, h, fn) {
+    if (dry) return canvas(1, 1)[0];
     const [c, g] = canvas(w, h);
     const id = g.createImageData(w, h), d = id.data, cache = new Map();
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -127,10 +214,60 @@ G.Village3D = (() => {
     return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
   }
 
+  // ---- texturas suaves de los modelos (pulido 12-11-2026) ----
+  /** Pinta w×h con fn(x, y) → [r, g, b] (0..255, sin redondear). Sin transparencia. */
+  function soft(w, h, fn) {
+    if (dry) return canvas(1, 1)[0];
+    const t0 = performance.now();
+    const [c, g] = canvas(w, h);
+    const id = g.createImageData(w, h), d = id.data;
+    // (Se guardan los píxeles: al volver de una partida la aldea se rehace sin volver a pintarlas.)
+    const mk = memoKey ? memoKey + '|' + (memoN++) + '|' + w + 'x' + h : '', old = mk && MEMO.get(mk);
+    if (old) d.set(old);
+    else {
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const v = fn(x, y), o = (y * w + x) * 4;
+        d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; d[o + 3] = 255;
+      }
+      if (mk) MEMO.set(mk, d.slice());
+    }
+    g.putImageData(id, 0, 0);
+    PERF.soft += performance.now() - t0; PERF.px += w * h;
+    return c;
+  }
+  const PERF = { soft: 0, px: 0 };
+  /** Píxeles ya pintados de las texturas suaves, por material (memoKey: el material que se está haciendo). */
+  const MEMO = new Map();
+  let memoKey = '', memoN = 0;
+  const memo = (key, make) => { memoKey = key; memoN = 0; try { return make(); } finally { memoKey = ''; } };
+  const RGB = new Map();
+  const rgb = h => { let v = RGB.get(h); if (!v) { v = hex(h); RGB.set(h, v); } return v; };
+  const mixc = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  const sat = v => v < 0 ? 0 : v > 1 ? 1 : v;
+  const sstep = (a, b, v) => { const t = sat((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+  /** Tono continuo de una rampa de colores (0..1). */
+  function tone(tones, t) {
+    t = sat(t) * (tones.length - 1);
+    const i = Math.min(tones.length - 2, Math.floor(t));
+    return mixc(rgb(tones[i]), rgb(tones[i + 1]), t - i);
+  }
+  /** Ruido suave periódico (se repite cada `per` px sin costura): tres octavas. */
+  function pn(x, y, s, seed, per) {
+    const one = (k, sd) => {
+      const ps = per / k, fx0 = x / k, fy0 = y / k, x0 = Math.floor(fx0), y0 = Math.floor(fy0), tx = fx0 - x0, ty = fy0 - y0;
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty), m = v => ((v % ps) + ps) % ps;
+      const a = H(m(x0), m(y0), sd), b = H(m(x0 + 1), m(y0), sd), c = H(m(x0), m(y0 + 1), sd), d = H(m(x0 + 1), m(y0 + 1), sd);
+      return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+    };
+    return one(s, seed) * 0.6 + one(s / 2, seed + 1) * 0.28 + one(s / 4, seed + 2) * 0.12;
+  }
+  /** Lo oscuro de una junta a distancia d (px) de su centro, de ancho w, con el borde suavizado. */
+  const seam = (d, w) => 1 - sstep(w * 0.5 - 0.6, w * 0.5 + 0.6, Math.abs(d));
+
   const WOOD = ['#3a2418', '#52341f', '#6c4628', '#8a5e38'];
   const STONE = ['#2e3338', '#424a50', '#58626a', '#727e86'];
   const BARK = ['#1e1612', '#2c201a', '#3c2c22', '#4e3a2c'];
-  const LEAF = ['#0e2a24', '#16402f', '#1f573c', '#2e7048'];
+  const LEAF = ['#123430', '#1b4c3c', '#256650', '#3a8462'];
   const MOSS = ['#13281f', '#1a3428', '#22412f', '#2d5238'];
   const METAL = ['#3a4450', '#55606c', '#76828e', '#a4b0ba'];
   const GOLD = ['#8a5a12', '#c08a1e', '#e8b838', '#fff08a'];
@@ -141,10 +278,9 @@ G.Village3D = (() => {
   function lambert(key, make, opts = {}) {
     let m = mats.get(key);
     if (m) return m;
-    const map = make ? make() : null, o = Object.assign({}, opts), flat = !!o.flat;
+    const map = make ? memo('l' + key, make) : null, o = Object.assign({}, opts);
     delete o.flat;
-    m = new T.MeshLambertMaterial(Object.assign({ map, side: T.FrontSide, shadowSide: T.DoubleSide }, o));
-    if (flat) m.flatShading = true;
+    m = fin(new T.MeshLambertMaterial(Object.assign({ map, side: T.FrontSide, shadowSide: T.DoubleSide }, o)));
     mats.set(key, m);
     disposables.push(m);
     return m;
@@ -156,7 +292,6 @@ G.Village3D = (() => {
     let m = mats.get(key);
     if (m) return m;
     m = new T.MeshLambertMaterial(Object.assign({ color: shade(col, -0.55), emissive: new T.Color(col), emissiveIntensity: base, side: T.FrontSide }, opts));
-    if (opts.flatShading) m.flatShading = true;
     mats.set(key, m);
     disposables.push(m);
     glowList.push({ m, base, ph: H(col.length, base * 10, hex(col)[0]) * 6.28 });
@@ -166,8 +301,8 @@ G.Village3D = (() => {
   function glowTexM(key, make, col, base = 1, opts = {}) {
     let m = mats.get(key);
     if (m) return m;
-    const t = make();
-    m = new T.MeshLambertMaterial(Object.assign({ map: t, emissive: new T.Color(col), emissiveMap: t, emissiveIntensity: base, side: T.FrontSide }, opts));
+    const t = memo('t' + key, make);
+    m = fin(new T.MeshLambertMaterial(Object.assign({ map: t, emissive: new T.Color(col), emissiveMap: t, emissiveIntensity: base, side: T.FrontSide }, opts)));
     mats.set(key, m);
     disposables.push(m);
     glowList.push({ m, base, ph: H(key.length, 3, 7) * 6.28 });
@@ -177,69 +312,200 @@ G.Village3D = (() => {
   function basic(key, make, opts = {}) {
     let m = mats.get(key);
     if (m) return m;
-    m = new T.MeshBasicMaterial(Object.assign({ map: make ? make() : null }, opts));
+    m = fin(new T.MeshBasicMaterial(Object.assign({ map: make ? memo('b' + key, make) : null }, opts)));
     mats.set(key, m);
     disposables.push(m);
     return m;
   }
-  const woodM = () => lambert('wood', () => tex(planks(32, 32), true));
-  const stoneM = () => lambert('stone', () => tex(bricks(32, 32), true));
-  const mossStoneM = () => glowTexM('mstone', () => tex(pix(32, 32, (x, y) => {
-    const row = y >> 3, off = row % 2 ? 6 : 0;
-    if (y % 8 === 7 || ((x + off) % 12) === 11) return '#0c1012';
-    const m = vn(x, y, 6, 52);
-    if (m > 0.66) return H(x, y, 53) > 0.93 ? '#7cffb0' : MOSS[m > 0.8 ? 3 : 2];
-    const n = H((x + off) / 12 | 0, row, 51);
-    return STONE[y % 8 === 0 ? 3 : n < 0.35 ? 1 : 2];
-  }), true), '#ffffff', 0.25);
-  // Corteza oscura: vetas verticales que se cortan y nudos.
-  const barkM = () => lambert('bark', () => tex(pix(32, 32, (x, y) => {
-    const v = H(x, (y + (H(x, 0, 6) * 32 | 0)) >> 3, 5), k = H(x >> 2, y >> 2, 7);
-    if ((x * 7 + (y >> 2) * 3) % 23 === 0 && k > 0.6) return BARK[0];
-    return BARK[v < 0.25 ? 0 : v < 0.6 ? 1 : v < 0.9 ? 2 : 3];
-  }), true), { flat: true });
-  const leafM = () => lambert('leaf', () => tex(noisy(32, 32, LEAF, 21), true), { flat: true });
-  const goldM = () => lambert('gold', () => tex(noisy(8, 8, GOLD, 31, 1), true), { emissive: new T.Color(0x5a3a00) });
-  const metalM = () => lambert('metal', () => tex(pix(16, 16, (x, y) => (x === 0 || y === 0) ? METAL[0] : (x === 3 && y === 3) || (x === 12 && y === 12) ? METAL[3] : METAL[H(x >> 2, y >> 2, 44) > 0.5 ? 1 : 2]), true));
-  const paleM = () => lambert('pale', () => tex(pix(8, 16, (x, y) => ['#9a94a0', '#b4aebc', '#cec8d4', '#e2dce6'][(H(x, y >> 1, 33) * 4) | 0]), true));
-
-  function planks(w, h) {
-    return pix(w, h, (x, y) => {
-      const row = y >> 3, off = (row * 13) % 16, seam = ((x + off) % 16) === 0;
-      if (y % 8 === 7 || seam) return WOOD[0];
-      const n = H(x >> 2, y, 40 + row);
-      return WOOD[y % 8 === 0 ? 3 : n < 0.3 ? 1 : 2];
+  const P2 = Math.PI * 2;
+  // Texturas suaves (128 px, se repiten sin costura): las juntas y vetas con el borde suavizado y tonos continuos.
+  function planks(S = 128, tones = WOOD, seed = 40) {
+    return soft(S, S, (x, y) => {
+      const r = y >> 5, ly = y - r * 32, off = (H(r, seed, 40) * 4 | 0) * 16, jx = (x + off) % 64;
+      const n = pn(x, y, 24, seed + 1 + r, S), grain = 0.5 + 0.5 * Math.sin((y + n * 16) * P2 * 12 / S + r * 1.7);
+      let c = tone(tones, 0.32 + grain * 0.32 + (n - 0.5) * 0.55 + (H(r, (x + off) >> 6, seed + 3) - 0.5) * 0.25);
+      if (ly < 4) c = mixc(c, rgb(tones[3]), (4 - ly) / 4 * 0.45);
+      const dark = Math.max(seam(Math.min(ly, 32 - ly), 3), seam(Math.min(jx, 64 - jx), 3));
+      return mixc(c, rgb(shade(tones[0], -0.35)), dark * 0.85);
     });
   }
-  function bricks(w, h) {
-    return pix(w, h, (x, y) => {
-      const row = y >> 3, off = row % 2 ? 6 : 0;
-      if (y % 8 === 7 || ((x + off) % 12) === 11) return STONE[0];
-      const n = H((x + off) / 12 | 0, row, 51);
-      return STONE[y % 8 === 0 ? 3 : n < 0.35 ? 1 : 2];
+  function bricks(S = 128, tones = STONE, mossy = false) {
+    return soft(S, S, (x, y) => {
+      const r = y >> 5, ly = y - r * 32, off = r % 2 ? 32 : 0, bx = ((x + off) % S) >> 6, lx = (x + off) % 64;
+      const n = pn(x, y, 20, 51, S);
+      let c = tone(tones, 0.4 + (H(bx, r, 52) - 0.5) * 0.45 + (n - 0.5) * 0.6);
+      const ed = Math.min(ly, 32 - ly, lx, 64 - lx);
+      if (ly < 6 || lx < 6) c = mixc(c, rgb(tones[3]), (1 - Math.min(ly, lx) / 6) * 0.35);
+      c = mixc(c, rgb(shade(tones[0], -0.4)), seam(ed, 3.4) * 0.9);
+      if (mossy) {
+        const m = pn(x, y, 28, 53, S);
+        if (m > 0.52) c = mixc(c, tone(MOSS, (m - 0.52) * 3.4), sstep(0.52, 0.6, m));
+        // Puntitos de musgo que brillan (suaves).
+        const cx = (x >> 4), cy = (y >> 4), h2 = H(cx, cy, 54);
+        if (m > 0.55 && h2 > 0.8) { const dx = x - (cx * 16 + 8), dy = y - (cy * 16 + 8), dd = Math.hypot(dx, dy); c = mixc(c, rgb('#9affc8'), (1 - sstep(0.5, 2.6, dd)) * 0.95); }
+      }
+      return c;
     });
   }
-  /** Escamas de hojas grandes (las vainas y techos): n columnas con su nervio oscuro, del color c. */
-  function scales(n, c, hpx = 32, seed = 0) {
-    const r = ramp(c), sw = 8;
-    return pix(n * sw, hpx, (x, y) => {
-      const lx = x % sw, row = (y / 5) | 0, off = (row % 2) * 4, sx = (x + off) % sw, sy = y % 5;
-      if (lx === 0) return r[0];                                    // costilla de madera
-      if (sy === 4) return r[1];
-      const k = Math.abs(sx - 3.5) / 4;
-      if (sy === 0 && k < 0.6) return r[3];
-      return H(x >> 1, y, 61 + seed) > 0.86 ? r[1] : r[2];
+  /** Corteza: vetas verticales onduladas con grietas oscuras. */
+  function bark(S = 128, tones = BARK, seed = 5) {
+    return soft(S, S, (x, y) => {
+      const n = pn(x, y, 32, seed, S), w = 0.5 + 0.5 * Math.sin(x * P2 * 9 / S + n * 7 + Math.sin(y * P2 * 2 / S) * 1.3);
+      let c = tone(tones, 0.2 + w * 0.65 + (pn(x, y, 8, seed + 9, S) - 0.5) * 0.35);
+      if (w < 0.16) c = mixc(c, rgb(shade(tones[0], -0.4)), (0.16 - w) / 0.16 * 0.9);
+      return c;
     });
   }
+  /** Follaje: manchas de hojas en tonos continuos con brillos claros en lo alto de cada mata. */
+  function foliage(S = 128, tones = LEAF, seed = 21) {
+    return soft(S, S, (x, y) => {
+      const a = pn(x, y, 22, seed, S), b = pn(x, y, 7, seed + 7, S);
+      let c = tone(tones, a * 0.9 + (b - 0.5) * 0.5);
+      if (b > 0.68) c = mixc(c, rgb(shade(tones[3], 0.25)), (b - 0.68) * 2.2);
+      if (b < 0.3) c = mixc(c, rgb(shade(tones[0], -0.3)), (0.3 - b) * 1.6);
+      return c;
+    });
+  }
+  /** Escamas de hojas grandes (las vainas y techos): n columnas con su costilla oscura, del color c. */
+  function scales(n, c, hpx = 128, seed = 0) {
+    const r = ramp(c), sw = 32, sh = 20, W = n * sw, Hh = 120;
+    return soft(W, Hh, (x, y) => {
+      const lx = x % sw, row = (y / sh) | 0, off = (row % 2) * sw / 2, sx = (x + off) % sw, sy = y - row * sh;
+      const k = Math.abs(sx - sw / 2) / (sw / 2), edge = sh - 6 * (1 - k * k) - 1;
+      let col = tone(r, 0.32 + (1 - sy / sh) * 0.5 - k * k * 0.18 + (pn(x, y, 10, 61 + seed, W) - 0.5) * 0.22);
+      col = mixc(col, rgb(r[0]), seam(sy - edge, 2.2) * 0.75);                         // borde de la escama
+      col = mixc(col, rgb(shade(r[0], -0.35)), seam(Math.min(lx, sw - lx), 4) * 0.95);  // costilla de madera
+      return col;
+    });
+  }
+  /** Sombrero de seta: claro arriba, oscuro en el borde, con lunares suaves (blancos: brillan con el emisivo). */
+  function capTex(c, seed = 0, spots = true) {
+    const S = 64, r = [shade(c, -0.45), shade(c, -0.2), c, shade(c, 0.35)];
+    return soft(S * 2, S, (x, y) => {
+      const t = y / S;
+      let col = tone(r, 0.95 - t * 0.85 + (pn(x, y, 12, 70 + seed, S * 2) - 0.5) * 0.2);
+      if (spots && t < 0.8) {
+        const cw = 21, cx = Math.floor(x / cw), cy = Math.floor(y / 16), h1 = H(cx, cy, 71 + seed);
+        if (h1 > 0.45) {
+          const px = cx * cw + 4 + H(cx, cy, 72) * 13, py = cy * 16 + 4 + H(cx, cy, 73) * 8, rr = 2.2 + H(cx, cy, 74) * 2.2;
+          col = mixc(col, [255, 255, 255], (1 - sstep(rr - 0.8, rr + 0.8, Math.hypot(x - px, y - py))) * 0.92);
+        }
+      }
+      return col;
+    });
+  }
+  /** Madera tallada (tótems): bandas con surcos y ojos hundidos. */
+  function carvedTex() {
+    return soft(64, 256, (x, y) => {
+      const ly = y % 64, n = pn(x, y, 18, 75, 64);
+      let c = tone(WOOD, 0.45 + (n - 0.5) * 0.5 + 0.15 * Math.sin(x * P2 / 64));
+      c = mixc(c, rgb(shade(WOOD[0], -0.4)), seam(Math.min(ly, 64 - ly), 5) * 0.9);
+      for (const ex of [18, 46]) { const d = Math.hypot((x - ex) / 1.3, ly - 24); c = mixc(c, [12, 10, 10], 1 - sstep(4, 6, d)); }
+      c = mixc(c, rgb(shade(WOOD[0], -0.3)), seam(ly - 42, 3) * (1 - sstep(16, 20, Math.abs(x - 32))) * 0.9);
+      return c;
+    });
+  }
+  /** Cara de tótem de la choza (un bloque). */
+  function faceTex() {
+    return soft(64, 64, (x, y) => {
+      let c = tone(WOOD, 0.5 + (pn(x, y, 14, 76, 64) - 0.5) * 0.5 + (y < 8 ? 0.3 : 0));
+      for (const ex of [20, 44]) c = mixc(c, [14, 10, 10], 1 - sstep(4, 6, Math.hypot(x - ex, y - 22)));
+      c = mixc(c, [14, 10, 10], seam(y - 42, 4) * (1 - sstep(14, 18, Math.abs(x - 32))));
+      return c;
+    });
+  }
+  /** Anillos del tocón. */
+  const ringsTex = () => soft(64, 64, (x, y) => { const r = Math.hypot(x - 31.5, y - 31.5) + pn(x, y, 12, 77, 64) * 3; return tone(WOOD, 0.75 - 0.35 * (0.5 + 0.5 * Math.cos(r * 0.9)) - (r > 29 ? 0.4 : 0)); });
+  /** Caja de la tribu: tablas con marco de metal y la cruz. */
+  const crateTex = () => soft(64, 64, (x, y) => {
+    let c = tone(WOOD, 0.45 + (pn(x, y, 12, 78, 64) - 0.5) * 0.5);
+    const ed = Math.min(x, y, 63 - x, 63 - y);
+    c = mixc(c, rgb(shade(WOOD[0], -0.3)), Math.max(seam(x - y, 6), seam(x + y - 63, 6)) * 0.8);
+    if (ed < 6) c = mixc(tone(METAL, 0.5 + (ed < 2 ? -0.3 : 0.1)), c, sstep(5, 6.5, ed));
+    return c;
+  });
+  /** Pétalo de la Flor del Portal: degradado con el nervio que brilla. */
+  const petalTex = () => soft(64, 128, (x, y) => {
+    const c = Math.abs(x - 31.5) / 32, t = y / 128;
+    let col = tone(['#5a2a7a', '#8a3aa8', '#b04ac0', '#e070c8', '#ffa8e4'], 0.95 - t * 0.85 - c * c * 0.35);
+    return mixc(col, rgb('#ffd8f6'), seam(c * 32, 3) * (t > 0.1 ? 0.95 : 0));
+  });
+  /** Techos de la choza. */
+  const crysTex = col => soft(128, 128, (x, y) => {
+    const a = ((x + y * 2) % 64 + 64) % 64, b = ((x * 3 - y) % 44 + 44) % 44, n = pn(x, y, 32, 79, 128);
+    let c = tone([shade(col, -0.5), shade(col, -0.2), col, shade(col, 0.4)], 0.3 + n * 0.6);
+    return mixc(c, [255, 255, 255], Math.max(seam(Math.min(a, 64 - a), 2.2), seam(Math.min(b, 44 - b), 2.2)) * 0.9);
+  });
+  const solarTex = (col, lc) => soft(128, 128, (x, y) => {
+    const lx = x % 32, ly = y % 32, ed = Math.min(lx, 32 - lx, ly, 32 - ly);
+    const c = tone([shade(col, -0.35), col, shade(col, 0.3)], 0.3 + (ly / 32) * 0.4 + (H(x >> 5, y >> 5, 80) - 0.5) * 0.2);
+    return mixc(c, rgb(lc), seam(ed, 2.4));
+  });
+  const strawTex = col => soft(128, 128, (x, y) => {
+    const ly = y % 16, w = 0.5 + 0.5 * Math.sin(x * P2 * 20 / 128 + pn(x, y, 16, 31, 128) * 5);
+    return mixc(tone(ramp(col), 0.3 + w * 0.6 - ly / 40), rgb(ramp(col)[0]), seam(ly - 15, 2.4) * 0.8);
+  });
+  const petalRoofTex = col => soft(128, 128, (x, y) => {
+    const row = y >> 5, sx = (x + (row % 2) * 16) % 32, ly = y % 32, k = Math.abs(sx - 16) / 16;
+    let c = tone(ramp(col), 0.85 - ly / 40 - k * k * 0.3);
+    c = mixc(c, rgb(ramp(col)[0]), seam(ly - (30 - 6 * (1 - k * k)), 2.4) * 0.8);
+    return mixc(c, [255, 255, 255], seam(sx - 16, 1.6) * (ly > 4 && ly < 24 ? 0.8 : 0));
+  });
+  const rootsTex = () => soft(128, 128, (x, y) => {
+    const k = (x + Math.sin(y * P2 * 3 / 128) * 8 + 128) % 24, n = pn(x, y, 16, 82, 128);
+    return mixc(tone(BARK, 0.35 + 0.5 * Math.sin(k / 24 * Math.PI) + (n - 0.5) * 0.3), rgb(shade(BARK[0], -0.4)), seam(Math.min(k, 24 - k), 4) * 0.9);
+  });
+  const woodM = () => lambert('wood', () => stex(planks()));
+  const stoneM = () => lambert('stone', () => stex(bricks()));
+  const mossStoneM = () => glowTexM('mstone', () => stex(bricks(128, STONE, true)), '#ffffff', 0.18);
+  const barkM = () => lambert('bark', () => stex(bark()));
+  const leafM = () => lambert('leaf', () => stex(foliage()));
+  const goldM = () => lambert('gold', () => stex(soft(64, 64, (x, y) => tone(GOLD, 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(y * P2 * 3 / 64)) + (pn(x, y, 16, 31, 64) - 0.5) * 0.3))), { emissive: new T.Color(0x4a3000) });
+  const metalM = () => lambert('metal', () => stex(soft(128, 128, (x, y) => {
+    const lx = x % 64, ly = y % 64, ed = Math.min(lx, 64 - lx, ly, 64 - ly);
+    let c = tone(METAL, 0.45 + (H(x >> 6, y >> 6, 44) - 0.5) * 0.3 + (pn(x, y * 0.25, 16, 45, 128) - 0.5) * 0.18);
+    c = mixc(c, rgb(METAL[0]), seam(ed, 2.6) * 0.85);
+    for (const [rx, ry] of [[8, 8], [56, 8], [8, 56], [56, 56]]) { const d = Math.hypot(lx - rx, ly - ry); if (d < 4) c = mixc(c, tone(METAL, 1 - d / 5), 1 - sstep(2.4, 3.6, d)); }
+    return c;
+  })));
+  const paleM = () => lambert('pale', () => stex(soft(64, 128, (x, y) => tone(['#8a8494', '#a8a2b0', '#c6c0cc', '#e2dce6'], 0.45 + (pn(x * 3 % 64, y, 18, 33, 64) - 0.5) * 0.7 + Math.sin(x * P2 * 6 / 64) * 0.08))));
 
   // ---------------- geometría: lo quieto, juntado por material ----------------
   // Cada pieza se apunta con su material y su matriz; al acabar, una malla por material (pocas llamadas de dibujo) y otra
   // con los contornos (casco invertido del tono oscuro del mapa).
   let batch = null, hulls = [];
+  /*
+   * Lo que choca (pulido 12-11-2026: «el personaje atraviesa ciertas cosas»). Cada pieza que toca la franja del cuerpo
+   * de los Pokémon (de 0 a FOOT_H de alto) y abulta más de FOOT_MIN deja su huella en el suelo: el casco convexo de sus
+   * vértices (y de los cortes de sus aristas) por debajo de FOOT_H. Se apunta con el sitio o decorado al que pertenece
+   * (curId). Se pueden pisar: lo plano (planos: puertas, letreros, lianas, helechos), lo que va por encima de FOOT_H (copas,
+   * cables) y lo que se marca con walk. solid: choca aunque sea bajo (barandillas de una valla).
+   */
+  const FOOT_H = 48, FOOT_MIN = 14;
+  let solidList = [], curId = '';
+  function foot(g, o, plane) {
+    if (o.walk || !curId || (plane && !o.solid)) return;
+    const p = g.attributes.position.array, n = p.length / 3;
+    let maxY = -1e9, minY = 1e9;
+    for (let i = 0; i < n; i++) { const y = p[i * 3 + 1]; if (y > maxY) maxY = y; if (y < minY) minY = y; }
+    if (minY > FOOT_H || (maxY < FOOT_MIN && !o.solid)) return;
+    const pts = [];
+    for (let i = 0; i < n; i++) if (p[i * 3 + 1] <= FOOT_H) pts.push([p[i * 3], p[i * 3 + 2]]);
+    // Cortes de las aristas con el plano FOOT_H (un lado alto de un cilindro, por ejemplo).
+    for (let t = 0; t + 2 < n; t += 3) for (let e = 0; e < 3; e++) {
+      const a = t + e, b = t + (e + 1) % 3, ya = p[a * 3 + 1], yb = p[b * 3 + 1];
+      if ((ya - FOOT_H) * (yb - FOOT_H) < 0) { const k = (FOOT_H - ya) / (yb - ya); pts.push([p[a * 3] + (p[b * 3] - p[a * 3]) * k, p[a * 3 + 2] + (p[b * 3 + 2] - p[a * 3 + 2]) * k]); }
+    }
+    if (pts.length < 3) return;
+    const h = G.VILLAGE.hull(pts);
+    if (h.length >= 3) solidList.push({ id: curId, pts: h });
+  }
   function put(geo, mat, at, o = {}) {
     const m = at instanceof T.Matrix4 ? at : compose(at);
+    const plane = geo.type === 'PlaneGeometry' || geo.type === 'CircleGeometry';
     let g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(m);
+    foot(g, o, plane);
     if (!g.attributes.uv) g.setAttribute('uv', new T.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     if (o.uv) { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * o.uv[0], uv.getY(i) * o.uv[1]); }
     // ghost: sólo su contorno (la pieza de verdad va aparte, p. ej. una pieza abierta que necesita un casco cerrado).
@@ -322,12 +588,32 @@ G.Village3D = (() => {
   }
 
   // Piezas
+  // (Pulido 12-11-2026) Más segmentos que antes (×2, ×1,4 en calidad baja): sin aristas de polígono en lo redondo.
+  const SEG = () => (fx() === 0 ? 1.4 : 2);
+  const seg = n => Math.max(3, Math.round(n * SEG()));
   const box = (w, h, d) => new T.BoxGeometry(w, h, d);
-  const cyl = (rt, rb, h, n = 8, open = false) => new T.CylinderGeometry(rt, rb, h, n, 1, open);
-  const cone = (r, h, n = 8, open = false) => new T.ConeGeometry(r, h, n, 1, open);
-  const ball = (r, d = 1) => new T.IcosahedronGeometry(r, d);
-  const cap = (r, n = 10) => new T.SphereGeometry(r, n, 5, 0, Math.PI * 2, 0, Math.PI / 2);
-  const lathe = (pts, n = 10) => new T.LatheGeometry(pts.map(([x, y]) => new T.Vector2(x, y)), n);
+  const cyl = (rt, rb, h, n = 8, open = false) => new T.CylinderGeometry(rt, rb, h, seg(n), 1, open);
+  const cone = (r, h, n = 8, open = false) => new T.ConeGeometry(r, h, seg(n), 1, open);
+  /** Bola suave (d: el detalle de antes; ahora uno más, y las piedras con caras siguen con d = 0). */
+  const ball = (r, d = 1) => new T.IcosahedronGeometry(r, d === 0 ? 1 : Math.min(3, d + (fx() === 0 ? 1 : 2)));
+  const cap = (r, n = 10) => new T.SphereGeometry(r, seg(n), seg(5), 0, Math.PI * 2, 0, Math.PI / 2);
+  const lathe = (pts, n = 10) => new T.LatheGeometry(smoothProfile(pts).map(([x, y]) => new T.Vector2(x, y)), seg(n));
+  const torus = (R, r, a = 4, b = 20, arc) => new T.TorusGeometry(R, r, seg(a), seg(b), arc);
+  /** Perfil de torno más redondo: puntos intermedios con una curva (Catmull-Rom) entre los de siempre. */
+  function smoothProfile(pts) {
+    if (pts.length < 3) return pts;
+    const out = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      for (let k = 0; k < 3; k++) {
+        const t = k / 3, t2 = t * t, t3 = t2 * t;
+        const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+        out.push([Math.max(0, f(p0[0], p1[0], p2[0], p3[0])), f(p0[1], p1[1], p2[1], p3[1])]);
+      }
+    }
+    out.push(pts[pts.length - 1]);
+    return out;
+  }
   /** Prisma de tejado a dos aguas (largo en X): ancho w, fondo d, alto h. */
   function gable(w, d, h) {
     const g = new T.BufferGeometry(), x0 = -w / 2, x1 = w / 2, z0 = -d / 2, z1 = d / 2;
@@ -350,7 +636,8 @@ G.Village3D = (() => {
   // ---------------- suelo ----------------
   function paintGround() {
     const VG = V(), b = VG.build(), W = VG.W, Hh = VG.H, N = 16, A = G.Tileset.T, BI = VG.BI, seed = 777;
-    const at = (tx, ty) => VG.terrainAt(tx, ty);
+    // (La charca va aparte, redonda: aquí su sitio es suelo.)
+    const at = (tx, ty) => { const v = VG.terrainAt(tx, ty); return v === 2 ? 0 : v; };
     const grassAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < W && ty < Hh && !!b.grass[ty * W + tx];
     const [cv, g] = canvas(W * A, Hh * A);
     const [tc, tg] = canvas(W * A, Hh * A);
@@ -387,7 +674,7 @@ G.Village3D = (() => {
     const P = VG.PLAZA, gl = [CYAN, GREEN, CYAN, PINK];
     for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
       const o = (py * w + px) * 4, fx = px / A, fy = py / A, tx = fx | 0, ty = fy | 0;
-      if (VG.terrainAt(tx, ty) !== 0) continue;
+      if (VG.terrainAt(tx, ty) === 1) continue;
       // Plaza: losas oscuras irregulares y un anillo de runas que brilla.
       const dd = Math.hypot(fx - P.x, fy - P.y);
       if (dd < P.r + (H(px >> 2, py >> 2, 91) - 0.5) * 0.18) {
@@ -412,7 +699,7 @@ G.Village3D = (() => {
         if (p + (n - 0.5) * 0.34 < 0.5) {
           set(o, EDGE);
           // Piedras que brillan en el borde (de dos en dos píxeles).
-          if (H(px >> 1, py >> 1, 95) > 0.93) { const c = gl[(H(px >> 3, py >> 3, 96) * 4) | 0]; set(o, shade(c, -0.3)); lit(o, c); }
+          if (H(px >> 1, py >> 1, 95) > 0.975) { const c = gl[(H(px >> 3, py >> 3, 96) * 4) | 0]; set(o, shade(c, -0.3)); lit(o, c); }
         }
         continue;
       }
@@ -421,7 +708,7 @@ G.Village3D = (() => {
       if (m > 0.3) {
         const k = H(px, py, 83);
         set(o, MOSS[m > 0.68 ? 3 : m > 0.5 ? 2 : k < 0.3 ? 0 : 1]);
-        if (m > 0.62 && H(px >> 1, py >> 1, 84) > 0.985) { const c = H(px >> 2, py >> 2, 85) > 0.5 ? GREEN : CYAN; set(o, c); lit(o, shade(c, -0.25)); }
+        if (m > 0.62 && H(px >> 1, py >> 1, 84) > 0.994) { const c = H(px >> 2, py >> 2, 85) > 0.5 ? GREEN : CYAN; set(o, c); lit(o, shade(c, -0.25)); }
       }
     }
     g.putImageData(img, 0, 0);
@@ -433,7 +720,7 @@ G.Village3D = (() => {
     const VG = V(), W = VG.W, Hh = VG.H;
     const { ground, tops: topC, glow } = paintGround();
     const gt = tex(ground), et = tex(glow);
-    const mat = new T.MeshLambertMaterial({ map: gt, emissive: new T.Color(0xffffff), emissiveMap: et, emissiveIntensity: 1 });
+    const mat = fin(new T.MeshLambertMaterial({ map: gt, emissive: new T.Color(0xffffff), emissiveMap: et, emissiveIntensity: 1 }));
     disposables.push(mat);
     glowList.push({ m: mat, base: 1, ph: 0 });
     const geo = new T.PlaneGeometry(W * TS, Hh * TS);
@@ -448,14 +735,14 @@ G.Village3D = (() => {
     // El bosque del borde levantado: arriba, la pieza de pared del tileset (copas de pino, top3d); delante y a los
     // lados, su cara (face3d).
     const face = G.Tileset.face3d(VG.BI);
-    const topT = tex(topC), topM = new T.MeshLambertMaterial({ map: topT, side: T.FrontSide });
+    const topT = tex(topC), topM = fin(new T.MeshLambertMaterial({ map: topT, side: T.FrontSide }));
     disposables.push(topM);
     let faceM = null;
     if (face) {
       const fc = document.createElement('canvas');
       fc.width = face.width; fc.height = face.height;
       fc.getContext('2d').drawImage(face, 0, 0);
-      faceM = new T.MeshLambertMaterial({ map: tex(fc, true) });
+      faceM = fin(new T.MeshLambertMaterial({ map: tex(fc, true) }));
       disposables.push(faceM);
     }
     const HW = 46, FW = face ? face.width * PX : 96;
@@ -488,38 +775,100 @@ G.Village3D = (() => {
       fixed(mesh);
     };
     mk(A, topM); mk(F, faceM);
+    borderPines(HW);
+  }
+
+  /*
+   * (Pulido 12-11-2026) Pinos 3D en lo alto del bosque del borde, en la fila que da a la aldea: antes era una pared plana
+   * con pinos dibujados y se veía como un seto de cajas. Abajo del todo no van (taparían el camino del sur).
+   */
+  function borderPines(HW) {
+    const VG = V(), W = VG.W, Hh = VG.H, at = (tx, ty) => VG.terrainAt(tx, ty);
+    const pm = lambert('pine', () => stex(foliage(128, ['#0e2a2c', '#163e3c', '#21584e', '#347860'], 23)));
+    const tm = barkM();
+    for (let ty = 0; ty < Hh - 4; ty++) for (let tx = 0; tx < W; tx++) {
+      if (at(tx, ty) !== 1) continue;
+      let open = false;
+      for (let dy = -1; dy <= 1 && !open; dy++) for (let dx = -1; dx <= 1; dx++) if (at(tx + dx, ty + dy) !== 1) { open = true; break; }
+      if (!open || H(tx, ty, 601) > 0.62) continue;
+      const k = 0.75 + H(tx, ty, 602) * 0.45, x = (tx + 0.25 + H(tx, ty, 603) * 0.5) * TS, z = (ty + 0.25 + H(tx, ty, 604) * 0.5) * TS;
+      put(cyl(3 * k, 4.5 * k, 18 * k, 6), tm, { x, y: HW + 9 * k, z }, { hull: 1, walk: true });
+      for (const [r, h, y] of [[26, 40, 26], [20, 34, 48], [13, 28, 68]]) put(cone(r * k, h * k, 7), pm, { x, y: HW + y * k, z, ry: H(tx, ty, 605) * 3 }, { hull: 1.6, walk: true });
+    }
   }
 
   // ---------------- agua: la charca (capa animada del tileset, teñida de luz) ----------------
+  /*
+   * (Pulido 12-11-2026) La charca era de casillas (una elipse a escalones de 48: se veía cuadrada). Ahora es una elipse
+   * de verdad con el agua animada del tileset dentro (pintada entera, sin las orillas de las casillas) y una orilla
+   * oscura y suave alrededor. Choca la elipse (un poco por dentro: se puede estar en la orilla), no las casillas.
+   */
+  const POND_IN = 0.9;
+  function pondShape() {
+    const P = V().POND, pts = [];
+    for (let k = 0; k < 28; k++) { const a = k / 28 * Math.PI * 2; pts.push([(P.x + Math.cos(a) * P.rx * POND_IN) * TS, (P.y + Math.sin(a) * P.ry * POND_IN) * TS]); }
+    return pts;
+  }
   function buildWater() {
-    const VG = V(), BI = VG.BI, A = G.Tileset.T;
+    const VG = V(), BI = VG.BI, A = G.Tileset.T, P = VG.POND;
+    solidList.push({ id: 'pond', pts: pondShape() });
     if (!G.Tileset.animated(BI)) return;
     const meta = (G.TILESETS || []).find(m => m.bi === BI);
     const frames = meta ? meta.frames : 1, dur = meta ? Math.max(0.25, meta.dur * 2) : 0.4;
-    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
-    for (let ty = 0; ty < VG.H; ty++) for (let tx = 0; tx < VG.W; tx++) if (VG.terrainAt(tx, ty) === 2) { x0 = Math.min(x0, tx); y0 = Math.min(y0, ty); x1 = Math.max(x1, tx); y1 = Math.max(y1, ty); }
-    if (x1 < 0) return;
+    const x0 = Math.floor(P.x - P.rx) - 1, y0 = Math.floor(P.y - P.ry) - 1, x1 = Math.ceil(P.x + P.rx), y1 = Math.ceil(P.y + P.ry);
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
     const [c, g] = canvas(w * A * frames, h * A);
-    const at = (tx, ty) => VG.terrainAt(tx, ty);
-    for (let f = 0; f < frames; f++) for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-      if (at(tx, ty) !== 2) continue;
-      G.Tileset.drawLiquid(g, BI, at, tx, ty, f * w * A + (tx - x0) * A, (ty - y0) * A, A, (f + 0.5) * dur);
+    const all = () => 2, N = 16;
+    // El fondo del agua sale del suelo del tileset (las casillas de agua del chunk); encima, la capa animada.
+    const [bc, bg] = canvas(w * A, h * A);
+    for (let cy = Math.floor(y0 / N); cy <= Math.floor(y1 / N); cy++) for (let cx = Math.floor(x0 / N); cx <= Math.floor(x1 / N); cx++) {
+      const ch = G.Tileset.paintChunk(cx, cy, N, all, BI, 777, true, () => false);
+      if (ch) { bg.drawImage(ch, (cx * N - x0) * A, (cy * N - y0) * A); G.U.freeCanvas(ch); }
     }
-    pondTex = tex(c);
+    for (let f = 0; f < frames; f++) {
+      g.drawImage(bc, f * w * A, 0);
+      for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++)
+        G.Tileset.drawLiquid(g, BI, all, tx, ty, f * w * A + (tx - x0) * A, (ty - y0) * A, A, (f + 0.5) * dur);
+    }
+    G.U.freeCanvas(bc);
+    pondTex = tex(c, true);
     pondTex.repeat.set(1 / frames, 1);
-    const m = new T.MeshBasicMaterial({ map: pondTex, transparent: true, alphaTest: 0.5, depthWrite: false });
+    const m = fin(new T.MeshBasicMaterial({ map: pondTex, depthWrite: false }));
     pondCol = m.color;
     disposables.push(m);
-    const geo = new T.PlaneGeometry(w * TS, h * TS);
+    // Elipse con las uv del trozo de agua pintado (mundo → textura).
+    const geo = new T.CircleGeometry(1, 64), pos = geo.attributes.position, uv = geo.attributes.uv;
+    const RX = P.rx * TS * 0.98, RY = P.ry * TS * 0.98, CX = P.x * TS, CZ = P.y * TS;
+    for (let i = 0; i < pos.count; i++) {
+      const wx = CX + pos.getX(i) * RX, wz = CZ - pos.getY(i) * RY;
+      uv.setXY(i, (wx / TS - x0) / w, 1 - (wz / TS - y0) / h);
+    }
+    geo.scale(RX, RY, 1);
     disposables.push(geo);
     const mesh = new T.Mesh(geo, m);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set((x0 + w / 2) * TS, 0.4, (y0 + h / 2) * TS);
+    mesh.position.set(CX, 0.4, CZ);
     mesh.renderOrder = -8;
     fixed(mesh);
+    // Orilla: un aro oscuro que se difumina hacia fuera y un brillo fino en el borde del agua.
+    const shore = (r0, r1, col, op, add) => {
+      const rg = new T.RingGeometry(r0, r1, 72, 1), rp = rg.attributes.position, cc = new Float32Array(rp.count * 4), C = new T.Color(col);
+      for (let i = 0; i < rp.count; i++) {
+        const r = Math.hypot(rp.getX(i), rp.getY(i)), k = Math.abs(r - (r0 + r1) / 2) / ((r1 - r0) / 2);
+        cc.set([C.r, C.g, C.b, op * (r < (r0 + r1) / 2 ? 1 : 1 - k)], i * 4);
+      }
+      rg.setAttribute('color', new T.BufferAttribute(cc, 4));
+      rg.scale(RX, RY, 1);
+      const sm = new T.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: add ? T.AdditiveBlending : T.NormalBlending });
+      disposables.push(rg, sm);
+      const o = new T.Mesh(rg, sm);
+      o.rotation.x = -Math.PI / 2; o.position.set(CX, add ? 0.55 : 0.5, CZ); o.renderOrder = add ? -7 : -7.5;
+      fixed(o);
+    };
+    shore(0.94, 1.16, '#081014', 0.8, false);
+    shore(0.95, 1.0, '#5ff0ff', 0.35, true);
     anim.push({ fn: t => { pondTex.offset.x = (Math.floor(t / dur) % frames) / frames; } });
-    glow(41.6 * TS, 31 * TS, 150, CYAN, 0.6);
+    glow(P.x * TS, P.y * TS, 150, CYAN, 0.6);
   }
 
   // ---------------- modelos ----------------
@@ -538,7 +887,7 @@ G.Village3D = (() => {
       try { G.Icons.draw(g, p.icon, i * S + 2, 2, S - 4); } catch (e) { /* sin icono */ }
     });
     const t = tex(c, false, true);
-    const m = new T.MeshLambertMaterial({ map: t, emissive: new T.Color(0xffffff), emissiveMap: t, emissiveIntensity: 0.45 });
+    const m = fin(new T.MeshLambertMaterial({ map: t, emissive: new T.Color(0xffffff), emissiveMap: t, emissiveIntensity: 0.45 }));
     disposables.push(m);
     signs = { mat: m, tex: t, canvas: c, n: list.length, S };
     let tries = 0;
@@ -578,6 +927,7 @@ G.Village3D = (() => {
     blink(x, y + h + 3, z, col);
   }
   function blink(x, y, z, col, r = 3.4) {
+    halo(x, y, z, col, 26, 0.8);
     const m = new T.MeshBasicMaterial({ color: col });
     disposables.push(m);
     const mesh = loose(ball(r, 0), m, x, y, z);
@@ -597,14 +947,14 @@ G.Village3D = (() => {
     const L = p.look, R = tile(L.r), X = tile(p.x), Z = tile(p.y), sx = L.wide ? 1.32 : 1;
     const Hh = { bulb: 128, dome: 112, cone: 136, wide: 104 }[L.form] || 120;
     const prof = FORMS[L.form] || FORMS.dome, n = 10;
-    const shell = lambert('pod' + i, () => tex(scales(n, L.a, 32, i), true), { flat: true });
+    const shell = lambert('pod' + i, () => stex(scales(n, L.a, 32, i)));
     const g = lathe(prof.map(([r, y]) => [r * R, y * Hh]), n);
     g.rotateY(Math.PI / n);
     put(g, shell, { x: X, y: 0, z: Z, sx }, { hull: 2.4 });
     // Anillos de luz (abajo y arriba): aros finos del color de la carpa.
     const rAt = yk => { for (let k = 1; k < prof.length; k++) if (prof[k][1] >= yk) { const a = prof[k - 1], b = prof[k], u = (yk - a[1]) / (b[1] - a[1]); return (a[0] + (b[0] - a[0]) * u) * R; } return 0; };
     for (const yk of [0.3, 0.72]) {
-      const tg = new T.TorusGeometry(rAt(yk) + 1.5, 2.2, 4, 20); tg.rotateX(Math.PI / 2);
+      const tg = torus(rAt(yk) + 1.5, 2.2, 4, 20); tg.rotateX(Math.PI / 2);
       put(tg, glowM(L.glow, 1.1), { x: X, y: yk * Hh, z: Z, sx }, { hull: false, cast: false });
     }
     // Puerta encendida y su letrero.
@@ -612,42 +962,40 @@ G.Village3D = (() => {
     put(new T.PlaneGeometry(40, 50), doorM(L.glow), { x: X, y: 25, z: zf }, { hull: false, cast: false });
     sign(i, 24, X, 66, Z + rAt(0.5) + 4);
     glow(X, zf + 10, 70, L.glow, 0.8);
+    halo(X, 30, zf + 2, L.glow, 60, 0.45);
     // Remate: la Poké Ball que brilla (gacha) o una antena.
     if (L.ball) {
-      const bm = glowTexM('pball', () => tex(pix(16, 16, (x, y) => y < 7 ? (y < 2 ? '#ff9a9a' : '#e83a5a') : y < 9 ? '#101010' : (y > 13 ? '#b8b8c8' : '#f4f4f8')), true), '#ffffff', 0.35, { flatShading: true });
-      put(new T.SphereGeometry(18, 10, 8), bm, { x: X, y: Hh + 14, z: Z }, { hull: 2.2 });
+      const bm = glowTexM('pball', () => stex(soft(32, 64, (x, y) => { const t = y / 64, b = sstep(0.43, 0.47, t) * (1 - sstep(0.53, 0.57, t)); const top = tone(['#e83a5a', '#ff7a8a', '#ffc0c8'], sat(1 - t * 2.4)), bot = tone(['#a8a8b8', '#f4f4f8'], sat((1 - t) * 2.2)); return mixc(t < 0.5 ? top : bot, [16, 16, 16], b); })), '#ffffff', 0.35);
+      put(new T.SphereGeometry(18, seg(10), seg(8)), bm, { x: X, y: Hh + 14, z: Z }, { hull: 2.2 });
       put(cyl(5, 5, 3, 10), glowM('#ffffff', 0.9), { x: X, y: Hh + 14, z: Z + 17, rx: Math.PI / 2 }, { hull: 1.4 });
       sparkle(X, Hh + 20, Z, 8);
     } else antenna(X, Hh - 4, Z, L.glow);
-    // Raíces que la sujetan al suelo.
-    for (const s of [-1, 1]) {
-      const rg = cone(7, 40, 5); rg.rotateZ(Math.PI / 2); rg.translate(20, 0, 0);
-      put(rg, barkM(), compose({ x: X + s * R * sx * 0.92, y: 5, z: Z + R * 0.35, ry: s > 0 ? -0.4 : Math.PI + 0.4, rz: -0.25 }), { hull: 1.4 });
-    }
+    // Base de piedra con musgo (pulido: antes, dos raíces que desde arriba parecían pinchos negros).
+    put(cyl(R * 1.02 * sx, R * 1.1 * sx, 7, 12), mossStoneM(), { x: X, y: 3.5, z: Z, sz: 1 / sx }, { hull: 1.4 });
     tops[p.id] = Hh + (L.ball ? 40 : 30);
   }
 
   /** Tienda Kecleon: mostrador de raíz, toldo de holograma y frutas que brillan. */
   function stall(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y), w = tile(p.w) - 10;
-    put(box(w, 74, 10), lambert('weave', () => tex(scales(4, '#2a5a3a', 32, 9), true)), { x: X, y: 37, z: Z - 24 });
+    put(box(w, 74, 10), lambert('weave', () => stex(scales(4, '#2a5a3a', 32, 9))), { x: X, y: 37, z: Z - 24 });
     put(box(w - 8, 34, 26), woodM(), { x: X, y: 17, z: Z + 30 });
-    put(box(w - 4, 4, 30), glowM(L.glow, 0.45), { x: X, y: 36, z: Z + 30 }, { hull: 1.2 });
+    put(box(w - 4, 4, 30), woodM(), { x: X, y: 36, z: Z + 30 }, { hull: 1.2 });
+    put(box(w - 4, 2.4, 2.4), glowM(L.glow, 1.2), { x: X, y: 33, z: Z + 45.5 }, { hull: false, cast: false });
+    halo(X, 33, Z + 46, L.glow, 60, 0.4);
     for (const sx of [-1, 1]) {
       put(box(6, 116, 6), barkM(), { x: X + sx * (w / 2 - 3), y: 58, z: Z - 24 }, { hull: 1.2 });
       put(box(6, 94, 6), barkM(), { x: X + sx * (w / 2 - 3), y: 47, z: Z + 4 }, { hull: 1.2 });
     }
-    // Toldo: un panel de luz (alto y corto, pegado al fondo: con la cámara desde arriba, uno largo tapaba a Kecleon).
-    const holo = basic('holo' + L.glow, () => tex(pix(16, 8, (x, y) => (y === 0 || y === 7 || x % 8 === 0) ? shade(L.glow, 0.2) : (y % 2 ? shade(L.glow, -0.35) : shade(L.glow, -0.15)), true)),
-      { transparent: true, opacity: 0.7, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
-    const aw = new T.Mesh(new T.PlaneGeometry(w + 16, 40), holo);
-    disposables.push(aw.geometry);
-    aw.position.set(X, 104, Z - 8); aw.rotation.x = -Math.PI / 2 + 0.6; aw.frustumCulled = false; aw.renderOrder = 12;
-    (sink || scene).add(aw);
-    anim.push({ fn: t => { holo.opacity = 0.55 + 0.15 * Math.sin(t * 3.1) * Math.sin(t * 7.7); } });
-    for (const s of [-1, 0, 1]) { put(cyl(0.6, 0.6, 14, 3), metalM(), { x: X + s * 46, y: 93, z: Z + 4 }, { hull: false, cast: false }); put(ball(4, 0), glowM([CYAN, PINK, GREEN][s + 1], 1.2), { x: X + s * 46, y: 85, z: Z + 4 }, { hull: 1 }); }
+    // Toldo de hojas sobre los postes, inclinado hacia delante, con su ribete de luz (pulido: antes, un panel de luz que
+    // se sumaba por encima de todo y tapaba a tu Pokémon al pasar por detrás). Alto y corto: no tapa a Kecleon.
+    const roof = lambert('stallroof', () => stex(scales(6, '#2e6a44', 120, 12)));
+    put(box(w + 18, 4, 38), roof, { x: X, y: 106, z: Z - 11, rx: 0.62 }, { hull: 1.8 });
+    put(box(w + 20, 3, 3), glowM(L.glow, 1.1), { x: X, y: 94, z: Z + 6 }, { hull: false, cast: false });
+    halo(X, 94, Z + 6, L.glow, 50, 0.35);
+    for (const s of [-1, 0, 1]) { put(cyl(0.6, 0.6, 14, 3), metalM(), { x: X + s * 46, y: 93, z: Z + 4 }, { hull: false, cast: false }); put(ball(4, 0), glowM([CYAN, PINK, GREEN][s + 1], 1.2), { x: X + s * 46, y: 85, z: Z + 4 }, { hull: 1 }); halo(X + s * 46, 85, Z + 4, [CYAN, PINK, GREEN][s + 1], 30, 0.8); }
     const fruit = [[PINK, -40], [CYAN, -22], [AMBER, 18], [PINK, 34], [VIOLET, 50]];
-    for (const [col, dx] of fruit) put(ball(6, 1), glowM(col, 0.7, { flatShading: true }), { x: X + dx, y: 44, z: Z + 30 + (H(dx, 1, 3) - 0.5) * 10 }, { hull: 1.2 });
+    for (const [col, dx] of fruit) put(ball(6, 1), glowM(col, 0.7), { x: X + dx, y: 44, z: Z + 30 + (H(dx, 1, 3) - 0.5) * 10 }, { hull: 1.2 });
     put(box(22, 14, 16), woodM(), { x: X - 2, y: 45, z: Z + 28 }, { hull: 1.2 });
     sign(i, 26, X, 132, Z - 20);
     glow(X, Z + 40, 80, L.glow, 0.7);
@@ -658,11 +1006,12 @@ G.Village3D = (() => {
   function mush(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y);
     put(cyl(40, 48, 70, 10), paleM(), { x: X, y: 35, z: Z }, { hull: 2 });
-    const capM = lambert('mcap' + i, () => tex(pix(32, 16, (x, y) => { const r = ramp(L.a); return y > 13 ? r[0] : H(x >> 1, y >> 1, 71) > 0.8 ? r[3] : r[2]; }), true), { flat: true });
+    const capM = lambert('mcap' + i, () => stex(capTex(L.a, i, false)));
     put(cap(92, 12), capM, { x: X, y: 62, z: Z, sy: 0.56 }, { hull: 2.6 });
     for (let k = 0; k < 9; k++) {
       const a = k * 2.4 + 0.3, rr = 30 + (k % 3) * 18, yy = 62 + Math.sqrt(Math.max(0, 1 - (rr / 92) ** 2)) * 92 * 0.56;
       put(ball(7 - (k % 3), 0), glowM(L.glow, 1), { x: X + Math.cos(a) * rr, y: yy, z: Z + Math.sin(a) * rr * 0.9, sy: 0.4 }, { hull: false, cast: false });
+      halo(X + Math.cos(a) * rr, yy + 2, Z + Math.sin(a) * rr * 0.9, L.glow, 22, 0.7);
     }
     put(new T.PlaneGeometry(30, 42), doorM(AMBER), { x: X, y: 21, z: Z + 47.5 }, { hull: false, cast: false });
     put(new T.PlaneGeometry(14, 12), doorM(AMBER), { x: X + 26, y: 46, z: Z + 42 }, { hull: false, cast: false });
@@ -676,8 +1025,9 @@ G.Village3D = (() => {
   function board(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y), w = tile(p.w) - 14;
     for (const s of [-1, 1]) {
-      put(box(9, 96, 9), lambert('carved', () => tex(pix(8, 32, (x, y) => (y % 8 === 0) ? WOOD[0] : (y % 8 === 3 && (x === 2 || x === 5)) ? '#101010' : WOOD[x === 0 ? 1 : 2]), true)), { x: X + s * (w / 2 - 2), y: 48, z: Z }, { hull: 1.4 });
-      put(crystal(5, 12), glowM(L.glow, 1.2, { flatShading: true }), { x: X + s * (w / 2 - 2), y: 106, z: Z }, { hull: 1 });
+      put(box(9, 96, 9), lambert('carved', () => stex(carvedTex())), { x: X + s * (w / 2 - 2), y: 48, z: Z }, { hull: 1.4 });
+      put(crystal(5, 12), glowM(L.glow, 1.2), { x: X + s * (w / 2 - 2), y: 106, z: Z }, { hull: 1 });
+      halo(X + s * (w / 2 - 2), 106, Z, L.glow, 30, 0.8);
     }
     const screen = basic('bscreen', () => tex(pix(48, 24, (x, y) => {
       const papers = [[3, 3, 10, 8], [16, 2, 11, 10], [30, 4, 9, 7], [41, 3, 5, 8], [6, 14, 12, 7], [22, 15, 10, 6], [35, 14, 10, 7]];
@@ -690,7 +1040,7 @@ G.Village3D = (() => {
     })), { transparent: true, opacity: 0.86 });
     const sc = loose(new T.PlaneGeometry(w, 50), screen, X, 60, Z + 3, 6);
     anim.push({ fn: t => { screen.opacity = 0.8 + 0.08 * Math.sin(t * 9) * (Math.sin(t * 1.7) > 0.8 ? 1 : 0.2); sc.position.y = 60 + Math.sin(t * 1.5) * 0.8; } });
-    put(gable(w + 18, 22, 14), lambert('roofb', () => tex(noisy(16, 16, ramp('#1f573c'), 72), true), { flat: true }), { x: X, y: 88, z: Z });
+    put(gable(w + 18, 22, 14), lambert('roofb', () => stex(foliage(64, ramp('#1f573c'), 72))), { x: X, y: 88, z: Z });
     sign(i, 20, X, 22, Z + 6);
     glow(X, Z + 20, 70, L.glow, 0.8);
     tops[p.id] = 124;
@@ -704,8 +1054,9 @@ G.Village3D = (() => {
     const prof = [[0, 0], [12, 0], [12, 3], [4, 6], [4, 16], [16, 24], [19, 40], [14, 40], [12, 28], [0, 26]].map(([x, y]) => new T.Vector2(x, y));
     const cup = loose(new T.LatheGeometry(prof, 10), goldM(), X, 46, Z);
     anim.push({ fn: t => { cup.position.y = 46 + Math.sin(t * 1.6) * 3; cup.rotation.y = t * 0.6; } });
-    for (const s of [-1, 1]) put(crystal(6, 20), glowM(L.glow, 1, { flatShading: true }), { x: X + s * 30, y: 56, z: Z + 4, rz: s * 0.25 }, { hull: 1.2 });
-    const ring = new T.TorusGeometry(26, 1.6, 4, 20); ring.rotateX(Math.PI / 2);
+    for (const s of [-1, 1]) { put(crystal(6, 20), glowM(L.glow, 1), { x: X + s * 30, y: 56, z: Z + 4, rz: s * 0.25 }, { hull: 1.2 }); halo(X + s * 30, 56, Z + 4, L.glow, 40, 0.7); }
+    halo(X, 50, Z, '#ffd870', 50, 0.4);
+    const ring = torus(26, 1.6, 4, 20); ring.rotateX(Math.PI / 2);
     put(ring, glowM(L.glow, 1.2), { x: X, y: 41, z: Z }, { hull: false, cast: false });
     sign(i, 18, X, 20, Z + 26);
     sparkle(X, 70, Z, 10);
@@ -715,12 +1066,14 @@ G.Village3D = (() => {
 
   function podium(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y);
+    // (Pulido) El número sólo en la cara de delante (antes salía en todas, también encima y girado).
     const step = (dx, h, col, num) => {
       const D = { 1: ['.##.', '###.', '.##.', '.##.', '.##.', '####'], 2: ['###.', '...#', '.##.', '#...', '#...', '####'], 3: ['###.', '...#', '.##.', '...#', '...#', '###.'] }[num];
       const on = (x, y) => { const gx = x - 6, gy = y - 5; return gx >= 0 && gx < 4 && gy >= 0 && gy < 6 && D[gy][gx] === '#'; };
-      const m = glowTexM('podn' + num, () => tex(pix(16, 16, (x, y) => on(x, y) ? '#ffffff' : null)), L.glow, 1);
-      m.map = tex(pix(16, 16, (x, y) => on(x, y) ? '#ffffff' : y < 2 ? shade(col, 0.3) : (y > 13 ? shade(col, -0.25) : col)));
-      put(box(50, h, 46), m, { x: X + dx, y: h / 2, z: Z });
+      put(box(50, h, 46), lambert('pstep' + col, () => stex(bricks(128, ramp(col)))), { x: X + dx, y: h / 2, z: Z });
+      const m = glowTexM('podn' + num, () => tex(pix(16, 16, (x, y) => on(x, y) ? '#ffffff' : null)), L.glow, 1.2, { transparent: true, alphaTest: 0.5 });
+      put(new T.PlaneGeometry(30, 30), m, { x: X + dx, y: h / 2, z: Z + 23.4 }, { hull: false, cast: false });
+      halo(X + dx, h / 2, Z + 24, L.glow, 34, 0.35);
     };
     step(0, 48, '#4a5a66', 1); step(-52, 32, '#3e4a56', 2); step(52, 22, '#343e48', 3);
     const prof = [[0, 0], [9, 0], [9, 2], [3, 5], [3, 12], [12, 17], [14, 30], [10, 30], [9, 21], [0, 19]].map(([x, y]) => new T.Vector2(x, y));
@@ -734,8 +1087,9 @@ G.Village3D = (() => {
   function mailbox(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y);
     put(cyl(3, 5, 46, 5), barkM(), { x: X, y: 23, z: Z });
-    put(ball(19, 1), lambert('mpod', () => tex(scales(4, '#7a5a2a', 16, 4), true), { flat: true }), { x: X, y: 58, z: Z, sx: 0.9, sz: 1.1, sy: 0.85 }, { hull: 1.8 });
+    put(ball(19, 1), lambert('mpod', () => stex(scales(4, '#7a5a2a', 16, 4))), { x: X, y: 58, z: Z, sx: 0.9, sz: 1.1, sy: 0.85 }, { hull: 1.8 });
     put(box(18, 3, 2), glowM(L.glow, 1.2), { x: X, y: 58, z: Z + 20 }, { hull: false, cast: false });
+    halo(X, 58, Z + 21, L.glow, 30, 0.7);
     const fm = new T.Mesh(new T.BoxGeometry(2.4, 18, 2.4), plain('#e8e0c8'));
     const fl = new T.Mesh(new T.BoxGeometry(10, 7, 2), glowM(AMBER, 1.3));
     fl.position.set(5, 7, 0);
@@ -755,7 +1109,7 @@ G.Village3D = (() => {
   function pc(p, i) {
     const L = p.look, X = tile(p.x), Z = tile(p.y);
     put(cyl(28, 34, 36, 9), barkM(), { x: X, y: 18, z: Z }, { hull: 2 });
-    put(cyl(28, 28, 2, 9), lambert('rings', () => tex(pix(16, 16, (x, y) => { const r = Math.hypot(x - 7.5, y - 7.5); return (r | 0) % 3 === 0 ? WOOD[1] : WOOD[3]; }))), { x: X, y: 37, z: Z }, { hull: false });
+    put(cyl(28, 28, 2, 9), lambert('rings', () => stex(ringsTex())), { x: X, y: 37, z: Z }, { hull: false });
     const screen = glowTexM('pcs', () => tex(pix(20, 14, (x, y) => {
       if (x === 0 || y === 0 || x === 19 || y === 13) return '#1a2a38';
       const cx = x - 9.5, cy = y - 6.5, r = Math.hypot(cx, cy);
@@ -764,9 +1118,10 @@ G.Village3D = (() => {
       return y % 3 === 0 ? '#2a8aa8' : '#3aa8c8';
     })), '#ffffff', 0.9);
     put(box(46, 32, 6), screen, compose({ x: X, y: 58, z: Z + 2, rx: -0.18 }), { hull: 1.6 });
+    halo(X, 58, Z + 6, L.glow, 80, 0.35);
     put(box(8, 22, 6), metalM(), { x: X, y: 44, z: Z - 2 }, { hull: 1 });
     for (const s of [-1, 1]) {
-      const cg = new T.TorusGeometry(16, 1.4, 3, 8, Math.PI); cg.rotateY(Math.PI / 2);
+      const cg = torus(16, 1.4, 3, 8, Math.PI); cg.rotateY(Math.PI / 2);
       put(cg, plain('#14181c'), { x: X + s * 22, y: 4, z: Z + 18 }, { hull: false, cast: false });
     }
     sign(i, 14, X + 22, 26, Z + 26);
@@ -783,7 +1138,7 @@ G.Village3D = (() => {
   function flower(p, i) {
     const X = tile(p.x), Z = tile(p.y), cy = 74, cz = Z + 40;
     // Hojas en el suelo y raíces.
-    const bigLeaf = lambert('bleaf', () => tex(pix(16, 32, (x, y) => (x === 7 || x === 8) ? '#5aa860' : ((x + y) % 7 === 0 ? '#245a34' : '#2e7040')), true), { flat: true });
+    const bigLeaf = lambert('bleaf', () => stex(soft(64, 128, (x, y) => { const c = Math.abs(x - 32), vein = Math.max(seam(c, 3), seam(((y + c * 0.8) % 22) - 11, 1.6) * 0.5); return mixc(tone(['#1c4a2c', '#2e7040', '#3e8a52'], 0.4 + pn(x, y, 20, 81, 64) * 0.5 - c / 90), rgb('#7ac07a'), vein * 0.8); })));
     // (Sólo a los lados: delante tapaban los escalones.)
     for (const k of [0, 1, 5, 6]) {
       const a = Math.PI * (0.05 + k / 6 * 0.9) + Math.PI, len = 80 + H(k, 3, 81) * 26;
@@ -791,13 +1146,9 @@ G.Village3D = (() => {
       put(lg, bigLeaf, { x: X + Math.cos(a) * len * 0.7, y: 6, z: Z + 10 - Math.sin(a) * len * 0.45, ry: -a }, { hull: 2 });
     }
     // Tallo grueso detrás del portal.
-    put(cyl(26, 36, cy + 10, 9), lambert('stem', () => tex(noisy(16, 16, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 83), true)), { x: X, y: (cy + 10) / 2, z: Z }, { hull: 2.2 });
+    put(cyl(26, 36, cy + 10, 9), lambert('stem', () => stex(foliage(64, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 83))), { x: X, y: (cy + 10) / 2, z: Z }, { hull: 2.2 });
     // Pétalos: un anillo de óvalos alrededor del portal, abiertos y echados hacia atrás.
-    const petal = glowTexM('petal', () => tex(pix(16, 32, (x, y) => {
-      const c = Math.abs(x - 7.5);
-      if (c < 1 && y > 4) return '#ffd0f4';                                       // nervio que brilla
-      return y > 26 ? '#5a2a7a' : y > 16 ? (c > 5 ? '#8a3aa8' : '#b04ac0') : (c > 5 ? '#c45ab8' : '#e070c8');
-    }), true), '#ff7ad8', 0.35, { flatShading: true });
+    const petal = glowTexM('petal', () => stex(petalTex()), '#ff7ad8', 0.35);
     const NP = 11;
     for (let k = 0; k < NP; k++) {
       const a = (k / NP) * Math.PI * 2 + 0.15, len = 74 + (k % 2) * 10;
@@ -808,23 +1159,27 @@ G.Village3D = (() => {
       put(g, petal, compose({ x: px, y: Math.max(8, py), z: cz - 18 - Math.max(0, Math.sin(a)) * 26, rz: a - Math.PI / 2, rx: -0.55, order: 'ZXY' }), { hull: 2.2 });
     }
     // Aro de la tribu alrededor del portal, con luces.
-    const ring = new T.TorusGeometry(50, 5, 5, 24);
+    const ring = torus(50, 5, 5, 24);
     put(ring, metalM(), { x: X, y: cy, z: cz }, { hull: 1.6 });
     for (let k = 0; k < 8; k++) {
       const a = k / 8 * Math.PI * 2;
       put(box(6, 6, 6), glowM(k % 2 ? CYAN : PINK, 1.3), { x: X + Math.cos(a) * 50, y: cy + Math.sin(a) * 50, z: cz + 4, rz: a }, { hull: 1 });
+      halo(X + Math.cos(a) * 50, cy + Math.sin(a) * 50, cz + 6, k % 2 ? CYAN : PINK, 22, 0.8);
     }
     portal(X, cy, cz + 1, 46);
+    halo(X, cy, cz + 8, PINK, 230, 0.4);
+    halo(X, cy, cz + 9, CYAN, 120, 0.35);
     // Estambres que brillan, a los lados del aro.
     for (const [dx, dy, h] of [[-66, -18, 36], [-58, 30, 30], [66, -18, 36], [58, 30, 30], [-30, 58, 26], [30, 58, 26]]) {
       put(cyl(1.2, 1.6, h, 4), plain('#d8f0c0'), compose({ x: X + dx, y: cy + dy + h / 2, z: cz + 6, rz: -dx / 200 }), { hull: false, cast: false });
       put(ball(4.5, 0), glowM('#fff27a', 1.3), { x: X + dx - dx / 200 * h, y: cy + dy + h, z: cz + 6 }, { hull: 1 });
+      halo(X + dx - dx / 200 * h, cy + dy + h, cz + 6, '#fff27a', 26, 0.8);
     }
     // Escalones de piedra delante y cables hasta los pilones.
     put(box(110, 6, 24), mossStoneM(), { x: X, y: 3, z: cz + 34 }, { hull: 1.4 });
     put(box(140, 4, 22), mossStoneM(), { x: X, y: 2, z: cz + 54 }, { hull: 1.4 });
-    cable([X - 50, 30, cz], [tile(19.6), 58, tile(9.2)], 24);
-    cable([X + 50, 30, cz], [tile(26.4), 58, tile(9.2)], 24);
+    cable([X - 50, 60, cz], [tile(19.6), 60, tile(9.2)], 24);
+    cable([X + 50, 60, cz], [tile(26.4), 60, tile(9.2)], 24);
     sparkle(X, cy + 50, cz, 18, true);
     glow(X, cz + 30, 150, PINK, 1);
     glow(X, cz + 40, 90, CYAN, 0.8);
@@ -839,21 +1194,25 @@ G.Village3D = (() => {
       fragmentShader: [
         'varying vec2 vUv; uniform float uTime; uniform float uGlow;',
         'void main(){',
-        '  vec2 q = (floor(vUv * 46.0) + 0.5) / 46.0;',
-        '  vec2 c = q * 2.0 - 1.0;',
-        '  float r = length(c), a = atan(c.y, c.x);',
-        '  if (r > 1.0) discard;',
+        // (Pulido) Bandas suaves con el borde sin dientes (antes, a cuadritos de 46 por lado).
+        '  vec2 c = vUv * 2.0 - 1.0;',
+        '  float r = length(c), a = atan(c.y, c.x), aa = fwidth(r) * 1.5;',
         '  float sw = sin(a * 3.0 + r * 10.0 - uTime * 2.4);',
-        '  float b = step(0.1, sw) + step(0.68, sw);',
-        '  vec3 col = b < 0.5 ? vec3(0.16, 0.05, 0.3) : b < 1.5 ? vec3(0.62, 0.22, 0.78) : vec3(0.4, 0.95, 1.0);',
-        '  if (r < 0.2 + 0.05 * sin(uTime * 3.0)) col = vec3(0.95, 1.0, 1.0);',
-        '  if (r > 0.9) col = vec3(1.0, 0.6, 0.95);',
+        '  float e = max(fwidth(sw), 0.02);',
+        '  vec3 col = mix(vec3(0.16, 0.05, 0.3), vec3(0.62, 0.22, 0.78), smoothstep(0.1 - e, 0.1 + e, sw));',
+        '  col = mix(col, vec3(0.4, 0.95, 1.0), smoothstep(0.68 - e, 0.68 + e, sw));',
+        '  col += vec3(0.25, 0.1, 0.35) * (1.0 - r);',
+        '  float rc = 0.2 + 0.05 * sin(uTime * 3.0);',
+        '  col = mix(col, vec3(0.95, 1.0, 1.0), 1.0 - smoothstep(rc - aa, rc + aa, r));',
+        '  col = mix(col, vec3(1.0, 0.6, 0.95), smoothstep(0.9 - aa, 0.9 + aa, r));',
+        '  if (r > 1.0) discard;',
         '  col *= 0.85 + 0.3 * uGlow;',
         '  gl_FragColor = vec4(col, 1.0);',
         '}'
-      ].join('\n')
+      ].join('\n'),
+      extensions: { derivatives: true }
     });
-    const g = new T.CircleGeometry(r, 24);
+    const g = new T.CircleGeometry(r, 48);
     disposables.push(m);
     loose(g, m, X, y, z);
   }
@@ -868,10 +1227,10 @@ G.Village3D = (() => {
       const g = cyl(0.9, 0.9, len, 3);
       g.translate(0, len / 2, 0);
       const q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(dx / len, dy / len, dz / len));
-      put(g, dark, new T.Matrix4().compose(new T.Vector3(...p0), q, new T.Vector3(1, 1, 1)), { hull: false, cast: false });
+      put(g, dark, new T.Matrix4().compose(new T.Vector3(...p0), q, new T.Vector3(1, 1, 1)), { hull: false, cast: false, walk: true });
     }
     const nb = Math.max(1, Math.round(L / step)), cols = [CYAN, PINK, GREEN, AMBER];
-    for (let k = 1; k < nb; k++) { const p = pt(k / nb); put(ball(2.6, 0), glowM(cols[k % 4], 1.4), { x: p[0], y: p[1] - 3, z: p[2] }, { hull: false, cast: false }); }
+    for (let k = 1; k < nb; k++) { const p = pt(k / nb); put(ball(2.6, 0), glowM(cols[k % 4], 1.4), { x: p[0], y: p[1] - 3, z: p[2] }, { hull: false, cast: false, walk: true }); halo(p[0], p[1] - 3, p[2], cols[k % 4], 14, 0.5); }
   }
 
   // ---------------- tu choza (data/home.js) ----------------
@@ -894,6 +1253,8 @@ G.Village3D = (() => {
     const keepD = disposables, keepA = anim, keepB = batch, keepH = hulls, keepG = glowList.length;
     const disp = [], hAnim = [];
     disposables = disp; anim = hAnim; sink = group; batch = new Map(); hulls = [];
+    const keepS = solidList, keepC = curId, keepHalo = haloQ;
+    solidList = []; curId = 'home'; haloQ = [];
     let info = { holo: null };
     const homeMats = [];
     homeSpark = [];
@@ -901,14 +1262,17 @@ G.Village3D = (() => {
       info = buildHome(cfg || G.Home.DEFAULT, homeMats);
       flush();
       if (homeSpark.length) particles(3, homeSpark, ['#fff6b0', '#ffffff', '#b8e0ff', '#ffb8f0'], 2, true);
+      if (haloQ.length) halos(haloQ);
     } catch (e) { console.warn('[Aldea] choza:', e); batch = null; hulls = []; }
     homeSpark = null;
+    const hSolids = solidList;
+    solidList = keepS; curId = keepC; haloQ = keepHalo;
     for (const g of glowList.slice(keepG)) homeMats.push(g.m);
     // Los materiales que se han hecho para la choza se sueltan con ella: fuera de las cachés (si no, quedarían muertos).
     for (const d of disp) if (d && d.isMaterial) { mats.forEach((v, k) => { if (v === d) mats.delete(k); }); glowMats.forEach((v, k) => { if (v === d) glowMats.delete(k); }); }
     disposables = keepD; anim = keepA.concat(hAnim); sink = null; batch = keepB; hulls = keepH;
-    home = { group, disp, anim: hAnim, mats: homeMats, key, info };
-    renderer.shadowMap.needsUpdate = true;
+    home = { group, disp, anim: hAnim, mats: homeMats, key, info, solids: hSolids };
+    if (renderer) renderer.shadowMap.needsUpdate = true;
     return info;
   }
   /** Colores de la choza: techo según el color elegido (o el natural de cada techo); luces. */
@@ -924,7 +1288,7 @@ G.Village3D = (() => {
     const lightM = new T.MeshLambertMaterial({ color: shade(lc, -0.5), emissive: new T.Color(lc), emissiveIntensity: 1.2 });
     disposables.push(lightM);
     glowList.push({ m: lightM, base: 1.2, ph: 1 });
-    const doorMat = new T.MeshBasicMaterial({ map: doorM('#ffffff').map, alphaTest: 0.5, color: new T.Color(lc) });
+    const doorMat = fin(new T.MeshBasicMaterial({ map: doorM('#ffffff').map, alphaTest: 0.5, color: new T.Color(lc) }));
     disposables.push(doorMat);
     if (rainbow) {
       const hsl = new T.Color();
@@ -932,16 +1296,16 @@ G.Village3D = (() => {
     }
     // Materiales del techo y de las paredes.
     const roofM = c.roof === 'crystal'
-      ? glowTexM('hcrys' + roofCol, () => tex(pix(16, 16, (x, y) => { const d = (x + y * 2) % 16, e = (x * 3 - y + 32) % 11; return d === 0 || e === 0 ? '#ffffff' : (x + y) % 9 < 3 ? shade(roofCol, 0.15) : (x * y) % 7 < 2 ? shade(roofCol, -0.45) : shade(roofCol, -0.2); }), true), '#ffffff', 0.55, { flatShading: true })
+      ? glowTexM('hcrys' + roofCol, () => stex(crysTex(roofCol)), '#ffffff', 0.55)
       : c.roof === 'solar'
-        ? glowTexM('hsolar' + roofCol + lc, () => tex(pix(16, 16, (x, y) => (x % 8 === 0 || y % 8 === 0) ? lc : (x + y) % 5 === 0 ? shade(roofCol, 0.3) : roofCol), true), lc, 0.6, { flatShading: true })
+        ? glowTexM('hsolar' + roofCol + lc, () => stex(solarTex(roofCol, lc)), lc, 0.6)
         : c.roof === 'straw'
-          ? lambert('hstraw' + roofCol, () => tex(pix(16, 16, (x, y) => { const r = ramp(roofCol); return y % 4 === 3 ? r[0] : H(x, y >> 2, 31) > 0.7 ? r[3] : H(x >> 1, y, 32) > 0.4 ? r[2] : r[1]; }), true), { flat: true })
+          ? lambert('hstraw' + roofCol, () => stex(strawTex(roofCol)))
           : c.roof === 'petal'
-            ? glowTexM('hpetal' + roofCol, () => tex(pix(16, 16, (x, y) => { const r = ramp(roofCol), sx = (x + ((y >> 3) % 2) * 4) % 8; return y % 8 === 7 ? r[0] : (sx === 4 && y % 8 > 1 ? '#ffffff' : (Math.abs(sx - 4) > 3 ? r[1] : r[2])); }), true), roofCol, 0.25, { flatShading: true })
-            : lambert('hleaf' + roofCol, () => tex(scales(6, roofCol, 32, 7), true), { flat: true });
+            ? glowTexM('hpetal' + roofCol, () => stex(petalRoofTex(roofCol)), roofCol, 0.25)
+            : lambert('hleaf' + roofCol, () => stex(scales(6, roofCol, 32, 7)));
     const wallM = c.walls === 'roots'
-      ? lambert('hroots', () => tex(pix(16, 16, (x, y) => { const k = (x + Math.round(Math.sin(y * 0.8) * 2) + 16) % 6; return k === 0 ? BARK[0] : k < 3 ? BARK[2] : BARK[3]; }), true))
+      ? lambert('hroots', () => stex(rootsTex()))
       : c.walls === 'stone' ? mossStoneM()
         : c.walls === 'metal' ? metalM() : woodM();
     const S = c.shape;
@@ -952,7 +1316,7 @@ G.Village3D = (() => {
       put(low, wallM, { x: X, y: 0, z: Z }, { hull: 2.4 });
       const top = lathe(prof.slice(2).map(([r, y]) => [r * R, y * Hh]), 10); top.rotateY(Math.PI / 10);
       put(top, roofM, { x: X, y: 0, z: Z }, { hull: 2.4 });
-      const tg = new T.TorusGeometry(R * 1.04 + 1.5, 2.4, 4, 20); tg.rotateX(Math.PI / 2);
+      const tg = torus(R * 1.04 + 1.5, 2.4, 4, 20); tg.rotateX(Math.PI / 2);
       put(tg, lightM, { x: X, y: Hh * 0.36, z: Z }, { hull: false, cast: false });
       hTop = Hh; frontZ = Z + R * 1.0 + 1.6; roofTop = [X, Hh - 4, Z];
     } else if (S === 'mush') {
@@ -963,9 +1327,11 @@ G.Village3D = (() => {
     } else if (S === 'tree') {
       put(cyl(44, 56, 84, 10), wallM, { x: X, y: 42, z: Z }, { hull: 2.4 });
       for (let k = 0; k < 6; k++) {
-        const a = (k / 6) * Math.PI * 2 + 0.4, len = 46;
-        const g = cone(12, len, 5); g.rotateZ(Math.PI / 2); g.translate(len / 2, 0, 0);
-        put(g, barkM(), compose({ x: X + Math.cos(a) * 46, y: 6, z: Z + Math.sin(a) * 40, ry: -a, rz: -0.3 }), { hull: 1.8 });
+        const a = (k / 6) * Math.PI * 2 + 0.4, len = 34;
+        if (Math.sin(a) > 0.7) continue;                 // (delante, no: taparía la puerta)
+        // (Pulido) Raíces bajas que se hunden en el suelo (antes, pinchos negros de pie).
+        const g = cone(15, len, 6); g.rotateZ(-Math.PI / 2); g.translate(len / 2, 0, 0);
+        put(g, barkM(), compose({ x: X + Math.cos(a) * 44, y: 3, z: Z + Math.sin(a) * 38, ry: -a, rz: -0.16, sy: 0.6 }), { hull: 1.2 });
       }
       for (const [dx, dy, dz, r] of [[0, 112, -6, 62], [-56, 96, 4, 42], [58, 98, 2, 44], [0, 136, -24, 46], [-26, 92, 34, 34], [30, 94, 32, 34]])
         put(ball(r, 1), roofM, { x: X + dx, y: dy, z: Z + dz, sy: 0.7 }, { hull: 2.6 });
@@ -974,7 +1340,7 @@ G.Village3D = (() => {
     } else {
       put(cyl(56, 60, 52, 10), wallM, { x: X, y: 26, z: Z }, { hull: 2.2 });
       put(cone(76, 62, 10), roofM, { x: X, y: 52 + 29, z: Z, ry: Math.PI / 10 }, { hull: 2.4 });
-      const tg = new T.TorusGeometry(58, 2.2, 4, 20); tg.rotateX(Math.PI / 2);
+      const tg = torus(58, 2.2, 4, 20); tg.rotateX(Math.PI / 2);
       put(tg, lightM, { x: X, y: 50, z: Z }, { hull: false, cast: false });
       hTop = 52 + 62; frontZ = Z + 59.5; roofTop = [X, hTop - 6, Z];
     }
@@ -982,11 +1348,12 @@ G.Village3D = (() => {
     put(box(doorW + 8, 4, 4), lightM, { x: X, y: doorY + doorH / 2 + 2, z: frontZ + 1 }, { hull: 1 });
     sign(V().PLACES.indexOf(p), 20, X, doorY + doorH / 2 + 16, frontZ + 2);
     glow(X, frontZ + 24, 80, lc, 0.9);
+    halo(X, doorY + doorH / 2 + 2, frontZ + 3, lc, 50, 0.6);
     // Decoración.
     const front = frontZ + 6;
     if (c.deco === 'pots') {
       for (const s of [-1, 1]) {
-        put(cyl(9, 7, 12, 8), lambert('pot', () => tex(noisy(8, 8, ['#5a3020', '#7a4428', '#94583a', '#b0704a'], 34), true)), { x: X + s * 34, y: 6, z: front + 6 }, { hull: 1.2 });
+        put(cyl(9, 7, 12, 8), lambert('pot', () => stex(foliage(64, ['#5a3020', '#7a4428', '#94583a', '#b0704a'], 34))), { x: X + s * 34, y: 6, z: front + 6 }, { hull: 1.2 });
         put(cyl(1.5, 2, 10, 4), paleM(), { x: X + s * 34, y: 16, z: front + 6 }, { hull: false });
         put(cap(8, 8), lightM, { x: X + s * 34, y: 20, z: front + 6, sy: 0.7 }, { hull: 1 });
         put(cap(5, 8), glowM(s > 0 ? PINK : GREEN, 1), { x: X + s * 28, y: 13, z: front + 10, sy: 0.7 }, { hull: 1 });
@@ -1009,6 +1376,7 @@ G.Village3D = (() => {
         const a = Math.PI * (0.1 + k * 0.2), px = X - Math.cos(a) * 92, pz = Z + Math.sin(a) * 76;
         put(cyl(0.5, 0.5, 14, 3), plain('#101418'), { x: px, y: 58, z: pz }, { hull: false, cast: false });
         put(box(7, 9, 7), lightM, { x: px, y: 47, z: pz }, { hull: 1 });
+        halo(px, 47, pz, lc, 30, 0.8);
         glow(px, pz, 30, lc, 0.5);
       }
     } else if (c.deco === 'antenna') {
@@ -1025,19 +1393,20 @@ G.Village3D = (() => {
       const tx = X - 82, tz = Z + 44;
       if (c.totem === 'crystal') {
         put(cyl(16, 20, 10, 8), mossStoneM(), { x: tx, y: 5, z: tz }, { hull: 1.4 });
-        const cm = glowM(lc, 1.1, { flatShading: true });
+        const cm = glowM(lc, 1.1);
         const cr = loose(crystal(13, 30), cm, tx, 44, tz);
+        halo(tx, 46, tz, lc, 80, 0.6);
         homeMats.push(cm);
         anim.push({ fn: t => { cr.rotation.y = t * 0.8; cr.position.y = 44 + Math.sin(t * 1.4) * 4; } });
         sparkle(tx, 46, tz, 8);
         glow(tx, tz, 50, lc, 0.9);
       } else {
-        const face = lambert('tface', () => tex(pix(8, 8, (x, y) => (y === 2 && (x === 2 || x === 5)) || (y === 5 && x > 1 && x < 6) ? '#101010' : y === 0 ? WOOD[3] : WOOD[2]), true));
+        const face = lambert('tface', () => stex(faceTex()));
         for (let k = 0; k < 3; k++) put(box(22 - k * 2, 20, 18), face, { x: tx, y: 10 + k * 20, z: tz }, { hull: 1.4 });
         put(box(46, 6, 8), woodM(), { x: tx, y: 52, z: tz }, { hull: 1.2 });
         if (c.totem === 'holo') {
           for (let k = 0; k < 3; k++) put(box(12, 4, 2), lightM, { x: tx, y: 8 + k * 20, z: tz + 9.5 }, { hull: false, cast: false });
-          const ring = new T.TorusGeometry(16, 1.4, 3, 16); ring.rotateX(Math.PI / 2);
+          const ring = torus(16, 1.4, 3, 16); ring.rotateX(Math.PI / 2);
           const rm = loose(ring, lightM, tx, 72, tz);
           anim.push({ fn: t => { rm.position.y = 72 + Math.sin(t * 2) * 3; rm.rotation.z = Math.sin(t) * 0.2; } });
           glow(tx, tz, 44, lc, 0.7);
@@ -1045,7 +1414,7 @@ G.Village3D = (() => {
       }
     }
     // El cojín de la mascota.
-    if (c.pet) put(cyl(18, 20, 5, 10), lambert('cushion', () => tex(noisy(8, 8, ['#5a2a6a', '#7a3a8a', '#9a4aa8', '#c070c8'], 35), true)), { x: tile(V().PET[0]), y: 2.5, z: tile(V().PET[1]) }, { hull: 1.2 });
+    if (c.pet) put(cyl(18, 20, 5, 10), lambert('cushion', () => stex(foliage(64, ['#5a2a6a', '#7a3a8a', '#9a4aa8', '#c070c8'], 35))), { x: tile(V().PET[0]), y: 2.5, z: tile(V().PET[1]) }, { hull: 1.2 });
     tops.home = hTop + 26;
     return { holo: c.deco === 'holo' ? [X + 78, Z + 44] : null, top: hTop + 26 };
   }
@@ -1057,16 +1426,16 @@ G.Village3D = (() => {
       case 'gtree': {
         const s = d.s || 1;
         put(cyl(10 * s, 18 * s, 64 * s, 7), barkM(), { x: X, y: 32 * s, z: Z }, { hull: 1.8 });
-        for (let k = 0; k < 4; k++) {
-          const a = k * 1.7 + H(d.x, d.y, 1) * 3, len = 30 * s;
-          const g = cone(7 * s, len, 4); g.rotateZ(Math.PI / 2); g.translate(len / 2, 0, 0);
-          put(g, barkM(), compose({ x: X + Math.cos(a) * 12 * s, y: 4, z: Z + Math.sin(a) * 10 * s, ry: -a, rz: -0.3 }), { hull: 1.4 });
+        for (let k = 0; k < 3; k++) {
+          const a = k * 2.1 + H(d.x, d.y, 1) * 3, len = 24 * s;
+          const g = cone(8 * s, len * 0.8, 6); g.rotateZ(-Math.PI / 2); g.translate(len * 0.4, 0, 0);
+          put(g, barkM(), compose({ x: X + Math.cos(a) * 10 * s, y: 3, z: Z + Math.sin(a) * 9 * s, ry: -a, rz: -0.2 }), { hull: 1 });
         }
         const tps = [[0, 84, 0, 44], [-26, 70, 8, 30], [28, 72, 6, 32], [2, 108, -6, 30]];
         for (const [dx, dy, dz, r] of tps) put(ball(r * s, 1), leafM(), { x: X + dx * s, y: dy * s, z: Z + dz * s, sy: 0.78 }, { hull: 2.4 });
         // Hongos de repisa que brillan en el tronco y una liana de luz.
         const c = [CYAN, PINK, GREEN][(H(d.x * 3, d.y * 3, 2) * 3) | 0];
-        for (const [dy, a] of [[22, 0.4], [36, -0.6]]) put(cap(7 * s, 8), glowM(c, 0.9), { x: X + Math.sin(a) * 12 * s, y: dy * s, z: Z + Math.cos(a) * 12 * s, sy: 0.35 }, { hull: 1, cast: false });
+        for (const [dy, a] of [[22, 0.4], [36, -0.6]]) { put(cap(7 * s, 8), glowM(c, 0.9), { x: X + Math.sin(a) * 12 * s, y: dy * s, z: Z + Math.cos(a) * 12 * s, sy: 0.35 }, { hull: 1, cast: false }); halo(X + Math.sin(a) * 13 * s, dy * s, Z + Math.cos(a) * 13 * s, c, 24, 0.7); }
         vine(X - 24 * s, 66 * s, Z + 30 * s, 34 * s, c);
         vine(X + 30 * s, 64 * s, Z + 26 * s, 26 * s, c);
         break;
@@ -1079,14 +1448,16 @@ G.Village3D = (() => {
           put(cap(8 * s + 3, 8), capM(c), { x: X + dx, y: h - 1, z: Z + dz, sy: 0.6 }, { hull: 1.2, cast: false });
         }
         glow(X, Z, 46, c, 0.8);
+        halo(X, 22, Z, c, 64, 0.55);
         break;
       }
       case 'bulb': {
         // Farol-flor: tallo curvo, una hoja y la flor que cuelga encendida.
-        const stem = lambert('bstem', () => tex(noisy(8, 8, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 36), true));
+        const stem = lambert('bstem', () => stex(foliage(64, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 36)));
         put(cyl(2, 3, 58, 5), stem, { x: X, y: 29, z: Z }, { hull: 1 });
         put(cyl(1.6, 2, 18, 5), stem, compose({ x: X + 6, y: 62, z: Z, rz: -1.1 }), { hull: 1 });
-        put(ball(8, 1), glowM(AMBER, 1.2, { flatShading: true }), { x: X + 13, y: 58, z: Z, sy: 1.2 }, { hull: 1.4, cast: false });
+        put(ball(8, 1), glowM(AMBER, 1.2), { x: X + 13, y: 58, z: Z, sy: 1.2 }, { hull: 1.4, cast: false });
+        halo(X + 13, 56, Z, AMBER, 70, 0.9);
         put(cap(10, 6), lambert('bpetal', null, { color: '#2e7a50', side: T.DoubleSide }), { x: X + 13, y: 64, z: Z, sy: 0.5 }, { hull: 1 });
         glow(X + 8, Z, 54, AMBER, 0.9);
         break;
@@ -1094,8 +1465,9 @@ G.Village3D = (() => {
       case 'pylon': {
         const c = d.c || CYAN;
         put(cyl(13, 16, 12, 6), mossStoneM(), { x: X, y: 6, z: Z }, { hull: 1.6 });
-        put(crystal(9, 30), glowM(c, 1.2, { flatShading: true }), { x: X, y: 42, z: Z }, { hull: 1.4, cast: false });
-        for (const y of [28, 54]) { const r = new T.TorusGeometry(10, 1.6, 3, 12); r.rotateX(Math.PI / 2); put(r, metalM(), { x: X, y, z: Z }, { hull: false }); }
+        put(crystal(9, 30), glowM(c, 1.2), { x: X, y: 42, z: Z }, { hull: 1.4, cast: false });
+        halo(X, 42, Z, c, 80, 0.8);
+        for (const y of [28, 54]) { const r = torus(10, 1.6, 3, 12); r.rotateX(Math.PI / 2); put(r, metalM(), { x: X, y, z: Z }, { hull: false }); }
         glow(X, Z, 60, c, 1);
         break;
       }
@@ -1103,19 +1475,20 @@ G.Village3D = (() => {
         // Manantial de la plaza: aro de piedra, agua que brilla y un cristal que flota encima.
         put(cyl(54, 58, 16, 12, true), mossStoneM(), { x: X, y: 8, z: Z }, { hull: false });
         put(cyl(54, 58, 16, 12), mossStoneM(), { x: X, y: 8, z: Z }, { hull: 2.4, ghost: true });
-        const rim = new T.TorusGeometry(56, 5, 4, 14); rim.rotateX(Math.PI / 2);
+        const rim = torus(56, 5, 4, 14); rim.rotateX(Math.PI / 2);
         put(rim, mossStoneM(), { x: X, y: 16, z: Z }, { hull: 1.4 });
         const wm = basic('swater', () => tex(pix(32, 32, (x, y) => {
           const r = Math.hypot(x - 15.5, y - 15.5);
           return ((r * 1.4 + Math.atan2(y - 15.5, x - 15.5) * 2) | 0) % 4 === 0 ? '#8affff' : r > 14 ? '#1a6a7a' : '#2aa0b0';
         })), {});
-        const w = loose(new T.CircleGeometry(52, 16), wm, X, 13, Z, -5);
+        const w = loose(new T.CircleGeometry(52, 40), wm, X, 13, Z, -5);
         w.rotation.x = -Math.PI / 2;
         anim.push({ fn: t => { w.rotation.z = t * 0.25; } });
-        const cm = glowM(CYAN, 1.3, { flatShading: true });
+        const cm = glowM(CYAN, 1.3);
         const cr = loose(crystal(12, 26), cm, X, 66, Z);
+        halo(X, 66, Z, CYAN, 110, 0.8);
         anim.push({ fn: t => { cr.rotation.y = t * 0.7; cr.position.y = 66 + Math.sin(t * 1.2) * 5; } });
-        for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; put(crystal(6, 16), glowM(k ? PINK : GREEN, 1, { flatShading: true }), { x: X + Math.cos(a) * 44, y: 20, z: Z + Math.sin(a) * 38, rz: Math.cos(a) * 0.4, rx: Math.sin(a) * 0.4 }, { hull: 1.2, cast: false }); }
+        for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; put(crystal(6, 16), glowM(k ? PINK : GREEN, 1), { x: X + Math.cos(a) * 44, y: 20, z: Z + Math.sin(a) * 38, rz: Math.cos(a) * 0.4, rx: Math.sin(a) * 0.4 }, { hull: 1.2, cast: false }); }
         spray(X, 18, Z);
         glow(X, Z, 120, CYAN, 1);
         break;
@@ -1123,13 +1496,13 @@ G.Village3D = (() => {
       case 'log': {
         const lg = cyl(9, 9, 52, 7); lg.rotateZ(Math.PI / 2);
         put(lg, barkM(), { x: X, y: 9, z: Z }, { hull: 1.4 });
-        put(box(40, 3, 10), lambert('mosstop', () => tex(noisy(8, 8, MOSS, 37), true)), { x: X, y: 18, z: Z }, { hull: false });
+        put(box(40, 3, 10), lambert('mosstop', () => stex(foliage(64, MOSS, 37))), { x: X, y: 18, z: Z }, { hull: false });
         put(cap(4, 6), glowM(GREEN, 1), { x: X + 18, y: 15, z: Z + 7, sy: 0.6 }, { hull: false, cast: false });
         break;
       }
-      case 'pod': put(ball(13, 1), lambert('seedpod', () => tex(scales(4, '#6a4a2a', 16, 3), true), { flat: true }), { x: X, y: 13, z: Z, sy: 1.15 }, { hull: 1.6 });
+      case 'pod': put(ball(13, 1), lambert('seedpod', () => stex(scales(4, '#6a4a2a', 16, 3))), { x: X, y: 13, z: Z, sy: 1.15 }, { hull: 1.6 });
         put(cyl(13.5, 13.5, 2, 10, true), glowM(GREEN, 1), { x: X, y: 13, z: Z }, { hull: false, cast: false }); break;
-      case 'crate': put(box(26, 24, 26), lambert('crate', () => tex(pix(16, 16, (x, y) => (x === 0 || y === 0 || x === 15 || y === 15) ? METAL[1] : (x === y || x === 15 - y) ? WOOD[0] : WOOD[2]))), { x: X, y: 12, z: Z, ry: H(d.x * 10, d.y * 10, 3) * 0.6 });
+      case 'crate': put(box(26, 24, 26), lambert('crate', () => stex(crateTex())), { x: X, y: 12, z: Z, ry: H(d.x * 10, d.y * 10, 3) * 0.6 });
         put(box(27, 2, 27), glowM(CYAN, 0.8), { x: X, y: 16, z: Z, ry: H(d.x * 10, d.y * 10, 3) * 0.6 }, { hull: false, cast: false }); break;
       case 'rock': put(ball(16, 0), mossStoneM(), { x: X, y: 6, z: Z, sy: 0.6, ry: H(d.x * 9, d.y * 9, 4) * 3 }, { hull: 1.6 }); break;
       case 'fern': {
@@ -1143,10 +1516,11 @@ G.Village3D = (() => {
       }
       case 'totem': {
         const c = d.c || CYAN;
-        put(box(14, 64, 14), lambert('carved', () => tex(pix(8, 32, (x, y) => (y % 8 === 0) ? WOOD[0] : (y % 8 === 3 && (x === 2 || x === 5)) ? '#101010' : WOOD[x === 0 ? 1 : 2]), true)), { x: X, y: 32, z: Z }, { hull: 1.4 });
+        put(box(14, 64, 14), lambert('carved', () => stex(carvedTex())), { x: X, y: 32, z: Z }, { hull: 1.4 });
         for (let k = 0; k < 3; k++) put(box(8, 3, 1), glowM(c, 1.2), { x: X, y: 14 + k * 18, z: Z + 7.5 }, { hull: false, cast: false });
         const hm = basic('thol' + c, () => tex(pix(8, 8, (x, y) => (y % 2 === 0) ? c : shade(c, -0.4))), { transparent: true, opacity: 0.6, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
         const hp = loose(new T.PlaneGeometry(16, 16), hm, X, 82, Z, 12);
+        halo(X, 82, Z, c, 40, 0.6);
         anim.push({ fn: t => { hp.rotation.y = t * 1.2; hp.position.y = 82 + Math.sin(t * 2.2) * 2; hm.opacity = 0.45 + 0.2 * Math.sin(t * 6); } });
         glow(X, Z, 40, c, 0.8);
         break;
@@ -1155,9 +1529,10 @@ G.Village3D = (() => {
         put(cyl(26, 28, 22, 10, true), mossStoneM(), { x: X, y: 11, z: Z }, { hull: false });
         put(cyl(26, 28, 22, 10), mossStoneM(), { x: X, y: 11, z: Z }, { hull: 2.2, ghost: true });
         put(cyl(22, 22, 2, 10), glowM(CYAN, 1.1), { x: X, y: 17, z: Z }, { hull: false, cast: false });
-        const arch = new T.TorusGeometry(26, 4, 4, 10, Math.PI);
+        const arch = torus(26, 4, 4, 10, Math.PI);
         put(arch, barkM(), { x: X, y: 22, z: Z }, { hull: 1.4 });
-        put(crystal(4, 10), glowM(PINK, 1.2, { flatShading: true }), { x: X, y: 40, z: Z }, { hull: 1 });
+        put(crystal(4, 10), glowM(PINK, 1.2), { x: X, y: 40, z: Z }, { hull: 1 });
+        halo(X, 18, Z, CYAN, 60, 0.5); halo(X, 40, Z, PINK, 24, 0.8);
         glow(X, Z, 50, CYAN, 0.8);
         break;
       }
@@ -1165,11 +1540,11 @@ G.Village3D = (() => {
         const x0 = tile(d.a[0]), z0 = tile(d.a[1]), x1 = tile(d.b[0]), z1 = tile(d.b[1]), L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 30));
         for (let k = 0; k <= n; k++) {
           const px = x0 + (x1 - x0) * k / n, pz = z0 + (z1 - z0) * k / n;
-          put(cyl(2.4, 3.4, 26, 5), barkM(), { x: px, y: 13, z: pz, rz: (H(k, 1, 2) - 0.5) * 0.2 }, { hull: 1 });
-          if (k % 2 === 0) put(ball(2.4, 0), glowM(GREEN, 1.2), { x: px, y: 28, z: pz }, { hull: false, cast: false });
+          put(cyl(3.6, 4.6, 30, 6), barkM(), { x: px, y: 15, z: pz, rz: (H(k, 1, 2) - 0.5) * 0.16 }, { hull: 1.2 });
+          if (k % 2 === 0) { put(ball(3, 0), glowM(GREEN, 1.2), { x: px, y: 32, z: pz }, { hull: false, cast: false }); halo(px, 32, pz, GREEN, 22, 0.7); }
         }
         const ry = -Math.atan2(z1 - z0, x1 - x0);
-        for (const y of [9, 18]) put(box(L, 3, 3), barkM(), { x: (x0 + x1) / 2, y, z: (z0 + z1) / 2, ry }, { hull: false });
+        for (const y of [10, 21]) put(box(L, 4.5, 4), barkM(), { x: (x0 + x1) / 2, y, z: (z0 + z1) / 2, ry }, { hull: 1, solid: true });
         break;
       }
       case 'cable': cable([tile(d.a[0]), d.a[2], tile(d.a[1])], [tile(d.b[0]), d.b[2], tile(d.b[1])]); break;
@@ -1181,11 +1556,13 @@ G.Village3D = (() => {
     }
   }
   /** Sombrero de seta que brilla: el centro claro, el borde más oscuro y lunares. */
-  const capM = c => glowTexM('cap' + c, () => tex(pix(16, 8, (x, y) => (y < 3 && (x * 5 + y * 3) % 7 === 0) ? '#ffffff' : y < 2 ? shade(c, 0.35) : y < 5 ? c : shade(c, -0.35)), true), '#ffffff', 0.85, { flatShading: true });
+  const capM = c => glowTexM('cap' + c, () => stex(capTex(c, c.length)), '#ffffff', 0.85);
   /** Liana de luz que cuelga (sin luz: brilla siempre). */
   function vine(x, y, z, len, col) {
-    const m = basic('vine' + col, () => tex(pix(4, 32, (px, py) => (px === 1 || (px === 2 && py % 6 < 2)) ? ((py % 5) ? shade(col, -0.35) : col) : (px === 0 && py % 7 === 3) ? col : null)), { alphaTest: 0.5, side: T.DoubleSide });
-    put(new T.PlaneGeometry(6, len), m, { x, y: y - len / 2, z }, { hull: false, cast: false });
+    // (Pulido) Un tallo fino que brilla con una luz al final (antes, un plano de píxeles que parecía un pincho).
+    put(cyl(1.1, 1.5, len, 5), glowM(shade(col, -0.25), 0.7), { x, y: y - len / 2, z, rz: 0.08 }, { hull: false, cast: false, walk: true });
+    put(ball(3.2, 1), glowM(col, 1.3), { x: x + len * 0.04, y: y - len, z }, { hull: false, cast: false, walk: true });
+    halo(x + len * 0.04, y - len, z, col, 26, 0.9);
   }
 
   // ---------------- cosas que se mueven ----------------
@@ -1196,11 +1573,12 @@ G.Village3D = (() => {
     const key = col + k;
     let m = glowMats.get(key);
     if (!m) {
-      const c = pix(32, 32, (x, y) => {
-        const d = Math.hypot(x - 15.5, (y - 15.5) * 1.35) / 16;
-        return d < 0.4 ? '#575757' : d < 0.7 ? '#333333' : d < 1 ? '#171717' : null;
+      // (Pulido) Halo suave (antes, tres aros a escalones).
+      const c = soft(64, 64, (x, y) => {
+        const d = Math.min(1, Math.hypot(x - 31.5, (y - 31.5) * 1.35) / 32), v = Math.pow(1 - d, 1.8) * 92;
+        return [v, v, v];
       });
-      m = new T.MeshBasicMaterial({ map: tex(c), color: new T.Color(col), transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0 });
+      m = new T.MeshBasicMaterial({ map: stex(c, false), color: new T.Color(col), transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0 });
       m.__k = k;
       disposables.push(m);
       glowMats.set(key, m);
@@ -1221,16 +1599,14 @@ G.Village3D = (() => {
   function buildMist() {
     if (fx() === 0) return;
     const VG = V(), W = VG.W * TS, Hh = VG.H * TS;
-    const mk = () => pix(64, 64, (x, y) => {
-      const n = vn(x, y, 16, 501) * 0.6 + vn(x, y, 6, 502) * 0.4;
-      // (vn no es periódico: los bordes se igualan mezclando con la otra punta)
-      const n2 = vn((x + 32) % 64, (y + 32) % 64, 16, 501) * 0.6 + vn((x + 32) % 64, (y + 32) % 64, 6, 502) * 0.4;
-      const k = Math.min(1, Math.min(x, 63 - x, y, 63 - y) / 12), v = n * k + n2 * (1 - k);
-      return v > 0.68 ? '#7ab8c8' : v > 0.58 ? '#4a8090' : v > 0.5 ? '#2a4a58' : null;
+    // (Pulido) Nubes suaves que se repiten sin costura (antes, tres tonos a escalones).
+    const mk = () => soft(128, 128, (x, y) => {
+      const v = sstep(0.42, 0.78, pn(x, y, 40, 501, 128));
+      return mixc([0, 0, 0], [122, 184, 200], v);
     });
     for (const [y, op, sp, rep] of [[7, 0.16, 6, 12], [30, 0.07, -4, 8]]) {
-      const t = tex(mk(), true);
-      t.repeat.set(rep, rep * Hh / W);
+      const t = stex(mk());
+      t.repeat.set(rep / 2, rep / 2 * Hh / W);
       const m = new T.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: op, blending: T.AdditiveBlending });
       m.__op = op;
       disposables.push(m);
@@ -1249,7 +1625,7 @@ G.Village3D = (() => {
 
   // Partículas: un solo shader (modos: esporas que flotan, esporas que caen, humo, chispas, salpicaduras).
   const PV = [
-    'attribute float aSeed; attribute vec3 aCol; uniform float uTime; uniform float uMode; uniform float uSize; uniform float uAlpha;',
+    'attribute float aSeed; attribute vec3 aCol; uniform float uTime; uniform float uMode; uniform float uSize; uniform float uAlpha; uniform float uPx;',
     'varying float vA; varying vec3 vC;',
     'void main(){',
     '  vec3 p = position; float s = aSeed; vC = aCol;',
@@ -1277,9 +1653,11 @@ G.Village3D = (() => {
     '  }',
     '  vA *= uAlpha;',
     '  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);',
-    '  gl_PointSize = uSize;',
+    '  gl_PointSize = max(1.5, uSize * uPx / gl_Position.w);',
     '}'].join('\n');
-  const PF = 'varying float vA; varying vec3 vC; void main(){ if (vA < 0.06) discard; gl_FragColor = vec4(vC, vA);\n#include <colorspace_fragment>\n}';
+  // (Pulido) Motas redondas con el borde suave y un núcleo claro (antes, cuadrados de 2 px).
+  const PF = 'varying float vA; varying vec3 vC; void main(){ if (vA < 0.04) discard; vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0; if (d > 1.0) discard;' +
+    ' float a = vA * (1.0 - smoothstep(0.35, 1.0, d)); gl_FragColor = vec4(mix(vC, vec3(1.0), (1.0 - smoothstep(0.0, 0.4, d)) * 0.5), a);\n#include <colorspace_fragment>\n}';
   function particles(mode, pts, cols, size, add, alphaU) {
     const n = pts.length, pos = new Float32Array(n * 3), seed = new Float32Array(n), col = new Float32Array(n * 3);
     pts.forEach((p, i) => {
@@ -1291,7 +1669,8 @@ G.Village3D = (() => {
     g.setAttribute('position', new T.BufferAttribute(pos, 3));
     g.setAttribute('aSeed', new T.BufferAttribute(seed, 1));
     g.setAttribute('aCol', new T.BufferAttribute(col, 3));
-    const m = new T.ShaderMaterial({ uniforms: { uTime: uni.time, uMode: { value: mode }, uSize: { value: size }, uAlpha: alphaU || { value: 1 } },
+    // size: en px de arte de antes (2 unidades de mundo cada uno); ahora va en mundo y se ve igual de grande a cualquier resolución.
+    const m = new T.ShaderMaterial({ uniforms: { uTime: uni.time, uMode: { value: mode }, uSize: { value: size * PX * 1.6 }, uAlpha: alphaU || { value: 1 }, uPx: uni.px },
       vertexShader: PV, fragmentShader: PF, transparent: true, depthWrite: false, blending: add ? T.AdditiveBlending : T.NormalBlending });
     disposables.push(g, m);
     const o = new T.Points(g, m);
@@ -1304,6 +1683,45 @@ G.Village3D = (() => {
   let homeSpark = null;
   function sparkle(x, y, z, n, big) { const q = sink && homeSpark ? homeSpark : sparkQ; for (let k = 0; k < n; k++) q.push([x + (H(k, x, 1) - 0.5) * (big ? 180 : 50), y + (H(k, y, 2) - 0.5) * (big ? 120 : 30), z + (H(k, z, 3) - 0.5) * (big ? 60 : 20)]); }
   function spray(x, y, z) { sprayQ.push([x, y, z]); }
+
+  /*
+   * Halos de luz (pulido 12-11-2026: «quizá bloom suave para la bioluminiscencia»). Un bloom de verdad (dibujar la
+   * escena aparte, difuminar y sumar) cuesta varias pasadas a pantalla completa: en el iPhone, demasiado. En su lugar, cada
+   * cosa que brilla deja un halo (x, y, z, color, tamaño en mundo, fuerza) y todos van en un solo dibujo de puntos que se
+   * suman, del tamaño que toque con la perspectiva. Lo que tapa al halo lo tapa (prueba de profundidad), así que se ve
+   * como un resplandor alrededor de la luz. Se avivan de noche, como lo que brilla.
+   */
+  let haloQ = [];
+  function halo(x, y, z, col, size = 40, k = 1) { if (fx() > 0) haloQ.push([x, y, z, col, size, k]); }
+  const HV = ['attribute vec3 aCol; attribute float aSize; attribute float aSeed; uniform float uTime; uniform float uPx; uniform float uNight;',
+    'varying vec3 vC; varying float vA;',
+    'void main(){ vC = aCol; vA = (0.5 + 0.5 * uNight) * (0.86 + 0.14 * sin(uTime * 1.6 + aSeed * 6.2832));',
+    '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+    '  gl_PointSize = min(256.0, aSize * uPx / gl_Position.w); }'].join('\n');
+  const HF = 'varying vec3 vC; varying float vA; void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0; if (d > 1.0) discard;' +
+    ' float a = pow(1.0 - d, 2.2) * 0.75 + exp(-d * d * 18.0) * 0.35; gl_FragColor = vec4(vC, a * vA);\n#include <colorspace_fragment>\n}';
+  function halos(list) {
+    const n = list.length, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n), seed = new Float32Array(n);
+    list.forEach(([x, y, z, c, sz, k], i) => {
+      pos.set([x, y, z], i * 3);
+      const C = new T.Color(c);
+      col.set([C.r * k, C.g * k, C.b * k], i * 3);
+      size[i] = sz; seed[i] = H(i, x | 0, 7);
+    });
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.BufferAttribute(pos, 3));
+    g.setAttribute('aCol', new T.BufferAttribute(col, 3));
+    g.setAttribute('aSize', new T.BufferAttribute(size, 1));
+    g.setAttribute('aSeed', new T.BufferAttribute(seed, 1));
+    const m = new T.ShaderMaterial({ uniforms: { uTime: uni.time, uPx: uni.px, uNight: uni.night }, vertexShader: HV, fragmentShader: HF,
+      transparent: true, depthWrite: false, depthTest: true, blending: T.AdditiveBlending });
+    disposables.push(g, m);
+    const o = new T.Points(g, m);
+    o.frustumCulled = false;
+    o.renderOrder = 18;
+    (sink || scene).add(o);
+    return o;
+  }
 
   /** Matas de hierba que se mecen (y se apartan al pasar tu Pokémon) y flores que brillan: un shader con todas. */
   const tufts = [];
@@ -1365,8 +1783,8 @@ G.Village3D = (() => {
         '  if (L < 46.0 && L > 0.1) { float f = (46.0 - L) / 46.0; p.x += d.x / L * f * 9.0 * k; p.y -= f * 6.0 * k; }',
         '  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }'].join('\n'),
       // Lo blanco de la textura (cabezas de las flores) toma su color y brilla (sin el tinte de la noche).
-      fragmentShader: 'uniform sampler2D uMap; uniform vec3 uTint; varying vec2 vUv; varying vec3 vC; void main(){ vec4 c = texture2D(uMap, vUv); if (c.a < 0.5) discard; vec3 col = c.rgb * uTint; if (c.r > 0.95 && c.g > 0.95 && c.b > 0.95) col = vC; gl_FragColor = vec4(col, 1.0);\n#include <colorspace_fragment>\n}',
-      transparent: true, depthWrite: true
+      fragmentShader: (gl2 ? CRISP : 'vec4 crispTex(sampler2D t, vec2 uv) { return texture2D(t, uv); }') + '\nuniform sampler2D uMap; uniform vec3 uTint; varying vec2 vUv; varying vec3 vC; void main(){ vec4 c = crispTex(uMap, vUv); if (c.a < 0.5) discard; vec3 col = c.rgb * uTint; if (c.r > 0.95 && c.g > 0.95 && c.b > 0.95) col = vC; gl_FragColor = vec4(col, 1.0);\n#include <colorspace_fragment>\n}',
+      transparent: true, depthWrite: true, extensions: { derivatives: true }
     });
     disposables.push(geo, m);
     const mesh = new T.Mesh(geo, m);
@@ -1386,11 +1804,15 @@ G.Village3D = (() => {
       cam3.matrixAutoUpdate = false;
       const pal = G.Tileset.pal(V().BI);
       edgeCol = pal ? pal.edge : '#000000';
-      uni = { time: { value: 0 }, night: { value: 1 }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
+      uni = { time: { value: 0 }, night: { value: 1 }, px: { value: KL }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
+      haloQ = [];
       amb = new T.AmbientLight(0xffffff, 0.6 * Math.PI);
+      // (Pulido) Luz de cielo y suelo: lo de arriba algo más azul que lo de abajo (los modelos dejan de verse planos).
+      hemi = new T.HemisphereLight(0x8fa0ff, 0x1c3a2a, 0.3 * Math.PI);
+      scene.add(hemi);
       sun = new T.DirectionalLight(0xffffff, 0.3 * Math.PI);
       sun.castShadow = fx() > 0;
-      const ms = mobile() ? 512 : 1024;
+      const ms = mobile() ? 1024 : 2048;
       sun.shadow.mapSize.set(ms, ms);
       sun.shadow.bias = -0.002;
       const sc = sun.shadow.camera, half = Math.max(V().W, V().H) * TS * 0.62;
@@ -1399,15 +1821,18 @@ G.Village3D = (() => {
       sun.target.position.set(V().W * TS / 2, 0, V().H * TS / 2);
       scene.add(amb, sun, sun.target);
       batch = new Map();
+      solidList = []; curId = '';
       buildGround();
       buildWater();
       V().PLACES.forEach((p, i) => {
         const k = p.look.kind;
+        curId = 'p:' + p.id;
         if (k === 'pod') pod(p, i); else if (k === 'stall') stall(p, i); else if (k === 'mush') mush(p, i);
         else if (k === 'board') board(p, i); else if (k === 'case') showcase(p, i); else if (k === 'podium') podium(p, i);
         else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'flower') flower(p, i);
       });
-      for (const d of V().DECOR) decor(d);
+      V().DECOR.forEach((d, i) => { curId = 'd:' + i + ':' + d.k; decor(d); });
+      curId = '';
       flush();
       buildTufts();
       buildMist();
@@ -1421,6 +1846,8 @@ G.Village3D = (() => {
       if (sparkQ.length) particles(3, sparkQ, ['#fff6b0', '#ffffff', '#b8e0ff', '#ffb8f0'], 2, true);
       if (sprayQ.length) particles(4, sprayQ.flatMap(p => Array.from({ length: f === 0 ? 8 : 18 }, () => p)), ['#8affff', '#ffffff', '#5ff0ff'], 2, true);
       sparkQ.length = sprayQ.length = 0;
+      if (haloQ.length) halos(haloQ);
+      haloQ = [];
       built = true;
       shadowSun = null;
       setHome(G.Home ? G.Home.current() : null);
@@ -1431,6 +1858,34 @@ G.Village3D = (() => {
       drop(false);
       return failed || 'error';
     }
+  }
+
+  /**
+   * Para los tests (sin WebGL ni lienzo de verdad): monta los modelos con three.js y devuelve lo que choca, con tu choza
+   * como cfg. → { fixed: [{ id, pts }], home: [{ id, pts }] }. No deja nada montado.
+   */
+  function collect(THREE, cfg) {
+    T = THREE; gl2 = false; dry = true;
+    scene = new T.Scene(); sink = null;
+    uni = { time: { value: 0 }, night: { value: 1 }, px: { value: 1 }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
+    batch = new Map(); hulls = []; solidList = []; curId = ''; haloQ = [];
+    solidList.push({ id: 'pond', pts: pondShape() });
+    V().PLACES.forEach((p, i) => {
+      const k = p.look.kind;
+      curId = 'p:' + p.id;
+      if (k === 'pod') pod(p, i); else if (k === 'stall') stall(p, i); else if (k === 'mush') mush(p, i);
+      else if (k === 'board') board(p, i); else if (k === 'case') showcase(p, i); else if (k === 'podium') podium(p, i);
+      else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'flower') flower(p, i);
+    });
+    V().DECOR.forEach((d, i) => { curId = 'd:' + i + ':' + d.k; decor(d); });
+    const fixedS = solidList;
+    solidList = []; curId = 'home';
+    buildHome(cfg || G.Home.DEFAULT, []);
+    const homeS = solidList;
+    solidList = []; curId = ''; batch = null; hulls = []; sparkQ.length = sprayQ.length = 0; haloQ = []; tufts.length = 0;
+    for (const d of disposables) { try { d.dispose(); } catch (e) { /* nada */ } }
+    disposables = []; mats.clear(); glowMats.clear(); glowList = []; anim = []; scene = null; signs = null; dry = false;
+    return { fixed: fixedS, home: homeS };
   }
 
   // ---------------- sprites (Pokémon) ----------------
@@ -1444,7 +1899,7 @@ G.Village3D = (() => {
       const w = Math.round(Math.sqrt(Math.max(0, 1 - Math.pow((y + 0.5 - h) / h, 2))) * R);
       return x >= R - w && x < R + w ? '#000000' : null;
     });
-    m = new T.MeshBasicMaterial({ map: tex(c), transparent: true, opacity: 0.4, depthWrite: false });
+    m = crisp(new T.MeshBasicMaterial({ map: tex(c), transparent: true, opacity: 0.4, depthWrite: false }));
     disposables.push(m);
     shadowMats.set(R, m);
     return m;
@@ -1453,7 +1908,7 @@ G.Village3D = (() => {
     let t = baseTex.get(img);
     if (!t) {
       t = new T.Texture(img);
-      t.magFilter = t.minFilter = T.NearestFilter;
+      t.magFilter = t.minFilter = gl2 ? T.LinearFilter : T.NearestFilter;      // (nítido con crisp; ver arriba)
       t.generateMipmaps = false;
       t.colorSpace = T.SRGBColorSpace;
       t.needsUpdate = true;
@@ -1467,7 +1922,7 @@ G.Village3D = (() => {
     let s = sprites.get(e);
     if (!s) {
       if (!planeGeo) { planeGeo = new T.PlaneGeometry(1, 1); planeGeo.__keep = true; }
-      const mat = new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true });
+      const mat = crisp(new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true }));
       if (e.holo) { mat.depthWrite = false; mat.blending = T.AdditiveBlending; mat.alphaTest = 0.3; }
       const mesh = new T.Mesh(planeGeo, mat);
       mesh.frustumCulled = false; mesh.renderOrder = e.holo ? 13 : 5;
@@ -1499,11 +1954,12 @@ G.Village3D = (() => {
     t.repeat.set(m.w / W, m.h / Hh);
     t.offset.set(sx / W, 1 - (sy + m.h) / Hh);
     const k = PX * a.scale;
-    const left = Math.round((e.x - m.ax * k) / PX) * PX, top = Math.round((m.ay * k + (e.z || 0)) / PX) * PX;
+    // (Pulido) A la rejilla de px del lienzo (antes, a la del arte: a saltos de 2 unidades): se mueven suaves y nítidos.
+    const g = 1 / KL, left = Math.round((e.x - m.ax * k) / g) * g, top = Math.round((m.ay * k + (e.z || 0)) / g) * g;
     s.mesh.scale.set(m.w * k, m.h * k, 1);
     s.mesh.position.set(left + m.w * k / 2, top - m.h * k / 2, e.y + 1);
     const sh2 = Math.max(1, Math.round(s.R * 0.42)) * 2 * PX;
-    s.shadow.position.set(Math.round((e.x) / PX) * PX, 0.8, Math.round(e.y / PX) * PX - sh2 / 2 + PX);
+    s.shadow.position.set(Math.round(e.x / g) * g, 0.8, Math.round(e.y / g) * g - sh2 / 2 + PX);
     if (e.holo) { const fl = 0.75 + 0.25 * Math.sin(uni.time.value * 11) * Math.sin(uni.time.value * 3.3); s.mat.color.setRGB(0.25 * fl, 0.95 * fl, 1.1 * fl); return; }
     // De noche los Pokémon se tiñen algo (sin perderse: la mitad del tinte del suelo).
     const tc = uni.tintCol, f = e.flash ? 1.6 : 1;
@@ -1524,7 +1980,8 @@ G.Village3D = (() => {
    * (0..1: cuánto brilla lo que brilla), dusk, mist }.
    */
   function setLight(l, t) {
-    amb.color.setRGB(...l.amb); amb.intensity = l.ai * Math.PI;
+    amb.color.setRGB(...l.amb); amb.intensity = l.ai * 0.72 * Math.PI;
+    if (hemi) hemi.intensity = l.ai * 0.5 * Math.PI;
     sun.color.setRGB(...l.sun); sun.intensity = l.si * Math.PI;
     const ce = Math.cos(l.el), dir = [Math.cos(l.az) * ce, Math.sin(l.el), Math.sin(l.az) * ce];
     const c = sun.target.position;
@@ -1552,13 +2009,21 @@ G.Village3D = (() => {
    */
   function render(view, t, dt, light) {
     if (!built || lost) return null;
-    const wl = Math.min(1400, Math.ceil(view.w * KL) + 4), hl = Math.min(1000, Math.ceil(view.h * KL) + 4);
+    // Resolución (pulido): px físicos de la pantalla × la calidad, con tope de px por fotograma; nunca menos que antes.
+    const dpr = Math.min(Q.dprCap(), Math.max(1, (G.Camera && G.Camera.dpr) || (typeof devicePixelRatio === 'number' ? devicePixelRatio : 1)));
+    let k = view.scale * dpr * Q.q;
+    const area = view.w * view.h * k * k, mp = Q.maxPx();
+    if (area > mp) k *= Math.sqrt(mp / area);
+    KL = Math.max(0.5, Math.round(k * 32) / 32);
+    uni.px.value = KL;
+    const wl = Math.ceil(view.w * KL) + 4, hl = Math.ceil(view.h * KL) + 4;
     if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; renderer.setSize(Wl, Hl, false); }
     const hw = view.w / 2, hh = view.h / 2, a = view.K / hh, b = a;
     const cxs = Math.round(view.cx * KL) / KL, czs = Math.round(view.cy * KL) / KL;
     const Cx = Math.round(Wl / 2), Cy = Math.round(Hl / 2);
     const R = view.scale / KL;
-    const ox = (cxs - view.cx + hw) * view.scale - Cx * R, oy = (czs - view.cy + hh) * view.scale - Cy * R;
+    // (A px físicos enteros: el lienzo se copia sin remuestrear cuando va a la resolución nativa.)
+    const ox = Math.round(((cxs - view.cx + hw) * view.scale - Cx * R) * dpr) / dpr, oy = Math.round(((czs - view.cy + hh) * view.scale - Cy * R) * dpr) / dpr;
     // En (X, Y, Z): w = 1 − a·(Z − cz) − b·Y; x de pantalla ∝ (X − cx)/w; y ∝ (Z − cz − Y)/w (lo alto sube).
     const w = [0, -b, -a, 1 + a * czs];
     const xr = [2 * KL / Wl, 0, 0, -2 * KL * cxs / Wl].map((v, i) => v + (2 * Cx / Wl - 1) * w[i]);
@@ -1568,14 +2033,14 @@ G.Village3D = (() => {
     P.set([...xr, ...yr, ...zr, ...w]);
     cam3.projectionMatrix.set(...P);
     cam3.projectionMatrixInverse.copy(cam3.projectionMatrix).invert();
-    view.proj = { cxs, czs, Cx, Cy, a, b, R, ox, oy };
+    view.proj = { cxs, czs, Cx, Cy, a, b, R, ox, oy, KL };
     uni.time.value = t;
     if (view.player) uni.player.value.set(view.player.x, 0, view.player.y);
     setLight(light, t);
     for (const o of anim) o.fn(t, dt);
     if (mailPivot) mailPivot.rotation.z = view.mail ? 0 : -Math.PI / 2;
     try { renderer.render(scene, cam3); } catch (e) { console.warn('[Aldea] fallo al dibujar:', e); return null; }
-    return { cv: glcv, Wl, Hl, ox, oy, k: R };
+    return { cv: glcv, Wl, Hl, ox, oy, k: R, smooth: R * dpr < 0.98 };
   }
 
   /** Punto del mundo (x, y del suelo; z de alto) → px CSS de la pantalla (con la cámara del último render). */
@@ -1583,13 +2048,13 @@ G.Village3D = (() => {
     const p = view.proj;
     if (!p) return { x: 0, y: 0 };
     const w = 1 - p.a * (y - p.czs) - p.b * z;
-    return { x: p.ox + (p.Cx + KL * (x - p.cxs) / w) * p.R, y: p.oy + (p.Cy + KL * (y - p.czs - z) / w) * p.R };
+    return { x: p.ox + (p.Cx + p.KL * (x - p.cxs) / w) * p.R, y: p.oy + (p.Cy + p.KL * (y - p.czs - z) / w) * p.R };
   }
   /** px CSS de la pantalla → punto del suelo. */
   function toWorld(view, sx, sy) {
     const p = view.proj;
     if (!p) return { x: 0, y: 0 };
-    const u = ((sx - p.ox) / p.R - p.Cx) / KL, v = ((sy - p.oy) / p.R - p.Cy) / KL;
+    const u = ((sx - p.ox) / p.R - p.Cx) / p.KL, v = ((sy - p.oy) / p.R - p.Cy) / p.KL;
     const dv = v / (1 + p.a * v);
     return { x: p.cxs + u * (1 - p.a * dv), y: p.czs + dv };
   }
@@ -1620,12 +2085,18 @@ G.Village3D = (() => {
     Wl = Hl = 0;
   }
 
-  return { probe, start, build, render, sprite, unsprite, toScreen, toWorld, free, setHome,
+  return { probe, start, build, render, sprite, unsprite, toScreen, toWorld, free, setHome, collect,
     /** Alto (mundo) de lo de encima de un sitio (su nombre va ahí). */
     top: id => tops[id] || 0,
+    /** Lo que choca: [{ id, pts }] (cascos convexos en el suelo, en mundo), lo fijo y tu choza. */
+    solids: () => solidList.concat(home && home.solids || []),
     get ready() { return built && !lost; }, get lost() { return lost; }, get started() { return !!renderer; }, get failed() { return failed; },
     /** Para depurar (sólo con ?dev): la escena. */
     get scene() { return /[?&]dev\b/.test(location.search) ? scene : null; },
     /** Para pruebas: cuántas mallas y llamadas de dibujo. */
-    stats() { return renderer ? { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, texs: renderer.info.memory.textures, W: Wl, H: Hl } : null; } };
+    stats() { return renderer ? { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, texs: renderer.info.memory.textures, W: Wl, H: Hl, KL, q: Q.q, step: Q.i, gl2, aa: fx() > 0 } : null; },
+    /** Calidad automática: village.js le pasa lo que tarda cada fotograma mientras paseas. */
+    tune: dt => Q.tune(dt), perf: PERF,
+    /** Para pruebas y capturas: fija la calidad (null: automática). */
+    quality(q) { Q.fixed = q == null ? null : q; } };
 })();
