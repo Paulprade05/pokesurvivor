@@ -73,7 +73,7 @@ test('atascos: with its centre inside a wide block of rock, World.collide gets i
   }
   assert.ok(worst <= 5 * TS + 40, `lo saca demasiado lejos: ${worst.toFixed(0)}`);
   // Y fuera del bloque, nada cambia: un círculo rozando la pared sólo se separa.
-  const e = { x: 4.5 * TS + TS + 5, y: 0, r: 12 };
+  const e = { x: 5 * TS + 5, y: 0, r: 12 };     // (el bloque acaba en x = 5·TS: se mete 7 px)
   W.collide(e);
   assert.ok(Math.abs(e.x - (5 * TS + 12)) < 0.01 && e.y === 0, 'roce normal: se separa sin más');
 });
