@@ -79,6 +79,7 @@ G.Game = (() => {
     G.Sprites.purge();
     G.World.purge();
     D3.free();
+    Bloom.free();
     G.Ultra3D.free();
     // (iPhone: ataques invisibles, 02-11-2026) También los sprites guardados de ataques y avisos.
     G.VFX.purge();
@@ -289,6 +290,7 @@ G.Game = (() => {
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
+    irisT = performance.now();                // (pulido 12-11-2026) la partida se abre en círculo desde tu Pokémon
     if (G.Village) G.Village.sleep();       // (la aldea del menú suelta su WebGL: se rehace al volver)
     const save = G.DB.save;
     // Se empieza con la primera fase de su línea (24-10-2026: evoluciona en la
@@ -491,6 +493,23 @@ G.Game = (() => {
 
   // Destello de pantalla completa (viaje a la grieta).
   let flashT = 0, flashDur = 1, flashCol = '#fff';
+  // (Pulido 12-11-2026: transiciones) Al empezar, la pantalla se abre en un círculo suave desde tu Pokémon.
+  const IRIS = 750;
+  let irisT = 0;                       // cuándo empezó (ms); 0: nada
+  function drawIris() {
+    const k = Math.min(1, (performance.now() - irisT) / IRIS), e = k * k * (3 - 2 * k);
+    if (k >= 1) { irisT = 0; return; }
+    let x = w / 2, y = h / 2;
+    if (pl) { const p = G.Camera.toScreen(pl.x, pl.y - 20); x = p.x; y = p.y; }
+    const R = Math.hypot(w, h) * e + 1;
+    const g = ctx.createRadialGradient(x, y, R * 0.6, x, y, R * 1.05 + 40);
+    g.addColorStop(0, 'rgba(5,8,16,0)'); g.addColorStop(1, 'rgba(5,8,16,1)');
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - e) * 1.4);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
   function flash(col, dur) { flashCol = col; flashDur = dur; flashT = dur; }
 
   function teamState() {
@@ -1583,6 +1602,7 @@ G.Game = (() => {
 
     if (bwHits) bwWorld = readWorld() || '';      // (con sospechas: cómo está el mundo antes de los velos de encima)
     G.Weather.draw(ctx, w, h, frameDt);
+    Bloom.apply();                                 // (calidad Máxima: brillo de lo claro, antes de la viñeta y el HUD)
     G.World.drawVignette(ctx, w, h);
     // Niebla: la viñeta se cierra un poco (sin tapar el centro).
     // (El degradado se guarda y la intensidad va con globalAlpha: mismo resultado.)
@@ -1593,6 +1613,7 @@ G.Game = (() => {
       ctx.globalAlpha = 1;
     }
     if (bwOn) blackWatch();
+    if (irisT) drawIris();
     if (!G.Judgment.cinematic) G.HUD.draw(ctx, w, h, pl, st);
     G.Judgment.drawOverlay(ctx, w, h);
     // (En el viaje por la grieta no hay HUD ni joystick: toda la pantalla es el botón de saltarlo.)
@@ -1616,6 +1637,44 @@ G.Game = (() => {
     }
     drawing = false;
   }
+
+  /*
+   * (12-11-2026) Bloom de verdad con la calidad Máxima (PC): lo claro de la escena (fuego, rayos, luces, cristales) se
+   * queda, se difumina en un lienzo a un cuarto de tamaño y se suma encima. Antes de la viñeta y del HUD: los textos y
+   * los números no brillan. Necesita ctx.filter (Chrome, Edge, Firefox y la app de Windows); si no lo hay, no se hace.
+   * Coste medido en PC: ~0,3 ms por fotograma (dos dibujos pequeños y uno a pantalla completa).
+   */
+  const Bloom = (() => {
+    let a = null, ax2 = null, b = null, bx2 = null, ok = null;
+    function apply() {
+      if (!G.Settings.max || G.Settings.fx < 2 || G.Settings.get('calm')) return;
+      if (ok === null) { const t = document.createElement('canvas').getContext('2d'); ok = !!t && typeof t.filter === 'string'; }
+      if (!ok) return;
+      const W = cv.width, Hh = cv.height, bw = Math.max(8, Math.round(W / 4)), bh = Math.max(8, Math.round(Hh / 4));
+      if (!a) { a = document.createElement('canvas'); ax2 = a.getContext('2d'); b = document.createElement('canvas'); bx2 = b.getContext('2d'); }
+      if (!ax2 || !bx2) { ok = false; return; }
+      if (a.width !== bw || a.height !== bh) { a.width = b.width = bw; a.height = b.height = bh; }
+      // Lo claro: contraste alto (lo medio se apaga), a un cuarto de tamaño; luego difuminado.
+      ax2.globalCompositeOperation = 'copy'; ax2.imageSmoothingEnabled = true;
+      ax2.filter = 'brightness(0.8) contrast(2.8) saturate(1.35)';
+      ax2.drawImage(cv, 0, 0, bw, bh);
+      ax2.filter = 'none';
+      bx2.globalCompositeOperation = 'copy';
+      bx2.filter = 'blur(' + Math.max(2, Math.round(bw / 160)) + 'px)';
+      bx2.drawImage(a, 0, 0);
+      bx2.filter = 'none';
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.34;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(b, 0, 0, W, Hh);
+      ctx.restore();
+      ctx.imageSmoothingEnabled = false;
+    }
+    function free() { G.U.freeCanvas(a); G.U.freeCanvas(b); a = b = ax2 = bx2 = null; }
+    return { apply, free };
+  })();
 
   // ---------------- fondo de los menús ----------------
 

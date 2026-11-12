@@ -212,8 +212,19 @@ G.Atmos = (() => {
       o[p] = r; o[p + 1] = gr; o[p + 2] = b; o[p + 3] = 255 * s * q;
     }
     g.putImageData(d, 0, 0);
-    return cv;
+    if (!PRE) return cv;
+    // (Móvil) Ampliado ×3 suavizado una vez aquí: así se dibuja al píxel más cercano cada fotograma (ampliar suavizado
+    // en cada fotograma costaba ~18 ms en el WebKit de las pruebas). 576×576: 1,3 MB por banco.
+    const big = document.createElement('canvas');
+    big.width = big.height = S * 3;
+    const bg = big.getContext('2d');
+    if (!bg) { G.U.freeCanvas(big); return cv; }
+    bg.imageSmoothingEnabled = true;
+    bg.drawImage(cv, 0, 0, S * 3, S * 3);
+    G.U.freeCanvas(cv);
+    return big;
   }
+  const PRE = !!(G.U && G.U.IOS) || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
   function tint(bi) {
     build();
     free();
@@ -242,6 +253,7 @@ G.Atmos = (() => {
     return u * u * (3 - 2 * u);
   }
 
+  const SOFT = { on: true };            // (para medir: la niebla ampliada suavizada o no)
   // (El dueño eligió la niebla densa, 07-11-2026: se ve claro como bancos.) La de MOODS, por estos factores.
   // MIST_MAX: el tope, también con el clima Niebla: muros, agua y lava están debajo y tienen que seguir leyéndose.
   const MIST_K = 1.36, DARK_K = 1.19, MIST_MAX = 0.5;
@@ -264,7 +276,7 @@ G.Atmos = (() => {
     const a = Math.min(MIST_MAX, m.mist[1] * MIST_K * (1 + nn * 0.45 + wx * 1.1)) * k;
     // (Pulido) Ampliado suavizado: jirones de borde suave en vez de cuadros de 6-8 unidades.
     const sm = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = SOFT.on && !PRE;
     if (fx > 1) {
       if (darkC) { ctx.globalAlpha = Math.min(0.6, m.dark[1] * DARK_K) * k; tile(ctx, darkC, L, Tp, W, H, -now * 9, now * 3.5, 4, 3); }
     }
@@ -285,6 +297,6 @@ G.Atmos = (() => {
     return e;
   }
 
-  return { MOODS, mood, bake, tops, ground, edge, purge: free,
+  return { MOODS, mood, bake, tops, ground, edge, purge: free, soft: SOFT,
     reset() { k = 0; want = -1; free(); } };
 })();

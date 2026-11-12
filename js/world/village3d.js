@@ -103,8 +103,9 @@ G.Village3D = (() => {
     STEPS: [1, 0.85, 0.7, 0.58, 0.48], i: 0, ema: 1 / 60, slow: 0, fast: 0, fixed: null,
     init() { let i = 0; try { i = +localStorage.getItem('ps.vil.q') || 0; } catch (e) { /* nada */ } this.i = Math.max(0, Math.min(this.STEPS.length - 1, i | 0)); this.ema = 1 / 60; this.slow = this.fast = 0; },
     get q() { return this.fixed != null ? this.fixed : this.STEPS[this.i]; },
-    dprCap() { const f = fx(); return f === 0 ? 1 : f === 1 ? 1.5 : 2; },
-    maxPx() { const f = fx(), m = mobile(); return (f === 0 ? 0.9e6 : f === 1 ? (m ? 1.4e6 : 2.4e6) : (m ? 2.2e6 : 4.2e6)); },
+    // (12-11-2026) Máxima (PC): hasta 2,5 px físicos por px CSS y 6,5 M px por fotograma.
+    dprCap() { const f = fx(); return f === 0 ? 1 : f === 1 ? 1.5 : G.Settings && G.Settings.max ? 2.5 : 2; },
+    maxPx() { const f = fx(), m = mobile(); return (f === 0 ? 0.9e6 : f === 1 ? (m ? 1.4e6 : 2.4e6) : (m ? 2.2e6 : G.Settings && G.Settings.max ? 6.5e6 : 4.2e6)); },
     save() { try { localStorage.setItem('ps.vil.q', String(this.i)); } catch (e) { /* nada */ } },
     tune(dt) {
       if (this.fixed != null || !(dt > 0) || dt > 0.25) return;
@@ -1891,7 +1892,7 @@ G.Village3D = (() => {
       scene.add(hemi);
       sun = new T.DirectionalLight(0xffffff, 0.3 * Math.PI);
       sun.castShadow = fx() > 0;
-      const ms = mobile() ? 1024 : 2048;
+      const ms = mobile() ? 1024 : G.Settings && G.Settings.max ? 4096 : 2048;      // (Máxima: sombras más finas)
       sun.shadow.mapSize.set(ms, ms);
       sun.shadow.bias = -0.002;
       const sc = sun.shadow.camera, half = Math.max(V().W, V().H) * TS * 0.62;
@@ -1917,7 +1918,8 @@ G.Village3D = (() => {
       buildMist();
       // Partículas: esporas que flotan (siempre) y que caen, chispas y el manantial.
       const VG = V(), f = fx();
-      const nFly = f === 0 ? 14 : f === 1 ? 24 : 36, nPet = f === 0 ? 6 : f === 1 ? 12 : 18;
+      const mx = G.Settings && G.Settings.max;          // (Máxima: más esporas y luciérnagas)
+      const nFly = f === 0 ? 14 : f === 1 ? 24 : mx ? 64 : 36, nPet = f === 0 ? 6 : f === 1 ? 12 : mx ? 30 : 18;
       const spots = (n, s) => Array.from({ length: n }, (_, i) => [(3 + H(i, s, 1) * (VG.W - 6)) * TS, 0, (3 + H(i, s, 2) * (VG.H - 6)) * TS]);
       uni.flyA = { value: 1 }; uni.petA = { value: 0.7 };
       particles(0, spots(nFly, 1), [CYAN, GREEN, '#d8ff70', PINK], 2, true, uni.flyA);

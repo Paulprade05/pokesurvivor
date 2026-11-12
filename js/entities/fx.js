@@ -9,8 +9,9 @@
 G.FX = (() => {
   const PX = G.Sprites.PX;
   // Topes según la calidad (Ajustes → Gráficos): bajo, medio, alto.
-  const CAP_PARTS = [350, 800, 1400], CAP_SPRITES = [110, 210, 320], CAP_TEXTS = [25, 45, 70], DENS = [0.35, 0.65, 1];
-  const q = () => G.Settings.fx;
+  // (12-11-2026) En calidad Máxima (PC), un nivel más: más partículas y más golpes con adornos (q = 3).
+  const CAP_PARTS = [350, 800, 1400, 2400], CAP_SPRITES = [110, 210, 320, 520], CAP_TEXTS = [25, 45, 70, 90], DENS = [0.35, 0.65, 1, 1.35];
+  const q = () => G.Settings.fx === 2 && G.Settings.max ? 3 : G.Settings.fx;
   let parts = [], sprites = [], texts = [], rings = [], slashes = [], beams = [];
   /*
    * (Arte animado, 05-11-2026) Golpes con dibujo propio de cada tipo. Sólo aspecto: se cuelga de lo que ya se ve al golpear
@@ -18,7 +19,7 @@ G.FX = (() => {
    * TRAIL_MAX estelas; los demás salen sólo con la chispa de siempre, así que mil enemigos cuestan lo mismo que diez.
    * Con «Animaciones» apagado no sale nada de esto: se sigue viendo la chispa, los números y los ataques.
    */
-  const HIT_MAX = [2, 4, 7], TRAIL_MAX = [1, 3, 6];
+  const HIT_MAX = [2, 4, 7, 11], TRAIL_MAX = [1, 3, 6, 9];
   let hitLeft = 0, trailLeft = 0;
   const palCache = new Map();
   /** El tipo (paleta de G.VFX) más cercano a un color: los golpes llegan con su color, no con su tipo. */
@@ -56,6 +57,7 @@ G.FX = (() => {
     hitLeft--;
     const pal = palOf(color), D = DENS[q()] >= 1 ? 1 : 0;
     sp('hit', pal, x, y, { life: 0.2, scale: big ? 1.5 : 1, frameRate: 25, fade: false });
+    light(x, y, G.VFX.PAL[pal][3], big ? 46 : 28, big ? 0.3 : 0.2, big ? 0.75 : 0.55);
     switch (pal) {
       case 'fire': debris('smoke', 'fire', x, y, 1 + D, { v: 26, vy: -34, life: 0.32, fr: 12 }); for (let i = 0; i < 3; i++) px(x + G.U.rand(-6, 6), y, Math.random() < 0.5 ? '#ffb22e' : '#ff6a1f', { vy: -G.U.rand(40, 90), vx: G.U.rand(-20, 20), life: 0.4 }); break;
       case 'water': sp('splash', pal, x, y - 4, { life: 0.28, scale: 1.25, frameRate: 14, fade: false }); for (let i = 0; i < 3; i++) px(x, y, '#8ccaff', { vx: G.U.rand(-60, 60), vy: -G.U.rand(40, 90), grav: 380, life: 0.36 }); break;
@@ -79,7 +81,50 @@ G.FX = (() => {
     debris('smoke', 'normal', x, y, boss ? 6 : 2, { v: boss ? 70 : 34, vy: -14, life: 0.42, fr: 9, scale: boss ? 2 : 1 });
   }
 
-  function clear() { parts = []; sprites = []; texts = []; rings = []; slashes = []; beams = []; }
+  /*
+   * (Pulido 12-11-2026, el dueño: «mejoras gráficas en todo el juego») Luz: un halo suave que se suma (lighter) donde algo
+   * brilla: impactos, explosiones, disparos, jefes, la grieta. Es un degradado guardado por color (64 px) que se dibuja
+   * ampliado y suavizado: un drawImage por luz, con tope por calidad. Los Pokémon siguen siendo pixel art: esto va
+   * debajo y alrededor, nunca encima de ellos (los golpes van en la capa del aire, como siempre).
+   */
+  const LIGHT_MAX = [0, 18, 44, 90];
+  let lights = [], lightLeft = 0;
+  const glows = new Map();
+  function glowImg(col) {
+    let c = glows.get(col);
+    if (c !== undefined) return c;
+    if (glows.size > 48) { const k = glows.keys().next().value; G.U.freeCanvas(glows.get(k)); glows.delete(k); }
+    c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    if (!g) { glows.set(col, null); return null; }
+    const n = parseInt(String(col).slice(1), 16), r = n >> 16 & 255, gr = n >> 8 & 255, b = n & 255;
+    const k = `${r},${gr},${b}`, gd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gd.addColorStop(0, `rgba(${Math.min(255, r + 90)},${Math.min(255, gr + 90)},${Math.min(255, b + 90)},1)`);
+    gd.addColorStop(0.22, `rgba(${k},0.7)`); gd.addColorStop(0.55, `rgba(${k},0.22)`); gd.addColorStop(1, `rgba(${k},0)`);
+    g.fillStyle = gd; g.fillRect(0, 0, 64, 64);
+    glows.set(col, c);
+    return c;
+  }
+  /** Un halo de luz ya (elipse de radios rx, ry en mundo), sumado. Para dibujar desde fuera (jefes, grieta, disparos). */
+  function glowAt(ctx, x, y, rx, ry, col, a) {
+    if (!q() || a <= 0.01 || !/^#[0-9a-f]{6}$/i.test(col)) return;
+    const im = glowImg(col);
+    if (!im) return;
+    const op = ctx.globalCompositeOperation, sm = ctx.imageSmoothingEnabled, ga = ctx.globalAlpha;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = Math.min(1, a);
+    ctx.drawImage(im, x - rx, y - ry, rx * 2, ry * 2);
+    ctx.globalCompositeOperation = op; ctx.imageSmoothingEnabled = sm; ctx.globalAlpha = ga;
+  }
+  /** Una luz que dura un poco (golpes, explosiones): crece un poco y se apaga. */
+  function light(x, y, col, r = 30, life = 0.22, k = 0.6) {
+    if (lightLeft <= 0 || lights.length >= LIGHT_MAX[q()]) return;
+    lightLeft--;
+    lights.push({ x, y, col, r, life, k, t: 0 });
+  }
+
+  function clear() { parts = []; sprites = []; texts = []; rings = []; slashes = []; beams = []; lights = []; }
 
   const snap = v => Math.round(v / PX) * PX;
 
@@ -106,6 +151,7 @@ G.FX = (() => {
   }
 
   function burst(x, y, color, n = 8, power = 110) {
+    if (n > 8 && /^#[0-9a-f]{6}$/i.test(color)) light(x, y, color, Math.min(120, power * 0.45), 0.32, 0.7);     // (explosión: su luz)
     n = Math.max(1, Math.round(n * DENS[q()]));
     if (n <= 8) hitFx(x, y, color);                    // (un disparo que se acaba contra algo)
     for (let i = 0; i < n; i++) {
@@ -233,7 +279,8 @@ G.FX = (() => {
   // ---------------- actualización ----------------
 
   function update(dt) {
-    hitLeft = HIT_MAX[q()]; trailLeft = TRAIL_MAX[q()];
+    hitLeft = HIT_MAX[q()]; trailLeft = TRAIL_MAX[q()]; lightLeft = Math.ceil(LIGHT_MAX[q()] / 3);
+    for (let i = lights.length - 1; i >= 0; i--) { const l = lights[i]; l.t += dt; if (l.t >= l.life) lights.splice(i, 1); }
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
       p.t += dt;
@@ -372,6 +419,7 @@ G.FX = (() => {
 
   function draw(ctx) {
     const own = ownAlpha();
+    for (const l of lights) { const k = 1 - l.t / l.life; glowAt(ctx, l.x, l.y, l.r * (1.25 - 0.25 * k), l.r * (0.9 - 0.2 * k), l.col, l.k * k * k); }
     for (const b of beams) drawBeam(ctx, b, own);
     for (const s of slashes) drawSlash(ctx, s, own);
     for (const r of rings) drawRing(ctx, r);
@@ -415,6 +463,6 @@ G.FX = (() => {
     ctx.restore();
   }
 
-  return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw, ownAlpha, hitFx, faintFx,
+  return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw, ownAlpha, hitFx, faintFx, glowAt, light,
            get count() { return parts.length + sprites.length + texts.length; } };
 })();

@@ -98,7 +98,7 @@ G.Ultra3D = (() => {
       renderer.shadowMap.autoUpdate = false;
       const cap = renderer.capabilities || {};
       gl2 = !!cap.isWebGL2;
-      aniso = Math.min(mob ? 2 : 8, cap.getMaxAnisotropy ? cap.getMaxAnisotropy() : 1);
+      aniso = mob ? 1 : Math.min(8, cap.getMaxAnisotropy ? cap.getMaxAnisotropy() : 1);
       scene = new T.Scene();
       scene.matrixWorldAutoUpdate = false;
       cam3 = new T.Camera();
@@ -160,7 +160,8 @@ G.Ultra3D = (() => {
   /** Pixel art (paredes del tileset): sin mipmaps; con WebGL2 filtrado lineal y muestreo nítido (crisp); si no, el más cercano. */
   function tex(cv, repeat = false) {
     const t = new T.CanvasTexture(cv);
-    t.magFilter = t.minFilter = gl2 ? T.LinearFilter : T.NearestFilter;
+    // (En móvil el lienzo va a la escala del arte: al píxel más cercano ya es nítido, y más barato.)
+    t.magFilter = t.minFilter = gl2 && !mob ? T.LinearFilter : T.NearestFilter;
     t.generateMipmaps = false;
     t.colorSpace = T.SRGBColorSpace;
     if (repeat) t.wrapS = T.RepeatWrapping;
@@ -187,7 +188,7 @@ G.Ultra3D = (() => {
     '  p = s + clamp((p - s) / d, -0.5, 0.5);',
     '  return texture2D(t, p / sz);', '}'].join('\n');
   function crisp(m) {
-    if (!gl2) return m;
+    if (!gl2 || mob) return m;
     m.onBeforeCompile = sh => {
       sh.fragmentShader = sh.fragmentShader.replace('void main() {', CRISP + '\nvoid main() {')
         .replace('#include <map_fragment>', '#ifdef USE_MAP\n  diffuseColor *= crispTex(map, vMapUv);\n#endif');
@@ -398,7 +399,7 @@ G.Ultra3D = (() => {
   }
   /** Una roca lisa: esfera deformada (ruido suave), aplastada, con la base plana y sus tonos por vértice. */
   function rockGeo(look) {
-    const seg = mob ? [14, 9] : [22, 14];
+    const seg = mob ? [10, 7] : [22, 14];
     let g = weld(new T.SphereGeometry(1, seg[0], seg[1]));
     const p = g.attributes.position, col = [], uv = [];
     const W = look ? 19 : 17, D = 10.5, Hh = look ? 13 : 16;
@@ -479,9 +480,10 @@ G.Ultra3D = (() => {
       : new T.MeshLambertMaterial({ color: woodT[2] });
     const woodL = kit ? new T.MeshLambertMaterial({ map: stex(kit.planks(mob ? 64 : 128, woodT.map(c => kit.shade(c, 0.16)), big ? 48 : 44)) })
       : new T.MeshLambertMaterial({ color: woodT[3] });
-    const gold = new T.MeshPhongMaterial({ color: 0xe0ac34, specular: 0xfff0b0, shininess: 70, emissive: 0x3a2400 });
+    // (En móvil, sin brillo especular: Lambert, más barato.)
+    const gold = mob ? new T.MeshLambertMaterial({ color: 0xe0ac34, emissive: 0x3a2400 }) : new T.MeshPhongMaterial({ color: 0xe0ac34, specular: 0xfff0b0, shininess: 70, emissive: 0x3a2400 });
     const dark = new T.MeshLambertMaterial({ color: 0x160a06 });
-    const coin = new T.MeshPhongMaterial({ color: 0xf0c048, specular: 0xffffff, shininess: 90, emissive: 0x6a4a08 });
+    const coin = mob ? gold : new T.MeshPhongMaterial({ color: 0xf0c048, specular: 0xffffff, shininess: 90, emissive: 0x6a4a08 });
     const m = { wood, gold, dark, coin, woodL };
     const r = big ? 3 : 2.4, B = [], Lp = [];
     // Cuerpo (de y = −Y a 0, z de 0 a Zb): las tablas y el borde de arriba un poco más claro.
@@ -506,6 +508,8 @@ G.Ultra3D = (() => {
     if (big) Lp.push([place(domeLid(3, Y + 1.2, Zl + 0.7, mob ? 10 : 16), 0, Y / 2, 0), 1]);
     // Su cara de dentro (por debajo): con la tapa levantada queda de pie detrás del cofre, mirándote.
     Lp.push([place(new T.BoxGeometry(2 * X - 1, 0.4, Y - 1), 0, Y / 2, 0.2), 2]);
+    // (En móvil, las monedas con el oro y la tapa con la madera: menos llamadas de dibujo.)
+    if (mob) for (const L2 of [B, Lp]) for (const e of L2) e[1] = e[1] === 3 ? 1 : e[1] === 4 ? 0 : e[1];
     const join = list => {
       // Una geometría con un grupo por material (madera, oro, oscuro, monedas, madera de la tapa).
       const out = { pos: [], nor: [], uv: [], groups: [] };
@@ -527,7 +531,7 @@ G.Ultra3D = (() => {
     // Las uv de las tablas, a escala del mundo (las de cada pieza van de 0 a 1: en un cofre ancho, tablas enormes).
     const scaleUv = (g, k) => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * k, uv.getY(i) * k * 0.5); };
     for (const [g, k] of B) if (k === 0) scaleUv(g, big ? 1.4 : 1);
-    for (const [g, k] of Lp) if (k === 4) scaleUv(g, big ? 1.4 : 1);
+    for (const [g, k] of Lp) if (k === 4 || k === 0) scaleUv(g, big ? 1.4 : 1);
     const body = join(B), lid = join(Lp);
     const hulls = [hullOf(body, [1.06, 1.1, 1.05]), lid.clone().scale(1.05, 1.07, 1.1)];
     return { m, body, lid, hulls, Y, Zb, Zl, X };
@@ -851,7 +855,8 @@ G.Ultra3D = (() => {
   function ground(ctx) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // (Pulido) Ampliado suavizado: lo 3D ya no es pixel art (en PC va casi a la resolución de la pantalla).
-    ctx.imageSmoothingEnabled = R > 1.01;
+    // (En móvil, como antes: al píxel más cercano. Ampliar suavizado varias veces por fotograma costaba en Safari.)
+    ctx.imageSmoothingEnabled = R > 1.01 && !mob;
     ctx.drawImage(glcv, 0, 0, Wl, Hl, Ox, Oy, Wl * R, Hl * R);
     const gi = G.Settings.fx > 0 && glowSeen.length ? glowImg() : null;
     if (gi) {
@@ -874,7 +879,7 @@ G.Ultra3D = (() => {
   function blit(ctx, b) {
     if (b.ay < 0) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.imageSmoothingEnabled = R > 1.01;
+    ctx.imageSmoothingEnabled = R > 1.01 && !mob;
     ctx.drawImage(glcv, b.x, b.ay, b.w, b.h, b.x * R + Ox, b.y * R + Oy, b.w * R, b.h * R);
     ctx.imageSmoothingEnabled = false;
   }

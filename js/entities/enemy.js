@@ -1137,6 +1137,15 @@
 
       const gold = this.golden || this.behavior === 'thief' || (this.remote && !this.boss && G.Events.golden);
       if ((this.boss || this.shiny || gold || this.champ) && !this.dead) {
+        // (Pulido 12-11-2026: «jefes con más presencia») Un aura de luz que late alrededor (se suma: no tapa el sprite, va
+        // debajo) y, a los jefes, un aro de luz a los pies. Con calidad baja, sólo la mancha de siempre.
+        const furious = (this.ai && this.ai.fury) || (this.boss && this.net && this.net.st & 16);
+        const ac = furious ? '#ff4a4a' : this.shiny ? '#9ae6ff' : gold ? '#ffd23f' : this.champ ? '#ff7a2e' : '#ffd95e';
+        if (this.boss) {
+          const pu = 0.5 + Math.sin(this.bob * 0.45) * 0.5, R = Math.max(this.r * 2.6, this.bodyH * 0.9);
+          G.FX.glowAt(ctx, this.x, this.y - this.bodyH * 0.35, R * (1.05 + pu * 0.1), R * 0.8, ac, 0.42 + pu * 0.18);
+          G.FX.glowAt(ctx, this.x, this.y, this.r * 2.6, this.r * 1, ac, 0.6);
+        } else G.FX.glowAt(ctx, this.x, this.y - this.bodyH * 0.3, this.r * 2, this.r * 1.5, ac, 0.22);
         ctx.save();
         ctx.globalAlpha = (gold && !this.boss ? 0.32 : this.champ ? 0.3 : 0.22) + Math.sin(this.bob * 0.5) * 0.06;
         ctx.fillStyle = (this.ai && this.ai.fury) || (this.boss && this.net && this.net.st & 16) ? '#ff4a4a' : this.shiny ? '#9ae6ff' : gold ? '#ffd23f' : this.champ ? '#ff7a2e' : '#ffd95e';
