@@ -29,7 +29,8 @@ G.Village = (() => {
   let view = { cx: 0, cy: 0, w: 960, h: 525, scale: 1, K: 0.18 };
   let t = 0, quick = false, walkPrev = false, saveT = 0, hover = null, near = null, renderAcc = 0, lastShot = null;
   let target = null;                     // andar hasta un sitio (toque o clic): { x, y, then }
-  let solids = [];                       // { x0, y0, x1, y1 } o { x, y, r } (mundo)
+  let solids = [];                       // lo que choca: { id, pts } (cascos convexos de los modelos, village3d.js solids) o { x, y, r }
+  let solidIx = null, reach = null, pondSolid = false;      // su índice por casillas y lo que se alcanza andando (se rehacen al cambiar)
   let tileWait = 0, lastPartner = '';
   let pet = null, holo = null, homeKey = '', homeOpen = false, homePreview = null, prepP = null;
 
@@ -179,11 +180,9 @@ G.Village = (() => {
     if (key === homeKey) return;
     homeKey = key;
     const info = G.Village3D.setHome(cfg) || {};
-    const H0 = V().PLACES.find(p => p.id === 'home');
-    // Lo que no se puede pisar: el tótem y el proyector del holograma.
-    solids = solids.filter(o => !o.home);
-    if (cfg.totem && cfg.totem !== 'none') solids.push({ x: tile(H0.x) - 82, y: tile(H0.y) + 44, r: 18, home: true });
-    if (info.holo) solids.push({ x: info.holo[0], y: info.holo[1], r: 14, home: true });
+    // Lo que no se puede pisar sale de los modelos (también tu choza, su tótem y su decoración).
+    setSolids();
+    if (pl) unstick(pl);
     // Mascota: uno de tus Pokémon, quieto en su cojín.
     if (pet && pet.anim.dex !== cfg.pet) { G.Village3D.unsprite(pet); npcs = npcs.filter(n => n !== pet); pet = null; }
     if (cfg.pet && !pet) {
@@ -257,7 +256,9 @@ G.Village = (() => {
   // ---------------- entidades ----------------
   function mon(dex, shiny, scale = 1) {
     const anim = new G.Sprites.Animator(dex, scale, shiny);
-    return { anim, x: 0, y: 0, z: 0, r: Math.min(14, G.Sprites.bodyRadius(dex, scale)), vx: 0, vy: 0 };
+    // r: para andar (con tope: que quepan por los caminos); body: lo que abulta de verdad (tu Pokémon choca con eso).
+    const body = G.Sprites.bodyRadius(dex, scale);
+    return { anim, x: 0, y: 0, z: 0, r: Math.min(14, body), body, vx: 0, vy: 0 };
   }
   const tile = v => v * TS;
 
@@ -269,9 +270,7 @@ G.Village = (() => {
     if (pl) { G.Village3D.unsprite(pl); }
     lastPartner = '';
     pl = null;
-    solids = [];
-    for (const p of V().PLACES) solids.push({ x0: tile(p.x - p.w / 2), y0: tile(p.y - p.h / 2), x1: tile(p.x + p.w / 2), y1: tile(p.y + p.h / 2) });
-    for (const d of V().DECOR) if (d.r) solids.push({ x: tile(d.x), y: tile(d.y), r: tile(d.r) });
+    setSolids();
     const low = G.Settings.fx === 0;
     // Tenderos: uno en cada sitio que lo tenga, quietos junto a la puerta (mirando al sur).
     for (const p of V().PLACES) {
@@ -288,29 +287,53 @@ G.Village = (() => {
       n.x = n.home[0]; n.y = n.home[1];
       if (c.dir != null) n.anim.dir = c.dir;
       if (c.still === 'Sleep') G.Sprites.sheet(c.dex, 'Sleep');
+      // Los quietos (Snorlax dormido...) abultan lo que su dibujo de ahora (tumbado es más ancho que de pie).
+      if (c.still) { const m = G.Sprites.animMeta(c.dex, c.still); if (m) n.body = Math.max(n.body, Math.min(40, m.w * 0.3 * 2)); }
       npcs.push(n);
     }
   }
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   // ---------------- choques ----------------
+  /*
+   * (Pulido 12-11-2026, «el personaje atraviesa ciertas cosas») Antes chocaban un rectángulo por sitio (su w × h) y un
+   * círculo por decorado (r), que no casaban con lo que se ve: la valla, las setas, el banco o las raíces no chocaban y
+   * a las carpas se entraba por los lados. Ahora chocan los propios modelos (G.Village3D.solids: el casco convexo de cada
+   * pieza en el suelo), el bosque del borde y la charca (por casillas) y los Pokémon de la aldea que no te siguen.
+   * Nunca se queda uno atascado: si ya estás metido en algo, puedes salir (VILLAGE.hits, from), y si acabas en un sitio
+   * al que no se llega andando (un hueco entre cosas), unstick te lleva al punto libre más cercano que sí.
+   */
+  function setSolids() {
+    solids = (G.Village3D.solids && G.Village3D.solids()) || [];
+    solidIx = V().index(solids);
+    pondSolid = solids.some(o => o.id === 'pond');
+    reach = null;
+  }
+  /** ¿Choca el círculo (x, y, r)? who: quién se mueve (su sitio de ahora es de donde viene; agua: vuela o nada). */
   function blocked(x, y, r, who) {
-    const VG = V();
+    const VG = V(), from = who && who.x != null ? [who.x, who.y] : null;
     const tx0 = Math.floor((x - r) / TS), tx1 = Math.floor((x + r) / TS), ty0 = Math.floor((y - r) / TS), ty1 = Math.floor((y + r) / TS);
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       const tr = VG.terrainAt(tx, ty);
-      if (!tr || (tr === 2 && who && (who.fly || who.water))) continue;
-      // círculo contra casilla
-      const cx = Math.max(tx * TS, Math.min(x, tx * TS + TS)), cy = Math.max(ty * TS, Math.min(y, ty * TS + TS));
-      if ((cx - x) ** 2 + (cy - y) ** 2 < r * r) return true;
+      // (La charca choca por su elipse, de los modelos: sus casillas, no.)
+      if (!tr || (tr === 2 && (pondSolid || (who && (who.fly || who.water))))) continue;
+      // círculo contra casilla (si ya estaba dentro, puede salir)
+      const d = boxDist(tx, ty, x, y);
+      if (d < r && !(from && d > boxDist(tx, ty, from[0], from[1]) + 1e-3)) return true;
     }
-    if (who && who.water) return false;
-    for (const s of solids) {
-      if (s.r) { if ((s.x - x) ** 2 + (s.y - y) ** 2 < (s.r + r) ** 2) return true; continue; }
-      const cx = Math.max(s.x0, Math.min(x, s.x1)), cy = Math.max(s.y0, Math.min(y, s.y1));
-      if ((cx - x) ** 2 + (cy - y) ** 2 < r * r) return true;
+    if (who && (who.water || who.fly)) return false;
+    if (solidIx && VG.hits(solidIx, x, y, r, from)) return true;
+    // Tu Pokémon no atraviesa a los de la aldea (los que te siguen, sí: van detrás de ti).
+    if (who && who === pl) for (const n of npcs) {
+      if (n.mode === 'follow' || n.holo) continue;
+      const R = r + (n.body || n.r) * (n.mode === 'still' ? 1 : 0.8), d = Math.hypot(x - n.x, y - n.y);
+      if (d < R && d < Math.hypot(from[0] - n.x, from[1] - n.y) - 1e-3) return true;
     }
     return false;
+  }
+  function boxDist(tx, ty, x, y) {
+    const cx = Math.max(tx * TS, Math.min(x, tx * TS + TS)), cy = Math.max(ty * TS, Math.min(y, ty * TS + TS));
+    return Math.hypot(cx - x, cy - y);
   }
   /** Mueve con choques (resbala por las paredes). → lo que se ha movido. */
   function move(e, dx, dy) {
@@ -319,6 +342,35 @@ G.Village = (() => {
     else if (!blocked(e.x + dx, e.y, e.r, e)) e.x += dx;
     else if (!blocked(e.x, e.y + dy, e.r, e)) e.y += dy;
     return Math.hypot(e.x - x0, e.y - y0);
+  }
+  /** Lo que se alcanza andando desde la entrada (rejilla de 12; con el radio más grande de un Pokémon tuyo). */
+  const REACH_R = 16;
+  function reachMap() {
+    if (!reach) { const VG = V(); reach = VG.flood((x, y) => !blocked(x, y, REACH_R), tile(VG.SPAWN[0]), tile(VG.SPAWN[1]), 12); }
+    return reach;
+  }
+  function nearReach(x, y, d) {
+    for (let k = 0; k <= d; k += 6) for (let a = 0; a < 6.283; a += 0.5) if (reachable(x + Math.cos(a) * k, y + Math.sin(a) * k)) return true;
+    return false;
+  }
+  function reachable(x, y) {
+    const m = reachMap(), cx = Math.floor(x / m.step), cy = Math.floor(y / m.step);
+    return cx >= 0 && cy >= 0 && cx < m.cw && cy < m.ch && !!m.seen[cy * m.cw + cx];
+  }
+  /** Si e está metido en algo o en un hueco al que no se llega, lo saca al punto alcanzable más cercano. → si lo ha movido. */
+  function unstick(e) {
+    if (!blocked(e.x, e.y, e.r) && reachable(e.x, e.y)) return false;
+    const m = reachMap();
+    let best = null, bd = 1e18;
+    const cx = Math.floor(e.x / m.step), cy = Math.floor(e.y / m.step);
+    for (let rr = 0; rr < 40 && !best; rr++) for (let y = cy - rr; y <= cy + rr; y++) for (let x = cx - rr; x <= cx + rr; x++) {
+      if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== rr || x < 0 || y < 0 || x >= m.cw || y >= m.ch || !m.seen[y * m.cw + x]) continue;
+      const px = (x + 0.5) * m.step, py = (y + 0.5) * m.step, d = (px - e.x) ** 2 + (py - e.y) ** 2;
+      if (d < bd && !blocked(px, py, e.r)) { bd = d; best = [px, py]; }
+    }
+    if (!best) return false;
+    e.x = best[0]; e.y = best[1];
+    return true;
   }
 
   // ---------------- cámara ----------------
@@ -347,7 +399,7 @@ G.Village = (() => {
   function savedPos() {
     try {
       const p = JSON.parse(sessionStorage.getItem('ps.vil.pos') || 'null');
-      if (Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]) && !blocked(p[0], p[1], 14)) return p;
+      if (Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]) && !blocked(p[0], p[1], 14) && reachable(p[0], p[1])) return p;
     } catch (e) { /* nada */ }
     return [tile(V().SPAWN[0]), tile(V().SPAWN[1])];
   }
@@ -408,7 +460,7 @@ G.Village = (() => {
     if (cov === 2) { walkPrev = false; return true; }          // tapada: se queda quieta (como el fondo del menú)
     t += dt;
     camSize();
-    if (walk) update(dt, walkPrev); else idle(dt);
+    if (walk) { update(dt, walkPrev); G.Village3D.tune && G.Village3D.tune(real); } else idle(dt);
     walkPrev = walk;
     // Con una ventana encima, a 20 FPS (casi no se ve y calienta menos).
     renderAcc += dt;
@@ -439,6 +491,8 @@ G.Village = (() => {
     }
     pl.anim.loop(moved > 0.2 ? 'Walk' : 'Idle');
     pl.anim.update(dt);
+    // (Si algo se le ha puesto encima, p. ej. una pieza nueva de tu choza, sale de ahí.)
+    if (!moved && blocked(pl.x, pl.y, pl.r)) unstick(pl);
     // --- cámara ---
     const [tx, ty] = camTarget();
     view.cx = G.U.damp(view.cx, tx, 8, dt); view.cy = G.U.damp(view.cy, ty, 8, dt);
@@ -673,8 +727,12 @@ G.Village = (() => {
     if (!r) return;
     lastShot = r;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
+    // (Pulido) A la resolución nativa se copia tal cual; si la calidad automática ha bajado la resolución, se amplía suave
+    // (ampliar sin suavizar daba los píxeles gordos de antes).
+    ctx.imageSmoothingEnabled = !!r.smooth;
+    if (r.smooth) ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(r.cv, 0, 0, r.Wl, r.Hl, r.ox, r.oy, r.Wl * r.k, r.Hl * r.k);
+    ctx.imageSmoothingEnabled = false;
     overlay(ctx, w, h);
   }
   function mailUnread() { const b = $('btn-news'); return !!(b && b.classList.contains('new')); }
@@ -849,6 +907,16 @@ G.Village = (() => {
     debug: {
       phase(p) { phaseOverride = p == null ? null : p; }, get player() { return pl; }, get npcs() { return npcs; }, get view() { return view; },
       teleport(x, y) { if (pl) { pl.x = tile(x); pl.y = tile(y); snapCam(); } }, quick: setQuick, act, blocked: (x, y, r) => blocked(tile(x), tile(y), r || 14),
-      fail, stats: () => G.Village3D.stats()
+      fail, stats: () => G.Village3D.stats(), quality: q => G.Village3D.quality && G.Village3D.quality(q),
+      /** Choques: cuántas figuras, cuánto se alcanza y qué puertas y Pokémon quedan fuera (debería ser nada). */
+      audit() {
+        const m = reachMap(), VG = V(), bad = [];
+        for (const p of VG.PLACES) { const dx = tile(p.door[0]), dy = tile(p.door[1]); if (!nearReach(dx, dy, 30)) bad.push('puerta ' + p.id); }
+        for (const n of npcs) if (!n.water && !(n.place && n.place.npc.counter) && !nearReach(n.home[0], n.home[1], 40)) bad.push('pokémon ' + n.anim.dex);
+        let free = 0, seen = 0;
+        for (let i = 0; i < m.seen.length; i++) { if (m.ok[i] === 1) free++; if (m.seen[i]) seen++; }
+        return { solids: solids.length, free, seen, pockets: free - seen, bad };
+      },
+      unstick: () => pl && unstick(pl), get solids() { return solids; }
     } };
 })();
