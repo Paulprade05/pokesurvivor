@@ -1,4 +1,4 @@
-# PokéSurvivor para Windows (prototipo)
+# PokéSurvivor para Windows
 
 App de Windows hecha con [Electron](https://www.electronjs.org/). Envuelve la misma
 versión compilada que se publica en GitHub Pages: el juego no cambia y la web no se toca.
@@ -13,7 +13,7 @@ Desde esta carpeta (`desktop/`), con Node instalado:
 npm install                 # Electron 45, empaquetador y playwright-core (sólo aquí, nada global)
 npm start                   # copia la web compilada a www/ y abre la app
 npm run sin-tope            # igual, sin vsync ni tope de FPS
-npm run empaquetar          # dist/PokeSurvivor-win32-x64/PokeSurvivor.exe y un .zip
+npm run empaquetar          # dist/PokeSurvivor/PokeSurvivor.exe y dist/PokeSurvivor-Windows.zip
 npm run medir               # FPS en la app, Edge y Chrome (deja capturas en dist/medidas/)
 ```
 
@@ -33,21 +33,61 @@ Si `npm install` no baja Electron (`node_modules/electron/dist` vacío):
 - Sirve el juego desde dentro de la app en `http://127.0.0.1:39017` (no abre ningún puerto):
   la nube y el cooperativo funcionan como en la web.
 - Sin service worker y sin menú de Electron (no recarga con Ctrl+R por error).
+- **Avisa de versiones nuevas**: al abrir (como mucho una vez cada 20 h, sólo la app
+  empaquetada) mira la última release de GitHub; si su etiqueta es más nueva que la
+  versión de `package.json`, ofrece abrir la descarga. `--sin-avisos` lo apaga.
+
+## `window.pokeEscritorio` (para el juego)
+
+Sólo existe dentro de la app. Es **estable**: se puede añadir algo, pero no quitar ni
+cambiar lo que hay, porque lo usan el juego (Ajustes no ofrece descargar la app dentro de
+la app) y la calidad de gráficos (nivel máximo sólo en la app).
+
+| Campo | Qué es | Ejemplo |
+|---|---|---|
+| `esEscritorio` | Siempre `true` | `true` |
+| `plataforma` | Siempre `'windows'` | `'windows'` |
+| `version` | Versión de la app (`desktop/package.json`) | `'0.2.0'` |
+| `juego` | Huella del juego que lleva dentro (`version.json`) | `'0037b74f97'` |
+| `electron`, `chromium` | Versiones del motor | `'45.3.1'`, `'156.0.8078.96'` |
+| `gpu.dispositivos` | Gráficas que ve Chromium: `{fabricante, vendorId, deviceId, activa}` (sin el adaptador básico de Microsoft) | `[{fabricante: 'AMD', …}]` |
+| `gpu.activa` | La que se usa (o la primera) | `{fabricante: 'AMD', …}` |
+| `gpu.varias` | Hay más de una gráfica de verdad | `false` |
+| `gpu.probableDedicada` | Pista: `true` NVIDIA o varias, `false` Intel, `null` no se sabe (AMD sola puede ser integrada) | `null` |
+| `ajustes` | `{gpuDedicada, sinTope, pantallaCompleta}` al abrir la app | `{gpuDedicada: true, …}` |
+| `pantallaCompleta()` | Entra o sale de pantalla completa | — |
+
+El nombre real de la gráfica se lee en la página con WebGL (`WEBGL_debug_renderer_info`).
+
+## Publicar una versión de Windows (sólo cuando el dueño lo pida)
+
+1. En la raíz: `node tools/build.js && node tools/export_data.js && py tools/make_seo_pages.py`.
+2. Sube `version` en `desktop/package.json` (por ejemplo 0.2.0 → 0.3.0).
+3. `npm run empaquetar` en `desktop/`.
+4. En GitHub: nueva release con etiqueta `v<versión>` (por ejemplo `v0.3.0`), no borrador ni
+   prerelease, con el archivo `dist/PokeSurvivor-Windows.zip` **con ese nombre exacto**.
+5. Con eso, en la web sale Ajustes › Acerca de › «Descargar para Windows» (sólo en PC con
+   Windows; `js/ui/windows-dl.js` pregunta a la API de GitHub si existe) y las apps ya
+   instaladas avisan de la versión nueva.
+
+Sin release no sale la fila (no hay enlace roto). Para actualizar, el jugador descomprime el
+.zip nuevo encima del viejo: la partida está en `%APPDATA%\PokeSurvivor\`, no en la carpeta.
 
 ## Archivos
 
 | Archivo | Qué es |
 |---|---|
-| `main.cjs` | La app: ventana, GPU, FPS, servir el juego, guardado en disco |
+| `main.cjs` | La app: ventana, GPU, FPS, servir el juego, guardado en disco, aviso de versión nueva |
 | `preload.cjs` | Copia `localStorage` al disco y la recupera; `window.pokeEscritorio` |
 | `copiar-web.cjs` | Copia la web compilada (archivos de git) a `www/` |
-| `empaquetar.cjs` | Hace el `.exe` y el `.zip` |
+| `empaquetar.cjs` | Hace el `.exe` y `PokeSurvivor-Windows.zip` (nombres fijos) |
 | `medir-fps.cjs` | Juega como invitado y mide FPS en la app y en los navegadores |
 | `icono.ico` | Icono del `.exe` (de `assets/icons/icon-512.png`) |
 
 `www/`, `dist/` y `node_modules/` no van a git.
 
-## Falta (no es parte del prototipo)
+## Falta
 
-Instalador, actualizaciones automáticas, login de Google desde el navegador del sistema,
-ajustes de PC dentro del juego, Discord. Sin firma de código: Windows avisa con SmartScreen.
+Instalador (por ahora .zip portable), actualización sin descomprimir a mano, login de Google
+desde el navegador del sistema, ajustes de PC dentro del juego, Discord. Sin firma de código:
+Windows avisa con SmartScreen («Más información» → «Ejecutar de todas formas»).

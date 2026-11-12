@@ -241,6 +241,11 @@ G.SettingsUI = (() => {
       // Instalar como app (install-ui.js abre los pasos; abierto ya como app no sale).
       + (G.InstallUI && G.InstallUI.can() ? list(action('Instalar como app', 'Pantalla completa y sin las barras del navegador, abriéndolo desde su icono.',
             '<button class="btn small gold" type="button" data-install>Instalar</button>')) : '')
+      // Descargar para Windows (windows-dl.js: sólo en la web en PC con Windows y con la descarga publicada).
+      + (G.WindowsDL && G.WindowsDL.can() ? list(action('Descargar para Windows',
+            'El juego como programa de PC. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».',
+            `<a class="btn small gold" href="${esc(G.WindowsDL.URL)}" rel="noopener" data-windl>Descargar`
+            + (G.WindowsDL.info().mb ? ` <small translate="no">${esc(G.WindowsDL.info().mb)} MB</small>` : '') + '</a>')) : '')
       + section('Créditos')
       + `<ul class="credits">
            <li><b>Sprites:</b> PMD SpriteCollab y sus artistas (CC BY-NC 4.0).</li>
@@ -278,7 +283,11 @@ G.SettingsUI = (() => {
     else if (tab === 'ctl') box.innerHTML = ctlTab();
     else if (tab === 'a11y') box.innerHTML = a11yTab();
     else if (tab === 'acc') renderAccount(box);
-    else box.innerHTML = aboutTab();
+    else {
+      box.innerHTML = aboutTab();
+      // ¿Hay versión de Windows? Se pregunta a GitHub y, si la hay, sale la fila.
+      if (G.WindowsDL && G.WindowsDL.unknown()) G.WindowsDL.check().then(r => { if (r.ok && isOpen() && tab === 'about') keep(); });
+    }
     wire(box);
   }
 

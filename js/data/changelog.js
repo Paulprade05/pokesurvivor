@@ -6,6 +6,9 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-12', title: ["PokéSurvivor para PC con Windows", "PokéSurvivor for Windows PCs"], new: [
+    ["En un PC con Windows, Ajustes › Acerca de tendrá «Descargar para Windows» cuando la versión de PC esté publicada: el juego como programa, con pantalla completa de verdad, la gráfica potente del portátil y tu partida guardada también en el disco. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».",
+     "On a Windows PC, Settings › About will have “Download for Windows” once the PC version is out: the game as a program, with real full screen, the laptop's powerful graphics card and your save also kept on disk. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”."]] },
   { d: '2026-11-12', title: ["La aldea, más nítida y sin atravesar cosas", "A sharper village where you no longer walk through things"], chg: [
     ["La aldea se ve mucho más nítida: el 3D se dibuja a la resolución de tu pantalla y con bordes suavizados, los modelos tienen formas redondas y texturas suaves, y las luces del bosque brillan con un halo. Tu Pokémon y los de la aldea siguen en pixel art, pero sin píxeles borrosos ni torcidos.",
      "The village looks much sharper: the 3D is drawn at your screen's resolution with smoothed edges, models have round shapes and smooth textures, and the forest lights glow with a halo. Your Pokémon and the village ones are still pixel art, but without blurry or uneven pixels."],

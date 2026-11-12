@@ -45,8 +45,20 @@ if (location.origin === ORIGEN) {
 }
 
 // Lo que el juego puede usar si quiere saber que va en la app de Windows.
+// Es estable: se puede AÑADIR algo, pero no quitar ni cambiar lo que hay
+// (lo usan el juego y la calidad de gráficos). Lista en LEEME.md.
+let info = null;
+if (location.origin === ORIGEN) { try { info = ipcRenderer.sendSync('ps:info'); } catch (e) { /* sin datos */ } }
+info = info || {};
+const gpu = info.gpu || { dispositivos: [], activa: null, varias: false, probableDedicada: null };
 contextBridge.exposeInMainWorld('pokeEscritorio', {
   esEscritorio: true,
   plataforma: 'windows',
+  version: info.version || '',          // versión de la app (desktop/package.json)
+  juego: info.juego || '',              // huella del juego que lleva dentro (version.json)
+  electron: info.electron || '',
+  chromium: info.chromium || '',
+  gpu,                                  // { dispositivos, activa, varias, probableDedicada }
+  ajustes: info.ajustes || {},          // { gpuDedicada, sinTope, pantallaCompleta } al abrir la app
   pantallaCompleta: () => ipcRenderer.send('ps:pantalla-completa'),
 });

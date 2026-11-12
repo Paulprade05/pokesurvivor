@@ -13,8 +13,10 @@
 //   - Pantalla completa con F11 o Alt+Intro.
 //   - Copia de la partida en disco (%APPDATA%\PokeSurvivor\guardado\), que se
 //     recupera sola si el almacenamiento del navegador se vacía.
+//   - Al abrir, mira si hay una versión nueva en GitHub Releases y avisa.
+//   - window.pokeEscritorio para el juego (versión, GPU, ajustes): ver LEEME.md.
 'use strict';
-const { app, BrowserWindow, Menu, ipcMain, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -115,6 +117,42 @@ ipcMain.on('ps:guardar-ya', (e, texto) => {
   e.returnValue = true;
 });
 
+// ---- Lo que el juego puede saber de la app (window.pokeEscritorio) ---------
+// Se prepara antes de abrir la ventana: preload.cjs lo pide de una vez.
+const FABRICANTES = { 0x10de: 'NVIDIA', 0x1002: 'AMD', 0x8086: 'Intel', 0x5143: 'Qualcomm' };
+let infoApp = null;
+
+async function prepararInfo() {
+  let juego = '';
+  try { juego = JSON.parse(fs.readFileSync(path.join(WWW, 'version.json'), 'utf8')).v || ''; } catch (e) { /* sin huella */ }
+  let gpu = { dispositivos: [], activa: null, varias: false, probableDedicada: null };
+  try {
+    const g = await app.getGPUInfo('basic');
+    // Fuera el «Adaptador de pantalla básico de Microsoft» (0x1414), que no es una gráfica de verdad.
+    const dis = (g.gpuDevice || []).filter(d => d.vendorId && d.vendorId !== 0x1414).map(d => ({
+      fabricante: FABRICANTES[d.vendorId] || 'otro', vendorId: d.vendorId, deviceId: d.deviceId, activa: !!d.active,
+    }));
+    const act = dis.find(d => d.activa) || dis[0] || null;
+    // Sólo una pista: NVIDIA siempre es dedicada; Intel casi nunca; AMD puede ser
+    // integrada (Ryzen con Radeon) o dedicada, así que con una sola gráfica no se sabe.
+    let probable = null;
+    if (act && act.fabricante === 'NVIDIA') probable = true;
+    else if (act && act.fabricante === 'Intel') probable = false;
+    else if (act && dis.length > 1) probable = true;
+    gpu = { dispositivos: dis, activa: act, varias: dis.length > 1, probableDedicada: probable };
+  } catch (e) { /* sin datos de la GPU */ }
+  infoApp = {
+    version: app.getVersion(),
+    juego,
+    electron: process.versions.electron,
+    chromium: process.versions.chrome,
+    gpu,
+    ajustes: { gpuDedicada: !!ajustes.gpuDedicada, sinTope: !!ajustes.sinTope, pantallaCompleta: !!ajustes.pantallaCompleta },
+  };
+}
+
+ipcMain.on('ps:info', e => { e.returnValue = esNuestraPagina(e) ? infoApp : null; });
+
 ipcMain.on('ps:pantalla-completa', e => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w) w.setFullScreen(!w.isFullScreen());
@@ -173,11 +211,52 @@ app.on('second-instance', () => {
   if (w) { if (w.isMinimized()) w.restore(); w.focus(); }
 });
 
-app.whenReady().then(() => {
+// ---- ¿Hay versión nueva? ---------------------------------------------------
+// La app se reparte en GitHub Releases como PokeSurvivor-Windows.zip, con la
+// etiqueta vX.Y.Z = la versión de desktop/package.json. Al abrir (como mucho
+// una vez al día) se mira la última; si es más nueva, se avisa y se abre la
+// descarga en el navegador. Sin red o sin releases, no pasa nada.
+const RELEASES = 'https://api.github.com/repos/Paulprade05/pokesurvivor/releases/latest';
+const ARCHIVO = 'PokeSurvivor-Windows.zip';
+
+function masNueva(a, b) {          // ¿la versión a es mayor que b? ('0.10.0' > '0.9.1')
+  const pa = String(a).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const pb = String(b).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+}
+
+async function comprobarVersion(win) {
+  if (args.includes('--sin-avisos') || !app.isPackaged) return;
+  const marca = path.join(app.getPath('userData'), 'ultima-comprobacion.txt');
+  try { if (Date.now() - +fs.readFileSync(marca, 'utf8') < 20 * 3600e3) return; } catch (e) { /* primera vez */ }
+  try {
+    const r = await net.fetch(RELEASES, { headers: { Accept: 'application/vnd.github+json' } });
+    fs.writeFileSync(marca, String(Date.now()));
+    if (!r.ok) return;
+    const rel = await r.json();
+    const zip = (rel.assets || []).find(a => a.name === ARCHIVO);
+    if (!zip || rel.draft || rel.prerelease || !masNueva(rel.tag_name, app.getVersion())) return;
+    const es = /^es/i.test(app.getLocale());
+    const nueva = String(rel.tag_name).replace(/^v/, '');
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'info', title: 'PokéSurvivor',
+      message: es ? `Hay una versión nueva para PC (${nueva}).` : `A new PC version is available (${nueva}).`,
+      detail: es ? `Tienes la ${app.getVersion()}. Descarga el .zip, ciérrala y descomprime la nueva encima: tu partida se queda.`
+        : `You have ${app.getVersion()}. Download the .zip, close the game and unzip the new one over it: your save stays.`,
+      buttons: es ? ['Descargar', 'Ahora no'] : ['Download', 'Not now'], defaultId: 0, cancelId: 1,
+    });
+    if (response === 0) shell.openExternal(zip.browser_download_url || `https://github.com/Paulprade05/pokesurvivor/releases/latest/download/${ARCHIVO}`);
+  } catch (e) { /* sin red: otra vez será */ }
+}
+
+app.whenReady().then(async () => {
   // Sin menú de Electron: así no hay atajos de recargar, zoom, etc. que estorben al jugar.
   Menu.setApplicationMenu(null);
   protocol.handle('http', servir);
-  crearVentana();
+  await prepararInfo();
+  const win = crearVentana();
+  win.webContents.once('did-finish-load', () => setTimeout(() => comprobarVersion(win), 8000));
 });
 
 app.on('window-all-closed', () => app.quit());

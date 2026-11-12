@@ -2570,3 +2570,10 @@ G.I18n.add({
   "(Se alegra de verte en casa.)": "(It's happy to see you home.)",
   "(Vigila tu choza mientras estás fuera.)": "(It guards your hut while you're away.)"
 });
+
+// (12-11-2026) Ajustes › Acerca de › «Descargar para Windows» (windows-dl.js) y avisos de la app de PC (desktop/).
+G.I18n.add({
+  "Descargar para Windows": "Download for Windows",
+  "El juego como programa de PC. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».": "The game as a PC program. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”.",
+  "Descargar": "Download"
+});

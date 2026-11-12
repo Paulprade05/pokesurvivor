@@ -114,7 +114,7 @@ async function una(nombre, log) {
     // «exe» prueba la app ya empaquetada (npm run empaquetar), no la carpeta.
     const exe = nombre.startsWith('exe');
     const app = await _electron.launch({
-      executablePath: exe ? path.join(__dirname, 'dist', 'PokeSurvivor-win32-x64', 'PokeSurvivor.exe') : require('electron'),
+      executablePath: exe ? path.join(__dirname, 'dist', 'PokeSurvivor', 'PokeSurvivor.exe') : require('electron'),
       args: [...(exe ? [] : [__dirname]), '--perfil=' + perfil, ...(nombre.endsWith('sin-tope') ? ['--sin-tope'] : [])],
       cwd: __dirname,
     });
