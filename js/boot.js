@@ -31,6 +31,8 @@ window.PS_PAGES = !!document.querySelector('meta[name="ps-pages"]');
   window.PS_BOOT_FAIL = function () {
     var el = document.getElementById('boot'), ld = el && el.querySelector('.boot-ld');
     if (!ld || window.PS_FRAMED || el.classList.contains('hidden') || ld.querySelector('button')) return;
+    // (12-11-2026) El juego ya ha arrancado y está preparando la aldea del menú (game.js, Flow.boot): tiene su propio plazo.
+    if (el.dataset && el.dataset.wait) return;
     var c = copy[(window.PS_LOCALES && window.PS_LOCALES.lang) || document.documentElement.lang] || copy.es;
     var b = document.createElement('button');
     b.className = 'btn gold';

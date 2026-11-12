@@ -98,6 +98,8 @@ G.DB = (() => {
       pityM: {},              // generación del banner -> tiradas sin versión con mega (como pity)
       pmg: {},                // dex -> ['mega'|'z', fecha]: qué lleva si tiene las dos (Mejoras)
       pzt: {},                // dex -> tipo: el Z que va si empatan dos cristales (Mejoras → Pulsera Z, data/shop.js)
+      hown: {},               // 'cat:id' -> fecha: piezas de tu choza de la aldea (12-11-2026, data/home.js; unión al fusionar)
+      hset: {},               // lo que lleva puesta tu choza { shape, roof, ..., pet, at } (al fusionar, el `at` más reciente)
       pzDone: true,           // ya se regaló la Pulsera Z a quien tenía cristales de antes (migrate)
       prec: {},               // dex -> [mejor tiempo, mejor nivel, más derrotados, más jefes] con él (data/families.js)
       tickets: { t1: 0, t10: 0 },   // tickets del gacha (x1 y x10)
@@ -343,6 +345,8 @@ G.DB = (() => {
       if ((G.MEGA && !G.MEGA[id]) || !n(s.mst[id])) delete s.mst[id];
       else s.mst[id] = n(s.mst[id]);
     }
+    // Tu choza de la aldea (data/home.js): piezas que existen y lo puesto, válido.
+    if (G.Home) G.Home.clean(s, n);
     // Versión con mega: quien ya compró la piedra la tiene conseguida, para siempre.
     if (!isObj(s.mop)) s.mop = {};
     for (const id of Object.keys(s.mop)) { if (n(s.mop[id])) s.mop[id] = n(s.mop[id]); else delete s.mop[id]; }
@@ -559,6 +563,8 @@ G.DB = (() => {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }
+    // Tu choza: las piezas, unión; lo puesto, lo último que se eligió (data/home.js).
+    if (G.Home) G.Home.merge(r, older);
     // Qué lleva cada Pokémon: lo último que se eligió.
     r.pmg = r.pmg || {};
     for (const d in older.pmg || {}) if (!r.pmg[d] || (+older.pmg[d][1] || 0) > (+r.pmg[d][1] || 0)) r.pmg[d] = older.pmg[d];

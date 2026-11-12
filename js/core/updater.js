@@ -44,6 +44,8 @@ G.Updater = (() => {
     if (!G.Game || G.Game.state !== 'ui') return false;                   // en partida o en el resumen
     // (11-11-2026) También dentro de la Tienda Kecleon: comprando. Paseando por la aldea del menú sí se recarga (es «fuera de partida»).
     if (['scr-gacha', 'scr-upgrades', 'scr-shop', 'scr-settings', 'scr-install'].some(id => document.getElementById(id) && G.UI.isOpen(id))) return false;
+    // (12-11-2026) Comprando piezas para tu choza (la tienda de la choza, ui/home-ui.js), igual que en la Tienda Kecleon.
+    if (G.Village && G.Village.homeOpen) return false;
     // Una pregunta o ventana propia abierta (G.UI.ask: «¿Salir?», «¿Empezar igualmente?», «¿Quitar a X de tus amigos?»; el
     // apodo; un perfil): que se conteste antes. (Con confirm() la página se paraba y no se podía recargar; con G.UI.ask, sí.)
     if (document.querySelector('.ask-scr, .scr.modal:not(.hidden)')) return false;
