@@ -1764,9 +1764,21 @@ G.Flow = {
     // La base de datos (nube o local) recupera la sesión anterior.
     // (Devuelve la promesa: si falla, main.js ofrece recargar.)
     return G.DB.ready().then(restored => {
-      document.getElementById('boot').classList.add('hidden');
-      // En otra tarea: crear el sonido para comprobarlo cuesta ~60 ms y no debe bloquear la carga.
-      setTimeout(() => this.tapToStart(() => { if (restored) this.afterLogin(); else this.toLogin(); }), 0);
+      const el = document.getElementById('boot');
+      // (12-11-2026, pedido del dueño) La pantalla del título no cambia hasta que la aldea del menú está cargada del todo
+      // (world/village.js prepare: three.js, el tileset, la escena y los sprites; como mucho 20 s). Mientras, el plazo de
+      // seguridad de boot.js (recargar a los 25 s) espera: data-wait.
+      const go = () => {
+        delete el.dataset.wait;
+        el.classList.add('hidden');
+        // En otra tarea: crear el sonido para comprobarlo cuesta ~60 ms y no debe bloquear la carga.
+        setTimeout(() => this.tapToStart(() => { if (restored) this.afterLogin(); else this.toLogin(); }), 0);
+      };
+      if (!G.Village || !G.Village.prepare) { go(); return; }
+      el.dataset.wait = '1';
+      const ld = el.querySelector('.boot-ld');
+      if (ld && !ld.querySelector('button')) ld.textContent = G.T('Preparando la aldea…');
+      return G.Village.prepare().then(go, go);
     });
   },
   /**

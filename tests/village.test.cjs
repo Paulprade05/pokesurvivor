@@ -35,6 +35,7 @@ function load({ gl = true } = {}) {
     UI: { isOpen: id => id === 'scr-menu', svg: () => '' },
     Audio: { sfx() {} },
     GoalsUI: { open: t => calls.push('goals:' + t) },
+    HomeUI: { open: () => calls.push('home:open') },
     Tileset: { enabled: () => true, ready: () => false, preload() {} },
     Settings: { fx: 2 },
     Game: { state: 'ui' },
@@ -84,7 +85,7 @@ test('aldea: se llega andando a todas las puertas desde donde se aparece', () =>
 test('aldea: cada sitio abre su pantalla, como el menú clásico', () => {
   const { V, calls } = load();
   const want = { play: 'classic:play', dex: 'classic:dex', upgrades: 'classic:upgrades', shop: 'classic:shop', bag: 'classic:bag', gacha: 'classic:gacha',
-    friends: 'classic:friends', rank: 'classic:rank', compendium: 'classic:compendium', goals: 'goals:missions', ach: 'goals:ach', profile: 'goals:profile',
+    friends: 'classic:friends', rank: 'classic:rank', compendium: 'classic:compendium', goals: 'goals:missions', ach: 'goals:ach', home: 'home:open',
     settings: 'click:btn-settings', news: 'click:btn-news' };
   const gos = V.places().map(p => p.go);
   assert.deepEqual([...gos].sort(), Object.keys(want).sort(), 'un sitio por apartado del menú');
@@ -94,12 +95,16 @@ test('aldea: cada sitio abre su pantalla, como el menú clásico', () => {
     assert.deepEqual(calls, [want[g]], g);
   }
   assert.equal(V.go('nada'), false);
+  // El perfil ya no es un sitio (tu choza se personaliza), pero sigue en el desplegable.
+  calls.length = 0;
+  assert.equal(V.go('profile'), true);
+  assert.deepEqual(calls, ['goals:profile']);
 });
 
 test('aldea: el desplegable «Ir a…» tiene todos los sitios, con Jugar el primero', () => {
   const { V } = load();
   assert.equal(V.ORDER[0], 'play');
-  assert.deepEqual([...V.ORDER].sort(), V.places().map(p => p.go).sort());
+  assert.deepEqual([...V.ORDER].sort(), V.places().map(p => p.go).concat('profile').sort());
 });
 
 test('aldea: sin WebGL, el menú clásico (y sin pedir three.js)', () => {
@@ -109,12 +114,13 @@ test('aldea: sin WebGL, el menú clásico (y sin pedir three.js)', () => {
   assert.equal(el('scr-menu').classList.contains('village'), false);
   assert.equal(V.active, false);
   assert.equal(V.mode, 'classic');
-  // Con WebGL sí se intenta (y mientras carga three.js, el clásico con su aviso).
+  // Con WebGL sí se intenta; mientras carga, el velo del título (nunca el menú clásico por debajo).
   const b = load({ gl: true });
   assert.equal(b.V.wanted(), true);
   b.V.show();
   assert.equal(b.V.mode, 'loading');
   assert.equal(b.el('vil-loading').classList.contains('hidden'), false);
+  assert.equal(b.el('scr-menu').classList.contains('village'), true, 'el clásico no se ve');
 });
 
 test('aldea: el actualizador sigue igual (fuera de partida) y espera también en la Tienda Kecleon', () => {
@@ -127,9 +133,26 @@ test('aldea: el actualizador sigue igual (fuera de partida) y espera también en
   assert.match(g, /state === 'ui' && G\.Village && G\.Village\.frame\(/);
 });
 
+test('aldea: la pantalla del título espera a la aldea (carga directa) y boot.js no ofrece recargar mientras', async () => {
+  const g = read('js/game.js'), b = read('js/boot.js');
+  const boot = g.slice(g.indexOf('G.Flow = {'), g.indexOf('tapToStart(then)'));
+  assert.match(boot, /G\.Village\.prepare\(\)\.then\(go, go\)/);
+  assert.ok(boot.indexOf("el.classList.add('hidden')") > boot.indexOf('const go = ()'), 'el título se quita dentro de go');
+  assert.match(b, /el\.dataset && el\.dataset\.wait/);
+  // Sin WebGL, prepare termina enseguida (false) y se sigue con el menú clásico.
+  const { V } = load({ gl: false });
+  assert.equal(await V.prepare(), false);
+});
+
 test('aldea: todos los textos también en inglés', () => {
   const V = data(), en = read('js/data/lang-en.js');
-  const all = new Set(['Ir a', 'Ir a…', 'Hablar', 'A tu sala', 'Preparando la aldea…', ...V.FOLLOW, ...V.BYE]);
+  const all = new Set(['Ir a', 'Ir a…', 'Hablar', 'A tu sala', 'Preparando la aldea…', 'Tu perfil', ...V.FOLLOW, ...V.BYE]);
+  // Tu choza (data/home.js, ui/home-ui.js y las frases de la mascota en village.js).
+  const hc = vm.createContext({ G: {} });
+  vm.runInContext(read('js/data/home.js'), hc);
+  for (const c of hc.G.Home.CATS) { all.add(c.name); for (const it of c.items) { all.add(it.name); all.add(it.desc); } }
+  for (const m of read('js/ui/home-ui.js').matchAll(/G\.T\('([^']+)'\)/g)) all.add(m[1]);
+  for (const m of read('js/world/village.js').match(/lines: \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)) all.add(m[1]);
   for (const p of V.PLACES) { all.add(p.name); all.add(p.act); all.add(p.sub); if (p.npc) p.npc.lines.forEach(l => all.add(l)); }
   for (const c of V.CAST) c.lines.forEach(l => all.add(l));
   const has = s => s === '...' || en.includes(JSON.stringify(s)) || en.includes("'" + s.replace(/'/g, "\\'") + "'");
