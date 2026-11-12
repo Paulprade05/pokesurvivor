@@ -781,7 +781,7 @@
       cd: 3, dmg: 3.5, count: 4, radius: 64 },
     // Hada
     { id: 'draining-kiss', name: 'Beso Drenaje', type: 'fairy', kind: 'homing',
-      desc: 'Un beso que persigue al enemigo, te cura la mitad del daño que hace y lo deja enamorado 1,5 s (ni te toca ni dispara).',
+      desc: 'Un beso que persigue al enemigo, te cura la mitad del daño que hace (como mucho un 1,2% de tu vida por segundo, +0,3% por nivel) y lo deja enamorado 1,5 s (ni te toca ni dispara).',
       cd: 0.55, dmg: 18, speed: 280, life: 2.0, size: 7, homing: 5 },
     // (count: los golpes que caen en la nube.)
     { id: 'play-rough', name: 'Carantoña', type: 'fairy', kind: 'melee',
@@ -1490,7 +1490,7 @@
                        mods: { count: 2, dmg: 1.9, pierce: 1, moon: 1 } },
     'dazzling-gleam': { t: '×2,1 daño. Una niebla te sigue: tú y tus compañeros dentro no recibís estados y los enemigos dentro hacen un 30% menos de daño (los Dragón, un 50%).',
                        mods: { dmg: 2.1, radius: 1.35, mist: 140 } },
-    'draining-kiss': { t: '×1,75 daño y +2 besos. Lo que cures por encima de tu vida máxima se guarda como escudo (hasta un 15% de tu vida) que se va gastando.',
+    'draining-kiss': { t: '×1,75 daño y +2 besos. Cura un 50% más por segundo, y lo que cures por encima de tu vida máxima se guarda como escudo (hasta un 15% de tu vida) que se va gastando.',
                        mods: { dmg: 1.75, count: 2, size: 1.3, spread: 1.2, lunar: 0.15 } },
     'play-rough':    { t: '×2,8 daño. La nube rueda 120 px hacia delante arrastrando a los que pilla dentro.',
                        mods: { dmg: 2.8, radius: 1.2, roll: 120 } },

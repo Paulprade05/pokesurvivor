@@ -288,6 +288,7 @@ G.Game = (() => {
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
+    if (G.Village) G.Village.sleep();       // (la aldea del menú suelta su WebGL: se rehace al volver)
     const save = G.DB.save;
     // Se empieza con la primera fase de su línea (24-10-2026: evoluciona en la
     // partida, ver G.Evo en systems/mons.js), con la naturaleza del que elegiste.
@@ -1138,6 +1139,8 @@ G.Game = (() => {
     if (G.Coop.active && pl && state !== 'ui' && state !== 'over') G.Coop.tick(dt);
 
     if (pl && state !== 'ui') render();
+    // (11-11-2026) En el menú, la aldea (js/world/village.js) si está a la vista; si no, el fondo de siempre.
+    else if (state === 'ui' && G.Village && G.Village.frame(ctx, w, h, dpr, real)) { bdAcc = 0; Backdrop.stale(); }
     else {
       // Fondo del menú: a 30 FPS como mucho, y quieto detrás de las pantallas
       // grandes (colección, tienda, mejoras): casi no se ve y calentaba portátiles.

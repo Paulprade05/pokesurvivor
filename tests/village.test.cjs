@@ -1,0 +1,138 @@
+// La aldea del menú (js/data/village.js, js/world/village.js): se llega a todas las puertas, cada sitio abre su pantalla,
+// el desplegable lo tiene todo, sin WebGL sale el menú clásico y los textos van también en inglés.
+const test = require('node:test'), assert = require('node:assert'), fs = require('fs'), path = require('path'), vm = require('vm');
+const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+
+function data() {
+  const c = vm.createContext({ G: {}, Math });
+  vm.runInContext(read('js/data/village.js'), c);
+  return c.G.VILLAGE;
+}
+
+/** Carga village.js con una página de mentira. gl: ¿hay WebGL? */
+function load({ gl = true } = {}) {
+  const calls = [];
+  const els = {};
+  const el = id => els[id] || (els[id] = {
+    id, classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { if (on === undefined) on = !this.s.has(c); on ? this.s.add(c) : this.s.delete(c); return on; }, contains(c) { return this.s.has(c); } },
+    dataset: {}, style: {}, setAttribute() {}, textContent: '', innerHTML: '', querySelectorAll: () => [], querySelector: () => null, contains: () => false,
+    click() { calls.push('click:' + id); }
+  });
+  const classicBtn = go => ({ click: () => calls.push('classic:' + go) });
+  const document = {
+    getElementById: el,
+    querySelector(sel) {
+      const m = sel.match(/data-go="([a-z]+)"/);
+      if (m) return classicBtn(m[1]);
+      return null;
+    },
+    querySelectorAll: () => [],
+    createElement: () => ({ getContext: () => (gl ? { getExtension: () => null } : null) }),
+    head: { appendChild() {} }, activeElement: null
+  };
+  const G = {
+    VILLAGE: data(),
+    UI: { isOpen: id => id === 'scr-menu', svg: () => '' },
+    Audio: { sfx() {} },
+    GoalsUI: { open: t => calls.push('goals:' + t) },
+    Tileset: { enabled: () => true, ready: () => false, preload() {} },
+    Settings: { fx: 2 },
+    Game: { state: 'ui' },
+    T: s => s, U: { damp: (a, b) => b, pick: a => a[0] },
+    Village3D: { probe: () => gl, started: false, ready: false, free() {} },
+    MenuUI: {}
+  };
+  const ctx = vm.createContext({ G, document, location: { search: '', protocol: 'http:' }, addEventListener() {}, setTimeout: () => 0, setInterval: () => 0, clearInterval() {},
+    requestAnimationFrame: () => 0, console: { warn() {}, log() {} }, Math, JSON, window: {}, sessionStorage: { getItem: () => null, setItem() {} },
+    localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 }, innerWidth: 1280, innerHeight: 720 });
+  vm.runInContext(read('js/world/village.js'), ctx);
+  return { V: G.Village, G, calls, el };
+}
+
+test('aldea: plano del tamaño justo y con setos alrededor', () => {
+  const V = data(), b = V.build();
+  assert.equal(b.terr.length, V.W * V.H);
+  for (let x = 0; x < V.W; x++) { assert.equal(V.terrainAt(x, 0), 1); assert.equal(V.terrainAt(x, V.H - 1), 1); }
+  assert.equal(V.terrainAt(-1, 5), 1, 'fuera del plano: seto');
+  assert.equal(V.terrainAt(V.SPAWN[0], V.SPAWN[1]), 0, 'se aparece en suelo');
+});
+
+test('aldea: se llega andando a todas las puertas desde donde se aparece', () => {
+  const V = data(), W = V.W, H = V.H;
+  // Casillas que no se pueden pisar: setos, agua y las plantas de los sitios.
+  const solid = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (V.terrainAt(x, y)) solid[y * W + x] = 1;
+    for (const p of V.PLACES) if (x + 0.5 > p.x - p.w / 2 && x + 0.5 < p.x + p.w / 2 && y + 0.5 > p.y - p.h / 2 && y + 0.5 < p.y + p.h / 2) solid[y * W + x] = 1;
+  }
+  const seen = new Uint8Array(W * H), q = [[Math.floor(V.SPAWN[0]), Math.floor(V.SPAWN[1])]];
+  seen[q[0][1] * W + q[0][0]] = 1;
+  while (q.length) {
+    const [x, y] = q.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, i = ny * W + nx;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen[i] || solid[i]) continue;
+      seen[i] = 1; q.push([nx, ny]);
+    }
+  }
+  for (const p of V.PLACES) {
+    const i = Math.floor(p.door[1]) * W + Math.floor(p.door[0]);
+    assert.ok(seen[i], 'se llega a la puerta de ' + p.name);
+  }
+});
+
+test('aldea: cada sitio abre su pantalla, como el menú clásico', () => {
+  const { V, calls } = load();
+  const want = { play: 'classic:play', dex: 'classic:dex', upgrades: 'classic:upgrades', shop: 'classic:shop', bag: 'classic:bag', gacha: 'classic:gacha',
+    friends: 'classic:friends', rank: 'classic:rank', compendium: 'classic:compendium', goals: 'goals:missions', ach: 'goals:ach', profile: 'goals:profile',
+    settings: 'click:btn-settings', news: 'click:btn-news' };
+  const gos = V.places().map(p => p.go);
+  assert.deepEqual([...gos].sort(), Object.keys(want).sort(), 'un sitio por apartado del menú');
+  for (const g of gos) {
+    calls.length = 0;
+    assert.equal(V.go(g), true, g);
+    assert.deepEqual(calls, [want[g]], g);
+  }
+  assert.equal(V.go('nada'), false);
+});
+
+test('aldea: el desplegable «Ir a…» tiene todos los sitios, con Jugar el primero', () => {
+  const { V } = load();
+  assert.equal(V.ORDER[0], 'play');
+  assert.deepEqual([...V.ORDER].sort(), V.places().map(p => p.go).sort());
+});
+
+test('aldea: sin WebGL, el menú clásico (y sin pedir three.js)', () => {
+  const { V, el } = load({ gl: false });
+  assert.equal(V.wanted(), false);
+  V.show();
+  assert.equal(el('scr-menu').classList.contains('village'), false);
+  assert.equal(V.active, false);
+  assert.equal(V.mode, 'classic');
+  // Con WebGL sí se intenta (y mientras carga three.js, el clásico con su aviso).
+  const b = load({ gl: true });
+  assert.equal(b.V.wanted(), true);
+  b.V.show();
+  assert.equal(b.V.mode, 'loading');
+  assert.equal(b.el('vil-loading').classList.contains('hidden'), false);
+});
+
+test('aldea: el actualizador sigue igual (fuera de partida) y espera también en la Tienda Kecleon', () => {
+  const src = read('js/core/updater.js');
+  assert.match(src, /'scr-gacha', 'scr-upgrades', 'scr-shop', 'scr-settings'/);
+  assert.match(src, /G\.Game\.state !== 'ui'/);
+  // La aldea suelta su WebGL al empezar la partida y game.js la dibuja sólo en el menú.
+  const g = read('js/game.js');
+  assert.match(g.slice(g.indexOf('function startRun')), /G\.Village\.sleep\(\)/);
+  assert.match(g, /state === 'ui' && G\.Village && G\.Village\.frame\(/);
+});
+
+test('aldea: todos los textos también en inglés', () => {
+  const V = data(), en = read('js/data/lang-en.js');
+  const all = new Set(['Ir a', 'Ir a…', 'Hablar', 'A tu sala', 'Preparando la aldea…', ...V.FOLLOW, ...V.BYE]);
+  for (const p of V.PLACES) { all.add(p.name); all.add(p.act); all.add(p.sub); if (p.npc) p.npc.lines.forEach(l => all.add(l)); }
+  for (const c of V.CAST) c.lines.forEach(l => all.add(l));
+  const has = s => s === '...' || en.includes(JSON.stringify(s)) || en.includes("'" + s.replace(/'/g, "\\'") + "'");
+  const miss = [...all].filter(s => !has(s));
+  assert.deepEqual(miss, []);
+});

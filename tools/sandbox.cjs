@@ -302,7 +302,8 @@ function maxReach(id, lvl, evo) {
 }
 
 /**
- * Una prueba. o = { id, lvl = 1, evo = false, scen = 'masa', secs = 8, once = false, seed, dist (solo), still (solo), touch (solo: te toca), calm (s sin golpes) }.
+ * Una prueba. o = { id, lvl = 1, evo = false, scen = 'masa', secs = 8, once = false, seed, dist (solo), still (solo), touch (solo: te toca), calm (s sin golpes),
+ *               maxHp (vida del Pokémon; si no, infinita) }.
  * → números de lo que ha hecho (ver el final).
  */
 function run(o) {
@@ -313,6 +314,8 @@ function run(o) {
   clock = 0; G.Game.st.time = 0; nextId = 1;
   const m = make(o.id, lvl, o.evo);
   const pl = makePlayer(m);
+  // (maxHp: la vida del Pokémon, para las curas con tope por % de vida como Beso Drenaje; si no, infinita.)
+  if (o.maxHp > 0) pl.maxHp = pl.hp = o.maxHp;
   G.Game.player = pl;
   m.t = 0; m.charges = 0; m.dealt = 0;
   const sc = SCEN[scen];

@@ -1257,6 +1257,93 @@ html.rot .rotate { display: none !important; }
   overflow-y: auto; overscroll-behavior: contain;
   background: linear-gradient(90deg, rgba(5, 10, 26, 0) 30%, rgba(5, 10, 26, .55));
 }
+/* ---- La aldea (11-11-2026, js/world/village.js): el menú se pasea. Lo de arriba se oculta; el lienzo del juego (debajo)
+ * recibe los toques y el ratón, y sólo el desplegable «Ir a…» y el aviso de entrar o hablar se pulsan aquí. ---- */
+#scr-menu.village { display: block; padding: 0; overflow: hidden; background: none; pointer-events: none; }
+#scr-menu.village > .menu-left, #scr-menu.village > .menu-right { display: none; }
+#scr-menu:not(.village) > .vil-hud { display: none; }
+.vil-hud > * { pointer-events: auto; }
+.vil-go {
+  position: absolute; top: calc(var(--bar-top) + var(--bar-h) - 4px); left: max(16px, var(--sa-l));
+  display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 16px 0 12px;
+  border: 2px solid rgba(244, 247, 255, .35); border-radius: var(--rad-pill); background: var(--chrome); color: var(--ink);
+  font: 600 var(--fs-m)/1 var(--font-display); cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  transition: background var(--t-fast), transform var(--t-fast) var(--ease);
+}
+.vil-go:hover { background: rgba(29, 59, 120, .92); }
+.vil-go:active { transform: scale(.96); }
+.vil-go[aria-expanded="true"] { background: var(--c-yellow); color: var(--c-on-yellow); border-color: rgba(120, 86, 0, .6); }
+.vil-go-ico { display: grid; place-items: center; line-height: 0; }
+.vil-quick {
+  position: absolute; top: calc(var(--bar-top) + var(--bar-h) + var(--tap) + 4px); left: max(16px, var(--sa-l));
+  width: min(600px, calc(100vw - max(16px, var(--sa-l)) - max(16px, var(--sa-r)))); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - var(--tap) - 20px);
+  overflow-y: auto; overscroll-behavior: contain; padding: 10px 12px 12px; border-radius: var(--rad-l);
+  background: var(--surface-float); box-shadow: var(--sh-pop); transform-origin: 0 0; animation: vq-in var(--t-med) var(--ease);
+}
+@keyframes vq-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+.vq-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; }
+.vq-title { font: 600 var(--fs-l)/1.2 var(--font-display); }
+.vq-partner {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; width: 100%; margin: 0 0 8px; padding: 8px 12px;
+  border: 0; border-radius: var(--rad-m); background: var(--card); color: var(--ink); text-align: left; cursor: pointer; font: inherit;
+}
+.vq-partner:hover { background: var(--card-hi); }
+.vq-pn { font: 600 var(--fs-l)/1.2 var(--font-display); }
+.vq-pi { display: inline-flex; align-items: center; gap: 4px; justify-self: end; }
+.vq-partner small { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-xs); }
+.vq-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 6px; }
+.vq-item {
+  display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 8px; min-height: 52px;
+  padding: 6px 10px; border: 0; border-radius: var(--rad-m); background: var(--card); color: var(--ink); text-align: left; cursor: pointer; font: inherit;
+  transition: background var(--t-fast);
+}
+.vq-item:hover, .vq-item:focus-visible { background: var(--card-hi); }
+.vq-item:active { background: var(--card-press); }
+.vq-item.play { grid-column: 1 / -1; background: var(--c-yellow); color: var(--c-on-yellow); }
+.vq-item.play .vq-s { color: rgba(20, 32, 74, .75); }
+.vq-ico { grid-row: 1 / 3; display: grid; place-items: center; line-height: 0; }
+.vq-t { font: 600 var(--fs-m)/1.15 var(--font-display); }
+.vq-s { color: var(--muted); font-size: var(--fs-xs); line-height: 1.25; }
+.vq-s.gold { color: var(--c-yellow); }
+.vq-stats { margin-top: 8px; }
+.vq-stats .ms-guest { margin: 6px 0 0; text-align: center; color: var(--muted); font-size: var(--fs-xs); }
+.vq-stats:empty { display: none; }
+.vq-stats { display: flex; flex-wrap: wrap; justify-content: space-around; gap: 4px 10px; }
+.vq-stats .ms { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+.vq-stats .ms b { font: 600 var(--fs-l)/1.1 var(--font-display); }
+.vq-stats .ms span { color: var(--muted); font-size: var(--fs-xs); }
+.vil-act {
+  position: absolute; left: 50%; bottom: calc(max(22px, var(--sa-b)) + 26px); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px 6px 12px; max-width: calc(100vw - 32px);
+  border: 2px solid rgba(244, 247, 255, .4); border-radius: var(--rad-pill); background: var(--chrome); color: var(--ink);
+  cursor: pointer; font: inherit; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); animation: va-in var(--t-med) var(--ease-pop);
+}
+@keyframes va-in { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(.94); } }
+.vil-act:hover { background: rgba(29, 59, 120, .92); }
+.vil-act.play { background: var(--c-yellow); color: var(--c-on-yellow); border-color: rgba(120, 86, 0, .6); }
+.vil-act-ico { display: grid; place-items: center; line-height: 0; }
+.vil-act-txt { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.vil-act-txt b { font: 600 var(--fs-l)/1.1 var(--font-display); }
+.vil-act-txt small { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .8; font-size: var(--fs-xs); }
+.vil-key { display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border-radius: var(--rad-s);
+  background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .3); font: 700 var(--fs-m)/1 var(--font-display); }
+.vil-act.play .vil-key { background: rgba(20, 32, 74, .12); border-color: rgba(20, 32, 74, .3); }
+.vil-key.hidden { display: none; }
+/* Táctil: el aviso, abajo a la derecha (a mano del pulgar; el joystick va a la izquierda). */
+body.touch .vil-act { left: auto; right: max(18px, var(--sa-r)); bottom: max(18px, var(--sa-b)); transform: none; min-height: 60px; padding-right: 18px; }
+body.touch .vil-act { animation-name: va-in-t; }
+@keyframes va-in-t { from { opacity: 0; transform: translateY(8px) scale(.94); } }
+.vil-loading {
+  position: absolute; left: 50%; bottom: max(16px, var(--sa-b)); transform: translateX(-50%); padding: 6px 14px; border-radius: var(--rad-pill);
+  background: var(--chrome); color: var(--muted); font-size: var(--fs-s); pointer-events: none;
+}
+#scr-menu.village .vil-loading { display: none; }
+@media (max-height: 520px) {
+  .vil-go { top: calc(var(--bar-top) + var(--bar-h) - 2px); min-height: 40px; }
+  .vil-quick { top: calc(var(--bar-top) + var(--bar-h) + 42px); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - 40px); }
+  .vq-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .vq-item { min-height: 44px; }
+}
 .menu-left { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .menu-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; width: 100%; justify-self: end; }
 .menu-left .logo { margin-bottom: 4px; }

@@ -116,6 +116,8 @@ G.Pad = (() => {
   }
   /** En un menú, cartas, pausa o ventana: el mando mueve la selección en vez de al Pokémon. */
   function uiMode() {
+    // (11-11-2026) Paseando por la aldea del menú, el mando mueve a tu Pokémon (A: entrar o hablar; Start: «Ir a…»).
+    if (G.Village && G.Village.walking()) return false;
     return G.Game.state !== 'playing' || !!topScreen();
   }
 

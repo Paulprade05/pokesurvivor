@@ -67,6 +67,8 @@ G.MenuUI = (() => {
       G.Audio.music(null);
       G.DB.logout().then(() => G.Flow.toLogin());
     };
+    // (11-11-2026) La aldea: el menú se pasea (js/world/village.js); el clásico, sólo si falla el 3D.
+    if (G.Village) G.Village.init();
   }
 
   // ---------------- menú principal ----------------
@@ -178,6 +180,8 @@ G.MenuUI = (() => {
       });
     }
     G.InvitePop.refresh();
+    // La aldea (o, si no puede ser, este mismo menú): los textos de arriba sirven también para su desplegable.
+    if (G.Village) G.Village.show();
   }
 
   /** Texto bajo "Mochila": cuántos objetos y MT llevas. */
@@ -1380,5 +1384,5 @@ G.MenuUI = (() => {
     return el;
   }
 
-  return { init, open, openDex, fitTiles, GEN_NAMES };
+  return { init, open, openDex, openUpgrades, fitTiles, GEN_NAMES };
 })();
