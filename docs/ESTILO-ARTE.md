@@ -64,10 +64,12 @@ Pedido del dueño: «que los muros, rocas y cofres tengan el mismo estilo de pul
 - **Luz:** lo que brilla deja un halo suave que se suma (`fx.js glowAt` / `light`): golpes, explosiones, tus disparos, el aura de los jefes y la luz de las grietas. Va alrededor y debajo, nunca tapa el sprite de un Pokémon.
 - **Bloom** (sólo calidad Máxima): lo claro de la escena se difumina y se suma, antes del HUD.
 - **Los Pokémon siguen en pixel art nítido**, a escala entera y sin suavizar; los números y el HUD, encima de todo y sin brillo.
+- **Filtro opcional «Pokémon más nítidos»** (Ajustes › Gráficos, `pixSmooth`, apagado de serie): con él encendido, los sprites se amplían con **Scale3x / AdvMAME3x** (`core/pixfilter.js`; en móvil, Scale2x / EPX y sólo tu Pokémon, compañeros, jefes y menús) y se dibujan suavizados a su tamaño: diagonales y curvas redondas, sin desenfocar ni colores nuevos. En la aldea, Scale2x en el shader (`village3d.js EPX_GLSL`). Se compararon Scale2x, Scale3x y Scale4x: Scale4x ya cambia ojos y caras. Apagado, todo es como siempre (las reglas de arriba).
 
 ## Lo que no cumple y por qué
 - **Aldea del menú:** el 3D va liso a propósito (arriba); la regla 3 vale para su pixel art, no para los modelos.
 - **Efectos que giran en la partida:** se dibujan desde una copia ampliada ×4 con suavizado (`vfx.js bigOf`): los píxeles se ven iguales y sin dientes, aunque no caigan en la rejilla.
 - **Ultra:** la perspectiva cambia la escala con la altura, así que los píxeles no pueden ser iguales.
+- **Pokémon con el filtro «más nítidos» encendido:** dejan de ser cuadrados de 1 px de arte a propósito (lo elige el jugador).
 - **Rocas, cofres y paredes en 3D, niebla y luz:** suaves a propósito (arriba, «El mundo pulido»); la regla 3 vale para el pixel art, no para lo 3D ni para la luz.
 - **Pokémon a otra escala:** jefes y formas grandes se escalan y sus píxeles son mayores o menores que los del mapa.

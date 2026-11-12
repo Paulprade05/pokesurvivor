@@ -1170,7 +1170,7 @@
       // (Y los que saltan, en arco.)
       const lift = (this.flying && !this.boss ? 1 + Math.sin(this.bob) * 1.5 : 0) + (this.jumpLift || 0);
       if (sink) { ctx.beginPath(); ctx.rect(this.x - 200, this.y - 400, 400, 400 - sink + 2); ctx.clip(); ctx.translate(0, sink * 0.8); }
-      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha: a });
+      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha: a, noPix: !this.boss && G.PixFilter && G.PixFilter.cheap });   // (móvil: la horda, sin el filtro)
       ctx.restore();
 
       if (this.dead) return;

@@ -72,6 +72,7 @@ G.Sprites = (() => {
     whites.clear(); whiteBytes = 0;
     for (const c of shadows.values()) G.U.freeCanvas(c);      // (si no, tras vaciarse, los Pokémon quedaban sin sombra)
     shadows.clear();
+    if (G.PixFilter) G.PixFilter.purge();
   }
 
   /** ¿Tiene versión shiny? (assets/pokemon/{dex}/s/) */
@@ -406,7 +407,7 @@ G.Sprites = (() => {
       }
     }
 
-    /** Dibuja con los pies en (x, y). opts: { flash, alpha } */
+    /** Dibuja con los pies en (x, y). opts: { flash, alpha, noPix (sin el filtro de pixfilter.js) } */
     draw(ctx, x, y, opts = {}) {
       let m = animMeta(this.dex, this.cur, this.shiny);
       let s = sheet(this.dex, this.cur, this.shiny);
@@ -439,13 +440,22 @@ G.Sprites = (() => {
       }
       const prev = ctx.globalAlpha;
       if (alpha < 1) ctx.globalAlpha = prev * alpha;
+      // (12-11-2026) Filtro «Pokémon más nítidos» (Ajustes › Gráficos, pixfilter.js): el fotograma ampliado con un
+      // escalador de pixel art y dibujado suavizado a su tamaño. Apagado (o mientras se hace), el de siempre.
+      const pf = G.PixFilter && G.PixFilter.on && !opts.noPix ? G.PixFilter.frame(s.img, sx, sy, m.w, m.h) : null;
+      const sm = ctx.imageSmoothingEnabled;
+      if (pf) ctx.imageSmoothingEnabled = true;
       // Destello: blanco entero (enemigos) o medio blanco encima (tu Pokémon).
-      if (!opts.flash || opts.softFlash) ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+      if (!opts.flash || opts.softFlash) {
+        if (pf) ctx.drawImage(pf.c, dx, dy, m.w * k, m.h * k);
+        else ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+      }
       if (opts.flash) {
         if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
-        const wc = white(s.img, sx, sy, m.w, m.h);
+        const wc = pf ? white(pf.c) : white(s.img, sx, sy, m.w, m.h);
         if (wc) ctx.drawImage(wc, dx, dy, m.w * k, m.h * k);
       }
+      if (pf) ctx.imageSmoothingEnabled = sm;
       ctx.globalAlpha = prev;
     }
   }

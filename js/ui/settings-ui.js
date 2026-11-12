@@ -204,7 +204,10 @@ G.SettingsUI = (() => {
       + (maxOk() ? '<p class="set-sub">Máxima: Ultra con todo (más resolución, bordes suaves, sombras finas, brillo y más partículas). Para PC con buena tarjeta gráfica.</p>' : '')
       + list(choice('quality', (maxOk() ? [['max', 'Máxima']] : []).concat([['auto', 'Auto'], ['ultra', 'Ultra'], ['high', 'Alta'], ['mid', 'Media'], ['low', 'Baja']])),
         // (Ultra 3D, 01-11-2026) Sólo cuenta con Ultra y las casillas de Mundo Misterioso.
-        G.TILESETS && G.TILESETS.length ? toggle('ultra3d', 'Ultra en 3D (WebGL)', 'Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.') : '')
+        G.TILESETS && G.TILESETS.length ? toggle('ultra3d', 'Ultra en 3D (WebGL)', 'Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.') : '',
+        // (12-11-2026) Filtro opcional para los sprites (core/pixfilter.js), con una vista previa: sin filtro y con él.
+        toggle('pixSmooth', 'Pokémon más nítidos', 'Suaviza los píxeles de los Pokémon con un filtro hecho para pixel art: bordes y curvas más redondos, sin emborronar ni cambiar sus colores. Apagado, como siempre.'),
+        '<div class="list-row set-row set-pix"><canvas id="set-pix-prev" width="240" height="112" aria-hidden="true"></canvas><small>Sin filtro · Con filtro</small></div>')
       + section('Pantalla')
       + list(toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.'),
         toggle('calm', 'Menos sacudidas y destellos', 'La cámara tiembla menos y los fogonazos son suaves.'),
@@ -353,6 +356,7 @@ G.SettingsUI = (() => {
     });
     const mute = $('set-mute'); if (mute) mute.onclick = toggleMute;
     const full = $('set-full'); if (full) full.onclick = toggleFull;
+    const pv = $('set-pix-prev'); if (pv && G.PixFilter) G.PixFilter.preview(pv, (G.DB.save && G.DB.save.partner) || 25);
     const lay = $('set-layout'); if (lay) lay.onclick = () => G.LayoutUI.open();
     box.querySelectorAll('[data-bind]').forEach(b => { b.onclick = () => bindKey(b.dataset.bind); });
     const kr = $('set-keys-reset'); if (kr) kr.onclick = () => { stopBind(); keyMsg = ''; G.Input.resetKeys(); keep(); };

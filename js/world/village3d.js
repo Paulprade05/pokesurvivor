@@ -169,6 +169,33 @@ G.Village3D = (() => {
     '  p = s + clamp((p - s) / d, -0.5, 0.5);',
     '  return texture2D(t, p / sz);',
     '}'].join('\n');
+  /*
+   * (12-11-2026) Filtro «Pokémon más nítidos» (pixfilter.js) en la aldea: Scale2x / EPX en el propio shader, sin memoria
+   * de más. Cada texel se parte en cuatro y cada cuarto copia a un vecino si está en una diagonal (redondea los bordes sin
+   * desenfocar ni inventar colores). Sólo con WebGL2 (textureSize).
+   */
+  const EPX_GLSL = [
+    'bool pxEq(vec4 a, vec4 b) { return (a.a < 0.5 && b.a < 0.5) || (a.a >= 0.5 && b.a >= 0.5 && dot(a.rgb - b.rgb, a.rgb - b.rgb) < 0.002); }',
+    'vec4 crispTex(sampler2D t, vec2 uv) {',
+    '  vec2 sz = vec2(textureSize(t, 0)), p = uv * sz, c = floor(p), f = p - c, d = 1.0 / sz, q = (c + 0.5) * d;',
+    '  vec4 P = texture2D(t, q), A = texture2D(t, q + vec2(0.0, d.y)), D = texture2D(t, q - vec2(0.0, d.y));',
+    '  vec4 B = texture2D(t, q + vec2(d.x, 0.0)), C = texture2D(t, q - vec2(d.x, 0.0));',
+    '  bool l = f.x < 0.5, u = f.y > 0.5;',          // (la textura va con flipY: arriba es +y)
+    '  if (u && l && pxEq(C, A) && !pxEq(C, D) && !pxEq(A, B)) return A;',
+    '  if (u && !l && pxEq(A, B) && !pxEq(A, C) && !pxEq(B, D)) return B;',
+    '  if (!u && l && pxEq(D, C) && !pxEq(D, B) && !pxEq(C, A)) return C;',
+    '  if (!u && !l && pxEq(B, D) && !pxEq(B, A) && !pxEq(D, C)) return D;',
+    '  return P;',
+    '}'].join('\n');
+  function pixSmooth(m) {
+    if (!gl2) return crisp(m);
+    m.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', EPX_GLSL + '\nvoid main() {')
+        .replace('#include <map_fragment>', '#ifdef USE_MAP\n  diffuseColor *= crispTex(map, vMapUv);\n#endif');
+    };
+    m.customProgramCacheKey = () => 'epx';
+    return m;
+  }
   function crisp(m) {
     if (!gl2) return m;
     m.onBeforeCompile = sh => {
@@ -2002,9 +2029,11 @@ G.Village3D = (() => {
   function sprite(e) {
     if (!built) return;
     let s = sprites.get(e);
+    const pf = !!(G.PixFilter && G.PixFilter.on && gl2 && !e.holo);
+    if (s && s.pf !== pf) { unsprite(e); s = null; }        // (al encender o apagar el filtro, su material nuevo)
     if (!s) {
       if (!planeGeo) { planeGeo = new T.PlaneGeometry(1, 1); planeGeo.__keep = true; }
-      const mat = crisp(new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true }));
+      const m0 = new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true }), mat = pf ? pixSmooth(m0) : crisp(m0);
       if (e.holo) { mat.depthWrite = false; mat.blending = T.AdditiveBlending; mat.alphaTest = 0.3; }
       const mesh = new T.Mesh(planeGeo, mat);
       mesh.frustumCulled = false; mesh.renderOrder = e.holo ? 13 : 5;
@@ -2014,7 +2043,7 @@ G.Village3D = (() => {
       shadow.scale.set(R * 2 * PX, Math.max(1, Math.round(R * 0.42)) * 2 * PX, 1);
       shadow.frustumCulled = false; shadow.renderOrder = 1;
       scene.add(mesh, shadow);
-      s = { mesh, mat, shadow, tex: new Map(), R };
+      s = { mesh, mat, shadow, tex: new Map(), R, pf };
       sprites.set(e, s);
     }
     const a = e.anim;
