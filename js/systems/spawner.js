@@ -56,7 +56,11 @@ G.Spawner = (() => {
   // 30, despacio al principio; hasta +60 % de vida y +40 % de daño. Así del 20 al
   // 30 sigue siendo lo más duro aunque lo de antes vaya más suave.
   const lateR = t => Math.pow(G.U.clamp((t - 900) / 900, 0, 1), 1.5);
-  const lateHp = t => 1 + 0.8 * lateR(t), lateDmg = t => 1 + 0.55 * lateR(t);
+  // (11-11-2026) El daño, desde el minuto 20 (LATE_KNEE) sube con LATE_DMG2 en vez de 0,55: ×1,31 en el 30 (antes ×1,55). Ver
+  //  G.Enemies.scale: del 20 al 30 se recibía el doble por golpe y el dueño no aguantaba ni con todo al máximo.
+  const LATE_KNEE = 1200, LATE_DMG2 = 0.25;
+  const lateHp = t => 1 + 0.8 * lateR(t);
+  const lateDmg = t => 1 + 0.55 * lateR(Math.min(t, LATE_KNEE)) + LATE_DMG2 * Math.max(0, lateR(t) - lateR(LATE_KNEE));
   // Campeones: del 1 % en el minuto 8 (efectivo; el 16 del reloj) al 6 %; como
   // mucho 2 vivos (3 desde el 12 efectivo, 4 desde el 18).
   const CHAMP_FROM = 480;
@@ -72,6 +76,7 @@ G.Spawner = (() => {
   // (Revisión 2: el tope cuenta el grupo entero; con 1 vivo, un dúo del final salía igual y quedaban 3. Ahora el dúo
   //  espera a que no quede ninguno.)
   const MAP_BOSS_MAX = 2;
+  const DUO_DMG = 0.8;
   // (Revisión 2) Mientras dura un jefe salen 4 veces menos enemigos; para que no se atasque el nivel (un Garchomp
   //  flojo seguía en el Nv. 23 en el minuto 10 y en el 31 en el 20), cada uno da FIGHT_XP veces su experiencia.
   const FIGHT_XP = { xp: 2.5 };
@@ -222,6 +227,10 @@ G.Spawner = (() => {
     const n = G.Coop.scale(players.length);
     const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), (G.Director ? G.Director.lvHp() : 1)), true);
     e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1) * n;   // (principio suave, 28-10-2026; director, 2.0)
+    // (11-11-2026) Los dúos del final (25:00 y 27:30): cada uno pega DUO_DMG (sus golpes y zonas; las firmas con % de tu vida,
+    //  igual). Dos a la vez son el doble de golpes y de avisos en el suelo: medido, en el minuto 25 había jefe en 12 de 12
+    //  partidas y se recibían 14 vidas por minuto.
+    if (b.duo) e.dmg *= DUO_DMG;
     e.coopN = n;
     e.maxHp = e.hp = Math.round(G.Enemies.bossCap ? G.Enemies.bossCap(e.maxHp, t, n) : e.maxHp * n);   // (antes de add: 'ne' lleva maxHp)
     if (rollShiny(b.dex)) e.makeShiny();

@@ -46,5 +46,16 @@ G.Types = (() => {
   /** 'super' | 'weak' | null, para enseñar el aviso. */
   function label(m) { return m > 1.05 ? 'super' : m < 0.95 ? 'weak' : null; }
 
-  return { CHART, mult, label };
+  /*
+   * (11-11-2026, el dueño: «las grietas unas veces son muy difíciles y otras muy fáciles».) En la arena de una grieta la
+   * tabla de tipos cuenta la mitad (raíz cuadrada: ×1,6 → ×1,26, ×0,6 → ×0,77, ×2,4 → ×1,55), en los dos sentidos: lo que
+   * te hacen los legendarios (player.js, mientras G.Rift.inArena) y lo que les haces tú (combat.js typeK, e.legend). Medido
+   * con tools/curve.cjs (128 grietas con todas las mejoras): con 2-3 legendarios del mismo tipo que te ganan (sus golpes te
+   * hacen ×1,6 y los tuyos ×0,6) se recibían 15-17 vidas de mediana; con tipo neutro, 2,5-4. Así se nota el tipo sin
+   * decidir él solo la grieta.
+   */
+  const LEG_EXP = 0.5;
+  const legK = m => Math.pow(m, LEG_EXP);
+
+  return { CHART, mult, label, legK, LEG_EXP };
 })();

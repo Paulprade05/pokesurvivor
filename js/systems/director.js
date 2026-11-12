@@ -18,7 +18,7 @@
  *     alguien va apurado, baja (×0,92). Con menos de 8 bajas en la ventana no se toca;
  *   - el daño sube ×1,02 (unos 40 s hasta arriba) si el jugador más apurado sigue por encima
  *     del 80 % de vida (media móvil, τ 20 s) desde el minuto 3, hasta DMG_MAX(t) (×1,1 en el 10,
- *     ×1,5 en el 30); y baja ×0,9 con
+ *     ×1,3 en el 30 desde el 11-11-2026, antes ×1,5); y baja ×0,9 con
  *     peligro (alguien por debajo del 30 % o caído en los últimos 25 s).
  * Además, tu NIVEL: +3 % de vida y +2 % de daño por cada nivel por encima del típico de ese minuto (LV_REF).
  * Sólo se compensa una parte (exponente 0,4): con el doble de fuerza se sigue matando más
@@ -51,7 +51,9 @@ G.Director = (() => {
   const LV_REF = [[0, 1], [300, 10], [600, 20], [900, 30], [1200, 38], [1800, 57]];
   const LV_HP = 0.03, LV_DMG = 0.02;
   // Tope del daño extra, también por reloj: medido, con ×1,5 ya en el minuto 4 se caía antes con todas las mejoras.
-  const DMG_MAX = [[180, 1], [600, 1.1], [1200, 1.3], [1800, 1.5]];
+  // (11-11-2026) Del 20 al 30, de 1,25 a 1,3 (antes de 1,3 a 1,5): con todas las mejoras y esquivando bien se está siempre
+  //  cómodo, así que se llegaba al tope justo cuando más pegan los enemigos (ver G.Enemies.scale).
+  const DMG_MAX = [[180, 1], [600, 1.1], [1200, 1.25], [1800, 1.3]];
   // Lo que sube la vida en cada paso (medido: con ×1,06 pasaba de 1 a 2,2 en medio minuto y luego caías).
   const HP_UP = 1.03;
   const DMG_UP = 1.02, TAU = 20, STEP = 2, MIN_KILLS = 8, DANGER_HP = 0.3, FALL_T = 25, COMFY = 0.8, DMG_FROM = 180;
