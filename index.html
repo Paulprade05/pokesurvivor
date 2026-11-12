@@ -129,7 +129,7 @@
 }
 </script>
 
-<link rel="stylesheet" href="css/style.css?v=ab47b2b2ef">
+<link rel="stylesheet" href="css/style.css?v=e26e1e5819">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -260,6 +260,14 @@
     </div>
     <div id="menu-stats" class="menu-stats"></div>
   </div>
+  <!-- (11-11-2026) La aldea (js/world/village.js): con la clase .village, lo de arriba se oculta y se pasea por la aldea
+       dibujada en el lienzo del juego. Esto es lo que va encima: el desplegable «Ir a…» y el aviso de entrar o hablar. -->
+  <div class="vil-hud" id="vil-hud">
+    <button class="vil-go" id="vil-go" type="button" aria-expanded="false" aria-controls="vil-quick" title="Ir a cualquier sitio sin andar"><span class="vil-go-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5z"/><path d="M9 4v13M15 6.5v13"/></svg></span><span class="lbl">Ir a…</span></button>
+    <div class="box vil-quick hidden" id="vil-quick" role="dialog" aria-label="Ir a"></div>
+    <button class="vil-act hidden" id="vil-act" type="button"><span class="vil-act-ico" id="vil-act-ico" aria-hidden="true"></span><span class="vil-act-txt"><b id="vil-act-t"></b><small id="vil-act-s"></small></span><kbd class="vil-key" id="vil-key">E</kbd></button>
+  </div>
+  <div class="vil-loading hidden" id="vil-loading" role="status">Preparando la aldea…</div>
 </section>
 
 <!-- ====== Barra de arriba (ui.js: chrome, refreshCoins y sus iconos) ======
@@ -958,6 +966,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=88ead7e017"></script>
+<script defer src="js/app.min.js?v=668605dc9a"></script>
 </body>
 </html>
