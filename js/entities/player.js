@@ -412,7 +412,8 @@ G.Player = class Player {
     if (!pure && G.Mega && G.Mega.active(this)) amount *= G.Mega.IN_K;
     let eff = null;
     if (type) {
-      const k = G.Types.mult(type, this.mon.types);
+      // (En la arena de una grieta, el tipo cuenta la mitad: G.Types.legK, 11-11-2026.)
+      const k0 = G.Types.mult(type, this.mon.types), k = G.Rift && G.Rift.inArena && G.Types.legK ? G.Types.legK(k0) : k0;
       eff = G.Types.label(k);
       amount *= k * G.Weather.mult(type);
     }

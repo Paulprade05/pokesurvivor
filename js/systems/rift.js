@@ -116,12 +116,13 @@ G.Rift = (() => {
     } else if (!arena && authority() && time < G.Judgment.AT - 120) {
       if (retryT > 0) retryT -= dt;
       // Si no hay sitio libre para la grieta, se vuelve a probar a los 5 s.
-      else if (due(time)) { if (open()) schedI++; else retryT = 5; }
+      else if (due(time)) { if (open(sched[schedI].mark)) schedI++; else retryT = 5; }
     }
     if (arena) arenaTick(dt, pl);
   }
 
-  function open() {
+  /** @param mark  la marca del calendario (s): la fuerza de la arena va con ella, no con cuándo se abre (11-11-2026). */
+  function open(mark = null) {
     const alive = G.Game.everyone().filter(p => !p.dead);
     const near = G.U.pick(alive.length ? alive : [G.Game.player]);
     for (let i = 0; i < 24; i++) {
@@ -129,6 +130,7 @@ G.Rift = (() => {
       const x = near.x + Math.cos(a) * d, y = near.y + Math.sin(a) * d * 0.85;
       if (!G.World.isFree(x, y, 22)) continue;
       show(x, y, TTL);
+      rift.mark = mark;
       if (G.Coop.isHost) G.Coop.broadcast(['rift', Math.round(x), Math.round(y), TTL]);
       return true;
     }
@@ -166,6 +168,11 @@ G.Rift = (() => {
     return pool[mi];
   }
 
+  /** ¿Sus golpes (su primer tipo, e.atkType) os hacen más daño por tipo a alguno de vosotros? */
+  function beatsUs(p) {
+    return G.Game.everyone().some(pl => pl && pl.mon && pl.mon.types && G.Types.mult(p.types[0], pl.mon.types) > 1.05);
+  }
+
   function start(forceType, forceN, forceDex = 0) {
     if (arena || travel) return;
     forceType = forceType || nextType; nextType = null;
@@ -176,21 +183,30 @@ G.Rift = (() => {
     const mon = (forceDex && all.find(p => p.dex === forceDex)) || pickLegend(pool);
     // La arena es la de uno de sus tipos, al azar.
     const type = forceType || G.U.pick(mon.types);
-    // Los demás, si puede, del tipo de la arena (y nunca repetidos).
-    const n = G.U.clamp(forceN || legendsFor(G.Game.st.time, G.Game.everyone().length), 1, 3);
+    /*
+     * (11-11-2026, el dueño: «las grietas unas veces son muy difíciles y otras muy fáciles».) Cuántos legendarios y lo
+     * fuertes que son van con la MARCA del calendario (minuto 5, 10, 15...), no con cuándo se abre la grieta: se abre
+     * ±22,5 s alrededor y espera al jefe de su marca, así que la del 20 salía entre el 20:12 y el 22:30 (medido) y el
+     * tiempo efectivo de los enemigos (vida y daño) sube un 37 % en esos 2 minutos. Sin grieta del calendario (pruebas), el reloj.
+     */
+    const tm = rift && rift.mark > 0 ? rift.mark : G.Game.st.time;
+    // Los demás, si puede, del tipo de la arena (y nunca repetidos). (11-11-2026) Pero como mucho uno cuyo tipo os gane:
+    //  medido, tres de Agua contra un Charizard eran la grieta más dura con diferencia (ver G.Types.legK).
+    const n = G.U.clamp(forceN || legendsFor(tm, G.Game.everyone().length), 1, 3);
     const mons = [mon];
     while (mons.length < n) {
       const rest = all.filter(p => !mons.includes(p));
-      const same = rest.filter(p => p.types.includes(type));
       if (!rest.length) break;
-      mons.push(pickLegend(same.length ? same : rest));
+      const same = rest.filter(p => p.types.includes(type)), strong = mons.some(beatsUs);
+      const fair = a => a.filter(p => !beatsUs(p));
+      mons.push(pickLegend([strong ? fair(same) : same, strong ? fair(rest) : [], same, rest].find(a => a.length)));
     }
     const shinies = mons.map(p => G.Sprites.hasShiny(p.dex) && Math.random() < 1 / 512);
     const cfg = {
       tx: 5000 + Math.floor(Math.random() * 3000), ty: 5000 + Math.floor(Math.random() * 3000), r: ARENA_R * U / TS(),
       // (dex y shiny: el primero, para los invitados de antes del 23-10-2026.)
       dex: mon.dex, shiny: shinies[0], type,
-      dexes: mons.map(p => p.dex), shinies, time: TIME_FOR[mons.length],
+      dexes: mons.map(p => p.dex), shinies, time: TIME_FOR[mons.length], tm,
       // (26-10-2026) Viaje por el túnel y llegada del legendario: los invitados de antes no lo leen.
       intro: INTRO
     };
@@ -493,13 +509,15 @@ G.Rift = (() => {
 
   /** @param at  dónde sale cada uno (la llegada: startIntro); si no, en su sitio de SPOTS. */
   function spawnLegends(at = null) {
-    // (Su fuerza va con el tiempo «efectivo» de los enemigos, 26-10-2026: ver G.Enemies.eff.)
-    const t = G.Enemies.eff ? G.Enemies.eff(G.Game.st.time) : G.Game.st.time;
+    // (Su fuerza va con el tiempo «efectivo» de los enemigos, 26-10-2026: ver G.Enemies.eff. Desde el 11-11-2026, el de la
+    //  marca del calendario, arena.tm: ver start.)
+    const now = arena.tm > 0 ? arena.tm : G.Game.st.time;
+    const t = G.Enemies.eff ? G.Enemies.eff(now) : now;
     // (28-10-2026) Una grieta en los primeros minutos no puede ser un muro: hasta el minuto 3, un 45 % menos de vida y
     //  de daño (y llega a lo normal en el 10). Medido: un Delibird sin mejoras caía diez veces en una grieta del minuto 3.
-    const soft = 0.55 + 0.45 * Math.min(1, Math.max(0, (G.Game.st.time - 180) / 420));
+    const soft = 0.55 + 0.45 * Math.min(1, Math.max(0, (now - 180) / 420));
     // (02-11-2026) El daño, menos rebajado al principio: un 15 % menos hasta el minuto 3.
-    const hitSoft = 0.85 + 0.15 * Math.min(1, Math.max(0, (G.Game.st.time - 180) / 420));
+    const hitSoft = 0.85 + 0.15 * Math.min(1, Math.max(0, (now - 180) / 420));
     const n = G.Coop.scale(G.Game.everyone().length);     // (cooperativo: vida y daño ×n, 01-11-2026)
     const ts = U;
     const k = arena.dexes.length, spots = SPOTS[k] || SPOTS[1];
@@ -511,7 +529,7 @@ G.Rift = (() => {
         // (2.0) Mínimo más alto (4000 + 22·eff; antes 3200 + 9·eff, menos que un enemigo normal en el minuto 20) y, encima,
         //  según tu DPS medido (G.Enemies.bossHp). En grupo, ×n sobre lo de solitario (bossHp cuenta el DPS de cada uno;
         //  antes el mínimo ×(1+0,3·(n-1))×1,4).
-        hp: Math.round((G.Enemies.bossHp ? G.Enemies.bossHp((4000 + t * 22) * soft, G.Game.st.time, 'leg', n)
+        hp: Math.round((G.Enemies.bossHp ? G.Enemies.bossHp((4000 + t * 22) * soft, now, 'leg', n)
                                          : (3200 + t * 9) * soft * n) * HP_EACH[k]),
         spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
         // (02-11-2026) Daño igual toda la partida (antes 36 + t/20 hasta 40 + t/10: 7-16 en las grietas de los minutos

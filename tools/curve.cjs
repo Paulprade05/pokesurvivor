@@ -304,6 +304,84 @@ BOT.pick = function (cards, cardInfo) {
 })();
 `;
 
+// ---------------------------------------------------------------- atascos (--atascos, 11-11-2026)
+// Detector propio, independiente del de enemy-ai.js: un enemigo que anda por el suelo (no vuela, ni bajo tierra, ni
+// saltando, ni con un estado que se lleva la IA), a más de un cuerpo de ti, que en 3 s de partida no se ha movido 30 px
+// de donde estaba. Cuenta los segundos atascado (a la vista y en total) y los episodios, con su contexto (dentro de
+// una pared, contra el terreno, en el agua, apelotonado) y cómo acaban (se suelta, salto o recolocado, muere).
+const STUCK_PROBE = String.raw`
+(() => {
+  const WIN = 3, MOVE = 30, BUSY = ['root', 'air', 'slide', 'frz', 'freeze', 'sleep', 'control', 'confuse', 'fear', 'charm', 'lost', 'bind', 'trap', 'hold'];
+  const S = window.STK = { gen: 0, inA: 0, arena: { live: 0, stuck: 0, eps: 0 }, live: 0, liveVis: 0, stuck: 0, stuckVis: 0, eps: 0, epsVis: 0, long6: 0, long10: 0, max: 0, kinds: {}, ends: {}, sample: [], last: null, minute: { live: 0, stuck: 0, stuckVis: 0 } };
+  const eligible = (e, pl) => {
+    if (e.dead || e.remote || e.flying || e.under || e.jump || e.dig || e.behavior === 'thief' || e.behavior === 'stampede') return false;
+    if (e.stunT > 0 || e.phase === 'aim' || e.phase === 'fuse') return false;
+    if (e.sts && BUSY.some(k => e.sts[k])) return false;
+    if (e.keepsDistance && e.keepsDistance() && Math.hypot(e.x - pl.x, e.y - pl.y) < ((e.def && e.def.range) || 200) * 1.1) return false;
+    return Math.hypot(e.x - pl.x, e.y - pl.y) > e.r + pl.r + 30;
+  };
+  const kindOf = e => {
+    const W = G.World;
+    if (!W.isFree(e.x, e.y, Math.max(4, e.r * 0.4), true)) return 'dentro';
+    if (W.isLiquid(e.x, e.y)) return 'agua';
+    if (!W.isFree(e.x, e.y, e.r + 4, true)) {
+      const R = e.r + 6; let wall = false;
+      for (const [a, b] of [[R, 0], [-R, 0], [0, R], [0, -R], [R * 0.7, R * 0.7], [-R * 0.7, R * 0.7], [R * 0.7, -R * 0.7], [-R * 0.7, -R * 0.7]]) if (W.isWall(e.x + a, e.y + b)) wall = true;
+      return 'terreno:' + (wall ? 'pared' : 'objeto');
+    }
+    let n = 0; for (const o of G.EnemyMgr.all()) if (o !== e && !o.dead && Math.hypot(o.x - e.x, o.y - e.y) < (e.r + o.r) * 1.2) n++;
+    return n >= 2 ? 'gentio' : 'libre';
+  };
+  let lastT = null;
+  setInterval(() => {
+    // (Grieta, pausa, cartas: al volver, cada uno empieza a contar de cero; si no, lo de antes de la grieta contaba.)
+    if (G.Game.state !== 'playing') { lastT = null; S.gen++; return; }
+    const A = G.Rift.inArena ? 1 : 0;
+    if (A !== S.inA) { S.inA = A; S.gen++; }
+    const t = G.Game.st.time, pl = G.Game.player;
+    if (lastT == null || t < lastT) { lastT = t; return; }
+    const dt = t - lastT; lastT = t;
+    if (dt <= 0 || dt > 2) return;
+    for (const e of G.EnemyMgr.all()) {
+      let k = e._stk;
+      if (!k || k.gen !== S.gen) { if (k && k.ep) S.eps--, S.sample.includes(k.ep) && S.sample.splice(S.sample.indexOf(k.ep), 1); k = e._stk = { x: e.x, y: e.y, t, ep: null, gen: S.gen }; }
+      const ok = eligible(e, pl);
+      const vis = G.Camera.sees(e.x, e.y, 0);
+      if (ok) { S.live += dt; S.minute.live += dt; if (vis) S.liveVis += dt; if (A) S.arena.live += dt; }
+      const far = Math.hypot(e.x - k.x, e.y - k.y);
+      if (!ok || far > MOVE) {
+        if (k.ep) { const d = t - k.ep.t0; k.ep.dur = +d.toFixed(1); k.ep.end = !ok ? (e.dead ? 'muere' : e.jump ? 'salto' : 'estado') : far > 200 ? 'recolocado' : 'se suelta'; S.ends[k.ep.end] = (S.ends[k.ep.end] || 0) + 1; if (d > 6) S.long6++; if (d > 10) S.long10++; S.max = Math.max(S.max, d); k.ep = null; }
+        k.x = e.x; k.y = e.y; k.t = t; continue;
+      }
+      if (t - k.t < WIN) continue;
+      S.stuck += dt; S.minute.stuck += dt; if (vis) { S.stuckVis += dt; S.minute.stuckVis += dt; } if (A) S.arena.stuck += dt;
+      if (!k.ep) {
+        const kind = kindOf(e);
+        if (A) S.arena.eps++;
+        k.ep = { t0: k.t, m: +(t / 60).toFixed(1), A, leg: e.legend ? 1 : 0, kind, vis, b: e.behavior, r: Math.round(e.r), mv: e.mv || '', boss: e.boss ? 1 : 0, d: Math.round(Math.hypot(e.x - pl.x, e.y - pl.y)), x: Math.round(e.x), y: Math.round(e.y),
+                 path: e.pathV != null ? e.pathV : null, pno: e.pathNo ? 1 : 0, ai: +(e.aiStuckT || 0).toFixed(1), terr: e.aiTerr ? 1 : 0, wall: e.aiWall ? 1 : 0, strict: e.aiStrict > 0 ? 1 : 0 };
+        S.eps++; if (vis) S.epsVis++;
+        S.kinds[kind.split(':')[0]] = (S.kinds[kind.split(':')[0]] || 0) + 1;
+        if (S.sample.length < 150) S.sample.push(k.ep);
+      }
+    }
+  }, 100);
+  // Los que el propio juego cuenta como atascados (enemy-ai.js stats: aiStuckT ≥ 1,2 s y chocando con el terreno).
+  S.game = []; S.gameN = 0;
+  setInterval(() => {
+    if (G.Game.state !== 'playing') return;
+    const pl = G.Game.player;
+    for (const e of G.EnemyMgr.all()) if (!e.dead && !e.remote && e.aiStuckT >= 1.2 && e.aiTerr) {
+      S.gameN++;
+      if (S.game.length < 80 && !S.game.some(g => g.id === e.id)) S.game.push({ id: e.id, m: +(G.Game.st.time / 60).toFixed(1), A: G.Rift.inArena ? 1 : 0, leg: e.legend ? 1 : 0, boss: e.boss ? 1 : 0, kind: kindOf(e), b: e.behavior, r: Math.round(e.r), mv: e.mv || '', d: Math.round(Math.hypot(e.x - pl.x, e.y - pl.y)), path: e.pathV != null ? e.pathV : null, pno: e.pathNo ? 1 : 0, ai: +e.aiStuckT.toFixed(1), x: Math.round(e.x), y: Math.round(e.y) });
+    }
+  }, 1000);
+  S.report = () => ({ gameN: S.gameN, game: S.game, live: Math.round(S.live), liveVis: Math.round(S.liveVis), stuck: Math.round(S.stuck), stuckVis: Math.round(S.stuckVis),
+    pct: +(100 * S.stuck / Math.max(1, S.live)).toFixed(2), pctVis: +(100 * S.stuckVis / Math.max(1, S.liveVis)).toFixed(2),
+    arena: S.arena, eps: S.eps, epsVis: S.epsVis, long6: S.long6, long10: S.long10, max: +S.max.toFixed(1), kinds: S.kinds, ends: S.ends, sample: S.sample });
+})();
+`;
+
 // ---------------------------------------------------------------- una partida
 async function one(dex, upg, tag, speed, cap, want, pref) {
   const ppDir = opt('pp', process.env.PUPPETEER_CORE || '');
@@ -462,6 +540,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
         }
       }, 200);
     }, dex, upg, want || null, pref || null, process.argv.includes('--mega'));
+    if (process.argv.includes('--atascos')) await page.evaluate(STUCK_PROBE);
     await page.evaluate(k => G.Game.debugSpeed(k), speed);
     const t0 = Date.now();
     let s = null, lastLog = -999, lastDmg = 0, lastDeaths = 0, lastKills = 0, lastDealt = 0, ttks = [], judgeAt = null, lastAi = { n: 0, live: 0, stuck: 0, under: 0, swim: 0 };
@@ -502,6 +581,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
     const meas = await page.evaluate(() => ({ boss: M.boss.map(b => ({ n: b.name, l: b.legend ? 1 : 0, min: b.min, hp: b.hp, ttk: b.ttk, atk: b.atk, sig: b.sig, dmg: Math.round(b.dmg) })), arenas: M.arenas, opened: M.opened || [] }));
     const reg = await page.evaluate(() => { try { const r = G.Reg.build(), o = {}; for (const id in r.moves) { const m = r.moves[id]; o[id] = { d: m.dealt, b: m.boss, a: m.active, l: m.lvl, e: m.evolved ? 1 : 0, g: m.group, h: m.hits, k: m.kills }; } return { dur: r.dur, lvl: r.lvl, kills: r.kills, dealt: r.dealt, taken: r.taken, healed: r.healed, bossesN: r.bossesN, item: r.item, cards: r.statsTaken, moves: o, en: r.tl.map(x => x[7]), keys: r.tlKeys, tl: r.tl, ev: r.ev, takenBy: r.takenBy, bosses: r.bosses, kinds: r.kinds }; } catch (e) { return null; } });
     if (reg) log(`${tag} REG ${JSON.stringify(reg)}`);
+    if (process.argv.includes('--atascos')) log(`${tag} ATASCOS ${JSON.stringify(await page.evaluate(() => STK.report()))}`);
     log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} fus=${s.fz} sobre=${s.ov} ` +
         `abiertas=${JSON.stringify(meas.opened)} jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
   } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
@@ -537,6 +617,7 @@ async function main() {
       if (chrome) a.push('--chrome', chrome);
       if (want) a.push('--quiere', want);
       if (args.includes('--mega')) a.push('--mega');
+      if (args.includes('--atascos')) a.push('--atascos');
       if (pref) a.push('--pref', pref);
       spawn(process.execPath, a, { stdio: ['ignore', f, f] }).on('exit', () => { running--; console.log('hecha', j.tag); next(); });
     };

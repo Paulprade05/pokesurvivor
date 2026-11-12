@@ -304,7 +304,8 @@ G.Combat = (() => {
   }
 
   /** Tabla de tipos × clima para un ataque de tipo `type` contra `e`. */
-  function typeK(type, e) { return G.Types.mult(type, e.types) * G.Weather.mult(type); }
+  // (Contra los legendarios de las grietas, el tipo cuenta la mitad: G.Types.legK, 11-11-2026.)
+  function typeK(type, e) { const k = G.Types.mult(type, e.types); return (e.legend && G.Types.legK ? G.Types.legK(k) : k) * G.Weather.mult(type); }
   /** (Ataques únicos: m.stellar —Teraclúster— nunca hace menos de ×1: ni resistencias ni inmunidades.) */
   const typeKm = (type, e, m) => (m && m.stellar ? Math.max(1, typeK(type, e)) : typeK(type, e));
 
@@ -6817,11 +6818,30 @@ G.Combat = (() => {
   }
 
   // Beso Drenaje → Luz Lunar: cura la mitad del daño y enamora 1,5 s; evolucionado, lo que sobra se vuelve escudo.
+  /*
+   * (11-11-2026, el dueño: «cura demasiado, me deja casi inmortal».) Antes cada beso curaba hasta un 3 % de tu vida y
+   * nada más: con el daño de media partida ese 3 % siempre se llenaba, así que curaba 3 % × besos por segundo, y los besos
+   * crecen con el nivel, la evolución (+2), las cartas de proyectiles y la recarga. Medido con tools/sandbox.cjs: 5 %/s al
+   * nivel 1, 21 %/s al 5 y 35 %/s evolucionado (21 vidas por minuto); del minuto 22 al 29 el bot recibe 8-17 vidas por
+   * minuto. Ahora la cura sale de un depósito que se rellena a DK_RATE[nivel] de tu vida por segundo (×DK_EVO
+   * evolucionado) y guarda como mucho 1 s: 1,2 %/s al nivel 1, 2,4 %/s al 5 y 3,6 %/s evolucionado. Más besos ya no curan
+   * más, sólo lo llenan antes.
+   */
+  const DK_RATE = [0, 0.012, 0.015, 0.018, 0.021, 0.024], DK_EVO = 1.5;
+  function kissBudget(pl, m) {
+    const s = ST3(m), now = G.Game.st.time;
+    const rate = (pl.maxHp || 100) * (DK_RATE[Math.min(5, Math.max(1, m.lvl | 0))]) * (m.evolved ? DK_EVO : 1);
+    s.dkB = Math.min(rate, (s.dkB == null ? rate : s.dkB) + Math.max(0, now - (s.dkT == null ? now : s.dkT)) * rate);
+    s.dkT = now;
+    return s;
+  }
   MECH['draining-kiss'] = {
     afterP(pl, e, m, p, d) {
       if (!e.dead) stAdd(e, 'infat', 1.5);
-      const h = Math.min(d * 0.5, (pl.maxHp || 100) * 0.03);
+      if (!(d > 0)) return;
+      const s = kissBudget(pl, m), h = Math.min(d * 0.5, s.dkB);
       if (!(h > 0)) return;
+      s.dkB -= h;
       if (m.lunar && pl.maxHp) {
         const room = pl.maxHp - pl.hp;
         if (h > room) { const u = P3(pl); u.shield = Math.min(pl.maxHp * m.lunar, u.shield + (h - room)); }
