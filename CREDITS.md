@@ -199,9 +199,12 @@ también los de los Cristales Z y la Pulsera Z.
 
 ## Fuentes
 
-Interfaz: [Fredoka](https://github.com/hafontia/Fredoka-One) (títulos, botones y números) y
-[Nunito](https://github.com/googlefonts/nunito) (texto), las dos con SIL Open Font
-License 1.1 (licencias en `assets/fonts/OFL-Fredoka.txt` y `assets/fonts/OFL-Nunito.txt`).
+Interfaz (desde el 13-11-2026): [Grenze](https://github.com/Omnibus-Type/Grenze) (títulos, botones y números) y
+[Alegreya Sans](https://github.com/huertatipografica/Alegreya-Sans) (texto), las dos con SIL Open Font
+License 1.1 (licencias en `assets/fonts/OFL-Grenze.txt` y `assets/fonts/OFL-AlegreyaSans.txt`), sacadas del
+repositorio de Google Fonts. Antes, Fredoka y Nunito (también OFL).
+
+Marcos, botones y adornos de la interfaz: dibujo propio en vector (`tools/ui-art.cjs`, en `assets/ui/`).
 
 Tragaperras del gacha y versiones anteriores: [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font License 1.1,
 licencia en `assets/fonts/OFL.txt`). El juego usa una versión modificada,

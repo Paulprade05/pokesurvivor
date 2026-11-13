@@ -263,7 +263,7 @@ G.SettingsUI = (() => {
            <li><b>Datos de los Pokémon:</b> PokéAPI.</li>
            <li><b>Iconos de objetos:</b> Pokémon (Nintendo, Creatures, GAME FREAK), vía PokeAPI/sprites.</li>
            <li><b>Música y sonidos:</b> originales, generados por el propio juego.</li>
-           <li><b>Fuentes:</b> Fredoka, Nunito y Pixelify Sans (OFL).</li>
+           <li><b>Fuentes:</b> Grenze, Alegreya Sans y Pixelify Sans (OFL).</li>
          </ul>`
       + section('Enlaces')
       + `<div class="about-links">

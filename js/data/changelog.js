@@ -30,6 +30,17 @@ G.CHANGELOG = [
      "The rift portal is 3D: a glowing violet swirl surrounded by crystal shards."],
     ["El suelo, la hierba alta y los Pokémon siguen en pixel art. En móvil, todo sigue como antes (en 2D), sin gastar más batería.",
      "The ground, the tall grass and the Pokémon are still pixel art. On mobile everything stays as before (2D), with no extra battery use."]] },
+  { d: '2026-11-13', title: ["Interfaz nueva: Raíces vivas", "New interface: Living Roots"], new: [
+    ["Interfaz nueva, «Raíces vivas»: los menús, la tienda, el gacha, la Pokédex, Ajustes, las cartas al subir de nivel, la pausa y el fin de partida parecen ahora de un juego ilustrado del bosque. Paneles de musgo con marco de corteza, raíces, hojas y setas que brillan en las esquinas, botones de madera que se hunden al pulsarlos y letras con carácter (Grenze y Alegreya Sans).",
+     "New interface, “Living Roots”: menus, the shop, the gacha, the Pokédex, Settings, the level-up cards, pause and the end screen now look like an illustrated forest game. Moss panels with a bark frame, roots, leaves and glowing mushrooms in the corners, wooden buttons that sink when pressed and lettering with character (Grenze and Alegreya Sans)."]],
+  chg: [
+    ["El HUD de la partida va con el mismo estilo: tarjeta de musgo con borde de corteza, los ataques en medallones redondos, el activo con luz de hoja, y el joystick y la pausa de madera.",
+     "The in-run HUD has the same style: a moss card with a bark edge, attacks in round medallions, the active one lit with leaf light, and a wooden joystick and pause button."],
+    ["Colores con sentido: verde hoja para lo principal y lo elegido, ámbar para lo que se paga con monedas y oro para las evoluciones.",
+     "Colors with meaning: leaf green for the main action and what is selected, amber for what you pay with coins and gold for evolutions."]],
+  fix: [
+    ["En iPhone, en la pausa, «Tus ataques» ya no se monta encima de «Tus estadísticas».",
+     "On iPhone, in the pause screen, “Your attacks” no longer overlaps “Your stats”."]] },
   { d: '2026-11-13', title: ["PokéSurvivor para PC con Windows", "PokéSurvivor for Windows PCs"], new: [
     ["En un PC con Windows, Ajustes › Acerca de tiene «Descargar para Windows»: el juego como programa, con pantalla completa de verdad, la gráfica potente del portátil, la calidad Máxima elegida sola y tu partida guardada también en el disco. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».",
      "On a Windows PC, Settings › About has “Download for Windows”: the game as a program, with real full screen, the laptop's powerful graphics card, Max quality picked on its own and your save also kept on disk. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”."]] },
