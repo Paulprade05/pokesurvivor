@@ -10,6 +10,7 @@
 //     levelUp() abre las cartas de nivel en partida, pause() abre la pausa, over() acaba la run.
 //     Para el modo Ultra (2,5D): "js": "G.Settings.set('quality','ultra'); await go('play'); await sleep(3000)".
 //   - "page": "index.html" para probar la versión compilada (por defecto dev.html); "dpr": 1 o 2 (por defecto 2).
+//   - "enter": false para no entrar como invitado (captura el inicio de sesión; en "js" se puede seguir a mano).
 // Escribe <salida>/<name>.png y dice en consola los errores de la página.
 const path = require('path'), fs = require('fs'), http = require('http');
 const argv = process.argv.slice(2);
@@ -103,7 +104,8 @@ async function enter(page) {
       await page.setViewport({ width: w, height: h, deviceScaleFactor: s.dpr || 2, isMobile: w < 768 || h < 520, hasTouch: w < 768 || h < 520 });
       await page.goto(`http://127.0.0.1:${port}/${s.page || 'dev.html'}`, { waitUntil: 'load' });
       await page.evaluate(() => document.fonts && document.fonts.ready);
-      await enter(page);
+      if (s.enter === false) { await page.evaluate(PRELUDE); await new Promise(r => setTimeout(r, s.wait || 2500)); }   // (sin entrar: inicio de sesión, test...)
+      else await enter(page);
       let info = '';
       if (s.js) info = await page.evaluate(`(async () => { ${s.js}; await sleep(600); return vis(); })()`).catch(e => 'ERROR: ' + e.message);
       const file = path.join(outDir, s.name + '.png');

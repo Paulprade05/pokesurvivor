@@ -294,7 +294,7 @@ G.Events = (() => {
           ctx.save();
           ctx.font = '700 16px Grenze,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center';
           ctx.lineJoin = 'round';
-          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(6,12,30,.9)'; ctx.strokeText('!', L.x, by);
+          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(4,10,6,.9)'; ctx.strokeText('!', L.x, by);
           ctx.fillStyle = '#7dffb0'; ctx.fillText('!', L.x, by);
           ctx.restore();
         }

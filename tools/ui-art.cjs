@@ -70,6 +70,7 @@ button('boton.svg', '#2a4530', '#1a2e1f', '#0a160c', .14, true);           // no
 button('boton-pri.svg', '#d8ff9a', '#7fd85a', '#2f7a2a', .6, true);        // principal: hoja que brilla
 button('boton-peligro.svg', '#ff9a8a', '#d8433a', '#7a1a14', .45, false);  // abandonar, borrar
 button('boton-ambar.svg', '#ffe6a0', '#f2c35a', '#9a6418', .55, true);     // comprar, monedas
+button('boton-arcoiris.svg', '#f0c8ff', '#b45ad8', '#5a1f7a', .5, true);  // tirada con ticket ×10 (gacha)
 // ---- medalla.svg: hueco redondo (ataques, retrato, pausa, iconos). 100 px. ----
 {
   sizes['medalla.svg'] = write('medalla.svg', 100, 100, `<defs>${BARK}${BG('mb', '#1c3322', '#06100a')}</defs>

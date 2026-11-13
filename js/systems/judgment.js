@@ -585,7 +585,7 @@ G.Judgment = (() => {
       ctx.font = N(800, Math.max(12, Math.round(size * 0.45)));
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(6,12,30,.85)';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(4,10,6,.86)';
       const sub = 'Es invencible: huye y aguanta todo lo que puedas';
       ctx.strokeText(sub, w / 2, h * 0.24 + size * 1.1, w - 24);
       ctx.fillStyle = '#ffe9b0';
