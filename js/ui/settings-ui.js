@@ -79,8 +79,10 @@ G.SettingsUI = (() => {
   /** Texto de una fila: nombre y, debajo, la explicación (desc puede llevar <b>). */
   const label = (name, desc) => `<span class="grow"><b>${esc(name)}</b>${desc ? `<small>${desc}</small>` : ''}</span>`;
   /** Interruptor: toda la fila es el botón. */
+  // (El filtro de los Pokémon, de serie, va con la calidad Máxima: se enseña lo que está de verdad.)
+  const cur = k => k === 'pixSmooth' && G.PixFilter ? G.PixFilter.on : !!G.Settings.get(k);
   function toggle(key, name, desc) {
-    const on = !!G.Settings.get(key);
+    const on = cur(key);
     return `<button type="button" class="list-row set-row set-switch" role="switch" aria-checked="${on}" data-k="${key}">`
       + label(name, esc(desc)) + '<span class="sw" aria-hidden="true"></span></button>';
   }
@@ -206,7 +208,7 @@ G.SettingsUI = (() => {
         // (Ultra 3D, 01-11-2026) Sólo cuenta con Ultra y las casillas de Mundo Misterioso.
         G.TILESETS && G.TILESETS.length ? toggle('ultra3d', 'Ultra en 3D (WebGL)', 'Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.') : '',
         // (12-11-2026) Filtro opcional para los sprites (core/pixfilter.js), con una vista previa: sin filtro y con él.
-        toggle('pixSmooth', 'Pokémon más nítidos', 'Suaviza los píxeles de los Pokémon con un filtro hecho para pixel art: bordes y curvas más redondos, sin emborronar ni cambiar sus colores. Apagado, como siempre.'),
+        toggle('pixSmooth', 'Pokémon más nítidos', 'Suaviza los píxeles de los Pokémon con un filtro hecho para pixel art: bordes y curvas más redondos, sin emborronar ni cambiar sus colores. De serie, encendido sólo con la calidad Máxima.'),
         '<div class="list-row set-row set-pix"><canvas id="set-pix-prev" width="240" height="112" aria-hidden="true"></canvas><small>Sin filtro · Con filtro</small></div>')
       + section('Pantalla')
       + list(toggle('dmgNumbers', 'Números de daño', 'Los números que salen al golpear y al recibir daño.'),
@@ -339,7 +341,7 @@ G.SettingsUI = (() => {
     // Interruptores: se cambia el ajuste y la fila en su sitio.
     box.querySelectorAll('.set-switch[data-k]').forEach(b => {
       b.onclick = () => {
-        const v = !G.Settings.get(b.dataset.k);
+        const v = !cur(b.dataset.k);
         G.Settings.set(b.dataset.k, v);
         b.setAttribute('aria-checked', String(v));
         G.Audio.sfx('click');
@@ -351,6 +353,9 @@ G.SettingsUI = (() => {
         const v = b.dataset.v;
         G.Settings.set(b.dataset.k, isNaN(+v) ? v : +v);
         for (const o of b.parentElement.children) { o.classList.toggle('on', o === b); o.setAttribute('aria-checked', String(o === b)); }
+        // (Con la calidad cambia el filtro de los Pokémon, si no lo has tocado: su interruptor, al día.)
+        const ps = box.querySelector('.set-switch[data-k="pixSmooth"]');
+        if (ps) ps.setAttribute('aria-checked', String(cur('pixSmooth')));
         G.Audio.sfx('click');
       };
     });
