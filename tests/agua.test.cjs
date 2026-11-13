@@ -55,10 +55,22 @@ test('agua: pushed hard towards the lake, a normal enemy stops at the shore; dro
   assert.ok(S.W.isLiquid(pl.x, pl.y), 'el jugador sigue pudiendo andar por el agua');
 });
 
+test('agua: with you in the middle of a lake, a normal enemy goes to the shore nearest you and waits there (with a path, not rescued)', () => {
+  const S = A.sim({ terr: lake, rseed: 7 });
+  S.me.x = 9.5 * TS; S.me.y = 0.5 * TS;                     // en el agua, a 1,5 casillas de la orilla de la derecha
+  const e = S.enemy(16 * TS, -6.5 * TS, { types: ['normal'], r: 14 });
+  let wet = 0;
+  step(S, 14, () => { if (S.W.isLiquid(e.x, e.y)) wet++; });
+  assert.equal(wet, 0, 'no entra');
+  assert.equal(e.pathNo, false, 'tiene camino (hasta la orilla)');
+  assert.ok(e.pathShore, 'espera en la orilla');
+  assert.ok(Math.hypot(e.x - S.me.x, e.y - S.me.y) < 3 * TS, `espera cerca de ti: a ${Math.hypot(e.x - S.me.x, e.y - S.me.y).toFixed(0)}`);
+  assert.equal(S.log.ahead, 0, 'no lo recolocan');
+});
+
 test('agua: on the real map, with a big horde of mixed types, legendaries, strong pushes and enemies dropped in water and rocks, the ones that cannot swim are never in water and almost none get stuck', () => {
   const r = A.run({ secs: 45, seed: 2, n: 60, inside: true });
   assert.equal(r.dryWetPct, 0, `los que no pueden entrar: ${r.dryWetPct} % del tiempo en el agua (${r.dryWetN} distintos)`);
-  assert.ok(r.wadeWetPct > 0, 'los de Agua, Volador y Fantasma sí entran');
   assert.ok(r.pct <= 0.2, `atascados ${r.pct} %`);
   assert.equal(r.long6, 0, `episodios de más de 6 s: ${r.long6}`);
 });

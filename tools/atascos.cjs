@@ -89,7 +89,7 @@ const BUSY = ['root', 'air', 'slide', 'frz', 'freeze', 'sleep', 'control', 'conf
 function detector(S) {
   const { G, me, W } = S;
   const R = { dryT: 0, dryWet: 0, dryWetVis: 0, wadeT: 0, wadeWet: 0, dryWetIds: new Set(), live: 0, liveVis: 0, stuck: 0, stuckVis: 0, eps: 0, epsVis: 0, long6: 0, max: 0, kinds: {}, sample: [] };
-  const eligible = e => !(e.dead || e.flying || e.under || e.jump || e.dig || e.stunT > 0 || e.phase === 'aim' || (e.sts && BUSY.some(k => e.sts[k]))) &&
+  const eligible = e => !(e.dead || e.pathShore || e.flying || e.under || e.jump || e.dig || e.stunT > 0 || e.phase === 'aim' || (e.sts && BUSY.some(k => e.sts[k]))) &&
     !(e.keepsDistance() && Math.hypot(e.x - me.x, e.y - me.y) < ((e.def && e.def.range) || 200) * 1.1) && Math.hypot(e.x - me.x, e.y - me.y) > e.r + me.r + 30;
   const kindOf = e => {
     if (!W.isFree(e.x, e.y, Math.max(4, e.r * 0.4), true)) return 'dentro';
