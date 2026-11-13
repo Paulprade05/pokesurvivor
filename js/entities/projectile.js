@@ -195,6 +195,7 @@ G.Projectiles = (() => {
       ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.5, p.r * 0.6, 0, 0, 6.2832); ctx.fill();
       if (hi) ctx.stroke();
     }
+    let glowN = G.Settings.fx > 1 ? (G.Settings.max ? 140 : 70) : 28;
     for (const p of list) {
       // (Ataques únicos: su propio dibujo, p.drawFn(ctx, p, alpha).)
       if (p.drawFn) { p.drawFn(ctx, p, p.friendly ? own : 1); continue; }
@@ -206,7 +207,12 @@ G.Projectiles = (() => {
       if (G.VFX.isDir(shape)) angle = p.orb ? p.oa + Math.PI / 2 : Math.atan2(p.vy, p.vx);
       else if (G.VFX.spins(shape)) angle = p.t * 9;
       // (Arte animado) Un halo tramado que late debajo: el disparo se lee como luz. Sólo los tuyos y en calidad media o alta.
-      if (p.friendly && !p.orb && G.Anim.on && G.Settings.fx > 0) G.VFX.draw(ctx, 'halo', v.pal, p.x, p.y - L, { alpha: 0.45 * a * own, frame: (p.t * 10) | 0, scale: p.r >= 8 ? 1.25 : 1 });
+      // (Pulido 12-11-2026) Ahora es luz de verdad: un halo suave que se suma (G.FX.glowAt), con tope por fotograma.
+      if (p.friendly && !p.orb && G.Anim.on && G.Settings.fx > 0) {
+        const pc = G.VFX.PAL[v.pal];
+        if (glowN-- > 0 && pc) { const R = p.r >= 8 ? (p.ds || 1.5) * 16 : 18; G.FX.glowAt(ctx, p.x, p.y - L, R, R * 0.78, pc[3], 0.5 * a * own); }
+        else G.VFX.draw(ctx, 'halo', v.pal, p.x, p.y - L, { alpha: 0.45 * a * own, frame: (p.t * 10) | 0, scale: p.r >= 8 ? 1.25 : 1 });
+      }
       // (Los de un movimiento Z, del tamaño de lo que golpean: las bolas de fuego gigantes se ven gigantes.)
       G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, {
         angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.ds || (p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1),

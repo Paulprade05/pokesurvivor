@@ -154,3 +154,26 @@ test('choques: quien está metido en algo puede salir, pero no entrar', async ()
   assert.equal(V.hits(ix, 50, -20, 10, [50, -30]), false, 'fuera, lejos: libre');
   assert.equal(V.hits(ix, 50, -5, 10, [50, -30]), true, 'fuera, entrando: choca');
 });
+
+// (12-11-2026) El borde de la aldea es un bosque de árboles instanciados (village3d.js forestPlan): choca como se ve.
+test('bosque del borde: cada casilla de bosque junto a la aldea lleva su planta y ninguna nace en suelo libre', async () => {
+  const { V, V3 } = await load();
+  for (const k of [0.6, 1, 1.5]) {
+    const plan = V3.forestPlan(V, k), byCell = new Set();
+    for (const p of plan) {
+      const tx = Math.floor(p.x), ty = Math.floor(p.z);
+      assert.equal(V.terrainAt(tx, ty), 1, 'planta en suelo libre: ' + p.k + ' en ' + tx + ',' + ty);
+      byCell.add(tx + ',' + ty);
+      if (ty >= V.H - 3) assert.ok(p.k === 'bush' || p.k === 'shroom', 'abajo del todo sólo plantas bajas (' + p.k + ')');
+    }
+    const open = (x, y) => x >= 0 && y >= 0 && x < V.W && y < V.H && V.terrainAt(x, y) !== 1;
+    for (let ty = 0; ty < V.H; ty++) for (let tx = 0; tx < V.W; tx++) {
+      if (V.terrainAt(tx, ty) !== 1) continue;
+      let edge = false;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (open(tx + i, ty + j)) edge = true;
+      if (edge) assert.ok(byCell.has(tx + ',' + ty), 'casilla de bosque sin árbol junto a la aldea: ' + tx + ',' + ty + ' (densidad ' + k + ')');
+    }
+    // Más calidad, más árboles.
+    if (k > 1) assert.ok(plan.length > V3.forestPlan(V, 1).length * 1.3);
+  }
+});

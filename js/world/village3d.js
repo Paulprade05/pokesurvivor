@@ -103,8 +103,9 @@ G.Village3D = (() => {
     STEPS: [1, 0.85, 0.7, 0.58, 0.48], i: 0, ema: 1 / 60, slow: 0, fast: 0, fixed: null,
     init() { let i = 0; try { i = +localStorage.getItem('ps.vil.q') || 0; } catch (e) { /* nada */ } this.i = Math.max(0, Math.min(this.STEPS.length - 1, i | 0)); this.ema = 1 / 60; this.slow = this.fast = 0; },
     get q() { return this.fixed != null ? this.fixed : this.STEPS[this.i]; },
-    dprCap() { const f = fx(); return f === 0 ? 1 : f === 1 ? 1.5 : 2; },
-    maxPx() { const f = fx(), m = mobile(); return (f === 0 ? 0.9e6 : f === 1 ? (m ? 1.4e6 : 2.4e6) : (m ? 2.2e6 : 4.2e6)); },
+    // (12-11-2026) Máxima (PC): hasta 2,5 px físicos por px CSS y 6,5 M px por fotograma.
+    dprCap() { const f = fx(); return f === 0 ? 1 : f === 1 ? 1.5 : G.Settings && G.Settings.max ? 2.5 : 2; },
+    maxPx() { const f = fx(), m = mobile(); return (f === 0 ? 0.9e6 : f === 1 ? (m ? 1.4e6 : 2.4e6) : (m ? 2.2e6 : G.Settings && G.Settings.max ? 6.5e6 : 4.2e6)); },
     save() { try { localStorage.setItem('ps.vil.q', String(this.i)); } catch (e) { /* nada */ } },
     tune(dt) {
       if (this.fixed != null || !(dt > 0) || dt > 0.25) return;
@@ -168,6 +169,33 @@ G.Village3D = (() => {
     '  p = s + clamp((p - s) / d, -0.5, 0.5);',
     '  return texture2D(t, p / sz);',
     '}'].join('\n');
+  /*
+   * (12-11-2026) Filtro «Pokémon más nítidos» (pixfilter.js) en la aldea: Scale2x / EPX en el propio shader, sin memoria
+   * de más. Cada texel se parte en cuatro y cada cuarto copia a un vecino si está en una diagonal (redondea los bordes sin
+   * desenfocar ni inventar colores). Sólo con WebGL2 (textureSize).
+   */
+  const EPX_GLSL = [
+    'bool pxEq(vec4 a, vec4 b) { return (a.a < 0.5 && b.a < 0.5) || (a.a >= 0.5 && b.a >= 0.5 && dot(a.rgb - b.rgb, a.rgb - b.rgb) < 0.002); }',
+    'vec4 crispTex(sampler2D t, vec2 uv) {',
+    '  vec2 sz = vec2(textureSize(t, 0)), p = uv * sz, c = floor(p), f = p - c, d = 1.0 / sz, q = (c + 0.5) * d;',
+    '  vec4 P = texture2D(t, q), A = texture2D(t, q + vec2(0.0, d.y)), D = texture2D(t, q - vec2(0.0, d.y));',
+    '  vec4 B = texture2D(t, q + vec2(d.x, 0.0)), C = texture2D(t, q - vec2(d.x, 0.0));',
+    '  bool l = f.x < 0.5, u = f.y > 0.5;',          // (la textura va con flipY: arriba es +y)
+    '  if (u && l && pxEq(C, A) && !pxEq(C, D) && !pxEq(A, B)) return A;',
+    '  if (u && !l && pxEq(A, B) && !pxEq(A, C) && !pxEq(B, D)) return B;',
+    '  if (!u && l && pxEq(D, C) && !pxEq(D, B) && !pxEq(C, A)) return C;',
+    '  if (!u && !l && pxEq(B, D) && !pxEq(B, A) && !pxEq(D, C)) return D;',
+    '  return P;',
+    '}'].join('\n');
+  function pixSmooth(m) {
+    if (!gl2) return crisp(m);
+    m.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', EPX_GLSL + '\nvoid main() {')
+        .replace('#include <map_fragment>', '#ifdef USE_MAP\n  diffuseColor *= crispTex(map, vMapUv);\n#endif');
+    };
+    m.customProgramCacheKey = () => 'epx';
+    return m;
+  }
   function crisp(m) {
     if (!gl2) return m;
     m.onBeforeCompile = sh => {
@@ -640,17 +668,14 @@ G.Village3D = (() => {
     const at = (tx, ty) => { const v = VG.terrainAt(tx, ty); return v === 2 ? 0 : v; };
     const grassAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < W && ty < Hh && !!b.grass[ty * W + tx];
     const [cv, g] = canvas(W * A, Hh * A);
-    const [tc, tg] = canvas(W * A, Hh * A);
     for (let cy = 0; cy * N < Hh; cy++) for (let cx = 0; cx * N < W; cx++) {
       const c = G.Tileset.paintChunk(cx, cy, N, at, BI, seed, true, grassAt);
       if (!c) throw Error('sin suelo');
       g.drawImage(c, cx * N * A, cy * N * A);
       G.U.freeCanvas(c);
-      const t = G.Tileset.top3d(cx, cy, N, at, BI, seed);
-      if (t) { tg.drawImage(t, cx * N * A, cy * N * A); G.U.freeCanvas(t); }
     }
     const glow = forest(g, b, A);
-    return { ground: cv, tops: tc, glow };
+    return { ground: cv, glow };
   }
   /**
    * Encima del suelo del tileset: musgo a manchas, caminos de tierra oscura con piedras que brillan en el borde y la
@@ -674,7 +699,13 @@ G.Village3D = (() => {
     const P = VG.PLAZA, gl = [CYAN, GREEN, CYAN, PINK];
     for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
       const o = (py * w + px) * 4, fx = px / A, fy = py / A, tx = fx | 0, ty = fy | 0;
-      if (VG.terrainAt(tx, ty) === 1) continue;
+      if (VG.terrainAt(tx, ty) === 1) {
+        // (12-11-2026) Bajo los árboles del borde: suelo de bosque oscuro, musgo y hojarasca (antes, la pared del tileset).
+        const m = vn(px, py, 10, 86) * 0.6 + vn(px, py, 3, 87) * 0.4, k = H(px, py, 88);
+        set(o, m > 0.62 ? MOSS[1] : m > 0.4 ? MOSS[0] : k < 0.5 ? '#0e1a16' : '#121f1a');
+        if (m > 0.66 && H(px >> 1, py >> 1, 89) > 0.992) { const c = H(px >> 2, py >> 2, 90) > 0.5 ? CYAN : GREEN; set(o, shade(c, -0.3)); lit(o, shade(c, -0.35)); }
+        continue;
+      }
       // Plaza: losas oscuras irregulares y un anillo de runas que brilla.
       const dd = Math.hypot(fx - P.x, fy - P.y);
       if (dd < P.r + (H(px >> 2, py >> 2, 91) - 0.5) * 0.18) {
@@ -718,7 +749,7 @@ G.Village3D = (() => {
 
   function buildGround() {
     const VG = V(), W = VG.W, Hh = VG.H;
-    const { ground, tops: topC, glow } = paintGround();
+    const { ground, glow } = paintGround();
     const gt = tex(ground), et = tex(glow);
     const mat = fin(new T.MeshLambertMaterial({ map: gt, emissive: new T.Color(0xffffff), emissiveMap: et, emissiveIntensity: 1 }));
     disposables.push(mat);
@@ -732,69 +763,146 @@ G.Village3D = (() => {
     mat.depthWrite = false;                 // lo que está de pie nunca queda tapado por el suelo (pies y sombras 2D)
     mesh.renderOrder = -10;
     fixed(mesh);
-    // El bosque del borde levantado: arriba, la pieza de pared del tileset (copas de pino, top3d); delante y a los
-    // lados, su cara (face3d).
-    const face = G.Tileset.face3d(VG.BI);
-    const topT = tex(topC), topM = fin(new T.MeshLambertMaterial({ map: topT, side: T.FrontSide }));
-    disposables.push(topM);
-    let faceM = null;
-    if (face) {
-      const fc = document.createElement('canvas');
-      fc.width = face.width; fc.height = face.height;
-      fc.getContext('2d').drawImage(face, 0, 0);
-      faceM = fin(new T.MeshLambertMaterial({ map: tex(fc, true) }));
-      disposables.push(faceM);
-    }
-    const HW = 46, FW = face ? face.width * PX : 96;
-    const A = { pos: [], nor: [], uv: [] }, F = { pos: [], nor: [], uv: [] };
-    const quad = (o, a, b2, c, d, n, uv) => {
-      for (const k of [0, 1, 2, 0, 2, 3]) {
-        const p = [a, b2, c, d][k];
-        o.pos.push(p[0], p[1], p[2]); o.nor.push(n[0], n[1], n[2]); o.uv.push(uv[k * 2], uv[k * 2 + 1]);
-      }
-    };
-    const at = (tx, ty) => VG.terrainAt(tx, ty);
-    for (let ty = 0; ty < Hh; ty++) for (let tx = 0; tx < W; tx++) {
-      if (at(tx, ty) !== 1) continue;
-      const x0 = tx * TS, x1 = x0 + TS, z0 = ty * TS, z1 = z0 + TS;
-      const u0 = tx / W, u1 = (tx + 1) / W, v0 = 1 - (ty + 1) / Hh, v1 = 1 - ty / Hh;
-      quad(A, [x0, HW, z1], [x1, HW, z1], [x1, HW, z0], [x0, HW, z0], [0, 1, 0], [u0, v0, u1, v0, u1, v1, u0, v1]);
-      if (at(tx, ty + 1) !== 1) quad(F, [x0, 0, z1], [x1, 0, z1], [x1, HW, z1], [x0, HW, z1], [0, 0, 1], [x0 / FW, 0, x1 / FW, 0, x1 / FW, 1, x0 / FW, 1]);
-      if (at(tx - 1, ty) !== 1) quad(F, [x0, 0, z0], [x0, 0, z1], [x0, HW, z1], [x0, HW, z0], [-1, 0, 0], [z0 / FW, 0, z1 / FW, 0, z1 / FW, 1, z0 / FW, 1]);
-      if (at(tx + 1, ty) !== 1) quad(F, [x1, 0, z1], [x1, 0, z0], [x1, HW, z0], [x1, HW, z1], [1, 0, 0], [z1 / FW, 0, z0 / FW, 0, z0 / FW, 1, z1 / FW, 1]);
-    }
-    const mk = (o, m) => {
-      if (!o.pos.length || !m) return;
-      const g = new T.BufferGeometry();
-      g.setAttribute('position', new T.Float32BufferAttribute(o.pos, 3));
-      g.setAttribute('normal', new T.Float32BufferAttribute(o.nor, 3));
-      g.setAttribute('uv', new T.Float32BufferAttribute(o.uv, 2));
-      disposables.push(g);
-      const mesh = new T.Mesh(g, m);
-      mesh.castShadow = fx() > 0; mesh.receiveShadow = true;
-      fixed(mesh);
-    };
-    mk(A, topM); mk(F, faceM);
-    borderPines(HW);
+    buildForest();
   }
 
   /*
-   * (Pulido 12-11-2026) Pinos 3D en lo alto del bosque del borde, en la fila que da a la aldea: antes era una pared plana
-   * con pinos dibujados y se veía como un seto de cajas. Abajo del todo no van (taparían el camino del sur).
+   * (12-11-2026, el dueño: «quiero que los bordes de la aldea cambien a ser un montón de árboles») El borde es un bosque
+   * denso del bosque bioluminiscente: pinos, árboles de copa redonda con vainas que brillan, setas gigantes que se
+   * encienden de noche y matas por delante. Antes era una pared levantada con el dibujo del tileset y unos pinos encima.
+   *  - Instancing: una malla por tipo de planta (4) y su contorno (4), con un solo material (una textura atlas: corteza,
+   *    agujas, hojas y sombreros) y un color por planta. 8 llamadas de dibujo para todo el bosque, con cualquier número de
+   *    árboles (antes, la pared, su cara y el lote de pinos con su contorno).
+   *  - Choca como se ve: los árboles nacen en las casillas de bosque (terrainAt = 1, que son las que chocan) y cada casilla
+   *    de bosque que da a la aldea lleva al menos una planta pegada a su borde (forestPlan; tests/village-solids.test.cjs).
+   *  - Abajo del todo, sólo matas y setas bajas (los árboles taparían el camino del sur).
+   *  - Más árboles con más calidad (en Máxima, una vez y media; en móvil o calidad baja, menos). Se mecen con el viento
+   *    (en el shader: no cuesta) y lo que brilla lleva su halo.
    */
-  function borderPines(HW) {
-    const VG = V(), W = VG.W, Hh = VG.H, at = (tx, ty) => VG.terrainAt(tx, ty);
-    const pm = lambert('pine', () => stex(foliage(128, ['#0e2a2c', '#163e3c', '#21584e', '#347860'], 23)));
-    const tm = barkM();
-    for (let ty = 0; ty < Hh - 4; ty++) for (let tx = 0; tx < W; tx++) {
-      if (at(tx, ty) !== 1) continue;
-      let open = false;
-      for (let dy = -1; dy <= 1 && !open; dy++) for (let dx = -1; dx <= 1; dx++) if (at(tx + dx, ty + dy) !== 1) { open = true; break; }
-      if (!open || H(tx, ty, 601) > 0.62) continue;
-      const k = 0.75 + H(tx, ty, 602) * 0.45, x = (tx + 0.25 + H(tx, ty, 603) * 0.5) * TS, z = (ty + 0.25 + H(tx, ty, 604) * 0.5) * TS;
-      put(cyl(3 * k, 4.5 * k, 18 * k, 6), tm, { x, y: HW + 9 * k, z }, { hull: 1, walk: true });
-      for (const [r, h, y] of [[26, 40, 26], [20, 34, 48], [13, 28, 68]]) put(cone(r * k, h * k, 7), pm, { x, y: HW + y * k, z, ry: H(tx, ty, 605) * 3 }, { hull: 1.6, walk: true });
+  function buildForest() {
+    const VG = V(), plan = forestPlan(VG, G.Settings && G.Settings.max ? 1.5 : mobile() || fx() === 0 ? 0.6 : 1);
+    // Atlas 256×256: corteza | agujas / hojas | sombrero (arriba, brilla blanco) y vainas (abajo, brillan cian).
+    let atlas = null, glowA = null;
+    if (!dry) {
+      const [ac, ag] = canvas(256, 256), [ec, eg] = canvas(256, 256);
+      ag.drawImage(memo('fbark', () => bark(128, ['#1a1410', '#261c16', '#34261c', '#463426'], 9)), 0, 0);
+      ag.drawImage(memo('fpine', () => foliage(128, ['#0b2426', '#123638', '#1b4e4a', '#2c6e5c'], 23)), 128, 0);
+      ag.drawImage(memo('fleaf', () => foliage(128, ['#0f2c32', '#174444', '#205e54', '#33806a'], 29)), 0, 128);
+      ag.drawImage(memo('fcap', () => capTex('#e8e4f0', 5)), 128, 128, 128, 64);
+      ag.fillStyle = '#bff8ff'; ag.fillRect(128, 192, 128, 64);
+      eg.fillStyle = '#000000'; eg.fillRect(0, 0, 256, 256);
+      eg.globalAlpha = 0.55; eg.drawImage(ac, 128, 128, 128, 64, 128, 128, 128, 64); eg.globalAlpha = 1;
+      eg.fillStyle = '#5ff0ff'; eg.fillRect(128, 192, 128, 64);
+      // (Un poco de luz en las hojas, como el musgo que brilla: casi nada, para que de noche no sea una mancha negra.)
+      eg.globalAlpha = 0.07; eg.drawImage(ac, 0, 128, 128, 128, 0, 128, 128, 128); eg.globalAlpha = 1;
+      atlas = stex(ac, false); glowA = stex(ec, false);
     }
+    const mat = new T.MeshLambertMaterial({ map: atlas, emissive: new T.Color(0xffffff), emissiveMap: glowA, emissiveIntensity: 1, side: T.FrontSide, shadowSide: T.DoubleSide });
+    const hullM = new T.MeshBasicMaterial({ color: edgeCol, side: T.BackSide });
+    sway(mat, true); sway(hullM, false);
+    disposables.push(mat, hullM);
+    glowList.push({ m: mat, base: 1, ph: 1.3 });
+    const R = { bark: [0, 0], pine: [0.5, 0], leaf: [0, 0.5], cap: [0.5, 0.5, 0.25], pod: [0.5, 0.75, 0.25] };
+    // Una pieza con sus uv llevadas a su trozo del atlas (con 10 px de margen: de lejos, los mipmaps no mezclan el sombrero
+    // blanco ni las vainas con las hojas).
+    const part = (g, at, r) => {
+      const q = g.index ? g.toNonIndexed() : g, uv = q.attributes.uv, [u0, v0, vh = 0.5] = R[r], m = 10 / 256;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + m + uv.getX(i) * (0.5 - 2 * m), 1 - (v0 + m + (1 - uv.getY(i)) * (vh - 2 * m)));
+      q.applyMatrix4(compose(at));
+      if (q !== g) g.dispose();
+      return q;
+    };
+    // Las piezas a dos detalles: la planta (q = 1; en Máxima, más redonda) y su contorno (q = 0: basta la silueta).
+    const hi = mobile() || fx() < 2 ? 1 : 2;      // (PC con calidad alta: copas más redondas)
+    const CY = (rt, rb, h, n) => new T.CylinderGeometry(rt, rb, h, n, 1, false), CO = (r, h, n) => new T.ConeGeometry(r, h, n, 1, false);
+    const BL = (r, q) => new T.IcosahedronGeometry(r, q ? hi : 0), CAP = (r, q) => new T.SphereGeometry(r, q ? 14 : 8, q ? 5 : 3, 0, Math.PI * 2, 0, Math.PI / 2);
+    const KIND = {
+      pine: q => [part(CY(3.2, 5, 26, q ? 8 : 5), { y: 13 }, 'bark')].concat([[26, 40, 34], [20, 34, 56], [13, 30, 76]].map(([r, h, y], i) => part(CO(r, h, q ? 16 : 7), { y, ry: i * 0.9 }, 'pine'))),
+      round: q => [part(CY(4, 6.5, 52, q ? 8 : 5), { y: 26 }, 'bark'),
+        part(BL(30, q), { y: 74 }, 'leaf'), part(BL(22, q), { x: -20, y: 60, z: 6 }, 'leaf'), part(BL(20, q), { x: 18, y: 64, z: -5 }, 'leaf')].concat(q ? [
+        part(BL(2.6, 0), { x: -8, y: 46, z: 18 }, 'pod'), part(BL(2.2, 0), { x: 16, y: 50, z: 14 }, 'pod'), part(BL(2.4, 0), { x: -26, y: 44, z: 2 }, 'pod')] : []),
+      shroom: q => [part(CY(4, 6, 36, q ? 8 : 5), { y: 18 }, 'bark'), part(CAP(24, q), { y: 34, sy: 0.42 }, 'cap')].concat(q ? [part(CY(23, 6, 3, 14), { y: 33 }, 'bark')] : []),   // (láminas oscuras debajo del sombrero)
+      bush: q => [part(BL(14, q), { y: 8, sy: 0.75 }, 'leaf'), part(BL(11, q), { x: -12, y: 6, z: 4, sy: 0.7 }, 'leaf'), part(BL(10, q), { x: 11, y: 6, z: -3, sy: 0.7 }, 'leaf')]
+        .concat(q ? [part(BL(1.8, 0), { x: 4, y: 13, z: 10 }, 'pod')] : [])
+    };
+    const M = new T.Matrix4(), C = new T.Color();
+    for (const k in KIND) {
+      const list = plan.filter(p => p.k === k);
+      if (!list.length) continue;
+      const g = merge(KIND[k](1));
+      // El contorno: la planta en poco detalle, hinchada un poco por sus normales (sigue a la planta al mecerse: el mismo shader).
+      const hg = merge(KIND[k](0)), hp = hg.attributes.position, hn = hg.attributes.normal;
+      for (let i = 0; i < hp.count; i++) hp.setXYZ(i, hp.getX(i) + hn.getX(i) * 1.7, hp.getY(i) + hn.getY(i) * 1.7, hp.getZ(i) + hn.getZ(i) * 1.7);
+      const im = new T.InstancedMesh(g, mat, list.length), ih = new T.InstancedMesh(hg, hullM, list.length);
+      list.forEach((p, i) => {
+        M.compose(new T.Vector3(p.x * TS, 0, p.z * TS), new T.Quaternion().setFromEuler(new T.Euler(0, p.ry, 0)), new T.Vector3(p.s, p.s * p.sy, p.s));
+        im.setMatrixAt(i, M); ih.setMatrixAt(i, M);
+        im.setColorAt(i, C.set(p.c));
+        // Lo que brilla, con su halo (las setas y las vainas de los de delante: los de detrás quedan tapados).
+        if (p.edge && k === 'shroom') halo(p.x * TS, 34 * p.s + 6, p.z * TS, p.c, 46 * p.s, 0.45);
+        if (p.edge && k === 'round' && p.glow) halo(p.x * TS, 48 * p.s, p.z * TS + 10, CYAN, 34 * p.s, 0.4);
+      });
+      im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      im.castShadow = fx() > 0; im.receiveShadow = true;
+      ih.castShadow = false;
+      fixed(im); fixed(ih);
+    }
+  }
+
+  /** Viento: lo alto de cada planta se mece (con su fase por planta, de su sitio). glow: lo que brilla, del color de la planta. */
+  function sway(m, glow) {
+    m.onBeforeCompile = sh => {
+      sh.uniforms.uTime = uni.time;
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', [
+        '#include <begin_vertex>',
+        '#ifdef USE_INSTANCING',
+        '  float ph = instanceMatrix[3].x * 0.013 + instanceMatrix[3].z * 0.021;',
+        '  float h = max(0.0, position.y - 18.0);',
+        '  transformed.x += sin(uTime * 0.9 + ph) * h * 0.035 + sin(uTime * 2.3 + ph * 3.0) * h * 0.008;',
+        '  transformed.z += cos(uTime * 0.7 + ph * 1.7) * h * 0.02;',
+        '#endif'].join('\n'));
+      if (glow) sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n#ifdef USE_COLOR\n  totalEmissiveRadiance *= vColor;\n#endif');
+    };
+    m.customProgramCacheKey = () => 'sway' + (glow ? 1 : 0);
+  }
+
+  /*
+   * Dónde va cada planta del bosque del borde (sin three.js: también para los tests). k: densidad (1 normal).
+   * → [{ k: 'pine' | 'round' | 'shroom' | 'bush', x, z (casillas), s (escala), sy, ry, c (color), edge, glow, tx, ty }]
+   * Cada casilla de bosque que da a la aldea lleva al menos una planta pegada a su lado abierto; las de dentro, a veces.
+   * Una fila más fuera del plano (arriba y a los lados: con la perspectiva se ve algo). Abajo del todo, sólo plantas bajas.
+   */
+  function forestPlan(VG, k = 1) {
+    const W = VG.W, Hh = VG.H, at = (tx, ty) => VG.terrainAt(tx, ty), out = [];
+    const open = (tx, ty) => tx >= 0 && ty >= 0 && tx < W && ty < Hh && at(tx, ty) !== 1;
+    const caps = [CYAN, PINK, GREEN, VIOLET, CYAN];
+    const tint = (a, b) => { const v = 0.86 + H(a, b, 640) * 0.26; return css([v * 255, (v + (H(a, b, 641) - 0.5) * 0.08) * 255, (v + (H(a, b, 642) - 0.5) * 0.1) * 255]); };
+    for (let ty = -1; ty < Hh; ty++) for (let tx = -1; tx <= W; tx++) {
+      if (at(tx, ty) !== 1) continue;
+      let dx = 0, dy = 0, n = 0;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (open(tx + i, ty + j)) { dx += i; dy += j; n++; }
+      const edge = n > 0, south = ty >= Hh - 3;
+      const L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      const count = edge ? 1 + (H(tx, ty, 650) < 0.45 * k ? 1 : 0) + (k > 1.2 && H(tx, ty, 651) < 0.4 ? 1 : 0) : (H(tx, ty, 652) < 0.5 * k ? 1 : 0) + (k > 1.2 && H(tx, ty, 653) < 0.35 ? 1 : 0);
+      for (let q = 0; q < count; q++) {
+        const h = H(tx, ty, 660 + q);
+        let kind;
+        if (south) kind = h < 0.9 ? 'bush' : 'shroom';
+        else if (edge && q > 0) kind = h < 0.55 ? 'bush' : h < 0.8 ? 'shroom' : 'round';
+        else kind = h < 0.42 ? 'pine' : h < 0.82 ? 'round' : 'shroom';
+        // Pegada al lado abierto (las de delante) o suelta dentro de la casilla; siempre dentro de ella.
+        const jx = (H(tx, ty, 670 + q) - 0.5) * 0.5, jy = (H(tx, ty, 680 + q) - 0.5) * 0.5;
+        const pull = edge ? (q === 0 ? 0.24 : 0.3) : 0;
+        const x = Math.max(tx + 0.1, Math.min(tx + 0.9, tx + 0.5 + ux * pull + jx * (edge ? 0.6 : 1)));
+        const z = Math.max(ty + 0.1, Math.min(ty + 0.9, ty + 0.5 + uy * pull + jy * (edge ? 0.6 : 1)));
+        const r = H(tx, ty, 690 + q);
+        const s = kind === 'pine' ? 1.15 + r * 0.5 : kind === 'round' ? 1.0 + r * 0.45 : kind === 'shroom' ? (south ? 0.5 + r * 0.25 : 0.8 + r * 0.45) : 0.8 + r * 0.5;
+        out.push({ k: kind, x, z, s, sy: kind === 'pine' ? 0.95 + H(tx, ty, 700 + q) * 0.25 : 1, ry: H(tx, ty, 710 + q) * 6.283,
+          c: kind === 'shroom' ? caps[(H(tx, ty, 720 + q) * 5) | 0] : tint(tx * 3 + q, ty), edge, glow: H(tx, ty, 730 + q) < 0.5, tx, ty });
+      }
+    }
+    return out;
   }
 
   // ---------------- agua: la charca (capa animada del tileset, teñida de luz) ----------------
@@ -1812,7 +1920,7 @@ G.Village3D = (() => {
       scene.add(hemi);
       sun = new T.DirectionalLight(0xffffff, 0.3 * Math.PI);
       sun.castShadow = fx() > 0;
-      const ms = mobile() ? 1024 : 2048;
+      const ms = mobile() ? 1024 : G.Settings && G.Settings.max ? 4096 : 2048;      // (Máxima: sombras más finas)
       sun.shadow.mapSize.set(ms, ms);
       sun.shadow.bias = -0.002;
       const sc = sun.shadow.camera, half = Math.max(V().W, V().H) * TS * 0.62;
@@ -1838,7 +1946,8 @@ G.Village3D = (() => {
       buildMist();
       // Partículas: esporas que flotan (siempre) y que caen, chispas y el manantial.
       const VG = V(), f = fx();
-      const nFly = f === 0 ? 14 : f === 1 ? 24 : 36, nPet = f === 0 ? 6 : f === 1 ? 12 : 18;
+      const mx = G.Settings && G.Settings.max;          // (Máxima: más esporas y luciérnagas)
+      const nFly = f === 0 ? 14 : f === 1 ? 24 : mx ? 64 : 36, nPet = f === 0 ? 6 : f === 1 ? 12 : mx ? 30 : 18;
       const spots = (n, s) => Array.from({ length: n }, (_, i) => [(3 + H(i, s, 1) * (VG.W - 6)) * TS, 0, (3 + H(i, s, 2) * (VG.H - 6)) * TS]);
       uni.flyA = { value: 1 }; uni.petA = { value: 0.7 };
       particles(0, spots(nFly, 1), [CYAN, GREEN, '#d8ff70', PINK], 2, true, uni.flyA);
@@ -1920,9 +2029,11 @@ G.Village3D = (() => {
   function sprite(e) {
     if (!built) return;
     let s = sprites.get(e);
+    const pf = !!(G.PixFilter && G.PixFilter.on && gl2 && !e.holo);
+    if (s && s.pf !== pf) { unsprite(e); s = null; }        // (al encender o apagar el filtro, su material nuevo)
     if (!s) {
       if (!planeGeo) { planeGeo = new T.PlaneGeometry(1, 1); planeGeo.__keep = true; }
-      const mat = crisp(new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true }));
+      const m0 = new T.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, depthWrite: true }), mat = pf ? pixSmooth(m0) : crisp(m0);
       if (e.holo) { mat.depthWrite = false; mat.blending = T.AdditiveBlending; mat.alphaTest = 0.3; }
       const mesh = new T.Mesh(planeGeo, mat);
       mesh.frustumCulled = false; mesh.renderOrder = e.holo ? 13 : 5;
@@ -1932,7 +2043,7 @@ G.Village3D = (() => {
       shadow.scale.set(R * 2 * PX, Math.max(1, Math.round(R * 0.42)) * 2 * PX, 1);
       shadow.frustumCulled = false; shadow.renderOrder = 1;
       scene.add(mesh, shadow);
-      s = { mesh, mat, shadow, tex: new Map(), R };
+      s = { mesh, mat, shadow, tex: new Map(), R, pf };
       sprites.set(e, s);
     }
     const a = e.anim;
@@ -2098,5 +2209,8 @@ G.Village3D = (() => {
     /** Calidad automática: village.js le pasa lo que tarda cada fotograma mientras paseas. */
     tune: dt => Q.tune(dt), perf: PERF,
     /** Para pruebas y capturas: fija la calidad (null: automática). */
-    quality(q) { Q.fixed = q == null ? null : q; } };
+    quality(q) { Q.fixed = q == null ? null : q; },
+    /** (12-11-2026) Las texturas suaves y el muestreo nítido, también para el mundo de la partida (ultra3d.js). */
+    forestPlan: (VG, k) => forestPlan(VG || V(), k),
+    paint: { soft, pn, tone, rgb, mixc, sat, sstep, seam, shade, ramp, planks, bark, foliage, CRISP } };
 })();
