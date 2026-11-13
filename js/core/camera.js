@@ -19,13 +19,16 @@ G.Camera = {
   MIN_VIEW_H_TOUCH: 470,
 
   /*
-   * (13-11-2026, el dueño: «que pueda cambiar el zoom de la cámara con la rueda del ratón en web») zoom: ×0,85 (más lejos) a
+   * (13-11-2026, el dueño: «que pueda cambiar el zoom de la cámara con la rueda del ratón en web») zoom: ×0,93 (más lejos) a
    * ×1,25 (más cerca); sigue suave a zoomTo (game.js lo mueve con la rueda y lo guarda en los ajustes). Para que no dé
    * ventaja, lo que cuenta para jugar es lo que se ve sin zoom (w1 × h1): los disparos se acaban, las bombas dan y los
-   * enemigos salen como con ×1; al alejarte, además, nunca salen ni se recolocan dentro de lo que ves (outerRadius y
-   * seesAny usan lo mayor de las dos vistas). Con ×1 justo, la escala de siempre (píxeles enteros); con zoom, la que toque.
+   * enemigos salen como con ×1 (spawnW / spawnH). Alejar, sólo hasta ×0,93: es lo que cabe sin mover el anillo de
+   * aparición (su margen de 40 de las esquinas). Con ×0,85 los enemigos tenían que salir más lejos para no verse
+   * aparecer, llegaban tarde y se subía de nivel más despacio (bot, 4 partidas por lado: nivel 24 frente a 30 al minuto
+   * 10, el muro en el 17 frente al 25). Aun así, nunca salen ni se recolocan dentro de lo que ves (outerRadius y seesAny).
+   * Con ×1 justo, la escala de siempre (píxeles enteros); con zoom, la que toque.
    */
-  zoom: 1, zoomTo: 1, ZOOM_MIN: 0.85, ZOOM_MAX: 1.25,
+  zoom: 1, zoomTo: 1, ZOOM_MIN: 0.93, ZOOM_MAX: 1.25,
   w1: 0, h1: 0, _css: null,
   resize(cssW, cssH, dpr = 1) {
     this._css = [cssW, cssH];
@@ -142,9 +145,9 @@ G.Camera = {
     return x > this.x - w / 2 - pad - ex && x < this.x + w / 2 + pad + ex &&
            y > this.y - h / 2 - pad - et && y < this.y + h / 2 + pad;
   },
-  /** Ancho y alto de la vista para sacar enemigos fuera: lo mayor de lo que ves y lo que verías sin zoom. */
-  get spawnW() { return Math.max(this.w, this.w1 || 0); },
-  get spawnH() { return Math.max(this.h, this.h1 || 0); },
+  /** Ancho y alto de la vista para sacar enemigos fuera: la de sin zoom (igual con cualquier zoom). */
+  get spawnW() { return this.w1 || this.w; },
+  get spawnH() { return this.h1 || this.h; },
 
   /**
    * Radio del círculo que envuelve la vista: usado para spawnear fuera.
@@ -158,6 +161,10 @@ G.Camera = {
   ULTRA: 0.18,
   outerRadius(w = this.spawnW, h = this.spawnH, persp = this.persp) {
     const k = persp ? 1 / (1 - persp) : 1;
-    return Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
+    const r = Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
+    // (Zoom) La de este aparato: alejando, como poco justo fuera de lo que ves (con ×0,93 casi nunca hace falta).
+    if (w !== this.spawnW || h !== this.spawnH || !this.w) return r;
+    const kc = this.persp ? 1 / (1 - this.persp) : 1;
+    return Math.max(r, Math.hypot(this.w, this.h) / 2 * kc + 10);
   }
 };

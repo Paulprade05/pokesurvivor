@@ -1,6 +1,6 @@
 // Partida en 3D y zoom con la rueda (13-11-2026).
-//  - Zoom (js/core/camera.js): acotado a ×0,85–×1,25; con ×1, la escala de siempre; los enemigos nunca salen más cerca que
-//    con ×1 (outerRadius con lo mayor de las dos vistas) y lo que cuenta para jugar (seesBase) no cambia con el zoom.
+//  - Zoom (js/core/camera.js): acotado a ×0,93–×1,25; con ×1, la escala de siempre; los enemigos salen como con ×1 (casi el
+//    mismo anillo, y nunca a la vista) y lo que cuenta para jugar (seesBase) no cambia con el zoom.
 //  - Modelos 3D de los objetos (js/world/props3d.js, con three.js de verdad y sin WebGL): todos se hacen, con sus atributos
 //    (color, flex, glow) y medidas razonables; qué objeto va en 3D y cuál sigue en pixel art (la hierba, las trampas planas).
 const test = require('node:test'), assert = require('node:assert'), fs = require('fs'), path = require('path'), vm = require('vm');
@@ -21,14 +21,14 @@ test('zoom: acotado, ×1 con la escala de siempre, y suave hacia lo pedido', () 
   const s1 = C.scale, w1 = C.w;
   assert.strictEqual(Math.round(s1 * 2 * C.dpr), s1 * 2 * C.dpr, 'con ×1, píxeles enteros');
   C.setZoom(5); assert.strictEqual(C.zoomTo, 1.25);
-  C.setZoom(0.1); assert.strictEqual(C.zoomTo, 0.85);
+  C.setZoom(0.1); assert.strictEqual(C.zoomTo, 0.93);
   C.setZoom('x'); assert.strictEqual(C.zoomTo, 1);
-  C.setZoom(0.85);
+  C.setZoom(0.93);
   C.stepZoom(1 / 60);
-  assert.ok(C.zoom < 1 && C.zoom > 0.85, 'va poco a poco');
+  assert.ok(C.zoom < 1 && C.zoom > 0.93, 'va poco a poco');
   C.stepZoom(0, true);
-  assert.strictEqual(C.zoom, 0.85);
-  assert.ok(Math.abs(C.w - w1 / 0.85) < 0.01, 'se ve un 1/0,85 más de ancho');
+  assert.strictEqual(C.zoom, 0.93);
+  assert.ok(Math.abs(C.w - w1 / 0.93) < 0.01, 'se ve un 1/0,93 más de ancho');
   assert.strictEqual(C.w1, w1, 'la vista sin zoom no cambia');
 });
 
@@ -42,8 +42,17 @@ test('zoom: los enemigos no salen más cerca y lo que cuenta para jugar no cambi
   assert.strictEqual(C.spawnW, C.w1);
   const edge = C.x + C.w1 / 2 + 59;            // dentro de la vista sin zoom (margen 60), fuera de la acercada
   assert.ok(!C.sees(edge, 0) && C.seesBase(edge, 0) && C.seesAny(edge, 0));
-  C.setZoom(0.85); C.stepZoom(0, true);
-  assert.ok(C.outerRadius() > R1, 'alejando, salen fuera de lo que ves');
+  for (const [W, Hh] of [[1280, 720], [932, 430], [430, 932], [1920, 1080]]) {
+    // (PC, móvil tumbado y de pie, pantalla grande) Alejando del todo, el anillo casi no cambia y queda fuera de lo que ves.
+    const D = camera(W < 1000);
+    D.resize(W, Hh, 1);
+    const r1 = D.outerRadius();
+    D.setZoom(0.93); D.stepZoom(0, true);
+    const r = D.outerRadius();
+    assert.ok(r >= r1 && r <= r1 * 1.03, W + 'x' + Hh + ': anillo ' + r1.toFixed(0) + ' -> ' + r.toFixed(0));
+    assert.ok(r > Math.hypot(D.w, D.h) / 2, 'fuera de lo que se ve');
+  }
+  C.setZoom(0.93); C.stepZoom(0, true);
   const far = C.x + C.w / 2 - 5;               // se ve con el zoom, pero cae fuera de la vista sin zoom
   assert.ok(C.sees(far, 0, 0) && !C.seesBase(far, 0, 0) && C.seesAny(far, 0, 0));
 });

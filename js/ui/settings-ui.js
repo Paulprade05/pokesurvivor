@@ -220,7 +220,7 @@ G.SettingsUI = (() => {
         toggle('lowHpWarn', 'Aviso de poca vida', 'Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.'),
         toggle('eco', 'Ahorro de energía', 'Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.'),
         // (13-11-2026) El zoom de la cámara: en PC, también con la rueda del ratón en la partida.
-        choice('zoom', [[0.85, 'Lejos'], [1, 'Normal'], [1.12, 'Cerca'], [1.25, 'Muy cerca']], 'Zoom de la cámara',
+        choice('zoom', [[0.93, 'Lejos'], [1, 'Normal'], [1.12, 'Cerca'], [1.25, 'Muy cerca']], 'Zoom de la cámara',
           G.Settings.touch ? 'Cuánto se acerca la cámara en la partida.' : 'Cuánto se acerca la cámara en la partida. También con la rueda del ratón mientras juegas.'),
         choice('hudScale', [[1, 'Normal'], [1.25, 'Grande'], [1.5, 'Muy grande']], 'Tamaño del HUD',
           'Vida, nivel, reloj y ataques de la partida. En pantallas grandes ya sale algo más grande.'),
