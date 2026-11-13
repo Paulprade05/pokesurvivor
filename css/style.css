@@ -20,18 +20,17 @@
  */
 
 /* ---------- 0. Fuentes (OFL, en assets/fonts) ---------- */
-@font-face {
-  font-family: 'Grenze';
-  src: url('../assets/fonts/Grenze-var.ttf') format('truetype');
-  font-weight: 100 900;
-  font-display: swap;
-}
+/* Grenze en tres grosores fijos (tools/make_grenze.py): con la variable, WebKit dejaba los títulos finos. */
+@font-face { font-family: 'Grenze'; src: url('../assets/fonts/Grenze-600.ttf') format('truetype'); font-weight: 100 650; font-display: swap; }
+@font-face { font-family: 'Grenze'; src: url('../assets/fonts/Grenze-700.ttf') format('truetype'); font-weight: 651 750; font-display: swap; }
+@font-face { font-family: 'Grenze'; src: url('../assets/fonts/Grenze-800.ttf') format('truetype'); font-weight: 751 1000; font-display: swap; }
 @font-face { font-family: 'Alegreya Sans'; src: url('../assets/fonts/AlegreyaSans-400.ttf') format('truetype'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Alegreya Sans'; src: url('../assets/fonts/AlegreyaSans-500.ttf') format('truetype'); font-weight: 500 600; font-display: swap; }
 @font-face { font-family: 'Alegreya Sans'; src: url('../assets/fonts/AlegreyaSans-700.ttf') format('truetype'); font-weight: 700 1000; font-display: swap; }
 /* Alias: el código que aún pida Fredoka o Nunito (p. ej. los letreros de la aldea, js/world/village.js, u otra rama
    que se junte después) recibe las letras nuevas, no la del sistema. */
-@font-face { font-family: 'Fredoka'; src: url('../assets/fonts/Grenze-var.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Fredoka'; src: url('../assets/fonts/Grenze-600.ttf') format('truetype'); font-weight: 100 650; font-display: swap; }
+@font-face { font-family: 'Fredoka'; src: url('../assets/fonts/Grenze-700.ttf') format('truetype'); font-weight: 651 1000; font-display: swap; }
 @font-face { font-family: 'Nunito'; src: url('../assets/fonts/AlegreyaSans-400.ttf') format('truetype'); font-weight: 200 450; font-display: swap; }
 @font-face { font-family: 'Nunito'; src: url('../assets/fonts/AlegreyaSans-500.ttf') format('truetype'); font-weight: 451 650; font-display: swap; }
 @font-face { font-family: 'Nunito'; src: url('../assets/fonts/AlegreyaSans-700.ttf') format('truetype'); font-weight: 651 1000; font-display: swap; }
@@ -91,7 +90,8 @@
   --line-2: rgba(200, 160, 110, .30);
   --line-3: rgba(222, 186, 132, .50);
   /* Marcos (assets/ui, 9 trozos): el grande, el pequeño y el liso. */
-  --fr-l: url('../assets/ui/marco.svg') 86 / 40px stretch;
+  --fr-lw: 50px; --fr-lb: 9px;           /* ancho del marco grande y de su franja de corteza (en el móvil, más finos) */
+  --fr-l: url('../assets/ui/marco.svg') 86 / var(--fr-lw) stretch;
   --fr-s: url('../assets/ui/marco-s.svg') 40 / 24px stretch;
   --fr-flat: url('../assets/ui/marco-liso.svg') 20 / 12px stretch;
   /* Borde de corteza en CSS (lo que se repite mucho: casillas, filas, pastillas) */
@@ -175,6 +175,7 @@ body.touch { --ctl: 44px; --bar-h: 64px; }
     --fs-xs: 12px; --fs-s: 13px; --fs-m: 15px; --fs-l: 17px; --fs-xl: 20px; --fs-2xl: 23px; --fs-3xl: 29px;
     --tap: 40px; --ctl: 40px;
     --bar-top: max(6px, var(--sa-t)); --bar-h: 52px;
+    --fr-lw: 38px; --fr-lb: 7px;
   }
 }
 /* ---- Móvil tumbado, «como un juego nativo» (24-10-2026) ----
@@ -274,7 +275,7 @@ a { color: var(--link); }
   background: var(--surface-solid);
   background: var(--panel-bg);
   background-clip: padding-box;
-  border: 7px solid transparent;
+  border: var(--fr-lb) solid transparent;
   border-image: var(--fr-l);
   border-radius: var(--rad-xl);
   box-shadow: var(--sh-3);
@@ -5116,17 +5117,17 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
   background: rgba(var(--hl-rgb), .12); border: 1px solid rgba(var(--hl-rgb), .45); color: var(--c-yellow); font-weight: 700;
 }
 #scr-pause .pause-body { padding-top: 14px; }
-/* Dos columnas si caben (300 px cada una): las tarjetas se reparten sin partirse. */
-.pause-cols { column-width: 300px; column-count: 2; column-gap: 14px; }
+/* Dos columnas si caben (300 px cada una), nunca más de dos. Rejilla de 2 columnas (13-11-2026): con columnas CSS y column-span, Safari montaba «Tus ataques» encima de «Tus estadísticas». */
+.pause-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(300px, calc(50% - 7px))), 1fr)); column-gap: 14px; align-items: start; }
 #pause-sum { display: contents; }
 .ps-card {
   -webkit-column-break-inside: avoid; break-inside: avoid;
   margin: 0 0 14px; padding: 14px;
-  border-radius: var(--rad-l); background: var(--card); border: 1px solid var(--line-1);
+  border-radius: var(--rad-l); background: rgba(1, 6, 3, .35); border: 0; box-shadow: 0 0 0 1.5px var(--line-2), inset 0 2px 8px rgba(0, 0, 0, .4);
 }
 /* Los ataques, a todo el ancho por encima de las columnas: en una columna de 300 px
    (móvil tumbado) las chips de tipo, categoría y familia salían en tres líneas. */
-.ps-card.ps-moves { -webkit-column-span: all; column-span: all; }
+.ps-card.ps-moves { grid-column: 1 / -1; }
 .box .ps-card h3 { margin: 0 0 10px; font-size: var(--fs-m); line-height: 1.25; }
 .st-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; }
 .st-tile {
@@ -5157,7 +5158,7 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
    Arriba de la pausa, tus 4 huecos de ataque, tus 4 de pasiva y el objeto, cada uno
    con su icono y su nivel (la chapita de la esquina); los libres, con borde de
    puntos y «Libre». En pequeño y sin niveles, en la cabecera de las cartas de nivel. */
-.ps-card.ps-slots { -webkit-column-span: all; column-span: all; padding: 10px 14px 12px; }
+.ps-card.ps-slots { grid-column: 1 / -1; padding: 10px 14px 12px; }
 /* La leyenda de la lista de ataques («Daño · % · Por segundo»), en la línea del título. */
 .ps-card.ps-moves { position: relative; }
 .ps-moves > .mv-legend { position: absolute; top: 14px; right: 14px; margin: 0; line-height: 1.25; }
