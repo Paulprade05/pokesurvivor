@@ -395,7 +395,9 @@ G.Village = (() => {
     if (homeOpen) { const h = V().PLACES.find(p => p.id === 'home'); fx0 = tile(h.x) + Math.min(view.w * 0.22, 300); fy0 = tile(h.y) + 40; }
     // Cerca del Altar del Portal la cámara sube un poco: se ve el altar entero (tu Pokémon queda más abajo).
     const tree = V().PLACES[0], kx = Math.max(0, 1 - Math.abs(fx0 - tile(tree.x)) / tile(7)), ky = Math.max(0, 1 - Math.abs(fy0 - tile(tree.door[1] + 1)) / tile(5));
-    const up = 150 * Math.min(1, kx * 1.4) * Math.min(1, ky * 1.4);
+    // (Que tu Pokémon quede por encima del botón de abajo: en el móvil en horizontal, la pantalla es baja y sube menos.)
+    const upMax = Math.max(0, (innerHeight / 2 - 130) / view.scale - 20);
+    const up = Math.min(150, upMax) * Math.min(1, kx * 1.4) * Math.min(1, ky * 1.4);
     const x = Math.max(hw, Math.min(W - hw, fx0)), y = Math.max(hh * 1.02, Math.min(Hh - hh * 0.9, fy0 - 20 - up));
     return [W < view.w ? W / 2 : x, Hh < view.h ? Hh / 2 : y];
   }

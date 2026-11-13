@@ -1280,8 +1280,8 @@ G.Village3D = (() => {
     // La cuna del arco y el arco: metal con luces, y un aro de luz por dentro.
     put(box(84, 20, 30), metalM(), { x: X, y: DAIS[1][1] + 10, z: Cz }, { hull: 1.6 });
     put(box(70, 3, 2), glowM(CYAN, 1.3), { x: X, y: DAIS[1][1] + 12, z: Cz + 15.5 }, { hull: false, cast: false });
-    put(torus(R + 8, 8, 6, 32), metalM(), { x: X, y: cy, z: Cz }, { hull: 1.8 });
-    put(torus(R + 1, 2.2, 4, 32), glowM(VIOLET, 1.4), { x: X, y: cy, z: Cz + 3 }, { hull: false, cast: false });
+    put(torus(R + 8, 8, 4, 24), metalM(), { x: X, y: cy, z: Cz }, { hull: 1.8 });
+    put(torus(R + 1, 2.2, 3, 24), glowM(VIOLET, 1.4), { x: X, y: cy, z: Cz + 3 }, { hull: false, cast: false });
     for (let k = 0; k < 12; k++) {
       const a = k / 12 * Math.PI * 2, c = k % 2 ? CYAN : PINK;
       put(box(9, 6, 8), glowM(c, 1.3), { x: X + Math.cos(a) * (R + 8), y: cy + Math.sin(a) * (R + 8), z: Cz + 6, rz: a }, { hull: 1 });
@@ -1311,7 +1311,7 @@ G.Village3D = (() => {
       }
     }
     // El arco de raíces que abraza el portal por arriba, con hojas, vainas y lianas de luz.
-    put(torus(110, 13, 6, 26, Math.PI), barkM(), { x: X, y: cy + 4, z: Cz - 6 }, { hull: 2 });
+    put(torus(110, 13, 4, 18, Math.PI), barkM(), { x: X, y: cy + 4, z: Cz - 6 }, { hull: 2 });
     for (const [dx, dy, r] of [[0, 120, 30], [-54, 100, 24], [56, 98, 26], [-92, 50, 18], [94, 46, 18]]) put(ball(r, 1), leafM(), { x: X + dx, y: cy + dy, z: Cz - 14, sy: 0.7 }, { hull: 2 });
     for (const [dx, len, c] of [[-70, 30, CYAN], [-38, 22, PINK], [40, 26, GREEN], [74, 34, CYAN]]) {
       const a = Math.acos(Math.max(-1, Math.min(1, dx / 110)));
@@ -1803,7 +1803,7 @@ G.Village3D = (() => {
   }
   function makeLights() {
     // (Para medir: con ?dev, window.PS_VIL_LIGHTS = [montón, tuya 0/1, altar 0/1] antes de que se monte la aldea.)
-    const dbg = /[?&]dev/.test(location.search) && typeof window !== 'undefined' && window.PS_VIL_LIGHTS;
+    const dbg = /[?&]dev\b/.test(location.search) && typeof window !== 'undefined' && window.PS_VIL_LIGHTS;
     const n = dbg ? dbg[0] : fx() === 0 ? 0 : mobile() ? 1 : 4;
     pool = [];
     for (let i = 0; i < n; i++) { const L = new T.PointLight(0xffffff, 0, 220, 1); scene.add(L); pool.push(L); }

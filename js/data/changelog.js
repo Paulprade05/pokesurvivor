@@ -6,6 +6,20 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-13', title: ["La aldea, más clara y con el Altar del Portal", "A brighter village with the Portal Altar"], new: [
+    ["La Flor del Portal es ahora el Altar del Portal, más grande y en el centro de todo: un estrado de piedra con runas, el arco del portal entre dos pilares con cristales y raíces que lo abrazan. Tiene su propia luz y sus partículas, y un círculo de luz que te dice dónde ponerte y qué pulsar.",
+     "The Portal Flower is now the Portal Altar, bigger and at the heart of everything: a stone dais with runes, the portal arch between two crystal-topped pillars and roots wrapped around it. It has its own light and particles, and a circle of light that tells you where to stand and what to press."],
+    ["Al empezar una partida desde el altar, tu Pokémon entra en el portal, hay un destello y la partida se abre desde esa luz. Dura un par de segundos y se salta pulsando cualquier tecla, botón o la pantalla. En una sala de grupo no hay animación.",
+     "When you start a run from the altar, your Pokémon steps into the portal, there is a flash and the run opens from that light. It lasts a couple of seconds and you can skip it with any key, button or tap. In a group room there is no animation."]
+  ], chg: [
+    ["La aldea se ve mucho más clara sin dejar de ser de noche: más luz de luna, faroles que alumbran de verdad el suelo y lo que tienen al lado, caminos y plaza más claros, puertas más encendidas y tu Pokémon con su propia luz.",
+     "The village looks much brighter while still being night: more moonlight, lanterns that really light up the ground and what is next to them, lighter paths and square, brighter doors and your Pokémon with its own light."]
+  ], fix: [
+    ["En la aldea ya no te atascas con los Pokémon: los que pasean, los tenderos y los que te siguen se apartan con un empujón suave. Sólo chocan los que están quietos y son grandes, como Snorlax dormido, y con poco sitio.",
+     "In the village you no longer get stuck on Pokémon: the ones walking around, the shopkeepers and the ones following you step aside with a gentle push. Only big Pokémon that stay still, like sleeping Snorlax, block you, and they take up little room."],
+    ["Ya no hay cosas delante de las puertas: los farolillos y las macetas de tu choza, la valla del jardín y la base de la Carpa del Grupo dejaban a veces sin poder entrar. Ahora cada puerta tiene su pasillo libre y una zona de entrar más grande, y la puerta gana al Pokémon que tengas al lado.",
+     "There are no longer things in front of doors: your hut's lanterns and pots, the garden fence and the Group Tent's base sometimes kept you from going in. Now every door has a clear path and a bigger area to enter, and the door wins over a Pokémon standing next to you."]
+  ] },
   { d: '2026-11-13', title: ["PokéSurvivor para PC con Windows", "PokéSurvivor for Windows PCs"], new: [
     ["En un PC con Windows, Ajustes › Acerca de tiene «Descargar para Windows»: el juego como programa, con pantalla completa de verdad, la gráfica potente del portátil, la calidad Máxima elegida sola y tu partida guardada también en el disco. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».",
      "On a Windows PC, Settings › About has “Download for Windows”: the game as a program, with real full screen, the laptop's powerful graphics card, Max quality picked on its own and your save also kept on disk. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”."]] },
