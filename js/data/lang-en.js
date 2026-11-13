@@ -415,7 +415,7 @@ G.I18n.add({
   'Pantalla': 'Display', 'Números de daño': 'Damage numbers', 'Los números que salen al golpear y al recibir daño.': 'The numbers that pop up when you hit or get hit.',
   'Menos sacudidas y destellos': 'Less shaking and flashing', 'La cámara tiembla menos y los fogonazos son suaves.': 'The camera shakes less and flashes are softer.',
   'Casillas de Mundo Misterioso': 'Mystery Dungeon tiles', 'El suelo, las paredes, el agua, los árboles, los cofres y las trampas con el arte de Exploradores del Cielo. Apagado: el dibujo propio del juego.': 'Floor, walls, water, trees, chests and traps with Explorers of Sky art. Off: the game\'s own drawing.',
-  'Pokémon más nítidos': 'Sharper Pokémon', 'Suaviza los píxeles de los Pokémon con un filtro hecho para pixel art: bordes y curvas más redondos, sin emborronar ni cambiar sus colores. Apagado, como siempre.': 'Smooths the Pokémon pixels with a filter made for pixel art: rounder edges and curves, without blurring or changing their colors. Off, as always.', 'Sin filtro · Con filtro': 'No filter · Filter',
+  'Pokémon más nítidos': 'Sharper Pokémon', 'Suaviza los píxeles de los Pokémon con un filtro hecho para pixel art: bordes y curvas más redondos, sin emborronar ni cambiar sus colores. De serie, encendido sólo con la calidad Máxima.': 'Smooths the Pokémon pixels with a filter made for pixel art: rounder edges and curves, without blurring or changing their colors. On by default only with Max quality.', 'Sin filtro · Con filtro': 'No filter · Filter',
   'Máxima': 'Max', 'Máxima: Ultra con todo (más resolución, bordes suaves, sombras finas, brillo y más partículas). Para PC con buena tarjeta gráfica.': 'Max: Ultra with everything (higher resolution, smooth edges, fine shadows, glow and more particles). For PCs with a good graphics card.',
   'Ultra en 3D (WebGL)': 'Ultra in 3D (WebGL)', 'Con Ultra, las paredes, las rocas y los cofres en 3D de verdad, con luz y sombras y su pixel art encima. Si el aparato no puede, se ven como antes.': 'With Ultra, walls, rocks and chests in real 3D, with light and shadows and their pixel art on top. If your device cannot, they look like before.',
   'Mostrar FPS': 'Show FPS', 'Fotogramas por segundo, en la esquina de abajo.': 'Frames per second, in the bottom corner.',
@@ -2571,4 +2571,11 @@ G.I18n.add({
   "(Descansa feliz en su cojín.)": "(It rests happily on its cushion.)",
   "(Se alegra de verte en casa.)": "(It's happy to see you home.)",
   "(Vigila tu choza mientras estás fuera.)": "(It guards your hut while you're away.)"
+});
+
+// (12-11-2026) Ajustes › Acerca de › «Descargar para Windows» (windows-dl.js) y avisos de la app de PC (desktop/).
+G.I18n.add({
+  "Descargar para Windows": "Download for Windows",
+  "El juego como programa de PC. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».": "The game as a PC program. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”.",
+  "Descargar": "Download"
 });

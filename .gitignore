@@ -21,3 +21,7 @@ docs/CONTACTOS_CREADORES.md
 
 # Caché local de wrangler (Cloudflare)
 .wrangler/
+
+# App de Windows (desktop/): copia del juego y paquetes generados
+desktop/www/
+desktop/dist/

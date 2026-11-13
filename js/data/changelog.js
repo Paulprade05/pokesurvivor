@@ -6,9 +6,12 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-13', title: ["PokéSurvivor para PC con Windows", "PokéSurvivor for Windows PCs"], new: [
+    ["En un PC con Windows, Ajustes › Acerca de tiene «Descargar para Windows»: el juego como programa, con pantalla completa de verdad, la gráfica potente del portátil, la calidad Máxima elegida sola y tu partida guardada también en el disco. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».",
+     "On a Windows PC, Settings › About has “Download for Windows”: the game as a program, with real full screen, the laptop's powerful graphics card, Max quality picked on its own and your save also kept on disk. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”."]] },
   { d: '2026-11-12', title: ["Gráficos pulidos en todo el juego", "Polished graphics across the whole game"], new: [
-    ["Nueva opción «Pokémon más nítidos» en Ajustes › Gráficos: un filtro hecho para pixel art que redondea los bordes y las curvas de los Pokémon sin emborronarlos ni cambiar sus colores. Viene apagada; en Ajustes ves cómo queda antes de encenderla.",
-     "New “Sharper Pokémon” option in Settings › Graphics: a filter made for pixel art that rounds the edges and curves of Pokémon without blurring them or changing their colors. It is off by default; Settings shows how it looks before you turn it on."],
+    ["Nueva opción «Pokémon más nítidos» en Ajustes › Gráficos: un filtro hecho para pixel art que redondea los bordes y las curvas de los Pokémon sin emborronarlos ni cambiar sus colores. Viene encendida con la calidad Máxima y apagada con las demás; en Ajustes ves cómo queda y la cambias cuando quieras.",
+     "New “Sharper Pokémon” option in Settings › Graphics: a filter made for pixel art that rounds the edges and curves of Pokémon without blurring them or changing their colors. It is on with Max quality and off with the others; Settings shows how it looks and you can change it anytime."],
     ["Nueva calidad Máxima para PC (Ajustes › Gráficos): Ultra con todo, más resolución, bordes suavizados, sombras más finas, brillo de verdad en el fuego, los rayos y las luces, más partículas y, en la aldea, más árboles. En la app de Windows se elige sola.",
      "New Max quality for PC (Settings › Graphics): Ultra with everything, higher resolution, smoothed edges, finer shadows, real glow on fire, beams and lights, more particles and, in the village, more trees. The Windows app picks it on its own."]
   ], chg: [
