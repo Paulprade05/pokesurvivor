@@ -33,9 +33,9 @@ G.Game = (() => {
     ctx = cv.getContext('2d');
     resize();
     addEventListener('resize', resizeSoon);
-    G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });
+    G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });      // ahorro de energía y Máxima: cambian la resolución
     // (Zoom) Cambiado en Ajustes con la partida en pausa: al volver, va hacia él.
-    G.Settings.on(k => { if (k === 'zoom' && pl && state !== 'over' && state !== 'menu') G.Camera.setZoom(G.Settings.get('zoom')); });      // ahorro de energía y Máxima: cambian la resolución
+    G.Settings.on(k => { if (k === 'zoom' && pl && state !== 'over' && state !== 'menu') G.Camera.setZoom(G.Settings.get('zoom')); });
     // iPhone: al girarlo o al abrirlo desde la pantalla de inicio avisa del
     // cambio ANTES de recolocar la página, y con esas medidas viejas el juego
     // se quedaba estirado. Se vuelve a medir cuando el lienzo cambia de verdad

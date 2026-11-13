@@ -29,7 +29,8 @@
  *   tipVert     true/false                        ya se ha enseñado el consejo de jugar en horizontal
  *   pmdTiles    true/false                        el suelo con las casillas de Mundo Misterioso (world/tileset.js);
  *                                                 apagado, el pintor propio (tiles.js)
- *   ultra3d     true/false                        con Ultra: paredes, rocas y cofres en 3D (world/ultra3d.js, WebGL)
+ *   ultra3d     true/false                        con Ultra: paredes, rocas y cofres en 3D (world/ultra3d.js, WebGL); en PC con
+ *                                                 calidad Alta o más, también lo que sobresale del mapa (props3d.js)
  *   maxPick     'ask' | 'heal' | 'coin'           al subir de nivel con todo al máximo: sacar las dos cartas
  *                                                 (curarte un poco o monedas) o elegir siempre una sola (levelup.js)
  *

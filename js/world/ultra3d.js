@@ -14,6 +14,10 @@
  *    cara se oscurece suave hacia el pie (oclusión);
  *  - luz de cielo y suelo (HemisphereLight) y sombras con el borde suave (PCF; en Máxima, mapa de 4096).
  *
+ * (13-11-2026, el dueño: «que las rocas, las setas, los cofres, grietas y más elementos de la partida también sean en 3D
+ *  nítido») Además, con instancing: árboles, torres de poder, manantiales, setas explosivas, flora que brilla y el portal
+ *  de la grieta (modelos en props3d.js; ver «instancing» abajo). La hierba alta sigue en pixel art. Móvil: en 2D.
+ *
  * Cómo va:
  *  - three.js (js/vendor/three/, r160, MIT) se carga sólo con Ultra (o Máxima) y el ajuste «Ultra en 3D» encendidos (como
  *    módulo, three-boot.js). Sin WebGL, si falla o si se pierde el contexto, vuelve solo el Ultra 2D de siempre (world.js
@@ -56,7 +60,7 @@ G.Ultra3D = (() => {
   const uni = { time: { value: 0 } };                      // (el viento de los modelos)
   const kinds = new Map();                                 // "bi:modelo" -> { im, ih, cap, n, used }
   const ins = new Map();                                   // id -> { key, x, y, z, a, s, c, w, h, cast } a la vista este fotograma
-  let allIns = [], insSig = 0, floraOn = false;
+  let allIns = [], insSig = 0, floraOn = false, okAt = -1e9;
 
   /*
    * (Pulido 12-11-2026) En PC, con calidad alta, las rocas y los cofres van en 3D también con la vista normal (sin
@@ -788,6 +792,7 @@ G.Ultra3D = (() => {
    * luz y sombras. Kd: px del lienzo del juego por unidad de mundo; Wd, Hd: su tamaño. false: este fotograma, en 2D.
    */
   function begin(cam, Kd, Wd, Hd, vis) {
+    floraOn = false;
     if (!on()) return false;
     const W = G.World, bi = W.biome;
     if (!W.pmdOn(bi) || !faceMat(bi) || !sharedParts()) return false;
@@ -890,7 +895,7 @@ G.Ultra3D = (() => {
     plane.scale.set(2 * ex + 400, bot - top + 400, 1);
     plane.updateMatrix(); plane.updateMatrixWorld(true);
     if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
-    floraOn = true;
+    floraOn = true; okAt = performance.now();
     return true;
   }
 
@@ -1071,7 +1076,8 @@ G.Ultra3D = (() => {
 
   return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; },
     /** ¿Va la flora en 3D? (ambient.js no la dibuja entonces: la deja en G.Ambient.flora3d) */
-    get floraOn() { return floraOn; },
+    // (Sólo si el último fotograma fue en 3D: con la calidad bajada a mitad de partida, la flora vuelve al 2D al momento.)
+    get floraOn() { return floraOn && performance.now() - okAt < 250; },
     /** ¿Va el portal de la grieta en 3D este fotograma? (game.js: entonces rift.js sólo dibuja su luz y el suelo roto) */
     riftOn() { const it = props.get('rift'); return !!it && it.used === frame && floraOn; } };
 })();
