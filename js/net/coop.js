@@ -158,7 +158,7 @@ G.Coop = (() => {
     return [r1(local.x), r1(local.y), r2(local.moveAngle), local.walking ? 1 : 0, r1(local.hp), r1(local.maxHp),
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
             r2(local.reviveT || 0), api.choosing && api.choosing() ? 1 : 0, doneSeq, api.watching ? api.watching() : '',
-            r1(G.Camera ? G.Camera.w : 0), r1(G.Camera ? G.Camera.h : 0),   // lo que ve (de pie o tumbado): el anfitrión no saca enemigos dentro
+            r1(G.Camera ? G.Camera.spawnW : 0), r1(G.Camera ? G.Camera.spawnH : 0),   // lo que ve (de pie o tumbado): el anfitrión no saca enemigos dentro
             local.form || 0];                                                   // su fase (evoluciones en partida)
   }
 

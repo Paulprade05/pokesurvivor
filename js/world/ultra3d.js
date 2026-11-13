@@ -14,6 +14,10 @@
  *    cara se oscurece suave hacia el pie (oclusión);
  *  - luz de cielo y suelo (HemisphereLight) y sombras con el borde suave (PCF; en Máxima, mapa de 4096).
  *
+ * (13-11-2026, el dueño: «que las rocas, las setas, los cofres, grietas y más elementos de la partida también sean en 3D
+ *  nítido») Además, con instancing: árboles, torres de poder, manantiales, setas explosivas, flora que brilla y el portal
+ *  de la grieta (modelos en props3d.js; ver «instancing» abajo). La hierba alta sigue en pixel art. Móvil: en 2D.
+ *
  * Cómo va:
  *  - three.js (js/vendor/three/, r160, MIT) se carga sólo con Ultra (o Máxima) y el ajuste «Ultra en 3D» encendidos (como
  *    módulo, three-boot.js). Sin WebGL, si falla o si se pierde el contexto, vuelve solo el Ultra 2D de siempre (world.js
@@ -34,7 +38,7 @@ G.Ultra3D = (() => {
   let KL = 0.5;              // px del lienzo 3D por unidad de mundo (lo pone begin según la pantalla y la calidad)
   const HW = 40;             // alto de las paredes (20 px de arte: G.Tileset.FH3, cara de roca y su pie en sombra)
   const KEEP = 6;            // chunks con mallas guardados de más (además de los de la vista y su margen)
-  const OWN = { rock: 1, chest: 1, bigchest: 1 };
+  const OWN = { chest: 1, bigchest: 1 };            // (los cofres, un objeto cada uno: la tapa se abre; lo demás, instancing)
   const L = [-0.45 / 1.25, -0.6 / 1.25, 1 / 1.25];          // hacia la luz (arriba a la izquierda y del norte)
   let T = null, state = 'idle', lost = false, gl2 = false, aniso = 1, mob = false;
   let renderer = null, glcv = null, scene, cam3, sun, hemi, plane, frame = 0, tinted = -1;
@@ -44,16 +48,29 @@ G.Ultra3D = (() => {
   const faceMats = new Map(), rockMats = new Map(), flashMats = new Map();
   const props = new Map();                                 // id -> { obj, p, used, ... }
   let shared = null;                                       // geometrías y materiales de rocas y cofres (los mismos siempre)
-  let shownRows = [], nBuilt = 0, nPass = 0, shadowDirty = true;                                      // filas de la vista (para game.js)
+  let shownRows = [], nBuilt = 0, nPass = 0, nShadow = 0, shadowDirty = true;                                      // filas de la vista (para game.js)
   const lay = new Set();                                   // objetos en la capa de la pasada actual
   let glowSeen = [];                                       // cofres a la vista este fotograma (su halo en el suelo)
+  /*
+   * (Partida en 3D, 13-11-2026) Lo demás que sobresale del mapa (árboles, cristales, torres, manantiales,
+   * setas, flora y las rocas) va con instancing: una InstancedMesh por modelo (props3d.js) y su contorno, que comparten
+   * las matrices. En cada pasada se escriben sólo los de ese lote (count = los suyos): 2 llamadas de dibujo por modelo a
+   * la vista, con cualquier número de objetos. Para el mapa de sombras, todos.
+   */
+  const uni = { time: { value: 0 } };                      // (el viento de los modelos)
+  const kinds = new Map();                                 // "bi:modelo" -> { im, ih, cap, n, used }
+  const ins = new Map();                                   // id -> { key, x, y, z, a, s, c, w, h, cast } a la vista este fotograma
+  let allIns = [], insSig = 0, floraOn = false, okAt = -1e9;
 
   /*
    * (Pulido 12-11-2026) En PC, con calidad alta, las rocas y los cofres van en 3D también con la vista normal (sin
    * Ultra): se dibujan con la misma cámara sin perspectiva (game.js D3 con persp 0). Las paredes siguen siendo el tileset
    * plano de Mundo Misterioso (con la penumbra suave de atmos.js). En móvil, la vista normal sigue en 2D: no cuesta más.
    */
-  const flatOk = () => !G.U.IOS && !G.Settings.touch && G.Settings.fx >= 2;
+  // (Partida en 3D, 13-11-2026) Para medir en móvil: localStorage ps.u3.mob = 1 lo enciende también allí (ver docs).
+  let mobTry = false;
+  try { mobTry = localStorage.getItem('ps.u3.mob') === '1'; } catch (e) { /* nada */ }
+  const flatOk = () => (mobTry || (!G.U.IOS && !G.Settings.touch)) && G.Settings.fx >= 2;
   const wanted = () => !!((G.Settings.ultra || flatOk()) && G.Settings.get('ultra3d') !== false && G.Tileset && G.Tileset.enabled());
   /** ¿Van las paredes en 3D? (con Ultra y el ajuste; la primera vez pide three.js) */
   function on() {
@@ -127,6 +144,7 @@ G.Ultra3D = (() => {
       plane.frustumCulled = false;
       scene.add(plane);
       Q.init();
+      if (G.Props3D) G.Props3D.init(T, mob, stex, uni);
       state = 'ready';
     } catch (e) {
       state = 'fail';
@@ -542,12 +560,7 @@ G.Ultra3D = (() => {
     if (!s) return null;
     const o = new T.Group();
     let it;
-    if (p.type === 'rock') {
-      const r = s.rocks[p.look % 2], mesh = new T.Mesh(r.g, rockMat(G.World.biome, false)), hull = new T.Mesh(r.hull, s.hullMat);
-      hull.hull = true;
-      o.add(mesh, hull);
-      it = { obj: o, mesh, kind: 'rock', h: 26 };
-    } else {
+    {
       const c = p.type === 'bigchest' ? s.big : s.chest, mats = [c.m.wood, c.m.gold, c.m.dark, c.m.coin, c.m.woodL];
       const body = new T.Mesh(c.body, mats), bh = new T.Mesh(c.hulls[0], s.hullMat);
       bh.hull = true;
@@ -560,7 +573,7 @@ G.Ultra3D = (() => {
       it = { obj: o, mesh: body, lid, pivot, kind: p.type, h: c.Zb + c.Zl + 14, c };
     }
     // Donde está: centrado en su casilla, apoyado en el suelo (los pies del objeto, p.y, están 4 por encima del borde).
-    o.position.set(p.x, p.type === 'rock' ? p.y - 16 : p.y - 6, 0);
+    o.position.set(p.x, p.y - 6, 0);
     setup(o, true);
     o.traverse(m => { m.matrixAutoUpdate = true; });
     o.updateMatrixWorld(true);
@@ -573,10 +586,7 @@ G.Ultra3D = (() => {
     if (it && it.bi !== G.World.biome) { dropProp(p.id); it = null; }
     if (!it) { it = makeProp(p); if (!it) return null; props.set(p.id, it); shadowDirty = true; }
     it.used = frame;
-    if (it.kind === 'rock') {
-      const m = rockMat(it.bi, p.hp < p.maxHp * 0.5);
-      it.mesh.material = p.flash > 0 ? flashOf(m) : m;
-    } else {
+    {
       const c = it.c;
       const want = p.flash > 0;
       if (want !== !!it.flashing) {
@@ -588,7 +598,8 @@ G.Ultra3D = (() => {
       // su canto: parecía que al cofre le faltaba un trozo).
       const a = it.kind === 'bigchest' ? 1.9 * Math.min(1, p.open / G.Interact.CHEST_TIME) : 0;
       if (it.pivot.rotation.x !== a) { it.pivot.rotation.x = a; it.obj.updateMatrixWorld(true); shadowDirty = true; }
-      glowSeen.push(it);
+      const big = it.kind === 'bigchest';
+      glowSeen.push({ x: p.x, y: p.y - 12, z: 2, s: big ? 120 : 84, k: big ? 0.42 : 0.26, col: null });
     }
     return it;
   }
@@ -596,16 +607,39 @@ G.Ultra3D = (() => {
   function dropProp(id) {
     const it = props.get(id);
     props.delete(id);
-    if (it) { scene.remove(it.obj); shadowDirty = true; }
+    if (it) { scene.remove(it.obj); shadowDirty = true; if (it.pt) it.pt.dispose(); }
+  }
+
+  /** (Partida en 3D) El portal de la grieta abierta en el mundo (props3d.js portal), como un objeto más (id 'rift'). */
+  function syncRift(bi, t) {
+    const rf = G.Rift && G.Rift.rift;
+    if (!rf || !G.Props3D) return;
+    let it = props.get('rift');
+    if (it && it.bi !== bi) { dropProp('rift'); it = null; }
+    if (!it) {
+      const pt = G.Props3D.portal(bi);
+      if (!pt) return;
+      setup(pt.obj, false);
+      pt.obj.traverse(m => { m.matrixAutoUpdate = true; m.castShadow = false; m.receiveShadow = false; });
+      it = { obj: pt.obj, pt, kind: 'rift', h: pt.h, r: pt.r, bi };
+      props.set('rift', it);
+    }
+    it.used = frame;
+    it.pt.obj.position.set(rf.x, rf.y - 6, 0);
+    it.pt.set(t, Math.min(1, rf.t * 2) * Math.min(1, rf.ttl / 1.5));
   }
 
   function dropAll(gone = false) {
     if (gone) {
       for (const e of chunks.values()) for (const r of e.rows) scene.remove(r.mesh);
       for (const it of props.values()) scene.remove(it.obj);
-      chunks.clear(); props.clear(); faceMats.clear(); rockMats.clear(); flashMats.clear(); shared = null; tinted = -1; shadowDirty = true;
+      for (const k of kinds.values()) { scene.remove(k.im); if (k.ih) scene.remove(k.ih); }
+      chunks.clear(); props.clear(); kinds.clear(); faceMats.clear(); rockMats.clear(); flashMats.clear(); shared = null; tinted = -1; shadowDirty = true;
+      if (G.Props3D) G.Props3D.free(true);
       return;
     }
+    for (const key of [...kinds.keys()]) dropKind(key);
+    if (G.Props3D) G.Props3D.free(false);
     for (const k of [...chunks.keys()]) dropChunk(k);
     for (const id of [...props.keys()]) dropProp(id);
     const kill = m => { if (m.map) m.map.dispose(); m.dispose(); };
@@ -619,6 +653,117 @@ G.Ultra3D = (() => {
       shared.hullMat.dispose();
       shared = null; tinted = -1;
     }
+  }
+
+  // ---------------- instancing (partida en 3D) ----------------
+  /** El modelo key («bi:nombre», con «~» al final: el transparente) listo para dibujar, o null. */
+  function kindOf(key) {
+    let k = kinds.get(key);
+    if (k) return k;
+    const i = key.indexOf(':'), bi = +key.slice(0, i), name = key.slice(i + 1), fade = name.endsWith('~'), base = fade ? name.slice(0, -1) : name;
+    let o = null;
+    if (base.startsWith('rock')) {
+      const s = sharedParts(), r = s && s.rocks[+base[4] % 2], m = r && rockMat(bi, base.endsWith('x'));
+      if (m) o = { g: r.g, hg: r.hull, w: 22, h: 26, cast: true, mat: m, hullMat: s.hullMat };
+    } else if (G.Props3D) o = G.Props3D.geo(bi, base);
+    if (!o) return null;
+    const cap = 192;
+    const im = new T.InstancedMesh(o.g, fade ? o.fadeMat : o.mat, cap);
+    im.instanceMatrix.setUsage(T.DynamicDrawUsage);
+    im.setColorAt(0, new T.Color(1, 1, 1));
+    im.instanceColor.setUsage(T.DynamicDrawUsage);
+    let ih = null;
+    if (o.hg) { ih = new T.InstancedMesh(o.hg, fade ? o.fadeHull : o.hullMat, cap); ih.instanceMatrix = im.instanceMatrix; ih.hull = true; }
+    for (const m of ih ? [im, ih] : [im]) {
+      m.count = 0; m.visible = false; m.matrixAutoUpdate = false; m.frustumCulled = false;
+      m.layers.enable(1);                                   // (capa 0 para las sombras; 1, la de las pasadas)
+      m.castShadow = m === im && o.cast && !fade; m.receiveShadow = m === im;
+      scene.add(m);
+    }
+    k = { im, ih, cap, n: 0, w: o.w, h: o.h, cast: o.cast };
+    kinds.set(key, k);
+    return k;
+  }
+  function dropKind(key) {
+    const k = kinds.get(key);
+    kinds.delete(key);
+    if (!k) return;
+    scene.remove(k.im); k.im.dispose();
+    if (k.ih) { scene.remove(k.ih); k.ih.dispose(); }
+    shadowDirty = true;
+  }
+  /** Escribe el objeto e en el hueco i del modelo k: girado a sobre z, a escala s, en (x, y, z); su tono c. */
+  function put(k, i, e) {
+    const a = k.im.instanceMatrix.array, o = i * 16, c = Math.cos(e.a) * e.s, sn = Math.sin(e.a) * e.s;
+    a[o] = c; a[o + 1] = sn; a[o + 2] = 0; a[o + 3] = 0;
+    a[o + 4] = -sn; a[o + 5] = c; a[o + 6] = 0; a[o + 7] = 0;
+    a[o + 8] = 0; a[o + 9] = 0; a[o + 10] = e.s; a[o + 11] = 0;
+    a[o + 12] = e.x; a[o + 13] = e.y; a[o + 14] = e.z; a[o + 15] = 1;
+    const ca = k.im.instanceColor.array;
+    ca[i * 3] = ca[i * 3 + 1] = ca[i * 3 + 2] = e.c;
+  }
+  /** Deja en cada modelo sólo los objetos de la lista (los de un lote, o todos para las sombras). */
+  function fill(list) {
+    for (const k of kinds.values()) k.n = 0;
+    for (const e of list) { const k = kindOf(e.key); if (k && k.n < k.cap) put(k, k.n++, e); }
+    for (const k of kinds.values()) {
+      const n = k.n, v = n > 0;
+      k.im.count = n; k.im.visible = v;
+      if (k.ih) { k.ih.count = n; k.ih.visible = v; }
+      if (!v) continue;
+      const am = k.im.instanceMatrix, ac = k.im.instanceColor;
+      am.clearUpdateRanges(); am.addUpdateRange(0, n * 16); am.needsUpdate = true;
+      ac.clearUpdateRanges(); ac.addUpdateRange(0, n * 3); ac.needsUpdate = true;
+    }
+  }
+
+  /** Lo que va con instancing de este fotograma: los objetos de world.js (vis) y la flora de ambient.js. */
+  function collect(vis, bi, t) {
+    ins.clear();
+    allIns = [];
+    const P3 = G.Props3D, pl = G.Game && G.Game.player;
+    let sig = 0;
+    const push = (id, key, x, y, z, a, s, c) => {
+      const k = kindOf(bi + ':' + key);
+      if (!k) return null;
+      const e = { key: bi + ':' + key, x, y, z, a, s, c, w: k.w, h: k.h };
+      ins.set(id, e);
+      allIns.push(e);
+      if (k.cast) sig = (sig + x * 0.731 + y * 1.379 + 17) % 1e9;
+      return e;
+    };
+    for (const p of vis) {
+      if (OWN[p.type] || p.wallrow) continue;
+      const fl = p.flash > 0 ? 1.9 : 1;
+      if (p.type === 'rock') { push(p.id, 'rock' + (p.look % 2) + (p.hp < p.maxHp * 0.5 ? 'x' : ''), p.x, p.y - 16, 0, 0, 1, fl); continue; }
+      let key = P3 && P3.keyOf(p, bi);
+      if (!key) continue;
+      const h1 = H(p.tx, p.ty, 41), h2 = H(p.tx, p.ty, 42);
+      switch (p.type) {
+        case 'tree':
+          // Si tu Pokémon queda detrás, ese árbol se transparenta un poco (como en el Ultra 2D).
+          if (pl && pl.y < p.y - 2 && pl.y > p.y - 58 && Math.abs(pl.x - p.x) < 26) key += '~';
+          push(p.id, key, p.x + (h1 - 0.5) * 4, p.y - 18, 0, (h2 - 0.5) * 0.6, 0.92 + h1 * 0.16, 0.94 + h2 * 0.1);
+          break;
+        case 'altar':
+          push(p.id, key, p.x, p.y - 18, 0, 0, 1, 1);
+          if (!p.used) glowSeen.push({ x: p.x, y: p.y - 18, z: 51, s: 64, k: 0.55 * (0.85 + Math.sin(t * 3 + p.wiggle) * 0.15), col: P3.ORB[p.kind & 3] });
+          break;
+        case 'spring':
+          push(p.id, key, p.x, p.y - 8, 0, 0, 1, 1);
+          if (p.charge >= 0.15) glowSeen.push({ x: p.x, y: p.y - 8, z: 1, s: 60, k: 0.22, col: '#5fe8d8' });
+          break;
+        case 'trap': push(p.id, key, p.x, p.y - 20, 0, (h2 - 0.5) * 0.8, 1 + Math.sin(t * 9 + p.wiggle) * 0.035, 1); break;
+      }
+      if (G.World.propFx) G.World.propFx(p, t);
+    }
+    // La flora (setas que brillan y cristales): ambient.js la deja aquí en vez de dibujarla.
+    const fl = G.Ambient && G.Ambient.flora3d;
+    if (P3 && fl) for (const f of fl) {
+      const key = P3.FLORA[f.row];
+      if (key) push('f' + f.x + ',' + f.y, key, f.x, f.y - 4, 0, (H(f.x, f.y, 43) - 0.5) * 0.8, 0.85 + H(f.x, f.y, 44) * 0.3, 1);
+    }
+    if (sig !== insSig) { insSig = sig; shadowDirty = true; }
   }
 
   // ---------------- cada fotograma ----------------
@@ -647,6 +792,7 @@ G.Ultra3D = (() => {
    * luz y sombras. Kd: px del lienzo del juego por unidad de mundo; Wd, Hd: su tamaño. false: este fotograma, en 2D.
    */
   function begin(cam, Kd, Wd, Hd, vis) {
+    floraOn = false;
     if (!on()) return false;
     const W = G.World, bi = W.biome;
     if (!W.pmdOn(bi) || !faceMat(bi) || !sharedParts()) return false;
@@ -654,9 +800,13 @@ G.Ultra3D = (() => {
       // Sombras y contornos, del tono oscuro del mapa y no negros.
       const edge = G.Tileset.pal(bi).edge;
       plane.material.color.set(edge); shared.hullMat.color.set(edge);
+      // (Otro bioma: los modelos del de antes, fuera.)
+      for (const key of [...kinds.keys()]) if (!key.startsWith(bi + ':')) dropKind(key);
+      if (G.Props3D) G.Props3D.free(false, bi);
       tinted = bi;
     }
     frame++;
+    floraOn = false;
     glowSeen = [];
     // Tamaño del lienzo 3D (y como mucho 4096 de lado: memoria de lienzos).
     KL = scaleFor(Kd, Wd, Hd);
@@ -719,6 +869,9 @@ G.Ultra3D = (() => {
     // Rocas y cofres a la vista; los que no se ven en un rato, fuera.
     const t = performance.now() / 1000;
     for (const p of vis) if (OWN[p.type]) syncProp(p, t);
+    uni.time.value = G.Anim && !G.Anim.on ? 0 : t;
+    collect(vis, bi, t);
+    syncRift(bi, t);
     // (Los que no se ven, ni se dibujan ni dan sombra: un cofre roto dejaba su sombra en el suelo.)
     for (const [id, it] of props) {
       if (frame - it.used > 90) { dropProp(id); continue; }
@@ -742,6 +895,7 @@ G.Ultra3D = (() => {
     plane.scale.set(2 * ex + 400, bot - top + 400, 1);
     plane.updateMatrix(); plane.updateMatrixWorld(true);
     if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+    floraOn = true; okAt = performance.now();
     return true;
   }
 
@@ -749,9 +903,11 @@ G.Ultra3D = (() => {
   function rows(items) {
     const TS = G.World.TS;
     for (const r of shownRows) items.push({ y: r.ty * TS + 1, u3row: r });
+    // (La flora en 3D también va por orden de Y: sus pies.)
+    for (const [id, e] of ins) if (typeof id === 'string') items.push({ y: e.y + 4, u3: { id } });
   }
 
-  const owns = p => !!OWN[p.type] && props.has(p.id);
+  const owns = p => (!!OWN[p.type] && props.has(p.id)) || ins.has(p.id);
 
   /*
    * Las pasadas. game.js va metiendo lo 3D en lotes (add) en el orden por Y; un lote acaba justo antes de lo 2D que se le
@@ -763,14 +919,21 @@ G.Ultra3D = (() => {
   function add(b, it) {
     const TS = G.World.TS;
     let o, x0, x1, y0, y1, h;
+    let e = null;
     if (it.u3row) { o = it.u3row.mesh; x0 = it.u3row.x0; x1 = it.u3row.x1; y0 = it.u3row.ty * TS; y1 = y0 + TS; h = HW; }
     else {
       const q = props.get(it.u3.id);
-      if (!q) return b;
-      o = q.obj; x0 = it.u3.x - 34; x1 = it.u3.x + 34; y0 = it.u3.y - 50; y1 = it.u3.y + 6; h = q.h;
+      if (q) { const r = q.r || 34; o = q.obj; x0 = it.u3.x - r; x1 = it.u3.x + r; y0 = it.u3.y - 50; y1 = it.u3.y + 6; h = q.h; }
+      else {
+        e = ins.get(it.u3.id);
+        if (!e) return b;
+        // (Con margen: lo que se mece con el viento y el contorno.)
+        const r = e.w * e.s + 6, d = e.w * e.s * 0.62 + 6;
+        x0 = e.x - r; x1 = e.x + r; y0 = e.y - d; y1 = e.y + d; h = e.h * e.s + 6;
+      }
     }
-    if (!b) b = { objs: [], x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, ay: -1 };
-    b.objs.push(o);
+    if (!b) b = { objs: [], inst: [], x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, ay: -1 };
+    if (e) b.inst.push(e); else b.objs.push(o);
     for (const x of [x0, x1]) for (const [y, z] of [[y0, h], [y1, 0], [y1, h]]) {
       const [u, v] = proj(x, y, z);
       if (u < b.x0) b.x0 = u; if (u > b.x1) b.x1 = u; if (v < b.y0) b.y0 = v; if (v > b.y1) b.y1 = v;
@@ -806,6 +969,7 @@ G.Ultra3D = (() => {
       if (b.w <= 0 || b.h <= 0) { b.ay = -1; continue; }
       if (y + b.h > AT * Hl && prev) {
         prev.objs.push(...b.objs);
+        for (const e of b.inst) prev.inst.push(e);
         const x1 = Math.max(prev.x + prev.w, b.x + b.w), y1 = Math.max(prev.y + prev.h, b.y + b.h);
         prev.x = Math.min(prev.x, b.x); prev.w = x1 - prev.x;
         const ny = Math.min(prev.y, b.y), nh = Math.min(Hl, y1) - ny;
@@ -819,16 +983,20 @@ G.Ultra3D = (() => {
     tris = calls = 0;
     // El mapa de sombras (si toca), con todas las capas (three.js sólo mete las que ve la cámara) y sin dibujar nada.
     if (renderer.shadowMap.needsUpdate) {
+      nShadow++;
+      fill(allIns);                                             // (para las sombras, todos los de instancing)
       renderer.setScissorTest(true);
       renderer.setScissor(0, 0, 0, 0);
       cam3.layers.enableAll();
       renderer.render(scene, cam3);
     }
+    fill([]);
     draw(0, 0, 0, Wl, Hl, 2);                                    // el plano que recibe las sombras
     tris += renderer.info.render.triangles; calls += renderer.info.render.calls;
     for (const b of list) {
       if (b.ay < 0) continue;
       for (const o of b.objs) o.traverse(m => { m.layers.enable(1); lay.add(m); });
+      fill(b.inst);
       draw(b.ay - b.y, b.x, b.y, b.w, b.h, 1);
       tris += renderer.info.render.triangles; calls += renderer.info.render.calls;
       for (const m of lay) m.layers.disable(1);
@@ -840,16 +1008,23 @@ G.Ultra3D = (() => {
    * El halo de los cofres en el suelo (luz dorada que late, más fuerte en el de candado): un degradado guardado que se
    * suma (lighter), justo después de las sombras y antes de todo lo de pie. Sin coste por píxel en el móvil: un drawImage.
    */
-  let glowC = null;
-  function glowImg() {
-    if (glowC) return glowC;
+  const glowC = new Map();
+  /** El degradado de un halo (dorado, el de los cofres; o del color col: torres, manantiales). */
+  function glowImg(col) {
+    const key = col || 'gold';
+    if (glowC.has(key)) return glowC.get(key);
     const c = document.createElement('canvas'); c.width = c.height = 64;
     const g = c.getContext('2d');
     if (!g) return null;
     const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,214,110,0.9)'); gr.addColorStop(0.35, 'rgba(255,190,70,0.4)'); gr.addColorStop(1, 'rgba(255,170,40,0)');
+    if (!col) { gr.addColorStop(0, 'rgba(255,214,110,0.9)'); gr.addColorStop(0.35, 'rgba(255,190,70,0.4)'); gr.addColorStop(1, 'rgba(255,170,40,0)'); }
+    else {
+      const n = parseInt(col.slice(1), 16), rgb = (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255);
+      gr.addColorStop(0, 'rgba(' + rgb + ',0.85)'); gr.addColorStop(0.4, 'rgba(' + rgb + ',0.32)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+    }
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-    return (glowC = c);
+    glowC.set(key, c);
+    return c;
   }
   /** Las sombras de lo 3D en el suelo (después del suelo y antes de todo lo de pie). */
   function ground(ctx) {
@@ -858,16 +1033,19 @@ G.Ultra3D = (() => {
     // (En móvil, como antes: al píxel más cercano. Ampliar suavizado varias veces por fotograma costaba en Safari.)
     ctx.imageSmoothingEnabled = R > 1.01 && !mob;
     ctx.drawImage(glcv, 0, 0, Wl, Hl, Ox, Oy, Wl * R, Hl * R);
-    const gi = G.Settings.fx > 0 && glowSeen.length ? glowImg() : null;
-    if (gi) {
+    if (G.Settings.fx > 0 && glowSeen.length) {
       const t = performance.now() / 1000;
       ctx.globalCompositeOperation = 'lighter';
       ctx.imageSmoothingEnabled = true;
-      for (const it of glowSeen) {
-        const p = it.p, big = it.kind === 'bigchest', [u, v] = proj(p.x, p.y - 12, 2);
-        const s = (big ? 120 : 84) * (KL * R) * (1 + Math.sin(t * 2.2 + p.x * 0.01) * 0.06), k = (big ? 0.42 : 0.26) * (1 + Math.sin(t * 2.2 + p.x * 0.01) * 0.25);
+      for (const o of glowSeen) {
+        const gi = glowImg(o.col);
+        if (!gi) continue;
+        const [u, v] = proj(o.x, o.y, o.z), w = Math.sin(t * 2.2 + o.x * 0.01);
+        const s = o.s * (KL * R) * (1 + w * 0.06), k = o.k * (1 + w * 0.25);
         ctx.globalAlpha = Math.min(1, k);
-        ctx.drawImage(gi, u * R + Ox - s / 2, v * R + Oy - s * 0.32, s, s * 0.64);
+        // (Lo del suelo, aplastado como el suelo; lo de en alto, como el orbe, redondo.)
+        const sy = o.z > 10 ? 1 : 0.64;
+        ctx.drawImage(gi, u * R + Ox - s / 2, v * R + Oy - s * sy / 2, s, s * sy);
       }
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
@@ -889,12 +1067,17 @@ G.Ultra3D = (() => {
 
   /** Para medir: chunks, filas, objetos y llamadas de dibujo y triángulos del último fotograma. */
   function stats() {
-    return { built: nBuilt, passes: nPass, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
-      aa: !mob, calls, tris, mem: renderer ? { ...renderer.info.memory } : null };
+    return { built: nBuilt, passes: nPass, shadows: nShadow, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
+      aa: !mob, calls, tris, inst: allIns.length, kinds: kinds.size, mem: renderer ? { ...renderer.info.memory } : null };
   }
 
   /** ¿Van las rocas y los cofres en 3D con la vista normal (sin Ultra)? (game.js dibuja entonces por D3 sin perspectiva) */
   const flat = () => !G.Settings.ultra && flatOk() && on();
 
-  return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; } };
+  return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; },
+    /** ¿Va la flora en 3D? (ambient.js no la dibuja entonces: la deja en G.Ambient.flora3d) */
+    // (Sólo si el último fotograma fue en 3D: con la calidad bajada a mitad de partida, la flora vuelve al 2D al momento.)
+    get floraOn() { return floraOn && performance.now() - okAt < 250; },
+    /** ¿Va el portal de la grieta en 3D este fotograma? (game.js: entonces rift.js sólo dibuja su luz y el suelo roto) */
+    riftOn() { const it = props.get('rift'); return !!it && it.used === frame && floraOn; } };
 })();

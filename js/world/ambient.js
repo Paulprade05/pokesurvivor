@@ -244,6 +244,7 @@ G.Ambient = (() => {
   // ---------------- capas ----------------
 
   function ground(ctx, view) {
+    flora3d = [];
     if (!G.Anim.on) return;
     if (!atlas && !buildAtlas()) return;
     const dt = G.Anim.dt, bi = G.World.biome, r = recipe(bi), cam = G.Camera, B = G.Tiles.BIOMES[bi];
@@ -292,9 +293,15 @@ G.Ambient = (() => {
     }
     return out;
   }
+  // (Partida en 3D, 13-11-2026) Con los objetos en 3D (ultra3d.js), las setas que brillan y los cristales
+  // no se dibujan aquí: se dejan en flora3d y ultra3d.js los pone en 3D (con su orden por Y).
+  const F3 = { 4: 1, 5: 1 };
+  let flora3d = [];
   function drawFlora(ctx, view, bi) {
+    flora3d = [];
     const rows = FLORA[G.Tiles.BIOMES[bi].ground], im = G.Tileset.floraSheet(bi);
     if (!rows || !rows.length || !im || !G.World.pmdOn(bi)) return;
+    const in3d = !!(G.Ultra3D && G.Ultra3D.floraOn);
     if (floraFor !== bi) { floraC.clear(); floraFor = bi; }
     const CW = G.World.CW, x0 = Math.floor((view.left() - 40) / CW), x1 = Math.floor((view.left() + view.w + 40) / CW);
     const y0 = Math.floor((view.top() - 40) / CW), y1 = Math.floor((view.top() + view.h + 40) / CW);
@@ -311,6 +318,7 @@ G.Ambient = (() => {
       }
       for (const f of list) {
         if (!view.sees(f.x, f.y, 40)) continue;
+        if (in3d && F3[f.row]) { flora3d.push(f); continue; }
         const fr = f.row < 4 ? G.Anim.wind(f.x, f.y) : G.Anim.tick(8, 7, (f.x + f.y) & 7);
         ctx.drawImage(im, fr * 16, f.row * 20, 16, 20, f.x - 16, f.y - 36, 32, 40);
       }
@@ -409,5 +417,5 @@ G.Ambient = (() => {
     halos.clear();
   }
 
-  return { get atlas() { return atlas; }, ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; floraFor = -1; floraC.clear(); flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
+  return { get atlas() { return atlas; }, get flora3d() { return flora3d; }, ground, air, tree, purge, ring: (x, y) => addRing(x, y, 0), reset() { recipeOf = -1; floraFor = -1; floraC.clear(); flock = null; flockT = 6; for (const o of rings) o.on = false; for (const o of P) { o.alive = false; o.t = 0; } } };
 })();
