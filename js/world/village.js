@@ -33,6 +33,7 @@ G.Village = (() => {
   let solidIx = null, reach = null, pondSolid = false;      // su índice por casillas y lo que se alcanza andando (se rehacen al cambiar)
   let tileWait = 0, lastPartner = '';
   let pet = null, holo = null, homeKey = '', homeOpen = false, homePreview = null, prepP = null;
+  let intro = null, flashPending = false, zoom = 1;     // la entrada a la partida (startIntro)
 
   // ---------------- ¿aldea o menú clásico? ----------------
   function webgl() {
@@ -192,6 +193,7 @@ G.Village = (() => {
         lines: ['(Descansa feliz en su cojín.)', '(Se alegra de verte en casa.)', '(Vigila tu choza mientras estás fuera.)'],
         cast: { still, emote: '♥' } });
       pet.x = pet.home[0]; pet.y = pet.home[1]; pet.anim.dir = 0;
+      pet.foot = V().npcFoot(true, pet.body);
       if (still === 'Sleep') G.Sprites.sheet(cfg.pet, 'Sleep');
       npcs.push(pet);
     }
@@ -289,6 +291,7 @@ G.Village = (() => {
       if (c.still === 'Sleep') G.Sprites.sheet(c.dex, 'Sleep');
       // Los quietos (Snorlax dormido...) abultan lo que su dibujo de ahora (tumbado es más ancho que de pie).
       if (c.still) { const m = G.Sprites.animMeta(c.dex, c.still); if (m) n.body = Math.max(n.body, Math.min(40, m.w * 0.3 * 2)); }
+      n.foot = V().npcFoot(!!c.still && !c.water, n.body);
       npcs.push(n);
     }
   }
@@ -323,10 +326,11 @@ G.Village = (() => {
     }
     if (who && (who.water || who.fly)) return false;
     if (solidIx && VG.hits(solidIx, x, y, r, from)) return true;
-    // Tu Pokémon no atraviesa a los de la aldea (los que te siguen, sí: van detrás de ti).
+    // (13-11-2026, «hay veces que me choco con los Pokémon») Tu Pokémon sólo choca con los quietos y grandes (Snorlax
+    // dormido...), y con una huella pequeña (VILLAGE.npcFoot); a los demás los apartas con un empujón suave (npcTick).
     if (who && who === pl) for (const n of npcs) {
-      if (n.mode === 'follow' || n.holo) continue;
-      const R = r + (n.body || n.r) * (n.mode === 'still' ? 1 : 0.8), d = Math.hypot(x - n.x, y - n.y);
+      if (!n.foot) continue;
+      const R = r + n.foot, d = Math.hypot(x - n.x, y - n.y);
       if (d < R && d < Math.hypot(from[0] - n.x, from[1] - n.y) - 1e-3) return true;
     }
     return false;
@@ -380,6 +384,7 @@ G.Village = (() => {
     view.w = C.w || innerWidth / view.scale;
     view.h = C.h || innerHeight / view.scale;
     view.K = C.ULTRA || 0.18;
+    if (zoom !== 1) { view.scale *= zoom; view.w /= zoom; view.h /= zoom; }
   }
   function camTarget() {
     const VG = V(), W = VG.W * TS, Hh = VG.H * TS;
@@ -388,9 +393,9 @@ G.Village = (() => {
     // Con la tienda de la choza abierta, la cámara mira tu choza (a la izquierda: el panel va a la derecha).
     let fx0 = pl.x, fy0 = pl.y;
     if (homeOpen) { const h = V().PLACES.find(p => p.id === 'home'); fx0 = tile(h.x) + Math.min(view.w * 0.22, 300); fy0 = tile(h.y) + 40; }
-    // Cerca de la Flor del Portal la cámara sube un poco: se ve la flor entera (tu Pokémon queda más abajo).
+    // Cerca del Altar del Portal la cámara sube un poco: se ve el altar entero (tu Pokémon queda más abajo).
     const tree = V().PLACES[0], kx = Math.max(0, 1 - Math.abs(fx0 - tile(tree.x)) / tile(7)), ky = Math.max(0, 1 - Math.abs(fy0 - tile(tree.door[1] + 1)) / tile(5));
-    const up = 120 * Math.min(1, kx * 1.4) * Math.min(1, ky * 1.4);
+    const up = 150 * Math.min(1, kx * 1.4) * Math.min(1, ky * 1.4);
     const x = Math.max(hw, Math.min(W - hw, fx0)), y = Math.max(hh * 1.02, Math.min(Hh - hh * 0.9, fy0 - 20 - up));
     return [W < view.w ? W / 2 : x, Hh < view.h ? Hh / 2 : y];
   }
@@ -408,13 +413,16 @@ G.Village = (() => {
   // (12-11-2026) Bosque bioluminiscente: casi siempre de noche (luz de luna azul y violeta). Un rato del ciclo amanece
   // con bruma verde (algo más de luz y más niebla) y vuelve la noche; lo que brilla, brilla siempre (más de noche).
   // [fase, luz ambiente rgb, su fuerza, luna rgb, su fuerza, altura, noche 0..1, bruma 0..1, niebla]
+  // (13-11-2026, el dueño: «se ve demasiado oscuro») Más luz de ambiente y de luna en todo el ciclo, con la luz menos azul
+  // (de noche se distinguen los colores); sigue siendo de noche: lo que brilla, brilla igual (más los faroles, que
+  // ahora alumbran: village3d.js lamp).
   const KEYS = [
-    [0.00, [0.42, 0.48, 0.86], 0.62, [0.6, 0.7, 1], 0.26, 0.85, 1, 0, 1],
-    [0.40, [0.42, 0.48, 0.86], 0.62, [0.6, 0.7, 1], 0.26, 0.85, 1, 0, 1],
-    [0.52, [0.5, 0.66, 0.8], 0.66, [0.7, 0.95, 0.9], 0.3, 0.6, 0.65, 1, 1.5],
-    [0.66, [0.56, 0.74, 0.78], 0.7, [0.85, 1, 0.9], 0.34, 0.7, 0.5, 0.6, 1.3],
-    [0.78, [0.5, 0.5, 0.86], 0.64, [0.66, 0.66, 1], 0.28, 0.8, 0.85, 0.2, 1],
-    [1.00, [0.42, 0.48, 0.86], 0.62, [0.6, 0.7, 1], 0.26, 0.85, 1, 0, 1]
+    [0.00, [0.54, 0.6, 0.88], 0.9, [0.68, 0.76, 1], 0.38, 0.9, 1, 0, 1],
+    [0.40, [0.54, 0.6, 0.88], 0.9, [0.68, 0.76, 1], 0.38, 0.9, 1, 0, 1],
+    [0.52, [0.6, 0.74, 0.82], 0.94, [0.78, 0.98, 0.92], 0.42, 0.65, 0.65, 1, 1.4],
+    [0.66, [0.64, 0.8, 0.8], 0.98, [0.9, 1, 0.92], 0.46, 0.75, 0.5, 0.6, 1.2],
+    [0.78, [0.58, 0.6, 0.88], 0.92, [0.74, 0.74, 1], 0.4, 0.85, 0.85, 0.2, 1],
+    [1.00, [0.54, 0.6, 0.88], 0.9, [0.68, 0.76, 1], 0.38, 0.9, 1, 0, 1]
   ];
   let phaseOverride = null;
   function phase() {
@@ -460,7 +468,9 @@ G.Village = (() => {
     if (cov === 2) { walkPrev = false; return true; }          // tapada: se queda quieta (como el fondo del menú)
     t += dt;
     camSize();
-    if (walk) { update(dt, walkPrev); G.Village3D.tune && G.Village3D.tune(real); } else idle(dt);
+    if (intro) introTick(dt);
+    else if (walk) { update(dt, walkPrev); G.Village3D.tune && G.Village3D.tune(real); } else idle(dt);
+    if (!active || !pl) return true;                // (la entrada ha acabado: ya ha empezado la partida y la aldea duerme)
     walkPrev = walk;
     // Con una ventana encima, a 20 FPS (casi no se ve y calienta menos).
     renderAcc += dt;
@@ -564,13 +574,18 @@ G.Village = (() => {
             for (let k = 0; k < 6; k++) {
               const a = Math.random() * 6.2832, r = Math.random() * n.wander;
               const gx = n.home[0] + Math.cos(a) * r, gy = n.home[1] + Math.sin(a) * r;
-              if (!blocked(gx, gy, n.r, n)) { n.goal = [gx, gy]; n.mode = 'walk'; n.tt = 0; break; }
+              if (!blocked(gx, gy, n.r, n) && !V().doorLane(gx, gy, n.r)) { n.goal = [gx, gy]; n.mode = 'walk'; n.tt = 0; break; }
             }
           } else if (Math.random() < 0.25) n.anim.play(G.U.pick(['Attack', 'Charge']));
+          // Si lo han empujado lejos de su sitio o se ha quedado en el pasillo de una puerta, vuelve a casa.
+          if (n.mode === 'idle' && (Math.hypot(n.x - n.home[0], n.y - n.home[1]) > n.wander + 30 || (V().doorLane(n.x, n.y) && !V().doorLane(n.home[0], n.home[1])))) { n.mode = 'home'; n.tt = 0; }
         }
       }
-      // Que no se te meta encima: se aparta.
-      if (dP < pl.r + n.r && dP > 0.1 && n.mode !== 'still' && !n.place) move(n, (n.x - pl.x) / dP * 2, (n.y - pl.y) / dP * 2);
+      // Empujón suave: si pasas por encima de uno que no choca, se aparta (sin frenarte); los quietos, no se mueven.
+      if (!n.foot && n.mode !== 'still' && !n.holo && dP < pl.r + n.r && dP > 0.1) {
+        const push = Math.min(pl.r + n.r - dP, 150 * dt) + 0.5;
+        if (move(n, (n.x - pl.x) / dP * push, (n.y - pl.y) / dP * push) < 0.1) move(n, -(n.y - pl.y) / dP * push, (n.x - pl.x) / dP * push);
+      }
       n.anim.loop(n.mode === 'still' ? n.anim.base : moving ? 'Walk' : 'Idle');
       n.anim.update(dt);
     }
@@ -608,13 +623,15 @@ G.Village = (() => {
   // ---------------- puertas y avisos ----------------
   function nearest() {
     let best = null, bd = 1e9;
+    // (13-11-2026) La zona de entrar es más grande (ENTER) y la puerta gana al Pokémon que tengas al lado (antes, con un
+    // tendero o la mascota cerca, salía «Hablar» y no había forma de entrar).
     for (const p of V().PLACES) {
       const d = Math.hypot(pl.x - tile(p.door[0]), pl.y - tile(p.door[1]));
-      if (d < 66 && d < bd) { best = { place: p, goal: 'p:' + p.id }; bd = d; }
+      if (d < V().ENTER && d < bd) { best = { place: p, goal: 'p:' + p.id }; bd = d; }
     }
     for (const n of npcs) {
       const d = Math.hypot(pl.x - n.x, pl.y - n.y);
-      if (d < 60 && d + 14 < bd) { best = { npc: n, goal: 'n:' + npcs.indexOf(n) }; bd = d; }
+      if (d < 60 && d + (best ? 44 : 14) < bd) { best = { npc: n, goal: 'n:' + npcs.indexOf(n) }; bd = d; }
     }
     return best;
   }
@@ -655,6 +672,8 @@ G.Village = (() => {
   const CLASSIC = ['play', 'dex', 'upgrades', 'shop', 'bag', 'gacha', 'friends', 'rank', 'compendium'];
   /** Abre el apartado de un sitio (también desde el desplegable). → true si lo ha abierto. */
   function go(what) {
+    // Jugar (sin sala): primero la entrada por el portal; al acabar, el botón de siempre.
+    if (what === 'play' && active && pl && !(G.Social && G.Social.room) && !covered()) { if (!intro) startIntro(); return true; }
     if (CLASSIC.includes(what)) {
       const b = document.querySelector('#scr-menu .menu-right [data-go="' + what + '"]');
       if (!b) return false;
@@ -675,6 +694,7 @@ G.Village = (() => {
 
   // ---------------- tocar o hacer clic en la aldea ----------------
   function pointer(e) {
+    if (intro) { skipIntro(); return; }
     if (!walking() || e.target !== document.getElementById('game')) return;
     if (e.pointerType !== 'mouse' && G.Touch && G.Touch.stick && G.Touch.stick.id === e.pointerId) return;   // ha cogido el joystick
     if (e.button && e.button !== 0) return;
@@ -687,7 +707,7 @@ G.Village = (() => {
     } else if (hit && hit.place) {
       const p = hit.place;
       target = { x: tile(p.door[0]), y: tile(p.door[1]), goal: 'p:' + p.id };
-      target.then = () => { if (Math.hypot(pl.x - tile(p.door[0]), pl.y - tile(p.door[1])) < 70) go(p.go); };
+      target.then = () => { if (Math.hypot(pl.x - tile(p.door[0]), pl.y - tile(p.door[1])) < V().ENTER) go(p.go); };
       target.then.goal = target.goal;
     } else {
       const w = G.Village3D.toWorld(view, e.clientX, e.clientY);
@@ -717,9 +737,13 @@ G.Village = (() => {
   }
 
   function draw(ctx, w, h, dpr, dt) {
-    for (const n of npcs) G.Village3D.sprite(n);
-    pl.z = 0;
+    const hz = G.Village3D.heightAt || (() => 0);
+    for (const n of npcs) { n.gz = n.z = hz(n.x, n.y); G.Village3D.sprite(n); }
+    pl.gz = hz(pl.x, pl.y); pl.z = pl.gz + (pl.lift || 0); pl.lit = true;
     G.Village3D.sprite(pl);
+    const A = G.Village3D.altar ? G.Village3D.altar() : null;
+    view.onPad = !!intro || !!(A && Math.hypot(pl.x - A.pad[0], pl.y - A.pad[1]) < A.padR + 8);
+    view.boost = intro ? intro.boost : 0;
     if (holo) { holo.z = 16 + Math.sin(t * 1.6) * 4; holo.anim.dir = Math.floor(t * 1.3) % 8; holo.anim.loop('Idle'); holo.anim.update(dt); G.Village3D.sprite(holo); }
     view.player = pl;
     view.mail = mailUnread();
@@ -748,6 +772,7 @@ G.Village = (() => {
     if (near && near.place) named.add(near.place);
     if (hover && hover.place) named.add(hover.place);
     for (const p of V().PLACES) if (Math.hypot(pl.x - tile(p.x), pl.y - tile(p.y)) < tile(3.4)) named.add(p);
+    if (intro) named.clear(); else altarHint(ctx);
     for (const p of named) {
       const s = G.Village3D.toScreen(view, tile(p.x), tile(p.y), labelZ(p));
       pill(ctx, s.x, s.y, G.T(p.name), p === (near && near.place) || p === (hover && hover.place));
@@ -760,9 +785,127 @@ G.Village = (() => {
       if (hover && hover.npc === n) { const s = G.Village3D.toScreen(view, n.x, n.y, 0); pill(ctx, s.x, s.y + 18, (G.DEX_BY[n.anim.dex] || {}).name || '', true); }
     }
     // Joystick (táctil), como en la partida.
-    if (G.Touch && G.Touch.active && walking()) G.Touch.draw(ctx);
+    if (G.Touch && G.Touch.active && walking() && !intro) G.Touch.draw(ctx);
+    if (intro) introFlash(ctx, w, h);
     ctx.restore();
   }
+  /*
+   * El altar dice dónde ponerse y qué pulsar (13-11-2026): cerca, una flecha que bota sobre el círculo («Ponte aquí»);
+   * encima del círculo, con qué se entra (E, A del mando o el botón «Jugar» en el móvil).
+   */
+  function altarHint(ctx) {
+    if (!walking() || !G.Village3D.altar) return;
+    const A = G.Village3D.altar(), d = Math.hypot(pl.x - A.pad[0], pl.y - A.pad[1]);
+    if (d > tile(7)) return;
+    const on = near && near.place && near.place.go === 'play';
+    if (on) {
+      const pad = G.Pad && G.Pad.recent, touch = G.Touch && G.Touch.active && !pad;
+      const s = G.Village3D.toScreen(view, pl.x, pl.y, G.Sprites.bodyHeight(pl.anim.dex) + 34 + (pl.z || 0));
+      const txt = touch ? G.T('Toca «Jugar» para empezar') : G.T(pad ? 'Pulsa A para jugar' : 'Pulsa E para jugar');
+      ctx.globalAlpha = 0.85 + 0.15 * Math.sin(t * 5);
+      pill(ctx, s.x, s.y, txt, true);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    const s = G.Village3D.toScreen(view, A.pad[0], A.pad[1], 40 + Math.sin(t * 4) * 5);
+    ctx.globalAlpha = Math.min(1, (tile(7) - d) / tile(1.5));
+    pill(ctx, s.x, s.y - 10, G.T('Ponte aquí'), false);
+    ctx.beginPath(); ctx.moveTo(s.x - 9, s.y - 6); ctx.lineTo(s.x + 9, s.y - 6); ctx.lineTo(s.x, s.y + 6); ctx.closePath();
+    ctx.fillStyle = '#ffcb05'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(120,86,0,.8)'; ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------------- la entrada a la partida (13-11-2026, pedido del dueño) ----------------
+  /*
+   * «Haz una pequeña animación de entrada a partida»: tu Pokémon va al círculo del altar, entra en el portal (se encoge,
+   * sube y brilla mientras el portal se aviva y la cámara se acerca), un destello de luz, y la partida se abre desde ese
+   * destello (game.js drawIris, con el color de la luz). Dura ~1,6 s más la apertura; se salta con cualquier tecla, botón
+   * o toque. Mientras, se precargan los sprites de tu Pokémon y los primeros suelos de la partida. En una sala de grupo
+   * no hay animación (Jugar abre la sala; la partida la empieza el anfitrión para todos a la vez).
+   */
+  function startIntro() {
+    const A = G.Village3D.altar && G.Village3D.altar();
+    if (!A) { fire(); return; }
+    target = null; setQuick(false);
+    near = null; prompt();
+    let d = Math.hypot(pl.x - A.pad[0], pl.y - A.pad[1]);
+    // Lejos (desde el desplegable «Ir a…»): aparece junto al altar.
+    if (d > tile(4)) { pl.x = A.pad[0]; pl.y = A.pad[1] + 56; d = 56; snapCam(); }
+    const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    intro = { t: 0, x0: pl.x, y0: pl.y, A, s0: pl.anim.scale, boost: 0, fl: 0, held: true, fired: false,
+      W: calm ? 0 : Math.max(0.18, Math.min(0.6, d / 230)), E: calm ? 0.2 : 0.62, F: calm ? 0.25 : 0.42 };
+    G.Audio.sfx('rift');
+    // Precarga (sin esperar): las hojas de tu Pokémon de la partida y los suelos del principio.
+    try {
+      const s = G.DB.save, ch = s.partner;
+      G.Sprites.preload([G.Mons.formFor(ch, G.Evo.base(ch))], 8000, !!s.partnerShiny && G.DB.ownsShiny(ch));
+    } catch (e) { /* nada */ }
+    try { if (G.Tileset) G.Tileset.preload([0, 1]); } catch (e) { /* nada */ }
+  }
+  function skipIntro() {
+    const I = intro;
+    if (!I || I.fired || I.t < 0.12) return;
+    if (I.t < I.W + I.E) I.t = I.W + I.E;
+    I.F = Math.min(I.F, 0.16);
+  }
+  const ease = k => k * k * (3 - 2 * k);
+  function introTick(dt) {
+    const I = intro, A = I.A;
+    I.t += dt;
+    // Saltar: una tecla o un botón nuevos (no el que la ha empezado).
+    const any = G.Input.tap('escape') || G.Input.tap('enter') || G.Input.tap('space') || G.Input.tap('keye'), held = !!G.Input.act('open');
+    if (any || (held && !I.held)) skipIntro();
+    I.held = held;
+    const { W, E, F } = I;
+    if (I.t < W) {
+      const k = ease(I.t / W);
+      pl.x = I.x0 + (A.pad[0] - I.x0) * k; pl.y = I.y0 + (A.pad[1] - I.y0) * k;
+      pl.anim.dir = G.Sprites.dirFromAngle(Math.atan2(A.pad[1] - I.y0, A.pad[0] - I.x0));
+      pl.anim.loop('Walk');
+    } else {
+      const k = Math.min(1, (I.t - W) / Math.max(0.01, E)), e = ease(k);
+      pl.x = A.pad[0]; pl.y = A.pad[1] + (A.ring[1] + 8 - A.pad[1]) * e;
+      pl.lift = e * (A.ring[2] - 40);
+      pl.anim.scale = I.s0 * (1 - 0.5 * e);
+      pl.flash = e * 1.4;
+      pl.fade = 1 - ease(Math.max(0, (k - 0.6) / 0.4));
+      pl.anim.dir = G.Sprites.dirFromAngle(-Math.PI / 2);
+      pl.anim.loop(k < 0.5 ? 'Walk' : 'Idle');
+    }
+    pl.anim.update(dt);
+    I.boost = Math.min(1, Math.max(0, (I.t - W * 0.5) / (W * 0.5 + E)));
+    zoom = 1 + 0.2 * ease(Math.min(1, I.t / Math.max(0.01, W + E)));
+    I.fl = Math.min(1, Math.max(0, (I.t - (W + E * 0.7)) / (E * 0.3 + F)));
+    const [tx, ty] = camTarget();
+    view.cx = G.U.damp(view.cx, tx, 10, dt); view.cy = G.U.damp(view.cy, ty, 10, dt);
+    npcTick(dt);
+    if (I.t >= W + E + F && !I.fired) fire();
+  }
+  /** El destello: luz blanca y rosa que sale del portal y llena la pantalla (la partida se abre desde ahí). */
+  function introFlash(ctx, w, h) {
+    const I = intro, fl = I.fl;
+    if (fl <= 0) return;
+    const s = G.Village3D.toScreen(view, I.A.ring[0], I.A.ring[1], I.A.ring[2]), R = Math.hypot(w, h);
+    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, R * (0.25 + fl));
+    g.addColorStop(0, 'rgba(255,255,255,' + Math.min(1, fl * 2) + ')');
+    g.addColorStop(0.5, 'rgba(248,236,255,' + Math.min(1, fl * 1.5) + ')');
+    g.addColorStop(1, 'rgba(232,190,255,' + fl * 0.6 + ')');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = fl * fl; ctx.fillStyle = 'rgb(248,236,255)'; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
+  }
+  /** Fin de la entrada: se pulsa el Jugar de siempre (la partida empieza: sleep lo suelta todo). */
+  function fire() {
+    const I = intro;
+    if (I) I.fired = true;
+    if (pl && I) { pl.anim.scale = I.s0; pl.fade = null; pl.flash = 0; pl.lift = 0; }
+    flashPending = !!I;
+    const b = document.querySelector('#scr-menu .menu-right [data-go="play"]');
+    if (b) b.click();
+    // (Si no ha empezado la partida, todo como estaba.)
+    if (intro) { intro = null; zoom = 1; flashPending = false; if (pl && I) { pl.x = I.A.pad[0]; pl.y = I.A.pad[1] + 30; } snapCam(); }
+  }
+  /** game.js (al empezar la partida): ¿viene del destello del portal? (y se olvida) */
+  function takeFlash() { const f = flashPending; flashPending = false; return f; }
   function rr(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -892,13 +1035,15 @@ G.Village = (() => {
     if (pl) G.Village3D.unsprite(pl);
     if (holo) G.Village3D.unsprite(holo);
     npcs = []; pl = null; followers = []; lastPartner = ''; pet = null; holo = null; homeKey = '';
+    intro = null; zoom = 1;
     G.Village3D.free();
     active = false; quick = false; lastShot = null;
     if (homeOpen && G.HomeUI) G.HomeUI.close(true);
     homeOpen = false; homePreview = null;
   }
 
-  return { init, show, frame, sleep, go, walking, wanted, prepare, homePanel, previewHome, syncHome, nearest: () => near,
+  return { init, show, frame, sleep, go, walking, wanted, prepare, homePanel, previewHome, syncHome, nearest: () => near, takeFlash,
+    get intro() { return !!intro; },
     get homeOpen() { return homeOpen; },
     get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : (three === 'loading' || veilOn) ? 'loading' : 'classic'; },
     get failed() { return failed; }, get quickOpen() { return quick; },

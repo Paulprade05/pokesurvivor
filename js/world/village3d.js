@@ -452,11 +452,24 @@ G.Village3D = (() => {
     if (ed < 6) c = mixc(tone(METAL, 0.5 + (ed < 2 ? -0.3 : 0.1)), c, sstep(5, 6.5, ed));
     return c;
   });
-  /** Pétalo de la Flor del Portal: degradado con el nervio que brilla. */
-  const petalTex = () => soft(64, 128, (x, y) => {
-    const c = Math.abs(x - 31.5) / 32, t = y / 128;
-    let col = tone(['#5a2a7a', '#8a3aa8', '#b04ac0', '#e070c8', '#ffa8e4'], 0.95 - t * 0.85 - c * c * 0.35);
-    return mixc(col, rgb('#ffd8f6'), seam(c * 32, 3) * (t > 0.1 ? 0.95 : 0));
+  /**
+   * Losa de arriba del Altar del Portal (vista desde arriba, en un disco): anillos de losas de piedra oscura, un anillo de
+   * runas que brilla (cian) y rayas hacia el centro (rosa). Lo claro brilla (emissiveMap: la misma textura).
+   */
+  const daisTex = () => soft(256, 256, (x, y) => {
+    const dx = x - 127.5, dy = y - 127.5, r = Math.hypot(dx, dy) / 128, a = Math.atan2(dy, dx), n = pn(x, y, 24, 61, 256);
+    const ring = Math.floor(r * 6), cells = 8 + ring * 6, ca = ((a / P2 + 1) * cells + ring * 0.5) % 1;
+    let c = tone(['#1e2430', '#2a3240', '#384252', '#465266'], 0.35 + n * 0.4 + (H(ring, Math.floor((a / P2 + 1) * cells), 62) - 0.5) * 0.3);
+    c = mixc(c, [10, 12, 18], Math.max(seam(Math.min(ca, 1 - ca) * 40, 2.4), seam(((r * 6) % 1) * 30, 2)) * 0.8);
+    // Anillo de runas (rayas cortas con huecos) y su borde.
+    const rr = Math.abs(r - 0.82);
+    if (rr < 0.055) { const k = ((a / P2 + 1) * 40) % 1; c = mixc(c, [12, 16, 24], 0.8); if (k > 0.18 && k < 0.7 && H(Math.floor((a / P2 + 1) * 40), 3, 63) > 0.25) c = mixc(c, [110, 240, 255], 1 - sstep(0.03, 0.05, rr)); }
+    c = mixc(c, [150, 250, 255], seam((r - 0.9) * 256, 2.4) * 0.9);
+    // Rayas rosas hacia el círculo de en medio y su aro.
+    const sp = ((a / P2 + 1) * 6) % 1;
+    if (r > 0.34 && r < 0.72) c = mixc(c, [255, 130, 220], seam(Math.min(sp, 1 - sp) * 60, 2) * 0.85);
+    c = mixc(c, [255, 160, 230], seam((r - 0.3) * 256, 2.6));
+    return c;
   });
   /** Techos de la choza. */
   const crysTex = col => soft(128, 128, (x, y) => {
@@ -689,8 +702,9 @@ G.Village3D = (() => {
     const gimg = gg.createImageData(w, h), e = gimg.data;
     const set = (o, c) => { const v = hex(c); d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; };
     const lit = (o, c) => { const v = hex(c); e[o] = v[0]; e[o + 1] = v[1]; e[o + 2] = v[2]; e[o + 3] = 255; };
-    const DIRT = ['#241a14', '#2e2118', '#3a2a1e', '#4a3626'], EDGE = '#1a120e';
-    const SLATE = ['#1c2228', '#262e36', '#323c46', '#3e4a56'];
+    // (13-11-2026, «se ve demasiado oscuro») Caminos de tierra más clara y plaza de losas más claras: se leen de noche.
+    const DIRT = ['#3a2a1e', '#4a3626', '#5a4430', '#6e543a'], EDGE = '#22180f';
+    const SLATE = ['#262e38', '#323c48', '#404c5a', '#4e5c6c'];
     const sample = (arr, fx, fy) => {
       const x = fx - 0.5, y = fy - 0.5, x0 = Math.floor(x), y0 = Math.floor(y), tx = x - x0, ty = y - y0;
       const v = (i, j) => (i < 0 || j < 0 || i >= W || j >= Hh) ? 0 : arr[j * W + i];
@@ -712,7 +726,8 @@ G.Village3D = (() => {
         const row = Math.floor(py / 6), sx = Math.floor(px / 7 + (row % 2) * 0.5);
         const joint = (px % 7 === 0 && !(row % 2)) || (px % 7 === 3 && row % 2) || py % 6 === 0;
         const n = H(sx, row, 92);
-        set(o, joint ? '#0e1216' : SLATE[n < 0.3 ? 1 : n < 0.85 ? 2 : 3]);
+        set(o, joint ? '#141a20' : SLATE[n < 0.3 ? 1 : n < 0.85 ? 2 : 3]);
+        if (!joint) lit(o, '#0a0e14');
         const ring = Math.abs(dd - (P.r - 0.62));
         if (ring < 0.05) { set(o, '#0e1216'); }
         else if (ring < 0.13) {
@@ -727,10 +742,11 @@ G.Village3D = (() => {
       if (p > 0.05 && p + (n - 0.5) * 0.34 >= 0.42) {
         const v = H(px, py, 94);
         set(o, DIRT[v < 0.16 ? 0 : v < 0.6 ? 1 : v < 0.92 ? 2 : 3]);
+        lit(o, '#120d09');                 // (un poco de luz propia: el camino no se pierde de noche)
         if (p + (n - 0.5) * 0.34 < 0.5) {
-          set(o, EDGE);
+          set(o, EDGE); lit(o, '#000000');
           // Piedras que brillan en el borde (de dos en dos píxeles).
-          if (H(px >> 1, py >> 1, 95) > 0.975) { const c = gl[(H(px >> 3, py >> 3, 96) * 4) | 0]; set(o, shade(c, -0.3)); lit(o, c); }
+          if (H(px >> 1, py >> 1, 95) > 0.96) { const c = gl[(H(px >> 3, py >> 3, 96) * 4) | 0]; set(o, shade(c, -0.2)); lit(o, c); }
         }
         continue;
       }
@@ -995,7 +1011,7 @@ G.Village3D = (() => {
       try { G.Icons.draw(g, p.icon, i * S + 2, 2, S - 4); } catch (e) { /* sin icono */ }
     });
     const t = tex(c, false, true);
-    const m = fin(new T.MeshLambertMaterial({ map: t, emissive: new T.Color(0xffffff), emissiveMap: t, emissiveIntensity: 0.45 }));
+    const m = fin(new T.MeshLambertMaterial({ map: t, emissive: new T.Color(0xffffff), emissiveMap: t, emissiveIntensity: 0.75 }));
     disposables.push(m);
     signs = { mat: m, tex: t, canvas: c, n: list.length, S };
     let tries = 0;
@@ -1025,7 +1041,7 @@ G.Village3D = (() => {
       if (y < top - 1 || x < 1 || x > 14) return null;
       if (y < top + 0.6 || x < 2 || x > 13) return '#1a1210';
       const k = (y - top) / (20 - top);
-      return k > 0.75 ? shade(col, -0.55) : k > 0.4 ? shade(col, -0.3) : shade(col, -0.1);
+      return k > 0.75 ? shade(col, -0.3) : k > 0.4 ? shade(col, -0.05) : shade(col, 0.25);
     })), { alphaTest: 0.5 });
   }
   /** Antena de la tribu con su luz que parpadea. */
@@ -1069,8 +1085,9 @@ G.Village3D = (() => {
     const zf = Z + rAt(0.2) + 1.6;
     put(new T.PlaneGeometry(40, 50), doorM(L.glow), { x: X, y: 25, z: zf }, { hull: false, cast: false });
     sign(i, 24, X, 66, Z + rAt(0.5) + 4);
-    glow(X, zf + 10, 70, L.glow, 0.8);
-    halo(X, 30, zf + 2, L.glow, 60, 0.45);
+    glow(X, zf + 14, 96, L.glow, 1);
+    halo(X, 30, zf + 2, L.glow, 70, 0.55);
+    lamp(X, 40, zf + 30, L.glow, 0.55, 200);
     // Remate: la Poké Ball que brilla (gacha) o una antena.
     if (L.ball) {
       const bm = glowTexM('pball', () => stex(soft(32, 64, (x, y) => { const t = y / 64, b = sstep(0.43, 0.47, t) * (1 - sstep(0.53, 0.57, t)); const top = tone(['#e83a5a', '#ff7a8a', '#ffc0c8'], sat(1 - t * 2.4)), bot = tone(['#a8a8b8', '#f4f4f8'], sat((1 - t) * 2.2)); return mixc(t < 0.5 ? top : bot, [16, 16, 16], b); })), '#ffffff', 0.35);
@@ -1238,83 +1255,135 @@ G.Village3D = (() => {
   }
 
   /*
-   * El monumento: la Flor del Portal (decisión del dueño). Una flor enorme, abierta hacia la cámara, con el portal que
-   * gira en el centro, un aro de la tribu con sus luces, estambres que brillan y hojas grandes en el suelo.
-   * (Con la cámara desde arriba lo alto sube en la pantalla lo que mide: por eso los pétalos se echan hacia atrás y la
-   *  flor queda ancha y baja.)
+   * El Altar del Portal (13-11-2026, pedido del dueño: «mejora el altar para entrar a la partida»; antes, la Flor del
+   * Portal). La entrada a la aventura, en el estilo de la tribu (tecnología y naturaleza): un estrado de piedra de dos
+   * escalones con un anillo de runas, el arco del portal de metal con sus luces sobre una cuna, dos pilares tallados con
+   * cristales encima, raíces enormes que abrazan el arco por arriba con lianas de luz, y delante, en el estrado, el
+   * círculo donde ponerse (con flechas que giran hacia dentro y se aviva al pisarlo). Lleva su luz de verdad (la del
+   * portal, que late) y sus partículas (motas que suben del círculo y que caen en espiral al portal).
+   * (Con la cámara desde arriba lo alto sube en la pantalla: el arco va al fondo del estrado.)
    */
-  function flower(p, i) {
-    const X = tile(p.x), Z = tile(p.y), cy = 74, cz = Z + 40;
-    // Hojas en el suelo y raíces.
-    const bigLeaf = lambert('bleaf', () => stex(soft(64, 128, (x, y) => { const c = Math.abs(x - 32), vein = Math.max(seam(c, 3), seam(((y + c * 0.8) % 22) - 11, 1.6) * 0.5); return mixc(tone(['#1c4a2c', '#2e7040', '#3e8a52'], 0.4 + pn(x, y, 20, 81, 64) * 0.5 - c / 90), rgb('#7ac07a'), vein * 0.8); })));
-    // (Sólo a los lados: delante tapaban los escalones.)
-    for (const k of [0, 1, 5, 6]) {
-      const a = Math.PI * (0.05 + k / 6 * 0.9) + Math.PI, len = 80 + H(k, 3, 81) * 26;
-      const lg = ball(1, 1); lg.scale(len * 0.55, 6, 26);
-      put(lg, bigLeaf, { x: X + Math.cos(a) * len * 0.7, y: 6, z: Z + 10 - Math.sin(a) * len * 0.45, ry: -a }, { hull: 2 });
+  const ALTAR_Z = 34, ALTAR_CY = 104, ALTAR_R = 66;
+  /** El estrado del altar: [radio, alto de arriba] de cada escalón; PAD_R: el círculo donde ponerse. */
+  const DAIS = [[138, 5], [104, 10]], PAD_R = 40;
+  let padU = null, portalU = null, altarPts = null;
+  function altar(p, i) {
+    const X = tile(p.x), Z0 = tile(p.y), Cz = Z0 - ALTAR_Z, cy = ALTAR_CY, R = ALTAR_R;
+    const pz = tile(p.door[1]);
+    // El estrado: dos escalones bajos (se pisan: no llegan a FOOT_MIN) y la losa de runas arriba.
+    put(cyl(DAIS[0][0], DAIS[0][0] + 4, DAIS[0][1], 16), mossStoneM(), { x: X, y: DAIS[0][1] / 2, z: Z0 }, { hull: 1.6 });
+    put(cyl(DAIS[1][0], DAIS[1][0] + 3, DAIS[1][1] - DAIS[0][1], 16), mossStoneM(), { x: X, y: (DAIS[1][1] + DAIS[0][1]) / 2, z: Z0 }, { hull: 1.4 });
+    const top = new T.CircleGeometry(DAIS[1][0] - 1, seg(24));
+    top.rotateX(-Math.PI / 2);
+    put(top, glowTexM('dais', () => stex(daisTex(), false), '#ffffff', 0.55), { x: X, y: DAIS[1][1] + 0.3, z: Z0 }, { hull: false, cast: false });
+    put(box(120, 3, 16), mossStoneM(), { x: X, y: 1.5, z: Z0 + DAIS[0][0] + 6 }, { hull: 1.2 });
+    // La cuna del arco y el arco: metal con luces, y un aro de luz por dentro.
+    put(box(84, 20, 30), metalM(), { x: X, y: DAIS[1][1] + 10, z: Cz }, { hull: 1.6 });
+    put(box(70, 3, 2), glowM(CYAN, 1.3), { x: X, y: DAIS[1][1] + 12, z: Cz + 15.5 }, { hull: false, cast: false });
+    put(torus(R + 8, 8, 6, 32), metalM(), { x: X, y: cy, z: Cz }, { hull: 1.8 });
+    put(torus(R + 1, 2.2, 4, 32), glowM(VIOLET, 1.4), { x: X, y: cy, z: Cz + 3 }, { hull: false, cast: false });
+    for (let k = 0; k < 12; k++) {
+      const a = k / 12 * Math.PI * 2, c = k % 2 ? CYAN : PINK;
+      put(box(9, 6, 8), glowM(c, 1.3), { x: X + Math.cos(a) * (R + 8), y: cy + Math.sin(a) * (R + 8), z: Cz + 6, rz: a }, { hull: 1 });
+      if (k % 3 === 0) halo(X + Math.cos(a) * (R + 8), cy + Math.sin(a) * (R + 8), Cz + 9, c, 30, 0.8);
     }
-    // Tallo grueso detrás del portal.
-    put(cyl(26, 36, cy + 10, 9), lambert('stem', () => stex(foliage(64, ['#123a26', '#1a4e32', '#226040', '#2e7a50'], 83))), { x: X, y: (cy + 10) / 2, z: Z }, { hull: 2.2 });
-    // Pétalos: un anillo de óvalos alrededor del portal, abiertos y echados hacia atrás.
-    const petal = glowTexM('petal', () => stex(petalTex()), '#ff7ad8', 0.35);
-    const NP = 11;
-    for (let k = 0; k < NP; k++) {
-      const a = (k / NP) * Math.PI * 2 + 0.15, len = 74 + (k % 2) * 10;
-      if (Math.sin(a) < -0.6) continue;               // (los de abajo se meterían en el suelo)
-      const r0 = 52, px = X + Math.cos(a) * (r0 + len * 0.42), py = cy + Math.sin(a) * (r0 + len * 0.42) * 0.82;
-      // Elipsoide aplastado: largo en su eje, girado hacia fuera y echado hacia atrás.
-      const g = ball(1, 1); g.scale(len * 0.32, len * 0.5, 7);
-      put(g, petal, compose({ x: px, y: Math.max(8, py), z: cz - 18 - Math.max(0, Math.sin(a)) * 26, rz: a - Math.PI / 2, rx: -0.55, order: 'ZXY' }), { hull: 2.2 });
+    portal(X, cy, Cz + 2, R);
+    halo(X, cy, Cz + 12, PINK, 260, 0.45);
+    halo(X, cy, Cz + 14, CYAN, 140, 0.4);
+    // Pilares tallados con sus luces y un cristal encima (que gira despacio).
+    for (const s of [-1, 1]) {
+      const px = X + s * 108, c = s < 0 ? PINK : CYAN;
+      put(box(30, 150, 28), lambert('carved', () => stex(carvedTex())), { x: px, y: DAIS[0][1] + 75, z: Cz + 6 }, { hull: 1.8 });
+      put(box(38, 10, 36), metalM(), { x: px, y: DAIS[0][1] + 5, z: Cz + 6 }, { hull: 1.4 });
+      put(box(38, 8, 36), metalM(), { x: px, y: DAIS[0][1] + 150, z: Cz + 6 }, { hull: 1.4 });
+      for (let k = 0; k < 4; k++) put(box(14, 4, 1.4), glowM(c, 1.3), { x: px, y: DAIS[0][1] + 30 + k * 30, z: Cz + 20.6 }, { hull: false, cast: false });
+      const cm = glowM(c, 1.35);
+      const cr = loose(crystal(13, 34), cm, px, DAIS[0][1] + 186, Cz + 6);
+      const ph = s * 1.3;
+      anim.push({ fn: t => { cr.rotation.y = t * 0.6 + ph; cr.position.y = DAIS[0][1] + 186 + Math.sin(t * 1.3 + ph) * 4; } });
+      halo(px, DAIS[0][1] + 186, Cz + 8, c, 110, 0.75);
+      glow(px, Cz + 40, 90, c, 0.8);
+      lamp(px, DAIS[0][1] + 186, Cz + 20, c, 0.7, 260);
+      // Raíces que bajan del pilar y se hunden en el suelo, por fuera (delante, no: taparían el círculo).
+      for (const [a, len] of [[s > 0 ? -0.2 : Math.PI + 0.2, 46], [s > 0 ? -0.9 : Math.PI + 0.9, 38]]) {
+        const g = cone(12, len, 6); g.rotateZ(-Math.PI / 2); g.translate(len / 2, 0, 0);
+        put(g, barkM(), compose({ x: px + Math.cos(a) * 14, y: 4, z: Cz + 6 + Math.sin(a) * 12, ry: -a, rz: -0.14, sy: 0.6 }), { hull: 1.2 });
+      }
     }
-    // Aro de la tribu alrededor del portal, con luces.
-    const ring = torus(50, 5, 5, 24);
-    put(ring, metalM(), { x: X, y: cy, z: cz }, { hull: 1.6 });
-    for (let k = 0; k < 8; k++) {
-      const a = k / 8 * Math.PI * 2;
-      put(box(6, 6, 6), glowM(k % 2 ? CYAN : PINK, 1.3), { x: X + Math.cos(a) * 50, y: cy + Math.sin(a) * 50, z: cz + 4, rz: a }, { hull: 1 });
-      halo(X + Math.cos(a) * 50, cy + Math.sin(a) * 50, cz + 6, k % 2 ? CYAN : PINK, 22, 0.8);
+    // El arco de raíces que abraza el portal por arriba, con hojas, vainas y lianas de luz.
+    put(torus(110, 13, 6, 26, Math.PI), barkM(), { x: X, y: cy + 4, z: Cz - 6 }, { hull: 2 });
+    for (const [dx, dy, r] of [[0, 120, 30], [-54, 100, 24], [56, 98, 26], [-92, 50, 18], [94, 46, 18]]) put(ball(r, 1), leafM(), { x: X + dx, y: cy + dy, z: Cz - 14, sy: 0.7 }, { hull: 2 });
+    for (const [dx, len, c] of [[-70, 30, CYAN], [-38, 22, PINK], [40, 26, GREEN], [74, 34, CYAN]]) {
+      const a = Math.acos(Math.max(-1, Math.min(1, dx / 110)));
+      vine(X + dx, cy + 4 + Math.sin(a) * 110 - 6, Cz + 4, len, c);
     }
-    portal(X, cy, cz + 1, 46);
-    halo(X, cy, cz + 8, PINK, 230, 0.4);
-    halo(X, cy, cz + 9, CYAN, 120, 0.35);
-    // Estambres que brillan, a los lados del aro.
-    for (const [dx, dy, h] of [[-66, -18, 36], [-58, 30, 30], [66, -18, 36], [58, 30, 30], [-30, 58, 26], [30, 58, 26]]) {
-      put(cyl(1.2, 1.6, h, 4), plain('#d8f0c0'), compose({ x: X + dx, y: cy + dy + h / 2, z: cz + 6, rz: -dx / 200 }), { hull: false, cast: false });
-      put(ball(4.5, 0), glowM('#fff27a', 1.3), { x: X + dx - dx / 200 * h, y: cy + dy + h, z: cz + 6 }, { hull: 1 });
-      halo(X + dx - dx / 200 * h, cy + dy + h, cz + 6, '#fff27a', 26, 0.8);
-    }
-    // Escalones de piedra delante y cables hasta los pilones.
-    put(box(110, 6, 24), mossStoneM(), { x: X, y: 3, z: cz + 34 }, { hull: 1.4 });
-    put(box(140, 4, 22), mossStoneM(), { x: X, y: 2, z: cz + 54 }, { hull: 1.4 });
-    cable([X - 50, 60, cz], [tile(19.6), 60, tile(9.2)], 24);
-    cable([X + 50, 60, cz], [tile(26.4), 60, tile(9.2)], 24);
-    sparkle(X, cy + 50, cz, 18, true);
-    glow(X, cz + 30, 150, PINK, 1);
-    glow(X, cz + 40, 90, CYAN, 0.8);
-    tops[p.id] = 200;
-  }
-
-  /** El remolino del portal: un shader a píxeles (bandas que giran) en un disco. */
-  function portal(X, y, z, r) {
-    const m = new T.ShaderMaterial({
-      uniforms: { uTime: uni.time, uGlow: uni.night },
+    // Cables de luz desde los pilones de cristal hasta los pilares.
+    cable([tile(18.8), 52, tile(9.6)], [X - 108, 92, Cz + 20], 24);
+    cable([tile(27.2), 52, tile(9.6)], [X + 108, 92, Cz + 20], 24);
+    // El círculo donde ponerse: flechas que giran hacia dentro y un aro que late (más fuerte si estás encima).
+    padU = { uTime: uni.time, uOn: { value: 0 }, uNight: uni.night };
+    const pm = new T.ShaderMaterial({ uniforms: padU, transparent: true, depthWrite: false, blending: T.AdditiveBlending,
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: [
-        'varying vec2 vUv; uniform float uTime; uniform float uGlow;',
+        'varying vec2 vUv; uniform float uTime; uniform float uOn; uniform float uNight;',
+        'void main(){',
+        '  vec2 c = vUv * 2.0 - 1.0; float r = length(c), a = atan(c.y, c.x), aa = fwidth(r) * 1.5;',
+        '  if (r > 1.0) discard;',
+        '  float pulse = 0.5 + 0.5 * sin(uTime * 3.2);',
+        '  float ring = (1.0 - smoothstep(0.05, 0.05 + aa * 2.0, abs(r - 0.88))) * (0.75 + 0.25 * pulse);',
+        '  float fr = fract(uTime * 0.6);',
+        '  float ring2 = (1.0 - smoothstep(0.02, 0.02 + aa * 2.0, abs(r - (0.88 - fr * 0.6)))) * (1.0 - fr) * 0.7;',
+        // Cuatro flechas (chevrones) que van del borde hacia el centro.
+        '  float sa = mod(a - uTime * 0.5, 1.5708) - 0.7854, mv = fract(-uTime * 0.7);',
+        '  float ch = abs(sa) * 0.5 + r - (0.3 + mv * 0.45);',
+        '  float chev = (1.0 - smoothstep(0.03, 0.03 + aa * 2.0, abs(ch))) * step(abs(sa), 0.5) * smoothstep(0.12, 0.3, r) * (1.0 - smoothstep(0.7, 0.8, r));',
+        '  float fill = (1.0 - smoothstep(0.0, 0.95, r)) * (0.14 + 0.1 * uOn);',
+        '  vec3 col = vec3(1.0, 0.55, 0.9) * ring + vec3(0.4, 0.95, 1.0) * (chev * 0.9 + ring2) + vec3(0.95, 0.85, 1.0) * fill;',
+        '  gl_FragColor = vec4(col * (0.75 + 0.35 * uNight) * (1.0 + 0.35 * uOn), 1.0);',
+        '}'].join('\n'), extensions: { derivatives: true } });
+    disposables.push(pm);
+    const pg = new T.CircleGeometry(PAD_R, seg(24));
+    pg.rotateX(-Math.PI / 2);
+    loose(pg, pm, X, DAIS[1][1] + 0.7, pz, -3);
+    halo(X, DAIS[1][1] + 6, pz, PINK, 90, 0.35);
+    glow(X, Z0 + DAIS[0][0] + 26, 150, PINK, 0.9);
+    glow(X, Z0 + DAIS[0][0] + 10, 120, CYAN, 0.6);
+    // Partículas propias: motas que suben del círculo y que caen en espiral al portal (un solo dibujo, ver build).
+    altarPts = { pad: [X, DAIS[1][1] + 2, pz], ring: [X, cy, Cz + 4], R };
+    sparkle(X, cy + 40, Cz, 22, true);
+    lamp(X, cy, Cz + 40, '#e070ff', 1.4, 420, true);
+    tops[p.id] = 236;
+  }
+  /** Alto del suelo en (x, y): sobre el estrado del altar, su escalón (así los Pokémon no se hunden en él). */
+  function heightAt(x, y) {
+    const p = V().PLACES[0];
+    if (!p || p.look.kind !== 'altar') return 0;
+    const d = Math.hypot(x - tile(p.x), y - tile(p.y));
+    return d < DAIS[1][0] - 4 ? DAIS[1][1] : d < DAIS[0][0] - 4 ? DAIS[0][1] : 0;
+  }
+
+  /** El remolino del portal: un shader (bandas que giran) en un disco. uBoost (0..1): se aviva al entrar. */
+  function portal(X, y, z, r) {
+    portalU = { uTime: uni.time, uGlow: uni.night, uBoost: { value: 0 } };
+    const m = new T.ShaderMaterial({
+      uniforms: portalU,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: [
+        'varying vec2 vUv; uniform float uTime; uniform float uGlow; uniform float uBoost;',
         'void main(){',
         // (Pulido) Bandas suaves con el borde sin dientes (antes, a cuadritos de 46 por lado).
         '  vec2 c = vUv * 2.0 - 1.0;',
         '  float r = length(c), a = atan(c.y, c.x), aa = fwidth(r) * 1.5;',
-        '  float sw = sin(a * 3.0 + r * 10.0 - uTime * 2.4);',
+        '  float sw = sin(a * 3.0 + r * 10.0 - uTime * (2.4 + uBoost * 6.0));',
         '  float e = max(fwidth(sw), 0.02);',
         '  vec3 col = mix(vec3(0.16, 0.05, 0.3), vec3(0.62, 0.22, 0.78), smoothstep(0.1 - e, 0.1 + e, sw));',
         '  col = mix(col, vec3(0.4, 0.95, 1.0), smoothstep(0.68 - e, 0.68 + e, sw));',
         '  col += vec3(0.25, 0.1, 0.35) * (1.0 - r);',
-        '  float rc = 0.2 + 0.05 * sin(uTime * 3.0);',
+        '  float rc = 0.2 + 0.05 * sin(uTime * 3.0) + uBoost * 0.6;',
         '  col = mix(col, vec3(0.95, 1.0, 1.0), 1.0 - smoothstep(rc - aa, rc + aa, r));',
         '  col = mix(col, vec3(1.0, 0.6, 0.95), smoothstep(0.9 - aa, 0.9 + aa, r));',
         '  if (r > 1.0) discard;',
-        '  col *= 0.85 + 0.3 * uGlow;',
+        '  col *= 0.85 + 0.3 * uGlow + uBoost * 0.8;',
         '  gl_FragColor = vec4(col, 1.0);',
         '}'
       ].join('\n'),
@@ -1361,8 +1430,8 @@ G.Village3D = (() => {
     const keepD = disposables, keepA = anim, keepB = batch, keepH = hulls, keepG = glowList.length;
     const disp = [], hAnim = [];
     disposables = disp; anim = hAnim; sink = group; batch = new Map(); hulls = [];
-    const keepS = solidList, keepC = curId, keepHalo = haloQ;
-    solidList = []; curId = 'home'; haloQ = [];
+    const keepS = solidList, keepC = curId, keepHalo = haloQ, keepGlow = glowQ;
+    solidList = []; curId = 'home'; haloQ = []; glowQ = new Map();
     let info = { holo: null };
     const homeMats = [];
     homeSpark = [];
@@ -1371,10 +1440,11 @@ G.Village3D = (() => {
       flush();
       if (homeSpark.length) particles(3, homeSpark, ['#fff6b0', '#ffffff', '#b8e0ff', '#ffb8f0'], 2, true);
       if (haloQ.length) halos(haloQ);
+      flushGlows();
     } catch (e) { console.warn('[Aldea] choza:', e); batch = null; hulls = []; }
     homeSpark = null;
     const hSolids = solidList;
-    solidList = keepS; curId = keepC; haloQ = keepHalo;
+    solidList = keepS; curId = keepC; haloQ = keepHalo; glowQ = keepGlow;
     for (const g of glowList.slice(keepG)) homeMats.push(g.m);
     // Los materiales que se han hecho para la choza se sueltan con ella: fuera de las cachés (si no, quedarían muertos).
     for (const d of disp) if (d && d.isMaterial) { mats.forEach((v, k) => { if (v === d) mats.delete(k); }); glowMats.forEach((v, k) => { if (v === d) glowMats.delete(k); }); }
@@ -1457,14 +1527,18 @@ G.Village3D = (() => {
     sign(V().PLACES.indexOf(p), 20, X, doorY + doorH / 2 + 16, frontZ + 2);
     glow(X, frontZ + 24, 80, lc, 0.9);
     halo(X, doorY + doorH / 2 + 2, frontZ + 3, lc, 50, 0.6);
-    // Decoración.
+    // Decoración (lo que choca de aquí abajo va aparte de la choza: tests/village-solids.test.cjs mira que no tape la puerta).
+    const homeId = curId;
+    curId = homeId + ':deco';
     const front = frontZ + 6;
+    // (13-11-2026, «a veces hay cosas en medio y no puedo entrar») Nada de lo que choca delante de la puerta: las macetas,
+    // a los lados del pasillo; los farolillos cuelgan (se pasa por debajo) y ninguno va justo delante.
     if (c.deco === 'pots') {
       for (const s of [-1, 1]) {
-        put(cyl(9, 7, 12, 8), lambert('pot', () => stex(foliage(64, ['#5a3020', '#7a4428', '#94583a', '#b0704a'], 34))), { x: X + s * 34, y: 6, z: front + 6 }, { hull: 1.2 });
-        put(cyl(1.5, 2, 10, 4), paleM(), { x: X + s * 34, y: 16, z: front + 6 }, { hull: false });
-        put(cap(8, 8), lightM, { x: X + s * 34, y: 20, z: front + 6, sy: 0.7 }, { hull: 1 });
-        put(cap(5, 8), glowM(s > 0 ? PINK : GREEN, 1), { x: X + s * 28, y: 13, z: front + 10, sy: 0.7 }, { hull: 1 });
+        put(cyl(9, 7, 12, 8), lambert('pot', () => stex(foliage(64, ['#5a3020', '#7a4428', '#94583a', '#b0704a'], 34))), { x: X + s * 50, y: 6, z: front + 2 }, { hull: 1.2 });
+        put(cyl(1.5, 2, 10, 4), paleM(), { x: X + s * 50, y: 16, z: front + 2 }, { hull: false });
+        put(cap(8, 8), lightM, { x: X + s * 50, y: 20, z: front + 2, sy: 0.7 }, { hull: 1 });
+        put(cap(5, 8), glowM(s > 0 ? PINK : GREEN, 1), { x: X + s * 62, y: 13, z: front + 6, sy: 0.7 }, { hull: 1 });
       }
     } else if (c.deco === 'flags') {
       const cols = ['#e8486a', '#f4d040', '#5ff0ff', '#7cff7a', '#ff7ad8', '#ffffff'];
@@ -1480,10 +1554,10 @@ G.Village3D = (() => {
       }
       for (const s of [-1, 1]) put(cyl(2, 2.5, 66, 5), barkM(), { x: X + s * 72, y: 33, z: front - 8 }, { hull: 1 });
     } else if (c.deco === 'lanterns') {
-      for (let k = 0; k < 5; k++) {
+      for (const k of [0, 1, 3, 4]) {
         const a = Math.PI * (0.1 + k * 0.2), px = X - Math.cos(a) * 92, pz = Z + Math.sin(a) * 76;
         put(cyl(0.5, 0.5, 14, 3), plain('#101418'), { x: px, y: 58, z: pz }, { hull: false, cast: false });
-        put(box(7, 9, 7), lightM, { x: px, y: 47, z: pz }, { hull: 1 });
+        put(box(7, 9, 7), lightM, { x: px, y: 47, z: pz }, { hull: 1, walk: true });
         halo(px, 47, pz, lc, 30, 0.8);
         glow(px, pz, 30, lc, 0.5);
       }
@@ -1523,6 +1597,7 @@ G.Village3D = (() => {
     }
     // El cojín de la mascota.
     if (c.pet) put(cyl(18, 20, 5, 10), lambert('cushion', () => stex(foliage(64, ['#5a2a6a', '#7a3a8a', '#9a4aa8', '#c070c8'], 35))), { x: tile(V().PET[0]), y: 2.5, z: tile(V().PET[1]) }, { hull: 1.2 });
+    curId = homeId;
     tops.home = hTop + 26;
     return { holo: c.deco === 'holo' ? [X + 78, Z + 44] : null, top: hTop + 26 };
   }
@@ -1565,9 +1640,10 @@ G.Village3D = (() => {
         put(cyl(2, 3, 58, 5), stem, { x: X, y: 29, z: Z }, { hull: 1 });
         put(cyl(1.6, 2, 18, 5), stem, compose({ x: X + 6, y: 62, z: Z, rz: -1.1 }), { hull: 1 });
         put(ball(8, 1), glowM(AMBER, 1.2), { x: X + 13, y: 58, z: Z, sy: 1.2 }, { hull: 1.4, cast: false });
-        halo(X + 13, 56, Z, AMBER, 70, 0.9);
+        halo(X + 13, 56, Z, AMBER, 84, 1);
         put(cap(10, 6), lambert('bpetal', null, { color: '#2e7a50', side: T.DoubleSide }), { x: X + 13, y: 64, z: Z, sy: 0.5 }, { hull: 1 });
-        glow(X + 8, Z, 54, AMBER, 0.9);
+        glow(X + 10, Z + 6, 104, AMBER, 1);
+        lamp(X + 13, 54, Z + 4, '#ffd27a', 1, 230);
         break;
       }
       case 'pylon': {
@@ -1691,15 +1767,79 @@ G.Village3D = (() => {
       disposables.push(m);
       glowMats.set(key, m);
     }
-    const g = new T.PlaneGeometry(r * 2, r * 2);
-    disposables.push(g);
-    const mesh = new T.Mesh(g, m);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(X, 0.6, Z);
-    mesh.renderOrder = -6;
-    mesh.frustumCulled = false;
-    (sink || scene).add(mesh);
-    glowMeshes.push(mesh);
+    // (13-11-2026) Se juntan: todas las del mismo color en una malla (flushGlows). Antes, una llamada de dibujo por halo.
+    const g0 = new T.PlaneGeometry(r * 2, r * 2), g = g0.toNonIndexed();
+    g0.dispose();
+    g.rotateX(-Math.PI / 2);
+    g.translate(X, 0.6, Z);
+    if (!glowQ.has(m)) glowQ.set(m, []);
+    glowQ.get(m).push(g);
+  }
+  let glowQ = new Map();
+  /** Las manchas de luz apuntadas, una malla por material (en la escena o en el grupo de tu choza). */
+  function flushGlows() {
+    for (const [m, list] of glowQ) {
+      const mesh = new T.Mesh(merge(list), m);
+      mesh.renderOrder = -6;
+      mesh.frustumCulled = false;
+      (sink || scene).add(mesh);
+      glowMeshes.push(mesh);
+    }
+    glowQ = new Map();
+  }
+
+  /*
+   * Luces de verdad (13-11-2026, el dueño: «se ve demasiado oscuro»). Las luces puntuales cuestan en cada píxel de cada
+   * modelo (más en el iPhone), así que hay pocas y se reparten: los faroles y las luces fuertes se apuntan (lamp) y en
+   * cada fotograma las N luces del montón van a los más cercanos al centro de la cámara (N: 4 en PC, 1 en móvil, 0 en
+   * calidad baja), apagándose poco a poco antes de cambiar de farol (sin saltos). Además, siempre: la luz del portal
+   * (late y se aviva al entrar) y una luz suave que acompaña a tu Pokémon (que se vea bien de noche).
+   */
+  let lamps = [], pool = [], plLight = null, altarLight = null, altarLamp = null, boost = 0;
+  function lamp(x, y, z, col, k = 1, dist = 220, main = false) {
+    if (dry) return;
+    const L = { x, y, z, c: new T.Color(col), k, dist };
+    if (main) altarLamp = L; else lamps.push(L);
+  }
+  function makeLights() {
+    // (Para medir: con ?dev, window.PS_VIL_LIGHTS = [montón, tuya 0/1, altar 0/1] antes de que se monte la aldea.)
+    const dbg = /[?&]dev/.test(location.search) && typeof window !== 'undefined' && window.PS_VIL_LIGHTS;
+    const n = dbg ? dbg[0] : fx() === 0 ? 0 : mobile() ? 1 : 4;
+    pool = [];
+    for (let i = 0; i < n; i++) { const L = new T.PointLight(0xffffff, 0, 220, 1); scene.add(L); pool.push(L); }
+    plLight = !dbg || dbg[1] ? new T.PointLight(0xfff0dc, 0, 240, 1) : null;
+    if (plLight) scene.add(plLight);
+    altarLight = (dbg ? dbg[2] : fx() > 0) ? new T.PointLight(0xe070ff, 0, 420, 1) : null;
+    if (altarLight) scene.add(altarLight);
+  }
+  const LAMP_I = 95, PLAYER_I = 62;
+  function setLights(view, l, t) {
+    const gk = 0.7 + 0.45 * l.night;
+    if (plLight) {
+      const p = view.player;
+      if (p) plLight.position.set(p.x, 48 + (p.z || 0), p.y + 8);
+      plLight.intensity = p ? PLAYER_I * gk : 0;
+    }
+    if (altarLight && altarLamp) {
+      const a = altarLamp;
+      altarLight.position.set(a.x, a.y, a.z);
+      altarLight.color.copy(a.c);
+      altarLight.distance = a.dist * (1 + boost * 0.6);
+      altarLight.intensity = LAMP_I * a.k * gk * (0.85 + 0.15 * Math.sin(t * 2.2)) * (1 + boost * 2.5);
+    }
+    if (!pool.length) return;
+    const cx = view.cx, cz = view.cy;
+    const by = lamps.map(L => [(L.x - cx) ** 2 + (L.z - cz) ** 2, L]).sort((a, b) => a[0] - b[0]);
+    const next = by.length > pool.length ? Math.sqrt(by[pool.length][0]) : 1e9;
+    pool.forEach((P, i) => {
+      const e = by[i];
+      if (!e) { P.intensity = 0; return; }
+      const L = e[1], d = Math.sqrt(e[0]), w = next >= 1e9 ? 1 : sat((next - d) / Math.max(40, next * 0.3));
+      P.position.set(L.x, L.y, L.z);
+      P.color.copy(L.c);
+      P.distance = L.dist;
+      P.intensity = LAMP_I * L.k * gk * w;
+    });
   }
 
   /** Niebla baja: dos capas de nubes a píxeles que se deslizan despacio (cubren los pies: parece que caminan en ella). */
@@ -1753,11 +1893,20 @@ G.Village3D = (() => {
     '    float c = fract(uTime * 0.22 + s);',
     '    p.y += c * 40.0 + sin(s * 31.0) * 10.0; p.x += sin(s * 50.0 + uTime) * 18.0; p.z += cos(s * 70.0) * 12.0;',
     '    vA = sin(c * 3.1416) * step(0.5, fract(uTime * 3.0 + s * 7.0));',
-    '  } else {',
+    '  } else if (uMode < 4.5) {',
     '    float c = fract(uTime * 0.5 + s);',
     '    float a = s * 6.2832;',
     '    p.x += cos(a) * c * 26.0; p.z += sin(a) * c * 20.0; p.y += c * (1.0 - c) * 120.0;',
     '    vA = 1.0 - c;',
+    // (13-11-2026) El altar: motas que suben del círculo (las de abajo) y que caen en espiral al portal (las del arco).
+    '  } else if (position.y < 50.0) {',
+    '    float c = fract(uTime * 0.38 + s * 7.0), a = s * 157.0 + uTime * 0.8, rr = 34.0 * (0.25 + fract(s * 13.0) * 0.75) * (1.0 - c * 0.5);',
+    '    p.x += cos(a) * rr; p.z += sin(a) * rr * 0.7; p.y += c * 170.0;',
+    '    vA = sin(c * 3.1416);',
+    '  } else {',
+    '    float k = fract(uTime * 0.42 + s * 5.0), a = s * 91.0 + k * 5.0, rad = 84.0 * (1.0 - k);',
+    '    p.x += cos(a) * rad; p.y += sin(a) * rad; p.z += 4.0;',
+    '    vA = smoothstep(0.0, 0.25, k) * (1.0 - smoothstep(0.85, 1.0, k));',
     '  }',
     '  vA *= uAlpha;',
     '  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);',
@@ -1913,10 +2062,10 @@ G.Village3D = (() => {
       const pal = G.Tileset.pal(V().BI);
       edgeCol = pal ? pal.edge : '#000000';
       uni = { time: { value: 0 }, night: { value: 1 }, px: { value: KL }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
-      haloQ = [];
+      haloQ = []; glowQ = new Map(); lamps = []; altarLamp = null; boost = 0;
       amb = new T.AmbientLight(0xffffff, 0.6 * Math.PI);
       // (Pulido) Luz de cielo y suelo: lo de arriba algo más azul que lo de abajo (los modelos dejan de verse planos).
-      hemi = new T.HemisphereLight(0x8fa0ff, 0x1c3a2a, 0.3 * Math.PI);
+      hemi = new T.HemisphereLight(0x9cb0ff, 0x2c5a48, 0.3 * Math.PI);
       scene.add(hemi);
       sun = new T.DirectionalLight(0xffffff, 0.3 * Math.PI);
       sun.castShadow = fx() > 0;
@@ -1937,7 +2086,7 @@ G.Village3D = (() => {
         curId = 'p:' + p.id;
         if (k === 'pod') pod(p, i); else if (k === 'stall') stall(p, i); else if (k === 'mush') mush(p, i);
         else if (k === 'board') board(p, i); else if (k === 'case') showcase(p, i); else if (k === 'podium') podium(p, i);
-        else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'flower') flower(p, i);
+        else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'altar') altar(p, i);
       });
       V().DECOR.forEach((d, i) => { curId = 'd:' + i + ':' + d.k; decor(d); });
       curId = '';
@@ -1953,10 +2102,17 @@ G.Village3D = (() => {
       particles(0, spots(nFly, 1), [CYAN, GREEN, '#d8ff70', PINK], 2, true, uni.flyA);
       particles(1, spots(nPet, 2), ['#8affff', '#c0ffd0', '#ffc0f0'], 2, true, uni.petA);
       if (sparkQ.length) particles(3, sparkQ, ['#fff6b0', '#ffffff', '#b8e0ff', '#ffb8f0'], 2, true);
+      if (altarPts) {
+        const na = f === 0 ? 10 : mobile() ? 18 : 30;
+        uni.altA = { value: 1 };
+        particles(5, Array.from({ length: na * 2 }, (_, k) => k < na ? altarPts.pad : altarPts.ring), ['#ff9ae8', '#9af6ff', '#ffffff', '#c8a0ff'], 2.2, true, uni.altA);
+      }
       if (sprayQ.length) particles(4, sprayQ.flatMap(p => Array.from({ length: f === 0 ? 8 : 18 }, () => p)), ['#8affff', '#ffffff', '#5ff0ff'], 2, true);
       sparkQ.length = sprayQ.length = 0;
       if (haloQ.length) halos(haloQ);
       haloQ = [];
+      flushGlows();
+      makeLights();
       built = true;
       shadowSun = null;
       setHome(G.Home ? G.Home.current() : null);
@@ -1971,27 +2127,29 @@ G.Village3D = (() => {
 
   /**
    * Para los tests (sin WebGL ni lienzo de verdad): monta los modelos con three.js y devuelve lo que choca, con tu choza
-   * como cfg. → { fixed: [{ id, pts }], home: [{ id, pts }] }. No deja nada montado.
+   * como cfg. → { fixed: [{ id, pts }], home: [{ id, pts }] }. No deja nada montado. homeOnly: sólo tu choza (fixed vacío).
    */
-  function collect(THREE, cfg) {
+  function collect(THREE, cfg, homeOnly) {
     T = THREE; gl2 = false; dry = true;
     scene = new T.Scene(); sink = null;
     uni = { time: { value: 0 }, night: { value: 1 }, px: { value: 1 }, tint: { value: new T.Vector3(1, 1, 1) }, tintCol: new T.Color(1, 1, 1), player: { value: new T.Vector3() } };
-    batch = new Map(); hulls = []; solidList = []; curId = ''; haloQ = [];
-    solidList.push({ id: 'pond', pts: pondShape() });
-    V().PLACES.forEach((p, i) => {
-      const k = p.look.kind;
-      curId = 'p:' + p.id;
-      if (k === 'pod') pod(p, i); else if (k === 'stall') stall(p, i); else if (k === 'mush') mush(p, i);
-      else if (k === 'board') board(p, i); else if (k === 'case') showcase(p, i); else if (k === 'podium') podium(p, i);
-      else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'flower') flower(p, i);
-    });
-    V().DECOR.forEach((d, i) => { curId = 'd:' + i + ':' + d.k; decor(d); });
+    batch = new Map(); hulls = []; solidList = []; curId = ''; haloQ = []; glowQ = new Map();
+    if (!homeOnly) {
+      solidList.push({ id: 'pond', pts: pondShape() });
+      V().PLACES.forEach((p, i) => {
+        const k = p.look.kind;
+        curId = 'p:' + p.id;
+        if (k === 'pod') pod(p, i); else if (k === 'stall') stall(p, i); else if (k === 'mush') mush(p, i);
+        else if (k === 'board') board(p, i); else if (k === 'case') showcase(p, i); else if (k === 'podium') podium(p, i);
+        else if (k === 'mailbox') mailbox(p, i); else if (k === 'pc') pc(p, i); else if (k === 'altar') altar(p, i);
+      });
+      V().DECOR.forEach((d, i) => { curId = 'd:' + i + ':' + d.k; decor(d); });
+    }
     const fixedS = solidList;
     solidList = []; curId = 'home';
     buildHome(cfg || G.Home.DEFAULT, []);
     const homeS = solidList;
-    solidList = []; curId = ''; batch = null; hulls = []; sparkQ.length = sprayQ.length = 0; haloQ = []; tufts.length = 0;
+    solidList = []; curId = ''; batch = null; hulls = []; sparkQ.length = sprayQ.length = 0; haloQ = []; tufts.length = 0; glowQ = new Map(); lamps = []; altarLamp = null;
     for (const d of disposables) { try { d.dispose(); } catch (e) { /* nada */ } }
     disposables = []; mats.clear(); glowMats.clear(); glowList = []; anim = []; scene = null; signs = null; dry = false;
     return { fixed: fixedS, home: homeS };
@@ -2070,11 +2228,13 @@ G.Village3D = (() => {
     s.mesh.scale.set(m.w * k, m.h * k, 1);
     s.mesh.position.set(left + m.w * k / 2, top - m.h * k / 2, e.y + 1);
     const sh2 = Math.max(1, Math.round(s.R * 0.42)) * 2 * PX;
-    s.shadow.position.set(Math.round(e.x / g) * g, 0.8, Math.round(e.y / g) * g - sh2 / 2 + PX);
+    s.shadow.position.set(Math.round(e.x / g) * g, 0.8 + (e.gz || 0), Math.round(e.y / g) * g - sh2 / 2 + PX);
+    if (e.fade != null) { s.mat.opacity = e.fade; s.mat.transparent = true; s.mat.alphaTest = e.fade < 0.99 ? 0.02 : 0.5; s.shadow.visible = s.shadow.visible && e.fade > 0.5; }
     if (e.holo) { const fl = 0.75 + 0.25 * Math.sin(uni.time.value * 11) * Math.sin(uni.time.value * 3.3); s.mat.color.setRGB(0.25 * fl, 0.95 * fl, 1.1 * fl); return; }
-    // De noche los Pokémon se tiñen algo (sin perderse: la mitad del tinte del suelo).
-    const tc = uni.tintCol, f = e.flash ? 1.6 : 1;
-    s.mat.color.setRGB(f * (0.45 + tc.r * 0.55), f * (0.45 + tc.g * 0.55), f * (0.45 + tc.b * 0.55));
+    // De noche los Pokémon se tiñen algo (sin perderse). (13-11-2026, «se ve demasiado oscuro») Menos que antes, y tu
+    // Pokémon casi nada: que se vea bien siempre.
+    const tc = uni.tintCol, f = e.flash ? 1 + e.flash : 1, a0 = e.lit ? 0.86 : 0.64, a1 = 1.06 - a0;
+    s.mat.color.setRGB(f * (a0 + tc.r * a1), f * (a0 + tc.g * a1), f * (a0 + tc.b * a1));
   }
   function unsprite(e) {
     const s = sprites.get(e);
@@ -2148,6 +2308,11 @@ G.Village3D = (() => {
     uni.time.value = t;
     if (view.player) uni.player.value.set(view.player.x, 0, view.player.y);
     setLight(light, t);
+    boost = Math.max(0, Math.min(1, view.boost || 0));
+    setLights(view, light, t);
+    if (padU) padU.uOn.value += ((view.onPad ? 1 : 0) - padU.uOn.value) * Math.min(1, dt * 6);
+    if (portalU) portalU.uBoost.value = boost;
+    if (uni.altA) uni.altA.value = 1 + boost * 2;
     for (const o of anim) o.fn(t, dt);
     if (mailPivot) mailPivot.rotation.z = view.mail ? 0 : -Math.PI / 2;
     try { renderer.render(scene, cam3); } catch (e) { console.warn('[Aldea] fallo al dibujar:', e); return null; }
@@ -2182,6 +2347,7 @@ G.Village3D = (() => {
     }
     disposables = []; baseTex.clear(); mats.clear(); shadowMats.clear(); glowMats.clear();
     anim = []; glowList = []; glowMeshes = []; mistMats = []; tufts.length = 0; home = null; homeSpark = null;
+    glowQ = new Map(); lamps = []; pool = []; plLight = null; altarLight = null; altarLamp = null; padU = null; portalU = null; altarPts = null; boost = 0;
     if (signs && signs.canvas) G.U.freeCanvas(signs.canvas);
     signs = null; pondTex = null; pondCol = null; mailPivot = null; planeGeo = null; batch = null; hulls = []; sink = null;
     scene = null; built = false; shadowSun = null;
@@ -2196,7 +2362,9 @@ G.Village3D = (() => {
     Wl = Hl = 0;
   }
 
-  return { probe, start, build, render, sprite, unsprite, toScreen, toWorld, free, setHome, collect,
+  return { probe, start, build, render, sprite, unsprite, toScreen, toWorld, free, setHome, collect, heightAt,
+    /** El altar: el centro del círculo donde ponerse y del portal (mundo; z: alto). */
+    altar: () => { const p = V().PLACES[0]; return { pad: [tile(p.door[0]), tile(p.door[1])], ring: [tile(p.x), tile(p.y) - ALTAR_Z, ALTAR_CY], R: ALTAR_R, padR: PAD_R }; },
     /** Alto (mundo) de lo de encima de un sitio (su nombre va ahí). */
     top: id => tops[id] || 0,
     /** Lo que choca: [{ id, pts }] (cascos convexos en el suelo, en mundo), lo fijo y tu choza. */

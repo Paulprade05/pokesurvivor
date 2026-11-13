@@ -291,6 +291,8 @@ G.Game = (() => {
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
     irisT = performance.now();                // (pulido 12-11-2026) la partida se abre en círculo desde tu Pokémon
+    // (13-11-2026) Si vienes del portal de la aldea (su animación de entrada), se abre desde su destello de luz.
+    irisLight = !!(G.Village && G.Village.takeFlash && G.Village.takeFlash());
     if (G.Village) G.Village.sleep();       // (la aldea del menú suelta su WebGL: se rehace al volver)
     const save = G.DB.save;
     // Se empieza con la primera fase de su línea (24-10-2026: evoluciona en la
@@ -495,15 +497,16 @@ G.Game = (() => {
   let flashT = 0, flashDur = 1, flashCol = '#fff';
   // (Pulido 12-11-2026: transiciones) Al empezar, la pantalla se abre en un círculo suave desde tu Pokémon.
   const IRIS = 750;
-  let irisT = 0;                       // cuándo empezó (ms); 0: nada
+  let irisT = 0, irisLight = false;    // cuándo empezó (ms); 0: nada. irisLight: desde el destello del portal (claro)
   function drawIris() {
-    const k = Math.min(1, (performance.now() - irisT) / IRIS), e = k * k * (3 - 2 * k);
+    const k = Math.min(1, (performance.now() - irisT) / (irisLight ? 950 : IRIS)), e = k * k * (3 - 2 * k);
     if (k >= 1) { irisT = 0; return; }
     let x = w / 2, y = h / 2;
     if (pl) { const p = G.Camera.toScreen(pl.x, pl.y - 20); x = p.x; y = p.y; }
     const R = Math.hypot(w, h) * e + 1;
     const g = ctx.createRadialGradient(x, y, R * 0.6, x, y, R * 1.05 + 40);
-    g.addColorStop(0, 'rgba(5,8,16,0)'); g.addColorStop(1, 'rgba(5,8,16,1)');
+    const c = irisLight ? '248,236,255' : '5,8,16';
+    g.addColorStop(0, 'rgba(' + c + ',0)'); g.addColorStop(1, 'rgba(' + c + ',1)');
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - e) * 1.4);
     ctx.fillStyle = g;

@@ -25,9 +25,11 @@ G.VILLAGE = (() => {
    * Los textos en español; el inglés, en lang-en.js.
    */
   const PLACES = [
-    { id: 'play', go: 'play', name: 'Flor del Portal', act: 'Jugar', sub: 'Entra en la mazmorra', icon: 'ball',
-      x: 23, y: 6.2, w: 4.6, h: 3, door: [23, 9.2], look: { kind: 'flower' },
-      npc: { dex: 185, at: [27.4, 9.4], lines: ['¿Un árbol? ¡Sí, soy un árbol! ...No me mires así.', 'La flor se abre cada noche. Dentro está la mazmorra.', 'Los Pokémon de la aldea la cuidan. Dicen que la plantó alguien de otro mundo.'] } },
+    // (13-11-2026, pedido del dueño: «mejora el altar para entrar a la partida») El Altar del Portal: más grande, con su
+    // estrado y el círculo donde ponerse (door: el centro del círculo).
+    { id: 'play', go: 'play', name: 'Altar del Portal', act: 'Jugar', sub: 'Entra en la mazmorra', icon: 'ball',
+      x: 23, y: 8, w: 6, h: 3.6, door: [23, 9.4], look: { kind: 'altar' },
+      npc: { dex: 185, at: [28.2, 11.9], lines: ['¿Un árbol? ¡Sí, soy un árbol! ...No me mires así.', 'Ponte en el círculo de luz del altar y el portal te llevará a la mazmorra.', 'Los Pokémon de la aldea lo cuidan. Dicen que lo construyó alguien de otro mundo.'] } },
     { id: 'goals', go: 'goals', name: 'Tótem de misiones', act: 'Mirar', sub: 'Misiones y premios', icon: 'medal3',
       x: 15.5, y: 9.2, w: 3, h: 1, door: [15.5, 10.6], look: { kind: 'board', glow: '#5ff0ff' },
       npc: { dex: 441, at: [13.4, 10.8], lines: ['¡Atención, atención! Hay misiones nuevas en el tótem.', 'Cumple misiones y recoge tus premios aquí.', '¡Cuidado! ¡Los encargos no se hacen solos!'] } },
@@ -47,7 +49,7 @@ G.VILLAGE = (() => {
       x: 38.5, y: 19, w: 3.8, h: 2.2, door: [38.5, 20.9], look: { kind: 'stall', a: '#3a8a5a', glow: '#7cff7a' },
       npc: { dex: 352, at: [38.5, 19.22], counter: true, lines: ['¡Bienvenido! ¡Bienvenido! Pasa y mira.', 'Hoy tengo mentas y cápsulas a buen precio.', 'Aquí no se roba, ¿eh? Je, je.'] } },
     { id: 'compendium', go: 'compendium', name: 'Carpa del Compendio', act: 'Entrar', sub: 'Ataques, pasivas y objetos', icon: 'cards',
-      x: 8, y: 25.6, w: 3.4, h: 3, door: [8, 27.8], look: { kind: 'pod', form: 'bulb', a: '#4a3a8a', glow: '#b07aff', r: 1.7 },
+      x: 8, y: 25.6, w: 3.4, h: 3, door: [8, 28], look: { kind: 'pod', form: 'bulb', a: '#4a3a8a', glow: '#b07aff', r: 1.7 },
       npc: { dex: 178, at: [10.2, 27.9], lines: ['Lo veo todo: pasado, presente... y tus ataques.', 'El saber es la mejor arma de un explorador.', '...'] } },
     { id: 'bag', go: 'bag', name: 'Almacén', act: 'Entrar', sub: 'Tu mochila', icon: 'bag',
       x: 38, y: 25.2, w: 3.4, h: 2.4, door: [38, 27.2], look: { kind: 'mush', a: '#c8586a', glow: '#ff7ad8' },
@@ -61,7 +63,7 @@ G.VILLAGE = (() => {
       x: 21, y: 31, w: 1.6, h: 1, door: [21.2, 32.2], look: { kind: 'pc', glow: '#5ff0ff' },
       npc: { dex: 479, at: [19.9, 30.2], lines: ['¡Bzzt! Vivo dentro de este terminal. Y lo arreglo todo.', 'Sonido, gráficos, controles... ¡Lo que quieras!', '¡Bzzzt! Los cables de la aldea me hacen cosquillas.'] } },
     { id: 'friends', go: 'friends', name: 'Carpa del Grupo', act: 'Entrar', sub: 'Juega en grupo, hasta 4', icon: 'friends',
-      x: 28, y: 29.8, w: 4.4, h: 2.8, door: [28, 31.9], look: { kind: 'pod', form: 'wide', a: '#2a7a6a', glow: '#7cff7a', r: 1.9, wide: true },
+      x: 28, y: 29.8, w: 4.4, h: 2.8, door: [28, 32.2], look: { kind: 'pod', form: 'wide', a: '#2a7a6a', glow: '#7cff7a', r: 1.9, wide: true },
       npc: { dex: 327, at: [30.8, 32.1], lines: ['¡Juntos se explora mejor! Hasta cuatro a la vez.', 'Invita a tus amigos y entrad en la mazmorra.', 'Bailo así desde que nací. ¿Bailas conmigo?'] } },
     { id: 'rank', go: 'rank', name: 'Podio del Ranking', act: 'Mirar', sub: 'Quién aguanta más', icon: 'trophy',
       x: 34.2, y: 30.6, w: 3, h: 1.4, door: [34.2, 32.1], look: { kind: 'podium', glow: '#ffc04a' },
@@ -128,11 +130,11 @@ G.VILLAGE = (() => {
     { k: 'pod', x: 36, y: 18.4, r: 0.3 }, { k: 'crate', x: 41, y: 18.6, r: 0.32 }, { k: 'pod', x: 40.6, y: 25, r: 0.3 }, { k: 'crate', x: 40.4, y: 26.2, r: 0.32 },
     { k: 'crate', x: 35.6, y: 24.6, r: 0.32 },
     // choza y jardín
-    { k: 'flowers', x: 9.4, y: 31.4 }, { k: 'fence', a: [8.6, 28.2], b: [8.6, 32.6] }, { k: 'well', x: 6.8, y: 30.6, r: 0.6 },
+    { k: 'flowers', x: 9.4, y: 31.4 }, { k: 'fence', a: [8.6, 30.1], b: [8.6, 32.6] }, { k: 'well', x: 6.8, y: 30.6, r: 0.6 },
     // charca
     { k: 'reeds', x: 39, y: 30 }, { k: 'reeds', x: 44, y: 29.4 }, { k: 'reeds', x: 44.2, y: 32.6 }, { k: 'rock', x: 38.4, y: 31.2, r: 0.35 }, { k: 'rock', x: 43.6, y: 28.6, r: 0.3 },
-    // la Flor del Portal: pilones de cristal a los lados y cables hasta la flor
-    { k: 'pylon', x: 19.6, y: 9.2, r: 0.3, c: '#ff7ad8' }, { k: 'pylon', x: 26.4, y: 9.2, r: 0.3, c: '#5ff0ff' },
+    // el Altar del Portal: pilones de cristal a los lados (los cables hasta el arco salen del altar)
+    { k: 'pylon', x: 18.8, y: 9.6, r: 0.3, c: '#ff7ad8' }, { k: 'pylon', x: 27.2, y: 9.6, r: 0.3, c: '#5ff0ff' },
     // setas y helechos por todas partes
     { k: 'shroom', x: 6, y: 7.4, c: '#5ff0ff' }, { k: 'shroom', x: 40.4, y: 7.6, c: '#ff7ad8' }, { k: 'shroom', x: 17.4, y: 6.4, c: '#7cff7a' }, { k: 'shroom', x: 28.8, y: 6.6, c: '#5ff0ff' },
     { k: 'shroom', x: 5.4, y: 16, c: '#7cff7a' }, { k: 'shroom', x: 41, y: 21.6, c: '#5ff0ff' }, { k: 'shroom', x: 16.6, y: 26, c: '#ff7ad8' }, { k: 'shroom', x: 30.4, y: 23.6, c: '#7cff7a' },
@@ -153,8 +155,35 @@ G.VILLAGE = (() => {
   const PLAZA = { x: 23, y: 19.2, r: 3.7 };
   const POND = { x: 41.6, y: 31, rx: 2.9, ry: 2.1 };
   /** Hierba alta (manchas: x, y, radio). */
-  const GRASS = [[14.6, 16.4, 1.9], [31.6, 16.2, 1.9], [5.4, 26.8, 1.7], [41.2, 6.8, 1.8], [5.2, 6.6, 1.6], [16.8, 25.6, 1.4], [29.8, 25.4, 1.5], [26.8, 6.4, 1.2], [19, 6.6, 1.2]];
+  const GRASS = [[14.6, 16.4, 1.9], [31.6, 16.2, 1.9], [5.4, 26.8, 1.7], [41.2, 6.8, 1.8], [5.2, 6.6, 1.6], [16.8, 25.6, 1.4], [29.8, 25.4, 1.5], [28.4, 6.4, 1.1], [17.6, 6.6, 1.1]];
   const SPAWN = [23, 24];
+  /** El estrado del altar (casillas): ahí no crece el bosque del borde ni la hierba. */
+  const ALTAR = { x: 23, y: 8, r: 2.9 };
+
+  /*
+   * Puertas libres (13-11-2026, el dueño: «hay a veces elementos en medio y no puedo entrar a los edificios»). Delante de
+   * cada puerta hay un pasillo (DOOR_LANE casillas hacia el sur, DOOR_HALF de medio ancho) donde no se pone nada que choque
+   * ni para nadie a pasear, y una zona de entrar generosa (ENTER: a esa distancia de la puerta ya se puede entrar).
+   * tests/village-solids.test.cjs comprueba que el pasillo está libre con cualquier choza y que ningún paseante lo tapa.
+   */
+  const ENTER = 92, DOOR_LANE = 1.5, DOOR_HALF = 0.62;
+  /** ¿Está (x, y) (mundo) en el pasillo de una puerta (más `pad` de margen)? → el sitio o null. */
+  function doorLane(x, y, pad = 0) {
+    for (const p of PLACES) {
+      const dx = x / TS - p.door[0], dy = y / TS - p.door[1];
+      if (Math.abs(dx) < DOOR_HALF + pad / TS && dy > -0.55 - pad / TS && dy < DOOR_LANE + pad / TS) return p;
+    }
+    return null;
+  }
+  /*
+   * Qué Pokémon de la aldea choca contigo (13-11-2026, «hay veces que me choco con los Pokémon»). Los que se mueven
+   * (paseantes, tenderos, los que te siguen) nunca: se apartan con un empujón suave. Sólo los quietos y grandes (Snorlax
+   * dormido...) chocan, y con una huella pequeña. → el radio de su huella (0: no choca).
+   */
+  function npcFoot(still, body) {
+    if (!still || !(body >= 18)) return 0;
+    return Math.min(16, body * 0.45);
+  }
 
   // ---------------- el plano ----------------
   function hash(x, y, s) {
@@ -184,7 +213,8 @@ G.VILLAGE = (() => {
       const e = Math.min(tx, ty, W - 1 - tx, H - 1 - ty);
       let p = 0;
       for (const s of PATHS) p = Math.max(p, 1 - segDist(cx, cy, s[0], s[1], s[2], s[3]) / (PATH_W / 2 + 0.4));
-      if (e < 2 || (p <= 0 && ((e === 2 && hash(tx, ty, 7) < 0.45) || (e === 3 && hash(tx, ty, 8) < 0.12 && hash(tx >> 1, ty >> 1, 9) < 0.5)))) terr[i] = 1;
+      const nearAltar = Math.hypot(cx - ALTAR.x, (cy - ALTAR.y) * 1.25) < ALTAR.r + 0.6;
+      if (e < 2 || (p <= 0 && !nearAltar && ((e === 2 && hash(tx, ty, 7) < 0.45) || (e === 3 && hash(tx, ty, 8) < 0.12 && hash(tx >> 1, ty >> 1, 9) < 0.5)))) terr[i] = 1;
       // Charca (elipse con el borde algo irregular).
       const pd = Math.hypot((cx - POND.x) / POND.rx, (cy - POND.y) / POND.ry);
       if (pd < 1 - hash(tx, ty, 11) * 0.12) terr[i] = 2;
@@ -193,7 +223,7 @@ G.VILLAGE = (() => {
       if (pz < PLAZA.r) { plaza[i] = 1; p = 0; }
       path[i] = Math.max(0, p);
       for (const [gx, gy, gr] of GRASS) if (Math.hypot(cx - gx, cy - gy) < gr * (0.8 + hash(tx, ty, 13) * 0.35)) grass[i] = 1;
-      if (terr[i] || path[i] > 0.2 || plaza[i]) grass[i] = 0;
+      if (terr[i] || path[i] > 0.2 || plaza[i] || Math.hypot(cx - ALTAR.x, cy - ALTAR.y) < ALTAR.r + 0.2) grass[i] = 0;
     }
     built = { W, H, terr, path, plaza, grass };
     return built;
@@ -292,6 +322,6 @@ G.VILLAGE = (() => {
     return { step, cw, ch, seen, ok };
   }
 
-  return { W, H, TS, BI, PLACES, PET, CAST, DECOR, PATHS, PATH_W, PLAZA, POND, GRASS, SPAWN, FOLLOW, BYE, build, terrainAt, hash,
-    hull, sdist, index, hits, flood };
+  return { W, H, TS, BI, PLACES, PET, CAST, DECOR, PATHS, PATH_W, PLAZA, POND, GRASS, SPAWN, ALTAR, FOLLOW, BYE, build, terrainAt, hash,
+    hull, sdist, index, hits, flood, ENTER, DOOR_LANE, DOOR_HALF, doorLane, npcFoot };
 })();
