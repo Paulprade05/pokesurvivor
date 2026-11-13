@@ -66,6 +66,12 @@ async function recorrido(page, nombre, log) {
   await foto('2-menu');
   const menu = await page.evaluate(MEDIR, SEG_MENU * 1000);
   log(`  menú (aldea 3D): ${JSON.stringify(menu)}`);
+  // Calidad de gráficos elegida (en la app de Windows tiene que salir 'max' sola).
+  const graficos = await page.evaluate(() => {
+    let s = {}; try { s = JSON.parse(localStorage.getItem('ps.settings') || '{}'); } catch (e) { /* nada */ }
+    return { calidad: s.quality, qDesk: s.qDesk, pokemonNitidos: s.pixSmooth, app: !!window.pokeEscritorio };
+  });
+  log(`  gráficos: ${JSON.stringify(graficos)}`);
 
   // A jugar: «Ir a…» → «Jugar» en la aldea, o el botón del menú clásico.
   const irA = await page.$('#vil-go:visible');
