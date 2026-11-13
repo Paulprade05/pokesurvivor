@@ -1386,7 +1386,8 @@ G.Game = (() => {
       const props = G.World.visibleProps(view);
       // (Ultra 3D, world/ultra3d.js) Paredes, rocas y cofres en 3D de verdad, si se puede; si no, este fotograma en 2D.
       const u3 = G.Ultra3D.begin(cam, Kd, cv.width, Hd, props);
-      for (const p of props) if (p.flat) G.World.drawProp(gx, p, t);
+      // (Partida en 3D) Los planos que van en 3D (manantiales, setas explosivas) no se pintan en el suelo.
+      for (const p of props) if (p.flat && !(u3 && G.Ultra3D.owns(p))) G.World.drawProp(gx, p, t);
       G.EnemyAI.drawGround(gx);
       G.Hazards.draw(gx);
       G.Combat.drawGroundFields(gx);
@@ -1410,9 +1411,11 @@ G.Game = (() => {
       // 2) De pie, por orden de Y; cada uno a la escala del sitio que pisa.
       const items = [];
       for (const p of props) {
-        if (p.flat) continue;
-        if (!u3 || !G.Ultra3D.owns(p)) { items.push({ y: p.y, prop: p }); continue; }
-        items.push({ y: p.y, u3: p });
+        const own = u3 && G.Ultra3D.owns(p);
+        if (p.flat && !own) continue;
+        if (!own) { items.push({ y: p.y, prop: p }); continue; }
+        // (Los planos en 3D: el manantial, antes que todo lo de pie, como en 2D; las setas, por sus pies.)
+        items.push({ y: p.type === 'spring' ? p.y - 4000 : p.y, u3: p });
         // (El aro de «abriendo» del cofre con candado, en 2D justo delante de él.)
         if (p.type === 'bigchest' && p.open > 0) items.push({ y: p.y + 0.01, ent: { x: p.x, y: p.y, draw: c => G.World.drawChestRing(c, p, 30) } });
       }
