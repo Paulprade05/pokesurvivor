@@ -1,7 +1,9 @@
 /* ============ pixfilter.js — filtro opcional «Pokémon más nítidos» (escalador de pixel art) ============
  * Pedido del dueño (12-11-2026): «mete algún filtro para que los píxeles de los Pokémon se vean mejor, que se vea más
  * nítido, que se pueda activar y desactivar en gráficos, para que pasen a verse menos pixelados pero sin cambiar su
- * esencia mucho». Apagado (de serie en la web), los sprites se dibujan como siempre: pixel art crudo.
+ * esencia mucho». Apagado, los sprites se dibujan como siempre: pixel art crudo. De serie (pixSmooth null) va encendido
+ * sólo con la calidad Máxima (la app de Windows la elige sola; decisión del dueño, 13-11-2026) y apagado con las demás;
+ * si lo tocas en Ajustes, manda lo que elijas.
  *
  * Encendido, cada fotograma de un sprite se amplía con un escalador hecho para pixel art (sin desenfocar): redondea las
  * diagonales y las curvas mirando a los vecinos de cada píxel y copiando colores que ya están, nunca inventa tonos.
@@ -168,8 +170,8 @@ G.PixFilter = (() => {
   }
 
   function purge() { for (const e of cache.values()) G.U.freeCanvas(e.c); cache.clear(); bytes = 0; }
-  const on = () => !!(G.Settings && G.Settings.get('pixSmooth'));
-  if (G.Settings) G.Settings.on(k => { if (k === 'pixSmooth' && !on()) purge(); });
+  const on = () => { if (!G.Settings) return false; const v = G.Settings.get('pixSmooth'); return v == null ? !!G.Settings.max : !!v; };
+  if (G.Settings) G.Settings.on(k => { if ((k === 'pixSmooth' || k === 'quality') && !on()) purge(); });
 
   return { frame, purge, preview, epx, adv3, get on() { return on(); },
     /** Variante barata (móvil): la horda sin filtro. */

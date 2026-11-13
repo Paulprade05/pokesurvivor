@@ -1,0 +1,107 @@
+# Versión para Windows: empaqueta la app de desktop/ y la sube a una release
+# de GitHub como PokeSurvivor-Windows.zip (el nombre fijo que buscan
+# js/ui/windows-dl.js, Ajustes › Acerca de, y desktop/main.cjs, el aviso de
+# versión nueva).
+#
+# Se lanza al empujar una etiqueta win-vX.Y.Z (X.Y.Z = "version" de
+# desktop/package.json) o a mano desde la pestaña Actions con esa etiqueta.
+# Usa la versión web YA COMPILADA que hay en el commit (index.html,
+# js/app.min.js...): no compila el juego ni publica la web.
+# Gratis: runner de GitHub y el token del propio workflow, sin secretos nuevos.
+name: Versión para Windows
+
+on:
+  push:
+    tags: ['win-v*']
+  workflow_dispatch:
+    inputs:
+      etiqueta:
+        description: 'Etiqueta de la release (win-vX.Y.Z, igual que desktop/package.json)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ github.ref }}-${{ inputs.etiqueta }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    env:
+      ETIQUETA: ${{ inputs.etiqueta || github.ref_name }}
+      ZIP: desktop/dist/PokeSurvivor-Windows.zip
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Comprobar etiqueta y versión de la app
+        run: |
+          set -euo pipefail
+          if ! [[ "$ETIQUETA" =~ ^win-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::La etiqueta tiene que ser win-vX.Y.Z (es '$ETIQUETA')"; exit 1
+          fi
+          VERSION="${ETIQUETA#win-v}"
+          APP="$(node -p "require('./desktop/package.json').version")"
+          if [ "$VERSION" != "$APP" ]; then
+            echo "::error::La etiqueta es $VERSION pero desktop/package.json dice $APP: súbela allí antes."; exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "HUELLA=$(node -p "require('./version.json').v")" >> "$GITHUB_ENV"
+
+      - name: Instalar Electron y el empaquetador
+        working-directory: desktop
+        env:
+          # @electron/packager baja su propio Electron; el de npm no hace falta.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: npm ci
+
+      - name: Copiar la web compilada y empaquetar
+        working-directory: desktop
+        run: npm run empaquetar
+
+      - name: Comprobar el paquete
+        run: |
+          set -euo pipefail
+          test -f desktop/dist/PokeSurvivor/PokeSurvivor.exe
+          test -f desktop/dist/PokeSurvivor/resources/app.asar
+          ls -l "$ZIP"
+
+      - name: Notas de la release
+        run: |
+          cat > notas.md <<EOF
+          **PokéSurvivor para Windows $VERSION** (juego $HUELLA)
+
+          Descarga **PokeSurvivor-Windows.zip**, descomprímelo y abre \`PokeSurvivor/PokeSurvivor.exe\`.
+          Windows avisará al abrirlo porque no va firmado: pulsa **«Más información»** y luego **«Ejecutar de todas formas»**.
+          Para actualizar, descomprime la versión nueva encima: tu partida se queda.
+
+          Download **PokeSurvivor-Windows.zip**, unzip it and open \`PokeSurvivor/PokeSurvivor.exe\`.
+          Windows will warn you because it isn't signed: click **“More info”** and then **“Run anyway”**.
+          To update, unzip the new version on top: your save stays.
+
+          Proyecto de fan sin ánimo de lucro / Non-profit fan project. Pokémon © Nintendo/Creatures/GAME FREAK.
+          EOF
+
+      - name: Crear o actualizar la release
+        run: |
+          set -euo pipefail
+          TITULO="PokéSurvivor para Windows $VERSION"
+          if gh release view "$ETIQUETA" >/dev/null 2>&1; then
+            gh release upload "$ETIQUETA" "$ZIP" --clobber
+            gh release edit "$ETIQUETA" --title "$TITULO" --notes-file notas.md --draft=false --prerelease=false --latest
+          else
+            gh release create "$ETIQUETA" "$ZIP" --target "$GITHUB_SHA" --title "$TITULO" --notes-file notas.md --latest
+          fi
+          gh release view "$ETIQUETA" --json url,assets --jq '.url, (.assets[] | "\(.name) \(.size)")'
