@@ -123,7 +123,8 @@ G.Projectiles = (() => {
       if (p.upd && p.upd(p, dt)) { list.splice(i, 1); continue; }
 
       // Fuera de la vista con margen generoso -> se descarta.
-      if (!G.Camera.sees(p.x, p.y, 260)) { list.splice(i, 1); continue; }
+      // (Zoom: con la vista sin zoom, así con cualquier zoom llegan igual de lejos.)
+      if (!(G.Camera.seesBase ? G.Camera.seesBase(p.x, p.y, 260) : G.Camera.sees(p.x, p.y, 260))) { list.splice(i, 1); continue; }
     }
   }
 

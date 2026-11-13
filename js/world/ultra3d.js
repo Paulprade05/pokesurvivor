@@ -48,7 +48,7 @@ G.Ultra3D = (() => {
   const lay = new Set();                                   // objetos en la capa de la pasada actual
   let glowSeen = [];                                       // cofres a la vista este fotograma (su halo en el suelo)
   /*
-   * (Partida en 3D, 13-11-2026) Lo demás que sobresale del mapa (árboles, cristales, hierba alta, torres, manantiales,
+   * (Partida en 3D, 13-11-2026) Lo demás que sobresale del mapa (árboles, cristales, torres, manantiales,
    * setas, flora y las rocas) va con instancing: una InstancedMesh por modelo (props3d.js) y su contorno, que comparten
    * las matrices. En cada pasada se escriben sólo los de ese lote (count = los suyos): 2 llamadas de dibujo por modelo a
    * la vista, con cualquier número de objetos. Para el mapa de sombras, todos.
@@ -603,7 +603,26 @@ G.Ultra3D = (() => {
   function dropProp(id) {
     const it = props.get(id);
     props.delete(id);
-    if (it) { scene.remove(it.obj); shadowDirty = true; }
+    if (it) { scene.remove(it.obj); shadowDirty = true; if (it.pt) it.pt.dispose(); }
+  }
+
+  /** (Partida en 3D) El portal de la grieta abierta en el mundo (props3d.js portal), como un objeto más (id 'rift'). */
+  function syncRift(bi, t) {
+    const rf = G.Rift && G.Rift.rift;
+    if (!rf || !G.Props3D) return;
+    let it = props.get('rift');
+    if (it && it.bi !== bi) { dropProp('rift'); it = null; }
+    if (!it) {
+      const pt = G.Props3D.portal(bi);
+      if (!pt) return;
+      setup(pt.obj, false);
+      pt.obj.traverse(m => { m.matrixAutoUpdate = true; m.castShadow = false; m.receiveShadow = false; });
+      it = { obj: pt.obj, pt, kind: 'rift', h: pt.h, r: pt.r, bi };
+      props.set('rift', it);
+    }
+    it.used = frame;
+    it.pt.obj.position.set(rf.x, rf.y - 6, 0);
+    it.pt.set(t, Math.min(1, rf.t * 2) * Math.min(1, rf.ttl / 1.5));
   }
 
   function dropAll(gone = false) {
@@ -644,7 +663,7 @@ G.Ultra3D = (() => {
       if (m) o = { g: r.g, hg: r.hull, w: 22, h: 26, cast: true, mat: m, hullMat: s.hullMat };
     } else if (G.Props3D) o = G.Props3D.geo(bi, base);
     if (!o) return null;
-    const cap = base.startsWith('grass') ? 768 : 192;
+    const cap = 192;
     const im = new T.InstancedMesh(o.g, fade ? o.fadeMat : o.mat, cap);
     im.instanceMatrix.setUsage(T.DynamicDrawUsage);
     im.setColorAt(0, new T.Color(1, 1, 1));
@@ -701,7 +720,6 @@ G.Ultra3D = (() => {
     const P3 = G.Props3D, pl = G.Game && G.Game.player;
     let sig = 0;
     const push = (id, key, x, y, z, a, s, c) => {
-      if (window.__u3skip && window.__u3skip.test(key)) return null;
       const k = kindOf(bi + ':' + key);
       if (!k) return null;
       const e = { key: bi + ':' + key, x, y, z, a, s, c, w: k.w, h: k.h };
@@ -723,7 +741,6 @@ G.Ultra3D = (() => {
           if (pl && pl.y < p.y - 2 && pl.y > p.y - 58 && Math.abs(pl.x - p.x) < 26) key += '~';
           push(p.id, key, p.x + (h1 - 0.5) * 4, p.y - 18, 0, (h2 - 0.5) * 0.6, 0.92 + h1 * 0.16, 0.94 + h2 * 0.1);
           break;
-        case 'grass': push(p.id, key, p.x + (h1 - 0.5) * 6, p.y - 12, 0, (h2 - 0.5) * 1.2, 0.9 + h2 * 0.2, fl * (0.92 + h1 * 0.12)); break;
         case 'altar':
           push(p.id, key, p.x, p.y - 18, 0, 0, 1, 1);
           if (!p.used) glowSeen.push({ x: p.x, y: p.y - 18, z: 51, s: 64, k: 0.55 * (0.85 + Math.sin(t * 3 + p.wiggle) * 0.15), col: P3.ORB[p.kind & 3] });
@@ -736,7 +753,7 @@ G.Ultra3D = (() => {
       }
       if (G.World.propFx) G.World.propFx(p, t);
     }
-    // La flora (setas que brillan, cristales, helechos): ambient.js la deja aquí en vez de dibujarla.
+    // La flora (setas que brillan y cristales): ambient.js la deja aquí en vez de dibujarla.
     const fl = G.Ambient && G.Ambient.flora3d;
     if (P3 && fl) for (const f of fl) {
       const key = P3.FLORA[f.row];
@@ -849,6 +866,7 @@ G.Ultra3D = (() => {
     for (const p of vis) if (OWN[p.type]) syncProp(p, t);
     uni.time.value = G.Anim && !G.Anim.on ? 0 : t;
     collect(vis, bi, t);
+    syncRift(bi, t);
     // (Los que no se ven, ni se dibujan ni dan sombra: un cofre roto dejaba su sombra en el suelo.)
     for (const [id, it] of props) {
       if (frame - it.used > 90) { dropProp(id); continue; }
@@ -900,7 +918,7 @@ G.Ultra3D = (() => {
     if (it.u3row) { o = it.u3row.mesh; x0 = it.u3row.x0; x1 = it.u3row.x1; y0 = it.u3row.ty * TS; y1 = y0 + TS; h = HW; }
     else {
       const q = props.get(it.u3.id);
-      if (q) { o = q.obj; x0 = it.u3.x - 34; x1 = it.u3.x + 34; y0 = it.u3.y - 50; y1 = it.u3.y + 6; h = q.h; }
+      if (q) { const r = q.r || 34; o = q.obj; x0 = it.u3.x - r; x1 = it.u3.x + r; y0 = it.u3.y - 50; y1 = it.u3.y + 6; h = q.h; }
       else {
         e = ins.get(it.u3.id);
         if (!e) return b;
@@ -1053,5 +1071,7 @@ G.Ultra3D = (() => {
 
   return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; },
     /** ¿Va la flora en 3D? (ambient.js no la dibuja entonces: la deja en G.Ambient.flora3d) */
-    get floraOn() { return floraOn; } };
+    get floraOn() { return floraOn; },
+    /** ¿Va el portal de la grieta en 3D este fotograma? (game.js: entonces rift.js sólo dibuja su luz y el suelo roto) */
+    riftOn() { const it = props.get('rift'); return !!it && it.used === frame && floraOn; } };
 })();

@@ -107,8 +107,9 @@ G.Spawner = (() => {
 
   // Vista de cada jugador: la que manda (invitados de esta versión); la del anfitrión para él;
   // y para un invitado viejo, el lado largo de la del anfitrión en los dos ejes (por si juega de pie).
-  const viewW = o => o.net && o.net.vw ? o.net.vw : !o.remote ? G.Camera.w : Math.max(G.Camera.w, G.Camera.h);
-  const viewH = o => o.net && o.net.vh ? o.net.vh : !o.remote ? G.Camera.h : Math.max(G.Camera.w, G.Camera.h);
+  // (Zoom con la rueda, camera.js) La vista para sacar enemigos: lo mayor de lo que ves y lo que verías sin zoom.
+  const viewW = o => o.net && o.net.vw ? o.net.vw : !o.remote ? G.Camera.spawnW || G.Camera.w : Math.max(G.Camera.w, G.Camera.h);
+  const viewH = o => o.net && o.net.vh ? o.net.vh : !o.remote ? G.Camera.spawnH || G.Camera.h : Math.max(G.Camera.w, G.Camera.h);
 
   /** @param extra  distancia de más fuera de la vista (al azar entre 10 y 70 si no se dice) */
   function ringPoint(pl, angle, extra) {

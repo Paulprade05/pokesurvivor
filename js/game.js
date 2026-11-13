@@ -33,7 +33,9 @@ G.Game = (() => {
     ctx = cv.getContext('2d');
     resize();
     addEventListener('resize', resizeSoon);
-    G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });      // ahorro de energía y Máxima: cambian la resolución
+    G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });
+    // (Zoom) Cambiado en Ajustes con la partida en pausa: al volver, va hacia él.
+    G.Settings.on(k => { if (k === 'zoom' && pl && state !== 'over' && state !== 'menu') G.Camera.setZoom(G.Settings.get('zoom')); });      // ahorro de energía y Máxima: cambian la resolución
     // iPhone: al girarlo o al abrirlo desde la pantalla de inicio avisa del
     // cambio ANTES de recolocar la página, y con esas medidas viejas el juego
     // se quedaba estirado. Se vuelve a medir cuando el lienzo cambia de verdad
@@ -71,6 +73,17 @@ G.Game = (() => {
   function bindCanvas() {
     cv.addEventListener('contextlost', e => { e.preventDefault(); onCtxLost(); });
     cv.addEventListener('contextrestored', onCtxBack);
+    // (13-11-2026) Zoom con la rueda del ratón en la partida (camera.js: ×0,85 a ×1,25, suave, y se guarda en los
+    // ajustes). Sólo sobre el lienzo y jugando: con un menú abierto, la rueda es del menú (va a lo que tiene encima).
+    let zoomSave = 0;
+    cv.addEventListener('wheel', e => {
+      if (state !== 'playing' || !pl) return;
+      e.preventDefault();
+      const d = Math.max(-1, Math.min(1, e.deltaY * (e.deltaMode === 1 ? 33 : 1) / 100));
+      G.Camera.setZoom(G.Camera.zoomTo * Math.exp(-d * 0.07));
+      clearTimeout(zoomSave);
+      zoomSave = setTimeout(() => G.Settings.set('zoom', Math.round(G.Camera.zoomTo * 100) / 100), 400);
+    }, { passive: false });
   }
   function purgeGfx(emptied = false) {
     const now = performance.now();
@@ -357,6 +370,8 @@ G.Game = (() => {
     // Para el ranking: el servidor apunta cuándo empieza la partida (anti-trampas).
     if (!coop || G.Coop.isHost) G.Ranking.runStarted(coop ? 'g' : 's');
     deathT = 0;
+    G.Camera.setZoom(G.Settings.get('zoom'));          // (el zoom guardado; en el menú, ×1)
+    G.Camera.stepZoom(0, true);
 
     state = 'playing';
     // Primera partida con el móvil de pie: un consejo, sin parar nada (sólo aquí, no se manda).
@@ -670,6 +685,7 @@ G.Game = (() => {
 
   function endRun(dead = true) {
     if (state === 'over' || !pl) return;
+    G.Camera.setZoom(1); G.Camera.stepZoom(0, true);
     const coop = !!pl.uid;                    // sólo las partidas en grupo le ponen uid
     const wasHost = !!pl.coopHost;
     const team = (coop && guard('Coop', () => G.Coop.members.slice())) || [];
@@ -1003,7 +1019,7 @@ G.Game = (() => {
       const R = G.Camera.outerRadius();
       G.FX.ring(who.x, who.y, 20, R, '#ff7b3d', 0.5, 6);
       for (const e of G.EnemyMgr.all()) {
-        if (mine ? !G.Camera.sees(e.x, e.y, 0) : G.U.dist2(e.x, e.y, who.x, who.y) > R * R) continue;
+        if (mine ? !G.Camera.seesBase(e.x, e.y, 0) : G.U.dist2(e.x, e.y, who.x, who.y) > R * R) continue;
         e.hurt(60 + pl.level * 14, '#ff7b3d', e.x - who.x, e.y - who.y, 160);
       }
     }
@@ -1245,6 +1261,7 @@ G.Game = (() => {
     }
     const view = watched() || pl;
     G.Camera.follow(view.x, view.y, dt);
+    G.Camera.stepZoom(dt);
     G.World.update(dt, G.Camera);
 
     const all = everyone();
@@ -1423,7 +1440,13 @@ G.Game = (() => {
       for (const e of ens) if (Math.abs(e.y) < 1e8) items.push({ y: e.y, ent: e });
       for (const e of extra) items.push({ y: e.y, ent: e });
       const rift = G.Rift.drawable();
-      if (rift) items.push({ y: rift.y, ent: rift });
+      if (rift) {
+        // (Partida en 3D) El portal, en 3D (ultra3d.js); de rift.js, su luz y el suelo roto, justo antes.
+        const r3 = u3 && G.Rift.rift && G.Ultra3D.riftOn();
+        rift.bare = !!r3;
+        if (r3) items.push({ y: rift.y, u3: { id: 'rift', x: G.Rift.rift.x, y: G.Rift.rift.y } });
+        items.push({ y: r3 ? rift.y - 0.01 : rift.y, ent: rift });
+      }
       const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
       if (arceus) items.push({ y: arceus.y, ent: arceus });
       if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });

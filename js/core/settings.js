@@ -37,6 +37,7 @@
  *                                                 agua, recogidas... Apagado, quieto y sin coste; los ataques se siguen viendo
  *
  *   shareStats  true | false                     subir el resumen anónimo de cada partida (net/stats.js)
+ *   zoom        0.85 .. 1.25                      zoom de la cámara en la partida (la rueda del ratón; camera.js); 1 de serie
  *   pixSmooth   true/false                        «Pokémon más nítidos»: los sprites con un escalador de pixel art
  *                                                 (core/pixfilter.js; en la aldea, en su shader). null (de serie):
  *                                                 encendido sólo con la calidad Máxima (lo eligió el dueño, 13-11-2026)
@@ -50,7 +51,7 @@ G.Settings = (() => {
   const DESK = typeof window !== 'undefined' && !!window.pokeEscritorio && window.pokeEscritorio.esEscritorio !== false;
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
-    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true, pixSmooth: null };
+    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true, pixSmooth: null, zoom: 1 };
   let s = Object.assign({}, DEF);
   try {
     const old = JSON.parse(localStorage.getItem(KEY) || '{}');

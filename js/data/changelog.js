@@ -6,6 +6,16 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-13', title: ["La partida en 3D y zoom con la rueda", "Runs in 3D and mouse-wheel zoom"], new: [
+    ["En PC, la rueda del ratón acerca o aleja un poco la cámara de la partida (de ×0,85 a ×1,25), suave, y se guarda. También en Ajustes › Gráficos › Zoom de la cámara. No cambia el juego: los enemigos salen igual de lejos y tus ataques llegan igual de lejos con cualquier zoom.",
+     "On PC, the mouse wheel moves the run camera a little closer or farther (from ×0.85 to ×1.25), smoothly, and it is saved. Also in Settings › Graphics › Camera zoom. It does not change the game: enemies appear just as far away and your attacks reach just as far with any zoom."]
+  ], chg: [
+    ["En PC con calidad Alta o más, lo que sobresale del mapa de la partida es 3D liso, como en la aldea: árboles que se mecen con el viento (en las cuevas, cristales que brillan; en el volcán, agujas de basalto con lava al pie; en algunas grietas, árboles secos), las torres de poder con su orbe encendido, los manantiales, las setas explosivas, las setas que brillan y los cristales del suelo. Todo con luz, sombras y su contorno. Si tu Pokémon queda detrás de un árbol, el árbol se transparenta.",
+     "On PC with High quality or above, whatever stands out of the run map is smooth 3D, like in the village: trees swaying in the wind (in caves, glowing crystals; in the volcano, basalt spires with lava at their base; in some rifts, dead trees), power towers with their lit orb, springs, exploding mushrooms, glowing mushrooms and ground crystals. All with light, shadows and an outline. If your Pokémon is behind a tree, the tree turns see-through."],
+    ["El portal de las grietas es 3D: un remolino violeta que gira y brilla, rodeado de esquirlas de cristal.",
+     "The rift portal is 3D: a glowing violet swirl surrounded by crystal shards."],
+    ["El suelo, la hierba alta y los Pokémon siguen en pixel art. En móvil, todo sigue como antes (en 2D), sin gastar más batería.",
+     "The ground, the tall grass and the Pokémon are still pixel art. On mobile everything stays as before (2D), with no extra battery use."]] },
   { d: '2026-11-13', title: ["PokéSurvivor para PC con Windows", "PokéSurvivor for Windows PCs"], new: [
     ["En un PC con Windows, Ajustes › Acerca de tiene «Descargar para Windows»: el juego como programa, con pantalla completa de verdad, la gráfica potente del portátil, la calidad Máxima elegida sola y tu partida guardada también en el disco. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».",
      "On a Windows PC, Settings › About has “Download for Windows”: the game as a program, with real full screen, the laptop's powerful graphics card, Max quality picked on its own and your save also kept on disk. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”."]] },

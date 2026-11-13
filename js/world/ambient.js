@@ -293,9 +293,9 @@ G.Ambient = (() => {
     }
     return out;
   }
-  // (Partida en 3D, 13-11-2026) Con los objetos en 3D (ultra3d.js), las setas que brillan, los cristales y los helechos
+  // (Partida en 3D, 13-11-2026) Con los objetos en 3D (ultra3d.js), las setas que brillan y los cristales
   // no se dibujan aquí: se dejan en flora3d y ultra3d.js los pone en 3D (con su orden por Y).
-  const F3 = { 3: 1, 4: 1, 5: 1 };
+  const F3 = { 4: 1, 5: 1 };
   let flora3d = [];
   function drawFlora(ctx, view, bi) {
     flora3d = [];

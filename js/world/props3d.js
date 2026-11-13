@@ -1,8 +1,8 @@
 /* ============ props3d.js — los modelos 3D de los objetos de la partida (para ultra3d.js) ============
  * Pedido del dueño (13-11-2026): «haz que las rocas, las setas, los cofres, grietas y más elementos de la partida también
  * sean en 3D nítido». Aquí están las piezas (geometrías y materiales) de lo que sobresale del mapa: árboles (y, según el
- * bioma, cristales, árboles secos o agujas de basalto), hierba alta, torres de poder, manantiales, setas explosivas, la
- * flora suelta (setas que brillan, cristales, helechos) y el portal de la grieta. ultra3d.js los dibuja con instancing
+ * bioma, cristales, árboles secos o agujas de basalto), torres de poder, manantiales, setas explosivas, la
+ * flora suelta (setas que brillan y cristales) y el portal de la grieta. ultra3d.js los dibuja con instancing
  * (una malla por modelo y su contorno: 2 llamadas de dibujo por modelo a la vista, con cualquier número de objetos).
  * Es sólo dibujo: ni choques ni reparto cambian (world.js manda).
  *
@@ -137,7 +137,12 @@ G.Props3D = (() => {
     if (uv) for (let i = 0; i < n; i++) uv.setXY(i, u0 + mg + fu(uv.getX(i), o.uk) * (0.5 - 2 * mg), 1 - (v0 + mg + (1 - fu(uv.getY(i), o.vk)) * (vh - 2 * mg)));
     else { const a = new Float32Array(n * 2); for (let i = 0; i < n; i++) { a[i * 2] = 0.75; a[i * 2 + 1] = 0.1; } q.setAttribute('uv', new T.BufferAttribute(a, 2)); }
     const c = lin(hexRgb(col || '#ffffff')), cols = new Float32Array(n * 3), fl = new Float32Array(n), gl = new Float32Array(n);
-    const p = q.attributes.position;
+    const p = q.attributes.position, nr = q.attributes.normal;
+    // (up: las normales, inclinadas hacia arriba. La hierba y las hojas finas se ven con la luz del cielo y no negras.)
+    if (o.up) for (let i = 0; i < n; i++) {
+      const x = nr.getX(i) * (1 - o.up), y = nr.getY(i) * (1 - o.up) + o.up, z = nr.getZ(i) * (1 - o.up), l = Math.hypot(x, y, z) || 1;
+      nr.setXYZ(i, x / l, y / l, z / l);
+    }
     for (let i = 0; i < n; i++) {
       // Tono: algo más oscuro al pie de cada pieza (oclusión suave), salvo lo que brilla.
       const y = p.getY(i), k = o.ao === false ? 1 : 0.72 + 0.28 * Math.min(1, Math.max(0, y / (o.aoH || 40)));
@@ -197,23 +202,24 @@ G.Props3D = (() => {
   const MODELS = {
     // Árbol de hojas (2 formas): tronco corto y copa de matas redondas que se mecen.
     tree0: k => {
-      const B = k.B, t = arr(B.trunk)[0], q = seg(1, 0);
-      return [part(CY(3.6, 5.4, 24, seg(8, 5)), { y: 12 }, 'bark', t, { uk: 1, vk: 0.5 }),
+      const q = seg(1, 0);
+      // (Las texturas del atlas ya van del tono del bioma: el color de la pieza, blanco o casi.)
+      return [part(CY(3.6, 5.4, 22, seg(8, 5)), { y: 11 }, 'bark', '#ffffff', { vk: 0.5 }),
         part(BL(19, q), { y: 40 }, 'leaf', '#ffffff', { flex: 1, aoH: 60 }),
         part(BL(14, q), { x: -13, y: 33, z: 5 }, 'leaf', '#e8e8e8', { flex: 0.9, aoH: 60 }),
         part(BL(14, q), { x: 13, y: 35, z: -3 }, 'leaf', '#f2f2f2', { flex: 0.9, aoH: 60 }),
         part(BL(12, q), { x: 2, y: 53, z: -2 }, 'leaf', '#ffffff', { flex: 1.1, aoH: 60 })];
     },
     tree1: k => {
-      const B = k.B, t = arr(B.trunk)[0], n = seg(12, 7);
-      return [part(CY(3.2, 5, 20, seg(8, 5)), { y: 10 }, 'bark', t, { vk: 0.5 }),
+      const n = seg(12, 7);
+      return [part(CY(3.2, 5, 20, seg(8, 5)), { y: 10 }, 'bark', '#ffffff', { vk: 0.5 }),
         part(CO(22, 26, n), { y: 26 }, 'leaf', '#e4e4e4', { flex: 0.8, aoH: 70 }),
         part(CO(17, 24, n), { y: 40, ry: 0.6 }, 'leaf', '#f2f2f2', { flex: 1, aoH: 70 }),
         part(CO(11, 20, n), { y: 54, ry: 1.2 }, 'leaf', '#ffffff', { flex: 1.2, aoH: 70 })];
     },
     // Árbol seco: tronco torcido y ramas desnudas (arenas de fuego, veneno, tierra, roca, fantasma, siniestro).
     dead: k => {
-      const t = arr(k.B.trunk)[0], t2 = arr(k.B.trunk)[1] || t, n = seg(7, 5);
+      const t = '#ffffff', t2 = '#d8d8d8', n = seg(7, 5);
       return [part(CY(3, 5.6, 34, n), { y: 17, rz: 0.06 }, 'bark', t, { vk: 0.6, flex: 0.15 }),
         part(CY(1.4, 2.6, 18, n), { x: -8, y: 34, rz: 0.75 }, 'bark', t2, { flex: 0.5 }),
         part(CY(1.2, 2.4, 16, n), { x: 8, y: 38, rz: -0.8, ry: 0.4 }, 'bark', t2, { flex: 0.5 }),
@@ -238,15 +244,12 @@ G.Props3D = (() => {
       const t = arr(k.B.trunk), r = (k.pal && k.pal.rock) || ['#5a514c', '#776c66', '#968a83'];
       const out = [];
       [[0, 0, 7.5, 44], [-10, 3, 5.5, 30], [10, -2, 6, 34], [3, 7, 4.5, 20]].forEach(([x, z, rr, h], i) => {
-        out.push(part(CY(rr * 0.85, rr, h, 6), { x, y: h / 2, z, ry: i * 0.5 }, 'stone', i % 2 ? '#cfcfcf' : '#a8a8a8', { aoH: h, vk: 0.5 }));
+        out.push(part(CY(rr * 0.85, rr, h, 6), { x, y: h / 2, z, ry: i * 0.5 }, 'stone', i % 2 ? '#f0f0f0' : '#d0d0d0', { aoH: h, vk: 0.5 }));
         out.push(part(CY(rr * 0.6, rr * 0.85, 3, 6), { x, y: h + 1.5, z, ry: i * 0.5 }, 'stone', '#e0e0e0', { ao: false }));
       });
       out.push(part(new T.TorusGeometry(12, 1.6, 4, seg(16, 10)), { y: 0.8, rx: Math.PI / 2, sy: 1 }, 'white', '#ff7a2a', { glow: 1, ao: false }));
       return out;
     },
-    // Hierba alta: un manojo de hojas finas que se mecen (2 formas).
-    grass0: k => grassTuft(k, 0),
-    grass1: k => grassTuft(k, 1),
     // Torre de poder: escalones, columna de piedra con runas del color de su poder, capitel y el orbe que brilla.
     altar0: k => altar(k, 0, false), altar1: k => altar(k, 1, false), altar2: k => altar(k, 2, false), altar3: k => altar(k, 3, false),
     altarU: k => altar(k, 0, true),
@@ -261,7 +264,7 @@ G.Props3D = (() => {
       });
       return out;
     },
-    // Flora suelta: seta que brilla, cristal pequeño y helecho.
+    // Flora suelta: seta que brilla y cristal pequeño.
     fshroom: k => {
       const fl = arr(k.B.flowers || '#8fe3ff'), out = [];
       [[0, 0, 1, 0], [-7, 3, 0.65, 1], [6, 4, 0.55, 2]].forEach(([x, z, s, i]) => {
@@ -279,27 +282,8 @@ G.Props3D = (() => {
         out.push(part(CO(rr, h * 0.35, 6), { x: x - Math.sin(rz) * h * 0.66, y: h + h * 0.17 - (1 - Math.cos(rz)) * h, z, rz }, 'white', shadeH(col, 0.3), { glow: 0.5, ao: false }));
       });
       return out;
-    },
-    fern: k => {
-      const g = (k.pal && k.pal.grass) || arr(k.B.grass || '#3a9a42'), out = [];
-      for (let i = 0; i < 6; i++) {
-        const a = i / 6 * Math.PI * 2 + 0.3, c = g[i % Math.min(3, g.length)];
-        // Hoja: un cono aplastado tumbado hacia fuera.
-        out.push(part(CO(3.2, 18, 4), { x: Math.cos(a) * 6, y: 7, z: Math.sin(a) * 6, rz: -Math.cos(a) * 1.0, rx: Math.sin(a) * 1.0, sz: 0.35 }, 'leaf', c, { flex: 0.8, fy: 2, fh: 14, aoH: 14 }));
-      }
-      return out;
     }
   };
-  function grassTuft(k, v) {
-    const g = (k.pal && k.pal.grass) || arr(k.B.grass || '#3a9a42'), out = [], n = mob ? 6 : 9;
-    for (let i = 0; i < n; i++) {
-      const a = H(i, v, 51) * 6.28, d = 4 + H(i, v, 52) * 12, h = 16 + H(i, v, 53) * 10, lean = 0.12 + H(i, v, 54) * 0.25;
-      const c = g[Math.min(g.length - 1, (H(i, v, 55) * g.length) | 0)];
-      out.push(part(CO(2.6, h, 3), { x: Math.cos(a) * d, y: h / 2, z: Math.sin(a) * d * 0.8, rz: -Math.cos(a) * lean, rx: Math.sin(a) * lean, ry: a, sz: 0.4 },
-        'leaf', c, { flex: 1, fy: 0, fh: 26, aoH: 22 }));
-    }
-    return out;
-  }
   function altar(k, eff, used) {
     const col = used ? '#6b7380' : ORB[eff], out = [];
     out.push(part(new T.BoxGeometry(34, 4, 30), { y: 2 }, 'stone', '#c8c8c8', { aoH: 8 }));
@@ -325,10 +309,9 @@ G.Props3D = (() => {
   /** Alto, medio ancho, si da sombra y grosor del contorno de cada modelo. */
   const META = {
     tree0: [64, 30, true, 1.6], tree1: [66, 24, true, 1.6], dead: [52, 22, true, 1.2], crystal: [46, 20, true, 1.3], basalt: [50, 20, true, 1.3],
-    grass0: [26, 20, false, 0], grass1: [26, 20, false, 0],
     altar0: [58, 18, true, 1.3], altar1: [58, 18, true, 1.3], altar2: [58, 18, true, 1.3], altar3: [58, 18, true, 1.3], altarU: [58, 18, true, 1.3],
     spring: [6, 26, false, 1], springD: [6, 26, false, 1], boom: [18, 18, true, 0.9],
-    fshroom: [14, 12, false, 0.8], fcrystal: [22, 10, false, 0.8], fern: [16, 14, false, 0]
+    fshroom: [14, 12, false, 0.8], fcrystal: [22, 10, false, 0.8]
   };
 
   /** La geometría (y su contorno) de un modelo en el bioma bi, o null. */
@@ -354,15 +337,16 @@ G.Props3D = (() => {
         if (B.prop === 'dead') return 'dead';
         return p.look % 3 === 1 ? 'tree1' : 'tree0';
       }
-      case 'grass': return 'grass' + (p.look & 1);
+      // (La hierba alta, en su pixel art de siempre: es del suelo. El dueño, 13-11-2026: «no me gusta la hierba como se ve».)
+      case 'grass': return null;
       case 'altar': return p.used ? 'altarU' : 'altar' + (p.kind & 3);
       case 'spring': return p.charge < 0.15 ? 'springD' : 'spring';
       case 'trap': return p.kind === 2 ? 'boom' : null;
       default: return null;
     }
   }
-  /** La flora de ambient.js (fila de flora.png) que va en 3D: 3 helecho, 4 seta que brilla, 5 cristal. */
-  const FLORA = { 3: 'fern', 4: 'fshroom', 5: 'fcrystal' };
+  /** La flora de ambient.js (fila de flora.png) que va en 3D: 4 seta que brilla, 5 cristal (el helecho, como la hierba, en 2D). */
+  const FLORA = { 4: 'fshroom', 5: 'fcrystal' };
 
   /** Suelta todo menos el bioma keep (al perder el contexto: gone, sin dispose: ya no existe en la GPU). */
   function free(gone = false, keep = -1) {
@@ -377,5 +361,53 @@ G.Props3D = (() => {
     }
   }
 
-  return { init, geo, keyOf, FLORA, free, ORB, get DEPTH() { return DEPTH; } };
+  /*
+   * El portal de la grieta: un desgarro de pie (de cara a la cámara) con un remolino violeta que gira y brilla (shader
+   * propio: sin luz, se suma algo de blanco en el centro) y un aro de esquirlas de cristal oscuro que brillan algo.
+   * Un objeto suelto (sólo hay uno): { obj, h, r, set(t, k) } (t: segundos; k: 0..1 lo abierto que está).
+   */
+  function portal(bi) {
+    const k = kitOf(bi);
+    if (!k) return null;
+    const out = [], n = seg(11, 8);
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2, rr = 1 + (H(i, 1, 91) - 0.5) * 0.25, len = 12 + H(i, 2, 91) * 12;
+      // Esquirla: cono de 4 lados que apunta hacia fuera del borde del remolino (en el plano de pie x–y de three.js).
+      out.push(part(CO(3.4, len, 4), { x: Math.cos(a) * 33 * rr, y: 58 + Math.sin(a) * 52 * rr, z: (H(i, 3, 91) - 0.5) * 6, rz: a - Math.PI / 2 }, 'white', i % 2 ? '#5a32a0' : '#8048d8', { glow: 0.55, ao: false }));
+    }
+    const g = merge(out, 0.8), obj = new T.Group(), sh = new T.Mesh(g, k.mat);
+    // El remolino: un óvalo de pie (x, z del juego), mirando al sur (a la cámara).
+    const S = seg(40, 24), pos = [0, 0, 58], uv = [0.5, 0.5], idx = [];
+    for (let i = 0; i <= S; i++) { const a = i / S * Math.PI * 2; pos.push(Math.cos(a) * 32, 0, 58 + Math.sin(a) * 51); uv.push(0.5 + Math.cos(a) * 0.5, 0.5 + Math.sin(a) * 0.5); }
+    for (let i = 1; i <= S; i++) idx.push(0, i + 1, i);
+    const dg = new T.BufferGeometry();
+    dg.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    dg.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    dg.setIndex(idx);
+    const u = { uTime: uni.time, uK: { value: 1 } };
+    const dm = new T.ShaderMaterial({
+      uniforms: u, transparent: true, depthWrite: false, side: T.DoubleSide,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: ['uniform float uTime; uniform float uK; varying vec2 vUv;',
+        'void main() {',
+        '  vec2 p = vUv * 2.0 - 1.0; float r = length(p); if (r > 1.0) discard;',
+        '  float a = atan(p.y, p.x);',
+        '  float sw = sin(a * 3.0 - r * 11.0 + uTime * 3.2) * 0.5 + 0.5, sw2 = sin(a * 5.0 + r * 7.0 - uTime * 2.1) * 0.5 + 0.5;',
+        '  vec3 c = mix(vec3(0.42, 0.16, 0.82), vec3(0.86, 0.66, 1.0), sw * (1.0 - r * 0.5));',
+        '  c = mix(c, vec3(1.0, 0.94, 1.0), sw2 * pow(1.0 - r, 1.5) * 0.7) + vec3(1.0, 0.95, 1.0) * pow(1.0 - r, 5.0);',
+        '  c += vec3(0.7, 0.45, 1.0) * smoothstep(0.75, 0.97, r);',          // (el borde, encendido)
+        '  gl_FragColor = vec4(c, smoothstep(1.0, 0.9, r) * uK);',
+        '}'].join('\n')
+    });
+    const disk = new T.Mesh(dg, dm);
+    disk.renderOrder = 1;
+    obj.add(sh, disk);
+    return {
+      obj, h: 118, r: 46,
+      set(t, kk) { u.uK.value = kk; const s = 0.3 + 0.7 * kk; obj.scale.set(s, 1, s); obj.updateMatrixWorld(true); },
+      dispose() { g.dispose(); dg.dispose(); dm.dispose(); }
+    };
+  }
+
+  return { init, geo, keyOf, portal, FLORA, free, ORB, get DEPTH() { return DEPTH; } };
 })();
