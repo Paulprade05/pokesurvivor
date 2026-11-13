@@ -11,6 +11,9 @@
  * Atascado (el mismo criterio que `tools/curve.cjs --atascos`): anda por el suelo, está a más de un cuerpo de ti y en
  * 3 s no se ha movido 30 px. Da el % del tiempo atascado (a la vista y en total), los episodios y su contexto.
  *
+ * (13-11-2026) También el agua: cuánto tiempo pasan con el centro en el agua los que no pueden entrar (Enemy.dry) y los que sí
+ * (Agua, Volador, Fantasma, y uno de cada 25 «legendario» que anda). Con --dentro, además, metidos en el agua.
+ *
  * Uso: node tools/atascos.cjs [--seg 240] [--semillas 1,2,3] [--n 70] [--detalle]
  * Como módulo: require('./atascos.cjs').run({ secs, seed, n, radii, pushes, inside }).
  */
@@ -85,7 +88,7 @@ const BUSY = ['root', 'air', 'slide', 'frz', 'freeze', 'sleep', 'control', 'conf
 /** Detector (el de curve.cjs --atascos). */
 function detector(S) {
   const { G, me, W } = S;
-  const R = { live: 0, liveVis: 0, stuck: 0, stuckVis: 0, eps: 0, epsVis: 0, long6: 0, max: 0, kinds: {}, sample: [] };
+  const R = { dryT: 0, dryWet: 0, dryWetVis: 0, wadeT: 0, wadeWet: 0, dryWetIds: new Set(), live: 0, liveVis: 0, stuck: 0, stuckVis: 0, eps: 0, epsVis: 0, long6: 0, max: 0, kinds: {}, sample: [] };
   const eligible = e => !(e.dead || e.flying || e.under || e.jump || e.dig || e.stunT > 0 || e.phase === 'aim' || (e.sts && BUSY.some(k => e.sts[k]))) &&
     !(e.keepsDistance() && Math.hypot(e.x - me.x, e.y - me.y) < ((e.def && e.def.range) || 200) * 1.1) && Math.hypot(e.x - me.x, e.y - me.y) > e.r + me.r + 30;
   const kindOf = e => {
@@ -106,6 +109,14 @@ function detector(S) {
   }
   function tick(t, dt) {
     for (const e of G.EnemyMgr.all()) {
+      // (13-11-2026) Agua: tiempo con el centro en el agua de los que no pueden entrar (Enemy.dry) y de los que sí.
+      if (!e.dead && !e.flying && !e.under && !e.jump) {
+        const inW = W.isLiquid(e.x, e.y);
+        // (Por tipo, no con e.dry: así también se mide una copia de antes, que no lo tiene.)
+        const dry = !(e.flying || e.boss || e.legend || e.judge || e.types.some(t => t === 'water' || t === 'flying' || t === 'ghost'));
+        if (dry) { R.dryT += dt; if (inW) { R.dryWet += dt; R.dryWetIds.add(e.id); if (G.Camera.sees(e.x, e.y, 0)) R.dryWetVis += dt; } }
+        else { R.wadeT += dt; if (inW) R.wadeWet += dt; }
+      }
       const k = e._stk || (e._stk = { x: e.x, y: e.y, t, ep: null });
       const ok = eligible(e), vis = G.Camera.sees(e.x, e.y, 0);
       if (ok) { R.live += dt; if (vis) R.liveVis += dt; }
@@ -133,6 +144,8 @@ function run(o = {}) {
   const secs = o.secs || 240, n = o.n || 70;
   // (Radios de verdad: mediana 14, el 90 % hasta 21, un 7 % grandes; aquí, más grandes de la cuenta para forzarlo.)
   const radii = o.radii || [10, 11, 12, 13, 14, 14, 15, 16, 18, 20, 22, 26, 31, 39];
+  // (13-11-2026) Tipos: la mayoría no pueden entrar en el agua; Agua (nadan), Volador y Fantasma sí.
+  const types = o.types || ['normal', 'fire', 'grass', 'normal', 'rock', 'bug', 'water', 'normal', 'flying', 'electric', 'ghost', 'fighting'];
   const behaviors = o.behaviors || ['chase', 'chase', 'chase', 'charger', 'tank', 'runner', 'ranged', 'jumper'];
   const S = sim({ seed: o.seed || 1, rseed: (o.seed || 1) * 7 + 3, time: o.time });
   const { G, me, W, rnd } = S;
@@ -155,7 +168,10 @@ function run(o = {}) {
       const p = S.freePoint(rnd() * 6.28);
       if (!p) break;
       const k = spawnI++;
-      S.enemy(p[0], p[1], { r: radii[k % radii.length], behavior: behaviors[(k * 3) % behaviors.length], range: 200, shotCd: 2, spd: 60 + (k % 5) * 8 });
+      const e = S.enemy(p[0], p[1], { r: radii[k % radii.length], behavior: behaviors[(k * 3) % behaviors.length], range: 200, shotCd: 2, spd: 60 + (k % 5) * 8,
+                                      types: [types[(k * 5) % types.length]] });
+      // (Uno de cada 25, «legendario» que anda: puede cruzar el agua, como los jefes.)
+      if (o.legends !== false && k % 25 === 7) e.legend = true;
     }
     // Los que tocan al jugador «caen» (como si los mataras).
     for (const e of live) if (Math.hypot(e.x - me.x, e.y - me.y) < e.r + me.r + 4) { e.dead = true; e.x = e.y = 1e7; }
@@ -173,7 +189,7 @@ function run(o = {}) {
       const e = G.U.pick(live.filter(x => !x.dead));
       if (e) for (let i = 0; i < 60; i++) {
         const x = me.x + G.U.rand(-450, 450), y = me.y + G.U.rand(-320, 320), tx = Math.floor(x / W.TS), ty = Math.floor(y / W.TS);
-        if (W.cellAt(tx, ty) === 1 && Math.hypot(x - me.x, y - me.y) > 150) { e.x = (tx + G.U.rand(0.2, 0.8)) * W.TS; e.y = (ty + G.U.rand(0.2, 0.8)) * W.TS; e.kx = e.ky = 0; break; }
+        if ((W.cellAt(tx, ty) === 1 || W.cellAt(tx, ty) === 2) && Math.hypot(x - me.x, y - me.y) > 150) { e.x = (tx + G.U.rand(0.2, 0.8)) * W.TS; e.y = (ty + G.U.rand(0.2, 0.8)) * W.TS; e.kx = e.ky = 0; break; }
       }
     }
     G.Path.update(dt, [me]);
@@ -183,7 +199,8 @@ function run(o = {}) {
   for (let t = 0; t < secs; t += dt) step(t);
   D.finish(secs);
   const R = D.R;
-  return { seed: o.seed, live: Math.round(R.live), stuck: +R.stuck.toFixed(1), pct: +(100 * R.stuck / Math.max(1, R.live)).toFixed(2),
+  return { seed: o.seed, dryWetPct: +(100 * R.dryWet / Math.max(1, R.dryT)).toFixed(3), dryWetVis: +R.dryWetVis.toFixed(1), dryWetN: R.dryWetIds.size,
+           wadeWetPct: +(100 * R.wadeWet / Math.max(1, R.wadeT)).toFixed(1), live: Math.round(R.live), stuck: +R.stuck.toFixed(1), pct: +(100 * R.stuck / Math.max(1, R.live)).toFixed(2),
            pctVis: +(100 * R.stuckVis / Math.max(1, R.liveVis)).toFixed(2), eps: R.eps, epsVis: R.epsVis, long6: R.long6, max: +R.max.toFixed(1),
            kinds: R.kinds, sample: R.sample, ahead: S.log.ahead };
 }
@@ -201,7 +218,7 @@ if (require.main === module) {
   for (const seed of seeds) {
     const t0 = Date.now();
     const r = run({ secs, seed, n, inside });
-    console.log(`semilla ${seed}: atascados ${r.pct} % del tiempo (${r.pctVis} % a la vista), ${r.eps} episodios (${r.epsVis} a la vista, ${r.long6} de más de 6 s, máx ${r.max} s) ${JSON.stringify(r.kinds)} recolocados=${r.ahead} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+    console.log(`semilla ${seed}: atascados ${r.pct} % del tiempo (${r.pctVis} % a la vista), ${r.eps} episodios (${r.epsVis} a la vista, ${r.long6} de más de 6 s, máx ${r.max} s) ${JSON.stringify(r.kinds)} recolocados=${r.ahead} | agua: los que no pueden ${r.dryWetPct} % del tiempo dentro (${r.dryWetN} distintos, ${r.dryWetVis} s a la vista), los que sí ${r.wadeWetPct} % (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
     if (args.includes('--detalle')) for (const s of r.sample.slice(0, 25)) console.log('   ', JSON.stringify(s));
     tot.live += r.live; tot.stuck += r.stuck; tot.eps += r.eps; tot.epsVis += r.epsVis; tot.long6 += r.long6; tot.max = Math.max(tot.max, r.max);
     for (const k in r.kinds) tot.kinds[k] = (tot.kinds[k] || 0) + r.kinds[k];

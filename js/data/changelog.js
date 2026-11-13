@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-13', title: ["Los Pokémon salvajes rodean el agua", "Wild Pokémon go around water"], fix: [
+    ["Los Pokémon salvajes ya no cruzan el agua ni el pantano: la rodean. Sólo entran los de tipo Agua (nadan), Volador y Fantasma, los que vuelan o flotan, y los jefes y legendarios.",
+     "Wild Pokémon no longer walk through water or swamp: they go around it. Only Water-type (they swim), Flying and Ghost Pokémon, those that fly or float, and bosses and legendaries go in."],
+    ["Si un golpe o la horda empuja a uno de los demás hacia el agua, se queda en la orilla; y si acaba dentro, sale enseguida por la orilla más cercana.",
+     "If a hit or the horde pushes one of the others towards the water, it stays on the shore; and if it ends up inside, it comes out right away through the nearest shore."]] },
   { d: '2026-11-13', title: ["La aldea, más clara y con el Altar del Portal", "A brighter village with the Portal Altar"], new: [
     ["La Flor del Portal es ahora el Altar del Portal, más grande y en el centro de todo: un estrado de piedra con runas, el arco del portal entre dos pilares con cristales y raíces que lo abrazan. Tiene su propia luz y sus partículas, y un círculo de luz que te dice dónde ponerte y qué pulsar.",
      "The Portal Flower is now the Portal Altar, bigger and at the heart of everything: a stone dais with runes, the portal arch between two crystal-topped pillars and roots wrapped around it. It has its own light and particles, and a circle of light that tells you where to stand and what to press."],

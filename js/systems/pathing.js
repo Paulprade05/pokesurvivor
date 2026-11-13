@@ -9,7 +9,8 @@
  * costes enteros pequeños, 5 en recto y 7 en diagonal, × el terreno):
  *
  *   clase  quién                                suelo  agua/pantano  lava, veneno, descarga
- *   walk   todos por defecto                    ×1     ×2            bloquea
+ *   walk   todos por defecto                    ×1     bloquea (13-11) bloquea
+ *   wade   Volador, Fantasma y jefes que andan  ×1     ×2            bloquea  (Enemy.dry === false)
  *   swim   los que nadan (e.mv 'swim')          ×1     ×0,6          bloquea
  *   lava   inmunes al líquido del bioma, y      ×1     ×1            como el suelo
  *          los legendarios (e.mv 'lava')
@@ -33,9 +34,11 @@
 G.Path = (() => {
   const R = 19, N = R * 2 + 1, NN = N * N, EVERY = 0.35;          // (2.0, casillas de 48: 19 ≈ las 28 de 32 de antes)
   const UNSEEN = 0xffff, KEEP = 2;                                // KEEP: s que se sigue construyendo una clase sin pedirla
-  const CLS = ['walk', 'swim', 'lava'], NK = CLS.length * 3;      // clave = clase·3 + tamaño (0 normal, 1 big, 2 huge)
+  const CLS = ['walk', 'swim', 'lava', 'wade'], NK = CLS.length * 3;      // clave = clase·3 + tamaño (0 normal, 1 big, 2 huge)
   // Coste de ENTRAR en una casilla según lo que es (World.cellAt: 0 suelo, 1 bloquea, 2 agua, 3 lava...), en recto.
-  const COST = [[5, 0, 10, 0], [5, 0, 3, 0], [5, 0, 5, 5]];
+  // (13-11-2026) walk ya no entra en el agua ni en el pantano (el dueño: «los Pokémon siguen atravesando el agua»); el campo de
+  //  antes (agua ×2) es ahora wade, para los que sí pueden: Volador, Fantasma y jefes que andan (Enemy.dry).
+  const COST = [[5, 0, 0, 0], [5, 0, 3, 0], [5, 0, 5, 5], [5, 0, 10, 0]];
   const DIAG = c => (c * 1.4 + 0.5) | 0;
   const CENTER = 6;                    // (11-11-2026) a menos de esto del centro de su casilla, «en el centro» (dirFor)
   const CHEAP = 5, SHOT = -1;          // (modos de clearLine: si no, el coste máximo de las casillas que cruza)
@@ -48,7 +51,7 @@ G.Path = (() => {
   const stats = { builds: 0, ms: 0, maxMs: 0 };
 
   const sizeOf = e => { const r = e.wr || e.r; return r > 0.7 * G.World.TS ? 2 : e.aiBig || r > 0.47 * G.World.TS ? 1 : 0; };   // (con su radio contra el terreno)
-  /** Clase de campo de un enemigo (0 walk, 1 swim, 2 lava). */
+  /** Clase de campo de un enemigo (0 walk, 1 swim, 2 lava, 3 wade). */
   function clsOf(e) {
     if (e.mv === 'swim') return 1;
     if (e.mv === 'lava') return 2;
@@ -58,7 +61,7 @@ G.Path = (() => {
       // Inmune al líquido que hace daño en este bioma (Fuego en la lava...): por él como por el suelo.
       e._pc = G.World.liquidEffect([]).dmg && !G.World.liquidEffect(e.types).dmg ? 2 : 0;
     }
-    return e._pc;
+    return e._pc || (e.dry === false ? 3 : 0);
   }
 
   function stateOf(pl) {
