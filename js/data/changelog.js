@@ -7,8 +7,8 @@
  */
 G.CHANGELOG = [
   { d: '2026-11-12', title: ["Gráficos pulidos en todo el juego", "Polished graphics across the whole game"], new: [
-    ["Nueva opción «Pokémon más nítidos» en Ajustes › Gráficos: un filtro hecho para pixel art que redondea los bordes y las curvas de los Pokémon sin emborronarlos ni cambiar sus colores. Viene apagada; en Ajustes ves cómo queda antes de encenderla.",
-     "New “Sharper Pokémon” option in Settings › Graphics: a filter made for pixel art that rounds the edges and curves of Pokémon without blurring them or changing their colors. It is off by default; Settings shows how it looks before you turn it on."],
+    ["Nueva opción «Pokémon más nítidos» en Ajustes › Gráficos: un filtro hecho para pixel art que redondea los bordes y las curvas de los Pokémon sin emborronarlos ni cambiar sus colores. Viene encendida con la calidad Máxima y apagada con las demás; en Ajustes ves cómo queda y la cambias cuando quieras.",
+     "New “Sharper Pokémon” option in Settings › Graphics: a filter made for pixel art that rounds the edges and curves of Pokémon without blurring them or changing their colors. It is on with Max quality and off with the others; Settings shows how it looks and you can change it anytime."],
     ["Nueva calidad Máxima para PC (Ajustes › Gráficos): Ultra con todo, más resolución, bordes suavizados, sombras más finas, brillo de verdad en el fuego, los rayos y las luces, más partículas y, en la aldea, más árboles. En la app de Windows se elige sola.",
      "New Max quality for PC (Settings › Graphics): Ultra with everything, higher resolution, smoothed edges, finer shadows, real glow on fire, beams and lights, more particles and, in the village, more trees. The Windows app picks it on its own."]
   ], chg: [
