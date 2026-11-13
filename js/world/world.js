@@ -734,7 +734,8 @@ G.World = (() => {
   function syncMode() {
     livePl = G.Game.state !== 'ui' ? G.Game.player : null;
     const u = G.Settings.ultra, p = !!(G.Tileset && G.Tileset.enabled());
-    const f = u && p && !!(G.Ultra3D && G.Ultra3D.on());      // (Ultra 3D) las paredes, en 3D (ultra3d.js): el suelo, plano
+    // (Ultra 3D) las paredes, en 3D (ultra3d.js): el suelo, plano. (14-11-2026) En PC, con los muros de rocas, también sin Ultra.
+    const f = p && !!(G.Ultra3D && (G.Ultra3D.walls3d ? G.Ultra3D.walls3d() : u && G.Ultra3D.on()));
     if (u === ultra && p === pmd && f === flat3d) return;
     ultra = u; pmd = p; flat3d = f;
     dropImages(images); if (fade) dropImages(fade.images); fade = null;

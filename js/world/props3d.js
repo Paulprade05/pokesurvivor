@@ -150,6 +150,17 @@ G.Props3D = (() => {
       fl[i] = o.flex ? o.flex * Math.max(0, (y - (o.fy || 6)) / (o.fh || 50)) : 0;
       gl[i] = o.glow || 0;
     }
+    // (Muros de rocas) moss: lo que mira arriba, del color del musgo; lava: el pie, de lava que brilla.
+    if (o.moss) for (let i = 0; i < n; i++) {
+      const t = Math.min(1, Math.max(0, (nr.getY(i) - 0.42) / 0.3));
+      for (let j = 0; j < 3; j++) cols[i * 3 + j] += (o.moss[j] - cols[i * 3 + j]) * t * 0.85;
+    }
+    if (o.lava) for (let i = 0; i < n; i++) {
+      const t = Math.max(0, 1 - p.getY(i) / 3);
+      if (t <= 0) continue;
+      for (let j = 0; j < 3; j++) cols[i * 3 + j] += (o.lava[j] - cols[i * 3 + j]) * t;
+      gl[i] = Math.max(gl[i], t * 0.9);
+    }
     q.setAttribute('color', new T.BufferAttribute(cols, 3));
     q.setAttribute('flex', new T.BufferAttribute(fl, 1));
     q.setAttribute('glow', new T.BufferAttribute(gl, 1));
@@ -264,6 +275,7 @@ G.Props3D = (() => {
       });
       return out;
     },
+    wall0: k => wallPile(k, 0), wall1: k => wallPile(k, 1), wall2: k => wallPile(k, 2), wall3: k => wallPile(k, 3),
     // Flora suelta: seta que brilla y cristal pequeño.
     fshroom: k => {
       const fl = arr(k.B.flowers || '#8fe3ff'), out = [];
@@ -306,8 +318,69 @@ G.Props3D = (() => {
     return out;
   }
 
+  /*
+   * (14-11-2026, el dueño: «los muros que sean trozos de roca amontonados») Un montón de rocas para una casilla de pared:
+   * una roca grande y 2-3 más pequeñas hacia los bordes (sobresalen un poco: con las de al lado, el muro se ve seguido).
+   * Rocas lisas (esfera con ruido suave, vértices juntados: sombreado continuo), con la piedra del bioma; en los de hierba,
+   * con musgo encima; en las cuevas, algún cristal; en el volcán, el pie con lava que brilla. 4 formas por bioma.
+   */
+  function n3(x, y, z, sd) {
+    const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z), fx = x - x0, fy = y - y0, fz = z - z0;
+    const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+    const h = (a, b, c) => H(x0 + a + (z0 + c) * 131, y0 + b, sd);
+    const l = (a, b, t) => a + (b - a) * t;
+    return l(l(l(h(0, 0, 0), h(1, 0, 0), u), l(h(0, 1, 0), h(1, 1, 0), u), v), l(l(h(0, 0, 1), h(1, 0, 1), u), l(h(0, 1, 1), h(1, 1, 1), u), v), w);
+  }
+  /** Una roca lisa de radio 1 (indexada, con las normales suaves), con la base algo plana. */
+  function boulder(sd) {
+    const src = new T.IcosahedronGeometry(1, seg(2, 1)), p = src.attributes.position, map = new Map(), pos = [], idx = [];
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), key = Math.round(x * 1e4) + ',' + Math.round(y * 1e4) + ',' + Math.round(z * 1e4);
+      let j = map.get(key);
+      if (j === undefined) {
+        j = pos.length / 3; map.set(key, j);
+        const r = 0.78 + 0.34 * n3(x * 1.6 + sd, y * 1.6, z * 1.6, 93) + 0.12 * n3(x * 4, y * 4, z * 4 + sd, 94);
+        pos.push(x * r, Math.max(-0.35, y * r), z * r);
+      }
+      idx.push(j);
+    }
+    src.dispose();
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    // (uv: de la posición, para la textura de piedra; se repite poco.)
+    const uv = []; for (let i = 0; i < pos.length; i += 3) uv.push(0.5 + (pos[i] + pos[i + 2] * 0.4) * 0.3, 0.5 + pos[i + 1] * 0.3);
+    g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+  function wallPile(k, v) {
+    const B = k.B, gd = B.ground, out = [];
+    const gr = arr(B.grass || '#3a9a42'), moss = gd === 'grass' || gd === 'wood' ? lin(hexRgb(gr[gr.length - 1] || '#82d266')).map(c => Math.min(1, c * 1.15)) : null;
+    const lava = gd === 'ash' ? lin(hexRgb('#ff7a2a')) : null;
+    const o = { aoH: 36, moss, lava };
+    // [x, z, radio, alto] (z de three.js = y del juego, el fondo). La grande, cerca del centro.
+    const R = [[(H(v, 1, 81) - 0.5) * 8, (H(v, 2, 81) - 0.5) * 8, 18 + H(v, 3, 81) * 4, 24 + H(v, 4, 81) * 8]];
+    const nS = 3 + (H(v, 5, 81) * 2 | 0);
+    for (let i = 0; i < nS; i++) {
+      const a = (i / nS + H(v, 6 + i, 81) * 0.3) * Math.PI * 2, d = 13 + H(v, 18 + i, 81) * 4;
+      R.push([Math.cos(a) * d, Math.sin(a) * d, 10 + H(v, 10 + i, 81) * 5, 12 + H(v, 14 + i, 81) * 9]);
+    }
+    R.forEach(([x, z, r, h], i) => {
+      out.push(part(boulder(v * 7 + i * 3), { x, y: h * 0.3, z, sx: r, sy: h * 0.55, sz: r * 0.95, ry: H(v, 20 + i, 81) * 6.28 }, 'stone', i ? '#e8e8e8' : '#ffffff', o));
+    });
+    // (Cuevas: un cristal que asoma entre las rocas en algunas formas.)
+    if (B.prop === 'crystal' && gd !== 'ash' && v % 2 === 1) {
+      const c = arr(B.leaf)[1] || arr(B.leaf)[0];
+      out.push(part(CY(3.6, 3.8, 20, 6), { x: 6, y: 26, z: -4, rz: -0.3, rx: 0.2 }, 'white', c, { glow: 0.35, aoH: 20 }));
+      out.push(part(CO(3.8, 8, 6), { x: 9.2, y: 39.5, z: -6, rz: -0.3, rx: 0.2 }, 'white', shadeH(c, 0.3), { glow: 0.5, ao: false }));
+    }
+    return out;
+  }
+
   /** Alto, medio ancho, si da sombra y grosor del contorno de cada modelo. */
   const META = {
+    wall0: [36, 26, true, 1.1], wall1: [36, 26, true, 1.1], wall2: [36, 26, true, 1.1], wall3: [36, 26, true, 1.1],
     tree0: [64, 30, true, 1.6], tree1: [66, 24, true, 1.6], dead: [52, 22, true, 1.2], crystal: [46, 20, true, 1.3], basalt: [50, 20, true, 1.3],
     altar0: [58, 18, true, 1.3], altar1: [58, 18, true, 1.3], altar2: [58, 18, true, 1.3], altar3: [58, 18, true, 1.3], altarU: [58, 18, true, 1.3],
     spring: [6, 26, false, 1], springD: [6, 26, false, 1], boom: [18, 18, true, 0.9],
@@ -320,7 +393,8 @@ G.Props3D = (() => {
     if (!k || !MODELS[key]) return null;
     let o = k.geos.get(key);
     if (o) return o;
-    const g = merge(MODELS[key](k)), [h, w, cast, hd] = META[key];
+    // (Los muros, casi sin aplastar de fondo: llenan su casilla como un bloque y las filas se tocan.)
+    const g = merge(MODELS[key](k), key.startsWith('wall') ? 0.95 : DEPTH), [h, w, cast, hd] = META[key];
     o = { g, hg: hd > 0 ? hullOf(g, hd) : null, w, h, cast, mat: k.mat, hullMat: k.hullMat, fadeMat: k.fadeMat, fadeHull: k.fadeHull };
     k.geos.set(key, o);
     return o;
