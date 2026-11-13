@@ -5121,7 +5121,6 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
 .pause-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(300px, calc(50% - 7px))), 1fr)); column-gap: 14px; align-items: start; }
 #pause-sum { display: contents; }
 .ps-card {
-  -webkit-column-break-inside: avoid; break-inside: avoid;
   margin: 0 0 14px; padding: 14px;
   border-radius: var(--rad-l); background: rgba(1, 6, 3, .35); border: 0; box-shadow: 0 0 0 1.5px var(--line-2), inset 0 2px 8px rgba(0, 0, 0, .4);
 }

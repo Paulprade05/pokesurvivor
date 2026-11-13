@@ -6,6 +6,11 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-14', title: ["Pausa más clara", "A clearer pause screen"], chg: [
+    ["Pausa nueva: una fila por ataque con su nivel, su daño (total, parte y por segundo) y, unida con una flecha, la pasiva con la que evoluciona y lo que te falta; dorada cuando ya está lista. Al lado, tus pasivas con su nivel y lo que evolucionan, y todas las estadísticas de tu Pokémon, también la recogida y la experiencia.",
+     "New pause screen: one row per move with its level, its damage (total, share and per second) and, joined by an arrow, the passive it evolves with and what you still need; gold once it is ready. Beside it, your passives with their level and what they evolve, and all your Pokémon's stats, including pickup and experience."],
+    ["El volumen ya no está en la pausa: está en Ajustes (botón de la propia pausa).",
+     "Volume is no longer in the pause screen: it is in Settings (button in the pause screen itself)."]] },
   { d: '2026-11-13', title: ["La aldea, más clara y con el Altar del Portal", "A brighter village with the Portal Altar"], new: [
     ["La Flor del Portal es ahora el Altar del Portal, más grande y en el centro de todo: un estrado de piedra con runas, el arco del portal entre dos pilares con cristales y raíces que lo abrazan. Tiene su propia luz y sus partículas, y un círculo de luz que te dice dónde ponerte y qué pulsar.",
      "The Portal Flower is now the Portal Altar, bigger and at the heart of everything: a stone dais with runes, the portal arch between two crystal-topped pillars and roots wrapped around it. It has its own light and particles, and a circle of light that tells you where to stand and what to press."],

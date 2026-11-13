@@ -716,7 +716,7 @@ G.RunUI = (() => {
       // Recogida: radio del imán (78 de base, player.js); experiencia y monedas, sus multiplicadores.
       ['magnet', 'Recogida', '+' + pct((pl.magnet || 78) / 78 - 1)],
       ['exp', 'Experiencia', '+' + pct((pl.xpMul || 1) - 1)]
-    ].map(([ico, a, b, s]) => `<div class="pz-st-row"><span class="pz-si">${G.Icons.html(ico, 30)}</span><span class="pz-sl">${a}</span><b>${b}${s ? `<small>${s}</small>` : ''}</b></div>`).join('');
+    ].map(([ico, a, b, s]) => `<div class="pz-st-row"><span class="pz-si">${G.Icons.html(ico, 30)}</span><span class="pz-sl" title="${G.T(a)}">${a}</span><b>${b}${s ? `<small>${s}</small>` : ''}</b></div>`).join('');
     const name = G.Mons && pl.mon ? `<small class="pz-mon">${G.Mons.name ? G.Mons.name(pl.mon.name) : pl.mon.name} · <span>Nv.</span> ${pl.level}</small>` : '';
     return `<section class="ps-card pz-card pz-stats"><h3><span>Tu Pokémon</span> ${name}</h3><div class="pz-sgrid">${rows}</div></section>`;
   }
