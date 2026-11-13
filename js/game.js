@@ -1621,7 +1621,7 @@ G.Game = (() => {
     drawAimMark();
     if (G.Settings.get('fps')) {
       ctx.save();
-      ctx.font = '600 12px Fredoka,"Segoe UI",system-ui,sans-serif';
+      ctx.font = '600 12px Grenze,"Segoe UI",system-ui,sans-serif';
       ctx.textAlign = 'right';
       ctx.fillStyle = fpsShown >= 50 ? '#5fe08a' : fpsShown >= 30 ? '#ffd23f' : '#ff5f6d';
       ctx.fillText(fpsShown + ' FPS', w - 10, h - 8);

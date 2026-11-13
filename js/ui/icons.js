@@ -104,7 +104,7 @@ G.Icons = (() => {
   const VEC_COLOR = {
     heart: '<path d="M12 20.3c-.3 0-7.8-4.6-7.8-10.1 0-2.6 2-4.5 4.4-4.5 1.5 0 2.8.8 3.4 2 .6-1.2 1.9-2 3.4-2 2.4 0 4.4 1.9 4.4 4.5 0 5.5-7.5 10.1-7.8 10.1z" fill="#ee3b3b" stroke="#7a1626" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.4 9.6a2.1 2.1 0 0 1 1.9-1.8" fill="none" stroke="#ffc9cf" stroke-width="1.5" stroke-linecap="round"/>',
     shiny: '<path d="M12 2.8l1.9 6.6 6.6 2.1-6.6 2.1L12 20.2l-1.9-6.6-6.6-2.1 6.6-2.1z" fill="#ff4d5e" stroke="#8e1b2b" stroke-width="1.3" stroke-linejoin="round"/><path d="M19 2.5v4M17 4.5h4" stroke="#ffcb05" stroke-width="1.6" stroke-linecap="round"/>',
-    cursor: '<path d="M8 4.5l9 7.5-9 7.5z" fill="#ffcb05" stroke="#1d3b78" stroke-width="1.6" stroke-linejoin="round"/>'
+    cursor: '<path d="M8 4.5l9 7.5-9 7.5z" fill="#b9f07a" stroke="#1a0f07" stroke-width="1.6" stroke-linejoin="round"/>'
   };
 
   // ---------------- dibujos de antes (12×12) ----------------

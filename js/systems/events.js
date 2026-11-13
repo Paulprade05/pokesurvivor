@@ -106,7 +106,7 @@ G.Events = (() => {
 
   // ---------------- duende del tesoro ----------------
 
-  const THIEF = { col: '#FFCB05' };
+  const THIEF = { col: '#F2C35A' };
 
   function spawnThief(players, time) {
     const gold = Math.random() < 0.25;
@@ -292,7 +292,7 @@ G.Events = (() => {
           // "!" que bota encima: está esperando a que lo toques.
           const by = L.y - h - 14 - Math.abs(Math.sin(now * 5)) * 6;
           ctx.save();
-          ctx.font = '700 16px Fredoka,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center';
+          ctx.font = '700 16px Grenze,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center';
           ctx.lineJoin = 'round';
           ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(6,12,30,.9)'; ctx.strokeText('!', L.x, by);
           ctx.fillStyle = '#7dffb0'; ctx.fillText('!', L.x, by);
@@ -323,14 +323,14 @@ G.Events = (() => {
                 Math.round(G.U.dist(pl.x, pl.y, to[0], to[1]) / 32) + ' m', F, 'heart');
     }
     for (const e of G.EnemyMgr.all()) {
-      if (e.behavior === 'thief' && !e.dead) edgeArrow(ctx, w, h, cam, e.x, e.y - 10, '#FFCB05', e.name, F, 'coin');
+      if (e.behavior === 'thief' && !e.dead) edgeArrow(ctx, w, h, cam, e.x, e.y - 10, '#F2C35A', e.name, F, 'coin');
     }
     if (hasPill()) {
       // Cuenta atrás en una chapa redonda del color del evento (estilo de hud.js).
       const left = Math.max(0, Math.ceil(cur.dur - cur.t));
       const txt = (cur.id === 'gold' ? 'HORA DORADA' : 'HORDA ' + G.U.TYPE_NAME[cur.type].toUpperCase()) + ' · ' + left + ' s';
       ctx.save();
-      G.HUD.pill(ctx, txt, w, py, cur.id === 'gold' ? '#FFCB05' : G.U.TYPE_COLOR[cur.type] || '#fff', 12 * (G.HUD.lay.k || 1));
+      G.HUD.pill(ctx, txt, w, py, cur.id === 'gold' ? '#F2C35A' : G.U.TYPE_COLOR[cur.type] || '#fff', 12 * (G.HUD.lay.k || 1));
       ctx.restore();
     }
   }

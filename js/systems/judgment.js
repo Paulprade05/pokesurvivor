@@ -495,7 +495,7 @@ G.Judgment = (() => {
     ctx.restore();
   }
 
-  // Letra de la interfaz (hud.js): Fredoka (títulos, avisos) y Nunito (textos pequeños).
+  // Letra de la interfaz (hud.js): Grenze (títulos, avisos) y Alegreya Sans (textos pequeños).
   const F = (wt, s) => G.HUD.F(Math.min(700, wt), s);
   const N = (wt, s) => G.HUD.N(wt, s);
 

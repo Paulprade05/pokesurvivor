@@ -399,7 +399,7 @@ G.FX = (() => {
   }
 
   /*
-   * Letra de los números de daño: Fredoka gruesa con borde oscuro. En pantalla,
+   * Letra de los números de daño: Grenze gruesa con borde oscuro. En pantalla,
    * nunca menos de 15 px los normales y 22 los grandes (× G.HUD.scale): en el
    * móvil salían diminutos. En pantallas grandes siguen al mundo, como antes
    * (13 y 20 del mundo). Las cadenas sólo se rehacen si cambia ese tamaño.
@@ -412,8 +412,8 @@ G.FX = (() => {
     if (k === NUM.k) return;
     NUM.k = k;
     const n = Math.max(15 * k, 13), b = Math.max(22 * k, 20);
-    NUM.n = '700 ' + n.toFixed(2) + 'px Fredoka,"Segoe UI",system-ui,sans-serif';
-    NUM.b = '700 ' + b.toFixed(2) + 'px Fredoka,"Segoe UI",system-ui,sans-serif';
+    NUM.n = '700 ' + n.toFixed(2) + 'px Grenze,"Segoe UI",system-ui,sans-serif';
+    NUM.b = '700 ' + b.toFixed(2) + 'px Grenze,"Segoe UI",system-ui,sans-serif';
     NUM.lw = n * 0.227;
   }
 

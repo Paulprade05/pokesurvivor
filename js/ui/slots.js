@@ -164,7 +164,7 @@ G.Slots = (() => {
     let i = 0;
     for (let x = 16; x < 146; x += 7) { bulb(x, 5, i++, winCol); bulb(x, 29, i++, winCol); }
     for (let y = 12; y < 28; y += 7) { bulb(15, y, i++, winCol); bulb(146, y, i++, winCol); }
-    ctx.font = '700 12px Fredoka,"Segoe UI",system-ui,sans-serif';
+    ctx.font = '700 12px Grenze,"Segoe UI",system-ui,sans-serif';
     ctx.textAlign = 'center';
     // Centrado en el cartel (x 14–148), no en el lienzo, que es más ancho por la palanca.
     ctx.fillStyle = C.dark; ctx.fillText('POKé SLOTS', 82, 23);
@@ -188,7 +188,7 @@ G.Slots = (() => {
     // --- marcador ---
     R(36, 100, 90, 16, C.dark);
     R(37, 101, 88, 14, C.led);
-    ctx.font = '700 9px Fredoka,"Segoe UI",system-ui,sans-serif';
+    ctx.font = '700 9px Grenze,"Segoe UI",system-ui,sans-serif';
     ctx.fillStyle = st.ledCol || C.bulbOn;
     // (Sin salirse del marcador: si es largo, se estrecha.)
     if (!st.frenzy || Math.floor(t * 10) % 2 === 0) ctx.fillText(st.led, 81, 111.5, 84);
