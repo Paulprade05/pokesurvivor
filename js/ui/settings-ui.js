@@ -219,6 +219,9 @@ G.SettingsUI = (() => {
         toggle('hpUnder', 'Vida bajo tu Pokémon', 'Una barra pequeña bajo tu Pokémon (y bajo tus compañeros) con la vida que le queda.'),
         toggle('lowHpWarn', 'Aviso de poca vida', 'Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.'),
         toggle('eco', 'Ahorro de energía', 'Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.'),
+        // (13-11-2026) El zoom de la cámara: en PC, también con la rueda del ratón en la partida.
+        choice('zoom', [[0.93, 'Lejos'], [1, 'Normal'], [1.12, 'Cerca'], [1.25, 'Muy cerca']], 'Zoom de la cámara',
+          G.Settings.touch ? 'Cuánto se acerca la cámara en la partida.' : 'Cuánto se acerca la cámara en la partida. También con la rueda del ratón mientras juegas.'),
         choice('hudScale', [[1, 'Normal'], [1.25, 'Grande'], [1.5, 'Muy grande']], 'Tamaño del HUD',
           'Vida, nivel, reloj y ataques de la partida. En pantallas grandes ya sale algo más grande.'),
         canFull() ? `<button type="button" class="list-row set-row set-switch" role="switch" aria-checked="${isFull()}" id="set-full">`
@@ -260,7 +263,7 @@ G.SettingsUI = (() => {
            <li><b>Datos de los Pokémon:</b> PokéAPI.</li>
            <li><b>Iconos de objetos:</b> Pokémon (Nintendo, Creatures, GAME FREAK), vía PokeAPI/sprites.</li>
            <li><b>Música y sonidos:</b> originales, generados por el propio juego.</li>
-           <li><b>Fuentes:</b> Fredoka, Nunito y Pixelify Sans (OFL).</li>
+           <li><b>Fuentes:</b> Grenze, Alegreya Sans y Pixelify Sans (OFL).</li>
          </ul>`
       + section('Enlaces')
       + `<div class="about-links">

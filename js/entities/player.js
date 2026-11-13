@@ -927,14 +927,14 @@ G.Player = class Player {
       ctx.restore();
     }
     if (this.tag) {
-      // Nombre (Fredoka) y aviso (Nunito) con al menos 12 y 11 px en pantalla
+      // Nombre (Grenze) y aviso (Alegreya Sans) con al menos 12 y 11 px en pantalla
       // (en el móvil, la cámara aleja); las letras se rehacen sólo si cambia el zoom.
       const T = Player._tagF || (Player._tagF = { s: 0, a: '', b: '', pa: 7, pb: 6 });
       if (T.s !== G.Camera.scale) {
         T.s = G.Camera.scale;
         T.pa = Math.max(7, 12 / (T.s || 1)); T.pb = Math.max(6, 11 / (T.s || 1));
-        T.a = '600 ' + T.pa.toFixed(2) + 'px Fredoka,"Segoe UI",system-ui,sans-serif';
-        T.b = '700 ' + T.pb.toFixed(2) + 'px Nunito,"Segoe UI",system-ui,sans-serif';
+        T.a = '600 ' + T.pa.toFixed(2) + 'px Grenze,"Segoe UI",system-ui,sans-serif';
+        T.b = '700 ' + T.pb.toFixed(2) + 'px "Alegreya Sans","Segoe UI",system-ui,sans-serif';
       }
       ctx.save();
       ctx.font = T.a;

@@ -18,7 +18,20 @@ G.Camera = {
   // (En móvil se aleja menos: con menos pantalla, los Pokémon tienen que seguir distinguiéndose.)
   MIN_VIEW_H_TOUCH: 470,
 
+  /*
+   * (13-11-2026, el dueño: «que pueda cambiar el zoom de la cámara con la rueda del ratón en web») zoom: ×0,93 (más lejos) a
+   * ×1,25 (más cerca); sigue suave a zoomTo (game.js lo mueve con la rueda y lo guarda en los ajustes). Para que no dé
+   * ventaja, lo que cuenta para jugar es lo que se ve sin zoom (w1 × h1): los disparos se acaban, las bombas dan y los
+   * enemigos salen como con ×1 (spawnW / spawnH). Alejar, sólo hasta ×0,93: es lo que cabe sin mover el anillo de
+   * aparición (su margen de 40 de las esquinas). Con ×0,85 los enemigos tenían que salir más lejos para no verse
+   * aparecer, llegaban tarde y se subía de nivel más despacio (bot, 4 partidas por lado: nivel 24 frente a 30 al minuto
+   * 10, el muro en el 17 frente al 25). Aun así, nunca salen ni se recolocan dentro de lo que ves (outerRadius y seesAny).
+   * Con ×1 justo, la escala de siempre (píxeles enteros); con zoom, la que toque.
+   */
+  zoom: 1, zoomTo: 1, ZOOM_MIN: 0.93, ZOOM_MAX: 1.25,
+  w1: 0, h1: 0, _css: null,
   resize(cssW, cssH, dpr = 1) {
+    this._css = [cssW, cssH];
     this.dpr = dpr;
     // Con el lado largo y el corto: en vertical (móvil de pie) se ve lo mismo
     // que en horizontal, girado, y los Pokémon salen del mismo tamaño.
@@ -26,9 +39,22 @@ G.Camera = {
     const raw = Math.min(Math.max(cssW, cssH) / this.VIEW_W, Math.min(cssW, cssH) / minH);
     // (Mundo integrado, 06-11-2026) Cada píxel de arte (2 unidades) ocupa un número entero de píxeles físicos. Con una escala cualquiera
     // salían unos de 3 y otros de 4 píxeles de ancho: se veían píxeles torcidos. La vista cambia un poco según la pantalla.
-    this.scale = Math.max(2, Math.round(2 * raw * dpr)) / (2 * dpr);
+    const base = Math.max(2, Math.round(2 * raw * dpr)) / (2 * dpr);
+    this.w1 = cssW / base;
+    this.h1 = cssH / base;
+    this.scale = Math.abs(this.zoom - 1) < 0.003 ? base : base * this.zoom;
     this.w = cssW / this.scale;
     this.h = cssH / this.scale;
+  },
+  /** El zoom que se quiere (se acota). */
+  setZoom(z) { this.zoomTo = Math.max(this.ZOOM_MIN, Math.min(this.ZOOM_MAX, +z || 1)); },
+  /** Lleva el zoom hacia zoomTo, suave (now: de golpe). */
+  stepZoom(dt, now = false) {
+    const t = this.zoomTo;
+    if (this.zoom === t || !this._css) return false;
+    this.zoom = now || Math.abs(this.zoom - t) < 0.003 ? t : t + (this.zoom - t) * Math.exp(-12 * dt);
+    this.resize(this._css[0], this._css[1], this.dpr);
+    return true;
   },
 
   follow(tx, ty, dt) {
@@ -109,12 +135,19 @@ G.Camera = {
   },
 
   /** ¿Está el punto dentro de la vista (con margen)? */
-  sees(x, y, pad = 60) {
-    const e = this.persp ? this._ext() : null;
-    const ex = e ? e.x : 0, et = e ? e.top : 0;
-    return x > this.left() - pad - ex && x < this.left() + this.w + pad + ex &&
-           y > this.top() - pad - et && y < this.top() + this.h + pad;
+  sees(x, y, pad = 60) { return this._sees(x, y, pad, this.w, this.h); },
+  /** Lo mismo con la vista sin zoom (lo que cuenta para jugar: igual con cualquier zoom). */
+  seesBase(x, y, pad = 60) { return this._sees(x, y, pad, this.w1 || this.w, this.h1 || this.h); },
+  /** En cualquiera de las dos (lo que se ve o lo que se vería sin zoom). */
+  seesAny(x, y, pad = 60) { return this.sees(x, y, pad) || this.seesBase(x, y, pad); },
+  _sees(x, y, pad, w, h) {
+    const K = this.persp, f = K ? K / (1 - K) : 0, ex = w / 2 * f, et = h / 2 * f;
+    return x > this.x - w / 2 - pad - ex && x < this.x + w / 2 + pad + ex &&
+           y > this.y - h / 2 - pad - et && y < this.y + h / 2 + pad;
   },
+  /** Ancho y alto de la vista para sacar enemigos fuera: la de sin zoom (igual con cualquier zoom). */
+  get spawnW() { return this.w1 || this.w; },
+  get spawnH() { return this.h1 || this.h; },
 
   /**
    * Radio del círculo que envuelve la vista: usado para spawnear fuera.
@@ -126,8 +159,12 @@ G.Camera = {
   // (Ultra: con la perspectiva, las esquinas de arriba quedan más lejos. persp: la de quien mira;
   // de un compañero no se sabe si juega en Ultra y spawner.js pasa ULTRA, por si acaso.)
   ULTRA: 0.18,
-  outerRadius(w = this.w, h = this.h, persp = this.persp) {
+  outerRadius(w = this.spawnW, h = this.spawnH, persp = this.persp) {
     const k = persp ? 1 / (1 - persp) : 1;
-    return Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
+    const r = Math.max(Math.hypot(w, h) / 2 * k + 40, h / 1.8 * k + 90);
+    // (Zoom) La de este aparato: alejando, como poco justo fuera de lo que ves (con ×0,93 casi nunca hace falta).
+    if (w !== this.spawnW || h !== this.spawnH || !this.w) return r;
+    const kc = this.persp ? 1 / (1 - this.persp) : 1;
+    return Math.max(r, Math.hypot(this.w, this.h) / 2 * kc + 10);
   }
 };

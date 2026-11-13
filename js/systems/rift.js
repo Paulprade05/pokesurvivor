@@ -715,7 +715,8 @@ G.Rift = (() => {
           ctx.globalAlpha = fadeIn * fadeOut;
           ctx.imageSmoothingEnabled = false;
           if (rot) ctx.drawImage(rot, Math.round(rift.x - rot.width), Math.round(rift.y - rot.height), rot.width * P, rot.height * P);
-          ctx.drawImage(sheet, (Math.floor(rift.t * 8) % 8) * 48, 0, 48, 64, Math.round(rift.x - 48), Math.round(rift.y - 118), 96, 128);
+          // (Partida en 3D: con bare, el portal lo dibuja ultra3d.js.)
+          if (!this.bare) ctx.drawImage(sheet, (Math.floor(rift.t * 8) % 8) * 48, 0, 48, 64, Math.round(rift.x - 48), Math.round(rift.y - 118), 96, 128);
           ctx.restore();
           if (Math.random() < 0.3) G.FX.px(rift.x + G.U.rand(-24, 24), rift.y - G.U.rand(10, 110), '#d9c2ff', { vy: -40, life: 0.6 });
           return;
