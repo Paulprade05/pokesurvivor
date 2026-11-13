@@ -733,7 +733,7 @@ G.World = (() => {
   let livePl = null;                                        // tu Pokémon en partida (en el menú, ninguno)
   function syncMode() {
     livePl = G.Game.state !== 'ui' ? G.Game.player : null;
-    const u = G.Settings.get('quality') === 'ultra', p = !!(G.Tileset && G.Tileset.enabled());
+    const u = G.Settings.ultra, p = !!(G.Tileset && G.Tileset.enabled());
     const f = u && p && !!(G.Ultra3D && G.Ultra3D.on());      // (Ultra 3D) las paredes, en 3D (ultra3d.js): el suelo, plano
     if (u === ultra && p === pmd && f === flat3d) return;
     ultra = u; pmd = p; flat3d = f;

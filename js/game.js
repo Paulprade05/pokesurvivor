@@ -33,7 +33,7 @@ G.Game = (() => {
     ctx = cv.getContext('2d');
     resize();
     addEventListener('resize', resizeSoon);
-    G.Settings.on(k => { if (k === 'eco') resize(); });      // ahorro de energía: cambia la resolución
+    G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });      // ahorro de energía y Máxima: cambian la resolución
     // iPhone: al girarlo o al abrirlo desde la pantalla de inicio avisa del
     // cambio ANTES de recolocar la página, y con esas medidas viejas el juego
     // se quedaba estirado. Se vuelve a medir cuando el lienzo cambia de verdad
@@ -79,6 +79,7 @@ G.Game = (() => {
     G.Sprites.purge();
     G.World.purge();
     D3.free();
+    Bloom.free();
     G.Ultra3D.free();
     // (iPhone: ataques invisibles, 02-11-2026) También los sprites guardados de ataques y avisos.
     G.VFX.purge();
@@ -231,7 +232,8 @@ G.Game = (() => {
     // Resolución interna como mucho ×1,5: en pantallas ×2 dibujar el doble de
     // píxeles era de lo que más costaba, y con el pixel art no se nota.
     // Con «Ahorro de energía», ×1 (menos calor y batería en portátiles y móviles).
-    const d = Math.min(G.Settings.get('eco') ? 1 : 1.5, window.devicePixelRatio || 1);
+    // (12-11-2026) Con la calidad Máxima (PC), hasta ×2: texto, HUD y bordes nítidos en pantallas de alta densidad.
+    const d = Math.min(G.Settings.get('eco') ? 1 : G.Settings.max ? 2 : 1.5, window.devicePixelRatio || 1);
     const cw = cv.clientWidth, ch = cv.clientHeight;
     if (!cw || !ch) return;
     G.Touch.resetSafe();
@@ -288,6 +290,7 @@ G.Game = (() => {
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
+    irisT = performance.now();                // (pulido 12-11-2026) la partida se abre en círculo desde tu Pokémon
     if (G.Village) G.Village.sleep();       // (la aldea del menú suelta su WebGL: se rehace al volver)
     const save = G.DB.save;
     // Se empieza con la primera fase de su línea (24-10-2026: evoluciona en la
@@ -490,6 +493,23 @@ G.Game = (() => {
 
   // Destello de pantalla completa (viaje a la grieta).
   let flashT = 0, flashDur = 1, flashCol = '#fff';
+  // (Pulido 12-11-2026: transiciones) Al empezar, la pantalla se abre en un círculo suave desde tu Pokémon.
+  const IRIS = 750;
+  let irisT = 0;                       // cuándo empezó (ms); 0: nada
+  function drawIris() {
+    const k = Math.min(1, (performance.now() - irisT) / IRIS), e = k * k * (3 - 2 * k);
+    if (k >= 1) { irisT = 0; return; }
+    let x = w / 2, y = h / 2;
+    if (pl) { const p = G.Camera.toScreen(pl.x, pl.y - 20); x = p.x; y = p.y; }
+    const R = Math.hypot(w, h) * e + 1;
+    const g = ctx.createRadialGradient(x, y, R * 0.6, x, y, R * 1.05 + 40);
+    g.addColorStop(0, 'rgba(5,8,16,0)'); g.addColorStop(1, 'rgba(5,8,16,1)');
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - e) * 1.4);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
   function flash(col, dur) { flashCol = col; flashDur = dur; flashT = dur; }
 
   function teamState() {
@@ -1377,7 +1397,8 @@ G.Game = (() => {
       for (const e of ens) if (e.y <= -1e8) e.draw(gx);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      for (let r = 0; r < GH; r += GB) {
+      if (!K) ctx.drawImage(gcv, 0, 0, GW, GH, ((ox - cx) + hw + shX) * Kd, (oy - cy + hh + shY) * Kd, GW * Kd, GH * Kd);   // (sin perspectiva: de una vez)
+      else for (let r = 0; r < GH; r += GB) {
         const v0 = oy + r - cy, v1 = v0 + GB;
         const y0 = Math.round((v0 / (1 - a * v0) + hh + shY) * Kd), y1 = Math.round((v1 / (1 - a * v1) + hh + shY) * Kd);
         if (y1 <= 0 || y1 <= y0) continue;
@@ -1496,7 +1517,8 @@ G.Game = (() => {
         for (const e of ens) if (e.y >= 1e8) e.draw(ax);
         // (Sin suavizar: nítido y bastante más barato que con suavizado.)
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        for (let y = 0; y < Hd; y += BAND) {
+        if (!K) ctx.drawImage(acv, 0, 0, AW, AH, (aox - cx + hw + shX) * Kd, (aoy - cy + hh + shY) * Kd, AW, AH);      // (sin perspectiva: de una vez)
+        else for (let y = 0; y < Hd; y += BAND) {
           const Y0 = y / Kd - hh - shY, Y1 = (y + BAND) / Kd - hh - shY;
           const sy0 = (cy + Y0 / (1 + a * Y0) - aoy) * Kd, sy1 = (cy + Y1 / (1 + a * Y1) - aoy) * Kd;
           if (sy1 <= 0 || sy0 >= AH) continue;
@@ -1505,7 +1527,7 @@ G.Game = (() => {
         }
       }
       // (2,5D) Lo lejano se pierde en la bruma del mapa, a franjas: es lo que más ayuda a leer la profundidad.
-      const hz = G.Tileset && G.Tileset.ready(G.World.biome) ? G.Tileset.haze(G.World.biome) : null;
+      const hz = K && G.Tileset && G.Tileset.ready(G.World.biome) ? G.Tileset.haze(G.World.biome) : null;
       if (hz) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         const n = 7, bh = Math.ceil(Hd * 0.075);
@@ -1562,8 +1584,10 @@ G.Game = (() => {
     if (stone) ents.push(stone);
     // (iPhone: ataques invisibles, 02-11-2026) Ultra sin memoria para su lienzo del suelo: antes el fotograma
     // salía vacío (ni ataques); ahora ese fotograma va en 2D, como sin Ultra.
-    if (!G.Camera.persp || !D3.draw(G.Camera, ents, true)) {
-      if (G.Camera.persp) ctx.clearRect(0, 0, w, h);
+    // (Pulido 12-11-2026) En PC con calidad alta, rocas y cofres en 3D también sin Ultra: el mismo camino, sin perspectiva.
+    const d3 = G.Camera.persp || G.Ultra3D.flat();
+    if (!d3 || !D3.draw(G.Camera, ents, true)) {
+      if (d3) ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.scale(G.Camera.scale, G.Camera.scale);
       G.Camera.apply(ctx);
@@ -1578,6 +1602,7 @@ G.Game = (() => {
 
     if (bwHits) bwWorld = readWorld() || '';      // (con sospechas: cómo está el mundo antes de los velos de encima)
     G.Weather.draw(ctx, w, h, frameDt);
+    Bloom.apply();                                 // (calidad Máxima: brillo de lo claro, antes de la viñeta y el HUD)
     G.World.drawVignette(ctx, w, h);
     // Niebla: la viñeta se cierra un poco (sin tapar el centro).
     // (El degradado se guarda y la intensidad va con globalAlpha: mismo resultado.)
@@ -1588,6 +1613,7 @@ G.Game = (() => {
       ctx.globalAlpha = 1;
     }
     if (bwOn) blackWatch();
+    if (irisT) drawIris();
     if (!G.Judgment.cinematic) G.HUD.draw(ctx, w, h, pl, st);
     G.Judgment.drawOverlay(ctx, w, h);
     // (En el viaje por la grieta no hay HUD ni joystick: toda la pantalla es el botón de saltarlo.)
@@ -1611,6 +1637,44 @@ G.Game = (() => {
     }
     drawing = false;
   }
+
+  /*
+   * (12-11-2026) Bloom de verdad con la calidad Máxima (PC): lo claro de la escena (fuego, rayos, luces, cristales) se
+   * queda, se difumina en un lienzo a un cuarto de tamaño y se suma encima. Antes de la viñeta y del HUD: los textos y
+   * los números no brillan. Necesita ctx.filter (Chrome, Edge, Firefox y la app de Windows); si no lo hay, no se hace.
+   * Coste medido en PC: ~0,3 ms por fotograma (dos dibujos pequeños y uno a pantalla completa).
+   */
+  const Bloom = (() => {
+    let a = null, ax2 = null, b = null, bx2 = null, ok = null;
+    function apply() {
+      if (!G.Settings.max || G.Settings.fx < 2 || G.Settings.get('calm')) return;
+      if (ok === null) { const t = document.createElement('canvas').getContext('2d'); ok = !!t && typeof t.filter === 'string'; }
+      if (!ok) return;
+      const W = cv.width, Hh = cv.height, bw = Math.max(8, Math.round(W / 4)), bh = Math.max(8, Math.round(Hh / 4));
+      if (!a) { a = document.createElement('canvas'); ax2 = a.getContext('2d'); b = document.createElement('canvas'); bx2 = b.getContext('2d'); }
+      if (!ax2 || !bx2) { ok = false; return; }
+      if (a.width !== bw || a.height !== bh) { a.width = b.width = bw; a.height = b.height = bh; }
+      // Lo claro: contraste alto (lo medio se apaga), a un cuarto de tamaño; luego difuminado.
+      ax2.globalCompositeOperation = 'copy'; ax2.imageSmoothingEnabled = true;
+      ax2.filter = 'brightness(0.8) contrast(2.8) saturate(1.35)';
+      ax2.drawImage(cv, 0, 0, bw, bh);
+      ax2.filter = 'none';
+      bx2.globalCompositeOperation = 'copy';
+      bx2.filter = 'blur(' + Math.max(2, Math.round(bw / 160)) + 'px)';
+      bx2.drawImage(a, 0, 0);
+      bx2.filter = 'none';
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.34;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(b, 0, 0, W, Hh);
+      ctx.restore();
+      ctx.imageSmoothingEnabled = false;
+    }
+    function free() { G.U.freeCanvas(a); G.U.freeCanvas(b); a = b = ax2 = bx2 = null; }
+    return { apply, free };
+  })();
 
   // ---------------- fondo de los menús ----------------
 

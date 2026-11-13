@@ -701,6 +701,15 @@ G.Rift = (() => {
         const fadeIn = Math.min(1, rift.t * 2), fadeOut = Math.min(1, rift.ttl / 1.5);
         // (Muros y grietas, 05-11-2026) El portal dibujado con pxl (tools/pxl/mapas.px.js): 8 fotogramas y el suelo roto debajo.
         const sheet = G.Tileset && G.Tileset.pxImg('riftp'), rot = G.Tileset && G.Tileset.pxImg('riftsuelo');
+        // (Pulido 12-11-2026: «grietas con más presencia») Luz violeta que late en el suelo y una columna de luz que sube.
+        const pu = 0.5 + Math.sin(rift.t * 2.6) * 0.5, fa = fadeIn * fadeOut;
+        G.FX.glowAt(ctx, rift.x, rift.y - 6, 130 + pu * 20, 50 + pu * 8, '#8a4cff', (0.8 + pu * 0.2) * fa);
+        G.FX.glowAt(ctx, rift.x, rift.y - 70, 50, 130, '#c9a6ff', (0.38 + pu * 0.16) * fa);
+        if (G.Settings.fx > 1 && Math.random() < 0.5) {
+          // Motas que giran hacia dentro del portal.
+          const a = Math.random() * 6.2832, d = G.U.rand(60, 110);
+          G.FX.px(rift.x + Math.cos(a) * d, rift.y - 50 + Math.sin(a) * d * 0.5, Math.random() < 0.5 ? '#b48cff' : '#ffffff', { vx: -Math.cos(a) * d * 1.4, vy: -Math.sin(a) * d * 0.7, life: 0.65, drag: 1 });
+        }
         if (sheet) {
           ctx.save();
           ctx.globalAlpha = fadeIn * fadeOut;

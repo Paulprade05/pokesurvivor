@@ -6045,3 +6045,8 @@ html:not(.no-anim) .menu-item.play::after {
 @keyframes play-sheen { 0%, 62% { transform: translateX(-160%) skewX(-18deg); } 100% { transform: translateX(640%) skewX(-18deg); } }
 html:not(.no-anim) #scr-menu .logo .t1 { animation: logo-float 4.6s ease-in-out infinite; }
 @keyframes logo-float { 50% { transform: translateY(-4px); } }
+
+/* (12-11-2026) Ajustes › Gráficos: vista previa del filtro «Pokémon más nítidos» (sin filtro · con filtro). */
+#scr-settings .set-pix { min-height: 0; gap: 12px; }
+#scr-settings .set-pix canvas { width: 240px; height: 112px; flex: none; border-radius: 10px; background: rgba(20, 30, 26, .85); }
+#scr-settings .set-pix small { opacity: .75; }
