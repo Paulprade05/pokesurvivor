@@ -176,7 +176,8 @@ G.EnemyAI = (() => {
   /** Más de 4 s atascado: si nadie lo ve, sale por delante; si se ve, saltito por el camino. */
   function unstick(e, pl) {
     e.aiStuckT = 0; e.aiW = null; e.aiWall = null;
-    const seen = G.Camera.sees(e.x, e.y, 60) || (G.Coop.active && G.Game.everyone().some(o => o && o !== pl && !o.dead && G.U.dist2(o.x, o.y, e.x, e.y) < 700 * 700));
+    const seen = (G.Camera.seesAny ? G.Camera.seesAny(e.x, e.y, 60) : G.Camera.sees(e.x, e.y, 60)) ||   // (zoom: como con ×1, y nunca a la vista)
+      (G.Coop.active && G.Game.everyone().some(o => o && o !== pl && !o.dead && G.U.dist2(o.x, o.y, e.x, e.y) < 700 * 700));
     if (!seen && !e.boss && !(G.Rift && G.Rift.inArena) && G.Spawner.ahead(e, pl)) return;
     const to = G.Path.ahead(e, pl, 2 + (hashOf(e, 5) < 0.5 ? 0 : 1));
     if (to && G.World.isFree(to[0], to[1], Math.min(e.r * 0.8, G.World.TS * 0.45))) leap(e, to[0], to[1], 0.25, 0.5);
