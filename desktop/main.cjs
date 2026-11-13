@@ -213,15 +213,15 @@ app.on('second-instance', () => {
 
 // ---- ¿Hay versión nueva? ---------------------------------------------------
 // La app se reparte en GitHub Releases como PokeSurvivor-Windows.zip, con la
-// etiqueta vX.Y.Z = la versión de desktop/package.json. Al abrir (como mucho
+// etiqueta win-vX.Y.Z = la versión de desktop/package.json. Al abrir (como mucho
 // una vez al día) se mira la última; si es más nueva, se avisa y se abre la
 // descarga en el navegador. Sin red o sin releases, no pasa nada.
 const RELEASES = 'https://api.github.com/repos/Paulprade05/pokesurvivor/releases/latest';
 const ARCHIVO = 'PokeSurvivor-Windows.zip';
 
-function masNueva(a, b) {          // ¿la versión a es mayor que b? ('0.10.0' > '0.9.1')
-  const pa = String(a).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
-  const pb = String(b).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+function masNueva(a, b) {          // ¿la versión a es mayor que b? ('win-v0.10.0' > '0.9.1')
+  const pa = String(a).replace(/^\D+/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const pb = String(b).replace(/^\D+/, '').split('.').map(n => parseInt(n, 10) || 0);
   for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
   return false;
 }
@@ -238,7 +238,7 @@ async function comprobarVersion(win) {
     const zip = (rel.assets || []).find(a => a.name === ARCHIVO);
     if (!zip || rel.draft || rel.prerelease || !masNueva(rel.tag_name, app.getVersion())) return;
     const es = /^es/i.test(app.getLocale());
-    const nueva = String(rel.tag_name).replace(/^v/, '');
+    const nueva = String(rel.tag_name).replace(/^\D+/, '');
     const { response } = await dialog.showMessageBox(win, {
       type: 'info', title: 'PokéSurvivor',
       message: es ? `Hay una versión nueva para PC (${nueva}).` : `A new PC version is available (${nueva}).`,

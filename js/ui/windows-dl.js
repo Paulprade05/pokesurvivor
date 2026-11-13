@@ -35,7 +35,7 @@ G.WindowsDL = (() => {
   function parse(rel) {
     const a = rel && Array.isArray(rel.assets) && rel.assets.find(x => x && x.name === ARCHIVO);
     if (!a || rel.draft || rel.prerelease) return { ok: false };
-    return { ok: true, version: String(rel.tag_name || '').replace(/^v/, ''), mb: Math.round((a.size || 0) / 1048576) };
+    return { ok: true, version: String(rel.tag_name || '').replace(/^\D+/, ''), mb: Math.round((a.size || 0) / 1048576) };
   }
 
   /** Pregunta a GitHub si hay descarga (una vez por sesión). Nunca falla: sin red o sin release, ok:false. */

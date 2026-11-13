@@ -40,7 +40,7 @@ const path = require('path');
   execFileSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe'),
     ['-a', '-c', '-f', zip, '-C', out, 'PokeSurvivor'], { stdio: 'inherit' });
   const mb = f => (fs.statSync(f).size / 1048576).toFixed(1) + ' MB';
-  console.log('Versión:', pkg.version, '(la etiqueta de la release tiene que ser v' + pkg.version + ')');
+  console.log('Versión:', pkg.version, '(etiqueta de la release: win-v' + pkg.version + ')');
   console.log('App:', path.join(fija, 'PokeSurvivor.exe'));
   console.log('Zip:', zip, mb(zip));
 })().catch(e => { console.error(e); process.exit(1); });

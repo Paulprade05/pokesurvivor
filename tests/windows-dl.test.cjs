@@ -120,4 +120,26 @@ test('la app compara versiones como números (0.10.0 es más nueva que 0.9.1)', 
   assert.equal(masNueva('v0.1.9', '0.2.0'), false);
   assert.equal(masNueva('1.0', '0.9.9'), true);
   assert.equal(masNueva('', '0.2.0'), false);
+  // Las releases de Windows llevan la etiqueta win-vX.Y.Z (.github/workflows/windows-release.yml).
+  assert.equal(masNueva('win-v0.2.1', '0.2.0'), true);
+  assert.equal(masNueva('win-v0.2.0', '0.2.0'), false);
+  assert.equal(masNueva('win-v0.10.0', '0.9.1'), true);
+});
+
+test('etiqueta win-vX.Y.Z: la fila de Ajustes enseña la versión sin el prefijo', async () => {
+  const { W } = boot({ fetchImpl: ok(release({ tag_name: 'win-v0.2.0' })) });
+  const r = await W.check();
+  assert.equal(r.ok, true);
+  assert.equal(r.version, '0.2.0');
+});
+
+test('el workflow de la release sube el archivo que buscan Ajustes y la app, sin borrador ni prerelease', () => {
+  const y = source('.github/workflows/windows-release.yml');
+  assert.match(y, /win-v\*/);
+  assert.match(y, /workflow_dispatch/);
+  assert.match(y, /contents: write/);
+  assert.match(y, /PokeSurvivor-Windows\.zip/);
+  assert.match(y, /desktop\/package\.json/, 'comprueba que la etiqueta y la versión de la app coinciden');
+  assert.doesNotMatch(y, /--draft(?!=false)|--prerelease(?!=false)|secrets\.(?!GITHUB_TOKEN)/);
+  assert.doesNotMatch(y, /pages/i, 'no toca GitHub Pages');
 });

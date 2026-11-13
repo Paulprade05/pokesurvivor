@@ -61,14 +61,25 @@ El nombre real de la gráfica se lee en la página con WebGL (`WEBGL_debug_rende
 
 ## Publicar una versión de Windows (sólo cuando el dueño lo pida)
 
-1. En la raíz: `node tools/build.js && node tools/export_data.js && py tools/make_seo_pages.py`.
-2. Sube `version` en `desktop/package.json` (por ejemplo 0.2.0 → 0.3.0).
-3. `npm run empaquetar` en `desktop/`.
-4. En GitHub: nueva release con etiqueta `v<versión>` (por ejemplo `v0.3.0`), no borrador ni
-   prerelease, con el archivo `dist/PokeSurvivor-Windows.zip` **con ese nombre exacto**.
-5. Con eso, en la web sale Ajustes › Acerca de › «Descargar para Windows» (sólo en PC con
+La release la hace GitHub Actions (`.github/workflows/windows-release.yml`, gratis, con el
+token del propio workflow): en un runner `windows-latest` hace `npm ci` aquí, copia la web
+**ya compilada del commit** (no compila el juego ni publica la web), empaqueta y sube
+`PokeSurvivor-Windows.zip` a una release normal (ni borrador ni prerelease, marcada como la
+última) titulada «PokéSurvivor para Windows X.Y.Z», con una nota es/en sobre SmartScreen.
+
+1. En la raíz: `node tools/build.js && node tools/export_data.js && py tools/make_seo_pages.py`,
+   y que el resultado esté en `main` (lo que se empaqueta es lo del commit de la etiqueta).
+2. Si es una versión nueva de la app, sube `version` en `desktop/package.json` (0.2.0 → 0.3.0).
+3. Empuja la etiqueta **`win-v<versión>`** (por ejemplo `win-v0.2.0`) sobre ese commit de
+   `main`; o en Actions › «Versión para Windows» › *Run workflow* con esa etiqueta (crea la
+   etiqueta sobre el commit elegido). El workflow falla si la etiqueta no es `win-vX.Y.Z` o no
+   coincide con `desktop/package.json`. Si la release ya existe, sustituye el .zip.
+4. Con eso, en la web sale Ajustes › Acerca de › «Descargar para Windows» (sólo en PC con
    Windows; `js/ui/windows-dl.js` pregunta a la API de GitHub si existe) y las apps ya
-   instaladas avisan de la versión nueva.
+   instaladas avisan de la versión nueva (comparan el número de la etiqueta, sin `win-v`).
+
+A mano (sin Actions): `npm run empaquetar` y subir `dist/PokeSurvivor-Windows.zip` **con ese
+nombre exacto** a una release con la misma etiqueta.
 
 Sin release no sale la fila (no hay enlace roto). Para actualizar, el jugador descomprime el
 .zip nuevo encima del viejo: la partida está en `%APPDATA%\PokeSurvivor\`, no en la carpeta.
@@ -82,6 +93,7 @@ Sin release no sale la fila (no hay enlace roto). Para actualizar, el jugador de
 | `copiar-web.cjs` | Copia la web compilada (archivos de git) a `www/` |
 | `empaquetar.cjs` | Hace el `.exe` y `PokeSurvivor-Windows.zip` (nombres fijos) |
 | `medir-fps.cjs` | Juega como invitado y mide FPS en la app y en los navegadores |
+| `../.github/workflows/windows-release.yml` | Hace la release al empujar `win-vX.Y.Z` |
 | `icono.ico` | Icono del `.exe` (de `assets/icons/icon-512.png`) |
 
 `www/`, `dist/` y `node_modules/` no van a git.
