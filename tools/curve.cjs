@@ -431,6 +431,8 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       const v = [...document.querySelectorAll('#scr-result button')].find(b => b.offsetParent);
       if (v) { v.click(); await sleep(1200); }
     });
+    // (13-11-2026) CURVE_ZOOM=0.85 (o 1.25): la partida con ese zoom de cámara, para ver que no cambia el juego.
+    if (process.env.CURVE_ZOOM) { await page.evaluate(z => G.Settings.set('zoom', z), +process.env.CURVE_ZOOM); log('zoom ' + process.env.CURVE_ZOOM); }
     await page.evaluate(async (dex, upg, want, pref, mega) => {
       if (pref) BOT.pref = pref;
       if (want) {       // (--quiere: sólo esos ataques en las cartas y el primero, de inicio)

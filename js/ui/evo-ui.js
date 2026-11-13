@@ -333,7 +333,7 @@ G.EvoUI = (() => {
     ctx.globalAlpha = 1;
     const cy = Math.round(y - 20 + bob);
     ctx.translate(x, cy); ctx.scale(K, K);
-    ctx.fillStyle = 'rgba(10,16,34,.85)';
+    ctx.fillStyle = 'rgba(6,14,8,.88)';
     ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(8, 0); ctx.lineTo(0, 10); ctx.lineTo(-8, 0); ctx.closePath(); ctx.fill();
     ctx.fillStyle = o.color;
     ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill();

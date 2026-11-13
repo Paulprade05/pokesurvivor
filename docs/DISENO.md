@@ -1,63 +1,83 @@
-# Sistema de diseño de PokéSurvivor («Pokémon moderno», 22-10-2026)
+# Sistema de diseño de PokéSurvivor («Raíces vivas», 13-11-2026)
 
 Guía para quien rediseñe una pantalla. Todo está en `css/style.css` (secciones
-0 a 16 = la base; de la 17 en adelante, las pantallas que aún no se han
-rediseñado). Síguela al pie de la letra: así todas las pantallas parecen del
-mismo juego.
+0 a 16 = la base; de la 17 en adelante, cada pantalla). Síguela al pie de la
+letra: así todas las pantallas parecen del mismo juego.
 
-**La idea.** La interfaz es lisa, redondeada y con mucho contraste (como los
-menús de Escarlata/Púrpura, Leyendas Z-A, UNITE o GO). El **mundo** del juego
-(mapa, Pokémon, ataques) sigue en pixel art y se ve vivo detrás de las
-pantallas. Los **iconos de cosas del juego** son sprites de objetos reales de
-Pokémon (pixel art) metidos en una baldosa redonda. **Nada de letra pixel ni de
-cajas de borde doble estilo Mundo Misterioso en el DOM.**
+**La idea.** Pedido del dueño (13-11-2026): que la interfaz no se vea como una web
+moderna hecha con IA, sino como un juego de verdad con un toque propio. Se
+eligió entre seis maquetas la **«Raíces vivas»**: un juego ilustrado (la
+sensación de Hades, sin copiarlo) hecho del bosque bioluminiscente del juego.
+- **Paneles** de musgo oscuro con **marco de corteza**: un trazo casi negro, la
+  corteza y su luz. Las esquinas de las ventanas llevan **raíces, hojas y setas
+  que brillan** (rosa y turquesa).
+- **Luz de hoja** (verde claro) para lo principal, lo elegido y el foco;
+  **ámbar** para lo que vale monedas; **oro** para las evoluciones.
+- **Letras con carácter**: Grenze (títulos, botones, cifras) y Alegreya Sans (texto).
+- El **mundo** (mapa, Pokémon, ataques) sigue en pixel art. La interfaz **no**
+  es pixel art: es vector, como un juego ilustrado. Los **iconos de cosas del
+  juego** siguen siendo sprites de objetos reales en un medallón redondo.
+- Sin cristal (`backdrop-filter`), sin degradados azules, sin emojis como iconos.
+
+**Arte de la interfaz.** Sale todo de `tools/ui-art.cjs` → `assets/ui/` (no se
+editan los SVG a mano): `marco.svg` (ventanas), `marco-s.svg` (tarjetas, avisos,
+menús), `marco-liso.svg`, `boton*.svg` (normal, principal, ámbar, peligro),
+`medalla.svg` (botones redondos), `separador.svg` (raíz bajo un título) y
+`musgo.png` (textura del fondo, se repite). Pesa ~25 KB en total.
 
 ---
 
 ## 1. Tokens (variables de `:root`)
 
-Usa siempre la variable, nunca el valor suelto.
+Usa siempre la variable, nunca el valor suelto. **Ojo con dos nombres viejos**:
+`--c-yellow` ya no es amarillo, es la luz de hoja; `--c-blue` es el turquesa de
+las setas. Se quedaron para no romper miles de reglas.
 
 ### Color
 
 | Variable | Valor | Para qué |
 |---|---|---|
-| `--c-yellow` | `#ffcb05` | Acción principal (botón «Jugar», «Elegir», «Guardar»). Texto encima: `--c-on-yellow`. |
-| `--c-yellow-hi` | `#ffd84a` | Parte de arriba del degradado amarillo, hover. |
-| `--c-on-yellow` | `#14204a` | Texto sobre amarillo (10:1). |
-| `--c-blue` / `--c-blue-hi` / `--c-blue-btn` | `#3d7dca` / `#4a8ad6` / `#2f6bb8` | Secundario. Fondo de botón azul = `--c-blue-btn` (blanco encima ≥ 4,5:1). |
-| `--c-blue-deep` | `#1d3b78` | Azul profundo (contorno del logotipo, fondos). |
-| `--c-red` / `--c-red-btn` | `#ee3b3b` / `#d62f3a` | Peligro, avisos, punto de «nuevo». Botón rojo = `--c-red-btn`. |
-| `--c-green`, `--c-pink`, `--c-purple`, `--c-cyan` | | Acentos (éxito, rosa, épico, shiny). |
-| `--bg-0` / `--bg-1` / `--bg-2` | `#070e22` / `#0b1530` / `#14224a` | Fondos (de más oscuro a menos). |
-| `--surface` | `rgba(17,30,68,.86)` | Panel de cristal (`.box`). Reserva sin desenfoque: `--surface-solid`. |
-| `--surface-float` | `rgba(17,30,68,.96)` | Menús flotantes, avisos, tooltips. |
-| `--card` / `--card-hi` / `--card-press` | blanco al 6 / 10 / 15 % | Tarjeta dentro de un panel; al pasar por encima; al pulsar. |
-| `--sunk` | `rgba(3,8,24,.38)` | Hundido: campos, pistas de barras, segmentos. |
-| `--chrome` | `rgba(11,21,48,.8)` | Pastillas de la barra de arriba. |
-| `--line-1` / `--line-2` / `--line-3` | blanco al 8 / 14 / 26 % | Bordes de 1 px: suave, normal, marcado (hover). |
-| `--ink` | `#f4f7ff` | Texto principal. |
-| `--muted` | `#afc0e6` | Texto secundario (≥ 6:1 sobre panel). |
-| `--faint` | `#8fa3d1` | Texto terciario (≥ 4,5:1). No más claro que esto para texto. |
+| `--c-yellow` | `#b9f07a` | **Luz de hoja.** Lo principal, lo elegido, el foco. Texto encima: `--c-on-yellow` (`#10200b`). Con alfa: `rgba(var(--hl-rgb), .2)`. |
+| `--leaf-bg` | degradado verde | Fondo de lo encendido (pestaña, segmento, interruptor, botón principal). |
+| `--amber` / `--amber-bg` / `--amber-rgb` | `#f2c35a` | Monedas, precios, lo que se paga (`.btn.amber`, `.shop-buy`, `.upg-buy`), `.gold` (texto). |
+| `--c-blue` / `--c-blue-btn` | `#5ff2d6` / `#1d6b5e` | Turquesa de seta: secundario, barras de estadísticas. |
+| `--c-red` / `--c-red-btn` | `#ff5a6e` / `#c8362e` | Peligro, avisos, punto de «nuevo». |
+| `--c-pink`, `--c-green`, `--c-purple`, `--c-cyan` | | Acentos (la otra seta, éxito, épico, shiny). |
+| `--bark` / `--bark-hi` / `--bark-lo` / `--bark-ink` | `#4e331d` … `#1a0f07` | Corteza: bordes de tarjeta, marcos. |
+| `--bark-edge` | sombra | Borde de corteza en CSS para lo que se repite (casillas, filas, pastillas): `box-shadow: var(--bark-edge)`. |
+| `--bg-0` / `--bg-1` / `--bg-2` | `#040a06` / `#07110a` / `#12241a` | Fondos. |
+| `--panel-bg` | textura + degradado | Fondo de un panel (`.box`, avisos, menús). Con `background-clip: padding-box`. |
+| `--card-bg` | degradado musgo | Tarjeta con cuerpo (casilla, fila, carta). |
+| `--card` / `--card-hi` / `--card-press` | luz de hoja al 5 / 10 / 15 % | Velo de tarjeta; al pasar por encima; al pulsar. |
+| `--sunk` | `rgba(1,6,3,.55)` | Hundido: campos, pistas de barras, segmentos. |
+| `--line-1` / `--line-2` / `--line-3` | corteza al 16 / 30 / 50 % | Bordes finos. |
+| `--fr-l` / `--fr-s` / `--fr-flat` | marcos | `border-image` de ventana, tarjeta y liso (ver §3). |
+| `--ink` | `#eef3df` | Texto principal. |
+| `--muted` | `#b6c8a6` | Texto secundario. |
+| `--faint` | `#93a886` | Terciario. No más claro que esto para texto. |
+| `--title-ink` / `--title-ts` | | Color y sombra de los títulos (`h1`–`h4` ya los llevan). |
 | `--link` / `--err` / `--ok` | | Enlaces, errores, correcto. |
-| `--r1`…`--r5`, `--bond`, `--shiny` | | Rarezas (común → legendaria), vínculo, shiny. Igual que siempre. |
+| `--r1`…`--r5`, `--bond`, `--shiny` | | Rarezas (común → legendaria), vínculo, shiny. |
 | Tipos | `G.U.TYPE_COLOR[tipo]` | Llega en línea (`style="background:…"`). |
 
 ### Letra
 
-- `--font` = **Nunito** (texto de lectura, etiquetas, descripciones).
-- `--font-display` = **Fredoka** (títulos, botones, números, nombres de Pokémon, pestañas).
-- Escala: `--fs-xs` 12 · `--fs-s` 13 · `--fs-m` 15 · `--fs-l` 18 · `--fs-xl` 22 · `--fs-2xl` 26 · `--fs-3xl` 34 px. **Nunca menos de 11 px.**
-  En el móvil (modo compacto, §16) la base los baja solos: 11 · 12 · 14 · 16 · 19 · 22 · 28 px, y la letra del `body`, de 16 a 15.
-- Pesos: Fredoka 600 (títulos, botones) y 700 (logotipo, cifras gordas); Nunito 400 (texto), 600-700 (etiquetas), 800 (`<b>`).
+- `--font` = **Alegreya Sans** (texto de lectura, etiquetas, descripciones). 400, 500 y 700.
+- `--font-display` = **Grenze** (títulos, botones, cifras, nombres de Pokémon, pestañas). Variable, 600-800.
+- `body` a 17 px (16 en el móvil): Alegreya se ve más pequeña que Nunito a igual tamaño.
+- Escala: `--fs-xs` 13 · `--fs-s` 14 · `--fs-m` 16 · `--fs-l` 19 · `--fs-xl` 23 · `--fs-2xl` 28 · `--fs-3xl` 36 px. **Nunca menos de 12 px.**
+  En el móvil (§16) baja sola: 12 · 13 · 15 · 17 · 20 · 23 · 29 px.
+- Títulos grandes con brillo: `.title-glow` (o como `#over-title`). Raíz bajo un título: `<hr class="vine-sep">`.
+- En el lienzo (HUD, números de daño, avisos) se usan las mismas: `Grenze` y `"Alegreya Sans"` (`hud.js font()`).
+- `Fredoka` y `Nunito` siguen declaradas como **alias** de las nuevas (para la aldea, `js/world/village.js`, y para lo que llegue de otras ramas). Código nuevo: no las pidas.
 - Cifras que cambian (monedas, tiempos): `font-variant-numeric: tabular-nums`.
 
 ### Espacio, radios, sombras, movimiento
 
 - Espacio: `--sp-1` 4 · `--sp-2` 8 · `--sp-3` 12 · `--sp-4` 16 · `--sp-5` 24 · `--sp-6` 32 px.
-- Radios: `--rad-xs` 6 · `--rad-s` 8 · `--rad-m` 12 (botones, campos) · `--rad-l` 16 (tarjetas) · `--rad-xl` 22 (paneles) · `--rad-pill` (chips, pastillas).
-- Sombras: `--sh-1` (casi nada) · `--sh-2` (algo que flota: tarjetas, pastillas) · `--sh-3` (paneles) · `--sh-pop` (menús, avisos).
-- Cristal: `--glass` (`backdrop-filter`); úsalo sólo en paneles (`.box`) y pastillas de la barra, siempre con color de reserva. **No** en elementos que se repiten (casillas, baldosas, filas): cada uno desenfocado encima del mundo animado cuesta en cada fotograma. La base ya lo quita en las hojas a pantalla completa del móvil y en las ventanas de la partida (subir de nivel, objeto, vínculo, pausa, fin), que en cooperativo tienen el mundo moviéndose detrás. Con `class="no-glass"` en `<html>` (o «reducir transparencia» en el sistema) todo queda opaco y sin desenfoque.
+- Radios: `--rad-xs` 6 · `--rad-s` 8 · `--rad-m` 12 (campos) · `--rad-l` 14 (tarjetas) · `--rad-xl` 18 (paneles) · `--rad-pill` (chips, pastillas). Lo redondo (botones de icono, baldosas de icono, huecos de ataque) es un círculo.
+- Sombras: `--sh-1` (casi nada) · `--sh-2` (algo que flota: tarjetas, pastillas) · `--sh-3` (paneles) · `--sh-pop` (menús, avisos) · `--glow` (halo de la luz de hoja).
+- **Sin cristal** desde el 13-11-2026 (`--glass: none`): los paneles son opacos (musgo con textura). Además de verse más de juego, no cuesta en cada fotograma con el mundo moviéndose detrás. `html.no-glass` y «reducir transparencia» siguen funcionando (ya no cambian nada).
 - Movimiento: `--t-fast` .15 s, `--t-med` .22 s, `--ease`, `--ease-pop`. `prefers-reduced-motion` ya las apaga todas.
 
 ### Capas (`z-index`)
@@ -88,7 +108,7 @@ deba ir encima necesita un z-index mayor, no sólo ir después en el HTML.
 ```
 
 - `.scr`: capa fija a pantalla completa, contenido centrado, relleno con las zonas seguras. En el móvil, su panel la ocupa entera (§16).
-- `.dim`: velo azul noche (el mundo se sigue viendo). Todas las pantallas de menú lo llevan; el menú principal no.
+- `.dim`: velo verde muy oscuro (el mundo se sigue viendo). Todas las pantallas de menú lo llevan; el menú principal no.
 - `.under-bar`: la pantalla deja ver la barra de arriba (monedas, tickets): se abre con `G.UI.show(id, true)` y empieza debajo de la barra. Hoy además van por id: `#scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod`.
 - `.modal`: ventana que va por delante de la barra y la **esconde** (`z 35`). Hoy por id: `#scr-news, #scr-recover, #scr-savenote, #scr-profile, #scr-nick` (y Ajustes, Aviso legal, Instalar, Colocar botones con su propio z-index). Una ventana nueva de este tipo: `class="scr dim modal"`.
 - `.hidden` (con `!important`) apaga cualquier cosa.
@@ -97,20 +117,30 @@ deba ir encima necesita un z-index mayor, no sólo ir después en el HTML.
 
 ## 3. Panel: `.box`
 
-Superficie de cristal azul noche, borde de 1 px claro, radio 22, sombra suave,
-animación `pop` al aparecer. Se desplaza por dentro si no cabe.
+Musgo oscuro con textura (`--panel-bg`) y **marco de corteza** (`marco.svg`, con
+raíces, hojas y setas en las esquinas), radio 18, sombra honda, animación `pop`
+al aparecer. Se desplaza por dentro si no cabe. En el móvil, a pantalla completa,
+va sin marco (§4b).
 
 ```html
 <div class="box" style="width:min(440px,100%)">
   <h2>Título</h2>
-  <p class="sub">Frase de explicación en gris claro.</p>
+  <p class="sub">Frase de explicación.</p>
   …
 </div>
 ```
 
-- `h2` 26 px Fredoka 600; `h3` 18 px. `.sub` (gris, 15 px), `.note` (13 px), `.err` (rojo claro), `.gold` (texto amarillo), `.muted`, `.center`.
-- `.eyebrow`: antetítulo en mayúsculas pequeñas («PREGUNTA 1 DE 8»).
-- `.divider`: línea de separación (`<hr class="divider">`).
+- Cómo va el marco: `border: 7px solid transparent` (sólo la franja de la corteza) +
+  `border-image: var(--fr-l)` (40 px, se monta sobre el relleno) + el fondo con
+  `background-clip: padding-box` y `border-radius` (recorta el musgo a la curva).
+  Los marcos son **transparentes por dentro**: el musgo lo pone el fondo, así no
+  hay franja de otro tono. Cualquier panel nuevo, igual (`--fr-s` con 5 px para
+  tarjetas, avisos y menús; ver `.toast`, `.tb-menu`, `.card.pick-card`).
+- Lo que se repite mucho (casillas, filas, pastillas) no lleva `border-image`: un
+  borde de corteza en CSS, `box-shadow: var(--bark-edge)`, y `--card-bg`.
+- `h2` 28 px Grenze 700 en `--title-ink`; `h3` 19 px. `.sub`, `.note`, `.err`, `.gold` (texto ámbar), `.muted`, `.center`.
+- `.eyebrow`: antetítulo en mayúsculas pequeñas, espaciadas («PREGUNTA 1 DE 8»).
+- `.divider`: línea de corteza (`<hr class="divider">`); `.vine-sep`: la raíz con hojas, bajo un título centrado.
 - Anchos: `.wide` (980 px). Para hojas, ver §4.
 
 ---
@@ -163,14 +193,18 @@ Reglas:
 
 | Clase | Aspecto | Uso |
 |---|---|---|
-| `.btn` | Azul, texto blanco | Acción secundaria. |
-| `.btn.gold` | Amarillo, texto azul oscuro | **La** acción principal de la pantalla (una sola). El mando empieza en ella. |
-| `.btn.ghost` | Transparente con borde | Terciaria: Volver, Cancelar, Ahora no. |
-| `.btn.danger` | Rojo | Borrar, abandonar. |
+| `.btn` | Corteza con cara de musgo (`boton.svg`) | Acción secundaria. |
+| `.btn.gold` | Hoja que brilla, texto oscuro (`boton-pri.svg`) | **La** acción principal de la pantalla (una sola). El mando empieza en ella. |
+| `.btn.amber` | Ámbar (`boton-ambar.svg`) | Lo que se paga con monedas (los `.shop-buy` y `.upg-buy` dorados ya lo son). |
+| `.btn.ghost` | Píldora transparente con borde de corteza | Terciaria: Volver, Cancelar, Ahora no. |
+| `.btn.danger` | Rojo (`boton-peligro.svg`) | Borrar, abandonar. |
 | `.btn.google` | Blanco | Entrar con Google. |
-| `.small` | 34 px (44 en táctil; en el móvil 32, y 40 en táctil) | Botones de fila (precio, «Usar»). |
-| `.big` | 58 px, 20 px de letra (en el móvil 48 px y 18) | Acción principal grande (login, resultado). |
+| `.small` | 32 px de imagen de borde (44 en táctil) | Botones de fila (precio, «Usar»). |
+| `.big` | 52 px, 22 px de letra | Acción principal grande (login, resultado). |
 
+Los `.btn` son `border-image` con relleno (`fill`): **no les pongas `background`**
+ni `border` de color (se pierde el dibujo). Al pasar el ratón, brillan; al pulsar,
+bajan 2 px y se oscurecen.
 El `.btn` normal mide 44 px (40 en el móvil, con ratón y con dedo).
 | `.block` | Todo el ancho | En columnas y pies. |
 | `.ic` | Icono + texto en fila, con hueco | Sólo si el texto va dentro de un `<span>` (con `.ic`, los espacios sueltos se pierden). |
@@ -192,7 +226,7 @@ El `.btn` normal mide 44 px (40 en el móvil, con ratón y con dedo).
 <button class="icon-btn plain" data-ico="info" aria-label="Más información"></button>
 ```
 
-Redondo de 40 px (44 en táctil). Siempre con `aria-label` y `title` (se traducen solos).
+Medallón redondo de 40 px (44 en táctil), con `medalla.svg` de fondo. Siempre con `aria-label` y `title` (se traducen solos).
 
 **Iconos SVG de interfaz** — `G.UI.svg(nombre, tamaño = 22)` devuelve el `<svg>`;
 en el HTML basta `data-ico="nombre"` (y `data-ico-size`): `G.UI.icons(raíz)` los
@@ -208,8 +242,8 @@ del texto (`currentColor`). Si necesitas otro, añádelo a `SVG` en `js/ui/ui.js
 
 ## 6. Foco (teclado y mando)
 
-- Teclado: anillo amarillo de 3 px (`:focus-visible`) en botones, chips, pestañas, tarjetas, casillas, enlaces y selects. No lo quites.
-- Mando: `gamepad.js` pone `.pad-focus` a lo seleccionado: anillo amarillo + halo. Cualquier cosa pulsable debe ser `<button>`/`<a>` o tener `cursor: pointer` (o `data-pad`) para que el mando la encuentre.
+- Teclado: anillo de luz de hoja de 3 px (`:focus-visible`) en botones, chips, pestañas, tarjetas, casillas, enlaces y selects. No lo quites.
+- Mando: `gamepad.js` pone `.pad-focus` a lo seleccionado: anillo de luz de hoja + halo que brilla. Cualquier cosa pulsable debe ser `<button>`/`<a>` o tener `cursor: pointer` (o `data-pad`) para que el mando la encuentre.
 - Para que el mando empiece en la acción principal, que sea `.btn.gold` (o `.play`, `.card`).
 
 ---
@@ -240,7 +274,7 @@ del texto (`currentColor`). Si necesitas otro, añádelo a `SVG` en `js/ui/ui.js
 <div class="seg"><button class="on" data-v="0">Normal</button><button data-v="1">Shiny</button></div>
 ```
 
-- `.chip` 32 px (44 táctil), `.on` = amarillo. `.tab.on` = azul relleno. `.gen-tab.on` = borde y texto amarillos. `.seg button.on` = azul (la opción `data-v="1"` en shiny: degradado cian).
+- `.chip` 32 px (44 táctil), `.on` = luz de hoja. `.tab.on` y `.seg button.on` = hoja encendida (`--leaf-bg`, texto oscuro; la opción `data-v="1"` en shiny: degradado cian). `.gen-tab.on` = aro de luz de hoja.
 - En el móvil, una fila de chips que no cabe se desliza: `flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none`.
 
 ---
@@ -255,7 +289,7 @@ del texto (`currentColor`). Si necesitas otro, añádelo a `SVG` en `js/ui/ui.js
 ```
 
 - `.field`: 44 px, hundido (`--sunk`), radio 12, borde que se ilumina al enfocar. En táctil la letra es de 16 px (si no, el iPhone amplía la página).
-- `input[type=range]`: pista hundida y botón amarillo redondo (en táctil, zona de 44 px).
+- `input[type=range]`: pista hundida con borde de corteza y pomo de madera con el centro de luz de hoja (en táctil, zona de 44 px).
 - `.err` vacío no ocupa sitio si le pones `:empty { margin: 0 }` en tu pantalla.
 
 ---
@@ -289,7 +323,7 @@ del texto (`currentColor`). Si necesitas otro, añádelo a `SVG` en `js/ui/ui.js
 <div class="panel">…</div>
 ```
 
-- `.card` (radio 16) sube 2 px al pasar el ratón. `.cell.on` y `.list-row.on`: borde amarillo. `.cell.locked`: apagada, sin clic.
+- `.card` (radio 14, borde de corteza) sube 2 px y brilla al pasar el ratón. `.cell.on` y `.list-row.on`: aro de luz de hoja. `.cell.locked`: apagada, sin clic.
 - `.stage`: el `<canvas>` de un Pokémon con el fondo del color de su tipo (`style.setProperty('--stage-c', color)`) y `.shiny`.
 - **Los Pokémon en `<canvas>` se pintan a escala entera** (`G.UI.sprite(cv, dex, { scale })`). No cambies su tamaño con CSS a un tamaño que no sea el del canvas (los píxeles saldrían desiguales). Si el hueco cambia con la pantalla, mide el contenedor y pon `cv.width/height` a esa medida (mira `fitPartner()` en `js/ui/menu.js`).
 
@@ -320,7 +354,7 @@ Tintes: `t-gold`, `t-red`, `t-blue`, `t-green`, `t-purple`. No pintes iconos a
 mano ni con emojis; si falta uno, se pide al módulo de iconos por su nombre.
 No escales la imagen con CSS a tamaños que no sean 30/60.
 
-**Progreso**: `<div class="meter"><i style="width:40%"></i></div>` (amarillo;
+**Progreso**: `<div class="meter"><i style="width:40%"></i></div>` (verde hoja;
 `.meter.blue`, `.meter.green`). La del test es `.progress`.
 
 **Vacío**: `<div class="empty-state"><span class="ico-tile l">…</span><b>Aún no tienes amigos</b><span>Añade a alguien por su apodo.</span></div>`
@@ -387,12 +421,15 @@ Reglas:
 **Sí**
 - Paneles `.box` con la hoja (§4); una sola acción `.btn.gold` por pantalla.
 - Iconos de objetos con `G.Icons.html(n, 30|60)` en `.ico-tile`; controles con `G.UI.svg` / `data-ico`.
-- Fredoka para títulos, botones y cifras; Nunito para leer.
+- Grenze para títulos, botones y cifras; Alegreya Sans para leer.
+- Marcos de `assets/ui` (salen de `tools/ui-art.cjs`) y el borde de corteza (`--bark-edge`).
+- Luz de hoja para lo principal; ámbar para monedas; oro para evoluciones.
 - Tokens para color, radio, espacio y capas.
 - Probar en los 9 tamaños con ratón y con táctil.
 
 **No**
-- Letra pixel (Pixelify) en el DOM, bordes dobles, sombras de texto duras (`2px 2px 0`).
+- Letra pixel (Pixelify) en el DOM; cristal (`backdrop-filter`); degradados azules o morados de web; bordes blancos finos.
+- Dibujar a mano un marco nuevo en un SVG suelto: añádelo a `tools/ui-art.cjs` con las mismas piezas (corteza, hoja, seta).
 - Emojis como iconos; iconos dibujados a mano en CSS.
 - `min-height` en `.btn`; `vh` fijos; anchos fijos sin `min()`.
 - Colores sueltos en el código (`#3d67c0`…) en vez de tokens.

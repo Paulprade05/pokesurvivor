@@ -155,6 +155,87 @@ test('choques: quien está metido en algo puede salir, pero no entrar', async ()
   assert.equal(V.hits(ix, 50, -5, 10, [50, -30]), true, 'fuera, entrando: choca');
 });
 
+// (13-11-2026, el dueño: «a veces hay elementos en medio y no puedo entrar a los edificios», «me choco con los Pokémon»)
+/** El pasillo de una puerta: puntos donde tiene que caber tu Pokémon (r 14), de la puerta hacia el sur. */
+function lanePoints(V, p) {
+  const out = [];
+  for (let dy = 0; dy <= V.DOOR_LANE + 1e-6; dy += 0.25) for (const dx of [-0.3, 0, 0.3]) out.push([(p.door[0] + dx) * TS, (p.door[1] + dy) * TS]);
+  return out;
+}
+/** Desde la plaza (al sur del manantial). */
+const PLAZA_AT = V => [V.PLAZA.x * TS, (V.PLAZA.y + V.PLAZA.r - 0.8) * TS];
+function walkerFrom(V, solids, at, extra = []) {
+  const all = solids.concat(extra), ix = V.index(all);
+  const blocked = (x, y, r) => {
+    for (let ty = Math.floor((y - r) / TS); ty <= Math.floor((y + r) / TS); ty++) for (let tx = Math.floor((x - r) / TS); tx <= Math.floor((x + r) / TS); tx++) {
+      if (V.terrainAt(tx, ty) !== 1) continue;
+      const cx = Math.max(tx * TS, Math.min(x, tx * TS + TS)), cy = Math.max(ty * TS, Math.min(y, ty * TS + TS));
+      if (Math.hypot(cx - x, cy - y) < r) return true;
+    }
+    return V.hits(ix, x, y, r);
+  };
+  const m = V.flood((x, y) => !blocked(x, y, 16), at[0], at[1], 8);
+  const reach = (x, y) => { const cx = Math.floor(x / m.step), cy = Math.floor(y / m.step); return cx >= 0 && cy >= 0 && cx < m.cw && cy < m.ch && !!m.seen[cy * m.cw + cx]; };
+  const near = (x, y, d) => { for (let k = 0; k <= d; k += 4) for (let a = 0; a < 6.283; a += 0.4) if (reach(x + Math.cos(a) * k, y + Math.sin(a) * k)) return true; return false; };
+  return { blocked, reach, near };
+}
+/** Todas las puertas: el pasillo libre y se llega desde la plaza (hasta un paso de la puerta). → fallos */
+function doorsOk(V, solids, tag, extra) {
+  const w = walkerFrom(V, solids, PLAZA_AT(V), extra), bad = [];
+  for (const p of V.PLACES) {
+    // Nada de otro (ni la decoración de tu choza, ni un Pokémon quieto) pisa el pasillo, desde la fachada.
+    const x0 = (p.door[0] - V.DOOR_HALF) * TS, x1 = (p.door[0] + V.DOOR_HALF) * TS, y0 = (p.door[1] - 0.55) * TS, y1 = (p.door[1] + V.DOOR_LANE) * TS;
+    const lane = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    for (const s of solids) if (owner(s.id) !== 'p:' + p.id && !(p.id === 'home' && s.id === 'home') && overlap(s.pts, lane, 0)) bad.push(tag + ': ' + owner(s.id) + ' en el pasillo de ' + p.id);
+    for (const s of extra || []) if (Math.max(Math.abs(s.x - (x0 + x1) / 2) - (x1 - x0) / 2, s.y < y0 ? y0 - s.y : s.y > y1 ? s.y - y1 : 0) < s.r) bad.push(tag + ': ' + s.id + ' en el pasillo de ' + p.id);
+    for (const [x, y] of lanePoints(V, p)) if (w.blocked(x, y, 14)) { bad.push(tag + ': algo tapa la puerta de ' + p.id + ' en ' + (x / TS).toFixed(2) + ',' + (y / TS).toFixed(2)); break; }
+    if (!w.near(p.door[0] * TS, p.door[1] * TS, 16)) bad.push(tag + ': no se llega desde la plaza a la puerta de ' + p.id);
+    // Y la zona de entrar es generosa: desde el final del pasillo ya se puede entrar.
+    if (V.DOOR_LANE * TS > V.ENTER) bad.push('la zona de entrar no llega al final del pasillo');
+  }
+  return bad;
+}
+
+test('puertas: el pasillo hasta cada puerta está libre y se llega desde la plaza, con cualquier choza', async () => {
+  const { V, V3, THREE, G } = await load();
+  const fixed = V3.collect(THREE, null).fixed;
+  const C = G.Home.CATS;
+  const ids = cat => C.find(c => c.id === cat).items.map(i => i.id);
+  const bad = [];
+  let n = 0;
+  // Lo que cambia la forma de lo que choca: forma × decoración × tótem (techo, paredes, color y luces sólo pintan).
+  for (const shape of ids('shape')) for (const deco of ids('deco')) for (const totem of ids('totem')) {
+    const cfg = Object.assign({}, G.Home.DEFAULT, { shape, deco, totem, pet: 25 });
+    const { home } = V3.collect(THREE, cfg, true);
+    bad.push(...doorsOk(V, fixed.concat(home), shape + '/' + deco + '/' + totem));
+    n++;
+  }
+  assert.equal(n, ids('shape').length * ids('deco').length * ids('totem').length);
+  assert.deepEqual([...new Set(bad)].slice(0, 12), []);
+});
+
+test('Pokémon de la aldea: sólo chocan los quietos y grandes, con huella pequeña, y ninguno tapa una puerta', async () => {
+  const { V, V3, THREE } = await load();
+  // Los que se mueven nunca chocan; los quietos pequeños tampoco; los grandes, con una huella de como mucho 16.
+  for (const body of [6, 12, 20, 40, 80]) assert.equal(V.npcFoot(false, body), 0, 'uno que se mueve no choca');
+  assert.equal(V.npcFoot(true, 10), 0, 'uno quieto y pequeño no choca');
+  assert.ok(V.npcFoot(true, 40) > 0 && V.npcFoot(true, 200) <= 16, 'los quietos y grandes, con huella pequeña');
+  // Nadie vive en el pasillo de una puerta (ni la mascota), y ningún paseante tiene su pasillo a tiro de paseo sin salir de él:
+  // village.js no elige destinos de paseo dentro de un pasillo (doorLane).
+  for (const p of V.PLACES) if (p.npc && !p.npc.counter) assert.equal(V.doorLane(p.npc.at[0] * TS, p.npc.at[1] * TS, 12), null, 'el tendero ' + p.npc.dex + ' vive en un pasillo');
+  for (const c of V.CAST) assert.equal(V.doorLane(c.at[0] * TS, c.at[1] * TS, 12), null, 'el Pokémon ' + c.dex + ' vive en un pasillo');
+  assert.equal(V.doorLane(V.PET[0] * TS, V.PET[1] * TS, 12), null, 'la mascota está en el pasillo de tu choza');
+  for (const p of V.PLACES) assert.equal(V.doorLane(p.door[0] * TS, (p.door[1] + 0.5) * TS), p, 'doorLane reconoce el pasillo de ' + p.id);
+  // Con los quietos (y la mascota más grande) chocando con su huella, se sigue llegando a todas las puertas y nada te encierra.
+  const foot = V.npcFoot(true, 200);
+  const still = V.CAST.filter(c => c.still && !c.water).map(c => ({ id: 'npc:' + c.dex, x: c.at[0] * TS, y: c.at[1] * TS, r: foot }));
+  still.push({ id: 'npc:pet', x: V.PET[0] * TS, y: V.PET[1] * TS, r: foot });
+  const { fixed, home } = V3.collect(THREE, null);
+  assert.deepEqual(doorsOk(V, fixed.concat(home), 'con los quietos', still), []);
+  const w = walkerFrom(V, fixed.concat(home), PLAZA_AT(V), still);
+  for (const s of still) assert.ok(w.near(s.x, s.y, s.r + 30), 'encerrado junto a ' + s.id);
+});
+
 // (12-11-2026) El borde de la aldea es un bosque de árboles instanciados (village3d.js forestPlan): choca como se ve.
 test('bosque del borde: cada casilla de bosque junto a la aldea lleva su planta y ninguna nace en suelo libre', async () => {
   const { V, V3 } = await load();

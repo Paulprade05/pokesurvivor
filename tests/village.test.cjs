@@ -64,7 +64,9 @@ test('aldea: se llega andando a todas las puertas desde donde se aparece', () =>
   const solid = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (V.terrainAt(x, y)) solid[y * W + x] = 1;
-    for (const p of V.PLACES) if (x + 0.5 > p.x - p.w / 2 && x + 0.5 < p.x + p.w / 2 && y + 0.5 > p.y - p.h / 2 && y + 0.5 < p.y + p.h / 2) solid[y * W + x] = 1;
+    // (13-11-2026) La casilla de la propia puerta no: en el Altar del Portal se entra subido al estrado, dentro de su planta.
+    for (const p of V.PLACES) if (x + 0.5 > p.x - p.w / 2 && x + 0.5 < p.x + p.w / 2 && y + 0.5 > p.y - p.h / 2 && y + 0.5 < p.y + p.h / 2 &&
+      !(x === Math.floor(p.door[0]) && y === Math.floor(p.door[1]))) solid[y * W + x] = 1;
   }
   const seen = new Uint8Array(W * H), q = [[Math.floor(V.SPAWN[0]), Math.floor(V.SPAWN[1])]];
   seen[q[0][1] * W + q[0][0]] = 1;

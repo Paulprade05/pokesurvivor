@@ -1701,7 +1701,7 @@ G.Combat = (() => {
     }
   }
 
-  const NUM_FONT = '700 9px Fredoka,"Segoe UI",system-ui,sans-serif';
+  const NUM_FONT = '700 9px Grenze,"Segoe UI",system-ui,sans-serif';
 
   /**
    * Barrido de pantalla: Canto Mortal, velo morado y notas con la cuenta atrás
@@ -2945,7 +2945,7 @@ G.Combat = (() => {
     ['vuln', 'shield', 'steel'], ['atkdown', 'arrow', 'fighting'], ['curse', 'shadow', 'umbra'], ['lost', 'puff', 'mist'], ['daze', 'wind', 'flying'],
     ['bpoison', 'bubble', 'poison'], ['wet', 'drop', 'water']
   ];
-  const ST_FONT = '700 8px Fredoka,"Segoe UI",system-ui,sans-serif';
+  const ST_FONT = '700 8px Grenze,"Segoe UI",system-ui,sans-serif';
   function stIcons(ctx, own, t) {
     if (!ST_SET.size) return;
     const maxN = ST_SET.size > 12 ? 1 : 2;

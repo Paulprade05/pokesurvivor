@@ -274,8 +274,8 @@ G.Touch = (() => {
   }
   /**
    * Dibuja un joystick (también lo usa el editor de botones); k: opacidad.
-   * Liso, como el resto de la interfaz: base azul noche translúcida con borde
-   * claro y un aro interior; pomo amarillo con sombra y un brillo arriba.
+   * Como el resto de la interfaz («Raíces vivas», 13-11-2026): base de musgo translúcida con aro de
+   * corteza y un aro interior; pomo de luz de hoja con aro de corteza, sombra y un brillo arriba.
    */
   function drawStick(ctx, stick, r, k = 1) {
     const dx = stick.x - stick.ox, dy = stick.y - stick.oy, d = Math.hypot(dx, dy);
@@ -283,18 +283,20 @@ G.Touch = (() => {
     ctx.save();
     ctx.globalAlpha = k;
     ctx.beginPath(); ctx.arc(stick.ox, stick.oy, r, 0, 6.2832);
-    ctx.fillStyle = 'rgba(11,21,48,.38)'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(244,247,255,.5)'; ctx.stroke();
+    ctx.fillStyle = 'rgba(8,18,10,.42)'; ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(26,15,7,.7)'; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(168,122,72,.75)'; ctx.stroke();
     ctx.beginPath(); ctx.arc(stick.ox, stick.oy, r * 0.64, 0, 6.2832);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(244,247,255,.16)'; ctx.stroke();
-    ctx.globalAlpha = 0.92 * k;
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(185,240,122,.18)'; ctx.stroke();
+    ctx.globalAlpha = 0.94 * k;
     ctx.beginPath(); ctx.arc(kx, ky + 3, kr, 0, 6.2832);
-    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fill();
     ctx.beginPath(); ctx.arc(kx, ky, kr, 0, 6.2832);
-    ctx.fillStyle = '#FFCB05'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(120,86,0,.6)'; ctx.stroke();
+    ctx.fillStyle = '#8FE05F'; ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = '#1A0F07'; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#7A5634'; ctx.stroke();
     ctx.beginPath(); ctx.arc(kx - kr * 0.22, ky - kr * 0.3, kr * 0.42, 0, 6.2832);
-    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.38)'; ctx.fill();
     ctx.restore();
   }
 

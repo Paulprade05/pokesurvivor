@@ -971,19 +971,23 @@ G.World = (() => {
     try { drawProp0(ctx, p, t, a0, a1); }
     catch (e) { if (!/sin memoria de lienzos/.test(e && e.message)) throw e; ctx.globalAlpha = 1; }
   }
+  /** Lo que hace un objeto al dibujarse además del dibujo (hojas que caen, destellos del manantial). También lo usa ultra3d.js. */
+  function propFx(p, t) {
+    if (p.type === 'tree') G.Ambient.tree(p);
+    if (p.type === 'spring' && p.charge >= 0.15 && G.Anim.on && Math.sin(t * 3 + p.wiggle) > 0.92) {
+      G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 + G.U.rand(-6, 6));
+      G.Ambient.ring(p.x + G.U.rand(-14, 14), p.y - 8 + G.U.rand(-5, 5));
+    }
+  }
   function drawProp0(ctx, p, t, a0, a1) {
     if (p.wallrow) { drawWallRow(ctx, p, a0, a1); return; }
     const variant = propVariant(p, t);
-    if (p.type === 'tree') G.Ambient.tree(p);
+    propFx(p, t);
     const { img, P, pmd: block } = spriteOf(biome, p.type, variant);
     const w = img.width * P, h = img.height * P;
     if (p.flat) {
       // Planos (manantial, trampa): pegados al suelo, centrados en su casilla (las trampas de PMD, en toda la casilla).
       ctx.drawImage(img, Math.round(p.x - w / 2), Math.round((block ? p.y + 4 - TS / 2 : p.y - 8) - h / 2), w, h);
-      if (p.type === 'spring' && p.charge >= 0.15 && G.Anim.on && Math.sin(t * 3 + p.wiggle) > 0.92) {
-        G.FX.twinkle(p.x + G.U.rand(-20, 20), p.y - 8 + G.U.rand(-6, 6));
-        G.Ambient.ring(p.x + G.U.rand(-14, 14), p.y - 8 + G.U.rand(-5, 5));
-      }
       return;
     }
     if (p.type === 'altar' && !p.used) {
@@ -1171,7 +1175,7 @@ G.World = (() => {
       for (const k of [...images.keys()]) { const [cx, cy] = k.split(',').map(Number); if (near(cx, cy)) { G.U.freeCanvas(images.get(k)); images.delete(k); } }
       lastC = null;
     },
-    get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette, drawEdge, drawChestRing,
+    get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, propFx, drawVignette, drawEdge, drawChestRing,
     // (Ultra 3D, ultra3d.js) Los datos de un chunk (terreno y objetos), el terreno de una casilla y si el bioma va con tileset.
     N, chunk: chunkData, terrainAt, pmdOn: bi => pmdOn(bi), get seed() { return seed; },
     /** Suelta los chunks horneados (se vuelven a hornear al dibujarlos): sin memoria de lienzos o al perder el lienzo. */

@@ -34,6 +34,8 @@ G.Game = (() => {
     resize();
     addEventListener('resize', resizeSoon);
     G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });      // ahorro de energía y Máxima: cambian la resolución
+    // (Zoom) Cambiado en Ajustes con la partida en pausa: al volver, va hacia él.
+    G.Settings.on(k => { if (k === 'zoom' && pl && state !== 'over' && state !== 'menu') G.Camera.setZoom(G.Settings.get('zoom')); });
     // iPhone: al girarlo o al abrirlo desde la pantalla de inicio avisa del
     // cambio ANTES de recolocar la página, y con esas medidas viejas el juego
     // se quedaba estirado. Se vuelve a medir cuando el lienzo cambia de verdad
@@ -71,6 +73,17 @@ G.Game = (() => {
   function bindCanvas() {
     cv.addEventListener('contextlost', e => { e.preventDefault(); onCtxLost(); });
     cv.addEventListener('contextrestored', onCtxBack);
+    // (13-11-2026) Zoom con la rueda del ratón en la partida (camera.js: ×0,85 a ×1,25, suave, y se guarda en los
+    // ajustes). Sólo sobre el lienzo y jugando: con un menú abierto, la rueda es del menú (va a lo que tiene encima).
+    let zoomSave = 0;
+    cv.addEventListener('wheel', e => {
+      if (state !== 'playing' || !pl) return;
+      e.preventDefault();
+      const d = Math.max(-1, Math.min(1, e.deltaY * (e.deltaMode === 1 ? 33 : 1) / 100));
+      G.Camera.setZoom(G.Camera.zoomTo * Math.exp(-d * 0.07));
+      clearTimeout(zoomSave);
+      zoomSave = setTimeout(() => G.Settings.set('zoom', Math.round(G.Camera.zoomTo * 100) / 100), 400);
+    }, { passive: false });
   }
   function purgeGfx(emptied = false) {
     const now = performance.now();
@@ -291,6 +304,8 @@ G.Game = (() => {
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
     irisT = performance.now();                // (pulido 12-11-2026) la partida se abre en círculo desde tu Pokémon
+    // (13-11-2026) Si vienes del portal de la aldea (su animación de entrada), se abre desde su destello de luz.
+    irisLight = !!(G.Village && G.Village.takeFlash && G.Village.takeFlash());
     if (G.Village) G.Village.sleep();       // (la aldea del menú suelta su WebGL: se rehace al volver)
     const save = G.DB.save;
     // Se empieza con la primera fase de su línea (24-10-2026: evoluciona en la
@@ -357,6 +372,8 @@ G.Game = (() => {
     // Para el ranking: el servidor apunta cuándo empieza la partida (anti-trampas).
     if (!coop || G.Coop.isHost) G.Ranking.runStarted(coop ? 'g' : 's');
     deathT = 0;
+    G.Camera.setZoom(G.Settings.get('zoom'));          // (el zoom guardado; en el menú, ×1)
+    G.Camera.stepZoom(0, true);
 
     state = 'playing';
     // Primera partida con el móvil de pie: un consejo, sin parar nada (sólo aquí, no se manda).
@@ -495,15 +512,16 @@ G.Game = (() => {
   let flashT = 0, flashDur = 1, flashCol = '#fff';
   // (Pulido 12-11-2026: transiciones) Al empezar, la pantalla se abre en un círculo suave desde tu Pokémon.
   const IRIS = 750;
-  let irisT = 0;                       // cuándo empezó (ms); 0: nada
+  let irisT = 0, irisLight = false;    // cuándo empezó (ms); 0: nada. irisLight: desde el destello del portal (claro)
   function drawIris() {
-    const k = Math.min(1, (performance.now() - irisT) / IRIS), e = k * k * (3 - 2 * k);
+    const k = Math.min(1, (performance.now() - irisT) / (irisLight ? 950 : IRIS)), e = k * k * (3 - 2 * k);
     if (k >= 1) { irisT = 0; return; }
     let x = w / 2, y = h / 2;
     if (pl) { const p = G.Camera.toScreen(pl.x, pl.y - 20); x = p.x; y = p.y; }
     const R = Math.hypot(w, h) * e + 1;
     const g = ctx.createRadialGradient(x, y, R * 0.6, x, y, R * 1.05 + 40);
-    g.addColorStop(0, 'rgba(5,8,16,0)'); g.addColorStop(1, 'rgba(5,8,16,1)');
+    const c = irisLight ? '248,236,255' : '5,8,16';
+    g.addColorStop(0, 'rgba(' + c + ',0)'); g.addColorStop(1, 'rgba(' + c + ',1)');
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - e) * 1.4);
     ctx.fillStyle = g;
@@ -670,6 +688,7 @@ G.Game = (() => {
 
   function endRun(dead = true) {
     if (state === 'over' || !pl) return;
+    G.Camera.setZoom(1); G.Camera.stepZoom(0, true);
     const coop = !!pl.uid;                    // sólo las partidas en grupo le ponen uid
     const wasHost = !!pl.coopHost;
     const team = (coop && guard('Coop', () => G.Coop.members.slice())) || [];
@@ -1003,7 +1022,7 @@ G.Game = (() => {
       const R = G.Camera.outerRadius();
       G.FX.ring(who.x, who.y, 20, R, '#ff7b3d', 0.5, 6);
       for (const e of G.EnemyMgr.all()) {
-        if (mine ? !G.Camera.sees(e.x, e.y, 0) : G.U.dist2(e.x, e.y, who.x, who.y) > R * R) continue;
+        if (mine ? !G.Camera.seesBase(e.x, e.y, 0) : G.U.dist2(e.x, e.y, who.x, who.y) > R * R) continue;
         e.hurt(60 + pl.level * 14, '#ff7b3d', e.x - who.x, e.y - who.y, 160);
       }
     }
@@ -1245,6 +1264,7 @@ G.Game = (() => {
     }
     const view = watched() || pl;
     G.Camera.follow(view.x, view.y, dt);
+    G.Camera.stepZoom(dt);
     G.World.update(dt, G.Camera);
 
     const all = everyone();
@@ -1386,7 +1406,8 @@ G.Game = (() => {
       const props = G.World.visibleProps(view);
       // (Ultra 3D, world/ultra3d.js) Paredes, rocas y cofres en 3D de verdad, si se puede; si no, este fotograma en 2D.
       const u3 = G.Ultra3D.begin(cam, Kd, cv.width, Hd, props);
-      for (const p of props) if (p.flat) G.World.drawProp(gx, p, t);
+      // (Partida en 3D) Los planos que van en 3D (manantiales, setas explosivas) no se pintan en el suelo.
+      for (const p of props) if (p.flat && !(u3 && G.Ultra3D.owns(p))) G.World.drawProp(gx, p, t);
       G.EnemyAI.drawGround(gx);
       G.Hazards.draw(gx);
       G.Combat.drawGroundFields(gx);
@@ -1410,9 +1431,11 @@ G.Game = (() => {
       // 2) De pie, por orden de Y; cada uno a la escala del sitio que pisa.
       const items = [];
       for (const p of props) {
-        if (p.flat) continue;
-        if (!u3 || !G.Ultra3D.owns(p)) { items.push({ y: p.y, prop: p }); continue; }
-        items.push({ y: p.y, u3: p });
+        const own = u3 && G.Ultra3D.owns(p);
+        if (p.flat && !own) continue;
+        if (!own) { items.push({ y: p.y, prop: p }); continue; }
+        // (Los planos en 3D: el manantial, antes que todo lo de pie, como en 2D; las setas, por sus pies.)
+        items.push({ y: p.type === 'spring' ? p.y - 4000 : p.y, u3: p });
         // (El aro de «abriendo» del cofre con candado, en 2D justo delante de él.)
         if (p.type === 'bigchest' && p.open > 0) items.push({ y: p.y + 0.01, ent: { x: p.x, y: p.y, draw: c => G.World.drawChestRing(c, p, 30) } });
       }
@@ -1420,7 +1443,13 @@ G.Game = (() => {
       for (const e of ens) if (Math.abs(e.y) < 1e8) items.push({ y: e.y, ent: e });
       for (const e of extra) items.push({ y: e.y, ent: e });
       const rift = G.Rift.drawable();
-      if (rift) items.push({ y: rift.y, ent: rift });
+      if (rift) {
+        // (Partida en 3D) El portal, en 3D (ultra3d.js); de rift.js, su luz y el suelo roto, justo antes.
+        const r3 = u3 && G.Rift.rift && G.Ultra3D.riftOn();
+        rift.bare = !!r3;
+        if (r3) items.push({ y: rift.y, u3: { id: 'rift', x: G.Rift.rift.x, y: G.Rift.rift.y } });
+        items.push({ y: r3 ? rift.y - 0.01 : rift.y, ent: rift });
+      }
       const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
       if (arceus) items.push({ y: arceus.y, ent: arceus });
       if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
@@ -1621,7 +1650,7 @@ G.Game = (() => {
     drawAimMark();
     if (G.Settings.get('fps')) {
       ctx.save();
-      ctx.font = '600 12px Fredoka,"Segoe UI",system-ui,sans-serif';
+      ctx.font = '600 12px Grenze,"Segoe UI",system-ui,sans-serif';
       ctx.textAlign = 'right';
       ctx.fillStyle = fpsShown >= 50 ? '#5fe08a' : fpsShown >= 30 ? '#ffd23f' : '#ff5f6d';
       ctx.fillText(fpsShown + ' FPS', w - 10, h - 8);

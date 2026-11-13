@@ -1,6 +1,6 @@
 # Estilo del arte del mundo
 
-El mundo se ve como Mundo Misterioso: Exploradores del Cielo, y todo lo que se dibuje tiene que encajar ahí. Última revisión: 12-11-2026 (gráficos pulidos en todo el juego).
+El mundo se ve como Mundo Misterioso: Exploradores del Cielo, y todo lo que se dibuje tiene que encajar ahí. Última revisión: 13-11-2026 (interfaz «Raíces vivas»).
 
 ## Cómo se ve un mundo de Mundo Misterioso
 Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como los pinta el juego.
@@ -66,6 +66,22 @@ Pedido del dueño: «que los muros, rocas y cofres tengan el mismo estilo de pul
 - **Los Pokémon siguen en pixel art nítido**, a escala entera y sin suavizar; los números y el HUD, encima de todo y sin brillo.
 - **Filtro opcional «Pokémon más nítidos»** (Ajustes › Gráficos, `pixSmooth`; de serie encendido sólo con la calidad Máxima): con él encendido, los sprites se amplían con **Scale3x / AdvMAME3x** (`core/pixfilter.js`; en móvil, Scale2x / EPX y sólo tu Pokémon, compañeros, jefes y menús) y se dibujan suavizados a su tamaño: diagonales y curvas redondas, sin desenfocar ni colores nuevos. En la aldea, Scale2x en el shader (`village3d.js EPX_GLSL`). Se compararon Scale2x, Scale3x y Scale4x: Scale4x ya cambia ojos y caras. Apagado, todo es como siempre (las reglas de arriba).
 
+## La partida en 3D (13-11-2026)
+Pedido del dueño: «haz que las rocas, las setas, los cofres, grietas y más elementos de la partida también sean en 3D nítido».
+- **Qué va en 3D** (PC con calidad Alta o más; `world/props3d.js` + `ultra3d.js`): rocas y cofres (de antes), árboles (según el bioma: de hojas, cristales en las cuevas, agujas de basalto con lava al pie en el volcán, árboles secos en las arenas de fuego, veneno, tierra, roca, fantasma y siniestro), torres de poder con su orbe, manantiales, setas explosivas, la flora suelta que brilla (setas y cristales) y el portal de la grieta (remolino violeta con esquirlas).
+- **Qué sigue en pixel art:** el suelo, las paredes (con la vista normal), la hierba alta y los helechos (el dueño: «no me gusta la hierba como se ve»; es del suelo), el charco de veneno y la telaraña (planos), los Pokémon, los ataques y el HUD.
+- **Estilo:** el de la aldea: formas lisas, texturas suaves del bioma (corteza, hojas y piedra en un atlas por bioma, `G.Village3D.paint`), luz de cielo y suelo, sombras y contorno del tono oscuro del mapa. Lo redondo va aplastado de fondo (×0,62) para que, con la cámara del juego, no se vea alargado. Lo que brilla (cristales, orbes, agua, setas) lleva brillo propio y un halo suave en el suelo.
+- **Viento:** los árboles se mecen en el shader (sin coste). Si tu Pokémon queda detrás de un árbol, ese árbol se transparenta.
+- **Móvil:** sigue en 2D: medido en WebKit con perfil iPhone, el 3D costaba 27-31 ms por fotograma frente a 2 ms (ver `docs/2.0-ESTADO.md`).
+
+## La interfaz (13-11-2026, «Raíces vivas»)
+Pedido del dueño: que la interfaz no parezca una web moderna hecha con IA, sino un juego de verdad con un toque propio. Eligió, con Hades de referencia, la maqueta **«Raíces vivas»**. Guía completa: `docs/DISENO.md`.
+- **La interfaz no es pixel art**: es un juego ilustrado en vector, hecho del mismo bosque bioluminiscente que la aldea. Las reglas de arriba (rejilla, píxel de arte, contorno de 2 px) son del mundo, no de los menús ni del HUD.
+- **Materiales**: musgo oscuro (fondo, con `musgo.png`), corteza (marcos y bordes: trazo casi negro, corteza y su luz) y, en las esquinas de las ventanas, raíces, hojas y setas rosas y turquesas que brillan.
+- **Colores**: luz de hoja para lo principal y el foco; ámbar para monedas; oro para evoluciones; los de cada tipo, como siempre. Nada de azul noche ni de cristal.
+- **Letras**: Grenze (títulos, botones, cifras) y Alegreya Sans (texto), también en el lienzo.
+- **Arte nuevo de interfaz**: en `tools/ui-art.cjs` (→ `assets/ui/`), con las mismas piezas (corteza, hoja, seta), nunca un SVG suelto ni PixelLab. Lo que sí es pixel art (iconos de objetos y ataques, Pokémon) sigue con pxl y va dentro de un medallón redondo de corteza.
+
 ## Lo que no cumple y por qué
 - **Aldea del menú:** el 3D va liso a propósito (arriba); la regla 3 vale para su pixel art, no para los modelos.
 - **Efectos que giran en la partida:** se dibujan desde una copia ampliada ×4 con suavizado (`vfx.js bigOf`): los píxeles se ven iguales y sin dientes, aunque no caigan en la rejilla.
@@ -73,3 +89,4 @@ Pedido del dueño: «que los muros, rocas y cofres tengan el mismo estilo de pul
 - **Pokémon con el filtro «más nítidos» encendido:** dejan de ser cuadrados de 1 px de arte a propósito (lo elige el jugador).
 - **Rocas, cofres y paredes en 3D, niebla y luz:** suaves a propósito (arriba, «El mundo pulido»); la regla 3 vale para el pixel art, no para lo 3D ni para la luz.
 - **Pokémon a otra escala:** jefes y formas grandes se escalan y sus píxeles son mayores o menores que los del mapa.
+- **La interfaz (menús, HUD):** vector liso a propósito (arriba, «La interfaz»).

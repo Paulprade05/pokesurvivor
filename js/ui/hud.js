@@ -12,10 +12,12 @@
  * arriba sin pisarse (stk, drawBanner); flechas del borde sin montarse (place); y
  * los nombres del ataque activo y del objeto, sólo un rato al cambiar (shown).
  *
- * Estilo (lavado de imagen): paneles azul noche translúcidos con borde claro
- * de 1 px, esquinas redondeadas y sombra suave; letra Fredoka (números,
- * nombres, avisos) y Nunito (etiquetas pequeñas), nunca menos de 11 px.
- * El mundo sigue en pixel art; la interfaz, no.
+ * Estilo «Raíces vivas» (13-11-2026, como el resto de la interfaz, css/style.css):
+ * paneles de musgo oscuro con borde de corteza (un trazo casi negro y otro de
+ * corteza encima), los ataques en medallones redondos y la luz de hoja (verde)
+ * para lo activo; letra Grenze (números, nombres, avisos) y Alegreya Sans
+ * (etiquetas pequeñas), nunca menos de 11 px. El mundo sigue en pixel art; la
+ * interfaz, no.
  */
 G.HUD = (() => {
   // Letras: las cadenas se guardan (no se crea una nueva en cada fotograma).
@@ -25,23 +27,25 @@ G.HUD = (() => {
     let f = fonts.get(key);
     if (f === undefined) {
       if (fonts.size > 400) fonts.clear();
-      f = w + ' ' + Math.round(s * 10) / 10 + 'px ' + (fam === 1 ? 'Fredoka' : 'Nunito') + ',"Segoe UI",system-ui,sans-serif';
+      f = Math.min(w, 800) + ' ' + Math.round(s * 10) / 10 + 'px ' + (fam === 1 ? 'Grenze,Georgia,serif' : '"Alegreya Sans","Segoe UI",system-ui,sans-serif');
       fonts.set(key, f);
     }
     return f;
   }
-  /** Fredoka (pesos 600–700): números, nombres, títulos y avisos. */
+  /** Grenze (pesos 600–800): números, nombres, títulos y avisos. */
   const F = (w, s) => font(1, w, s);
-  /** Nunito (pesos 700–900): etiquetas pequeñas. */
+  /** Alegreya Sans (negrita): etiquetas pequeñas. */
   const N = (w, s) => font(2, w, s);
   const noop = () => {};
   const NONE = [];                   // hueco sin movimiento (sin crear una lista en cada fotograma)
 
-  // Colores de la interfaz (los de la marca).
+  // Colores de la interfaz (los del bosque, como css/style.css). «yellow» es la luz de hoja (lo activo); el
+  // nombre se queda para no tocar cada llamada. edge: el borde de corteza (panel lo dibuja con su trazo oscuro).
   const C = {
-    panel: 'rgba(11,21,48,.8)', panel2: 'rgba(20,34,74,.9)', edge: 'rgba(255,255,255,.16)', shadow: 'rgba(0,0,0,.24)',
-    track: 'rgba(3,8,22,.62)', gloss: 'rgba(255,255,255,.28)', line: 'rgba(6,12,30,.82)',
-    ink: '#F4F7FF', ink2: '#AFC0E6', yellow: '#FFCB05', yellowInk: '#1B1F3B', red: '#EE3B3B', green: '#55E07F'
+    panel: 'rgba(10,22,14,.86)', panel2: 'rgba(22,42,28,.94)', edge: '#7A5634', shadow: 'rgba(0,0,0,.4)',
+    track: 'rgba(2,8,4,.72)', gloss: 'rgba(255,255,255,.3)', line: 'rgba(4,10,6,.86)',
+    ink: '#EEF3DF', ink2: '#B6C8A6', yellow: '#B9F07A', yellowInk: '#10200B', red: '#FF5A6E', green: '#9AF06A',
+    bark: '#7A5634', barkInk: '#1A0F07', barkHi: 'rgba(200,150,95,.55)', gold: '#FFD86B'
   };
   const BOND = '#FF8AD8';
   const BUFF_COL = { atk: '#FF7A5C', patk: '#FF7A5C', satk: '#C98BFF', spd: '#7FE0FF', def: '#C3CCDB', regen: '#55E07F' };
@@ -89,14 +93,24 @@ G.HUD = (() => {
   }
 
   /**
-   * Panel de la interfaz: azul noche translúcido, borde claro y sombra suave
-   * (un rectángulo oscuro un poco más abajo: el desenfoque cuesta en el móvil).
-   * px: un píxel de pantalla en estas coordenadas (1 / escala); ew: grosor del borde.
+   * Panel de la interfaz: musgo oscuro con borde de corteza y sombra (un rectángulo
+   * oscuro un poco más abajo: el desenfoque cuesta en el móvil). El borde es un trazo
+   * casi negro y encima el de su color (corteza si no se pide otro), con un brillo
+   * fino arriba en el de corteza. px: un píxel de pantalla en estas coordenadas
+   * (1 / escala); ew: grosor del borde.
    */
   function panel(ctx, x, y, w, h, r, px = 1, fill = C.panel, edge = C.edge, ew = px) {
-    roundRect(ctx, x, y + 2 * px, w, h, r); ctx.fillStyle = C.shadow; ctx.fill();
+    roundRect(ctx, x, y + 2.5 * px, w, h, r); ctx.fillStyle = C.shadow; ctx.fill();
     roundRect(ctx, x, y, w, h, r); ctx.fillStyle = fill; ctx.fill();
-    if (edge) { ctx.lineWidth = ew; ctx.strokeStyle = edge; ctx.stroke(); }
+    if (edge) {
+      const bw = Math.max(ew, 1.5 * px);
+      ctx.lineWidth = bw * 2.6; ctx.strokeStyle = C.barkInk; ctx.stroke();
+      ctx.lineWidth = bw * 1.5; ctx.strokeStyle = edge; ctx.stroke();
+      if (edge === C.edge && h > 14 * px) {
+        roundRect(ctx, x + bw, y + bw, w - bw * 2, h - bw * 2, Math.max(0, r - bw));
+        ctx.lineWidth = px; ctx.strokeStyle = C.barkHi; ctx.stroke();
+      }
+    }
   }
 
   /** Barra redondeada (también el relleno) con un brillo arriba. */
@@ -116,7 +130,7 @@ G.HUD = (() => {
 
   // Vida: de verde a amarillo y a rojo sin saltos (33 tonos hechos de antemano).
   const HP_COLS = (() => {
-    const g = [85, 224, 127], y = [255, 203, 5], r = [238, 59, 59], out = [];
+    const g = [127, 216, 90], y = [242, 195, 90], r = [255, 74, 106], out = [];
     const mix = (a, b, t) => 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * t) + ',' + Math.round(a[1] + (b[1] - a[1]) * t) + ',' + Math.round(a[2] + (b[2] - a[2]) * t) + ')';
     for (let i = 0; i <= 32; i++) {
       const f = i / 32;
@@ -275,7 +289,7 @@ G.HUD = (() => {
     const bx = G.U.clamp(ix, 6, Math.max(6, W - bw - 6));
     let by = iy - 20 - bh;
     if (by < 6) by = iy + S + 8;                     // barra arriba (móvil): debajo
-    panel(ctx, bx, by, bw, bh, 12, px, 'rgba(11,21,48,.95)', 'rgba(255,203,5,.7)', 1.5 * px);
+    panel(ctx, bx, by, bw, bh, 12, px, 'rgba(10,22,14,.96)', C.edge, 1.5 * px);
     ctx.textAlign = 'left';
     ctx.font = F(600, 13); ctx.fillStyle = C.yellow;
     G.I18n.rawCanvas(ctx, 'fillText', tipName, bx + 12, by + 20);
@@ -289,7 +303,7 @@ G.HUD = (() => {
     const BX = 34, BW = 186;
     if (!cardG) {
       cardG = ctx.createLinearGradient(0, 0, 0, CH);
-      cardG.addColorStop(0, 'rgba(26,44,92,.86)'); cardG.addColorStop(1, 'rgba(11,21,48,.86)');
+      cardG.addColorStop(0, 'rgba(30,54,36,.92)'); cardG.addColorStop(1, 'rgba(9,20,12,.92)');
     }
     panel(ctx, 0, 0, CW, CH, 16, u, cardG);
 
@@ -329,11 +343,11 @@ G.HUD = (() => {
     // Experiencia hasta el siguiente nivel, debajo de la vida.
     ctx.textAlign = 'left';
     ctx.font = N(900, 11);
-    ctx.fillStyle = '#8FC8FF';
+    ctx.fillStyle = '#8FF7E6';
     ctx.fillText('EXP', 8, 63);
     if (!xpCard) {
       xpCard = ctx.createLinearGradient(BX, 0, BX + BW, 0);
-      xpCard.addColorStop(0, '#4FA8FF'); xpCard.addColorStop(1, '#9B6BFF');
+      xpCard.addColorStop(0, '#5FF2D6'); xpCard.addColorStop(1, '#B9F07A');
     }
     bar(ctx, BX, 56, BW, 6, xpF, xpCard);
   }
@@ -346,7 +360,7 @@ G.HUD = (() => {
   function cardSmall(ctx, pl, hpF, xpF, CW, CH, u, calm, now) {
     if (!cardGS) {
       cardGS = ctx.createLinearGradient(0, 0, 0, CH);
-      cardGS.addColorStop(0, 'rgba(26,44,92,.86)'); cardGS.addColorStop(1, 'rgba(11,21,48,.86)');
+      cardGS.addColorStop(0, 'rgba(30,54,36,.92)'); cardGS.addColorStop(1, 'rgba(9,20,12,.92)');
     }
     panel(ctx, 0, 0, CW, CH, 12, u, cardGS);
     ctx.textAlign = 'left';
@@ -378,7 +392,7 @@ G.HUD = (() => {
     outlined(ctx, Math.max(0, Math.ceil(pl.hp)) + ' / ' + Math.round(pl.maxHp), BX + BW / 2, 34.5, '#fff', 2.5);
     if (!xpCardS) {
       xpCardS = ctx.createLinearGradient(BX, 0, BX + BW, 0);
-      xpCardS.addColorStop(0, '#4FA8FF'); xpCardS.addColorStop(1, '#9B6BFF');
+      xpCardS.addColorStop(0, '#5FF2D6'); xpCardS.addColorStop(1, '#B9F07A');
     }
     bar(ctx, BX, 40, BW, 3, xpF, xpCardS);
     ctx.textAlign = 'left';
@@ -454,7 +468,7 @@ G.HUD = (() => {
     const col = ban.col || C.yellow, cx = midX(w, L.bw, top), y = top - (1 - Math.min(1, ban.age * 6)) * 6;
     ctx.save();
     ctx.globalAlpha = a;
-    panel(ctx, cx - L.bw / 2, y, L.bw, L.bh, Math.min(L.bh / 2, 16 * k), 1, 'rgba(11,21,48,.9)', col, 1.5);
+    panel(ctx, cx - L.bw / 2, y, L.bw, L.bh, Math.min(L.bh / 2, 16 * k), 1, 'rgba(10,22,14,.92)', col, 1.5);
     ctx.font = F(600, L.fs);
     ctx.textAlign = 'center';
     ctx.fillStyle = ban.col ? C.ink : C.yellow;
@@ -527,7 +541,7 @@ G.HUD = (() => {
     ctx.fillRect(0, xy, w, xh);
     if (!xpTop || xpTopW !== w) {
       xpTop = ctx.createLinearGradient(0, 0, w, 0);
-      xpTop.addColorStop(0, '#4FA8FF'); xpTop.addColorStop(1, '#9B6BFF');
+      xpTop.addColorStop(0, '#5FF2D6'); xpTop.addColorStop(1, '#B9F07A');
       xpTopW = w;
     }
     if (xpF > 0) {
@@ -840,7 +854,8 @@ G.HUD = (() => {
     // ahí no sale el joystick flotante. Los huecos, registrados después, mandan.
     G.Touch.addButton((sx - S - IG) * kb, (sy - RISE) * kb, (S + IG + nDraw * (S + GAP) - GAP + ZW) * kb, (S + RISE) * kb, noop, 4);
     // (En el móvil: radio 12, icono a 28 y el halo del activo de 4 px.)
-    const TR = cmp ? 12 : 14, ICO = cmp ? 28 : 32, HALO = cmp ? 4 : 5;
+    // Medallones redondos desde el 13-11-2026 (TR = S / 2); el vínculo (4 iconos) sigue en baldosa (TRB).
+    const TR = S / 2, TRB = cmp ? 12 : 14, ICO = cmp ? 28 : 32, HALO = cmp ? 4 : 5;
     // Cuánto se ven el nombre del activo y el del objeto (ver shown): del todo al cambiar y se van.
     const g0 = pl.slots[pl.active], m0 = g0 ? g0[0] : null, gl = g0 ? g0.length : 0, ev0 = !!(m0 && m0.evolved);
     if (pl.active !== shown.a || m0 !== shown.m || gl !== shown.n || ev0 !== shown.e) { shown.a = pl.active; shown.m = m0; shown.n = gl; shown.e = ev0; shown.t = now; }
@@ -852,13 +867,14 @@ G.HUD = (() => {
       if (i >= n) {
         // Vertical: hueco aún vacío (los ataques nuevos los van llenando).
         roundRect(ctx, x, sy, S, S, TR);
-        ctx.fillStyle = 'rgba(11,21,48,.42)'; ctx.fill();
+        ctx.fillStyle = 'rgba(6,16,9,.5)'; ctx.fill();
         ctx.lineWidth = ip; ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.stroke();
         continue;
       }
       const g = pl.slots[i] || NONE;
       const m = g[0];
       const fused = g.length > 1;
+      const tr = fused ? TRB : TR;
       const on = i === pl.active;
       const y = on ? sy - RISE : sy;
       // Tocar (o hacer clic en) un icono activa ese movimiento.
@@ -867,16 +883,17 @@ G.HUD = (() => {
 
       // Activo: halo amarillo alrededor (rosa con un vínculo), para ver de un vistazo cuál dispara.
       if (on && m) {
-        roundRect(ctx, x - HALO, y - HALO, S + HALO * 2, S + HALO * 2, TR + HALO);
-        ctx.fillStyle = fused ? 'rgba(255,138,216,.26)' : 'rgba(255,203,5,.26)'; ctx.fill();
+        roundRect(ctx, x - HALO, y - HALO, S + HALO * 2, S + HALO * 2, tr + HALO);
+        ctx.fillStyle = fused ? 'rgba(255,138,216,.26)' : 'rgba(185,240,122,.3)'; ctx.fill();
       }
 
-      // Fondo: baldosa redondeada.
-      panel(ctx, x, y, S, S, TR, ip, on ? C.panel2 : C.panel, null);
-      roundRect(ctx, x, y, S, S, TR);
-      ctx.lineWidth = on ? 2.5 : fused || (m && m.evolved) ? 2 : ip;
-      // Activo: amarillo. Vínculo: rosa. Evolucionado: dorado claro.
-      ctx.strokeStyle = fused ? BOND : on ? C.yellow : m && m.evolved ? '#FFD86B' : C.edge;
+      // Fondo: medallón de musgo con aro de corteza.
+      panel(ctx, x, y, S, S, tr, ip, on ? C.panel2 : C.panel, null);
+      roundRect(ctx, x, y, S, S, tr);
+      ctx.lineWidth = 4.5; ctx.strokeStyle = C.barkInk; ctx.stroke();
+      ctx.lineWidth = on ? 3 : 2.5;
+      // Activo: luz de hoja. Vínculo: rosa. Evolucionado: dorado claro. Si no, corteza.
+      ctx.strokeStyle = fused ? BOND : on ? C.yellow : m && m.evolved ? '#FFD86B' : C.bark;
       ctx.stroke();
 
       if (!m) continue;
@@ -889,7 +906,7 @@ G.HUD = (() => {
           const cx = x + P + (j % 2) * (CC + P), cy = y + P + Math.floor(j / 2) * (CC + P);
           G.Icons.draw(ctx, 'move:' + gm.id, cx, cy, CC);
           const f = cdOf(gm);
-          if (f > 0) { ctx.fillStyle = 'rgba(4,9,24,.6)'; ctx.fillRect(cx, cy, CC, CC * f); }
+          if (f > 0) { ctx.fillStyle = 'rgba(2,8,4,.62)'; ctx.fillRect(cx, cy, CC, CC * f); }
           if (gm.evolved) { ctx.strokeStyle = '#FFD86B'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, cy + 0.5, CC - 1, CC - 1); }
           // Destello al lanzarse.
           const fl = 1 - (now - (gm.castAt || 0)) / 180;
@@ -907,7 +924,7 @@ G.HUD = (() => {
         if (cdFrac > 0) {
           ctx.save();
           roundRect(ctx, x, y, S, S, TR); ctx.clip();
-          ctx.fillStyle = 'rgba(4,9,24,.62)';
+          ctx.fillStyle = 'rgba(2,8,4,.64)';
           ctx.beginPath();
           ctx.moveTo(x + S / 2, y + S / 2);
           ctx.arc(x + S / 2, y + S / 2, S, -Math.PI / 2 + (1 - cdFrac) * 6.2832, Math.PI * 1.5);
@@ -944,7 +961,7 @@ G.HUD = (() => {
       } else {
         const key = String((G.Input.keyLabel && G.Input.keyLabel('m' + (i + 1))) || i + 1);
         const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
-        panel(ctx, x - 5, y - 5, kw, 16, 8, ip, on ? C.yellow : 'rgba(8,14,32,.94)', fused ? BOND : on ? null : 'rgba(255,255,255,.3)');
+        panel(ctx, x - 5, y - 5, kw, 16, 8, ip, on ? C.yellow : 'rgba(6,14,8,.95)', fused ? BOND : on ? null : C.edge);
         ctx.fillStyle = on ? C.yellowInk : fused ? BOND : C.ink;
         ctx.textAlign = 'center';
         ctx.fillText(key, x - 5 + kw / 2, y + 7, kw - 6);
@@ -987,8 +1004,8 @@ G.HUD = (() => {
     // ---------- objeto equipado (a la izquierda de los movimientos) ----------
     {
       const ix = sx - S - IG, iy = sy, IS = cmp ? 30 : 36;
-      panel(ctx, ix, iy, S, S, TR, ip, pl.item ? 'rgba(46,38,12,.9)' : 'rgba(11,21,48,.5)',
-            pl.item ? 'rgba(255,203,5,.85)' : 'rgba(255,255,255,.1)', pl.item ? 1.5 : ip);
+      panel(ctx, ix, iy, S, S, TR, ip, pl.item ? 'rgba(40,34,14,.92)' : 'rgba(6,16,9,.55)',
+            pl.item ? 'rgba(242,195,90,.9)' : 'rgba(255,255,255,.1)', pl.item ? 1.5 : ip);
       if (pl.item) {
         const it = G.Items.BY[pl.item];
         G.Icons.draw(ctx, pl.item, ix + (S - IS) / 2, iy + (S - IS) / 2, IS);
@@ -1014,7 +1031,7 @@ G.HUD = (() => {
     const ch = G.Interact.near;
     if (ch && G.Game.state === 'playing' && !G.Rift.traveling) drawChestCue(ctx, w, h, ch, touch);
 
-    // ---------- botón de pausa (táctil): círculo azul noche con dos barras ----------
+    // ---------- botón de pausa (táctil): medallón de musgo y corteza con dos barras ----------
     if (touch) {
       // (De serie arriba a la derecha; en vertical, justo debajo de la barra de estado.
       // En el móvil, el círculo mide 36 y lo que se toca sigue siendo de 40 + 8 alrededor.)
@@ -1023,9 +1040,10 @@ G.HUD = (() => {
       const by = pp ? G.U.clamp(pp[1] * h - bs / 2, Math.max(10, sa.top + 4), h - bs - 4) : tall ? py : (cmp ? 8 : 12) + Math.min(20, sa.top);
       const cx = bx + bs / 2, cy = by + bs / 2;
       ctx.beginPath(); ctx.arc(cx, cy + 2, r, 0, 6.2832); ctx.fillStyle = C.shadow; ctx.fill();
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fillStyle = 'rgba(11,21,48,.78)'; ctx.fill();
-      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.stroke();
-      ctx.fillStyle = C.ink;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fillStyle = 'rgba(9,20,12,.88)'; ctx.fill();
+      ctx.lineWidth = 4.5; ctx.strokeStyle = C.barkInk; ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = C.bark; ctx.stroke();
+      ctx.fillStyle = C.yellow;
       roundRect(ctx, cx - 2 - bw2, cy - h2 / 2, bw2, h2, bw2 / 2); ctx.fill();
       roundRect(ctx, cx + 2, cy - h2 / 2, bw2, h2, bw2 / 2); ctx.fill();
       G.Touch.addButton(bx, by, bs, bs, () => G.Game.togglePause(), 8);
@@ -1096,7 +1114,7 @@ G.HUD = (() => {
     if (cdF > 0) {
       ctx.save();
       roundRect(ctx, x, y, S, S, TR); ctx.clip();
-      ctx.fillStyle = 'rgba(4,9,24,.66)';
+      ctx.fillStyle = 'rgba(2,8,4,.68)';
       ctx.beginPath();
       ctx.moveTo(x + S / 2, y + S / 2);
       ctx.arc(x + S / 2, y + S / 2, S, -Math.PI / 2 + (1 - cdF) * 6.2832, Math.PI * 1.5);
@@ -1125,7 +1143,7 @@ G.HUD = (() => {
     } else {
       const key = String(G.Input.keyLabel('zmove'));
       const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
-      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, ready ? C.yellow : 'rgba(8,14,32,.94)', ready ? null : 'rgba(255,255,255,.3)');
+      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, ready ? C.yellow : 'rgba(6,14,8,.95)', ready ? null : C.edge);
       ctx.fillStyle = ready ? C.yellowInk : C.ink;
       ctx.textAlign = 'center';
       ctx.fillText(key, x - 5 + kw / 2, y + 7, kw - 6);
@@ -1165,7 +1183,7 @@ G.HUD = (() => {
     } else {
       const key = String(G.Input.keyLabel('zmove'));
       const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
-      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, 'rgba(8,14,32,.94)', 'rgba(255,255,255,.3)');
+      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, 'rgba(6,14,8,.95)', C.edge);
       ctx.fillStyle = C.ink2;
       ctx.textAlign = 'center';
       ctx.fillText(key, x - 5 + kw / 2, y + 7, kw - 6);
@@ -1236,7 +1254,7 @@ G.HUD = (() => {
     } else {
       const key = String(G.Input.keyLabel('zmove'));
       const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
-      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, ready ? C.yellow : 'rgba(8,14,32,.94)', ready ? null : 'rgba(255,255,255,.3)');
+      panel(ctx, x - 5, y - 5, kw, 16, 8, ip, ready ? C.yellow : 'rgba(6,14,8,.95)', ready ? null : C.edge);
       ctx.fillStyle = ready ? C.yellowInk : C.ink;
       ctx.textAlign = 'center';
       ctx.fillText(key, x - 5 + kw / 2, y + 7, kw - 6);
