@@ -1,6 +1,6 @@
 # Estilo del arte del mundo
 
-El mundo se ve como Mundo Misterioso: Exploradores del Cielo, y todo lo que se dibuje tiene que encajar ahí. Última revisión: 12-11-2026.
+El mundo se ve como Mundo Misterioso: Exploradores del Cielo, y todo lo que se dibuje tiene que encajar ahí. Última revisión: 12-11-2026 (gráficos pulidos en todo el juego).
 
 ## Cómo se ve un mundo de Mundo Misterioso
 Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como los pinta el juego.
@@ -16,7 +16,7 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 2. **Cada mapa usa un tileset que case con su nombre** (`tools/fetch_tiles.py`) y de ahí sale su paleta (`G.Tileset.pal`). Rocas, hierba, cristales y adornos usan esa paleta, nunca colores propios del bioma.
 3. **Un píxel de arte son 2 unidades de mundo y un número entero de píxeles de pantalla** (`camera.js`). Todo se dibuja en posiciones pares, sobre la misma rejilla (`sprites.js`, `world.js`, `vfx.js`). Por eso la vista va a saltos: en una pantalla de 1920×868, de 4 a 3 píxeles de pantalla.
 4. **Lo que está de pie y no es del tileset** lleva contorno con el tono oscuro del tileset, trazo de 2 px como mínimo y tres tonos planos más un brillo. El negro casi puro es sólo de los Pokémon.
-5. **Las sombras van a píxeles.** Nada de elipses lisas ni tramas por encima del suelo.
+5. **Las sombras de los sprites van a píxeles.** Nada de elipses lisas ni tramas por encima del suelo. (La niebla, las manchas de luz del suelo y las sombras de los modelos 3D sí son suaves: ver «El mundo pulido».)
 6. **Sin tapar lo que importa:** la niebla y las sombras que se mueven van pegadas al suelo, debajo de avisos, recompensas, Pokémon y disparos (`atmos.js`, `game.js drawScene`). Por encima de la escena sólo va la viñeta, que no toca el centro.
 7. **Pocos adornos:** la franja del tileset ya da vida. Lo demás, escaso y con causa: lo que crece, junto a la hierba (`tileset.js decor`). Colores apagados hacia el suelo (`grounded`) y contorno del tono del suelo oscurecido (`inkOf`), no de la pared.
 8. **Las plantas nacen del suelo, no se posan encima.** La hierba lleva debajo una mancha horneada en el suelo que deja ver su textura y tiene el borde irregular, nunca el de la casilla (`tileset.js seatSheet`). Sus matas no llevan contorno, tienen la base del tono de esa mancha y son sueltas en la orilla (`tiles.js grass24`).
@@ -28,7 +28,7 @@ Sacado de montar escenas con los tilesets originales, pieza a pieza, tal como lo
 ## Cómo se da profundidad
 Sin dibujar nada encima con otro estilo (`js/world/atmos.js`):
 - **Horneado en el chunk:** tono del mapa, manchas grandes de luz y sombra, interior de los muros en penumbra.
-- **Por fotograma, sobre el suelo:** dos bancos de niebla y uno de sombra, a escalones y en píxeles de arte, más anchos que altos. Sale de un solo mapa de ruido que se repite sin costuras.
+- **Por fotograma, sobre el suelo:** dos bancos de niebla y uno de sombra, suaves (desde el 12-11-2026: antes a escalones), más anchos que altos. Sale de un solo mapa de ruido que se repite sin costuras. En PC se amplía suavizado al dibujar; en móvil se suaviza una vez al pintarlo (×3) y se dibuja al píxel más cercano, que cuesta lo mismo que antes.
 - **Según avanza la partida:** cae la noche sólo sobre el suelo. Los Pokémon no se oscurecen y resaltan más.
 
 ## Referencias
@@ -54,10 +54,22 @@ Desde el 12-11-2026 (pedido del dueño: «que no esté todo tan pixelado, los mo
 - **Los modelos son 3D liso**: texturas suaves con mipmaps, formas redondas, antialias y halos de luz. No llevan píxeles.
 - **El pixel art sigue siendo pixel art**: el suelo del tileset, los Pokémon, los letreros, las pantallas y la hierba se ven nítidos a cualquier escala (`village3d.js crispTex`): ni borrosos ni con píxeles de distinto ancho.
 - **Contorno**: los modelos llevan el casco oscuro del tono del mapa (`edge` del tileset), nunca negro puro.
+- **El borde es un bosque** (12-11-2026): pinos, árboles de copa redonda con vainas que brillan, setas gigantes y matas, con instancing (`village3d.js forestPlan` / `buildForest`). Nace en las casillas de bosque, que son las que chocan; abajo del todo, sólo plantas bajas.
 - **Efectos**: niebla, halos, esporas y portal, suaves (no a escalones).
+
+## El mundo pulido (12-11-2026)
+Pedido del dueño: «que los muros, rocas y cofres tengan el mismo estilo de pulición que la aldea» y «mejoras gráficas en todo el juego».
+- **Rocas y cofres, 3D liso** (`ultra3d.js`): rocas redondeadas (esfera deformada con ruido suave) con la textura suave del tono de roca del mapa, musgo de su verde y grietas suaves al romperse; cofres de tablas con las esquinas redondeadas, tapa abombada, flejes y cerradura de oro con brillo. Contorno del tono oscuro del mapa, como la aldea. En PC con calidad alta, también con la vista normal; en móvil, sólo con Ultra.
+- **Paredes:** con la vista normal siguen siendo el tileset plano de Mundo Misterioso (regla 1). En Ultra son 3D: su pixel art arriba y en la cara, muestreado nítido (`crispTex`), con la cara más oscura hacia el pie y sombras de borde suave.
+- **Luz:** lo que brilla deja un halo suave que se suma (`fx.js glowAt` / `light`): golpes, explosiones, tus disparos, el aura de los jefes y la luz de las grietas. Va alrededor y debajo, nunca tapa el sprite de un Pokémon.
+- **Bloom** (sólo calidad Máxima): lo claro de la escena se difumina y se suma, antes del HUD.
+- **Los Pokémon siguen en pixel art nítido**, a escala entera y sin suavizar; los números y el HUD, encima de todo y sin brillo.
+- **Filtro opcional «Pokémon más nítidos»** (Ajustes › Gráficos, `pixSmooth`, apagado de serie): con él encendido, los sprites se amplían con **Scale3x / AdvMAME3x** (`core/pixfilter.js`; en móvil, Scale2x / EPX y sólo tu Pokémon, compañeros, jefes y menús) y se dibujan suavizados a su tamaño: diagonales y curvas redondas, sin desenfocar ni colores nuevos. En la aldea, Scale2x en el shader (`village3d.js EPX_GLSL`). Se compararon Scale2x, Scale3x y Scale4x: Scale4x ya cambia ojos y caras. Apagado, todo es como siempre (las reglas de arriba).
 
 ## Lo que no cumple y por qué
 - **Aldea del menú:** el 3D va liso a propósito (arriba); la regla 3 vale para su pixel art, no para los modelos.
 - **Efectos que giran en la partida:** se dibujan desde una copia ampliada ×4 con suavizado (`vfx.js bigOf`): los píxeles se ven iguales y sin dientes, aunque no caigan en la rejilla.
 - **Ultra:** la perspectiva cambia la escala con la altura, así que los píxeles no pueden ser iguales.
+- **Pokémon con el filtro «más nítidos» encendido:** dejan de ser cuadrados de 1 px de arte a propósito (lo elige el jugador).
+- **Rocas, cofres y paredes en 3D, niebla y luz:** suaves a propósito (arriba, «El mundo pulido»); la regla 3 vale para el pixel art, no para lo 3D ni para la luz.
 - **Pokémon a otra escala:** jefes y formas grandes se escalan y sus píxeles son mayores o menores que los del mapa.

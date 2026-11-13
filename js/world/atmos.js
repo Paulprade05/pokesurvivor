@@ -18,6 +18,10 @@
  *   Medio   un banco de niebla
  *   Alto    dos bancos de niebla, el de sombra y el anochecer
  * Con «Animaciones» apagado la niebla se queda quieta.
+ *
+ * (Pulido 12-11-2026, el dueño: «que se vea todo pulido como la aldea») La niebla, las manchas de luz y sombra y la
+ * penumbra de los muros son ahora degradados suaves (se pintan pequeños y se amplían suavizados), no escalones a
+ * cuadros. Cuesta lo mismo: los mismos drawImage por fotograma y un ImageData pequeño por chunk al hornear.
  */
 G.Atmos = (() => {
   const S = 192, PX = 2;                                 // lado del mapa de ruido y píxel de arte (en unidades de mundo)
@@ -92,10 +96,7 @@ G.Atmos = (() => {
   }
 
   // ---------------- lo que se hornea en el chunk ----------------
-  const rgba = (hex, a) => {
-    const n = parseInt(hex.slice(1), 16);
-    return 'rgba(' + (n >> 16) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
-  };
+  const rgbOf = hex => { const n = parseInt(hex.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
 
   /**
    * Tono del mapa, manchas de luz y sombra y penumbra dentro de los muros. Al hornear, una vez por chunk: las manchas se sacan del mapa de
@@ -111,22 +112,29 @@ G.Atmos = (() => {
       g.globalCompositeOperation = 'source-over';
     }
     const ink = P ? P.edge : '#000000', k = m.pool;
-    const STY = [rgba(ink, 0.16 * k), rgba(ink, 0.08 * k), null, rgba(m.lit, 0.05 * k), rgba(m.lit, 0.09 * k)];
+    // (Pulido 12-11-2026) Las manchas, suaves: un valor por bloque de 4 px de arte en un ImageData pequeño que se amplía
+    // suavizado sobre el chunk (antes, a escalones de 4 px con el borde de casilla: se veía pixelado y sucio).
     const C = G.Settings.fx ? 4 : 8, n = W / C, ox = (seed & 127) * 3,     // (en Bajo, bloques más grandes: hornea antes)
       scale = C / 4, oy = (seed >> 7 & 127) * 3;
-    for (let y = 0; y < n; y++) {
-      let run = 0, cur = 2;
-      for (let x = 0; x <= n; x++) {
-        let l = 2;
-        if (x < n) {
-          const wx = (cx * n + x) * scale + ox, wy = (cy * n + y) * scale + oy, v = map[((wy % S) + S) % S * S + ((wx % S) + S) % S] + (((x * 7 + y * 13) ^ (x * y)) & 15) - 7;
-          l = v < lv.d2 ? 0 : v < lv.d1 ? 1 : v > lv.l2 ? 4 : v > lv.l1 ? 3 : 2;
-        }
-        if (l === cur) continue;
-        if (STY[cur]) { g.fillStyle = STY[cur]; g.fillRect(run * C, y * C, (x - run) * C, C); }
-        cur = l; run = x;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = n + 2;
+    const sg = cv.getContext('2d');
+    if (sg) {
+      const id = sg.createImageData(n + 2, n + 2), d = id.data, ic = rgbOf(ink), lc = rgbOf(m.lit);
+      const ss = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+      for (let y = -1; y <= n; y++) for (let x = -1; x <= n; x++) {
+        const wx = (cx * n + x) * scale + ox, wy = (cy * n + y) * scale + oy, v = map[((wy % S) + S) % S * S + ((wx % S) + S) % S];
+        const dk = ss(lv.d1 + 6, lv.d2 - 4, v), lt = ss(lv.l1 - 6, lv.l2 + 4, v), o = ((y + 1) * (n + 2) + x + 1) * 4;
+        if (dk > 0) { d[o] = ic[0]; d[o + 1] = ic[1]; d[o + 2] = ic[2]; d[o + 3] = 255 * (0.03 + 0.13 * dk) * k * Math.min(1, dk * 4); }
+        else if (lt > 0) { d[o] = lc[0]; d[o + 1] = lc[1]; d[o + 2] = lc[2]; d[o + 3] = 255 * (0.02 + 0.07 * lt) * k * Math.min(1, lt * 4); }
       }
+      sg.putImageData(id, 0, 0);
+      const sm = g.imageSmoothingEnabled;
+      g.imageSmoothingEnabled = true;
+      g.drawImage(cv, 1, 1, n, n, 0, 0, W, W);
+      g.imageSmoothingEnabled = sm;
     }
+    G.U.freeCanvas(cv);
     if (!flat3d) wallShade(g, cx, cy, N, at, bi, seed);
   }
 
@@ -151,25 +159,30 @@ G.Atmos = (() => {
     }
     if (!any) return;
     // La profundidad, suavizada entre casillas y torcida con el mapa de ruido: curvas de borde irregular, no los bordes de las casillas.
-    const ink = mood(bi).dark[0], STY = [null, rgba(ink, 0.2), rgba(ink, 0.34), rgba(ink, 0.48)], C = G.Settings.fx ? 2 : 4, n = N * T / C, TC = T / C, zoom = C / 2;
+    // (Pulido 12-11-2026) En tonos continuos (un ImageData que se amplía suavizado), no a escalones.
+    const ink = rgbOf(mood(bi).dark[0]), C = G.Settings.fx ? 2 : 4, n = N * T / C, TC = T / C, zoom = C / 2;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = n;
+    const sg = cv.getContext('2d');
+    if (!sg) { G.U.freeCanvas(cv); return; }
+    const id = sg.createImageData(n, n), px = id.data;
     for (let y = 0; y < n; y++) {
       const fy = (y + 0.5) / TC - 0.5, j = Math.floor(fy), v = fy - j, wy = (cy * n + y) * zoom;
-      let run = 0, cur = 0;
-      for (let x = 0; x <= n; x++) {
-        let l = 0;
-        if (x < n) {
-          const fx = (x + 0.5) / TC - 0.5, i = Math.floor(fx), u = fx - i, o = (j + 1) * W2 + i + 1;
-          const d = (DS[o] * (1 - u) + DS[o + 1] * u) * (1 - v) + (DS[o + W2] * (1 - u) + DS[o + W2 + 1] * u) * v;
-          if (d > 0.2) {
-            const wx = (cx * n + x) * zoom, e = map[((wy % S) + S) % S * S + ((wx % S) + S) % S] / 255 - 0.5, q = d + e * 1.1 + (((x * 7 + y * 13) ^ (x * y)) & 7) * 0.09 - 0.3;
-            l = q > 2.3 ? 3 : q > 1.5 ? 2 : q > 0.75 ? 1 : 0;
-          }
-        }
-        if (l === cur) continue;
-        if (STY[cur]) { g.fillStyle = STY[cur]; g.fillRect(run * C, y * C, (x - run) * C, C); }
-        cur = l; run = x;
+      for (let x = 0; x < n; x++) {
+        const fx = (x + 0.5) / TC - 0.5, i = Math.floor(fx), u = fx - i, o = (j + 1) * W2 + i + 1;
+        const d = (DS[o] * (1 - u) + DS[o + 1] * u) * (1 - v) + (DS[o + W2] * (1 - u) + DS[o + W2 + 1] * u) * v;
+        if (d <= 0.2) continue;
+        const wx = (cx * n + x) * zoom, e = map[((wy % S) + S) % S * S + ((wx % S) + S) % S] / 255 - 0.5, q = d + e * 1.1 - 0.3;
+        const t = Math.max(0, Math.min(1, (q - 0.55) / 2)), a = t * t * (3 - 2 * t) * 0.5, p = (y * n + x) * 4;
+        px[p] = ink[0]; px[p + 1] = ink[1]; px[p + 2] = ink[2]; px[p + 3] = 255 * a;
       }
     }
+    sg.putImageData(id, 0, 0);
+    const sm = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = true;
+    g.drawImage(cv, 0, 0, n * C, n * C);
+    g.imageSmoothingEnabled = sm;
+    G.U.freeCanvas(cv);
   }
 
   /** (Ultra 3D) Lo mismo en la cara de arriba de los muros, que va en su propio lienzo: sólo sobre lo pintado. */
@@ -182,7 +195,7 @@ G.Atmos = (() => {
 
   // ---------------- la niebla ----------------
   let mistC = null, darkC = null, forBi = -1, want = -1, k = 0;
-  /** El banco, en el color del mapa: a escalones de opacidad, como las sombras del juego. */
+  /** El banco, en el color del mapa, con la opacidad continua (pulido 12-11-2026: antes a escalones). */
   function paint(hex, a0) {
     const cv = document.createElement('canvas');
     cv.width = cv.height = S;
@@ -192,14 +205,26 @@ G.Atmos = (() => {
     try { d = g.createImageData(S, S); } catch (e) { G.U.freeCanvas(cv); return null; }
     const n = parseInt(hex.slice(1), 16), r = n >> 16, gr = n >> 8 & 255, b = n & 255, o = d.data, q = a0;
     for (let i = 0; i < map.length; i++) {
-      const v = map[i], s = v < lv.m0 ? 0 : v < lv.m1 ? 0.34 : v < lv.m2 ? 0.67 : v < lv.m3 ? 0.86 : 1;
+      // (Pulido 12-11-2026) Opacidad continua (antes, 4 escalones: bancos a cuadros); se amplía suavizado (ground).
+      const v = map[i], t = v <= lv.m0 - 6 ? 0 : Math.min(1, (v - lv.m0 + 6) / (lv.m3 - lv.m0 + 6)), s = t * t * (3 - 2 * t);
       if (!s) continue;
       const p = i * 4;
       o[p] = r; o[p + 1] = gr; o[p + 2] = b; o[p + 3] = 255 * s * q;
     }
     g.putImageData(d, 0, 0);
-    return cv;
+    if (!PRE) return cv;
+    // (Móvil) Ampliado ×3 suavizado una vez aquí: así se dibuja al píxel más cercano cada fotograma (ampliar suavizado
+    // en cada fotograma costaba ~18 ms en el WebKit de las pruebas). 576×576: 1,3 MB por banco.
+    const big = document.createElement('canvas');
+    big.width = big.height = S * 3;
+    const bg = big.getContext('2d');
+    if (!bg) { G.U.freeCanvas(big); return cv; }
+    bg.imageSmoothingEnabled = true;
+    bg.drawImage(cv, 0, 0, S * 3, S * 3);
+    G.U.freeCanvas(cv);
+    return big;
   }
+  const PRE = !!(G.U && G.U.IOS) || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
   function tint(bi) {
     build();
     free();
@@ -228,6 +253,7 @@ G.Atmos = (() => {
     return u * u * (3 - 2 * u);
   }
 
+  const SOFT = { on: true };            // (para medir: la niebla ampliada suavizada o no)
   // (El dueño eligió la niebla densa, 07-11-2026: se ve claro como bancos.) La de MOODS, por estos factores.
   // MIST_MAX: el tope, también con el clima Niebla: muros, agua y lava están debajo y tienen que seguir leyéndose.
   const MIST_K = 1.36, DARK_K = 1.19, MIST_MAX = 0.5;
@@ -248,6 +274,9 @@ G.Atmos = (() => {
     const L = view.left(), Tp = view.top(), W = view.w, H = view.h;
     const nn = dusk(), wx = G.Weather ? G.Weather.vignette : 0;     // (el clima «Niebla» la espesa)
     const a = Math.min(MIST_MAX, m.mist[1] * MIST_K * (1 + nn * 0.45 + wx * 1.1)) * k;
+    // (Pulido) Ampliado suavizado: jirones de borde suave en vez de cuadros de 6-8 unidades.
+    const sm = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = SOFT.on && !PRE;
     if (fx > 1) {
       if (darkC) { ctx.globalAlpha = Math.min(0.6, m.dark[1] * DARK_K) * k; tile(ctx, darkC, L, Tp, W, H, -now * 9, now * 3.5, 4, 3); }
     }
@@ -257,6 +286,7 @@ G.Atmos = (() => {
     // (El anochecer, lo último: también baja la niebla, que si no brillaría sobre el suelo oscuro.)
     if (fx > 1 && nn > 0) { ctx.globalAlpha = nn * 0.34 * k; ctx.fillStyle = m.night; ctx.fillRect(L, Tp, W, H); }
     ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = sm;
   }
 
   /** La viñeta del mapa: [color 'r,g,b', opacidad]. */
@@ -267,6 +297,6 @@ G.Atmos = (() => {
     return e;
   }
 
-  return { MOODS, mood, bake, tops, ground, edge, purge: free,
+  return { MOODS, mood, bake, tops, ground, edge, purge: free, soft: SOFT,
     reset() { k = 0; want = -1; free(); } };
 })();
