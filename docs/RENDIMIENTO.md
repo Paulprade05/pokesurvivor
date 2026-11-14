@@ -22,6 +22,8 @@ node tools/perf.cjs --pw <node_modules> --calidad auto,high,max --seg 6 --out <c
 node tools/perf.cjs --pw <node_modules> --nav webkit --calidad auto,high --out <carpeta>
 # otra versión del juego (p. ej. un worktree de origin/main) con la misma herramienta
 node tools/perf.cjs --pw <node_modules> --raiz ../ps-perf-base ...
+# (14-11-2026) desglose por partes, % ocupado de cada hilo (GPU incluida) y la horda al tope; ver docs/FPS-TECNOLOGIA.md
+node tools/perf.cjs --pw <node_modules> --calidad high,max --escenas hordamax --desglose --traza --sin-contar --out <carpeta>
 # perfil de CPU por escena (.cpuprofile, se abre en DevTools) y qué funciones gastan en los fotogramas de más de 50 ms
 node tools/perf.cjs ... --perfil
 # tabla antes → después

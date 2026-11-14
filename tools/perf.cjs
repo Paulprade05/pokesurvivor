@@ -68,7 +68,13 @@ const PW = opt('pw', process.env.PLAYWRIGHT_CORE);
 const CHROME_ARG = opt('chrome', process.env.CHROME);
 const PROFILE = flag('perfil');
 const COUNT = !flag('sin-contar');
-const UNCAP = flag('sin-tope');
+const HZ = +opt('hz', 0);                 // (fps-tecnologia) pantalla de N Hz: sin vsync y el tope del juego a N
+const UNCAP = flag('sin-tope') || HZ > 0;
+const SPLIT = flag('desglose');           // ms propios de cada parte (simulación, dibujo...) por fotograma
+const TRACE = flag('traza');
+// Para saber qué cuesta cada capa: --quitar World.drawGround,HUD.draw,Ultra3D.flat=false (esa función deja de hacer nada y
+// devuelve lo que pongas tras el =). Sólo para medir: lo que se ve cambia.
+const DROP = (opt('quitar', '') || '').split(',').filter(Boolean);              // Chrome: tiempo ocupado de cada hilo (página, GPU, compositor)
 const TAM = opt('tam', NAV === 'webkit' ? '852x393@3' : '1536x864@1.25');
 const SEED = +opt('semilla', 4242);
 let pw;
@@ -99,10 +105,12 @@ function instrument({ seed, count }) {
   window.requestAnimationFrame = cb => raf(ts => {
     if (!P.on) return cb(ts);
     for (const k in C) C[k] = 0;
+    P.ran = false; P.sp = {};
     const t0 = performance.now();
     cb(ts);
+    if (P.hooked && !P.ran) return;          // (el tope de FPS del juego se saltó este aviso: no es un fotograma)
     const m = performance.memory;
-    P.fr.push({ ts, t0, ms: performance.now() - t0, heap: m ? m.usedJSHeapSize : 0, c: Object.assign({}, C) });
+    P.fr.push({ ts, t0, ms: performance.now() - t0, heap: m ? m.usedJSHeapSize : 0, c: Object.assign({}, C), sp: P.sp });
   });
   if (!count) return;
   const wrap = (proto, names, key) => { for (const n of names) { const o = proto && proto[n]; if (typeof o !== 'function') continue;
@@ -167,6 +175,45 @@ const HELPERS = () => {
     G.EnemyMgr.clear(); G.Projectiles.clear();
     __god();
   };
+  // Sólo cuentan los avisos de la pantalla en los que el juego hizo su fotograma (G.Pad.poll va en cada uno).
+  window.__hook = (split) => {
+    const P = window.__perf; if (P.hooked) return; P.hooked = true;
+    const pad = G.Pad.poll; G.Pad.poll = function () { P.ran = true; return pad.apply(this, arguments); };
+    if (!split) return;
+    // Desglose: tiempo propio de cada parte (sin el de las partes medidas que llama dentro), por fotograma.
+    const T = [
+      ['sim', 'Weather', 'update'], ['sim', 'FX', 'update'], ['sim', 'Reg', 'tick'], ['sim:ia', 'Path', 'update'], ['sim', 'Spawner', 'update'],
+      ['sim', 'Director', 'update'], ['sim:ia', 'EnemyMgr', 'update'], ['sim:combate', 'Combat', 'tick'], ['sim:proyectiles', 'Projectiles', 'update'],
+      ['sim', 'Pickups', 'update'], ['sim', 'Hazards', 'update'], ['sim', 'Interact', 'update'], ['sim', 'Rift', 'update'],
+      ['sim', 'Judgment', 'update'], ['sim', 'Events', 'update'], ['sim', 'World', 'update'], ['sim:jugador', 'Player.prototype', 'update'],
+      ['sim:red', 'Coop', 'tick'],
+      ['dib:suelo', 'World', 'drawGround'], ['dib:suelo', 'World', 'drawLiquid'], ['dib:suelo', 'Ambient', 'ground'], ['dib:suelo', 'Atmos', 'ground'],
+      ['dib:suelo', 'EnemyAI', 'drawGround'], ['dib:suelo', 'Hazards', 'draw'], ['dib:campos', 'Combat', 'drawGroundFields'], ['dib:objetos', 'Pickups', 'draw'],
+      ['dib:props', 'World', 'drawProp'], ['dib:props', 'World', 'visibleProps'], ['dib:enemigos', 'Enemy.prototype', 'draw'], ['dib:enemigos', 'EnemyMgr', 'drawables'],
+      ['dib:jugador', 'Player.prototype', 'draw'], ['dib:proyectiles', 'Projectiles', 'draw'], ['dib:campos', 'Combat', 'drawAirFields'],
+      ['dib:fx', 'FX', 'draw'], ['dib:aire', 'Ambient', 'air'], ['dib:aire', 'Weather', 'draw'], ['dib:velos', 'World', 'drawVignette'],
+      ['dib:hud', 'HUD', 'draw'], ['dib:hud', 'Touch', 'draw'], ['3d', 'Ultra3D', 'begin'], ['3d', 'Ultra3D', 'render'], ['3d', 'Ultra3D', 'blit'],
+      ['3d', 'Ultra3D', 'batch'], ['3d:aldea', 'Village', 'frame'], ['dom', 'UI', 'tick'],
+    ];
+    const stack = [];
+    for (const [cat, obj, fn] of T) {
+      const o = obj.split('.').reduce((a, k) => a && a[k], G);
+      if (!o || typeof o[fn] !== 'function' || o[fn].__w) continue;
+      const f = o[fn];
+      const w = function () {
+        if (!P.on) return f.apply(this, arguments);
+        const fr = { c: 0 }; stack.push(fr);
+        const t = performance.now();
+        try { return f.apply(this, arguments); }
+        finally {
+          const d = performance.now() - t; stack.pop();
+          const S = P.sp; S[cat] = (S[cat] || 0) + d - fr.c;
+          if (stack.length) stack[stack.length - 1].c += d;
+        }
+      };
+      w.__w = true; o[fn] = w;
+    }
+  };
   window.__heavy = () => {
     const P = G.Game.player;
     const ids = ['bullet-seed', 'flamethrower', 'ice-shard', 'swift'];
@@ -195,6 +242,13 @@ const HELPERS = () => {
       for (const w of ['surge', 'ring', 'swarm', 'stampede', 'surge']) { G.Spawner.debugWave(w); await sleep(500); }
       await sleep(2500); return;
     }
+    if (k === 'hordamax') {      // (fps-tecnologia) la horda con todo lo que cabe: el tope de enemigos y de proyectiles
+      G.Game.debugTime(19 * 60); G.Spawner.debugBossesFrom(30 * 60);
+      __heavy();
+      const top = G.Spawner.capAt(G.Game.st.time) + 20;
+      for (let i = 0; i < 14 && G.EnemyMgr.count < top; i++) { G.Spawner.debugWave(['surge', 'ring', 'swarm', 'stampede'][i % 4]); await sleep(350); }
+      await sleep(2500); return;
+    }
     if (k === 'grieta') {
       G.Rift.debugOpen(); await sleep(400);
       const r = G.Rift.rift; if (r) { P.x = r.x; P.y = r.y - 10; G.Camera.x = P.x; G.Camera.y = P.y; }
@@ -220,9 +274,36 @@ function stats(fr, secs, nav) {
     for (let i = 1; i < n; i++) { const d = f[i].heap - f[i - 1].heap; if (d > 0) up += d; else if (d < -64 * 1024) { gc++; freed -= d; } }
     o.mbs = +(up / span / 1048576).toFixed(2); o.gc = gc; o.heapMB = +(f[n - 1].heap / 1048576).toFixed(1);
   }
+  if (f.some(x => x.sp && Object.keys(x.sp).length)) {
+    const ks = new Set(); for (const x of f) for (const k in x.sp || {}) ks.add(k);
+    o.desglose = {}; let sum = 0;
+    for (const k of [...ks].sort()) { const v = f.reduce((a, x) => a + ((x.sp || {})[k] || 0), 0) / n; o.desglose[k] = +v.toFixed(3); sum += v; }
+    o.desglose.otros = +(o.ms - sum).toFixed(3);
+  }
   const keys = new Set(); for (const x of f) for (const k in x.c) keys.add(k);
   o.porFotograma = {};
   for (const k of keys) o.porFotograma[k] = +(f.reduce((a, x) => a + (x.c[k] || 0), 0) / n).toFixed(1);
+  return o;
+}
+
+/* Tiempo ocupado de cada hilo en la traza de Chrome (tareas de primer nivel), en % del tiempo medido. La GPU de Chrome va en
+ * otro proceso (CrGpuMain): ahí se ve lo que cuesta pintar el lienzo, que el JavaScript de la página no cuenta. */
+function threadBusy(ev) {
+  const names = new Map();
+  for (const e of ev) if (e.ph === 'M' && e.name === 'thread_name') names.set(e.pid + ':' + e.tid, e.args.name);
+  const busy = new Map(); let t0 = Infinity, t1 = -Infinity;
+  for (const e of ev.filter(e => e.ph === 'X' && e.dur).sort((a, b) => a.ts - b.ts)) {
+    const k = e.pid + ':' + e.tid, nm = names.get(k) || k;
+    if (!/CrRendererMain|CrGpuMain|VizCompositorThread|Compositor$|CrBrowserMain/.test(nm)) continue;
+    // (sólo lo de arriba: las tareas que van dentro de otra no se suman dos veces)
+    const b = busy.get(nm) || { us: 0, end: 0 };
+    const st = Math.max(e.ts, b.end), en = e.ts + e.dur;
+    if (en > st) b.us += en - st;
+    b.end = Math.max(b.end, en); busy.set(nm, b);
+    t0 = Math.min(t0, e.ts); t1 = Math.max(t1, en);
+  }
+  const span = t1 - t0 || 1, o = {};
+  for (const [k, b] of busy) o[k] = +(100 * b.us / span).toFixed(1);
   return o;
 }
 
@@ -270,14 +351,21 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
     p.on('console', m => { if (m.type() === 'error' && !/favicon|firebase|ERR_|Failed to load|identitytoolkit|googleapis|404/.test(m.text())) errs.push('[c] ' + m.text().slice(0, 300)); });
     await p.addInitScript(instrument, { seed: SEED, count: COUNT });
     // (Calidad antes de cargar: la aldea y el tamaño del lienzo ya salen con ella.)
-    await p.addInitScript(q => { try { const s = JSON.parse(localStorage.getItem('ps.settings') || '{}'); s.quality = q.q; s.fps = false; if (q.uncap) s.fpsCap = 0; localStorage.setItem('ps.settings', JSON.stringify(s)); } catch (e) { /* */ } }, { q: Q, uncap: UNCAP });
+    await p.addInitScript(q => { try { const s = JSON.parse(localStorage.getItem('ps.settings') || '{}'); s.quality = q.q; s.fps = false; if (q.uncap) s.fpsCap = q.hz || 0; localStorage.setItem('ps.settings', JSON.stringify(s)); } catch (e) { /* */ } }, { q: Q, uncap: UNCAP, hz: HZ });
     await p.goto(`http://127.0.0.1:${port}/dev.html?dev`, { waitUntil: 'load' });
     await p.evaluate(HELPERS);
+    await p.waitForFunction(() => window.G && G.Pad && G.Game, null, { timeout: 60000 });
+    await p.evaluate(s => __hook(s), SPLIT);
+    if (DROP.length) console.log('quitado:', await p.evaluate(list => list.map(d => {
+      const [path, ret] = d.split('='), ks = path.split('.'), fn = ks.pop(), o = ks.reduce((a, k) => a && a[k], G);
+      if (!o || typeof o[fn] !== 'function') return d + ' (no existe)';
+      const v = ret === undefined ? undefined : JSON.parse(ret); o[fn] = () => v; return d;
+    }).join(', '), DROP));
     const cdp = NAV === 'chrome' ? await ctx.newCDPSession(p) : null;
     if (cdp) { await cdp.send('Performance.enable'); if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); } }
     const gpu = await p.evaluate(() => { try { const c = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
       const e = c && c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; } catch (e) { return '?'; } });
-    const res = { nav: NAV, sinTope: UNCAP, calidad: Q, tam: TAM, gpu, semilla: SEED, seg: SECS, fecha: new Date().toISOString(), escenas: {} };
+    const res = { nav: NAV, sinTope: UNCAP, hz: HZ || null, calidad: Q, tam: TAM, gpu, semilla: SEED, seg: SECS, fecha: new Date().toISOString(), escenas: {} };
     const entered = await p.evaluate(() => __enter());
     if (process.env.PERF_DEBUG) console.log('entrada', entered, await p.evaluate(() => G.Game.state + ' ' + [...document.querySelectorAll('.scr:not(.hidden)')].map(e => e.id).join(',')));
     await p.waitForFunction(() => window.G && G.Village && G.Village.mode !== 'loading', null, { timeout: 60000 }).catch(() => { });
@@ -294,11 +382,23 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         const m0 = await metrics();
         let pt0 = 0;
         if (PROFILE && cdp) { await cdp.send('Profiler.start'); pt0 = await p.evaluate(() => performance.now()); }
+        let traceEv = null;
+        if (TRACE && cdp) {
+          traceEv = [];
+          cdp.removeAllListeners('Tracing.dataCollected');
+          cdp.on('Tracing.dataCollected', d => { for (const e of d.value) traceEv.push(e); });
+          await cdp.send('Tracing.start', { traceConfig: { includedCategories: ['toplevel', '__metadata'], recordMode: 'recordContinuously' }, transferMode: 'ReportEvents' });
+        }
         await p.evaluate(() => { __perf.fr = []; __perf.on = true; });
         await sleep(SECS * 1000);
         const fr = await p.evaluate(() => { __perf.on = false; const f = __perf.fr; __perf.fr = []; return f; });
         const m1 = await metrics();
         const o = stats(fr, SECS, NAV);
+        if (traceEv) {
+          const done = new Promise(r => cdp.once('Tracing.tracingComplete', r));
+          await cdp.send('Tracing.end'); await done;
+          o.hilos = threadBusy(traceEv);
+        }
         if (m0 && m1) {
           const span = (m1.Timestamp - m0.Timestamp) || SECS;
           o.cdp = { scriptPct: +(100 * (m1.ScriptDuration - m0.ScriptDuration) / span).toFixed(1), taskPct: +(100 * (m1.TaskDuration - m0.TaskDuration) / span).toFixed(1),
@@ -321,7 +421,8 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
       } catch (e) { res.escenas[S] = { error: String(e && e.message || e).slice(0, 300) }; }
       const r = res.escenas[S];
       console.log(`${NAV} ${Q} ${S}: ` + (r.error ? 'ERROR ' + r.error : `${r.fps} FPS, ${r.ms} ms (p95 ${r.p95}, p99 ${r.p99}), tirones ${r.tirones}, peor ${r.maxGap} ms` +
-        (r.mbs != null ? `, basura ${r.mbs} MB/s, gc ${r.gc}` : '') + `, enemigos ${r.estado.enemigos}` + ` | ${JSON.stringify(r.porFotograma)}`));
+        (r.mbs != null ? `, basura ${r.mbs} MB/s, gc ${r.gc}` : '') + `, enemigos ${r.estado.enemigos}, proyectiles ${r.estado.proyectiles}` +
+        (r.desglose ? `\n   desglose ms ${JSON.stringify(r.desglose)}` : '') + (r.hilos ? `\n   hilos % ${JSON.stringify(r.hilos)}` : '') + ` | ${JSON.stringify(r.porFotograma)}`));
     }
     res.errores = errs.slice(0, 30);
     const fn = path.join(OUT, `${NAV}-${Q}${REPS > 1 ? '-' + rep : ''}.json`);
