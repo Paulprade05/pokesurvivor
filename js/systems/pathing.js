@@ -9,7 +9,8 @@
  * costes enteros pequeños, 5 en recto y 7 en diagonal, × el terreno):
  *
  *   clase  quién                                suelo  agua/pantano  lava, veneno, descarga
- *   walk   todos por defecto                    ×1     ×2            bloquea
+ *   walk   todos por defecto                    ×1     bloquea (13-11) bloquea
+ *   wade   Volador, Fantasma y jefes que andan  ×1     ×2            bloquea  (Enemy.dry === false)
  *   swim   los que nadan (e.mv 'swim')          ×1     ×0,6          bloquea
  *   lava   inmunes al líquido del bioma, y      ×1     ×1            como el suelo
  *          los legendarios (e.mv 'lava')
@@ -33,9 +34,11 @@
 G.Path = (() => {
   const R = 19, N = R * 2 + 1, NN = N * N, EVERY = 0.35;          // (2.0, casillas de 48: 19 ≈ las 28 de 32 de antes)
   const UNSEEN = 0xffff, KEEP = 2;                                // KEEP: s que se sigue construyendo una clase sin pedirla
-  const CLS = ['walk', 'swim', 'lava'], NK = CLS.length * 3;      // clave = clase·3 + tamaño (0 normal, 1 big, 2 huge)
+  const CLS = ['walk', 'swim', 'lava', 'wade'], NK = CLS.length * 3;      // clave = clase·3 + tamaño (0 normal, 1 big, 2 huge)
   // Coste de ENTRAR en una casilla según lo que es (World.cellAt: 0 suelo, 1 bloquea, 2 agua, 3 lava...), en recto.
-  const COST = [[5, 0, 10, 0], [5, 0, 3, 0], [5, 0, 5, 5]];
+  // (13-11-2026) walk ya no entra en el agua ni en el pantano (el dueño: «los Pokémon siguen atravesando el agua»); el campo de
+  //  antes (agua ×2) es ahora wade, para los que sí pueden: Volador, Fantasma y jefes que andan (Enemy.dry).
+  const COST = [[5, 0, 0, 0], [5, 0, 3, 0], [5, 0, 5, 5], [5, 0, 10, 0]];
   const DIAG = c => (c * 1.4 + 0.5) | 0;
   const CENTER = 6;                    // (11-11-2026) a menos de esto del centro de su casilla, «en el centro» (dirFor)
   const CHEAP = 5, SHOT = -1;          // (modos de clearLine: si no, el coste máximo de las casillas que cruza)
@@ -48,7 +51,7 @@ G.Path = (() => {
   const stats = { builds: 0, ms: 0, maxMs: 0 };
 
   const sizeOf = e => { const r = e.wr || e.r; return r > 0.7 * G.World.TS ? 2 : e.aiBig || r > 0.47 * G.World.TS ? 1 : 0; };   // (con su radio contra el terreno)
-  /** Clase de campo de un enemigo (0 walk, 1 swim, 2 lava). */
+  /** Clase de campo de un enemigo (0 walk, 1 swim, 2 lava, 3 wade). */
   function clsOf(e) {
     if (e.mv === 'swim') return 1;
     if (e.mv === 'lava') return 2;
@@ -58,7 +61,7 @@ G.Path = (() => {
       // Inmune al líquido que hace daño en este bioma (Fuego en la lava...): por él como por el suelo.
       e._pc = G.World.liquidEffect([]).dmg && !G.World.liquidEffect(e.types).dmg ? 2 : 0;
     }
-    return e._pc;
+    return e._pc || (e.dry === false ? 3 : 0);
   }
 
   function stateOf(pl) {
@@ -107,6 +110,24 @@ G.Path = (() => {
     // Coste de entrar en cada casilla (en recto) y si se puede rozar en diagonal yendo a una de coste m (diagOk).
     const cw = s.cw || (s.cw = new Uint8Array(NN));
     for (let n = 0; n < NN; n++) cw[n] = ok[n] ? C[code[n]] : 0;
+    // (13-11-2026) Estás dentro del agua y esta clase no entra: el campo cruza ESE lago (sólo ése) como si fuera suelo, así
+    //  los que no pueden entrar van a la orilla más cercana a ti y esperan allí (dirFor: e.pathShore), en vez de quedarse sin
+    //  camino y amontonarse donde caigan. Sólo cuesta algo mientras estés en el agua.
+    if (code[start] === 2 && !C[2]) {
+      const st = s.fl || (s.fl = new Int32Array(NN));
+      let h = 0, q = 0;
+      st[h++] = start; cw[start] = 5;
+      while (q < h) {
+        const c = st[q++], cx = c % N, cy = (c - cx) / N;
+        for (let k = 0; k < 8; k++) {
+          const nx = cx + DX[k], ny = cy + DY[k];
+          if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          const n = c + OFF[k];
+          if (code[n] !== 2 || cw[n]) continue;
+          cw[n] = 5; ok[n] = 1; st[h++] = n;
+        }
+      }
+    }
     // Dijkstra con cubos (Dial): el coste de un paso es como mucho 14, así que bastan 16 cubos en círculo.
     for (let b = 0; b < 16; b++) bn[b] = 0;
     bq[0][bn[0]++] = start;
@@ -195,7 +216,7 @@ G.Path = (() => {
    * centro de las casillas.
    */
   function dirFor(e, pl) {
-    e.pathNo = false; e.pathV = null;
+    e.pathNo = false; e.pathV = null; e.pathShore = false;
     const L = fieldOf(e, pl);
     if (!L) return null;
     const { f, tx, ty } = L, here = f.dist[L.i];
@@ -203,7 +224,9 @@ G.Path = (() => {
     e.pathV = here;
     if (here <= 7) return null;                  // pegado a ti: directo
     const TS = G.World.TS;
-    if (!e.aiStrict) {
+    // (13-11-2026) Si estás en un lago en el que no puede entrar, nada de atajos en recta: por el campo, hasta la orilla.
+    const lake = f.code[R * N + R] === 2 && !COST[(f.key / 3) | 0][2];
+    if (!e.aiStrict && !lake) {
       // Con vista despejada hasta el jugador, en línea recta (más natural). Cada 0,2 s por enemigo (es lo más caro).
       if (e.losAt == null || clock - e.losAt > 0.2 || clock < e.losAt) { e.losAt = clock; e.los = clearLine(f, e.x, e.y, pl.x, pl.y, (e.wr || e.r) * 0.9, CHEAP); }
       if (e.los) return null;
@@ -218,6 +241,9 @@ G.Path = (() => {
       if (k >= 4 && !diagOk(COST[(f.key / 3) | 0], f.ok, f.code, ty * N + x, y * N + tx, y * N + x)) continue;
       best = v; bx = x; by = y;
     }
+    // (13-11-2026) El siguiente paso es agua y no puede entrar (estás en el lago): espera en la orilla (enemy-ai.js after).
+    e.pathShore = f.code[by * N + bx] === 2 && !COST[(f.key / 3) | 0][2];
+    if (e.pathShore) { e.pathGo = null; return G.U.norm((f.ox + bx + 0.5) * TS - e.x, (f.oy + by + 0.5) * TS - e.y); }
     if (bx === tx && by === ty) { e.pathGo = null; return null; }
     const atx = f.ox + tx, aty = f.oy + ty;
     // (11-11-2026, atascos) Ya decidido ir del centro de su casilla a la vecina: sigue hasta entrar en ella (como mucho

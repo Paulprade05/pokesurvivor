@@ -153,7 +153,16 @@
       this.lagT = 0;
       // (2.0, bloque 4) Cómo usa el terreno: 'swim' | 'dig' | 'hop' | 'ghost' | null (los legendarios: 'lava', rift.js).
       this.mv = G.EnemyAI ? G.EnemyAI.mvFor(this) : null;
+      // (13-11-2026) Los de tipo Agua, Volador o Fantasma pueden meterse en el agua y el pantano (lo eligió el dueño).
+      this.wades = this.types.some(t => t === 'water' || t === 'flying' || t === 'ghost');
     }
+
+    /**
+     * (13-11-2026) ¿No puede entrar en el agua ni en el pantano? Todos menos los de tipo Agua, Volador o Fantasma, los que
+     * vuelan o flotan y los jefes y legendarios (eligió el dueño: «pueden cruzar»). World.collide y pathing.js lo usan.
+     * (Un getter: a los legendarios y a los de la Sentencia les quitan el vuelo después de crearlos.)
+     */
+    get dry() { return !(this.wades || this.flying || this.boss || this.legend || this.judge); }
 
     cy() { return this.y; }
 
