@@ -18,6 +18,10 @@
  *  nítido») Además, con instancing: árboles, torres de poder, manantiales, setas explosivas, flora que brilla y el portal
  *  de la grieta (modelos en props3d.js; ver «instancing» abajo). La hierba alta sigue en pixel art. Móvil: en 2D.
  *
+ * (14-11-2026, el dueño: «los muros que sean trozos de roca amontonados» y «hay momentos que desaparecen... y hacen popup»)
+ *  En PC los muros son montones de rocas con instancing (rockChunk), también con la vista normal; los lotes se hacen por
+ *  huecos del orden de dibujo (batch) y se reparten en el atlas por columnas (pack). Detector: debugPop y tools/pop3d.cjs.
+ *
  * Cómo va:
  *  - three.js (js/vendor/three/, r160, MIT) se carga sólo con Ultra (o Máxima) y el ajuste «Ultra en 3D» encendidos (como
  *    módulo, three-boot.js). Sin WebGL, si falla o si se pierde el contexto, vuelve solo el Ultra 2D de siempre (world.js
