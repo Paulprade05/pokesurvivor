@@ -224,6 +224,8 @@ G.Rift = (() => {
     travel = { t: 0, cfg, ported: false, canSkip: authority(),
                mons: who.map(p => { const a = new G.Sprites.Animator(p.form || p.dex, 1, !!p.shiny); a.dir = 0; return a; }) };
     G.Sprites.preload(Array.isArray(cfg.dexes) ? cfg.dexes.filter(d => G.DEX_BY[d]).slice(0, 3) : [cfg.dex], 8000);
+    // (Rendimiento, 13-11-2026) Y las imágenes del mapa de la arena: así ya están al llegar (a los 0,45 s) y no se pinta dos veces.
+    if (G.Tileset && G.Tiles.arenaBiome) G.Tileset.preload([G.Tiles.arenaBiome(cfg.type)]);
     G.Touch.reset();
     G.Audio.sfx('rift');
   }

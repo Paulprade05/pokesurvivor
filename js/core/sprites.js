@@ -142,7 +142,8 @@ G.Sprites = (() => {
     try {
       const c = document.createElement('canvas');
       c.width = m.n * m.w; c.height = m.h;
-      const x = c.getContext('2d');
+      // (Rendimiento, 13-11-2026) En la memoria normal: leer un lienzo de la GPU espera a que acabe todo lo pendiente (un tirón).
+      const x = c.getContext('2d', { willReadFrequently: true });
       x.drawImage(s.img, m.x || 0, m.y || 0, c.width, c.height, 0, 0, c.width, c.height);
       const d = x.getImageData(0, 0, c.width, c.height).data;
       for (let f = 0; f < m.n; f++) {
