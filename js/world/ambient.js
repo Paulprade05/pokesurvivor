@@ -280,7 +280,8 @@ G.Ambient = (() => {
   }
   // ---------------- flora ----------------
   // Filas de flora.png por suelo: 0-2 flores, 3 helecho, 4 seta que brilla, 5 cristal, 6 fumarola, 7 brasa. Con viento, las 4 primeras.
-  const FLORA = { grass: [0, 1, 2, 3, 3], stone: [4, 4, 5], ash: [6, 7, 7], sand: [3], snow: [] };
+  // (14-11-2026, el dueño: «más elementos 3D... las setas, los cristales») En la hierba, también setas que brillan; en la nieve, cristales.
+  const FLORA = { grass: [0, 1, 2, 3, 4, 4], stone: [4, 4, 5], ash: [6, 7, 7], sand: [3], snow: [5, 5] };
   const floraC = new Map();
   let floraFor = -1;
   /** La flora de un chunk (una vez): casillas de suelo libres, elegidas por hash (todos ven la misma). */

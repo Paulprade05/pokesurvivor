@@ -385,13 +385,22 @@ G.Ultra3D = (() => {
       const ty = cy * N + j, row = { ty, x0: cx * N * TS, x1: (cx + 1) * N * TS, inst: [] };
       for (let i = 0; i < N; i++) {
         if (c.terr[j * N + i] !== 1) continue;
-        const tx = cx * N + i, h1 = H(tx, ty, 71), h2 = H(tx, ty, 72), h3 = H(tx, ty, 73), key = bi + ':wall' + ((H(tx, ty, 74) * 4) | 0);
+        const tx = cx * N + i, h1 = H(tx, ty, 71), h2 = H(tx, ty, 72), h3 = H(tx, ty, 73), at = W.terrainAt;
+        // (Rodeada de pared por los 4 lados: el montón sencillo, sin sombra; si no, uno de los 4 de borde.)
+        const inner = at(tx - 1, ty) === 1 && at(tx + 1, ty) === 1 && at(tx, ty - 1) === 1 && at(tx, ty + 1) === 1;
+        const key = bi + (inner ? ':wallI' + ((H(tx, ty, 74) * 2) | 0) : ':wall' + ((H(tx, ty, 74) * 4) | 0));
         const k = kindOf(key);
         if (!k) continue;
         row.inst.push({ id: 'w' + tx + ',' + ty, key, x: tx * TS + TS / 2 + (h1 - 0.5) * 5, y: ty * TS + TS / 2 + (h2 - 0.5) * 5, z: 0,
           a: h3 * 6.2832, s: 0.96 + h1 * 0.1, c: 0.9 + h2 * 0.14, w: k.w, h: k.h });
       }
-      if (row.inst.length) e.rows.push(row);
+      // (En tramos seguidos: así un Pokémon delante de un trozo de muro no corta toda la fila en dos lotes.)
+      let run = null, lastTx = -1e9;
+      for (const q of row.inst) {
+        const tx = Math.floor(q.x / TS);
+        if (!run || tx - lastTx > 1) { run = { ty, ck: row.x0, x0: tx * TS, x1: tx * TS + TS, inst: [] }; e.rows.push(run); }
+        run.inst.push(q); run.x1 = tx * TS + TS; lastTx = tx;
+      }
     }
     return e;
   }
@@ -702,7 +711,8 @@ G.Ultra3D = (() => {
     for (const m of ih ? [im, ih] : [im]) {
       m.count = 0; m.visible = false; m.matrixAutoUpdate = false; m.frustumCulled = false;
       m.layers.enable(1);                                   // (capa 0 para las sombras; 1, la de las pasadas)
-      m.castShadow = m === im && o.cast && !fade; m.receiveShadow = m === im;
+      // (Los muros de rocas no reciben sombra: tapan mucha pantalla y el sombreado suave de cada píxel era lo que más costaba.)
+      m.castShadow = m === im && o.cast && !fade; m.receiveShadow = m === im && !base.startsWith('wall');
       scene.add(m);
     }
     k = { im, ih, cap, n: 0, w: o.w, h: o.h, cast: o.cast };
@@ -978,8 +988,62 @@ G.Ultra3D = (() => {
       if (u < ux0) ux0 = u; if (u > ux1) ux1 = u; if (v < uy0) uy0 = v; if (v > uy1) uy1 = v;
     }
     if (ux0 < b.x0) b.x0 = ux0; if (ux1 > b.x1) b.x1 = ux1; if (uy0 < b.y0) b.y0 = uy0; if (uy1 > b.y1) b.y1 = uy1;
-    if (b.ids) b.ids.push([it.u3row ? 'r' + it.u3row.ty + ':' + it.u3row.x0 : it.u3.id, ux0, uy0, ux1, uy1]);
+    if (b.ids) b.ids.push([it.u3row ? 'r' + it.u3row.ty + ':' + (it.u3row.ck !== undefined ? it.u3row.ck : it.u3row.x0) : it.u3.id, ux0, uy0, ux1, uy1]);
     return b;
+  }
+
+  /*
+   * (14-11-2026) Los lotes. Cada cosa 3D va en el primer hueco del orden de dibujo que le sirve: justo después del último
+   * sprite 2D anterior que se le cruza en la pantalla y de lo 3D anterior que se le cruza (ese va delante: se pega después).
+   * Lo del mismo hueco que se cruza va en la misma pasada (la profundidad lo ordena). Antes, un lote se cortaba en cada sprite
+   * que se le cruzaba: con las filas de muro (todo el ancho) y una horda salían cientos de lotes anchos, el atlas se llenaba
+   * y las filas de abajo no se dibujaban («los muros desaparecen»). rect2d(it): la caja de un sprite (px del lienzo del juego)
+   * o null. Pone it.u3after (lotes que van justo después de ese sprite) y devuelve los que van antes de todo.
+   */
+  function batch(items, rect2d) {
+    const d2 = [], slots = new Map(), m3 = [];
+    const ov = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    const box = b => [b.x0 * R + Ox, b.y0 * R + Oy, b.x1 * R + Ox, b.y1 * R + Oy];
+    const area = b => Math.max(0, b.x1 - b.x0) * Math.max(0, b.y1 - b.y0);
+    const join = (a, b) => {
+      for (const o of b.objs) a.objs.push(o);
+      for (const e of b.inst) a.inst.push(e);
+      if (a.ids && b.ids) for (const r of b.ids) a.ids.push(r);
+      a.x0 = Math.min(a.x0, b.x0); a.y0 = Math.min(a.y0, b.y0); a.x1 = Math.max(a.x1, b.x1); a.y1 = Math.max(a.y1, b.y1);
+    };
+    for (const it of items) {
+      if (it.u3 || it.u3row) {
+        const one = add(null, it);
+        if (!one) continue;
+        const r = box(one);
+        let j = -1;
+        for (let i = d2.length - 1; i >= 0; i--) if (ov(d2[i].r, r)) { j = i; break; }
+        for (const q of m3) if (q.j > j && ov(q.r, r)) j = q.j;
+        m3.push({ r, j });
+        let list = slots.get(j);
+        if (!list) slots.set(j, list = []);
+        // En su hueco: con los lotes que se le cruzan (todos en uno) o con uno al lado si apenas crece; si no, uno nuevo.
+        let into = null;
+        for (let k = 0; k < list.length; k++) {
+          const c = list[k], cr = box(c);
+          const u = { x0: Math.min(c.x0, one.x0), y0: Math.min(c.y0, one.y0), x1: Math.max(c.x1, one.x1), y1: Math.max(c.y1, one.y1) };
+          if (!ov(cr, r) && area(u) > (area(c) + area(one)) * 1.25) continue;
+          if (!into) { into = c; join(c, one); } else { join(into, c); list.splice(k, 1); k--; }
+        }
+        if (!into) list.push(one);
+        continue;
+      }
+      const r = rect2d(it);
+      if (r) d2.push({ r, it });
+    }
+    const out = [];
+    for (const j of [...slots.keys()].sort((a, b) => a - b)) {
+      const list = slots.get(j);
+      for (const b of list) out.push(b);
+      if (j >= 0) d2[j].it.u3after = list;
+    }
+    render(out);
+    return slots.get(-1) || [];
   }
 
   /** ¿Se cruza el rectángulo (px del lienzo del juego) con lo del lote? */
@@ -1098,12 +1162,13 @@ G.Ultra3D = (() => {
         const c = W.chunk(cx, cy);
         if (!c.terr.includes(1)) continue;
         for (let j = 0; j < N; j++) {
-          let any = false;
-          for (let i = 0; i < N && !any; i++) any = c.terr[j * N + i] === 1;
-          if (!any) continue;
+          let i0 = -1, i1 = -1;
+          for (let i = 0; i < N; i++) if (c.terr[j * N + i] === 1) { if (i0 < 0) i0 = i; i1 = i; }
+          if (i0 < 0) continue;
           const ty = cy * N + j, x0 = cx * CW, y0 = ty * TS, id = 'r' + ty + ':' + x0;
-          const [ua, va] = proj(x0 + CW / 2, y0, HW), [ub, vb] = proj(x0 + CW / 2, y0 + TS, 0);
+          const [ua, va] = proj(x0 + i0 * TS, y0, HW), [ub, vb] = proj(x0 + (i1 + 1) * TS, y0 + TS, 0);
           if (vb < Hl * 0.05 || va > Hl * 0.95) continue;                       // (fuera, arriba o abajo)
+          if (ub < Wl * 0.05 || ua > Wl * 0.95) continue;                       // (fuera, por los lados)
           if (!cur.has(id)) { dbg.miss++; if (dbg.ev.length < 40) dbg.ev.push(['miss', id, frame, [Math.round(va), Math.round(vb)]]); }
         }
       }
@@ -1181,7 +1246,7 @@ G.Ultra3D = (() => {
   /** ¿Van las rocas y los cofres en 3D con la vista normal (sin Ultra)? (game.js dibuja entonces por D3 sin perspectiva) */
   const flat = () => !G.Settings.ultra && flatOk() && on();
 
-  return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; },
+  return { on, flat, begin, ground, rows, owns, add, hits, render, batch, blit, free, stats, get state() { return state; },
     /** ¿Va la flora en 3D? (ambient.js no la dibuja entonces: la deja en G.Ambient.flora3d) */
     // (Sólo si el último fotograma fue en 3D: con la calidad bajada a mitad de partida, la flora vuelve al 2D al momento.)
     get floraOn() { return floraOn && performance.now() - okAt < 250; },

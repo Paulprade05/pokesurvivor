@@ -156,7 +156,7 @@ G.Props3D = (() => {
       for (let j = 0; j < 3; j++) cols[i * 3 + j] += (o.moss[j] - cols[i * 3 + j]) * t * 0.85;
     }
     if (o.lava) for (let i = 0; i < n; i++) {
-      const t = Math.max(0, 1 - p.getY(i) / 3);
+      const t = Math.max(0, 1 - p.getY(i) / 7);
       if (t <= 0) continue;
       for (let j = 0; j < 3; j++) cols[i * 3 + j] += (o.lava[j] - cols[i * 3 + j]) * t;
       gl[i] = Math.max(gl[i], t * 0.9);
@@ -276,6 +276,7 @@ G.Props3D = (() => {
       return out;
     },
     wall0: k => wallPile(k, 0), wall1: k => wallPile(k, 1), wall2: k => wallPile(k, 2), wall3: k => wallPile(k, 3),
+    wallI0: k => wallInner(k, 0), wallI1: k => wallInner(k, 1),
     // Flora suelta: seta que brilla y cristal pequeño.
     fshroom: k => {
       const fl = arr(k.B.flowers || '#8fe3ff'), out = [];
@@ -333,7 +334,7 @@ G.Props3D = (() => {
   }
   /** Una roca lisa de radio 1 (indexada, con las normales suaves), con la base algo plana. */
   function boulder(sd) {
-    const src = new T.IcosahedronGeometry(1, seg(2, 1)), p = src.attributes.position, map = new Map(), pos = [], idx = [];
+    const src = new T.IcosahedronGeometry(1, 1), p = src.attributes.position, map = new Map(), pos = [], idx = [];
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), key = Math.round(x * 1e4) + ',' + Math.round(y * 1e4) + ',' + Math.round(z * 1e4);
       let j = map.get(key);
@@ -354,11 +355,25 @@ G.Props3D = (() => {
     g.computeVertexNormals();
     return g;
   }
+  /** (Las casillas de dentro de un muro, rodeadas de pared: se ven sólo por arriba) Dos rocas anchas, sin sombra. */
+  /** El tono de las rocas de los muros: el de la pared del bioma (o de la arena), aclarado (la textura de piedra lo oscurece). */
+  function wallTint(B) {
+    const c = B.wallTop ? arr(B.wallTop)[1] || arr(B.wallTop)[0] : B.wall || '#8a7f6a';
+    return shadeH(c, 0.55);
+  }
+  function wallInner(k, v) {
+    const B = k.B, gd = B.ground, gr = arr(B.grass || '#3a9a42');
+    const moss = gd === 'grass' || gd === 'wood' ? lin(hexRgb(gr[gr.length - 1] || '#82d266')).map(c => Math.min(1, c * 1.15)) : null;
+    const o = { aoH: 30, moss }, out = [], tint = wallTint(B);
+    [[(H(v, 1, 83) - 0.5) * 10, (H(v, 2, 83) - 0.5) * 10, 24, 24 + H(v, 3, 83) * 6], [(H(v, 4, 83) - 0.5) * 30, (H(v, 5, 83) - 0.5) * 30, 15, 18 + H(v, 6, 83) * 6]]
+      .forEach(([x, z, r, h], i) => out.push(part(boulder(v * 5 + i + 40), { x, y: h * 0.3, z, sx: r, sy: h * 0.55, sz: r, ry: H(v, 7 + i, 83) * 6.28 }, 'stone', i ? shadeH(tint, -0.06) : tint, o)));
+    return out;
+  }
   function wallPile(k, v) {
     const B = k.B, gd = B.ground, out = [];
     const gr = arr(B.grass || '#3a9a42'), moss = gd === 'grass' || gd === 'wood' ? lin(hexRgb(gr[gr.length - 1] || '#82d266')).map(c => Math.min(1, c * 1.15)) : null;
     const lava = gd === 'ash' ? lin(hexRgb('#ff7a2a')) : null;
-    const o = { aoH: 36, moss, lava };
+    const o = { aoH: 36, moss, lava }, tint = wallTint(B);
     // [x, z, radio, alto] (z de three.js = y del juego, el fondo). La grande, cerca del centro.
     const R = [[(H(v, 1, 81) - 0.5) * 8, (H(v, 2, 81) - 0.5) * 8, 18 + H(v, 3, 81) * 4, 24 + H(v, 4, 81) * 8]];
     const nS = 3 + (H(v, 5, 81) * 2 | 0);
@@ -367,7 +382,7 @@ G.Props3D = (() => {
       R.push([Math.cos(a) * d, Math.sin(a) * d, 10 + H(v, 10 + i, 81) * 5, 12 + H(v, 14 + i, 81) * 9]);
     }
     R.forEach(([x, z, r, h], i) => {
-      out.push(part(boulder(v * 7 + i * 3), { x, y: h * 0.3, z, sx: r, sy: h * 0.55, sz: r * 0.95, ry: H(v, 20 + i, 81) * 6.28 }, 'stone', i ? '#e8e8e8' : '#ffffff', o));
+      out.push(part(boulder(v * 7 + i * 3), { x, y: h * 0.3, z, sx: r, sy: h * 0.55, sz: r * 0.95, ry: H(v, 20 + i, 81) * 6.28 }, 'stone', i ? shadeH(tint, -0.06) : tint, o));
     });
     // (Cuevas: un cristal que asoma entre las rocas en algunas formas.)
     if (B.prop === 'crystal' && gd !== 'ash' && v % 2 === 1) {
@@ -381,6 +396,7 @@ G.Props3D = (() => {
   /** Alto, medio ancho, si da sombra y grosor del contorno de cada modelo. */
   const META = {
     wall0: [36, 26, true, 1.1], wall1: [36, 26, true, 1.1], wall2: [36, 26, true, 1.1], wall3: [36, 26, true, 1.1],
+    wallI0: [32, 28, false, 1.1], wallI1: [32, 28, false, 1.1],
     tree0: [64, 30, true, 1.6], tree1: [66, 24, true, 1.6], dead: [52, 22, true, 1.2], crystal: [46, 20, true, 1.3], basalt: [50, 20, true, 1.3],
     altar0: [58, 18, true, 1.3], altar1: [58, 18, true, 1.3], altar2: [58, 18, true, 1.3], altar3: [58, 18, true, 1.3], altarU: [58, 18, true, 1.3],
     spring: [6, 26, false, 1], springD: [6, 26, false, 1], boom: [18, 18, true, 0.9],
@@ -395,7 +411,8 @@ G.Props3D = (() => {
     if (o) return o;
     // (Los muros, casi sin aplastar de fondo: llenan su casilla como un bloque y las filas se tocan.)
     const g = merge(MODELS[key](k), key.startsWith('wall') ? 0.95 : DEPTH), [h, w, cast, hd] = META[key];
-    o = { g, hg: hd > 0 ? hullOf(g, hd) : null, w, h, cast, mat: k.mat, hullMat: k.hullMat, fadeMat: k.fadeMat, fadeHull: k.fadeHull };
+    // (Las de dentro de un muro, sin contorno: no se ve.)
+    o = { g, hg: hd > 0 && !key.startsWith('wallI') ? hullOf(g, hd) : null, w, h, cast, mat: k.mat, hullMat: k.hullMat, fadeMat: k.fadeMat, fadeHull: k.fadeHull };
     k.geos.set(key, o);
     return o;
   }
