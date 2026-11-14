@@ -285,7 +285,7 @@ function stats(fr, secs, nav) {
   }
   if (f.some(x => x.gl)) {
     o.gl = {};
-    for (const k of ['quads', 'draws', 'uploads', 'upPx', 'fb', 'groups', 'groupPx']) o.gl[k] = +(f.reduce((a, x) => a + ((x.gl || {})[k] || 0), 0) / n).toFixed(1);
+    for (const k of ['quads', 'draws', 'uploads', 'upPx', 'fb', 'groups', 'groupPx', 'textNew', 'resets']) o.gl[k] = +(f.reduce((a, x) => a + ((x.gl || {})[k] || 0), 0) / n).toFixed(1);
   }
   const keys = new Set(); for (const x of f) for (const k in x.c) keys.add(k);
   o.porFotograma = {};

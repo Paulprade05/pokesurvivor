@@ -50,7 +50,7 @@ G.GL2D = (() => {
   const units = new Array(U).fill(null);
   let nunits = 0, blendNow = '', target = null;          // target: { fbo, w, h } (null = la pantalla)
   let frameId = 1, queued = false, open = null;          // open: el contexto con un trozo de respaldo abierto
-  const st = { quads: 0, draws: 0, uploads: 0, upPx: 0, fb: 0, groups: 0, groupPx: 0, shapes: 0, texts: 0, textNew: 0 };
+  const st = { quads: 0, draws: 0, uploads: 0, upPx: 0, fb: 0, groups: 0, groupPx: 0, shapes: 0, texts: 0, textNew: 0, resets: 0 };
   const last = Object.assign({}, st);
   const warned = new Set();
   const warn = (k, m) => { if (warned.has(k)) return; warned.add(k); console.warn('[GL2D] ' + m); };
@@ -270,13 +270,13 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         p = this.pages.find(q => this.fits(q, w, h));
         if (!p) {
           if (this.pages.length < this.MAXP) {
-            p = { tex: newTex(), x: 0, y: 0, rowH: 0, epoch: 1 };
+            p = { tex: newTex(), x: 0, y: 0, rowH: 0, epoch: 1, used: frameId };
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.S, this.S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
             this.pages.push(p);
           } else {
-            // (Todas llenas: se vacían todas; lo que se dibuje se vuelve a subir.)
-            for (const q of this.pages) { q.x = q.y = q.rowH = 0; q.epoch++; }
-            p = this.pages[0];
+            // (Todas llenas: se vacía la que lleva más tiempo sin usarse; lo suyo se vuelve a subir si hace falta.)
+            p = this.pages.reduce((a, q) => (q.used < a.used ? q : a));
+            p.x = p.y = p.rowH = 0; p.epoch++; st.resets++;
           }
         }
         this.cur = p;
@@ -304,7 +304,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     // Lo de siempre (la misma imagen o el mismo lienzo sin cambios): directo. Los cambios suben su versión (__v): un lienzo
     // 2D al dibujar en él o cambiar de tamaño, una imagen al cambiar de dirección (ver patch).
     const e0 = src.__gle;
-    if (e0 && e0.gen === gen && e0.kind !== 2 && e0.ver === (src.__v | 0) && (!e0.page || e0.page.epoch === e0.epoch)) return e0;
+    if (e0 && e0.gen === gen && e0.kind !== 2 && e0.ver === (src.__v | 0) && (!e0.page || e0.page.epoch === e0.epoch)) { if (e0.page) e0.page.used = frameId; return e0; }
     let w, h, kind = 0, key = null;      // kind: 0 imagen, 1 lienzo 2D, 2 cambia cada fotograma (WebGL, vídeo)
     if (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) {
       if (!src.complete || !src.naturalWidth) return null;
@@ -326,7 +326,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     if (!e || e.gen !== gen || (e.page && e.page.epoch !== e.epoch) || (small && (!e.page || e.w !== w || e.h !== h)) || (!small && e.page)) {
       if (e && !e.page && e.gen === gen && e.tex) gl.deleteTexture(e.tex);
       e = { tex: null, w: 0, h: 0, ver: -1, gen, flip: false, key: null, ox: 0, oy: 0, page: null, epoch: 0, kind };
-      if (small) { const at = IA.alloc(w, h); e.page = at[0]; e.epoch = at[0].epoch; e.tex = at[0].tex; e.ox = at[1]; e.oy = at[2]; }
+      if (small) { const at = IA.alloc(w, h); at[0].used = frameId; e.page = at[0]; e.epoch = at[0].epoch; e.tex = at[0].tex; e.ox = at[1]; e.oy = at[2]; }
       else { e.tex = newTex(); fin(src, e); }
       try { src.__gle = e; } catch (er) { /* (no admite propiedades: se sube cada vez) */ }
     }
