@@ -777,7 +777,16 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       if (E.flip) return false;
       const k = algo === 'epx2' ? 2 : 3;
       const P = pixFrame(E, img, sx, sy, sw, sh, k);
-      if (!P) { if (DBG) DBG.set('pix a la CPU ' + (sw * k > 512 || sh * k > 512 ? 'grande' : 'tope'), (DBG.get('pix a la CPU ' + (sw * k > 512 || sh * k > 512 ? 'grande' : 'tope')) || 0) + 1); return false; }                // (tope de este fotograma o sin sitio: en la CPU como siempre)
+      if (!P) {
+        const big = sw * k > 512 || sh * k > 512;
+        if (DBG) DBG.set('pix ' + (big ? 'grande, a la CPU' : 'tope, sin filtro'), (DBG.get('pix ' + (big ? 'grande, a la CPU' : 'tope, sin filtro')) || 0) + 1);
+        if (big) return false;
+        // (Tope de ampliados nuevos en este fotograma: éste sale sin filtro, como hace la CPU al pasar el suyo; el siguiente, ya con él.
+        //  Antes caía a la CPU, que lo ampliaba otra vez y costaba mucho más justo en los fotogramas con más cosas nuevas.)
+        if (white) return this.drawWhite(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        this.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        return true;
+      }                // (tope de este fotograma o sin sitio: en la CPU como siempre)
       if (!this._prep()) return true;
       const s = this.s, al = s.alpha;
       if (al <= 0) return true;

@@ -273,3 +273,22 @@ en la horda y se ha quitado, sin cambiar nada de lo que se ve ni del juego:
 Con el motor WebGL2, la horda en Alta ya cumple el objetivo de 120 Hz en este PC (p99 < 8,3 ms, y la GPU ~5 ms). En Máxima, el
 95 % de los fotogramas cabe; el 1 % más lento aún llega a 12 ms. Equilibrio idéntico; tests 319/319. `tools/gl-compara.cjs`:
 0,02-0,8 % (Máxima horda 1,4 %: en el espejo, las rocas 3D salen mal leídas; en la captura de WebGL2 están bien).
+
+## Máxima: las recogidas grandes de memoria
+`perf.cjs --traza` cuenta ahora las recogidas de memoria del hilo de la página (MinorGC y MajorGC). En Máxima había 9 recogidas
+grandes en 10 s, de hasta 13 ms: el p99. Las provocaban objetos que viven lo justo para pasar a la memoria «vieja» (0,3-1 s) y
+luego mueren. Arreglado:
+- **fx.js**: los objetos de partículas y de sprites de efectos se reutilizan (mismos campos, mismo orden de dibujo).
+- **Motor**: si en un fotograma se llega al tope de sprites nuevos que ampliar en la GPU, ese sprite sale sin filtro ese fotograma
+  (como ya hacía la CPU con su tope); antes caía al filtro de la CPU, que es mucho más caro.
+
+Medianas de dos tandas intercaladas, 10 s por escena, Canvas 2D → WebGL2:
+
+| calidad | escena | JS media | JS p95 | JS p99 | recogida grande más larga |
+|---|---|---|---|---|---|
+| Alta | horda al tope | 6,9 → 4,4 ms | 9,3 → 6,2 | 13,1 → **8,1** | 5,8 → 3,7 ms |
+| Alta | arena | 3,3 → 3,0 | 4,5 → 4,3 | 6,2 → 6,9 | 7,3 → 5,6 |
+| Máxima | horda al tope | 9,9 → 5,3 | 13,0 → **8,2** | 14,4 → 11,1 | 6,1 → 6,9 |
+| Máxima | arena | 4,8 → 3,4 | 6,8 → 4,5 | 11,3 → **6,8** | 10,2 → 6,0 |
+
+Equilibrio idéntico; tests 319/319; píxeles 0,02-0,5 % (Máxima horda 1,2 %: otra vez el espejo con las rocas 3D).
