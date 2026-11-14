@@ -622,49 +622,117 @@ G.RunUI = (() => {
   }
 
   /*
-   * Resumen de la partida en la pausa, en tarjetas: arriba tus huecos de ataque y
-   * de pasiva y el objeto (slotsHtml); debajo tus ataques con su daño, el movimiento Z,
-   * tus estadísticas con todo lo subido (cada una con el objeto de su carta) y el objeto.
+   * Pausa «mesa de combinaciones» (13-11-2026, pedido del dueño: «poder ver bien los
+   * ataques que tengo, las pasivas que tengo y cuál evoluciona con cuál, el daño que han
+   * hecho y las estadísticas de mi Pokémon; aprovecha mejor el espacio»).
+   *  - A la izquierda, una fila por hueco de ataque: el ataque (con su vínculo), su nivel
+   *    con rombos, su daño (total, parte y por segundo) y, unida con una flecha, la pasiva
+   *    que pide para evolucionar, a qué nivel la llevas y lo que falta.
+   *  - A la derecha, tus pasivas (con lo que evolucionan), tu Pokémon (todas sus
+   *    estadísticas), el objeto y el movimiento Z o la megaevolución.
+   * Es una rejilla: con columnas CSS y column-span, WebKit montaba unas tarjetas encima
+   * de otras. El sonido ya no está aquí: va en Ajustes (botón de la propia pausa).
    */
-  function pauseSummary() {
-    const pl = G.Game.player;
-    if (!pl) return '';
-    const t = G.Game.st.time, n = v => Math.round(v).toLocaleString(G.I18n.locale);
-    const k2 = v => '×' + v.toFixed(2).replace('.', ',');
-    const pct = v => Math.round(v * 100) + ' %';
+  const pzN = v => Math.round(v).toLocaleString(G.I18n.locale);
+  /** Rombos de nivel: los que llevas, del color del tipo; los que faltan, apagados. */
+  function pzPips(a, b, c) {
+    if (!b || b > 12) return '';
+    let h = '';
+    for (let i = 0; i < b; i++) h += `<i${i < a ? ' class="on"' : ''}></i>`;
+    return `<span class="pz-pips" style="--pc:${c}" aria-hidden="true">${h}</span>`;
+  }
+  /** Lo que le falta a un ataque para evolucionar (ev: G.LevelUp.evoNeed), en una línea. */
+  function pzStatus(m, ev) {
+    if (m.evolved) return `<span class="pz-st done">${G.T('Ya evolucionó')}</span>`;
+    if (!ev) return `<span class="pz-st none">${G.T('No evoluciona')}</span>`;
+    if (ev.ready) return `<span class="pz-st ready">${G.T('¡Lista! Sale al subir de nivel')}</span>`;
+    if (ev.blocked && !ev.has) return `<span class="pz-st blocked">${G.I18n.f('Sin hueco para {x}', G.T(ev.title))}</span>`;
+    const f = [];
+    if (!ev.max) f.push(G.I18n.f('ataque a Nv. {x}', ev.lvl));
+    if (!ev.has) f.push(G.I18n.f('pasiva a Nv. {x}', ev.need));
+    return `<span class="pz-st">${G.I18n.f('Falta: {x}', f.length > 1 ? G.I18n.f('{x} y {x}', f[0], f[1]) : f[0])}</span>`;
+  }
+  /** Una fila de la mesa: el hueco de ataque g (con su vínculo) y la pasiva que pide. */
+  function pzRow(g, pl, total, t) {
+    const m = g[0], ev = G.LevelUp.evoNeed(m, pl), c = typeCol(m), max = m.def ? m.def.maxLvl : m.lvl;
+    const dealt = g.reduce((a, x) => a + (x.cat ? x.dealt || 0 : 0), 0), hits = g.some(x => x.cat);
+    const secs = Math.max(5, t - Math.min(...g.map(x => x.since || 0)));
+    const pct = hits && total ? Math.round(dealt / total * 100) : 0;
+    const bond = g.length > 1 ? `<i class="pz-bond" title="${g.map(x => G.T(x.name)).join(' + ')}">+${g.length - 1}</i>` : '';
+    const names = `<b>${G.T(m.name)}</b>` + (g.length > 1 ? g.slice(1).map(x => `<span class="pz-also">+ ${G.T(x.name)}</span>`).join('') : '');
+    const tags = (m.evolved ? `<span class="pz-tag evo">${G.T('Evolucionado')}</span>` : '') + (g.length > 1 ? `<span class="pz-tag bond">${G.T('Vínculo')}</span>` : '');
+    const dmg = hits
+      ? `<b>${pzN(dealt)}</b><small>${pct} % · ${pzN(dealt / secs)}/s</small><i class="pz-bar"><i style="width:${pct}%;background:${c}"></i></i>`
+      : `<b>—</b><small>${G.T('no hace daño')}</small>`;
+    const need = ev
+      ? `<span class="pz-link${ev.ready ? ' ready' : ev.has ? ' has' : ''}" aria-hidden="true"></span>
+        <div class="pz-need"><span class="pz-med s${ev.has ? ' has' : ''}${ev.ready ? ' ready' : ''}">${G.Icons.html(ev.icon, 30)}<i class="pz-n">${Math.min(ev.n, ev.need)}/${ev.need}</i></span>
+          <div class="pz-nt"><b>${G.T(ev.title)}</b>${pzStatus(m, ev)}<small class="pz-into">→ ${G.T(ev.name)}</small></div></div>`
+      : `<span class="pz-link none" aria-hidden="true"></span><div class="pz-need">${pzStatus(m, ev)}</div>`;
+    return `<div class="pz-row${ev && ev.ready ? ' ready' : ''}${m.evolved ? ' evolved' : ''}">
+      <span class="pz-med" style="--tc:${c}">${G.Icons.html('move:' + m.id, 30)}${bond}</span>
+      <div class="pz-info"><div class="pz-name">${names}${tags}</div>
+        <div class="pz-lv"><span><span>Nv.</span> ${m.lvl}/${max}</span>${pzPips(m.lvl, max, c)}</div>
+        <div class="pz-dmg">${dmg}</div></div>
+      ${need}</div>`;
+  }
+  /** Tus pasivas: su nivel y qué ataques tuyos evolucionan con ella (los que la usan, en verde). */
+  function pzPassives(pl, used) {
+    const L = G.LevelUp, mine = L.passivesOf(pl), MAX = L.MAX_PASSIVES, out = [];
+    for (const p of mine) {
+      const cap = L.statMax(p.id, pl), full = cap && p.n >= cap, e = L.evolvesWith(p.id, pl);
+      const what = e.mine.length ? G.I18n.f('Evoluciona: {x}', e.mine.map(x => G.T(x.name)).join(', '))
+        : e.more.length ? G.I18n.f(e.more.length > 1 ? 'Puede evolucionar {x} ataques que no llevas' : 'Puede evolucionar {x} ataque que no llevas', e.more.length)
+        : G.T('No evoluciona ninguno de tus ataques');
+      out.push(`<div class="pz-pas${used.has(p.id) ? ' linked' : ''}">
+        <span class="pz-med s ${PASSIVE.has(p.id) ? 'purple' : 'blue'}">${G.Icons.html(p.def.icon, 30)}<i class="pz-n${full ? ' max' : ''}">${full ? G.T('Máx.') : p.n + (cap ? '/' + cap : '')}</i></span>
+        <div class="pz-pt"><b>${G.T(p.def.title)}</b>${cap ? pzPips(p.n, cap, '#b9f07a') : ''}<small>${what}</small></div></div>`);
+    }
+    for (let i = mine.length; i < MAX; i++) out.push(`<div class="pz-pas empty"><span class="pz-med s empty"></span><small>${G.T('Libre')}</small></div>`);
+    return `<section class="ps-card pz-card pz-pases"><h3><span>Pasivas</span> <small>${mine.length}/${MAX}</small></h3><div class="pz-plist">${out.join('')}</div></section>`;
+  }
+  /** Las estadísticas de tu Pokémon, en filas cortas de dos en dos (icono, nombre y cifra). */
+  function pzStats(pl) {
+    const n = pzN, k2 = v => '×' + v.toFixed(2).replace('.', ','), pct = v => Math.round(v * 100) + ' %';
     const mon = pl.mon, fis = 1 - G.Stats.taken(mon, 'physical'), esp = 1 - G.Stats.taken(mon, 'special');
     const guard = v => (v >= 0 ? '−' : '+') + Math.round(Math.abs(v) * 100) + ' %';
     const P = pl.pass || G.Moves.NO_PASS;
-    const st = [
+    const rows = [
       ['hpup', 'Vida', n(pl.hp) + ' / ' + n(pl.maxHp)],
       ['fist', 'Ataque', k2(pl.atkFor({ cat: 'physical' }))],
       ['lifeorb', 'At. Esp.', k2(pl.atkFor({ cat: 'special' }))],
       // (Redondeadas: con la naturaleza salía «85.80000000000001».)
-      ['rockyhelmet', 'Defensa', n(mon.df) + ' <small>' + guard(fis) + ' físico</small>'],
-      ['assaultvest', 'Def. Esp.', n(mon.sd) + ' <small>' + guard(esp) + ' especial</small>'],
+      ['rockyhelmet', 'Defensa', n(mon.df), guard(fis)],
+      ['assaultvest', 'Def. Esp.', n(mon.sd), guard(esp)],
       ['boot', 'Velocidad', n(pl.spd)],
       ['scope-lens', 'Crítico', pct(pl.critChance || 0)],
       ['shield', 'Reducción de daño', pct(pl.reduction)],
       ['clock', 'Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
       ['sprout', 'Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],
-      // Pasivos de la run (Amplitud, Persistencia, Réplica, Propulsión).
       ['area', 'Área', '+' + pct(P.area - 1)],
       ['duration', 'Duración', '+' + pct(P.dur - 1)],
       ['loaded-dice', 'Cantidad', '+' + (P.amt | 0)],
-      ['zoom-lens', 'Vel. de proyectiles', '+' + pct(P.pspd - 1)]
-    ].map(([ico, a, b]) => `<div class="st-tile"><span class="ico-tile s">${G.Icons.html(ico, 30)}</span><div><span>${a}</span><b>${b}</b></div></div>`).join('');
+      ['zoom-lens', 'Vel. de proyectiles', '+' + pct(P.pspd - 1)],
+      // Recogida: radio del imán (78 de base, player.js); experiencia y monedas, sus multiplicadores.
+      ['magnet', 'Recogida', '+' + pct((pl.magnet || 78) / 78 - 1)],
+      ['exp', 'Experiencia', '+' + pct((pl.xpMul || 1) - 1)]
+    ].map(([ico, a, b, s]) => `<div class="pz-st-row"><span class="pz-si">${G.Icons.html(ico, 30)}</span><span class="pz-sl" title="${G.T(a)}">${a}</span><b>${b}${s ? `<small>${s}</small>` : ''}</b></div>`).join('');
+    const name = G.Mons && pl.mon ? `<small class="pz-mon">${G.Mons.name ? G.Mons.name(pl.mon.name) : pl.mon.name} · <span>Nv.</span> ${pl.level}</small>` : '';
+    return `<section class="ps-card pz-card pz-stats"><h3><span>Tu Pokémon</span> ${name}</h3><div class="pz-sgrid">${rows}</div></section>`;
+  }
+  function pauseSummary() {
+    const pl = G.Game.player;
+    if (!pl) return '';
+    const t = G.Game.st.time, total = pl.moves.reduce((a, m) => a + (m.cat ? m.dealt || 0 : 0), 0);
+    const rows = pl.slots.filter(g => g && g[0]).map(g => pzRow(g, pl, total, t));
+    for (let i = rows.length; i < pl.maxMoves; i++) rows.push(`<div class="pz-row empty"><span class="pz-med empty"></span><span class="pz-free">${G.T('Hueco de ataque libre')}</span></div>`);
+    const used = new Set(pl.moves.map(m => { const e = G.LevelUp.evoNeed(m, pl); return e && e.needs; }).filter(Boolean));
     const it = pl.item && G.Items.BY[pl.item];
-    // Arriba, como en Vampire Survivors: tus huecos de ataque y de pasiva (y el objeto), con
-    // los libres a la vista. Las pasivas ya salen ahí con su nivel: sin la lista de cartas de antes.
-    const itemTile = it ? `<span class="sl ico-tile t-gold" title="${it.name}">${G.Icons.html(pl.item, 30)}</span>`
-                        : '<span class="sl sl-free"><span>Libre</span></span>';
-    return `<section class="ps-card ps-slots"><div class="sl-wrap">${slotsHtml(pl)}
-        <div class="sl-group sl-item"><span class="sl-lbl"><b>Objeto</b></span><span class="sl-row">${itemTile}</span></div></div></section>
-      <section class="ps-card ps-moves"><h3>Tus ataques</h3>${movesTable(pl.moves, t)}</section>${zCard(pl)}
-      <section class="ps-card ps-stats"><h3>Tus estadísticas</h3><div class="st-grid">${st}</div></section>
-      ${it ? `<section class="ps-card ps-gear"><h3>Objeto</h3>
-        <div class="ps-item"><span class="ico-tile t-gold">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div>
-      </section>` : ''}`;
+    const item = it ? `<section class="ps-card pz-card ps-gear"><h3>Objeto</h3>
+        <div class="ps-item"><span class="ico-tile t-gold">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div></section>` : '';
+    return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.slots.length}/${pl.maxMoves}</small>
+        <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section>
+      <div class="pz-side">${pzPassives(pl, used)}${pzStats(pl)}${item}${zCard(pl)}</div>`;
   }
 
   /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
@@ -681,7 +749,6 @@ G.RunUI = (() => {
     const kh = document.querySelector('#scr-pause .kbd-hint');
     if (kh) kh.innerHTML = keyHint();
     $('pause-sum').innerHTML = pauseSummary();
-    G.UI.soundControls($('pause-sound'));
     $('pause-coop').classList.toggle('hidden', !coop);
     $('btn-quit').querySelector('.quit-t').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
     G.UI.show('scr-pause');

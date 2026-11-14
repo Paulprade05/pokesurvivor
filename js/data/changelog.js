@@ -6,6 +6,24 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-14', title: ["Muros de rocas en 3D", "3D rock walls"], chg: [
+    ["En PC con calidad Alta o más, los muros de la partida son montones de rocas en 3D, también en las arenas de las grietas: con musgo en los bosques y praderas, con cristales en las cuevas y con lava al pie en el volcán. Chocas con ellos igual que antes.",
+     "On PC with High quality or above, the walls in a run are 3D piles of rocks, also in rift arenas: mossy in forests and meadows, with crystals in caves and lava at their base in the volcano. You bump into them just like before."],
+    ["Más setas que brillan en 3D en los bosques y praderas, y cristales en la nieve.",
+     "More glowing 3D mushrooms in forests and meadows, and crystals in the snow."]
+  ], fix: [
+    ["Los muros y los objetos 3D de la partida ya no desaparecen de golpe por la parte de abajo de la pantalla ni se ven por detrás de un Pokémon que tienen delante, también con muchos enemigos.",
+     "Walls and 3D objects in a run no longer suddenly vanish at the bottom of the screen or show up behind a Pokémon they should be in front of, even with many enemies."]] },
+  { d: '2026-11-14', title: ["Pausa más clara", "A clearer pause screen"], chg: [
+    ["Pausa nueva: una fila por ataque con su nivel, su daño (total, parte y por segundo) y, unida con una flecha, la pasiva con la que evoluciona y lo que te falta; dorada cuando ya está lista. Al lado, tus pasivas con su nivel y lo que evolucionan, y todas las estadísticas de tu Pokémon, también la recogida y la experiencia.",
+     "New pause screen: one row per move with its level, its damage (total, share and per second) and, joined by an arrow, the passive it evolves with and what you still need; gold once it is ready. Beside it, your passives with their level and what they evolve, and all your Pokémon's stats, including pickup and experience."],
+    ["El volumen ya no está en la pausa: está en Ajustes (botón de la propia pausa).",
+     "Volume is no longer in the pause screen: it is in Settings (button in the pause screen itself)."]] },
+  { d: '2026-11-13', title: ["Los Pokémon salvajes rodean el agua", "Wild Pokémon go around water"], fix: [
+    ["Los Pokémon salvajes ya no cruzan el agua ni el pantano: la rodean. Sólo entran los de tipo Agua (nadan), Volador y Fantasma, los que vuelan o flotan, y los jefes y legendarios.",
+     "Wild Pokémon no longer walk through water or swamp: they go around it. Only Water-type (they swim), Flying and Ghost Pokémon, those that fly or float, and bosses and legendaries go in."],
+    ["Si un golpe o la horda empuja a uno de los demás hacia el agua, se queda en la orilla; y si acaba dentro, sale enseguida por la orilla más cercana.",
+     "If a hit or the horde pushes one of the others towards the water, it stays on the shore; and if it ends up inside, it comes out right away through the nearest shore."]] },
   { d: '2026-11-13', title: ["La aldea, más clara y con el Altar del Portal", "A brighter village with the Portal Altar"], new: [
     ["La Flor del Portal es ahora el Altar del Portal, más grande y en el centro de todo: un estrado de piedra con runas, el arco del portal entre dos pilares con cristales y raíces que lo abrazan. Tiene su propia luz y sus partículas, y un círculo de luz que te dice dónde ponerte y qué pulsar.",
      "The Portal Flower is now the Portal Altar, bigger and at the heart of everything: a stone dais with runes, the portal arch between two crystal-topped pillars and roots wrapped around it. It has its own light and particles, and a circle of light that tells you where to stand and what to press."],

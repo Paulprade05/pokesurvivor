@@ -18,6 +18,10 @@
  *  nítido») Además, con instancing: árboles, torres de poder, manantiales, setas explosivas, flora que brilla y el portal
  *  de la grieta (modelos en props3d.js; ver «instancing» abajo). La hierba alta sigue en pixel art. Móvil: en 2D.
  *
+ * (14-11-2026, el dueño: «los muros que sean trozos de roca amontonados» y «hay momentos que desaparecen... y hacen popup»)
+ *  En PC los muros son montones de rocas con instancing (rockChunk), también con la vista normal; los lotes se hacen por
+ *  huecos del orden de dibujo (batch) y se reparten en el atlas por columnas (pack). Detector: debugPop y tools/pop3d.cjs.
+ *
  * Cómo va:
  *  - three.js (js/vendor/three/, r160, MIT) se carga sólo con Ultra (o Máxima) y el ajuste «Ultra en 3D» encendidos (como
  *    módulo, three-boot.js). Sin WebGL, si falla o si se pierde el contexto, vuelve solo el Ultra 2D de siempre (world.js
@@ -48,7 +52,7 @@ G.Ultra3D = (() => {
   const faceMats = new Map(), rockMats = new Map(), flashMats = new Map();
   const props = new Map();                                 // id -> { obj, p, used, ... }
   let shared = null;                                       // geometrías y materiales de rocas y cofres (los mismos siempre)
-  let shownRows = [], nBuilt = 0, nPass = 0, nShadow = 0, shadowDirty = true;                                      // filas de la vista (para game.js)
+  let shownRows = [], nBuilt = 0, nPass = 0, nShadow = 0, nMerged = 0, nClip = 0, shadowDirty = true;                                      // filas de la vista (para game.js)
   const lay = new Set();                                   // objetos en la capa de la pasada actual
   let glowSeen = [];                                       // cofres a la vista este fotograma (su halo en el suelo)
   /*
@@ -60,7 +64,14 @@ G.Ultra3D = (() => {
   const uni = { time: { value: 0 } };                      // (el viento de los modelos)
   const kinds = new Map();                                 // "bi:modelo" -> { im, ih, cap, n, used }
   const ins = new Map();                                   // id -> { key, x, y, z, a, s, c, w, h, cast } a la vista este fotograma
-  let allIns = [], insSig = 0, floraOn = false, okAt = -1e9;
+  /*
+   * (14-11-2026, la sesión de rendimiento: al llegar a la arena, fotogramas de 190-350 ms haciendo atlas y modelos) Lo 3D de un
+   * bioma nuevo se hace repartido: en el túnel de la grieta (lo tapa todo), con tope de BUILD_MS por fotograma; el bioma
+   * siguiente del mundo se va preparando antes, con WARM_MS; y se guardan los 3 últimos biomas (volver de la arena, sin rehacer).
+   */
+  const BUILD_MS = 6, WARM_MS = 2;
+  let buildUntil = Infinity, recent = [], warmT = 0;
+  let atCap = 0, allIns = [], rockAll = [], insSig = 0, floraOn = false, okAt = -1e9;
 
   /*
    * (Pulido 12-11-2026) En PC, con calidad alta, las rocas y los cofres van en 3D también con la vista normal (sin
@@ -366,9 +377,43 @@ G.Ultra3D = (() => {
     shadowDirty = true;
     chunks.delete(k);
     if (!e) return;
-    for (const r of e.rows) { scene.remove(r.mesh); r.mesh.geometry.dispose(); }
+    for (const r of e.rows) if (r.mesh) { scene.remove(r.mesh); r.mesh.geometry.dispose(); }
     if (e.tex) e.tex.dispose();
     if (e.top) e.top.dispose();
+  }
+
+  /*
+   * (14-11-2026, el dueño: «los muros que sean trozos de roca amontonados») En PC, cada casilla de pared es un montón de
+   * rocas (props3d.js wall0-3) con instancing, también con la vista normal (sin Ultra). Las filas salen del terreno al momento
+   * (sin hacer mallas ni texturas): un trozo de mapa nunca está «sin cargar», que era lo que más se notaba al moverse
+   * («los muros desaparecen y hacen popup»). Choques, los de siempre (world.js). En móvil, las paredes del tileset (Ultra).
+   */
+  const rockWalls = () => !mob && !!G.Props3D;
+  function rockChunk(cx, cy, bi) {
+    const W = G.World, N = W.N, TS = W.TS, c = W.chunk(cx, cy), e = { c, bi, rows: [], used: frame, rock: true };
+    if (!c.terr.includes(1)) return e;
+    for (let j = 0; j < N; j++) {
+      const ty = cy * N + j, row = { ty, x0: cx * N * TS, x1: (cx + 1) * N * TS, inst: [] };
+      for (let i = 0; i < N; i++) {
+        if (c.terr[j * N + i] !== 1) continue;
+        const tx = cx * N + i, h1 = H(tx, ty, 71), h2 = H(tx, ty, 72), h3 = H(tx, ty, 73), at = W.terrainAt;
+        // (Rodeada de pared por los 4 lados: el montón sencillo, sin sombra; si no, uno de los 4 de borde.)
+        const inner = at(tx - 1, ty) === 1 && at(tx + 1, ty) === 1 && at(tx, ty - 1) === 1 && at(tx, ty + 1) === 1;
+        const key = bi + (inner ? ':wallI' + ((H(tx, ty, 74) * 2) | 0) : ':wall' + ((H(tx, ty, 74) * 4) | 0));
+        const k = kindOf(key);
+        if (!k) { e.partial = true; continue; }                          // (a medias por el tope de tiempo: se rehace)
+        row.inst.push({ id: 'w' + tx + ',' + ty, key, x: tx * TS + TS / 2 + (h1 - 0.5) * 5, y: ty * TS + TS / 2 + (h2 - 0.5) * 5, z: 0,
+          a: h3 * 6.2832, s: 0.96 + h1 * 0.1, c: 0.9 + h2 * 0.14, w: k.w, h: k.h });
+      }
+      // (En tramos seguidos: así un Pokémon delante de un trozo de muro no corta toda la fila en dos lotes.)
+      let run = null, lastTx = -1e9;
+      for (const q of row.inst) {
+        const tx = Math.floor(q.x / TS);
+        if (!run || tx - lastTx > 1) { run = { ty, ck: row.x0, x0: tx * TS, x1: tx * TS + TS, inst: [] }; e.rows.push(run); }
+        run.inst.push(q); run.x1 = tx * TS + TS; lastTx = tx;
+      }
+    }
+    return e;
   }
 
   // ---------------- rocas y cofres ----------------
@@ -660,6 +705,8 @@ G.Ultra3D = (() => {
   function kindOf(key) {
     let k = kinds.get(key);
     if (k) return k;
+    // (Tope de tiempo: en el túnel de la grieta y al preparar el bioma siguiente, como mucho unos ms por fotograma.)
+    if (performance.now() > buildUntil) return null;
     const i = key.indexOf(':'), bi = +key.slice(0, i), name = key.slice(i + 1), fade = name.endsWith('~'), base = fade ? name.slice(0, -1) : name;
     let o = null;
     if (base.startsWith('rock')) {
@@ -667,7 +714,7 @@ G.Ultra3D = (() => {
       if (m) o = { g: r.g, hg: r.hull, w: 22, h: 26, cast: true, mat: m, hullMat: s.hullMat };
     } else if (G.Props3D) o = G.Props3D.geo(bi, base);
     if (!o) return null;
-    const cap = 192;
+    const cap = base.startsWith('wall') ? 2048 : 512;
     const im = new T.InstancedMesh(o.g, fade ? o.fadeMat : o.mat, cap);
     im.instanceMatrix.setUsage(T.DynamicDrawUsage);
     im.setColorAt(0, new T.Color(1, 1, 1));
@@ -677,7 +724,8 @@ G.Ultra3D = (() => {
     for (const m of ih ? [im, ih] : [im]) {
       m.count = 0; m.visible = false; m.matrixAutoUpdate = false; m.frustumCulled = false;
       m.layers.enable(1);                                   // (capa 0 para las sombras; 1, la de las pasadas)
-      m.castShadow = m === im && o.cast && !fade; m.receiveShadow = m === im;
+      // (Los muros de rocas no reciben sombra: tapan mucha pantalla y el sombreado suave de cada píxel era lo que más costaba.)
+      m.castShadow = m === im && o.cast && !fade; m.receiveShadow = m === im && !base.startsWith('wall');
       scene.add(m);
     }
     k = { im, ih, cap, n: 0, w: o.w, h: o.h, cast: o.cast };
@@ -726,7 +774,7 @@ G.Ultra3D = (() => {
     const push = (id, key, x, y, z, a, s, c) => {
       const k = kindOf(bi + ':' + key);
       if (!k) return null;
-      const e = { key: bi + ':' + key, x, y, z, a, s, c, w: k.w, h: k.h };
+      const e = { id, key: bi + ':' + key, x, y, z, a, s, c, w: k.w, h: k.h };
       ins.set(id, e);
       allIns.push(e);
       if (k.cast) sig = (sig + x * 0.731 + y * 1.379 + 17) % 1e9;
@@ -795,19 +843,22 @@ G.Ultra3D = (() => {
     floraOn = false;
     if (!on()) return false;
     const W = G.World, bi = W.biome;
-    if (!W.pmdOn(bi) || !faceMat(bi) || !sharedParts()) return false;
+    const rocky = rockWalls();
+    if (!W.pmdOn(bi) || (!rocky && !faceMat(bi)) || !sharedParts()) return false;
     if (tinted !== bi) {
       // Sombras y contornos, del tono oscuro del mapa y no negros.
       const edge = G.Tileset.pal(bi).edge;
       plane.material.color.set(edge); shared.hullMat.color.set(edge);
-      // (Otro bioma: los modelos del de antes, fuera.)
-      for (const key of [...kinds.keys()]) if (!key.startsWith(bi + ':')) dropKind(key);
-      if (G.Props3D) G.Props3D.free(false, bi);
-      tinted = bi;
+      // (Otro bioma: se guardan los modelos de los 3 últimos; los demás, fuera.)
+      recent = [bi, ...recent.filter(b => b !== bi)].slice(0, 3);
+      for (const key of [...kinds.keys()]) if (!recent.includes(+key.slice(0, key.indexOf(':')))) dropKind(key);
+      if (G.Props3D) G.Props3D.free(false, recent);
+      tinted = bi; warmT = 0;
     }
     frame++;
     floraOn = false;
     glowSeen = [];
+    buildUntil = G.Rift && G.Rift.traveling ? performance.now() + BUILD_MS : Infinity;
     // Tamaño del lienzo 3D (y como mucho 4096 de lado: memoria de lienzos).
     KL = scaleFor(Kd, Wd, Hd);
     const lim = mob ? 1024 : 4096;
@@ -839,12 +890,16 @@ G.Ultra3D = (() => {
     const r0 = Math.floor((top - 200) / CW), r1 = Math.floor((bot + 100) / CW);
     let built = 0;
     shownRows = [];
-    const walls = !!G.Settings.ultra;                       // (vista normal: sólo rocas y cofres; las paredes, en el suelo 2D)
+    if (dbg.on) dbg.view = { l: cam.x - hw / (1 - Kp), r: cam.x + hw / (1 - Kp), top: cam.y - hh / (1 - Kp), bot: cam.y + hh / (1 + Kp) + HW };
+    // (Vista normal: en PC, las paredes de rocas; en móvil, en el suelo 2D. Ultra: rocas en PC, el tileset en móvil.)
+    const walls = !!G.Settings.ultra || rocky;
+    rockAll = [];
     if (!walls && chunks.size) for (const k of [...chunks.keys()]) dropChunk(k);
     for (let cy = r0; cy <= r1 && walls; cy++) for (let cx = c0; cx <= c1; cx++) {
       const k = cx + ',' + cy;
       let e = chunks.get(k);
-      if (e && (e.bi !== bi || e.c !== W.chunk(cx, cy))) { dropChunk(k); e = null; }
+      if (e && (e.bi !== bi || e.c !== W.chunk(cx, cy) || !!e.rock !== rocky || e.partial)) { dropChunk(k); e = null; }
+      if (!e && rocky) { e = rockChunk(cx, cy, bi); chunks.set(k, e); shadowDirty = true; nBuilt++; }
       if (!e) {
         // Los del margen, como mucho 2 por fotograma (se hacen antes de verse); los que ya se ven, al momento.
         const seen = (cx + 1) * CW > cam.x - ex && cx * CW < cam.x + ex && (cy + 1) * CW > top && cy * CW < bot;
@@ -857,6 +912,7 @@ G.Ultra3D = (() => {
       e.used = frame;
       for (const r of e.rows) {
         const y0 = r.ty * TS;
+        if (r.inst) for (const q of r.inst) rockAll.push(q);              // (todas dan sombra, también las del margen)
         if (y0 + TS > top - HW && y0 - HW < bot && r.x1 > cam.x - ex && r.x0 < cam.x + ex) shownRows.push(r);
       }
     }
@@ -871,6 +927,7 @@ G.Ultra3D = (() => {
     for (const p of vis) if (OWN[p.type]) syncProp(p, t);
     uni.time.value = G.Anim && !G.Anim.on ? 0 : t;
     collect(vis, bi, t);
+    for (const q of rockAll) allIns.push(q);
     syncRift(bi, t);
     // (Los que no se ven, ni se dibujan ni dan sombra: un cofre roto dejaba su sombra en el suelo.)
     for (const [id, it] of props) {
@@ -896,7 +953,27 @@ G.Ultra3D = (() => {
     plane.updateMatrix(); plane.updateMatrixWorld(true);
     if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
     floraOn = true; okAt = performance.now();
+    warmNext(bi);
     return true;
+  }
+
+  /** Prepara poco a poco (WARM_MS por fotograma) los modelos del bioma siguiente del mundo, tras un rato en este. */
+  function warmNext(bi) {
+    if (!G.Props3D || (G.Rift && (G.Rift.traveling || G.Rift.inArena)) || (warmT += 1) < 600) return;
+    const n = G.Tiles.BIOMES.length, nb = (bi + 1) % n;
+    if (nb >= (G.Tiles.ARENA || 3) || recent.includes(nb) && warmT > 4000) return;
+    const keys = warmKeys(nb);
+    buildUntil = performance.now() + WARM_MS;
+    for (const k of keys) { if (performance.now() > buildUntil) break; if (!kinds.has(nb + ':' + k)) kindOf(nb + ':' + k); }
+    buildUntil = Infinity;
+    if (keys.every(k => kinds.has(nb + ':' + k))) { if (!recent.includes(nb)) recent = [...recent.slice(0, 2), nb]; warmT = 4001; }
+  }
+  /** Los modelos de un bioma (para prepararlos antes). */
+  function warmKeys(bi) {
+    const P3 = G.Props3D, out = ['rock0', 'rock1', 'rock0x', 'rock1x', 'altar0', 'altar1', 'altar2', 'altar3', 'altarU', 'spring', 'springD', 'boom', 'fshroom', 'fcrystal'];
+    for (const look of [0, 1]) { const k = P3.keyOf({ type: 'tree', look }, bi); if (k && !out.includes(k)) out.push(k); }
+    if (rockWalls()) out.push('wall0', 'wall1', 'wall2', 'wall3', 'wallI0', 'wallI1');
+    return out;
   }
 
   /** Las filas de pared a la vista, para el orden por Y de game.js: { y, u3row }. */
@@ -920,7 +997,13 @@ G.Ultra3D = (() => {
     const TS = G.World.TS;
     let o, x0, x1, y0, y1, h;
     let e = null;
-    if (it.u3row) { o = it.u3row.mesh; x0 = it.u3row.x0; x1 = it.u3row.x1; y0 = it.u3row.ty * TS; y1 = y0 + TS; h = HW; }
+    let rockRow = null;
+    if (it.u3row && it.u3row.inst) {
+      // (Fila de rocas: sólo lo que va de su primera a su última casilla de pared, con margen.)
+      rockRow = it.u3row.inst; x0 = Infinity; x1 = -Infinity;
+      for (const q of rockRow) { if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; }
+      x0 -= 32; x1 += 32; y0 = it.u3row.ty * TS - 8; y1 = y0 + TS + 16; h = 52;
+    } else if (it.u3row) { o = it.u3row.mesh; x0 = it.u3row.x0; x1 = it.u3row.x1; y0 = it.u3row.ty * TS; y1 = y0 + TS; h = HW; }
     else {
       const q = props.get(it.u3.id);
       if (q) { const r = q.r || 34; o = q.obj; x0 = it.u3.x - r; x1 = it.u3.x + r; y0 = it.u3.y - 50; y1 = it.u3.y + 6; h = q.h; }
@@ -932,13 +1015,70 @@ G.Ultra3D = (() => {
         x0 = e.x - r; x1 = e.x + r; y0 = e.y - d; y1 = e.y + d; h = e.h * e.s + 6;
       }
     }
-    if (!b) b = { objs: [], inst: [], x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, ay: -1 };
-    if (e) b.inst.push(e); else b.objs.push(o);
-    for (const x of [x0, x1]) for (const [y, z] of [[y0, h], [y1, 0], [y1, h]]) {
+    if (!b) b = { objs: [], inst: [], ids: dbg.on ? [] : null, x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, ay: -1 };
+    if (rockRow) for (const q of rockRow) b.inst.push(q); else if (e) b.inst.push(e); else b.objs.push(o);
+    let ux0 = Infinity, uy0 = Infinity, ux1 = -Infinity, uy1 = -Infinity;
+    for (const x of [x0, x1]) for (const [y, z] of [[y0, h], [y1, 0], [y1, h], [y0, 0]]) {
       const [u, v] = proj(x, y, z);
-      if (u < b.x0) b.x0 = u; if (u > b.x1) b.x1 = u; if (v < b.y0) b.y0 = v; if (v > b.y1) b.y1 = v;
+      if (u < ux0) ux0 = u; if (u > ux1) ux1 = u; if (v < uy0) uy0 = v; if (v > uy1) uy1 = v;
     }
+    if (ux0 < b.x0) b.x0 = ux0; if (ux1 > b.x1) b.x1 = ux1; if (uy0 < b.y0) b.y0 = uy0; if (uy1 > b.y1) b.y1 = uy1;
+    if (b.ids) b.ids.push([it.u3row ? 'r' + it.u3row.ty + ':' + (it.u3row.ck !== undefined ? it.u3row.ck : it.u3row.x0) : it.u3.id, ux0, uy0, ux1, uy1]);
     return b;
+  }
+
+  /*
+   * (14-11-2026) Los lotes. Cada cosa 3D va en el primer hueco del orden de dibujo que le sirve: justo después del último
+   * sprite 2D anterior que se le cruza en la pantalla y de lo 3D anterior que se le cruza (ese va delante: se pega después).
+   * Lo del mismo hueco que se cruza va en la misma pasada (la profundidad lo ordena). Antes, un lote se cortaba en cada sprite
+   * que se le cruzaba: con las filas de muro (todo el ancho) y una horda salían cientos de lotes anchos, el atlas se llenaba
+   * y las filas de abajo no se dibujaban («los muros desaparecen»). rect2d(it): la caja de un sprite (px del lienzo del juego)
+   * o null. Pone it.u3after (lotes que van justo después de ese sprite) y devuelve los que van antes de todo.
+   */
+  function batch(items, rect2d) {
+    const d2 = [], slots = new Map(), m3 = [];
+    const ov = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    const box = b => [b.x0 * R + Ox, b.y0 * R + Oy, b.x1 * R + Ox, b.y1 * R + Oy];
+    const area = b => Math.max(0, b.x1 - b.x0) * Math.max(0, b.y1 - b.y0);
+    const join = (a, b) => {
+      for (const o of b.objs) a.objs.push(o);
+      for (const e of b.inst) a.inst.push(e);
+      if (a.ids && b.ids) for (const r of b.ids) a.ids.push(r);
+      a.x0 = Math.min(a.x0, b.x0); a.y0 = Math.min(a.y0, b.y0); a.x1 = Math.max(a.x1, b.x1); a.y1 = Math.max(a.y1, b.y1);
+    };
+    for (const it of items) {
+      if (it.u3 || it.u3row) {
+        const one = add(null, it);
+        if (!one) continue;
+        const r = box(one);
+        let j = -1;
+        for (let i = d2.length - 1; i >= 0; i--) if (ov(d2[i].r, r)) { j = i; break; }
+        for (const q of m3) if (q.j > j && ov(q.r, r)) j = q.j;
+        m3.push({ r, j });
+        let list = slots.get(j);
+        if (!list) slots.set(j, list = []);
+        // En su hueco: con los lotes que se le cruzan (todos en uno) o con uno al lado si apenas crece; si no, uno nuevo.
+        let into = null;
+        for (let k = 0; k < list.length; k++) {
+          const c = list[k], cr = box(c);
+          const u = { x0: Math.min(c.x0, one.x0), y0: Math.min(c.y0, one.y0), x1: Math.max(c.x1, one.x1), y1: Math.max(c.y1, one.y1) };
+          if (!ov(cr, r) && area(u) > (area(c) + area(one)) * 1.25) continue;
+          if (!into) { into = c; join(c, one); } else { join(into, c); list.splice(k, 1); k--; }
+        }
+        if (!into) list.push(one);
+        continue;
+      }
+      const r = rect2d(it);
+      if (r) d2.push({ r, it });
+    }
+    const out = [];
+    for (const j of [...slots.keys()].sort((a, b) => a - b)) {
+      const list = slots.get(j);
+      for (const b of list) out.push(b);
+      if (j >= 0) d2[j].it.u3after = list;
+    }
+    render(out);
+    return slots.get(-1) || [];
   }
 
   /** ¿Se cruza el rectángulo (px del lienzo del juego) con lo del lote? */
@@ -958,28 +1098,50 @@ G.Ultra3D = (() => {
   }
 
   let tris = 0, calls = 0;
-  /** Dibuja las sombras del suelo y todos los lotes del fotograma en el lienzo 3D. */
-  function render(list) {
-    // Sitio de cada lote, debajo de las sombras del suelo (como mucho 4 pantallas: si no caben, con el anterior).
-    let y = Hl, prev = null;
-    const AT = mob ? 4 : 3;                                    // (PC, a la resolución de la pantalla: 3 pantallas de atlas)
+  /*
+   * (14-11-2026, «los elementos 3D desaparecen y hacen popup») Sitio de cada lote en el atlas, debajo de las sombras del suelo
+   * (que ocupan [0, Hl)): por columnas (skyline). Cada lote va en su x de la pantalla y en el hueco más alto libre de sus
+   * columnas. Antes iban uno debajo de otro con todo el ancho: con muchos lotes (muros, hordas) el atlas se llenaba y se
+   * juntaban con el anterior, que se dibujaba en su sitio del orden por Y (lo juntado quedaba por detrás de Pokémon que
+   * tenía delante) y lo de más abajo podía caer fuera del lienzo. Medido: 19-63 juntados en 20 s; ahora, 0. Si aun así no
+   * cabe, se junta como antes (y se cuenta). Devuelve el alto que hace falta y cuántos se juntaron.
+   */
+  function pack(list, Wl, Hl, cap) {
+    const NB = 48, bw = Wl / NB, sky = new Float64Array(NB).fill(Hl);
+    let maxY = Hl, merged = 0, prev = null;
+    const span = b => [Math.max(0, Math.floor(b.x / bw)), Math.min(NB - 1, Math.floor((b.x + b.w - 1) / bw))];
+    const topOf = b => { const [i0, i1] = span(b); let t = Hl; for (let i = i0; i <= i1; i++) if (sky[i] > t) t = sky[i]; return Math.ceil(t); };
+    const put = (b, t) => { const [i0, i1] = span(b); b.ay = t; for (let i = i0; i <= i1; i++) sky[i] = t + b.h; if (t + b.h > maxY) maxY = t + b.h; };
     for (const b of list) {
       b.x = Math.max(0, Math.floor(b.x0) - 2); b.y = Math.max(0, Math.floor(b.y0) - 2);
       b.w = Math.min(Wl, Math.ceil(b.x1) + 2) - b.x; b.h = Math.min(Hl, Math.ceil(b.y1) + 2) - b.y;
       if (b.w <= 0 || b.h <= 0) { b.ay = -1; continue; }
-      if (y + b.h > AT * Hl && prev) {
-        prev.objs.push(...b.objs);
-        for (const e of b.inst) prev.inst.push(e);
-        const x1 = Math.max(prev.x + prev.w, b.x + b.w), y1 = Math.max(prev.y + prev.h, b.y + b.h);
-        prev.x = Math.min(prev.x, b.x); prev.w = x1 - prev.x;
-        const ny = Math.min(prev.y, b.y), nh = Math.min(Hl, y1) - ny;
-        y += nh - prev.h; prev.y = ny; prev.h = nh;
-        b.ay = -1; continue;
-      }
-      b.ay = prev ? prev.ay + prev.h : Hl; y = b.ay + b.h; prev = b;
+      const t = topOf(b);
+      if (t + b.h <= cap || !prev) { put(b, t); prev = b; continue; }
+      // Lleno: con el anterior (su caja, la de los dos), en el primer hueco donde quepa.
+      prev.objs.push(...b.objs);
+      for (const e of b.inst) prev.inst.push(e);
+      const x1 = Math.max(prev.x + prev.w, b.x + b.w), y1 = Math.max(prev.y + prev.h, b.y + b.h);
+      prev.x = Math.min(prev.x, b.x); prev.w = x1 - prev.x;
+      prev.y = Math.min(prev.y, b.y); prev.h = Math.min(Hl, y1) - prev.y;
+      const t2 = topOf(prev);
+      put(prev, t2 + prev.h <= cap ? t2 : Math.max(Hl, cap - prev.h));
+      b.ay = -1; b.mergedInto = prev; merged++;
+      if (prev.ids && b.ids) for (const r of b.ids) prev.ids.push(r);
     }
-    const H = Math.min(AT * Hl, Math.ceil(y / Hl) * Hl);
+    return { maxY, merged };
+  }
+
+  /** Dibuja las sombras del suelo y todos los lotes del fotograma en el lienzo 3D. */
+  function render(list) {
+    // (Hasta 4 pantallas de atlas; menos si el navegador no da un lienzo tan alto: se mira el de verdad, drawingBufferHeight.)
+    let cap = Math.min(4 * Hl, atCap || Infinity), pk = pack(list, Wl, Hl, cap);
+    let H = Math.min(cap, Math.ceil(pk.maxY / Hl) * Hl);
     if (glcv.height < H) renderer.setSize(Wl, H, false);
+    const db = renderer.getContext().drawingBufferHeight;
+    if (db < H) { atCap = Math.floor(db / Hl) * Hl || Hl * 2; cap = atCap; pk = pack(list, Wl, Hl, cap); H = Math.min(cap, Math.ceil(pk.maxY / Hl) * Hl); }
+    nMerged += pk.merged;
+    for (const b of list) if (b.ay >= 0 && b.ay + b.h > Math.min(H, db)) nClip++;
     tris = calls = 0;
     // El mapa de sombras (si toca), con todas las capas (three.js sólo mete las que ve la cámara) y sin dibujar nada.
     if (renderer.shadowMap.needsUpdate) {
@@ -1002,7 +1164,52 @@ G.Ultra3D = (() => {
       for (const m of lay) m.layers.disable(1);
       lay.clear();
     }
+    if (dbg.on) dbgFrame(list);
   }
+
+  /*
+   * (13-11-2026, el dueño: «los muros y elementos 3D de la partida hay ciertos momentos que desaparecen de la cámara, se dejan de
+   * cargar y hacen popup») Detector de saltos, sólo para depurar (G.Ultra3D.debugPop(true); lo usa tools/pop3d.cjs): cada objeto
+   * 3D dibujado con su caja en la pantalla. Cuenta los que estaban bien dentro de la pantalla y dejan de dibujarse de un fotograma
+   * a otro (out) y los que aparecen ya dentro (in), con su caja: lo que de verdad se nota.
+   */
+  const dbg = { on: false, prev: new Map(), out: 0, inn: 0, miss: 0, ev: [], view: null };
+  function dbgFrame(list) {
+    const cur = new Map(), H = glcv.height, M = 0.12;                      // (margen: un 12 % de la pantalla por cada lado)
+    const inside = r => r[1] > Wl * M && r[3] < Wl * (1 - M) && r[2] > Hl * M && r[4] < Hl * (1 - M);
+    for (const b of list) {
+      if (!b.ids) continue;
+      const ok = b.ay >= 0 ? b.ay + b.h <= H : (b.mergedInto && b.mergedInto.ay >= 0 && b.mergedInto.ay + b.mergedInto.h <= H);
+      if (ok) for (const r of b.ids) cur.set(r[0], r);
+    }
+    // (Una roca rota o un cofre abierto se van de verdad: no cuentan. Lo de world.js que sigue ahí, sí.)
+    const alive = new Set(G.World.visibleProps(G.Camera).map(p => p.id));
+    for (const [id, r] of dbg.prev) if (!cur.has(id) && inside(r)) {
+      if (typeof id === 'number' && !alive.has(id)) continue;
+      dbg.out++; if (dbg.ev.length < 40) dbg.ev.push(['out', id, frame, r.slice(1).map(v => Math.round(v))]);
+    }
+    for (const [id, r] of cur) if (!dbg.prev.has(id) && inside(r) && frame > dbg.f0 + 2) { dbg.inn++; if (dbg.ev.length < 40) dbg.ev.push(['in', id, frame, r.slice(1).map(v => Math.round(v))]); }
+    dbg.prev = cur;
+    // Las filas de pared que deberían verse (del terreno, sin mirar lo que se ha hecho): las que faltan, a miss.
+    if (G.Settings.ultra && dbg.view) {
+      const W = G.World, N = W.N, TS = W.TS, CW = W.CW, v = dbg.view;
+      for (let cy = Math.floor(v.top / CW); cy <= Math.floor(v.bot / CW); cy++) for (let cx = Math.floor(v.l / CW); cx <= Math.floor(v.r / CW); cx++) {
+        const c = W.chunk(cx, cy);
+        if (!c.terr.includes(1)) continue;
+        for (let j = 0; j < N; j++) {
+          let i0 = -1, i1 = -1;
+          for (let i = 0; i < N; i++) if (c.terr[j * N + i] === 1) { if (i0 < 0) i0 = i; i1 = i; }
+          if (i0 < 0) continue;
+          const ty = cy * N + j, x0 = cx * CW, y0 = ty * TS, id = 'r' + ty + ':' + x0;
+          const [ua, va] = proj(x0 + i0 * TS, y0, HW), [ub, vb] = proj(x0 + (i1 + 1) * TS, y0 + TS, 0);
+          if (vb < Hl * 0.05 || va > Hl * 0.95) continue;                       // (fuera, arriba o abajo)
+          if (ub < Wl * 0.05 || ua > Wl * 0.95) continue;                       // (fuera, por los lados)
+          if (!cur.has(id)) { dbg.miss++; if (dbg.ev.length < 40) dbg.ev.push(['miss', id, frame, [Math.round(va), Math.round(vb)]]); }
+        }
+      }
+    }
+  }
+
 
   /*
    * El halo de los cofres en el suelo (luz dorada que late, más fuerte en el de candado): un degradado guardado que se
@@ -1067,17 +1274,23 @@ G.Ultra3D = (() => {
 
   /** Para medir: chunks, filas, objetos y llamadas de dibujo y triángulos del último fotograma. */
   function stats() {
-    return { built: nBuilt, passes: nPass, shadows: nShadow, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
+    return { built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
       aa: !mob, calls, tris, inst: allIns.length, kinds: kinds.size, mem: renderer ? { ...renderer.info.memory } : null };
   }
 
   /** ¿Van las rocas y los cofres en 3D con la vista normal (sin Ultra)? (game.js dibuja entonces por D3 sin perspectiva) */
   const flat = () => !G.Settings.ultra && flatOk() && on();
 
-  return { on, flat, begin, ground, rows, owns, add, hits, render, blit, free, stats, get state() { return state; },
+  return { on, flat, begin, ground, rows, owns, add, hits, render, batch, blit, free, stats, get state() { return state; },
     /** ¿Va la flora en 3D? (ambient.js no la dibuja entonces: la deja en G.Ambient.flora3d) */
     // (Sólo si el último fotograma fue en 3D: con la calidad bajada a mitad de partida, la flora vuelve al 2D al momento.)
     get floraOn() { return floraOn && performance.now() - okAt < 250; },
+    /** ¿Van las paredes en 3D? (Ultra, o en PC los muros de rocas también con la vista normal: world.js hornea el suelo plano) */
+    walls3d: () => on() && (!!G.Settings.ultra || rockWalls()),
+    /** (Para los tests) El reparto del atlas. */
+    _pack: pack,
+    /** Detector de saltos (sólo para depurar): debugPop(true) lo enciende y pone a 0; debugPop() da { out, in, ev }. */
+    debugPop(on) { if (on !== undefined) { dbg.on = !!on; dbg.prev = new Map(); dbg.out = dbg.inn = dbg.miss = 0; dbg.ev = []; dbg.f0 = frame; } return { out: dbg.out, in: dbg.inn, miss: dbg.miss, n: dbg.prev.size, ev: dbg.ev.slice() }; },
     /** ¿Va el portal de la grieta en 3D este fotograma? (game.js: entonces rift.js sólo dibuja su luz y el suelo roto) */
     riftOn() { const it = props.get('rift'); return !!it && it.used === frame && floraOn; } };
 })();
