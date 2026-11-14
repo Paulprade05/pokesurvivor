@@ -132,6 +132,7 @@ const HELPERS = () => {
         await p.evaluate(s => __play(s), SEED);
         await p.evaluate(s => __scene(s), S);
         await sleep(600);
+        if (process.env.GLEVAL) console.log('GLEVAL', JSON.stringify(await p.evaluate(process.env.GLEVAL)).slice(0, 3000));
         // Espejo puesto: dos fotogramas (el primero rellena los espejos de las capas), y se leen los dos en la misma tarea.
         r = await p.evaluate(async (th) => {
           if (!G.GL2D.on) return { error: 'WebGL2 no arrancó' };

@@ -478,22 +478,25 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       if (m0[0] !== this.s.m[0] || m0[1] !== this.s.m[1] || m0[2] !== this.s.m[2] || m0[3] !== this.s.m[3] || m0[4] !== this.s.m[4] || m0[5] !== this.s.m[5]) this._mv++;
       if (sc && this._sx) { if (open === this) this._close(); for (let i = 0; i < sc; i++) { this._sx.restore(); this._sxDepth--; } this._clips.length = this._sxDepth; this._sxs = {}; }
     }
+    // (Como el Canvas 2D: con algún número que no vale (NaN, Infinity) la llamada no hace nada. Si se aplicara, la matriz se
+    //  quedaba con NaN y todo lo de después desaparecía: así se perdían las llegadas de los legendarios en la arena.)
     setTransform(a, b, c, d, e, f) {
-      const m = this.s.m; this._mv++;
-      if (typeof a === 'object' && a) { m[0] = a.a; m[1] = a.b; m[2] = a.c; m[3] = a.d; m[4] = a.e; m[5] = a.f; }
-      else if (a === undefined) { m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 1; m[4] = 0; m[5] = 0; }
-      else { m[0] = a; m[1] = b; m[2] = c; m[3] = d; m[4] = e; m[5] = f; }
+      const m = this.s.m;
+      if (typeof a === 'object' && a) { if (!(isFinite(a.a) && isFinite(a.b) && isFinite(a.c) && isFinite(a.d) && isFinite(a.e) && isFinite(a.f))) return; this._mv++; m[0] = a.a; m[1] = a.b; m[2] = a.c; m[3] = a.d; m[4] = a.e; m[5] = a.f; }
+      else if (a === undefined) { this._mv++; m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 1; m[4] = 0; m[5] = 0; }
+      else { if (!(isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d) && isFinite(e) && isFinite(f))) return; this._mv++; m[0] = +a; m[1] = +b; m[2] = +c; m[3] = +d; m[4] = +e; m[5] = +f; }
     }
     resetTransform() { this.setTransform(1, 0, 0, 1, 0, 0); }
     getTransform() { const m = this.s.m; return new DOMMatrix([m[0], m[1], m[2], m[3], m[4], m[5]]); }
     transform(a, b, c, d, e, f) {
+      if (!(isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d) && isFinite(e) && isFinite(f))) return;
       const m = this.s.m, A = m[0], B2 = m[1], C = m[2], D = m[3]; this._mv++;
       m[0] = A * a + C * b; m[1] = B2 * a + D * b; m[2] = A * c + C * d; m[3] = B2 * c + D * d;
       m[4] += A * e + C * f; m[5] += B2 * e + D * f;
     }
-    translate(x, y) { const m = this.s.m; this._mv++; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
-    scale(x, y) { const m = this.s.m; this._mv++; m[0] *= x; m[1] *= x; m[2] *= y; m[3] *= y; }
-    rotate(r) { const c = Math.cos(r), s = Math.sin(r); this.transform(c, s, -s, c, 0, 0); }
+    translate(x, y) { if (!(isFinite(x) && isFinite(y))) return; const m = this.s.m; this._mv++; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
+    scale(x, y) { if (!(isFinite(x) && isFinite(y))) return; const m = this.s.m; this._mv++; m[0] *= x; m[1] *= x; m[2] *= y; m[3] *= y; }
+    rotate(r) { if (!isFinite(r)) return; const c = Math.cos(r), s = Math.sin(r); this.transform(c, s, -s, c, 0, 0); }
     setLineDash(d) { this.s.dash = d && d.length ? d.slice() : null; this.s._sig = {}; }
     getLineDash() { return this.s.dash ? this.s.dash.slice() : []; }
 
@@ -654,6 +657,8 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
 
     // ---- trazados ----
     _op(c, a, bbFn) {
+      // (Como el Canvas 2D: una pieza con algún número que no vale se ignora.)
+      if (a) for (let i = 0; i < a.length; i++) if (typeof a[i] === 'number' && !isFinite(a[i])) return;
       if (this._pmv !== this._mv) { this._pms.push(this.s.m.slice()); this._pmv = this._mv; }
       this._p.push({ c, mi: this._pms.length - 1, a });
       bbFn();
@@ -1140,10 +1145,10 @@ void main() {
     st.draws += 4;
     // Lo de este motor otra vez, y el resultado sumado a la pantalla (con su suavizado al ampliarlo).
     G.GL2D.restore();
-    const s = ctx.s, m = s.m.slice(), al = s.alpha, cp = s.comp, sm = s.smooth;
-    s.m = [1, 0, 0, 1, 0, 0]; s.alpha = k; s.comp = 'lighter'; s.smooth = true;
-    ctx.drawImage({ __gl2dExt: true, _f: () => ({ tex: BL.a.tex, w: bw, h: bh }) }, 0, 0, bw, bh, 0, 0, screen.width, screen.height);
-    s.m = m; s.alpha = al; s.comp = cp; s.smooth = sm;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = k; ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(BL.ext || (BL.ext = { __gl2dExt: true, _f: () => (BL.a ? { tex: BL.a.tex, w: BL.w, h: BL.h } : null) }), 0, 0, bw, bh, 0, 0, screen.width, screen.height);
+    ctx.restore();
     return true;
   }
 

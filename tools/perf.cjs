@@ -355,7 +355,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
     const p = await ctx.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push('[err] ' + e.message));
-    p.on('console', m => { if (m.type() === 'error' && !/favicon|firebase|ERR_|Failed to load|identitytoolkit|googleapis|404/.test(m.text())) errs.push('[c] ' + m.text().slice(0, 300)); });
+    p.on('console', m => { const t = m.text(); if ((m.type() === 'error' && !/favicon|firebase|ERR_|Failed to load|identitytoolkit|googleapis|404/.test(t)) || /^[GL2D]/.test(t)) errs.push('[c] ' + t.slice(0, 300)); });
     await p.addInitScript(instrument, { seed: SEED, count: COUNT });
     // (Calidad antes de cargar: la aldea y el tamaño del lienzo ya salen con ella.)
     await p.addInitScript(q => { try { const s = JSON.parse(localStorage.getItem('ps.settings') || '{}'); s.quality = q.q; s.fps = false; if (q.uncap) s.fpsCap = q.hz || 0; localStorage.setItem('ps.settings', JSON.stringify(s)); } catch (e) { /* */ } }, { q: Q, uncap: UNCAP, hz: HZ });
