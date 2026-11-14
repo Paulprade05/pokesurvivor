@@ -71,11 +71,60 @@ intercalados y con varias repeticiones (medianas), y se cuenta sobre todo lo que
   75 % (≈196 llamadas de WebGL por fotograma). Se pasaron las medidas a la sesión del 3D (no se tocan sus archivos aquí).
 
 ## Medidas (14-11-2026)
-`origin/main` (c66c725c, worktree `ps-perf-base`) → esta rama, con la misma herramienta, intercalados (antes, después, antes...),
-6 s por escena, sin contadores (`--sin-contar`). Mediana de las repeticiones. Peor fotograma y tirones: lo que más se nota.
+Antes y después con la misma herramienta, intercalados (antes, después, antes...), 6 s por escena, sin contadores (`--sin-contar`),
+mediana de las repeticiones. Dos tandas: con la máquina tranquila sobre el `main` de hoy, y con la máquina cargada sobre el de ayer.
 
-**Chrome** (del sistema, con GPU: Radeon integrada del Ryzen 7 7735U, 1536×864 a ×1,25 como una pantalla de 1920×1080, 60 Hz),
-4 repeticiones por lado:
+### Máquina tranquila, sobre `main` 7d9213cf (con la pausa, el agua y los muros 3D del PR #66)
+**Chrome** (del sistema, Radeon integrada del Ryzen 7 7735U, 1536×864 a ×1,25 = 1920×1080, 60 Hz), 4 repeticiones por lado:
+
+| calidad | escena | FPS | ms media | p95 | p99 | tirones >50 ms (6 s) | peor fotograma ms |
+|---|---|---|---|---|---|---|---|
+| Auto | aldea | 55.5 → 54.6 | 2.45 → 2.26 | 3.1 → 2.9 | 5.8 → 3.5 | 0 → 0 | 17.3 → 17.4 |
+| Auto | tranquila | 55 → 54.8 | 2.25 → 2.23 | 2.8 → 2.9 | 6.5 → 4 | 0 → 0 | 25.4 → 17.6 |
+| Auto | jefe | 54.8 → 54.8 | 2.96 → 2.82 | 4.4 → 3.9 | 6.9 → 6 | 0 → 0 | 17.5 → 17.3 |
+| Auto | horda | 54.8 → 55 | 5.32 → 5.44 | 7.1 → 7.4 | 9.7 → 8.2 | 0 → 0 | 25.7 → 17.5 |
+| Auto | grieta | 53.2 → 54.3 | 2.83 → 2.6 | 4.4 → 3.9 | 8.9 → 6.1 | 3 → 2 | 116.7 → 75.3 |
+| Auto | arena | 55 → 55.5 | 3.84 → 3.45 | 5.6 → 4.6 | 11.4 → 6.5 | 0 → 0 | 25.6 → 18 |
+| Alta | aldea | 55.2 → 54.8 | 2.41 → 2.25 | 3.1 → 2.8 | 5.7 → 3.7 | 0 → 0 | 20.8 → 25.5 |
+| Alta | tranquila | 54.8 → 55.1 | 2.28 → 2.13 | 2.9 → 2.7 | 6.6 → 3.4 | 0 → 0 | 19 → 17.5 |
+| Alta | jefe | 54.8 → 55.1 | 2.98 → 2.9 | 4 → 4.4 | 5.4 → 5.9 | 0 → 0 | 17.3 → 18.1 |
+| Alta | horda | 54.8 → 54.7 | 5.95 → 5.29 | 7.4 → 6.9 | 10.1 → 7.8 | 0 → 0 | 25.4 → 25.7 |
+| Alta | grieta | 52.8 → 53.2 | 2.63 → 2.61 | 4.2 → 3.6 | 11.1 → 6.9 | 3 → 3 | 100.2 → 83.5 |
+| Alta | arena | 55.2 → 54.7 | 3.78 → 3.59 | 5.5 → 5 | 9.8 → 6.5 | 0 → 0 | 25.5 → 25.6 |
+| Máxima | aldea | 54.7 → 54.9 | 2.47 → 2.26 | 3.2 → 2.8 | 5.7 → 3.5 | 0 → 0 | 25.5 → 25.5 |
+| Máxima | tranquila | 54.7 → 54.6 | 3.34 → 3.17 | 5.4 → 4.1 | 13.3 → 8 | 0 → 0 | 33.4 → 33.4 |
+| Máxima | jefe | 55 → 54.9 | 4.42 → 4.44 | 6.6 → 6.6 | 8.7 → 8.9 | 0 → 0 | 25.7 → 25.6 |
+| Máxima | horda | 51.2 → 53.6 | 9.08 → 8.55 | 12.3 → 11 | 18.9 → 12.5 | 1 → 0 | 50.1 → 33.4 |
+| Máxima | grieta | 52.4 → 53.5 | 4.6 → 4.23 | 5.9 → 5.8 | 12.9 → 8 | 3 → 2 | 116.9 → 83.5 |
+| Máxima | arena | 55.1 → 54.9 | 5.22 → 5.24 | 7.4 → 6.9 | 12.1 → 8.4 | 0 → 0 | 25.5 → 25.4 |
+
+**WebKit** con el perfil de iPhone 15 en horizontal (852×393 ×3), 3 repeticiones. En Windows, WebKit dibuja por software y va a
+12-38 FPS: vale para comparar los ms de cada fotograma, no para saber cómo va un iPhone de verdad. A menos de 25 FPS, «tirones de
+más de 50 ms» casi no dice nada (un fotograma normal ya dura 40-80 ms). El testigo de lienzos sigue en iOS (también aquí).
+
+| calidad | escena | FPS | ms media | p95 | p99 | tirones >50 ms (6 s) | peor fotograma ms |
+|---|---|---|---|---|---|---|---|
+| Auto | aldea | 27.7 → 27.5 | 2.52 → 2.34 | 4 → 4 | 6 → 5 | 2 → 2 | 59 → 55 |
+| Auto | tranquila | 32.5 → 38.2 | 1.81 → 1.48 | 5 → 4 | 10 → 5 | 0 → 0 | 45 → 38 |
+| Auto | jefe | 28.3 → 34.3 | 4.07 → 2.77 | 10 → 6 | 12 → 8 | 2 → 0 | 52 → 45 |
+| Auto | horda | 25 → 29.8 | 8.7 → 5.64 | 16 → 12 | 20 → 15 | 6 → 0 | 58 → 49 |
+| Auto | grieta | 30.8 → 36.8 | 3.01 → 2.02 | 10 → 7 | 25 → 9 | 2 → 1 | 93 → 63 |
+| Auto | arena | 28.7 → 35.7 | 3.46 → 2.54 | 10 → 6 | 15 → 9 | 0 → 0 | 49 → 47 |
+| Alta | aldea | 27.8 → 27.6 | 2.47 → 2.28 | 4 → 3 | 6 → 5 | 2 → 3 | 57 → 55 |
+| Alta | tranquila | 27.4 → 27.3 | 3.21 → 2.53 | 13 → 13 | 17 → 17 | 0 → 0 | 50 → 50 |
+| Alta | jefe | 21.7 → 21.9 | 6.55 → 6.09 | 19 → 18 | 22 → 22 | 22 → 21 | 66 → 61 |
+| Alta | horda | 17.2 → 17.7 | 16.78 → 18.66 | 32 → 31 | 38 → 38 | 99 → 98 | 73 → 74 |
+| Alta | grieta | 23.9 → 24.1 | 5.82 → 5.71 | 26 → 24 | 42 → 30 | 5 → 4 | 94 → 82 |
+| Alta | arena | 21 → 19.4 | 6.9 → 7.25 | 23 → 25 | 30 → 32 | 23 → 61 | 62 → 62 |
+| Máxima | aldea | 25.1 → 25 | 2.62 → 2.44 | 4 → 4 | 5 → 5 | 5 → 6 | 62 → 62 |
+| Máxima | tranquila | 14.6 → 14.6 | 32.44 → 32.43 | 34 → 34 | 49 → 49 | 84 → 85 | 80 → 81 |
+| Máxima | jefe | 12 → 11.8 | 41.93 → 42.91 | 60 → 62 | 67 → 66 | 69 → 68 | 102 → 97 |
+| Máxima | horda | 11.4 → 10.9 | 45.7 → 49.7 | 53 → 57 | 67 → 69 | 65 → 63 | 101 → 108 |
+| Máxima | grieta | 12 → 12.1 | 42.63 → 42.69 | 68 → 66 | 140 → 169 | 69 → 69 | 182 → 199 |
+| Máxima | arena | 11.7 → 11.8 | 46.56 → 48.9 | 54 → 58 | 66 → 71 | 68 → 68 | 109 → 100 |
+
+### Máquina cargada (otras sesiones usando CPU y GPU), sobre `main` c66c725c (de ayer)
+Chrome, 4 repeticiones. Aquí es donde más se notaba: esperar a la GPU cuesta más cuanto más cola tiene.
 
 | calidad | escena | FPS | ms media | p95 | p99 | tirones >50 ms (6 s) | peor fotograma ms |
 |---|---|---|---|---|---|---|---|
@@ -98,42 +147,19 @@ intercalados y con varias repeticiones (medianas), y se cuenta sobre todo lo que
 | Máxima | grieta | 51.5 → 43.9 | 7.34 → 6.25 | 11 → 9.2 | 35.1 → 12.2 | 5 → 5 | 317.1 → 183.6 |
 | Máxima | arena | 54 → 44.9 | 10.47 → 8.13 | 14.8 → 12.2 | 27.1 → 14.9 | 1 → 0 | 50.1 → 50 |
 
-**WebKit** con el perfil de iPhone 15 en horizontal (852×393 ×3), 3 repeticiones por lado. En Windows, WebKit dibuja por software
-y va a 20-30 FPS haga lo que haga: vale para comparar el trabajo de cada fotograma (ms), no para saber cómo va un iPhone de verdad.
-A esos FPS, «tirones de más de 50 ms» casi no dice nada (un fotograma normal ya dura 40-60 ms). El testigo de lienzos sigue en iOS.
-
-| calidad | escena | FPS | ms media | p95 | p99 | tirones >50 ms (6 s) | peor fotograma ms |
-|---|---|---|---|---|---|---|---|
-| Auto | aldea | 24.4 → 25.8 | 2.83 → 2.31 | 4 → 3 | 6 → 5 | 14 → 2 | 62 → 58 |
-| Auto | tranquila | 29.1 → 35.4 | 2.01 → 1.53 | 6 → 3 | 11 → 6 | 0 → 0 | 47 → 41 |
-| Auto | jefe | 23 → 30.8 | 4.26 → 3.4 | 14 → 7 | 16 → 10 | 33 → 2 | 81 → 51 |
-| Auto | horda | 20.3 → 30 | 9.67 → 6.64 | 19 → 12 | 22 → 14 | 37 → 1 | 83 → 51 |
-| Auto | grieta | 23.7 → 34.1 | 3.48 → 2.13 | 15 → 7 | 28 → 9 | 13 → 1 | 104 → 69 |
-| Auto | arena | 24.6 → 32.7 | 3.75 → 2.48 | 12 → 5 | 18 → 10 | 3 → 0 | 67 → 46 |
-| Alta | aldea | 24.7 → 25.7 | 2.58 → 2.46 | 4 → 4 | 7 → 7 | 8 → 7 | 63 → 63 |
-| Alta | tranquila | 25.5 → 23.4 | 2.69 → 2.85 | 14 → 13 | 19 → 20 | 1 → 14 | 53 → 64 |
-| Alta | jefe | 21.9 → 17.7 | 6.25 → 7.15 | 18 → 25 | 23 → 40 | 20 → 70 | 65 → 94 |
-| Alta | horda | 16.2 → 16.5 | 17.18 → 20.75 | 31 → 35 | 43 → 46 | 94 → 82 | 86 → 112 |
-| Alta | grieta | 23.7 → 22.1 | 5.56 → 5.9 | 24 → 27 | 58 → 32 | 6 → 17 | 99 → 92 |
-| Alta | arena | 20.7 → 17.4 | 6.15 → 6.98 | 19 → 26 | 31 → 36 | 20 → 99 | 68 → 73 |
-| Máxima | aldea | 20.9 → 20.8 | 3.15 → 2.84 | 4 → 4 | 7 → 7 | 25 → 28 | 72 → 73 |
-| Máxima | tranquila | 10.7 → 12.6 | 46.6 → 37.46 | 59 → 41 | 71 → 58 | 62 → 73 | 110 → 93 |
-| Máxima | jefe | 8 → 8.8 | 68 → 61.39 | 89 → 85 | 109 → 88 | 45 → 50 | 149 → 130 |
-| Máxima | horda | 8.6 → 7.4 | 62.9 → 76.67 | 84 → 117 | 96 → 123 | 49 → 41 | 133 → 206 |
-| Máxima | grieta | 8.9 → 9.1 | 57.98 → 58.98 | 89 → 105 | 294 → 202 | 50 → 50 | 337 → 232 |
-| Máxima | arena | 11.2 → 10.7 | 48.58 → 53.55 | 61 → 65 | 79 → 79 | 64 → 61 | 110 → 129 |
-
-**Cómo leerlo.** Con la máquina compartida, los FPS medios bailan mucho entre pasadas (la misma versión dio 60 y, diez minutos
-después, 19), así que diferencias de ±10 FPS en una escena no significan nada. Lo que se repite en todas las pasadas:
-- Chrome, horda: p99 de 73 a 15 ms en Alta y de 60 a 16 ms en Máxima; los tirones, de 6-7 a 1 en 6 s.
-- Chrome, grieta: p99 de 22 a 13 ms (Alta) y de 35 a 12 ms (Máxima). Al llegar a la arena sigue habiendo un fotograma de 150-180 ms:
-  en Alta casi no es JavaScript (12 ms de 107 en los fotogramas lentos: es la GPU) y en Máxima es sobre todo el 3D de las paredes
-  (`ultra3d` buildChunk), que la sesión del 3D ya ha quitado en su PR #66.
-- WebKit con Auto: todo mejor (la horda, de 20 a 30 FPS y de 9,7 a 6,6 ms), por la resolución dinámica. Alta y Máxima, igual.
+### Cómo leerlo
+- Con la máquina tranquila, el juego ya iba casi siempre a 55-60 FPS en este PC: lo que cambia son los fotogramas lentos. El p99 baja
+  un 20-40 % en casi todas las escenas (horda en Máxima, de 19 a 12,5 ms) y el peor fotograma de la grieta, de 100-117 a 75-84 ms.
+- Con la máquina cargada (lo que más se parece a un portátil caliente o un móvil justo), la horda pasaba de un p99 de 73 a 15 ms en
+  Alta y de 60 a 16 ms en Máxima, y los tirones de 6-7 a 1 en 6 s. Los FPS medios, con ese ruido, bailan demasiado (la misma versión
+  dio 60 y, diez minutos después, 19).
+- WebKit con Auto, en las dos tandas: la horda, de 20-25 a 30 FPS y de 8,7-9,7 a 5,6-6,6 ms (resolución dinámica). Alta y Máxima,
+  igual (no tocan lo que más cuesta en WebKit por software: rellenar píxeles).
 - En Chrome sin tope, antes de arreglarlo, el testigo se llevaba del 72 al 98 % del tiempo de los fotogramas lentos.
+- Lo que queda al llegar a la arena (75-84 ms, una vez): en Alta casi no es JavaScript (12 ms de 107 en los fotogramas lentos: GPU).
 
-**Equilibrio**: `node tools/balance.cjs --pasivos --todas --json` da el mismo archivo byte a byte antes y después (sólo cambia el
-dibujo, el bucle y los ajustes; el combate no). `tools/equilibrio.cjs --norma`: todo igual.
+**Equilibrio**: `node tools/balance.cjs --pasivos --todas --json` da el mismo archivo byte a byte antes y después, sobre las dos bases
+(sólo cambia el dibujo, el bucle y los ajustes; el combate no). `tools/equilibrio.cjs --norma`: todo igual.
 
 **Sin probar**: iPhone y Android reales (calor y batería de verdad), pantallas de 120-144 Hz reales (el tope se ha comprobado con
 el cálculo del bucle en `tests/rendimiento.test.cjs`), la app de Windows.
