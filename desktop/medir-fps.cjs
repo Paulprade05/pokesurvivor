@@ -7,6 +7,11 @@
 //
 // Pruebas: electron, electron-sin-tope, edge, edge-sin-tope, chrome, chrome-sin-tope,
 // y exe / exe-sin-tope (la app empaquetada).
+// rust / rust-sin-tope: la app de Rust (desktop-rust, WebView2). Usa
+// desktop-rust/dist/PokeSurvivor/PokeSurvivor.exe si existe y si no
+// desktop-rust/target/release (o debug) con --www=desktop/www. Se le habla por la
+// depuración remota de WebView2 y se cierra como un jugador (WM_CLOSE), para
+// comprobar que la partida queda copiada en disco.
 // Edge usa el mismo motor que WebView2 (lo que usarían Tauri o un host en C#).
 // Deja capturas y el resultado en desktop/dist/medidas/.
 'use strict';
@@ -111,12 +116,56 @@ async function servidorWeb() {
   return p;
 }
 
+// La app de Rust: el .exe empaquetado si está; si no, el compilado.
+function exeRust() {
+  const r = path.join(__dirname, '..', 'desktop-rust');
+  const cands = [path.join(r, 'dist', 'PokeSurvivor', 'PokeSurvivor.exe'), path.join(r, 'target', 'release', 'PokeSurvivor.exe'),
+    path.join(r, 'target', 'debug', 'PokeSurvivor.exe')];
+  const exe = cands.find(f => fs.existsSync(f));
+  if (!exe) throw new Error('Falta la app de Rust: cargo build --release en desktop-rust');
+  return { exe, www: exe.includes(path.sep + 'dist' + path.sep) ? null : path.join(__dirname, 'www') };
+}
+
+async function abrirRust(nombre, perfil) {
+  const { exe, www } = exeRust();
+  const puerto = 39300 + Math.floor(Math.random() * 500);
+  const proc = spawn(exe, ['--perfil=' + perfil, '--sin-avisos', '--depuracion=' + puerto,
+    ...(www ? ['--www=' + www] : []), ...(nombre.endsWith('sin-tope') ? ['--sin-tope'] : [])], { stdio: 'ignore' });
+  let browser;
+  for (let i = 0; i < 60 && !browser; i++) {
+    await espera(500);
+    browser = await chromium.connectOverCDP(`http://127.0.0.1:${puerto}`).catch(() => null);
+  }
+  if (!browser) throw new Error('La app de Rust no abrió la depuración');
+  let page;
+  for (let i = 0; i < 40 && !page; i++) {
+    page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http://127.0.0.1:39017/'));
+    if (!page) await espera(250);
+  }
+  if (!page) throw new Error('La app de Rust no cargó el juego');
+  const cerrar = async () => {
+    // Como un jugador: WM_CLOSE a la ventana (sin /F). La app guarda y sale.
+    try { require('child_process').execFileSync('taskkill', ['/PID', String(proc.pid)], { stdio: 'ignore' }); } catch (e) { /* */ }
+    const t0 = Date.now();
+    while (proc.exitCode === null && Date.now() - t0 < 8000) await espera(100);
+    const salio = proc.exitCode !== null ? Date.now() - t0 : null;
+    try { require('child_process').execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) { /* ya cerrada */ }
+    const g = path.join(perfil, 'guardado', 'partida.json');
+    let claves = 0;
+    try { claves = Object.keys(JSON.parse(fs.readFileSync(g, 'utf8')).datos).length; } catch (e) { /* sin copia */ }
+    return { salioEnMs: salio, guardadoClaves: claves };
+  };
+  return { page, cerrar };
+}
+
 async function una(nombre, log) {
   const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'ps-perfil-'));
   const errores = [];
   let cerrar;
   let page;
-  if (nombre.startsWith('electron') || nombre.startsWith('exe')) {
+  if (nombre.startsWith('rust')) {
+    ({ page, cerrar } = await abrirRust(nombre, perfil));
+  } else if (nombre.startsWith('electron') || nombre.startsWith('exe')) {
     // «exe» prueba la app ya empaquetada (npm run empaquetar), no la carpeta.
     const exe = nombre.startsWith('exe');
     const app = await _electron.launch({
@@ -147,6 +196,12 @@ async function una(nombre, log) {
     const tam = await page.evaluate(() => `${innerWidth}x${innerHeight} @${devicePixelRatio}`);
     log(`${nombre}: ${navigator_ua(await page.evaluate(() => navigator.userAgent))} | GPU: ${gpu} | ${tam}`);
     const r = await recorrido(page, nombre, log);
+    if (nombre.startsWith('rust')) {
+      r.escritorio = await page.evaluate(() => JSON.parse(JSON.stringify(window.pokeEscritorio || null)));
+      const c = await cerrar(); cerrar = async () => {};
+      r.cierre = c;
+      log(`  cierre: ${JSON.stringify(c)} | pokeEscritorio: ${JSON.stringify(r.escritorio)}`);
+    }
     return { nombre, gpu, tam, ...r, errores: errores.slice(0, 20) };
   } catch (e) {
     log(`  FALLO: ${e.message}`);
@@ -168,7 +223,7 @@ function navigator_ua(ua) {
   const pedidas = process.argv.slice(2).length ? process.argv.slice(2) : TODAS;
   const lineas = [];
   const log = s => { console.log(s); lineas.push(s); };
-  const web = pedidas.some(n => !n.startsWith('electron') && !n.startsWith('exe')) ? await servidorWeb() : null;
+  const web = pedidas.some(n => !/^(electron|exe|rust)/.test(n)) ? await servidorWeb() : null;
   const res = [];
   try {
     for (const n of pedidas) res.push(await una(n, log));

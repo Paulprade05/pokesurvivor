@@ -5,6 +5,11 @@ versión compilada que se publica en GitHub Pages: el juego no cambia y la web n
 Por qué Electron y no otra cosa: nota «Versión para Windows» del vault
 (`04 Técnico/Windows y escritorio/`).
 
+**Hay también una app en Rust** (`../desktop-rust/`, wry/tao sobre WebView2): hace lo mismo
+con un .zip de ~105 MB en vez de ~243, y guarda en la misma carpeta. Esta app Electron se queda
+de **respaldo** hasta que la de Rust la iguale en todo (sobre todo la gráfica potente en
+portátiles con dos gráficas). Ver `../desktop-rust/LEEME.md`.
+
 ## Usar
 
 Desde esta carpeta (`desktop/`), con Node instalado:
@@ -41,7 +46,8 @@ Si `npm install` no baja Electron (`node_modules/electron/dist` vacío):
 
 Sólo existe dentro de la app. Es **estable**: se puede añadir algo, pero no quitar ni
 cambiar lo que hay, porque lo usan el juego (Ajustes no ofrece descargar la app dentro de
-la app) y la calidad de gráficos (nivel máximo sólo en la app).
+la app) y la calidad de gráficos (nivel máximo sólo en la app). La app de Rust expone el mismo
+objeto (con `contenedor: 'rust'` y `webview2` de más; `electron` vacío).
 
 | Campo | Qué es | Ejemplo |
 |---|---|---|
@@ -62,18 +68,28 @@ El nombre real de la gráfica se lee en la página con WebGL (`WEBGL_debug_rende
 ## Publicar una versión de Windows (sólo cuando el dueño lo pida)
 
 La release la hace GitHub Actions (`.github/workflows/windows-release.yml`, gratis, con el
-token del propio workflow): en un runner `windows-latest` hace `npm ci` aquí, copia la web
-**ya compilada del commit** (no compila el juego ni publica la web), empaqueta y sube
-`PokeSurvivor-Windows.zip` a una release normal (ni borrador ni prerelease, marcada como la
-última) titulada «PokéSurvivor para Windows X.Y.Z», con una nota es/en sobre SmartScreen.
+token del propio workflow): en un runner `windows-latest` compila y prueba la app de Rust
+(`cargo test`, `desktop-rust/empaquetar.cjs`), hace `npm ci` aquí, copia la web **ya compilada
+del commit** (no compila el juego ni publica la web), empaqueta las dos y las sube a una release
+normal (ni borrador ni prerelease, marcada como la última) titulada «PokéSurvivor para Windows
+X.Y.Z», con una nota es/en sobre SmartScreen.
+
+`PRINCIPAL` (arriba del workflow) dice cuál va como `PokeSurvivor-Windows.zip`, el de Ajustes:
+- `electron` (ahora): Electron es `PokeSurvivor-Windows.zip` y Rust `PokeSurvivor-Windows-Rust.zip`.
+- `rust`: Rust es `PokeSurvivor-Windows.zip` y Electron `PokeSurvivor-Windows-Electron.zip`.
+  Las apps Electron ya instaladas avisarán de la versión nueva y bajarán la de Rust; la partida
+  sigue, porque las dos usan `%APPDATA%\PokeSurvivor\guardado\`.
 
 1. En la raíz: `node tools/build.js && node tools/export_data.js && py tools/make_seo_pages.py`,
    y que el resultado esté en `main` (lo que se empaqueta es lo del commit de la etiqueta).
-2. Si es una versión nueva de la app, sube `version` en `desktop/package.json` (0.2.0 → 0.3.0).
+2. Si es una versión nueva de la app, sube `version` en `desktop/package.json` **y** en
+   `desktop-rust/Cargo.toml` (las dos iguales, p. ej. 0.4.0 → 0.5.0; luego `cargo build` para
+   que `Cargo.lock` la recoja).
 3. Empuja la etiqueta **`win-v<versión>`** (por ejemplo `win-v0.2.0`) sobre ese commit de
    `main`; o en Actions › «Versión para Windows» › *Run workflow* con esa etiqueta (crea la
    etiqueta sobre el commit elegido). El workflow falla si la etiqueta no es `win-vX.Y.Z` o no
-   coincide con `desktop/package.json`. Si la release ya existe, sustituye el .zip.
+   coincide con `desktop/package.json` y `desktop-rust/Cargo.toml`. Si la release ya existe,
+   sustituye los .zip.
 4. Con eso, en la web sale Ajustes › Acerca de › «Descargar para Windows» (sólo en PC con
    Windows; `js/ui/windows-dl.js` pregunta a la API de GitHub si existe) y las apps ya
    instaladas avisan de la versión nueva (comparan el número de la etiqueta, sin `win-v`).

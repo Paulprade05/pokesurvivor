@@ -1,0 +1,36 @@
+#include <winver.h>
+
+// Icono del .exe y de la ventana (tao lo carga con el número 1).
+1 ICON "../desktop/icono.ico"
+
+// Manifiesto: Windows 10/11, ventanas nítidas con escalado y controles modernos.
+1 24 "pokesurvivor.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION PS_VER_NUM
+PRODUCTVERSION PS_VER_NUM
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE 0x0L
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904b0"
+    BEGIN
+      VALUE "CompanyName", "PokeSurvivor (fan)"
+      VALUE "FileDescription", "PokeSurvivor"
+      VALUE "FileVersion", PS_VER_STR
+      VALUE "InternalName", "PokeSurvivor"
+      VALUE "LegalCopyright", "Proyecto de fan sin animo de lucro. Pokemon (c) Nintendo/Creatures/GAME FREAK."
+      VALUE "OriginalFilename", "PokeSurvivor.exe"
+      VALUE "ProductName", "PokeSurvivor"
+      VALUE "ProductVersion", PS_VER_STR
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END
