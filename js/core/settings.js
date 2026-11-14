@@ -40,6 +40,8 @@
  *
  *   shareStats  true | false                     subir el resumen anónimo de cada partida (net/stats.js)
  *   zoom        0.85 .. 1.25                      zoom de la cámara en la partida (la rueda del ratón; camera.js); 1 de serie
+ *   glDraw      true | false                     (fps-tecnologia, 14-11-2026) dibujar el lienzo del juego con WebGL2 (core/gl2d.js) en vez
+ *                                                 del Canvas 2D; en pruebas, apagado de serie; se aplica al recargar (también ?gl=1 / ?gl=0)
  *   fpsCap      60 | 30 | 0                       tope de fotogramas por segundo (game.js loop, 13-11-2026): 60 de serie, para que
  *                                                 las pantallas de 120 Hz o más no calienten el doble; 0 = sin tope
  *   pixSmooth   true/false                        «Pokémon más nítidos»: los sprites con un escalador de pixel art
@@ -55,7 +57,7 @@ G.Settings = (() => {
   const DESK = typeof window !== 'undefined' && !!window.pokeEscritorio && window.pokeEscritorio.esEscritorio !== false;
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
-    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true, pixSmooth: null, zoom: 1, fpsCap: 60 };
+    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true, pixSmooth: null, zoom: 1, fpsCap: 60, glDraw: false };
   let s = Object.assign({}, DEF);
   try {
     const old = JSON.parse(localStorage.getItem(KEY) || '{}');
