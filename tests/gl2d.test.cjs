@@ -59,3 +59,11 @@ test('shader: «lighter» en el mismo lote y el 3D de three.js pasado a sRGB', (
   assert.match(u3, /type: T\.HalfFloatType/);
   assert.match(u3, /linear: true/);
 });
+
+test('como el Canvas 2D: transformaciones y trazados con NaN o Infinity no hacen nada (si no, se perdía lo de después)', () => {
+  const src = read('js/core/gl2d.js');
+  assert.match(src, /translate\(x, y\) \{ if \(!\(isFinite\(x\) && isFinite\(y\)\)\) return;/);
+  assert.match(src, /scale\(x, y\) \{ if \(!\(isFinite\(x\) && isFinite\(y\)\)\) return;/);
+  assert.match(src, /rotate\(r\) \{ if \(!isFinite\(r\)\) return;/);
+  assert.match(src, /if \(typeof a\[i\] === 'number' && !isFinite\(a\[i\]\)\) return;/);
+});

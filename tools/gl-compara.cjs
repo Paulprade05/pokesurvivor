@@ -9,7 +9,7 @@
  * G.GL2D.tee): lo mismo, en el mismo fotograma, pintado por los dos. Saca las dos capturas, la diferencia (en rojo lo que
  * cambia) y cuántos píxeles cambian.
  *
- *   node tools/gl-compara.cjs --pw <node_modules con playwright-core> [--calidad high,max] [--escenas tranquila,jefe,hordamax,arena]
+ *   node tools/gl-compara.cjs --pw <node_modules con playwright-core> [--calidad high,max] [--escenas tranquila,jefe,hordamax,tunel,arena]
  *                             [--out <carpeta>] [--nav chrome|webkit] [--tam 1536x864@1.25] [--umbral 24]
  * --umbral: diferencia por canal (0-255) a partir de la que un píxel cuenta como distinto (de serie 24).
  */
@@ -100,6 +100,8 @@ const HELPERS = () => {
       G.Spawner.debugMake(b, b.at, G.Game.everyone(), true); await __run(180); return; }
     if (k === 'hordamax') { G.Game.debugTime(19 * 60); G.Spawner.debugBossesFrom(30 * 60); __heavy();
       for (const w of ['surge', 'ring', 'swarm', 'stampede', 'surge', 'ring']) { G.Spawner.debugWave(w); await __run(20); } await __run(150); return; }
+    if (k === 'tunel') { G.Rift.debugOpen(); await __run(20); const P = G.Game.player, r = G.Rift.rift; if (r) { P.x = r.x; P.y = r.y - 10; G.Camera.x = P.x; G.Camera.y = P.y; }
+      for (let i = 0; i < 40 && !G.Rift.traveling; i++) await __run(5); await __run(30); return; }
     if (k === 'arena') { G.Rift.debugArena('fire', 2); for (let i = 0; i < 40 && !G.Rift.inArena; i++) await __run(15); await __run(180); return; }
   };
 };
