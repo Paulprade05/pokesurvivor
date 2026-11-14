@@ -8,7 +8,8 @@ const fs = require('fs');
 const path = require('path');
 
 const RAIZ = path.resolve(__dirname, '..');
-const DESTINO = path.join(__dirname, 'www');
+// Destino: desktop/www (app Electron) o el que se pase, p. ej. la carpeta de la app de Rust.
+const DESTINO = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, 'www');
 
 // Lo que el juego necesita para funcionar. Lo demás (herramientas, pruebas,
 // documentos, páginas de buscadores) se queda fuera.
@@ -37,4 +38,4 @@ for (const f of lista) {
   fs.copyFileSync(de, a);
   bytes += fs.statSync(a).size;
 }
-console.log(`Copiados ${lista.length} archivos (${(bytes / 1048576).toFixed(1)} MB) a desktop/www`);
+console.log(`Copiados ${lista.length} archivos (${(bytes / 1048576).toFixed(1)} MB) a ${path.relative(RAIZ, DESTINO)}`);

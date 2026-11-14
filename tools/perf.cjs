@@ -23,6 +23,10 @@
  *   --sin-tope     Chrome sin vsync ni tope de FPS: lo que da de sí (OJO: la cola de la GPU crece y las lecturas del lienzo
  *                  esperan mucho más que de verdad).
  *   --nav webkit   WebKit de Playwright con el perfil de iPhone 15 en horizontal (no es Safari de verdad).
+ *   --cdp <url>    se conecta a un Chromium ya abierto con depuración remota (p. ej. la app de Windows en Rust con
+ *                  --depuracion=9222, la de Electron con --remote-debugging-port=9222, o Edge/Chrome con ventana) y mide
+ *                  en su pestaña, con su tamaño de ventana. --nav sólo pone el nombre (rust, electron, edge...).
+ *                  Una calidad por conexión: abre la app de nuevo para cada --calidad.
  *   --perfil       guarda un perfil de CPU (.cpuprofile, se abre en DevTools) por escenario y dice las funciones que más
  *                  tiempo propio gastan (sólo Chrome).
  *   --sin-contar   sin contar llamadas (los contadores cuestan un poco de tiempo por llamada).
@@ -68,6 +72,7 @@ const PW = opt('pw', process.env.PLAYWRIGHT_CORE);
 const CHROME_ARG = opt('chrome', process.env.CHROME);
 const PROFILE = flag('perfil');
 const ALLOC = flag('asignaciones');       // (fps-tecnologia) quién crea memoria (basura): muestreo del montón por función
+const CDP_URL = opt('cdp', null);
 const COUNT = !flag('sin-contar');
 const HZ = +opt('hz', 0);                 // (fps-tecnologia) pantalla de N Hz: sin vsync y el tope del juego a N
 const UNCAP = flag('sin-tope') || HZ > 0;
@@ -343,7 +348,10 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
   const [W, H, DPR] = TAM.match(/^(\d+)x(\d+)@([\d.]+)$/).slice(1).map(Number);
   for (const Q of QUALS) for (let rep = 0; rep < REPS; rep++) {
     let browser, ctx;
-    if (NAV === 'webkit') {
+    if (CDP_URL) {
+      browser = await pw.chromium.connectOverCDP(CDP_URL);
+      ctx = browser.contexts()[0];
+    } else if (NAV === 'webkit') {
       browser = await pw.webkit.launch({ headless: true });
       const dev = pw.devices['iPhone 15 landscape'] || pw.devices['iPhone 13 landscape'];
       ctx = await browser.newContext(Object.assign({}, dev, { viewport: { width: W, height: H }, deviceScaleFactor: DPR }));
@@ -353,7 +361,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
           .concat(UNCAP ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : []) });
       ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR });
     }
-    const p = await ctx.newPage();
+    const p = CDP_URL ? ctx.pages()[0] : await ctx.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push('[err] ' + e.message));
     p.on('console', m => { const t = m.text(); if ((m.type() === 'error' && !/favicon|firebase|ERR_|Failed to load|identitytoolkit|googleapis|404/.test(t)) || /^[GL2D]/.test(t)) errs.push('[c] ' + t.slice(0, 300)); });
@@ -369,7 +377,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
       if (!o || typeof o[fn] !== 'function') return d + ' (no existe)';
       const v = ret === undefined ? undefined : JSON.parse(ret); o[fn] = () => v; return d;
     }).join(', '), DROP));
-    const cdp = NAV === 'chrome' ? await ctx.newCDPSession(p) : null;
+    const cdp = NAV === 'chrome' || CDP_URL ? await ctx.newCDPSession(p) : null;
     if (cdp) { await cdp.send('Performance.enable'); if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); } }
     const gpu = await p.evaluate(() => { try { const c = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
       const e = c && c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; } catch (e) { return '?'; } });
@@ -458,6 +466,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
     const fn = path.join(OUT, `${NAV}-${Q}${REPS > 1 ? '-' + rep : ''}.json`);
     fs.writeFileSync(fn, JSON.stringify(res, null, 1));
     if (errs.length) console.log('errores:', errs.slice(0, 5).join('\n'));
+    // Con --cdp, close() sólo se desconecta: la app sigue abierta y la cierra quien la abrió.
     await browser.close();
   }
   srv.close();

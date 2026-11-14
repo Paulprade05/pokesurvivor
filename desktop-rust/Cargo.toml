@@ -1,0 +1,41 @@
+[package]
+name = "pokesurvivor"
+# Igual que desktop/package.json (la app Electron): el aviso de versión nueva
+# compara este número con la etiqueta win-vX.Y.Z de la release.
+version = "0.5.0"
+edition = "2024"
+publish = false
+description = "PokéSurvivor para Windows: host nativo en Rust (wry/tao sobre WebView2)"
+build = "build.rs"
+
+[[bin]]
+name = "PokeSurvivor"
+path = "src/main.rs"
+
+[dependencies]
+wry = { version = "=0.57.2", features = ["devtools"] }
+tao = "=0.37.2"
+# Las mismas versiones que usa wry, para hablar con WebView2 directamente.
+webview2-com = "=0.39.1"
+windows = { version = "=0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Security",
+  "Win32_System_Com",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+serde_json = "1"
+
+[build-dependencies]
+embed-resource = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
