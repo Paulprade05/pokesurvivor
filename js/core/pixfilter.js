@@ -22,7 +22,7 @@
  *
  *   G.PixFilter.on            ¿encendido? (Ajustes › Gráficos «Pokémon más nítidos», 'pixSmooth')
  *   G.PixFilter.frame(img, sx, sy, w, h) → { c: lienzo, k: escala } o null (aún no / apagado)
- *   G.PixFilter.purge() · stats()
+ *   G.PixFilter.purge() · stats() · algo (el escalador de ahora: 'adv3' / 'epx2'; el motor WebGL2 lo hace en la GPU, gl2d.js drawPix)
  */
 G.PixFilter = (() => {
   const mobile = () => !!(G.U.IOS || (G.Settings && G.Settings.touch));
