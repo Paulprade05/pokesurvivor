@@ -67,6 +67,7 @@ const ROOT = path.resolve(opt('raiz', path.join(__dirname, '..')));
 const PW = opt('pw', process.env.PLAYWRIGHT_CORE);
 const CHROME_ARG = opt('chrome', process.env.CHROME);
 const PROFILE = flag('perfil');
+const ALLOC = flag('asignaciones');       // (fps-tecnologia) quién crea memoria (basura): muestreo del montón por función
 const COUNT = !flag('sin-contar');
 const HZ = +opt('hz', 0);                 // (fps-tecnologia) pantalla de N Hz: sin vsync y el tope del juego a N
 const UNCAP = flag('sin-tope') || HZ > 0;
@@ -348,7 +349,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
       ctx = await browser.newContext(Object.assign({}, dev, { viewport: { width: W, height: H }, deviceScaleFactor: DPR }));
     } else {
       browser = await pw.chromium.launch({ executablePath: CHROME, headless: true,
-        args: ['--mute-audio', '--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=d3d11', '--enable-precise-memory-info']
+        args: ['--mute-audio', '--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=d3d11', '--enable-precise-memory-info'].concat(process.env.JSFLAGS ? ['--js-flags=' + process.env.JSFLAGS] : [])
           .concat(UNCAP ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : []) });
       ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR });
     }
@@ -389,12 +390,14 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         const m0 = await metrics();
         let pt0 = 0;
         if (PROFILE && cdp) { await cdp.send('Profiler.start'); pt0 = await p.evaluate(() => performance.now()); }
+        // (Con includeObjectsCollectedByMajorGC/MinorGC: cuenta también lo que ya se recogió, que es la basura.)
+        if (ALLOC && cdp) await cdp.send('HeapProfiler.startSampling', { samplingInterval: 4096, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true });
         let traceEv = null;
         if (TRACE && cdp) {
           traceEv = [];
           cdp.removeAllListeners('Tracing.dataCollected');
           cdp.on('Tracing.dataCollected', d => { for (const e of d.value) traceEv.push(e); });
-          await cdp.send('Tracing.start', { traceConfig: { includedCategories: ['toplevel', '__metadata'], recordMode: 'recordContinuously' }, transferMode: 'ReportEvents' });
+          await cdp.send('Tracing.start', { traceConfig: { includedCategories: ['toplevel', '__metadata', 'v8', 'devtools.timeline'], recordMode: 'recordContinuously' }, transferMode: 'ReportEvents' });
         }
         await p.evaluate(() => { __perf.fr = []; __perf.on = true; if (G.GL2D && G.GL2D.gpu) G.GL2D.gpu(true); });
         await sleep(SECS * 1000);
@@ -407,6 +410,11 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
           const done = new Promise(r => cdp.once('Tracing.tracingComplete', r));
           await cdp.send('Tracing.end'); await done;
           o.hilos = threadBusy(traceEv);
+          // Recogida de basura en el hilo de la página: cuántas, cuánto tiempo y en cuántos fotogramas lentos (> 8,3 ms) cae alguna.
+          const names = new Map(); for (const e of traceEv) if (e.ph === 'M' && e.name === 'thread_name') names.set(e.pid + ':' + e.tid, e.args.name);
+          const gcOf = n => { const g = traceEv.filter(e => e.ph === 'X' && e.name === n && names.get(e.pid + ':' + e.tid) === 'CrRendererMain');
+            const t = g.reduce((a, e) => a + e.dur, 0) / 1000; return { n: g.length, ms: +t.toFixed(1), max: +Math.max(0, ...g.map(e => e.dur / 1000)).toFixed(2) }; };
+          o.gcTraza = { menor: gcOf('MinorGC'), mayor: gcOf('MajorGC') };
         }
         if (m0 && m1) {
           const span = (m1.Timestamp - m0.Timestamp) || SECS;
@@ -417,6 +425,18 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         o.estado = await p.evaluate(() => ({ enemigos: G.EnemyMgr.all ? G.EnemyMgr.all().length : 0, proyectiles: G.Projectiles.all ? G.Projectiles.all().length : (G.Projectiles.count || null),
           arena: !!(G.Rift && G.Rift.inArena), fx: G.Settings.fx, ultra: G.Settings.ultra, estado: G.Game.state,
           lienzo: (document.getElementById('game') || {}).width + '×' + (document.getElementById('game') || {}).height }));
+        if (ALLOC && cdp) {
+          const { profile } = await cdp.send('HeapProfiler.stopSampling');
+          const self = new Map(); let all = 0;
+          const walk = (n, stack) => {
+            const cf = n.callFrame, name = (cf.functionName || '(anónima)') + ' ' + (cf.url || '').replace(/^.*\/(js\/)/, '$1') + ':' + (cf.lineNumber + 1);
+            if (n.selfSize) { self.set(name, (self.get(name) || 0) + n.selfSize); all += n.selfSize; }
+            for (const c of n.children || []) walk(c, stack);
+          };
+          walk(profile.head, []);
+          o.asignaciones = { MBs: +(all / SECS / 1048576).toFixed(2),
+            top: [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => [k, +(v / SECS / 1048576).toFixed(2)]) };
+        }
         if (PROFILE && cdp) {
           const { profile } = await cdp.send('Profiler.stop');
           const fn = path.join(OUT, `${NAV}-${Q}-${S}.cpuprofile`);

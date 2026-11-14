@@ -454,9 +454,56 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
   // ---------------- colores ----------------
   const colors = new Map();
   let parser = null;
+  // '#rgb', '#rrggbb', 'rgb(...)', 'rgba(...)' con números: a mano, sin expresiones regulares (el juego compone muchos colores en
+  // cada fotograma y eso era basura). Lo demás (nombres, hsl...), con el Canvas 2D.
+  const hx = ch => (ch >= 48 && ch <= 57 ? ch - 48 : ch >= 97 && ch <= 102 ? ch - 87 : ch >= 65 && ch <= 70 ? ch - 55 : -1);
+  // 'rgb(...)' / 'rgba(...)' leídos carácter a carácter en un arreglo reutilizado (sin trozos de texto ni caché: el juego compone
+  // muchos con la transparencia de cada momento). null si trae algo raro (%, notación e...): entonces, el camino de siempre.
+  const SCR = [0, 0, 0, 1];
+  function quickRGB(s) {
+    const L = s.length;
+    let i = s.indexOf('(');
+    if (i < 3 || s.charCodeAt(L - 1) !== 41) return null;
+    let n = 0;
+    i++;
+    while (n < 4) {
+      while (i < L && s.charCodeAt(i) === 32) i++;
+      let neg = false, v = 0, frac = 0, k = 0.1, dig = 0;
+      if (s.charCodeAt(i) === 45) { neg = true; i++; }
+      for (; i < L; i++) {
+        const ch = s.charCodeAt(i);
+        if (ch >= 48 && ch <= 57) { if (frac) { v += (ch - 48) * k; k *= 0.1; } else v = v * 10 + ch - 48; dig++; }
+        else if (ch === 46 && !frac) frac = 1;
+        else break;
+      }
+      if (!dig) return null;
+      if (neg) v = -v;
+      while (i < L && s.charCodeAt(i) === 32) i++;
+      SCR[n++] = v;
+      const ch = s.charCodeAt(i);
+      if (ch === 44) { i++; continue; }
+      if (ch === 41 && i === L - 1) break;
+      return null;
+    }
+    if (n === 3) SCR[3] = 1; else if (n !== 4) return null;
+    for (let j = 0; j < 3; j++) SCR[j] = Math.max(0, Math.min(255, Math.round(SCR[j])));
+    SCR[3] = Math.max(0, Math.min(1, SCR[3]));
+    return SCR;
+  }
+  function quickHex(s) {
+    const L = s.length;
+    if (L === 7) { const v = [0, 0, 0, 1]; for (let i = 0; i < 3; i++) { const a = hx(s.charCodeAt(1 + i * 2)), b = hx(s.charCodeAt(2 + i * 2)); if (a < 0 || b < 0) return null; v[i] = a * 16 + b; } return v; }
+    if (L === 4) { const v = [0, 0, 0, 1]; for (let i = 0; i < 3; i++) { const a = hx(s.charCodeAt(1 + i)); if (a < 0) return null; v[i] = a * 17; } return v; }
+    return null;
+  }
+  /** El color [r, g, b, a] de un texto CSS. OJO: puede ser un arreglo reutilizado: se usa en el momento, no se guarda. */
   function rgba(s) {
+    const c0 = s.charCodeAt(0);
+    if (c0 === 114 && s.charCodeAt(1) === 103 && s.charCodeAt(2) === 98) { const q = quickRGB(s); if (q) return q; }     // 'rgb'
     let c = colors.get(s);
     if (c) return c;
+    if (c0 === 35) c = quickHex(s);
+    if (c) { if (colors.size > 4000) colors.clear(); colors.set(s, c); return c; }
     if (!parser) parser = document.createElement('canvas').getContext('2d');
     parser.fillStyle = '#000'; parser.fillStyle = s;
     const n = parser.fillStyle;
@@ -730,7 +777,16 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       if (E.flip) return false;
       const k = algo === 'epx2' ? 2 : 3;
       const P = pixFrame(E, img, sx, sy, sw, sh, k);
-      if (!P) { if (DBG) DBG.set('pix a la CPU ' + (sw * k > 512 || sh * k > 512 ? 'grande' : 'tope'), (DBG.get('pix a la CPU ' + (sw * k > 512 || sh * k > 512 ? 'grande' : 'tope')) || 0) + 1); return false; }                // (tope de este fotograma o sin sitio: en la CPU como siempre)
+      if (!P) {
+        const big = sw * k > 512 || sh * k > 512;
+        if (DBG) DBG.set('pix ' + (big ? 'grande, a la CPU' : 'tope, sin filtro'), (DBG.get('pix ' + (big ? 'grande, a la CPU' : 'tope, sin filtro')) || 0) + 1);
+        if (big) return false;
+        // (Tope de ampliados nuevos en este fotograma: éste sale sin filtro, como hace la CPU al pasar el suyo; el siguiente, ya con él.
+        //  Antes caía a la CPU, que lo ampliaba otra vez y costaba mucho más justo en los fotogramas con más cosas nuevas.)
+        if (white) return this.drawWhite(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        this.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        return true;
+      }                // (tope de este fotograma o sin sitio: en la CPU como siempre)
       if (!this._prep()) return true;
       const s = this.s, al = s.alpha;
       if (al <= 0) return true;
@@ -953,10 +1009,20 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       const X = m[0] * x + m[4], Y = m[3] * y + m[5];
       // (Al píxel entero de la pantalla: con medio píxel había 4 versiones de cada número de daño que sube.)
       const fx = 0, fy = 0;
-      const key = (stroke ? 'S' : 'F') + (this._rawT ? 'r' : '') + '|' + s.font + '|' + style + '|' + (stroke ? s.lw + s.join + s.miter : '') + '|' + s.align + s.base + s.dir +
-        '|' + m[0].toFixed(3) + ',' + m[3].toFixed(3) + '|' + (mw === undefined ? '' : mw) + '|' + t;
+      // La clave del estilo (letra, color, borde, alineación, escala) sólo cuando cambia; luego, el texto en su mapa (sin juntar
+      // textos largos en cada número de daño).
+      const raw = this._rawT ? 1 : 0, tk = this._tks || (this._tks = [{}, {}, {}, {}]), K = tk[stroke * 2 + raw];
+      if (K.sig !== s._sig || K.m0 !== m[0] || K.m3 !== m[3] || K.mw !== mw) {
+        K.sig = s._sig; K.m0 = m[0]; K.m3 = m[3]; K.mw = mw;
+        K.key = (stroke ? 'S' : 'F') + (raw ? 'r' : '') + '|' + s.font + '|' + style + '|' + (stroke ? s.lw + s.join + s.miter : '') + '|' + s.align + s.base + s.dir +
+          '|' + m[0].toFixed(3) + ',' + m[3].toFixed(3) + '|' + (mw === undefined ? '' : mw);
+      }
       TA.ready();
-      let e = TA.map.get(key);
+      let sub = TA.map.get(K.key);
+      if (!sub) { sub = new Map(); TA.map.set(K.key, sub); }
+      const key = t;
+      let e = sub.get(key);
+      this._sub = sub;
       if (!e) {
         e = this._bake(stroke, t, mw, m[0], m[3], fx, fy, key);
         if (!e) return false;
@@ -998,7 +1064,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       gl.texSubImage2D(gl.TEXTURE_2D, 0, at[0], at[1], gl.RGBA, gl.UNSIGNED_BYTE, c);
       st.textNew++; st.uploads++; st.upPx += w * h;
       const e = { x: at[0], y: at[1], w, h, ox, oy, f: frameId };
-      TA.map.set(key, e);
+      this._sub.set(key, e);
       return e;
     }
 
