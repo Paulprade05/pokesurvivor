@@ -6,6 +6,22 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-14', title: ["Menos tirones y menos calor", "Fewer stutters and less heat"], new: [
+    ["Ajustes › Gráficos › Límite de FPS: 60 de serie, 30 para ahorrar batería o sin límite. En pantallas de 120 Hz o más el juego dibujaba el doble de fotogramas y calentaba el doble sin que se notara.",
+     "Settings › Graphics › FPS limit: 60 by default, 30 to save battery, or no limit. On 120 Hz or faster screens the game drew twice the frames and heated up twice as much without anyone noticing."]
+  ], chg: [
+    ["Con la calidad Auto, si la partida sigue yendo lenta después de bajar los efectos, baja un poco la resolución (nunca por debajo de la normal) hasta la siguiente partida.",
+     "With Auto quality, if the run is still slow after lowering the effects, the resolution goes down a little (never below normal) until the next run."]
+  ], fix: [
+    ["En PC y Android, la partida daba un tirón cada segundo y medio: una comprobación pensada para el iPhone esperaba a que la tarjeta gráfica acabara todo. Ahora sólo se hace en iPhone y iPad. Era lo que más se notaba en las hordas y en las grietas.",
+     "On PC and Android, the run stuttered every second and a half: a check meant for iPhone waited for the graphics card to finish everything. Now it only runs on iPhone and iPad. It was the most noticeable stutter in hordes and rifts."],
+    ["Entrar en una grieta ya no da un tirón largo: el mapa de la arena se prepara poco a poco mientras dura el viaje por el túnel, y sus colores, flores y agua se preparan sin esperar a la tarjeta gráfica.",
+     "Entering a rift no longer causes a long stutter: the arena map is prepared bit by bit during the tunnel trip, and its colors, flowers and water are prepared without waiting for the graphics card."],
+    ["Menos tirones cuando aparecen Pokémon nuevos o árboles y cristales que brillan, y los efectos de los ataques se dibujan con menos trabajo.",
+     "Fewer stutters when new Pokémon or glowing trees and crystals appear, and attack effects take less work to draw."],
+    ["Si la partida empezaba con la ventana o la pestaña escondida, cada fotograma fallaba y a los pocos segundos la partida se daba por terminada. Ahora espera a que se vea.",
+     "If a run started with the window or tab hidden, every frame failed and after a few seconds the run was ended. Now it waits until it is visible."]
+  ] },
   { d: '2026-11-14', title: ["Muros de rocas en 3D", "3D rock walls"], chg: [
     ["En PC con calidad Alta o más, los muros de la partida son montones de rocas en 3D, también en las arenas de las grietas: con musgo en los bosques y praderas, con cristales en las cuevas y con lava al pie en el volcán. Chocas con ellos igual que antes.",
      "On PC with High quality or above, the walls in a run are 3D piles of rocks, also in rift arenas: mossy in forests and meadows, with crystals in caves and lava at their base in the volcano. You bump into them just like before."],

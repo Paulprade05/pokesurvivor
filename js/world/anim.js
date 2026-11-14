@@ -71,7 +71,8 @@ G.Anim = (() => {
   function sheen(src, f, n, radial = false, shadow = null) {
     const w = src.width, h = src.height, cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
-    const g = cv.getContext('2d');
+    // (Rendimiento, 13-11-2026) Se lee: en la memoria normal, para no esperar a la GPU (ver tileset.js RD).
+    const g = cv.getContext('2d', { willReadFrequently: true });
     if (!g) { G.U.freeCanvas(cv); return null; }
     if (shadow) g.drawImage(shadow, 0, 0);
     g.drawImage(src, 0, 0);

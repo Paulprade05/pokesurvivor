@@ -662,15 +662,22 @@ G.VFX = (() => {
     const S = SHAPES[shape] || SHAPES.ball;
     const cv = sprite(shape, pal, o.frame || 0);
     const k = PX * (o.scale || 1);
+    let a = (o.angle || 0) - (S.img && S.dir && S.face ? S.face : 0);
+    if (a) a = Math.round(a / (Math.PI / 8)) * (Math.PI / 8);
+    // (Rendimiento, 13-11-2026) Sin girar ni voltear (casi todos): sin save/restore ni translate, el mismo dibujo en el mismo sitio.
+    if (!a && !o.flip && cv) {
+      const ga = ctx.globalAlpha, sm = ctx.imageSmoothingEnabled;
+      if (o.alpha != null && o.alpha < 1) ctx.globalAlpha = ga * o.alpha;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(cv, Math.round(x / PX) * PX - S.w * k / 2, Math.round(y / PX) * PX - S.h * k / 2, S.w * k, S.h * k);
+      ctx.globalAlpha = ga; ctx.imageSmoothingEnabled = sm;
+      return;
+    }
     ctx.save();
     if (o.alpha != null && o.alpha < 1) ctx.globalAlpha *= o.alpha;
     ctx.imageSmoothingEnabled = false;
     ctx.translate(Math.round(x / PX) * PX, Math.round(y / PX) * PX);
-    let a = (o.angle || 0) - (S.img && S.dir && S.face ? S.face : 0);
-    if (a) {
-      a = Math.round(a / (Math.PI / 8)) * (Math.PI / 8);          // 16 direcciones: menos parpadeo
-      ctx.rotate(a);
-    }
+    if (a) ctx.rotate(a);          // (ya en 16 direcciones, arriba: menos parpadeo)
     if (o.flip) ctx.scale(-1, 1);
     // (Pulido 12-11-2026, «algunos efectos se ven en bloques») Girado, el pixel art al píxel más cercano salía con dientes
     // y píxeles de distinto ancho. Ahora, si gira, se dibuja desde una copia ampliada ×4 (cada píxel, 4×4) con suavizado:

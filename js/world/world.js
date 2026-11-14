@@ -847,11 +847,18 @@ G.World = (() => {
     // (Revisión del bloque 6) En el fundido, los chunks del bioma nuevo se hornean poco a poco: uno por fotograma y
     //  más mientras no pasen 2 ms (§11.4). Al empezar el fundido apenas se ven; antes se horneaban los 6-12 de golpe
     //  (1-2 ms cada uno en el ordenador, varias veces más en el móvil: un tirón cada 4 minutos).
+    // (Rendimiento, 13-11-2026) Lo mismo mientras el túnel de la grieta lo tapa todo: al llegar a la arena se horneaban todos
+    //  los chunks de su mapa en un fotograma (medido: 0,4-0,8 s de tirón en mitad del viaje). Quedan 1,5 s de túnel: de sobra.
+    const hidden = !!(G.Rift && G.Rift.traveling);
     let one = true;
-    const until = k == null ? 0 : performance.now() + 2;
+    const until = k == null && !hidden ? 0 : performance.now() + 2;
     for (const [cx, cy] of visibleChunks(cam)) {
       // +1 de solape: con escalas no enteras evita juntas entre chunks.
-      if (k == null) { ctx.drawImage(chunkImage(cx, cy), cx * CW, cy * CW, S, S); continue; }
+      if (k == null) {
+        if (hidden && !images.has(cx + ',' + cy)) { if (!one && performance.now() >= until) continue; one = false; }
+        ctx.drawImage(chunkImage(cx, cy), cx * CW, cy * CW, S, S);
+        continue;
+      }
       // Fundido: el bioma viejo debajo y el nuevo apareciendo encima.
       ctx.drawImage(chunkImage(cx, cy, fade.from, fade.images), cx * CW, cy * CW, S, S);
       let img = images.get(cx + ',' + cy);
@@ -1142,6 +1149,9 @@ G.World = (() => {
    */
   const edges = new Map();           // color -> { cv, w, h, a, r0, r1 }
   function drawEdge(ctx, w, h, rgb, a, r0, r1) {
+    // (14-11-2026) Con el lienzo sin tamaño (pestaña o panel oculto al empezar): nada que oscurecer. Antes, w = 0 daba un degradado
+    //  con NaN y fallaba el fotograma entero, uno tras otro (y a los 180 seguidos se daba la partida por terminada).
+    if (!(w > 0) || !(h > 0)) return;
     let e = edges.get(rgb);
     if (!e || e.w !== w || e.h !== h) {
       if (e) G.U.freeCanvas(e.cv);
