@@ -1,13 +1,19 @@
-# Versión para Windows: empaqueta la app de desktop/ y la sube a una release
-# de GitHub como PokeSurvivor-Windows.zip (el nombre fijo que buscan
-# js/ui/windows-dl.js, Ajustes › Acerca de, y desktop/main.cjs, el aviso de
-# versión nueva).
+# Versión para Windows: compila las dos apps de Windows y las sube a una
+# release de GitHub.
+#   - App en Rust (desktop-rust/, wry/tao sobre WebView2): ~105 MB.
+#   - App Electron (desktop/): ~245 MB, de respaldo mientras la de Rust no la
+#     iguale en todo.
+# PRINCIPAL dice cuál va con el nombre fijo PokeSurvivor-Windows.zip, el que
+# buscan js/ui/windows-dl.js (Ajustes › Acerca de) y el aviso de versión nueva
+# de las dos apps. La otra va como PokeSurvivor-Windows-Rust.zip o
+# PokeSurvivor-Windows-Electron.zip. Para pasar a Rust: PRINCIPAL: rust.
 #
 # Se lanza al empujar una etiqueta win-vX.Y.Z (X.Y.Z = "version" de
-# desktop/package.json) o a mano desde la pestaña Actions con esa etiqueta.
-# Usa la versión web YA COMPILADA que hay en el commit (index.html,
-# js/app.min.js...): no compila el juego ni publica la web.
-# Gratis: runner de GitHub y el token del propio workflow, sin secretos nuevos.
+# desktop/package.json y de desktop-rust/Cargo.toml) o a mano desde la pestaña
+# Actions con esa etiqueta. Usa la versión web YA COMPILADA que hay en el commit
+# (index.html, js/app.min.js...): no compila el juego ni publica la web.
+# Gratis: runner de GitHub (con Rust y C++ de Visual Studio ya instalados) y el
+# token del propio workflow, sin secretos nuevos.
 name: Versión para Windows
 
 on:
@@ -16,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       etiqueta:
-        description: 'Etiqueta de la release (win-vX.Y.Z, igual que desktop/package.json)'
+        description: 'Etiqueta de la release (win-vX.Y.Z, igual que desktop/package.json y desktop-rust/Cargo.toml)'
         required: true
 
 permissions:
@@ -29,13 +35,14 @@ concurrency:
 jobs:
   release:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
     env:
       ETIQUETA: ${{ inputs.etiqueta || github.ref_name }}
-      ZIP: desktop/dist/PokeSurvivor-Windows.zip
+      # electron | rust: la que se publica como PokeSurvivor-Windows.zip.
+      PRINCIPAL: electron
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +53,7 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
-      - name: Comprobar etiqueta y versión de la app
+      - name: Comprobar etiqueta y versión de las apps
         run: |
           set -euo pipefail
           if ! [[ "$ETIQUETA" =~ ^win-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -54,12 +61,44 @@ jobs:
           fi
           VERSION="${ETIQUETA#win-v}"
           APP="$(node -p "require('./desktop/package.json').version")"
-          if [ "$VERSION" != "$APP" ]; then
-            echo "::error::La etiqueta es $VERSION pero desktop/package.json dice $APP: súbela allí antes."; exit 1
+          RUST="$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' desktop-rust/Cargo.toml | head -1)"
+          if [ "$VERSION" != "$APP" ] || [ "$VERSION" != "$RUST" ]; then
+            echo "::error::La etiqueta es $VERSION pero desktop/package.json dice $APP y desktop-rust/Cargo.toml $RUST: súbelas antes."; exit 1
+          fi
+          if [ "$PRINCIPAL" = rust ]; then
+            echo "ZIP_RUST=PokeSurvivor-Windows.zip" >> "$GITHUB_ENV"
+            echo "ZIP_ELECTRON=PokeSurvivor-Windows-Electron.zip" >> "$GITHUB_ENV"
+          else
+            echo "ZIP_RUST=PokeSurvivor-Windows-Rust.zip" >> "$GITHUB_ENV"
+            echo "ZIP_ELECTRON=PokeSurvivor-Windows.zip" >> "$GITHUB_ENV"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "HUELLA=$(node -p "require('./version.json').v")" >> "$GITHUB_ENV"
 
+      # ---- App en Rust ----
+      - name: Preparar Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+          rustc --version
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            desktop-rust/target
+          key: rust-${{ runner.os }}-${{ hashFiles('desktop-rust/Cargo.lock') }}
+
+      - name: Probar la app de Rust
+        working-directory: desktop-rust
+        run: cargo test --locked --release
+
+      - name: Compilar y empaquetar la app de Rust
+        working-directory: desktop-rust
+        run: node empaquetar.cjs "$ZIP_RUST"
+
+      # ---- App Electron (respaldo) ----
       - name: Instalar Electron y el empaquetador
         working-directory: desktop
         env:
@@ -67,19 +106,28 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: npm ci
 
-      - name: Copiar la web compilada y empaquetar
+      - name: Copiar la web compilada y empaquetar Electron
         working-directory: desktop
-        run: npm run empaquetar
+        run: |
+          npm run empaquetar
+          if [ "$ZIP_ELECTRON" != PokeSurvivor-Windows.zip ]; then mv dist/PokeSurvivor-Windows.zip "dist/$ZIP_ELECTRON"; fi
 
-      - name: Comprobar el paquete
+      - name: Comprobar los paquetes
         run: |
           set -euo pipefail
+          test -f desktop-rust/dist/PokeSurvivor/PokeSurvivor.exe
+          test -f desktop-rust/dist/PokeSurvivor/www/index.html
           test -f desktop/dist/PokeSurvivor/PokeSurvivor.exe
           test -f desktop/dist/PokeSurvivor/resources/app.asar
-          ls -l "$ZIP"
+          ls -l "desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON"
 
       - name: Notas de la release
         run: |
+          if [ "$PRINCIPAL" = rust ]; then
+            OTRA="**$ZIP_ELECTRON**: la versión anterior (Electron), por si la nueva te da problemas. / The previous (Electron) version, in case the new one gives you trouble."
+          else
+            OTRA="**$ZIP_RUST**: prueba la versión nueva, más ligera (Rust + WebView2 de Windows). / Try the new, lighter version (Rust + Windows WebView2)."
+          fi
           cat > notas.md <<EOF
           **PokéSurvivor para Windows $VERSION** (juego $HUELLA)
 
@@ -91,6 +139,8 @@ jobs:
           Windows will warn you because it isn't signed: click **“More info”** and then **“Run anyway”**.
           To update, unzip the new version on top: your save stays.
 
+          $OTRA
+
           Proyecto de fan sin ánimo de lucro / Non-profit fan project. Pokémon © Nintendo/Creatures/GAME FREAK.
           EOF
 
@@ -98,10 +148,11 @@ jobs:
         run: |
           set -euo pipefail
           TITULO="PokéSurvivor para Windows $VERSION"
+          ARCHIVOS=("desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON")
           if gh release view "$ETIQUETA" >/dev/null 2>&1; then
-            gh release upload "$ETIQUETA" "$ZIP" --clobber
+            gh release upload "$ETIQUETA" "${ARCHIVOS[@]}" --clobber
             gh release edit "$ETIQUETA" --title "$TITULO" --notes-file notas.md --draft=false --prerelease=false --latest
           else
-            gh release create "$ETIQUETA" "$ZIP" --target "$GITHUB_SHA" --title "$TITULO" --notes-file notas.md --latest
+            gh release create "$ETIQUETA" "${ARCHIVOS[@]}" --target "$GITHUB_SHA" --title "$TITULO" --notes-file notas.md --latest
           fi
           gh release view "$ETIQUETA" --json url,assets --jq '.url, (.assets[] | "\(.name) \(.size)")'

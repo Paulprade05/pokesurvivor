@@ -14,6 +14,9 @@ G.CHANGELOG = [
     ["Con el motor WebGL2, el filtro «Pokémon más nítidos» y el destello de los golpes los hace la tarjeta gráfica: la horda más grande pasa de unos 10 a unos 5 ms de trabajo del procesador por fotograma.",
      "With the WebGL2 renderer, the “Sharper Pokémon” filter and the hit flash are done by the graphics card: the biggest horde goes from about 10 to about 5 ms of processor work per frame."]
   ] },
+  { d: '2026-11-14', title: ["App de PC más ligera, de prueba", "A lighter PC app, as a preview"], new: [
+    ["Versión de prueba de la app para PC con Windows, hecha en Rust con el navegador que ya trae Windows: pesa unos 105 MB en vez de 245, usa algo menos de memoria y en las partidas con muchos enemigos va más fluida (en el PC de pruebas, de 31-44 a 47-53 FPS). Guarda la partida en el mismo sitio que la app de siempre, así que puedes pasar de una a otra. Saldrá junto a la descarga normal como PokeSurvivor-Windows-Rust.zip en la próxima versión de PC.",
+     "Preview of the Windows PC app, made in Rust with the browser Windows already has: it weighs about 105 MB instead of 245, uses a bit less memory and runs smoother in runs with lots of enemies (on the test PC, from 31-44 to 47-53 FPS). It keeps your save in the same place as the usual app, so you can switch between them. It will come next to the normal download as PokeSurvivor-Windows-Rust.zip in the next PC version."]] },
   { d: '2026-11-14', title: ["Menos tirones y menos calor", "Fewer stutters and less heat"], new: [
     ["Ajustes › Gráficos › Límite de FPS: 60 de serie, 30 para ahorrar batería o sin límite. En pantallas de 120 Hz o más el juego dibujaba el doble de fotogramas y calentaba el doble sin que se notara.",
      "Settings › Graphics › FPS limit: 60 by default, 30 to save battery, or no limit. On 120 Hz or faster screens the game drew twice the frames and heated up twice as much without anyone noticing."]
