@@ -1020,6 +1020,8 @@ G.I18n.add({
   "Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.": "Below 30% HP, the edges of the screen pulse red.",
   "Ahorro de energía": "Power saving",
   "Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.": "Draws at normal resolution (1×): a little less sharp, but it heats up less and uses less battery.",
+  "Límite de FPS": "FPS limit", "Sin límite": "No limit",
+  "Cuántos fotogramas por segundo dibuja como mucho. Con 60 basta; en pantallas de 120 Hz o más, «Sin límite» va más suave pero calienta y gasta mucho más. 30, para ahorrar batería.": "The most frames per second it draws. 60 is enough; on 120 Hz or faster screens, \"No limit\" is smoother but heats up and drains much more. 30 saves battery.",
   "Transparencia de tus ataques": "Your attacks' transparency",
   "Tus ataques se ven más transparentes para que veas mejor los disparos y avisos de los enemigos.": "Your attacks look more see-through so you can better see enemy shots and warnings.",
   "Suaves": "Soft",

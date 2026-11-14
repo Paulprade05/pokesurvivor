@@ -6,6 +6,20 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-14', title: ["Menos tirones y menos calor", "Fewer stutters and less heat"], new: [
+    ["Ajustes › Gráficos › Límite de FPS: 60 de serie, 30 para ahorrar batería o sin límite. En pantallas de 120 Hz o más el juego dibujaba el doble de fotogramas y calentaba el doble sin que se notara.",
+     "Settings › Graphics › FPS limit: 60 by default, 30 to save battery, or no limit. On 120 Hz or faster screens the game drew twice the frames and heated up twice as much without anyone noticing."]
+  ], chg: [
+    ["Con la calidad Auto, si la partida sigue yendo lenta después de bajar los efectos, baja un poco la resolución (nunca por debajo de la normal) hasta la siguiente partida.",
+     "With Auto quality, if the run is still slow after lowering the effects, the resolution goes down a little (never below normal) until the next run."]
+  ], fix: [
+    ["En PC y Android, la partida daba un tirón cada segundo y medio: una comprobación pensada para el iPhone esperaba a que la tarjeta gráfica acabara todo. Ahora sólo se hace en iPhone y iPad. Era lo que más se notaba en las hordas y en las grietas.",
+     "On PC and Android, the run stuttered every second and a half: a check meant for iPhone waited for the graphics card to finish everything. Now it only runs on iPhone and iPad. It was the most noticeable stutter in hordes and rifts."],
+    ["Entrar en una grieta ya no da un tirón largo: el mapa de la arena se prepara poco a poco mientras dura el viaje por el túnel, y sus colores, flores y agua se preparan sin esperar a la tarjeta gráfica.",
+     "Entering a rift no longer causes a long stutter: the arena map is prepared bit by bit during the tunnel trip, and its colors, flowers and water are prepared without waiting for the graphics card."],
+    ["Menos tirones cuando aparecen Pokémon nuevos o árboles y cristales que brillan, y los efectos de los ataques se dibujan con menos trabajo.",
+     "Fewer stutters when new Pokémon or glowing trees and crystals appear, and attack effects take less work to draw."]
+  ] },
   { d: '2026-11-13', title: ["La aldea, más clara y con el Altar del Portal", "A brighter village with the Portal Altar"], new: [
     ["La Flor del Portal es ahora el Altar del Portal, más grande y en el centro de todo: un estrado de piedra con runas, el arco del portal entre dos pilares con cristales y raíces que lo abrazan. Tiene su propia luz y sus partículas, y un círculo de luz que te dice dónde ponerte y qué pulsar.",
      "The Portal Flower is now the Portal Altar, bigger and at the heart of everything: a stone dais with runes, the portal arch between two crystal-topped pillars and roots wrapped around it. It has its own light and particles, and a circle of light that tells you where to stand and what to press."],

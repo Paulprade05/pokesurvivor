@@ -448,10 +448,15 @@ G.Village = (() => {
   // ---------------- cada fotograma ----------------
   const BIG = ['scr-dex', 'scr-upgrades', 'scr-shop', 'scr-bag', 'scr-gacha', 'scr-compendium', 'scr-goals', 'scr-rank', 'scr-friends', 'scr-lobby'];
   /** ¿Hay otra pantalla por encima de la aldea? → 0 no, 1 una ventana, 2 una grande (casi tapa la aldea). */
+  // (Rendimiento, 13-11-2026) Se pregunta varias veces por fotograma (frame y walking): una consulta al DOM por fotograma
+  //  (covN sube al empezar cada uno, en frame).
+  let covN = 0, covT = -1, covV = 0;
   function covered() {
+    if (covN === covT) return covV;
+    covT = covN;
     const other = document.querySelector('.scr:not(.hidden):not(#scr-menu)');
-    if (!other) return document.querySelector('.ask-scr') ? 1 : 0;
-    return BIG.some(id => G.UI.isOpen(id)) ? 2 : 1;
+    if (!other) return (covV = document.querySelector('.ask-scr') ? 1 : 0);
+    return (covV = BIG.some(id => G.UI.isOpen(id)) ? 2 : 1);
   }
   /** ¿Se está paseando? (la aldea a la vista, sin nada encima ni el desplegable abierto) */
   function walking() {
@@ -463,6 +468,7 @@ G.Village = (() => {
 
   /** game.js: el fondo del menú. → true si lo ha dibujado la aldea (y entonces no va Backdrop). */
   function frame(ctx, w, h, dpr, real) {
+    covN++;
     if (!active || !G.UI.isOpen('scr-menu') || !pl) return false;
     if (G.Village3D.lost) { fail('contexto WebGL perdido', true); return false; }
     const dt = Math.min(1 / 20, Math.max(0, real || 0));

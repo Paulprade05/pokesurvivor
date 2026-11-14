@@ -219,6 +219,9 @@ G.SettingsUI = (() => {
         toggle('hpUnder', 'Vida bajo tu Pokémon', 'Una barra pequeña bajo tu Pokémon (y bajo tus compañeros) con la vida que le queda.'),
         toggle('lowHpWarn', 'Aviso de poca vida', 'Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.'),
         toggle('eco', 'Ahorro de energía', 'Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.'),
+        // (Rendimiento, 13-11-2026) Tope de FPS (game.js loop).
+        choice('fpsCap', [[30, '30'], [60, '60'], [0, 'Sin límite']], 'Límite de FPS',
+          'Cuántos fotogramas por segundo dibuja como mucho. Con 60 basta; en pantallas de 120 Hz o más, «Sin límite» va más suave pero calienta y gasta mucho más. 30, para ahorrar batería.'),
         // (13-11-2026) El zoom de la cámara: en PC, también con la rueda del ratón en la partida.
         choice('zoom', [[0.93, 'Lejos'], [1, 'Normal'], [1.12, 'Cerca'], [1.25, 'Muy cerca']], 'Zoom de la cámara',
           G.Settings.touch ? 'Cuánto se acerca la cámara en la partida.' : 'Cuánto se acerca la cámara en la partida. También con la rueda del ratón mientras juegas.'),

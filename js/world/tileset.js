@@ -64,6 +64,10 @@ G.Tileset = (() => {
   const FH3 = 20;                                   // (Ultra 3D) la misma cara con su pie en sombra
 
   /** ¿Se usan? (hay datos y el interruptor de Ajustes está encendido) */
+  // (Rendimiento, 13-11-2026) Los horneados que leen sus píxeles (getImageData: tono del mapa, bordes, agua...) van en la memoria
+  // normal: leer un lienzo de la GPU espera a que acabe todo lo que tiene pendiente (medido en Chrome: de 100 ms a más de 1 s al
+  // entrar en una grieta o cambiar de mapa). Dibujarlos después cuesta lo mismo (como los árboles, que ya iban así).
+  const RD = { willReadFrequently: true };
   function enabled() { return !!(G.TILESETS && G.TILESETS.length) && G.Settings.get('pmdTiles') !== false; }
 
   function load(bi) {
@@ -356,7 +360,7 @@ G.Tileset = (() => {
     if (!im || !meta[bi].pal) return null;
     const cv = document.createElement('canvas');
     cv.width = im.width; cv.height = im.height;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(im, 0, 0);
     softEdge(g, cv, meta[bi]);
@@ -376,7 +380,7 @@ G.Tileset = (() => {
     m.vars.forEach((v, i) => { if (s.vars[i] && (v.cells[2] / Math.pow(2, FULL)) % 2 >= 1) src.push(s.vars[i]); });
     const F = [[1, 1], [-1, 1], [1, -1], [-1, -1]], cv = document.createElement('canvas');
     cv.width = src.length * F.length * T; cv.height = T;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.imageSmoothingEnabled = false;
     src.forEach((im, a) => F.forEach(([fx, fy], b) => {
@@ -425,7 +429,7 @@ G.Tileset = (() => {
     if (!im || !m.pal) return null;
     const cv = document.createElement('canvas');
     cv.width = WW; cv.height = 80;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(im, 0, 0);
     const n = ramped(im, [64, 16], m.pal.rock);
@@ -466,7 +470,7 @@ G.Tileset = (() => {
     if (!s || !s.ok) return null;
     const cv = document.createElement('canvas');
     cv.width = cv.height = N * T;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.imageSmoothingEnabled = false;
     if (!cliffFace(bi)) return null;
@@ -493,7 +497,7 @@ G.Tileset = (() => {
     if (!face) return null;
     const cv = document.createElement('canvas');
     cv.width = face.width; cv.height = FH3;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     const W = cv.width;
     g.imageSmoothingEnabled = false;
@@ -517,7 +521,7 @@ G.Tileset = (() => {
   function recolor(img, ramp) {
     const cv = document.createElement('canvas');
     cv.width = img.width; cv.height = img.height;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(img, 0, 0);
     cv.pxArt = true;
@@ -546,7 +550,7 @@ G.Tileset = (() => {
   function ramped(im, [sy, sh], ramp) {
     const cv = document.createElement('canvas');
     cv.width = WW; cv.height = sh;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(im, 0, sy, WW, sh, 0, 0, WW, sh);
     if (!ramp) return cv;
@@ -658,7 +662,7 @@ G.Tileset = (() => {
       // Los colores del suelo: los de la casilla llena de suelo de la hoja.
       const c = document.createElement('canvas');
       c.width = c.height = T;
-      const cg = c.getContext('2d');
+      const cg = c.getContext('2d', RD);
       cg.drawImage(s.sheet, (12 + FULL % 6) * T, ((FULL / 6) | 0) * T, T, T, 0, 0, T, T);
       const fl = new Set(new Uint32Array(cg.getImageData(0, 0, T, T).data.buffer));
       G.U.freeCanvas(c);
@@ -748,7 +752,7 @@ G.Tileset = (() => {
     const moss = G.Tiles.BIOMES[bi].ground === 'grass' ? ramped(im, WS.moss, m.pal.grass) : null;
     const cv = document.createElement('canvas');
     cv.width = 22; cv.height = 17;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!row || !g) { if (row) G.U.freeCanvas(row); if (moss) G.U.freeCanvas(moss); G.U.freeCanvas(cv); return null; }
     const sx = (variant % 4) * 22;
     g.drawImage(row, sx, 0, 22, 17, 0, 0, 22, 17);
@@ -843,7 +847,7 @@ G.Tileset = (() => {
     if (propCache.has(k)) return propCache.get(k);
     const cv = document.createElement('canvas');
     cv.width = src.width; cv.height = src.height;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return src; }
     g.drawImage(src, 0, 0);
     let d;

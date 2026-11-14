@@ -108,10 +108,13 @@ G.Game = (() => {
   // (iPhone: ataques invisibles, 02-11-2026) Safari puede vaciar los lienzos guardados sin avisar (sin el
   // evento contextlost): un testigo de 1×1 se mira cada 1,5 s y al volver a la app; si se ha vaciado,
   // se suelta todo lo guardado y se vuelve a pintar.
+  // (Rendimiento, 13-11-2026) Leer el testigo obliga a esperar a que la GPU acabe todo lo pendiente: medido en Chrome, fotogramas
+  // de 0,5 a 3 s cada 1,5 s (los tirones de las grietas y las hordas). El vaciado sin aviso es de Safari en iOS: sólo allí se mira
+  // seguido; en los demás, sólo al volver a la pestaña (visibilitychange pone gfxCheckT a 0), donde ya hay un tirón de todos modos.
   let gfxCheckT = 0;
   function gfxCheck(real) {
     if ((gfxCheckT -= real) > 0) return;
-    gfxCheckT = 1.5;
+    gfxCheckT = G.U.IOS ? 1.5 : Infinity;
     if (G.U.canvasAlive()) return;
     G.U.gfxLog('vaciado', gfxState());
     purgedAt = -1e9; purgeGfx(true); Backdrop.stale();
@@ -246,7 +249,9 @@ G.Game = (() => {
     // píxeles era de lo que más costaba, y con el pixel art no se nota.
     // Con «Ahorro de energía», ×1 (menos calor y batería en portátiles y móviles).
     // (12-11-2026) Con la calidad Máxima (PC), hasta ×2: texto, HUD y bordes nítidos en pantallas de alta densidad.
-    const d = Math.min(G.Settings.get('eco') ? 1 : G.Settings.max ? 2 : 1.5, window.devicePixelRatio || 1);
+    const d0 = Math.min(G.Settings.get('eco') ? 1 : G.Settings.max ? 2 : 1.5, window.devicePixelRatio || 1);
+    // (Rendimiento, 13-11-2026) Con la calidad Auto, si la partida va lenta, menos resolución (ver Dyn): nunca por debajo de ×1.
+    const d = d0 > 1 && Dyn.k < 1 && G.Settings.get('quality') === 'auto' ? Math.max(1, Math.round(d0 * Dyn.k * 8) / 8) : d0;
     const cw = cv.clientWidth, ch = cv.clientHeight;
     if (!cw || !ch) return;
     G.Touch.resetSafe();
@@ -258,6 +263,33 @@ G.Game = (() => {
     Backdrop.stale();                // el lienzo se ha borrado: el fondo del menú se repinta
     checkOrientation();
   }
+  /*
+   * (Rendimiento, 13-11-2026) Resolución dinámica, sólo con la calidad Auto: si la partida va por debajo del 80 % de su
+   * ritmo (el tope de FPS o la pantalla) 3 s seguidos, la resolución interna baja un escalón (×0,85, y luego ×0,7 del
+   * normal; nunca por debajo de ×1). Lo que más cuesta al dibujar son los píxeles, y con el pixel art casi no se nota.
+   * No vuelve a subir hasta la siguiente partida: subir y bajar sin parar daría tirones (cambiar el tamaño del lienzo
+   * lo vacía). Auto ya bajaba antes las partículas (Settings.sample): esto va después, cuando eso no basta.
+   */
+  const Dyn = { k: 1, slowT: 0, acc: 0, n: 0, rate: 60,
+    reset() { if (this.k !== 1) { this.k = 1; resize(); } this.slowT = 0; this.acc = 0; this.n = 0; },
+    sample(real) {
+      if (G.Settings.get('quality') !== 'auto' || G.Settings.get('eco') || !(real > 0) || real > 0.5) return;
+      this.acc += real; this.n++;
+      if (this.acc < 1) return;
+      const fps = this.n / this.acc;
+      this.acc = 0; this.n = 0;
+      // El ritmo que debería llevar: el tope, o lo que da la pantalla (lo más rápido visto, hasta 240).
+      const cap = fpsCap();
+      this.rate = cap || Math.min(240, Math.max(this.rate * 0.995, fps));
+      if (fps >= this.rate * 0.8) { this.slowT = 0; return; }
+      if (++this.slowT < 3 || this.k <= 0.7 || G.Settings.autoLevel > 0) return;
+      this.slowT = 0;
+      this.k = this.k > 0.9 ? 0.85 : 0.7;
+      resize();
+    }
+  };
+  /** (Rendimiento, 13-11-2026) Tope de FPS (Ajustes › Gráficos): 60 de serie, 30, o 0 = sin tope. */
+  function fpsCap() { const v = +G.Settings.get('fpsCap'); return v > 0 ? v : 0; }
   let seenW = 0, seenH = 0;   // tamaño de la ventana visto en el último fotograma (el primero lo apunta)
   let resizeTs = [];
   function resizeSoon() {
@@ -303,6 +335,7 @@ G.Game = (() => {
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
     holdBy = []; awayBy = null;
+    Dyn.reset();                              // (rendimiento: cada partida empieza con la resolución de siempre)
     irisT = performance.now();                // (pulido 12-11-2026) la partida se abre en círculo desde tu Pokémon
     // (13-11-2026) Si vienes del portal de la aldea (su animación de entrada), se abre desde su destello de luz.
     irisLight = !!(G.Village && G.Village.takeFlash && G.Village.takeFlash());
@@ -1117,8 +1150,18 @@ G.Game = (() => {
   // partida se da por terminada a los ~3 s y se guarda: tiempo, derrotados,
   // récords y ranking. Mejor eso que una pantalla negra y perderlo todo.
   let loopErrs = 0, errRun = 0, drawing = false, wipedAt = -1e9;
+  // (Rendimiento, 13-11-2026) Tope de FPS: en pantallas de 120 o 144 Hz el juego iba a 120-144 fotogramas por segundo y
+  // calentaba el doble para nada. Si toca antes de tiempo, este aviso de la pantalla se salta (no se hace nada: el
+  // navegador no vuelve a pintar). Con margen de 3 ms: a 60 Hz con tope 60 no se salta ninguno.
+  let capNext = 0;
   function loop(ts) {
     requestAnimationFrame(loop);
+    const cap = fpsCap();
+    if (cap) {
+      const iv = 1000 / cap;
+      if (ts + 3 < capNext) return;
+      capNext = ts - capNext > iv ? ts + iv : capNext + iv;
+    }
     try { frame(ts); errRun = 0; }
     catch (e) {
       if (loopErrs++ < 5) {
@@ -1149,7 +1192,7 @@ G.Game = (() => {
     const real = (ts - last) / 1000 || 0;
     const dt = Math.min(1 / 30, real) * speedK;
     last = ts;
-    if (state === 'playing') G.Settings.sample(real);
+    if (state === 'playing') { G.Settings.sample(real); Dyn.sample(real); }
     fpsAcc += real; fpsN++;
     if (fpsAcc >= 0.5) { fpsShown = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     frameDt = state === 'playing' ? dt : 0;
