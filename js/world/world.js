@@ -450,6 +450,8 @@ G.World = (() => {
     spark:  { dmg: 0.045, flat: 4, every: 0.7, color: '#ffe14d', immune: ['electric', 'ground'] },
     ice:    { slide: true, immune: ['ice'] }
   };
+  /** (13-11-2026) ¿El líquido de este bioma es agua o pantano (frena y no hace daño)? Ése no lo pisan los Enemy.dry. */
+  function wetLiquid() { const l = LIQ[liquidKind()] || LIQ.water; return !!l.slow && !l.dmg; }
   function liquidEffect(types) {
     const e = LIQ[liquidKind()] || LIQ.water;
     if (e.immune && types && types.some(t => e.immune.includes(t))) return {};
@@ -564,14 +566,17 @@ G.World = (() => {
    */
   function collide(e) {
     const r = e.wr || e.r;
+    // (13-11-2026) Para un enemigo que no puede entrar en el agua (Enemy.dry), el agua y el pantano son como la pared: no
+    //  entra ni empujado (golpes, apelotonados, embestidas) y, si se le deja dentro, sale por la orilla más cercana.
+    const wet = e.dry === true && wetLiquid();
     let hit = false;
     for (let pass = 0; pass < 2; pass++) {
       const t0x = tileOf(e.x - r), t1x = tileOf(e.x + r), t0y = tileOf(e.y - r), t1y = tileOf(e.y + r);
       // (Fila de arriba para los objetos: ver PROP_DIP.)
       for (let ty = propRow(e.y - r, t0y); ty <= t1y; ty++) for (let tx = t0x; tx <= t1x; tx++) {
         const c = chunkAt(tx, ty), ci = (ty - c.cy * N) * N + (tx - c.cx * N);
-        if (!c.solid[ci]) continue;
-        if (ty >= t0y && c.terr[ci] === WALL) {
+        if (!c.solid[ci] && !(wet && c.terr[ci] === LIQUID)) continue;
+        if (ty >= t0y && (c.terr[ci] === WALL || (wet && c.terr[ci] === LIQUID))) {
           // Punto más cercano de la caja del tile al centro del círculo.
           const bx0 = tx * TS, by0 = ty * TS, bx1 = bx0 + TS, by1 = by0 + TS;
           const qx = G.U.clamp(e.x, bx0, bx1), qy = G.U.clamp(e.y, by0, by1);
@@ -586,7 +591,7 @@ G.World = (() => {
             // Centro dentro de la caja: sal hacia la casilla sin pared más cercana (11-11-2026: antes, por el lado más
             //  cercano a secas; dentro de un bloque grande de roca iba de casilla en casilla sin salir y el enemigo se
             //  veía metido en la roca 1-3 s, hasta que el desatasco lo sacaba).
-            escapeWall(e, r, tx, ty);
+            escapeWall(e, r, tx, ty, wet);
           }
         }
         const p = c.pa[ci];
@@ -609,14 +614,15 @@ G.World = (() => {
    * sólido más cercana (anillos de hasta 4 casillas), metido r (como mucho media casilla) hacia su centro. Pasa poco
    * (empujones, aparecer, saltos): el coste no importa. Sin ninguna libre, por el lado más cercano, como antes.
    */
-  function escapeWall(e, r, tx, ty) {
+  function escapeWall(e, r, tx, ty, wet = false) {
     const bx0 = tx * TS, by0 = ty * TS;
     let best = null, bd = Infinity;
-    for (let k = 1; k <= 4 && !best; k++) {
+    // (En el agua, hasta 12 casillas: la orilla de un lago grande puede quedar más lejos que la de una roca.)
+    for (let k = 1; k <= (wet ? 12 : 4) && !best; k++) {
       for (let j = -k; j <= k; j++) for (let i = -k; i <= k; i++) {
         if (Math.max(Math.abs(i), Math.abs(j)) !== k) continue;
         const c = chunkAt(tx + i, ty + j), ci = (ty + j - c.cy * N) * N + (tx + i - c.cx * N);
-        if (c.solid[ci]) continue;
+        if (c.solid[ci] || (wet && c.terr[ci] === LIQUID)) continue;
         const x0 = (tx + i) * TS, y0 = (ty + j) * TS;
         const qx = G.U.clamp(e.x, x0, x0 + TS), qy = G.U.clamp(e.y, y0, y0 + TS), d = (qx - e.x) ** 2 + (qy - e.y) ** 2;
         if (d < bd) { bd = d; best = [qx, qy, x0 + TS / 2, y0 + TS / 2]; }

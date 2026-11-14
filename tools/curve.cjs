@@ -316,6 +316,7 @@ const STUCK_PROBE = String.raw`
   const eligible = (e, pl) => {
     if (e.dead || e.remote || e.flying || e.under || e.jump || e.dig || e.behavior === 'thief' || e.behavior === 'stampede') return false;
     if (e.stunT > 0 || e.phase === 'aim' || e.phase === 'fuse') return false;
+    if (e.pathShore) return false;      // (13-11-2026) estás en un lago y espera en la orilla: a propósito
     if (e.sts && BUSY.some(k => e.sts[k])) return false;
     if (e.keepsDistance && e.keepsDistance() && Math.hypot(e.x - pl.x, e.y - pl.y) < ((e.def && e.def.range) || 200) * 1.1) return false;
     return Math.hypot(e.x - pl.x, e.y - pl.y) > e.r + pl.r + 30;
