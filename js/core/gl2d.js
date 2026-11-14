@@ -48,9 +48,12 @@ G.GL2D = (() => {
   let nq = 0, addQ = 0, srgbQ = 0;  // srgbQ: el próximo quad viene en lineal (three.js a una textura) y se pasa a sRGB
                                   // addQ: los quads que vienen, «lighter» dentro del lote (ver FS)
   const units = new Array(U).fill(null);
+  const bound = new Array(U).fill(undefined);         // lo atado de verdad en cada unidad (undefined: no se sabe)
+  // (Atar una textura fuera del lote: la caché de unidades deja de valer.)
+  const bt = tex => { gl.bindTexture(gl.TEXTURE_2D, tex); bound.fill(undefined); };
   let nunits = 0, blendNow = '', target = null;          // target: { fbo, w, h } (null = la pantalla)
   let frameId = 1, queued = false, open = null;          // open: el contexto con un trozo de respaldo abierto
-  const st = { quads: 0, draws: 0, uploads: 0, upPx: 0, fb: 0, groups: 0, groupPx: 0, shapes: 0, texts: 0, textNew: 0, resets: 0 };
+  const st = { quads: 0, draws: 0, uploads: 0, upPx: 0, fb: 0, groups: 0, groupPx: 0, shapes: 0, texts: 0, textNew: 0, resets: 0, pixNew: 0 };
   const last = Object.assign({}, st);
   const warned = new Set();
   const warn = (k, m) => { if (warned.has(k)) return; warned.add(k); console.warn('[GL2D] ' + m); };
@@ -79,7 +82,64 @@ vec4 tf(int u, ivec2 p) {
   if (u == 4) return texelFetch(uT[4], p, 0); if (u == 5) return texelFetch(uT[5], p, 0);
   if (u == 6) return texelFetch(uT[6], p, 0); return texelFetch(uT[7], p, 0);
 }
+// vS 6/7: «Pokémon más nítidos» (core/pixfilter.js) en la GPU: el fotograma (vCl: su rectángulo en la textura) ampliado con
+// AdvMAME3x (6) o EPX ×2 (7), con las mismas reglas que pixfilter.js, y suavizado al tamaño de destino (como drawImage del lienzo
+// ampliado). 8/9: lo mismo en blanco (el destello).
+bool sameC(vec4 a, vec4 b) {
+  bool ta = a.a < 0.5, tb = b.a < 0.5;
+  if (ta || tb) return ta && tb;
+  return all(lessThan(abs(a - b), vec4(0.6 / 255.0)));
+}
+vec4 sf(sampler2D t, ivec2 o, ivec2 sz, int x, int y) {
+  if (x < 0 || y < 0 || x >= sz.x || y >= sz.y) return vec4(0.0);
+  return texelFetch(t, o + ivec2(x, y), 0);
+}
+vec4 up3(sampler2D t, ivec2 o, ivec2 sz, ivec2 q) {
+  int x = q.x / 3, y = q.y / 3, i = q.x - x * 3, j = q.y - y * 3;
+  vec4 A = sf(t, o, sz, x - 1, y - 1), B = sf(t, o, sz, x, y - 1), C = sf(t, o, sz, x + 1, y - 1),
+       D = sf(t, o, sz, x - 1, y), E = sf(t, o, sz, x, y), F = sf(t, o, sz, x + 1, y),
+       G = sf(t, o, sz, x - 1, y + 1), H = sf(t, o, sz, x, y + 1), I = sf(t, o, sz, x + 1, y + 1);
+  bool dB = sameC(D, B) && !sameC(B, F) && !sameC(D, H), bF = sameC(B, F) && !sameC(B, D) && !sameC(F, H),
+       dH = sameC(D, H) && !sameC(D, B) && !sameC(H, F), hF = sameC(H, F) && !sameC(D, H) && !sameC(B, F);
+  if (j == 0) {
+    if (i == 0) return dB ? D : E;
+    if (i == 1) return (dB && !sameC(E, C)) || (bF && !sameC(E, A)) ? B : E;
+    return bF ? F : E;
+  }
+  if (j == 1) {
+    if (i == 0) return (dB && !sameC(E, G)) || (dH && !sameC(E, A)) ? D : E;
+    if (i == 1) return E;
+    return (bF && !sameC(E, I)) || (hF && !sameC(E, C)) ? F : E;
+  }
+  if (i == 0) return dH ? D : E;
+  if (i == 1) return (dH && !sameC(E, I)) || (hF && !sameC(E, G)) ? H : E;
+  return hF ? F : E;
+}
+vec4 up2(sampler2D t, ivec2 o, ivec2 sz, ivec2 q) {
+  int x = q.x / 2, y = q.y / 2, i = q.x - x * 2, j = q.y - y * 2;
+  vec4 A = sf(t, o, sz, x, y - 1), B = sf(t, o, sz, x + 1, y), C = sf(t, o, sz, x - 1, y), D = sf(t, o, sz, x, y + 1), E = sf(t, o, sz, x, y);
+  if (j == 0) {
+    if (i == 0) return sameC(C, A) && !sameC(C, D) && !sameC(A, B) ? A : E;
+    return sameC(A, B) && !sameC(A, C) && !sameC(B, D) ? A : E;
+  }
+  if (i == 0) return sameC(D, C) && !sameC(D, B) && !sameC(C, A) ? D : E;
+  return sameC(B, D) && !sameC(B, A) && !sameC(D, C) ? D : E;
+}
+// Un texel de la imagen ampliada (se pinta una vez a la caché, ver drawPix): el sub-píxel que cae en este píxel.
+vec4 pix(sampler2D t) {
+  ivec2 o = ivec2(vCl.xy), sz = ivec2(vCl.zw - vCl.xy);
+  int k = vS == 6 ? 3 : 2;
+  ivec2 q = clamp(ivec2(floor((vUV - vCl.xy) * float(k))), ivec2(0), sz * k - 1);
+  return k == 3 ? up3(t, o, sz, q) : up2(t, o, sz, q);
+}
 void shade() {
+  if (vS >= 6) {
+    vec4 c;
+    if (vU == 0) c = pix(uT[0]); else if (vU == 1) c = pix(uT[1]); else if (vU == 2) c = pix(uT[2]); else if (vU == 3) c = pix(uT[3]);
+    else if (vU == 4) c = pix(uT[4]); else if (vU == 5) c = pix(uT[5]); else if (vU == 6) c = pix(uT[6]); else c = pix(uT[7]);
+    o = c * vCol;
+    return;
+  }
   if (vS >= 2) {
     float d;
     if (vS <= 3) {
@@ -104,9 +164,9 @@ void shade() {
   o = mix(mix(tf(vU, a), tf(vU, ivec2(c.x, a.y)), f.x), mix(tf(vU, ivec2(a.x, c.y)), tf(vU, c), f.x), f.y) * vCol;
 }
 // vA 1: «lighter» sobre lo opaco dentro del mismo lote: alfa 0 con source-over premultiplicado = suma exacta.
-// vR 1: color en lineal (three.js pintando a una textura no lo pasa a sRGB; a la pantalla sí): se pasa aquí, como haría él.
+// vR 2: en blanco (el destello de un sprite ampliado). vR 1: color en lineal (three.js pintando a una textura no lo pasa a sRGB; a la pantalla sí): se pasa aquí, como haría él.
 vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
-void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a, 0.0, 1.0)) * o.a; if (vA == 1) o.a = 0.0; }`;
+void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a, 0.0, 1.0)) * o.a; if (vR == 2) o = vec4(o.a); if (vA == 1) o.a = 0.0; }`;
 
   function init(cv) {
     const g = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false,
@@ -147,7 +207,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST); gl.enable(gl.BLEND);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-    blendNow = ''; target = null; nq = 0; nunits = 0; units.fill(null);
+    blendNow = ''; target = null; nq = 0; nunits = 0; units.fill(null); bound.fill(undefined);
     return true;
   }
 
@@ -179,7 +239,14 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     const t = target, W = t ? t.w : screen.width, H = t ? t.h : screen.height;
     gl.viewport(0, 0, W, H);
     gl.uniform2f(uRes, W, H); gl.uniform1f(uFlip, t ? -1 : 1);
-    for (let i = 0; i < nunits; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, units[i]); }
+    // (Todas las unidades: las que no se usan, sin textura. Si alguna se quedaba con la textura en la que se está pintando, WebGL
+    //  lo ve como un bucle de lectura y escritura y descarta el dibujo entero (INVALID_OPERATION).)
+    // (Sólo lo que cambia; y las que no se usan, sin la textura en la que se pinta.)
+    const tt = t ? t.tex : null;
+    for (let i = 0; i < U; i++) {
+      const want = i < nunits ? units[i] : (bound[i] === undefined || (bound[i] && bound[i] === tt) ? null : bound[i]);
+      if (bound[i] !== want) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, want); bound[i] = want; }
+    }
     gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     for (let q0 = 0; q0 < nq; q0 += 4096) {
       const n = Math.min(4096, nq - q0);
@@ -228,6 +295,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     if (open) open._close();
     draw();
     if (GT.on && GT.ext) { gpuMark(null); GT.n++; gpuPoll(); }
+    if (DBG && gl) { const e = gl.getError(); if (e) DBG.set('error de WebGL ' + e, (DBG.get('error de WebGL ' + e) || 0) + 1); }
     // (Puede haber varias tandas por fotograma, p. ej. otro aviso de rAF que no dibuja: se guarda la que dibujó algo.)
     if (st.quads || st.fb || st.uploads || st.draws) { Object.assign(last, st); for (const k in st) st[k] = 0; }
     frameId++;
@@ -291,7 +359,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
   };
   function newTex() {
     const t = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, t);
+    bt(t);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
@@ -330,7 +398,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       else { e.tex = newTex(); fin(src, e); }
       try { src.__gle = e; } catch (er) { /* (no admite propiedades: se sube cada vez) */ }
     }
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex);
+    gl.activeTexture(gl.TEXTURE0); bt(e.tex);
     try {
       if (e.page || (e.w === w && e.h === h)) gl.texSubImage2D(gl.TEXTURE_2D, 0, e.ox, e.oy, gl.RGBA, gl.UNSIGNED_BYTE, src);
       else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
@@ -348,7 +416,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     if (!scr || scr.gen !== gen) scr = { tex: newTex(), w: 0, h: 0, gen, flip: true, fr: -1, dirty: true };
     if (scr.fr === frameId && scr.w === W && scr.h === H && !scr.dirty) return scr;
     const t = target; bindTarget(null); draw();
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scr.tex);
+    gl.activeTexture(gl.TEXTURE0); bt(scr.tex);
     if (scr.w !== W || scr.h !== H) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); scr.w = W; scr.h = H; }
     gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, W, H);
     scr.fr = frameId; scr.dirty = false;
@@ -399,7 +467,57 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     return c;
   }
 
+  // ---------------- «Pokémon más nítidos» en la GPU: caché de fotogramas ampliados ----------------
+  // Cada fotograma de sprite se amplía UNA vez (shader, modos 6/7, las reglas de pixfilter.js) a una página de 2048×2048 en la GPU;
+  // luego se dibuja suavizado como cualquier imagen. Llenas las páginas (como mucho 4), se vacía la menos usada.
+  const PXC = { S: 2048, MAXP: 4, pages: [], budget: 0, mark: -1 };
+  function pixFrame(E, img, sx, sy, sw, sh, k) {
+    let m = img.__glpx;
+    if (!m) { m = new Map(); try { img.__glpx = m; } catch (er) { return null; } }
+    const key = sx + ',' + sy + ',' + sw + ',' + sh + ',' + k + ',' + E.ver;
+    let e = m.get(key);
+    if (e && e.gen === gen && e.page.epoch === e.epoch) { e.page.used = frameId; return e; }
+    if (PXC.mark !== frameId) { PXC.mark = frameId; PXC.budget = 32; }
+    if (PXC.budget <= 0) return null;
+    const W = sw * k, H = sh * k;
+    if (W > 512 || H > 512) return null;
+    // Sitio: en la página actual o en una nueva; si no, se vacía la menos usada.
+    if (PXC.gen !== gen) { PXC.pages = []; PXC.gen = gen; }
+    let p = PXC.pages.find(q => (q.x + W <= PXC.S && q.y + H <= PXC.S) || q.y + q.rowH + 1 + H <= PXC.S);
+    if (!p) {
+      if (PXC.pages.length < PXC.MAXP) {
+        p = { epoch: 1, x: 0, y: 0, rowH: 0, used: frameId, t: null };
+        const t = { tex: newTex(), fbo: gl.createFramebuffer(), w: PXC.S, h: PXC.S, gen };
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, PXC.S, PXC.S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        draw();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null);
+        p.t = t; PXC.pages.push(p);
+      } else {
+        p = PXC.pages.reduce((a, q) => (q.used < a.used ? q : a));
+        if (p.used === frameId) return null;          // (todas en uso en este fotograma)
+        p.x = p.y = p.rowH = 0; p.epoch++;
+      }
+    }
+    if (p.x + W > PXC.S) { p.x = 0; p.y += p.rowH + 1; p.rowH = 0; }
+    const x = p.x, y = p.y;
+    p.x += W + 1; p.rowH = Math.max(p.rowH, H); p.used = frameId;
+    PXC.budget--;
+    // Se amplía ya, en su página (lo pendiente antes, y luego se sigue donde se estaba).
+    const prevT = target, prevB = blendNow, prevAdd = addQ;
+    bindTarget(p.t); setBlend('copy'); addQ = 0;
+    const u = unitFor(E.tex), ox = (E.ox || 0) + sx, oy = (E.oy || 0) + sy;
+    quad(IDENT, x, y, W, H, ox, oy, ox + sw, oy + sh, ox, oy, ox + sw, oy + sh, u, k === 3 ? 6 : 7, 255, 255, 255, 255);
+    bindTarget(prevT); if (prevB) setBlend(prevB); addQ = prevAdd;
+    st.pixNew++;
+    e = { tex: p.t.tex, x, y, page: p, epoch: p.epoch, gen };
+    m.set(key, e);
+    return e;
+  }
+
   // ---------------- estado del contexto ----------------
+  let SIG = 0;                     // firma del estado: un número nuevo cada vez que algo cambia (sin crear objetos)
   class State {
     constructor(o) {
       if (!o) {
@@ -407,14 +525,20 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         this.lw = 1; this.cap = 'butt'; this.join = 'miter'; this.miter = 10; this.dash = null; this.dashOff = 0;
         this.font = '10px sans-serif'; this.align = 'start'; this.base = 'alphabetic'; this.smooth = true; this.smoothQ = 'low';
         this.filter = 'none'; this.sBlur = 0; this.sColor = 'rgba(0, 0, 0, 0)'; this.sX = 0; this.sY = 0; this.dir = 'inherit';
-        this.ls = '0px'; this.clip = 0; this.sc = 0; this._sig = {};
+        this.ls = '0px'; this.clip = 0; this.sc = 0; this._sig = ++SIG;
         return;
       }
-      this.m = o.m.slice(); this.alpha = o.alpha; this.comp = o.comp; this.fill = o.fill; this.stroke = o.stroke;
+      this.m = o.m.slice(); this.copy(o);
+    }
+    /** Copia o (para reutilizar estados guardados: menos basura que uno nuevo en cada save). */
+    copy(o) {
+      const m = this.m, n = o.m; m[0] = n[0]; m[1] = n[1]; m[2] = n[2]; m[3] = n[3]; m[4] = n[4]; m[5] = n[5];
+      this.alpha = o.alpha; this.comp = o.comp; this.fill = o.fill; this.stroke = o.stroke;
       this.lw = o.lw; this.cap = o.cap; this.join = o.join; this.miter = o.miter; this.dash = o.dash; this.dashOff = o.dashOff;
       this.font = o.font; this.align = o.align; this.base = o.base; this.smooth = o.smooth; this.smoothQ = o.smoothQ;
       this.filter = o.filter; this.sBlur = o.sBlur; this.sColor = o.sColor; this.sX = o.sX; this.sY = o.sY; this.dir = o.dir;
       this.ls = o.ls; this.clip = o.clip; this.sc = 0; this._sig = o._sig;     // (copia: la misma firma hasta que algo cambie)
+      return this;
     }
   }
   const PROPS = { globalAlpha: 'alpha', globalCompositeOperation: 'comp', fillStyle: 'fill', strokeStyle: 'stroke', lineWidth: 'lw',
@@ -447,7 +571,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       this.canvas = canvas; this._layer = layer || null;       // (layer: lienzo aparte en la GPU; null: la pantalla)
       this._sx = null; this._sxs = {}; this._sxDepth = 0; this._fbMode = 'source-over'; this._gb = [0, 0, 0, 0];
       this._p = []; this._pms = []; this._mv = 0; this._pmv = -1; this._pb = [Infinity, Infinity, -Infinity, -Infinity];
-      this._bb = [0, 0, 0, 0]; this._rawT = false; this._cl = [0, 0, 0, 0]; this._clips = [];
+      this._bb = [0, 0, 0, 0]; this._rawT = false; this._cl = [0, 0, 0, 0]; this._clips = []; this._spool = []; this._np = 0; this._npm = 0;
       this._reset();
     }
     _reset() {
@@ -470,11 +594,12 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     getContextAttributes() { return { alpha: true }; }
 
     // ---- estado ----
-    save() { this._stack.push(this.s); this.s = new State(this.s); }
+    save() { const n = this._spool.pop(); this._stack.push(this.s); this.s = n ? n.copy(this.s) : new State(this.s); }
     restore() {
       if (!this._stack.length) return;
-      const sc = this.s.sc, m0 = this.s.m;
+      const sc = this.s.sc, m0 = this.s.m, old = this.s;
       this.s = this._stack.pop();
+      if (this._spool.length < 64) this._spool.push(old);
       if (m0[0] !== this.s.m[0] || m0[1] !== this.s.m[1] || m0[2] !== this.s.m[2] || m0[3] !== this.s.m[3] || m0[4] !== this.s.m[4] || m0[5] !== this.s.m[5]) this._mv++;
       if (sc && this._sx) { if (open === this) this._close(); for (let i = 0; i < sc; i++) { this._sx.restore(); this._sxDepth--; } this._clips.length = this._sxDepth; this._sxs = {}; }
     }
@@ -497,7 +622,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     translate(x, y) { if (!(isFinite(x) && isFinite(y))) return; const m = this.s.m; this._mv++; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
     scale(x, y) { if (!(isFinite(x) && isFinite(y))) return; const m = this.s.m; this._mv++; m[0] *= x; m[1] *= x; m[2] *= y; m[3] *= y; }
     rotate(r) { if (!isFinite(r)) return; const c = Math.cos(r), s = Math.sin(r); this.transform(c, s, -s, c, 0, 0); }
-    setLineDash(d) { this.s.dash = d && d.length ? d.slice() : null; this.s._sig = {}; }
+    setLineDash(d) { this.s.dash = d && d.length ? d.slice() : null; this.s._sig = ++SIG; }
     getLineDash() { return this.s.dash ? this.s.dash.slice() : []; }
 
     // ---- nativo ----
@@ -511,14 +636,17 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       if (open && open !== this) open._close();
       bindTarget(t);
       if (open === this) this._close();
-      // (En la pantalla, que es opaca, «lighter» va en el mismo lote que lo normal; en una capa transparente, aparte.)
-      if (this.s.comp === 'lighter' && !t) { setBlend('source-over'); addQ = 1; }
+      // «lighter» va en el mismo lote que lo normal (alfa 0 premultiplicado con source-over = suma). En la pantalla, que es opaca,
+      // da lo mismo que el Canvas 2D. En una capa transparente (el aire con perspectiva de Ultra y Máxima) los brillos salen algo
+      // más claros, porque la capa no se queda con su alfa: lo eligió el dueño (14-11-2026) a cambio de ~100 lotes menos y ~1,7 ms
+      // menos de GPU en la horda.
+      if (this.s.comp === 'lighter') { setBlend('source-over'); addQ = 1; }
       else { setBlend(this.s.comp); addQ = 0; }
       return true;
     }
     fillRect(x, y, w, h) {
       const s = this.s;
-      if (typeof s.fill !== 'string' || !this._native()) return this._fb('fillRect', arguments, this._rectBB(x, y, w, h, 0));
+      if (typeof s.fill !== 'string' || !this._native()) return this._fb('fillRect', [x, y, w, h], this._rectBB(x, y, w, h, 0));
       if (!(w && h) || !this._prep()) return;
       const c = rgba(s.fill), a = c[3] * s.alpha;
       if (a <= 0 && s.comp !== 'copy') return;
@@ -535,7 +663,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     }
     strokeRect(x, y, w, h) {
       const s = this.s;
-      if (typeof s.stroke !== 'string' || s.dash || !this._native()) return this._fb('strokeRect', arguments, this._rectBB(x, y, w, h, 1));
+      if (typeof s.stroke !== 'string' || s.dash || !this._native()) return this._fb('strokeRect', [x, y, w, h], this._rectBB(x, y, w, h, 1));
       if (w < 0) { x += w; w = -w; } if (h < 0) { y += h; h = -h; }
       this._shape(s.m, 4, x + w / 2, y + h / 2, w / 2, h / 2, 0, s.lw, s.stroke, 0);
     }
@@ -561,8 +689,9 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     }
     drawImage(img, a, b, c, d, e, f, g, h) {
       let sx = 0, sy = 0, sw, sh, dx, dy, dw, dh;
-      const n = arguments.length;
-      if (!this._native()) return this._fb('drawImage', arguments, null, img);
+      // (Sin «arguments»: crearlo en cada llamada era basura en la parte más usada.)
+      const n = h !== undefined ? 9 : c !== undefined ? 5 : 3;
+      if (!this._native()) return this._fb('drawImage', n === 9 ? [img, a, b, c, d, e, f, g, h] : n === 5 ? [img, a, b, c, d] : [img, a, b], null, img);
       if (lost) return;
       const E = entry(img);
       if (!E || !this._prep()) return;
@@ -583,10 +712,41 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       const s = this.s, al = s.alpha;
       if (al <= 0 && s.comp !== 'copy') return;
       const u = unitFor(E.tex), A = al * 255 + 0.5 | 0, sm = s.smooth ? 1 : 0;
-      srgbQ = E.srgb ? 1 : 0;
+      srgbQ = this._white ? 2 : E.srgb ? 1 : 0;
       if (E.flip) quad(s.m, dx, dy, dw, dh, sx, E.h - sy, sx + sw, E.h - sy - sh, sx, E.h - sy - sh, sx + sw, E.h - sy, u, sm, A, A, A, A);
       else { const ox = E.ox || 0, oy = E.oy || 0; sx += ox; sy += oy; quad(s.m, dx, dy, dw, dh, sx, sy, sx + sw, sy + sh, sx, sy, sx + sw, sy + sh, u, sm, A, A, A, A); }
       srgbQ = 0;
+    }
+
+    /**
+     * «Pokémon más nítidos» en la GPU (sprites.js): el fotograma (sx, sy, sw, sh) de img ampliado con algo ('adv3' o 'epx2', las
+     * reglas de pixfilter.js) y suavizado a (dx, dy, dw, dh); white: en blanco (el destello). false si aquí no se puede (recorte,
+     * filtro...): entonces se hace en la CPU como siempre.
+     */
+    drawPix(img, sx, sy, sw, sh, dx, dy, dw, dh, algo, white) {
+      if (!this._native() || lost) { if (DBG) DBG.set('pix a la CPU recorte/filtro', (DBG.get('pix a la CPU recorte/filtro') || 0) + 1); return false; }
+      const E = entry(img);
+      if (!E) return true;                 // (imagen aún sin cargar: nada, como drawImage)
+      if (E.flip) return false;
+      const k = algo === 'epx2' ? 2 : 3;
+      const P = pixFrame(E, img, sx, sy, sw, sh, k);
+      if (!P) { if (DBG) DBG.set('pix a la CPU ' + (sw * k > 512 || sh * k > 512 ? 'grande' : 'tope'), (DBG.get('pix a la CPU ' + (sw * k > 512 || sh * k > 512 ? 'grande' : 'tope')) || 0) + 1); return false; }                // (tope de este fotograma o sin sitio: en la CPU como siempre)
+      if (!this._prep()) return true;
+      const s = this.s, al = s.alpha;
+      if (al <= 0) return true;
+      const u = unitFor(P.tex), A = al * 255 + 0.5 | 0;
+      srgbQ = white ? 2 : 0;
+      quad(s.m, dx, dy, dw, dh, P.x, P.y, P.x + sw * k, P.y + sh * k, P.x, P.y, P.x + sw * k, P.y + sh * k, u, 1, A, A, A, A);
+      srgbQ = 0;
+      return true;
+    }
+
+    /** drawImage en blanco (el destello de un sprite, sprites.js): false si aquí no se puede y hay que hacerlo como siempre. */
+    drawWhite(img, sx, sy, sw, sh, dx, dy, dw, dh) {
+      if (!this._native() || lost) return false;
+      this._white = true;
+      try { this.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh); } finally { this._white = false; }
+      return true;
     }
 
     // ---- formas nativas ----
@@ -610,8 +770,10 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         c[0] * a + 0.5 | 0, c[1] * a + 0.5 | 0, c[2] * a + 0.5 | 0, a * 255 + 0.5 | 0);
     }
     /** ¿El trazado es una sola forma que se puede hacer nativa? → [mode, cx, cy, hx, hy, r, rot, mIndex] o null. */
+    // (El resultado de _single en un arreglo reutilizado: sin basura por forma.)
+    _sg(a, b, c, d, e, f, g, h) { const o = this._sgo || (this._sgo = [0, 0, 0, 0, 0, 0, 0, 0]); o[0] = a; o[1] = b; o[2] = c; o[3] = d; o[4] = e; o[5] = f; o[6] = g; o[7] = h; return o; }
     _single() {
-      const p = this._p, n = p.length;
+      const p = this._p, n = this._np;
       if (!n || n > 7) return null;
       let i = 0;
       const o0 = p[0];
@@ -621,17 +783,17 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         for (let j = 1; j < 5; j++) if (p[j].mi !== mi) return null;
         // (Esquinas: arriba-der, abajo-der, abajo-izq, arriba-izq. Con tolerancia: x + r - r no siempre da x.)
         const a1 = p[1].a, a2 = p[2].a, a3 = p[3].a, a4 = p[4].a, r = a1[4];
-        const L = a3[0], T = a4[1], R = a1[0], Bt = a2[1], w = R - L, h = Bt - T, eq = (u, v) => Math.abs(u - v) <= 1e-6 * (1 + Math.abs(u));
+        const L = a3[0], T = a4[1], R = a1[0], Bt = a2[1], w = R - L, h = Bt - T;
         if (!(w > 0 && h > 0) || !eq(o0.a[0], L + r) || !eq(o0.a[1], T) ||
             !eq(a1[1], T) || !eq(a1[2], R) || !eq(a1[3], Bt) || !eq(a2[0], R) || !eq(a2[2], L) || !eq(a2[3], Bt) ||
             !eq(a3[1], Bt) || !eq(a3[2], L) || !eq(a3[3], T) || !eq(a4[0], L) || !eq(a4[2], R) || !eq(a4[3], T) ||
             a2[4] !== r || a3[4] !== r || a4[4] !== r || !(r >= 0) || r > Math.min(w, h) / 2 + 1e-6) return null;
-        return [4, L + w / 2, T + h / 2, w / 2, h / 2, r, 0, mi];
+        return this._sg(4, L + w / 2, T + h / 2, w / 2, h / 2, r, 0, mi);
       }
       if (n > 3) return null;
       let mv = null;
       if (o0.c === OP.move) { mv = o0; i = 1; }
-      const op = p[i];
+      const op = i < n ? p[i] : null;
       if (!op || (i + 1 < n && !(i + 2 === n && p[i + 1].c === OP.close))) return null;
       if (mv && mv.mi !== op.mi) return null;
       const a = op.a;
@@ -642,52 +804,89 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         // (un moveTo antes vale si es justo donde empieza el arco: no añade ninguna línea)
         if (mv) { const sx = cx + rx * Math.cos(a0) * Math.cos(rot) - ry * Math.sin(a0) * Math.sin(rot), sy = cy + rx * Math.cos(a0) * Math.sin(rot) + ry * Math.sin(a0) * Math.cos(rot);
           if (Math.abs(sx - mv.a[0]) > 1e-3 || Math.abs(sy - mv.a[1]) > 1e-3) return null; }
-        return [2, cx, cy, rx, ry, 0, rot, op.mi];
+        return this._sg(2, cx, cy, rx, ry, 0, rot, op.mi);
       }
       if (mv) return null;
-      if (op.c === OP.rect) { let [x, y, w, h] = a; if (w < 0) { x += w; w = -w; } if (h < 0) { y += h; h = -h; } return [4, x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, op.mi]; }
+      if (op.c === OP.rect) { let [x, y, w, h] = a; if (w < 0) { x += w; w = -w; } if (h < 0) { y += h; h = -h; } return this._sg(4, x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, op.mi); }
       if (op.c === OP.rrect) {
         let [x, y, w, h, r] = a; if (Array.isArray(r)) { if (r.length !== 1) return null; r = r[0]; }
         if (typeof r !== 'number' || w < 0 || h < 0) return null;
         r = Math.min(r, w / 2, h / 2);
-        return [4, x + w / 2, y + h / 2, w / 2, h / 2, r, 0, op.mi];
+        return this._sg(4, x + w / 2, y + h / 2, w / 2, h / 2, r, 0, op.mi);
       }
       return null;
     }
 
     // ---- trazados ----
-    _op(c, a, bbFn) {
-      // (Como el Canvas 2D: una pieza con algún número que no vale se ignora.)
-      if (a) for (let i = 0; i < a.length; i++) if (typeof a[i] === 'number' && !isFinite(a[i])) return;
-      if (this._pmv !== this._mv) { this._pms.push(this.s.m.slice()); this._pmv = this._mv; }
-      this._p.push({ c, mi: this._pms.length - 1, a });
-      bbFn();
+    // Una pieza nueva del trazado (objetos y arreglos reutilizados: sin basura por pieza). Devuelve sus argumentos para rellenar.
+    _op(c, n) {
+      if (this._pmv !== this._mv) {
+        let pm = this._pms[this._npm];
+        if (!pm) pm = this._pms[this._npm] = [0, 0, 0, 0, 0, 0];
+        const m = this.s.m; pm[0] = m[0]; pm[1] = m[1]; pm[2] = m[2]; pm[3] = m[3]; pm[4] = m[4]; pm[5] = m[5];
+        this._npm++; this._pmv = this._mv;
+      }
+      let o = this._p[this._np];
+      if (!o) o = this._p[this._np] = { c: 0, mi: 0, a: [] };
+      this._np++;
+      o.c = c; o.mi = this._npm - 1; o.a.length = n;
+      return o.a;
     }
     _pt(x, y, r) {
       const m = this.s.m, X = m[0] * x + m[2] * y + m[4], Y = m[1] * x + m[3] * y + m[5], pb = this._pb;
       const R = r ? r * Math.max(Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])) : 0;
       if (X - R < pb[0]) pb[0] = X - R; if (Y - R < pb[1]) pb[1] = Y - R; if (X + R > pb[2]) pb[2] = X + R; if (Y + R > pb[3]) pb[3] = Y + R;
     }
-    beginPath() { this._p.length = 0; this._pms.length = 0; this._pmv = -1; this._pb[0] = this._pb[1] = Infinity; this._pb[2] = this._pb[3] = -Infinity; }
-    closePath() { this._op(OP.close, null, () => {}); }
-    moveTo(x, y) { this._op(OP.move, [x, y], () => this._pt(x, y)); }
-    lineTo(x, y) { this._op(OP.line, [x, y], () => this._pt(x, y)); }
-    rect(x, y, w, h) { this._op(OP.rect, [x, y, w, h], () => { this._pt(x, y); this._pt(x + w, y + h); this._pt(x + w, y); this._pt(x, y + h); }); }
-    roundRect(x, y, w, h, r) { this._op(OP.rrect, [x, y, w, h, r === undefined ? 0 : r], () => { this._pt(x, y); this._pt(x + w, y + h); this._pt(x + w, y); this._pt(x, y + h); }); }
-    arc(x, y, r, a0, a1, ccw) { this._op(OP.arc, [x, y, r, a0, a1, !!ccw], () => this._pt(x, y, Math.abs(r))); }
-    arcTo(x1, y1, x2, y2, r) { this._op(OP.arcTo, [x1, y1, x2, y2, r], () => { this._pt(x1, y1); this._pt(x2, y2); }); }
-    ellipse(x, y, rx, ry, rot, a0, a1, ccw) { this._op(OP.ell, [x, y, rx, ry, rot, a0, a1, !!ccw], () => this._pt(x, y, Math.max(Math.abs(rx), Math.abs(ry)))); }
-    quadraticCurveTo(cx, cy, x, y) { this._op(OP.quadTo, [cx, cy, x, y], () => { this._pt(cx, cy); this._pt(x, y); }); }
-    bezierCurveTo(a, b, c, d, x, y) { this._op(OP.bez, [a, b, c, d, x, y], () => { this._pt(a, b); this._pt(c, d); this._pt(x, y); }); }
+    beginPath() { this._np = 0; this._npm = 0; this._pmv = -1; this._pb[0] = this._pb[1] = Infinity; this._pb[2] = this._pb[3] = -Infinity; }
+    closePath() { this._op(OP.close, 0); }
+    // (Como el Canvas 2D: una pieza con algún número que no vale se ignora.)
+    moveTo(x, y) { if (!(isFinite(x) && isFinite(y))) return; const a = this._op(OP.move, 2); a[0] = x; a[1] = y; this._pt(x, y); }
+    lineTo(x, y) { if (!(isFinite(x) && isFinite(y))) return; const a = this._op(OP.line, 2); a[0] = x; a[1] = y; this._pt(x, y); }
+    rect(x, y, w, h) {
+      if (!(isFinite(x) && isFinite(y) && isFinite(w) && isFinite(h))) return;
+      const a = this._op(OP.rect, 4); a[0] = x; a[1] = y; a[2] = w; a[3] = h;
+      this._pt(x, y); this._pt(x + w, y + h); this._pt(x + w, y); this._pt(x, y + h);
+    }
+    roundRect(x, y, w, h, r) {
+      if (!(isFinite(x) && isFinite(y) && isFinite(w) && isFinite(h))) return;
+      const a = this._op(OP.rrect, 5); a[0] = x; a[1] = y; a[2] = w; a[3] = h; a[4] = r === undefined ? 0 : r;
+      this._pt(x, y); this._pt(x + w, y + h); this._pt(x + w, y); this._pt(x, y + h);
+    }
+    arc(x, y, r, a0, a1, ccw) {
+      if (!(isFinite(x) && isFinite(y) && isFinite(r) && isFinite(a0) && isFinite(a1))) return;
+      const a = this._op(OP.arc, 6); a[0] = x; a[1] = y; a[2] = r; a[3] = a0; a[4] = a1; a[5] = !!ccw;
+      this._pt(x, y, Math.abs(r));
+    }
+    arcTo(x1, y1, x2, y2, r) {
+      if (!(isFinite(x1) && isFinite(y1) && isFinite(x2) && isFinite(y2) && isFinite(r))) return;
+      const a = this._op(OP.arcTo, 5); a[0] = x1; a[1] = y1; a[2] = x2; a[3] = y2; a[4] = r;
+      this._pt(x1, y1); this._pt(x2, y2);
+    }
+    ellipse(x, y, rx, ry, rot, a0, a1, ccw) {
+      if (!(isFinite(x) && isFinite(y) && isFinite(rx) && isFinite(ry) && isFinite(rot) && isFinite(a0) && isFinite(a1))) return;
+      const a = this._op(OP.ell, 8); a[0] = x; a[1] = y; a[2] = rx; a[3] = ry; a[4] = rot; a[5] = a0; a[6] = a1; a[7] = !!ccw;
+      this._pt(x, y, Math.max(Math.abs(rx), Math.abs(ry)));
+    }
+    quadraticCurveTo(cx, cy, x, y) {
+      if (!(isFinite(cx) && isFinite(cy) && isFinite(x) && isFinite(y))) return;
+      const a = this._op(OP.quadTo, 4); a[0] = cx; a[1] = cy; a[2] = x; a[3] = y;
+      this._pt(cx, cy); this._pt(x, y);
+    }
+    bezierCurveTo(c1, c2, c3, c4, x, y) {
+      if (!(isFinite(c1) && isFinite(c2) && isFinite(c3) && isFinite(c4) && isFinite(x) && isFinite(y))) return;
+      const a = this._op(OP.bez, 6); a[0] = c1; a[1] = c2; a[2] = c3; a[3] = c4; a[4] = x; a[5] = y;
+      this._pt(c1, c2); this._pt(c3, c4); this._pt(x, y);
+    }
     /** Repite el trazado en el Canvas 2D de respaldo (con la matriz de cada pieza) y deja puesta la de ahora. */
     _replay(sx) {
-      this._replayOps(sx, this._p, this._pms);
+      this._replayOps(sx, this._p, this._pms, this._np);
       const m = this.s.m; sx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
     }
-    _replayOps(sx, ops, pms) {
+    _replayOps(sx, ops, pms, n = ops.length) {
       sx.beginPath();
       let mi = -1;
-      for (const o of ops) {
+      for (let i = 0; i < n; i++) {
+        const o = ops[i];
         if (o.mi !== mi) { mi = o.mi; const m = pms[mi]; sx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]); }
         if (o.c === OP.close) sx.closePath(); else sx[OPN[o.c]].apply(sx, o.a);
       }
@@ -698,8 +897,9 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         const f = this._single();
         if (f) { const m = this._pms[f[7]]; return this._shape(m, f[0], f[1], f[2], f[3], f[4], f[5], 0, s.fill, f[6]); }
       }
-      if (p && typeof p === 'object') return this._fb('fill', arguments, null);
-      this._fb('fill', arguments, this._grow(0), null, true);
+      const args = p === undefined ? [] : rule === undefined ? [p] : [p, rule];
+      if (p && typeof p === 'object') return this._fb('fill', args, null);
+      this._fb('fill', args, this._grow(0), null, true);
     }
     stroke(p) {
       const s = this.s;
@@ -708,8 +908,9 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
         // (Con el borde, sólo si la matriz no deforma: el grosor de la línea es el mismo en todas direcciones.)
         if (f && s.lw > 0) { const m = this._pms[f[7]]; return this._shape(m, f[0], f[1], f[2], f[3], f[4], f[5], s.lw, s.stroke, f[6]); }
       }
-      if (p && typeof p === 'object') return this._fb('stroke', arguments, null);
-      this._fb('stroke', arguments, this._grow(1), null, true);
+      const args = p === undefined ? [] : [p];
+      if (p && typeof p === 'object') return this._fb('stroke', args, null);
+      this._fb('stroke', args, this._grow(1), null, true);
     }
     clip() {
       const sx = this._sxc();
@@ -720,15 +921,15 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       sx.clip.apply(sx, arguments);
       // (Se guarda para volver a ponerlo al borrar el respaldo, ver _close.)
       this._clips.length = this._sxDepth - 1;
-      this._clips.push({ p: this._p.slice(), pms: this._pms.map(m => m.slice()), args: [...arguments] });
+      this._clips.push({ p: this._p.slice(0, this._np).map(o => ({ c: o.c, mi: o.mi, a: o.a.slice() })), pms: this._pms.slice(0, this._npm).map(m => m.slice()), args: [...arguments] });
       this._sxs = {};
     }
     isPointInPath() { const sx = this._sxc(); this._replay(sx); return sx.isPointInPath.apply(sx, arguments); }
     isPointInStroke() { const sx = this._sxc(); this._replay(sx); syncTo(this.s, sx, this._sxs); return sx.isPointInStroke.apply(sx, arguments); }
 
     // ---- texto ----
-    fillText(t, x, y, mw) { if (!this._text(0, t, x, y, mw)) this._fb('fillText', arguments, this._textBB(t, x, y, 0)); }
-    strokeText(t, x, y, mw) { if (!this._text(1, t, x, y, mw)) this._fb('strokeText', arguments, this._textBB(t, x, y, 1)); }
+    fillText(t, x, y, mw) { if (!this._text(0, t, x, y, mw)) this._fb('fillText', mw === undefined ? [t, x, y] : [t, x, y, mw], this._textBB(t, x, y, 0)); }
+    strokeText(t, x, y, mw) { if (!this._text(1, t, x, y, mw)) this._fb('strokeText', mw === undefined ? [t, x, y] : [t, x, y, mw], this._textBB(t, x, y, 1)); }
     /** Texto sin traducir (G.I18n.rawCanvas): como fillText/strokeText/measureText, sin pasar por el traductor. */
     raw(method, t, ...a) {
       const sx = this._sxc();
@@ -793,7 +994,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       const at = TA.alloc(w, h);
       if (!at) return null;
       draw();                              // (por si lo pendiente usa el atlas antes de vaciarse)
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, TA.tex);
+      gl.activeTexture(gl.TEXTURE0); bt(TA.tex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, at[0], at[1], gl.RGBA, gl.UNSIGNED_BYTE, c);
       st.textNew++; st.uploads++; st.upPx += w * h;
       const e = { x: at[0], y: at[1], w, h, ox, oy, f: frameId };
@@ -941,7 +1142,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       // El lienzo de respaldo entero, a una textura: es de la GPU, así que es una copia dentro de la GPU (sin leerlo en la CPU,
       // que espera a que acabe y, con sombras difuminadas, pintaba en la CPU: medido, más de la mitad del fotograma).
       const T = this._fbt && this._fbt.gen === gen ? this._fbt : (this._fbt = { tex: newTex(), w: 0, h: 0, gen });
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, T.tex);
+      gl.activeTexture(gl.TEXTURE0); bt(T.tex);
       if (T.w !== W || T.h !== H) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sx.canvas); T.w = W; T.h = H; }
       else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, sx.canvas);
       st.groups++; st.groupPx += w * h;
@@ -961,6 +1162,7 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     }
   }
   const IDENT = [1, 0, 0, 1, 0, 0];
+  const eq = (u, v) => Math.abs(u - v) <= 1e-6 * (1 + Math.abs(u));
   Ctx.prototype.__gl2d = true;
   // Las propiedades, cada una con su comprobación (como el Canvas 2D: un valor no válido se ignora).
   const num = (v, ok) => { v = +v; return ok(v) ? v : undefined; };
@@ -974,8 +1176,8 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     const k = PROPS[p], chk = CHECK[k];
     Object.defineProperty(Ctx.prototype, p, { configurable: true,
       get() { return this.s[k]; },
-      set: chk ? function (v) { v = chk(v); const s = this.s; if (v !== undefined && s[k] !== v) { s[k] = v; s._sig = {}; } }
-               : function (v) { const s = this.s; if (s[k] !== v) { s[k] = v; s._sig = {}; } },
+      set: chk ? function (v) { v = chk(v); const s = this.s; if (v !== undefined && s[k] !== v) { s[k] = v; s._sig = ++SIG; } }
+               : function (v) { const s = this.s; if (s[k] !== v) { s[k] = v; s._sig = ++SIG; } },
     });
   }
 
@@ -1133,15 +1335,15 @@ void main() {
     gl.disable(gl.BLEND); gl.viewport(0, 0, bw, bh);
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(BL.u.s, 0);
     // 1) reducido con el filtro de color (la copia de la pantalla, suavizada)
-    gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    bt(src.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.bindFramebuffer(gl.FRAMEBUFFER, BL.a.fbo); gl.uniform1i(BL.u.mode, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     // 2) difuminado: en x (a → b) y en y (b → a)
     gl.uniform1i(BL.u.mode, 1); gl.uniform1f(BL.u.sig, Math.max(0.5, r));
-    gl.bindTexture(gl.TEXTURE_2D, BL.a.tex); gl.bindFramebuffer(gl.FRAMEBUFFER, BL.b.fbo); gl.uniform2f(BL.u.step, 1 / bw, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.bindTexture(gl.TEXTURE_2D, BL.b.tex); gl.bindFramebuffer(gl.FRAMEBUFFER, BL.a.fbo); gl.uniform2f(BL.u.step, 0, 1 / bh); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    bt(BL.a.tex); gl.bindFramebuffer(gl.FRAMEBUFFER, BL.b.fbo); gl.uniform2f(BL.u.step, 1 / bw, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    bt(BL.b.tex); gl.bindFramebuffer(gl.FRAMEBUFFER, BL.a.fbo); gl.uniform2f(BL.u.step, 0, 1 / bh); gl.drawArrays(gl.TRIANGLES, 0, 3);
     st.draws += 4;
     // Lo de este motor otra vez, y el resultado sumado a la pantalla (con su suavizado al ampliarlo).
     G.GL2D.restore();
@@ -1227,6 +1429,34 @@ void main() {
           try { return o.apply(this, a); } finally { this._teeOff = false; }
         };
       }
+      // (El filtro «más nítidos» de la GPU: en el espejo, con el de la CPU de siempre, pixfilter.js, sin su tope por fotograma.)
+      P.__opix = P.drawPix;
+      P.drawPix = function (img, sx, sy, sw, sh, dx, dy, dw, dh, algo, white) {
+        const t = teeCtx(this);
+        try {
+          const c0 = document.createElement('canvas'); c0.width = sw; c0.height = sh;
+          const g0 = c0.getContext('2d', { willReadFrequently: true }); g0.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          const k = algo === 'epx2' ? 2 : 3, d = g0.getImageData(0, 0, sw, sh).data;
+          const out = algo === 'epx2' ? G.PixFilter.epx(d, sw, sh) : G.PixFilter.adv3(d, sw, sh);
+          const c1 = document.createElement('canvas'); c1.width = sw * k; c1.height = sh * k;
+          const g1 = c1.getContext('2d'); g1.putImageData(new ImageData(out, sw * k, sh * k), 0, 0);
+          if (white) { g1.globalCompositeOperation = 'source-in'; g1.fillStyle = '#ffffff'; g1.fillRect(0, 0, c1.width, c1.height); }
+          const sm = t.imageSmoothingEnabled; t.imageSmoothingEnabled = true; t.drawImage(c1, dx, dy, dw, dh); t.imageSmoothingEnabled = sm;
+        } catch (e) { /* */ }
+        this._teeOff = true;
+        try { return P.__opix.call(this, img, sx, sy, sw, sh, dx, dy, dw, dh, algo, white); } finally { this._teeOff = false; }
+      };
+      P.__owhite = P.drawWhite;
+      P.drawWhite = function (img, sx, sy, sw, sh, dx, dy, dw, dh) {
+        const t = teeCtx(this);
+        try {
+          const c = document.createElement('canvas'); c.width = sw; c.height = sh; const g = c.getContext('2d');
+          g.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#ffffff'; g.fillRect(0, 0, sw, sh);
+          t.drawImage(c, dx, dy, dw, dh);
+        } catch (e) { /* */ }
+        this._teeOff = true;
+        try { return P.__owhite.call(this, img, sx, sy, sw, sh, dx, dy, dw, dh); } finally { this._teeOff = false; }
+      };
       P.__oraw = P.raw;
       P.raw = function (method, ...a) { const t = teeCtx(this); if (method !== 'measureText') try { G.I18n.rawCanvas(t, method, ...a); } catch (e) { /* */ } return P.__oraw.call(this, method, ...a); };
       for (const p in PROPS) {
@@ -1239,7 +1469,7 @@ void main() {
       P._reset = function () { if (this.canvas && (this._layer || this.canvas).__tee) { const t = (this._layer || this.canvas).__tee; t.canvas.width = t.canvas.width; } return P.__oreset.call(this); };
     } else {
       for (const n of TEE_M) { P[n] = P['__o' + n]; delete P['__o' + n]; }
-      P.raw = P.__oraw; P._reset = P.__oreset;
+      P.raw = P.__oraw; P._reset = P.__oreset; P.drawPix = P.__opix; P.drawWhite = P.__owhite;
       for (const p in PROPS) Object.defineProperty(P, p, P['__d' + p]);
     }
   }
@@ -1252,6 +1482,7 @@ void main() {
     get gl() { return gl && !lost ? gl : null; },
     get gen() { return gen; },
     get maxTex() { return MAXT; },
+    _pxc: () => PXC,
     /** Bloom de Máxima en la GPU (game.js Bloom): false si no se puede (se hace como siempre). */
     bloom,
     /** (?glgpu=1) Marca el principio de una parte del fotograma para medir su tiempo de GPU; gpu(): media de ms por fotograma. */
@@ -1271,7 +1502,7 @@ void main() {
       gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0); gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0); gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
       for (let i = 0; i < U; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindSampler(i, null); }
-      blendNow = ''; nunits = 0; units.fill(null);
+      blendNow = ''; nunits = 0; units.fill(null); bound.fill(undefined);
     },
     /** Un lienzo aparte en la GPU con su contexto 2D (o uno normal si no está en marcha). */
     canvas() { return gl && !lost ? new Layer() : document.createElement('canvas'); },

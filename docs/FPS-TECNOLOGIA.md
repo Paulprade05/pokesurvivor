@@ -195,3 +195,57 @@ tarjeta (consultas de tiempo). El motor nuevo quita el cuello de la GPU en la ho
 2. Ultra y Máxima con perspectiva: la capa del aire alterna «lighter» y normal (~100 llamadas). Con el truco de alfa 0 también allí,
    1,7 ms menos de GPU y 1 ms menos de JS, pero los brillos de fuego salen algo más claros (0,8 % de píxeles): decide el dueño.
 3. Probar en iPhone y Android de verdad, y con la app de Windows; luego encenderlo de serie.
+
+---
+
+# Fase 2, paso 2: menos trabajo del procesador con el motor WebGL2
+- **«Pokémon más nítidos» en la GPU** (`gl2d.js drawPix`, `sprites.js`): cada fotograma de sprite se amplía UNA vez con las reglas
+  de `pixfilter.js` (AdvMAME3x en PC, EPX en móvil) en un shader, a páginas de 2048×2048 en la GPU (la menos usada se vacía si se
+  llenan), y luego se pinta suavizado como cualquier imagen. Antes, en la CPU: leer píxeles, ampliar, un lienzo nuevo y subirlo
+  (15 % del JS de Máxima en la horda). Hacerlo directamente al pintar costaba 8-10 ms de GPU: por eso la caché.
+- **Destello blanco en la GPU** (`drawWhite`): sin crear una silueta blanca en un lienzo nuevo por sprite y fotograma.
+- **Menos basura**: estados de `save()` reutilizados, piezas de trazados en arreglos reutilizados, la firma del estado es un número,
+  sin `arguments` en las funciones más llamadas.
+- **Caché de lo atado en cada unidad de textura** y, en las que no se usan, sin la textura en la que se pinta. Arreglado de paso:
+  si una unidad sin usar se quedaba con esa textura, WebGL descartaba el dibujo entero (`INVALID_OPERATION`), sin aviso.
+  `GLDBG=1` cuenta ahora los errores de WebGL.
+
+## Medidas (PC del dueño, Chrome, 60 Hz, máquina algo cargada; una tanda de cada, Canvas 2D → WebGL2)
+
+| calidad | escena | FPS | JS media | JS p95 | JS p99 | GPU (hilo) | GPU real (WebGL2) |
+|---|---|---|---|---|---|---|---|
+| Alta | tranquila | 55 → 55 | 2,2 → 2,2 ms | 3,0 → 2,8 | 3,5 → 3,7 | 37 → 30 % | 4,8 ms |
+| Alta | jefe | 55 → 55 | 3,0 → 2,6 | 5,1 → 3,5 | 6,9 → 5,6 | 45 → 33 % | 4,8 ms |
+| Alta | horda al tope | 55 → 54 | 7,6 → 6,6 | 9,9 → 10,4 | 16,3 → 16,7 | 78 → 74 % | 5,2 ms |
+| Alta | grieta | 54 → 55 | 2,4 → 2,4 | 4,5 → 3,9 | 5,6 → 4,8 | 58 → 33 % | 5,5 ms |
+| Alta | arena | 55 → 55 | 3,5 → 3,2 | 4,7 → 4,3 | 5,7 → 5,2 | 58 → 27 % | 5,2 ms |
+| Máxima | tranquila | 55 → 55 | 3,2 → 2,6 | 4,3 → 4,1 | 16,0 → 9,7 | 42 → 36 % | 5,4 ms |
+| Máxima | jefe | 55 → 55 | 4,3 → 2,7 | 6,4 → 3,8 | 10,7 → 7,0 | 52 → 36 % | 5,4 ms |
+| Máxima | horda al tope | 54 → 54 | 10,0 → 6,8 | 12,0 → 11,2 | 14,2 → 17,1 | 93 → 71 % | 9,9 ms |
+| Máxima | grieta | 54 → 53 | 4,3 → 3,2 | 6,4 → 5,1 | 13,4 → 12,6 | 44 → 41 % | 7,3 ms |
+| Máxima | arena | 55 → 55 | 5,5 → 4,1 | 8,0 → 7,4 | 14,9 → 14,9 | 45 → 46 % | 11,6 ms |
+
+Con la máquina tranquila, en tandas sueltas: horda al tope en Alta, JS 4,5-4,7 ms (p95 6,3-6,5); en Máxima, 5,4-5,6 ms (p95 8,1-8,3).
+Sin tope (sólo orientativo, Chrome sin ventana): horda en Alta, 94 FPS con WebGL2 frente a 56 con Canvas 2D.
+
+## Dónde estamos para 120 Hz
+- **Alta**: la media del JS (4,5-6,6 ms) y la GPU (5 ms) caben en 8,3 ms; los picos (p99 11-17 ms, recogida de basura del juego y
+  fotogramas con más cosas) no siempre.
+- **Máxima**: la GPU en la horda y la arena (7-12 ms) aún no cabe: el 3D, el bloom y la capa del aire con perspectiva (que alterna
+  «lighter»). El truco de alfa 0 en esa capa (decisión pendiente del dueño) quita ~1,7 ms de GPU.
+- Sin pantalla de 120 Hz de verdad no se puede confirmar (Chrome sin ventana no las imita bien).
+
+Equilibrio: idéntico byte a byte. Píxeles: 0,02-0,46 % en 5 escenas × 3 calidades. Tests: 319/319.
+
+## Brillos («lighter») en la capa del aire: truco de alfa 0 también ahí (elegido por el dueño, 14-11-2026)
+En Ultra y Máxima, el aire con perspectiva va en una capa transparente y alternaba lotes normales y «lighter» (~110 llamadas por
+fotograma). Ahora va todo en el mismo lote. Los brillos salen algo más claros que con el Canvas 2D (la capa no guarda su alfa).
+
+| calidad | escena | llamadas | GPU real | JS media / p95 | píxeles distintos |
+|---|---|---|---|---|---|
+| Ultra | horda al tope | ~110 → 13,5 | 5,7 ms | 5,1 / 7,6 ms | 0,80 % |
+| Máxima | horda al tope | ~115 → 22 | 6,7 ms | 5,9 / 9,0 ms | 0,73 % |
+| Máxima | arena | → 17,6 | 7,0 ms | 3,4 / 5,2 ms | 0,17 % |
+| Máxima | jefe | | | | 0,80 % |
+
+Con esto, en Máxima la GPU de la horda ya cabe en los 8,3 ms de 120 Hz.

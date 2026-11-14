@@ -285,7 +285,7 @@ function stats(fr, secs, nav) {
   }
   if (f.some(x => x.gl)) {
     o.gl = {};
-    for (const k of ['quads', 'draws', 'uploads', 'upPx', 'fb', 'groups', 'groupPx', 'textNew', 'resets']) o.gl[k] = +(f.reduce((a, x) => a + ((x.gl || {})[k] || 0), 0) / n).toFixed(1);
+    for (const k of ['quads', 'draws', 'uploads', 'upPx', 'fb', 'groups', 'groupPx', 'textNew', 'resets', 'pixNew']) o.gl[k] = +(f.reduce((a, x) => a + ((x.gl || {})[k] || 0), 0) / n).toFixed(1);
   }
   const keys = new Set(); for (const x of f) for (const k in x.c) keys.add(k);
   o.porFotograma = {};
@@ -422,7 +422,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
           const fn = path.join(OUT, `${NAV}-${Q}-${S}.cpuprofile`);
           fs.writeFileSync(fn, JSON.stringify(profile));
           o.top = topSelf(profile);
-          const slow = fr.filter(x => x.ms > 50).map(x => [x.t0 - 2, x.t0 + x.ms + 2]);
+          const slow = fr.filter(x => x.ms > (+process.env.LENTO || 50)).map(x => [x.t0 - 2, x.t0 + x.ms + 2]);
           if (slow.length) o.topLentos = topSelf(profile, 25, slow, pt0);
         }
         if (process.env.GLDBG) { o.census = await p.evaluate(() => G.GL2D.census && G.GL2D.census()); await p.evaluate(() => G.GL2D.census && G.GL2D.census().length && 0); }
