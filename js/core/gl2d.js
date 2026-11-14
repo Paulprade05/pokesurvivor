@@ -248,15 +248,14 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
   }
 
   // ---------------- texturas de imágenes y lienzos ----------------
-  const texOf = new WeakMap();
   // (Una imagen o lienzo que ya no existe: su textura propia se borra de la GPU.)
   const reg = typeof FinalizationRegistry !== 'undefined' ? new FinalizationRegistry(h => { if (gl && h.gen === gen && h.tex && !h.page) gl.deleteTexture(h.tex); }) : null;
   const fin = (src, e) => { if (reg) reg.register(src, e); };
   /** Suelta ya la textura de un lienzo (G.U.freeCanvas lo pone a tamaño 0). */
   function drop(src) {
-    const e = texOf.get(src);
+    const e = src.__gle;
     if (!e) return;
-    texOf.delete(src);
+    src.__gle = null;
     if (gl && e.gen === gen && e.tex && !e.page) { draw(); gl.deleteTexture(e.tex); e.tex = null; }
   }
   // Atlas de imágenes pequeñas: páginas de 2048×2048 en estantes. Llenas todas, se vacían y se vuelven a llenar con lo que se use.
@@ -299,7 +298,11 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
     if (src && src.__gl2dLayer) return src._entry();
     if (src && src.__gl2dExt) { const r = src._f(); return r && r.tex ? { tex: r.tex, w: r.w, h: r.h, flip: true } : null; }
     if (src === screen) return screenCopy();
-    let w, h, kind = 0, key = null;      // kind: 0 estática, 1 lienzo 2D (con versión), 2 cambia cada fotograma (WebGL, vídeo)
+    // Lo de siempre (la misma imagen o el mismo lienzo sin cambios): directo. Los cambios suben su versión (__v): un lienzo
+    // 2D al dibujar en él o cambiar de tamaño, una imagen al cambiar de dirección (ver patch).
+    const e0 = src.__gle;
+    if (e0 && e0.gen === gen && e0.kind !== 2 && e0.ver === (src.__v | 0) && (!e0.page || e0.page.epoch === e0.epoch)) return e0;
+    let w, h, kind = 0, key = null;      // kind: 0 imagen, 1 lienzo 2D, 2 cambia cada fotograma (WebGL, vídeo)
     if (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) {
       if (!src.complete || !src.naturalWidth) return null;
       w = src.naturalWidth; h = src.naturalHeight; key = src.currentSrc || src.src;
@@ -309,8 +312,8 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
       kind = src.__ctxType && src.__ctxType !== '2d' ? 2 : (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap ? 0 : 1);
     } else return null;
     if (!w || !h) return null;
-    let e = texOf.get(src);
-    const ver = kind === 1 ? (src.__v | 0) : kind === 2 ? frameId : 0;
+    let e = src.__gle;
+    const ver = kind === 2 ? frameId : (src.__v | 0);
     if (e && e.gen === gen && e.w === w && e.h === h && e.ver === ver && e.key === key && (!e.page || e.page.epoch === e.epoch)) return e;
     if (w > MAXT || h > MAXT) { warn('big', 'imagen más grande que la GPU (' + w + '×' + h + '): no se dibuja'); return null; }
     draw();                              // (lo pendiente puede usar lo de antes de esta textura)
@@ -319,10 +322,10 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
     const small = kind !== 2 && w <= IA.MAXS && h <= IA.MAXS;
     if (!e || e.gen !== gen || (e.page && e.page.epoch !== e.epoch) || (small && (!e.page || e.w !== w || e.h !== h)) || (!small && e.page)) {
       if (e && !e.page && e.gen === gen && e.tex) gl.deleteTexture(e.tex);
-      e = { tex: null, w: 0, h: 0, ver: -1, gen, flip: false, key: null, ox: 0, oy: 0, page: null, epoch: 0 };
+      e = { tex: null, w: 0, h: 0, ver: -1, gen, flip: false, key: null, ox: 0, oy: 0, page: null, epoch: 0, kind };
       if (small) { const at = IA.alloc(w, h); e.page = at[0]; e.epoch = at[0].epoch; e.tex = at[0].tex; e.ox = at[1]; e.oy = at[2]; }
-      else { e.tex = newTex(); if (!texOf.has(src)) fin(src, e); }
-      texOf.set(src, e);
+      else { e.tex = newTex(); fin(src, e); }
+      try { src.__gle = e; } catch (er) { /* (no admite propiedades: se sube cada vez) */ }
     }
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex);
     try {
@@ -401,14 +404,14 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
         this.lw = 1; this.cap = 'butt'; this.join = 'miter'; this.miter = 10; this.dash = null; this.dashOff = 0;
         this.font = '10px sans-serif'; this.align = 'start'; this.base = 'alphabetic'; this.smooth = true; this.smoothQ = 'low';
         this.filter = 'none'; this.sBlur = 0; this.sColor = 'rgba(0, 0, 0, 0)'; this.sX = 0; this.sY = 0; this.dir = 'inherit';
-        this.ls = '0px'; this.clip = 0; this.sc = 0; this._v = 0;
+        this.ls = '0px'; this.clip = 0; this.sc = 0; this._sig = {};
         return;
       }
       this.m = o.m.slice(); this.alpha = o.alpha; this.comp = o.comp; this.fill = o.fill; this.stroke = o.stroke;
       this.lw = o.lw; this.cap = o.cap; this.join = o.join; this.miter = o.miter; this.dash = o.dash; this.dashOff = o.dashOff;
       this.font = o.font; this.align = o.align; this.base = o.base; this.smooth = o.smooth; this.smoothQ = o.smoothQ;
       this.filter = o.filter; this.sBlur = o.sBlur; this.sColor = o.sColor; this.sX = o.sX; this.sY = o.sY; this.dir = o.dir;
-      this.ls = o.ls; this.clip = o.clip; this.sc = 0; this._v = 0;
+      this.ls = o.ls; this.clip = o.clip; this.sc = 0; this._sig = o._sig;     // (copia: la misma firma hasta que algo cambie)
     }
   }
   const PROPS = { globalAlpha: 'alpha', globalCompositeOperation: 'comp', fillStyle: 'fill', strokeStyle: 'stroke', lineWidth: 'lw',
@@ -421,8 +424,8 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
   const NAME = {};
   for (const p in PROPS) NAME[PROPS[p]] = p;
   function syncTo(s, sx, cache) {
-    if (cache.__s === s && cache.__v === s._v) return;      // (nada ha cambiado desde la última vez)
-    cache.__s = s; cache.__v = s._v;
+    if (cache.__sig === s._sig) return;      // (nada ha cambiado desde la última vez: la misma firma)
+    cache.__sig = s._sig;
     for (let i = 0; i < SYNC.length; i++) {
       const p = SYNC[i], v = s[p];
       if (cache[p] !== v) { sx[NAME[p]] = v; cache[p] = v; }
@@ -488,7 +491,7 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
     translate(x, y) { const m = this.s.m; this._mv++; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
     scale(x, y) { const m = this.s.m; this._mv++; m[0] *= x; m[1] *= x; m[2] *= y; m[3] *= y; }
     rotate(r) { const c = Math.cos(r), s = Math.sin(r); this.transform(c, s, -s, c, 0, 0); }
-    setLineDash(d) { this.s.dash = d && d.length ? d.slice() : null; this.s._v++; }
+    setLineDash(d) { this.s.dash = d && d.length ? d.slice() : null; this.s._sig = {}; }
     getLineDash() { return this.s.dash ? this.s.dash.slice() : []; }
 
     // ---- nativo ----
@@ -949,22 +952,23 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
   }
   const IDENT = [1, 0, 0, 1, 0, 0];
   Ctx.prototype.__gl2d = true;
+  // Las propiedades, cada una con su comprobación (como el Canvas 2D: un valor no válido se ignora).
+  const num = (v, ok) => { v = +v; return ok(v) ? v : undefined; };
+  const CHECK = {
+    alpha: v => num(v, x => x >= 0 && x <= 1), lw: v => num(v, x => x > 0 && isFinite(x)), miter: v => num(v, x => x > 0 && isFinite(x)),
+    sBlur: v => num(v, x => x >= 0 && isFinite(x)), sX: v => num(v, isFinite), sY: v => num(v, isFinite), dashOff: v => num(v, isFinite),
+    smooth: v => !!v,
+    comp: v => { v = String(v); return BLEND[v] || /^(source|destination)-|^(xor|darken|lighten|overlay|color|hue|saturation|luminosity|difference|exclusion|hard-light|soft-light)/.test(v) ? v : undefined; },
+  };
   for (const p in PROPS) {
-    const k = PROPS[p];
+    const k = PROPS[p], chk = CHECK[k];
     Object.defineProperty(Ctx.prototype, p, { configurable: true,
       get() { return this.s[k]; },
-      set(v) {
-        const s = this.s;
-        if (k === 'alpha') { v = +v; if (!(v >= 0 && v <= 1)) return; }
-        else if (k === 'lw' || k === 'miter') { v = +v; if (!(v > 0) || !isFinite(v)) return; }
-        else if (k === 'sBlur') { v = +v; if (!(v >= 0) || !isFinite(v)) return; }
-        else if (k === 'sX' || k === 'sY' || k === 'dashOff') { v = +v; if (!isFinite(v)) return; }
-        else if (k === 'smooth') v = !!v;
-        else if (k === 'comp') { v = String(v); if (!BLEND[v] && !/^(source|destination)-|^(xor|darken|lighten|overlay|color|hue|saturation|luminosity|difference|exclusion|hard-light|soft-light)/.test(v)) return; }
-        if (s[k] !== v) { s[k] = v; s._v++; }
-      }
+      set: chk ? function (v) { v = chk(v); const s = this.s; if (v !== undefined && s[k] !== v) { s[k] = v; s._sig = {}; } }
+               : function (v) { const s = this.s; if (s[k] !== v) { s[k] = v; s._sig = {}; } },
     });
   }
+
 
   // ---------------- lienzos aparte en la GPU (capas) ----------------
   class Layer {
@@ -1022,6 +1026,11 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
       const di = p.drawImage;
       // (Leer el lienzo de la pantalla desde un 2D, como el bloom de Máxima: antes, lo pendiente a la GPU.)
       p.drawImage = function (src) { bump(this.canvas); if (src === screen && gl) flushAll(); return di.apply(this, arguments); };
+    }
+    // (Una imagen que cambia de dirección es otra imagen: sube su versión.)
+    if (window.HTMLImageElement) {
+      const ip = HTMLImageElement.prototype, d = Object.getOwnPropertyDescriptor(ip, 'src');
+      if (d && d.set) Object.defineProperty(ip, 'src', { configurable: true, enumerable: d.enumerable, get: d.get, set(v) { bump(this); d.set.call(this, v); } });
     }
     for (const C of [window.HTMLCanvasElement, window.OffscreenCanvas]) {
       if (!C) continue;
