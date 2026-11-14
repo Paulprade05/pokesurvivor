@@ -439,10 +439,11 @@ G.Props3D = (() => {
   /** La flora de ambient.js (fila de flora.png) que va en 3D: 4 seta que brilla, 5 cristal (el helecho, como la hierba, en 2D). */
   const FLORA = { 4: 'fshroom', 5: 'fcrystal' };
 
-  /** Suelta todo menos el bioma keep (al perder el contexto: gone, sin dispose: ya no existe en la GPU). */
+  /** Suelta todo menos el bioma (o los biomas) keep (al perder el contexto: gone, sin dispose: ya no existe en la GPU). */
   function free(gone = false, keep = -1) {
+    const ks = Array.isArray(keep) ? keep : [keep];
     for (const [bi, k] of [...kits]) {
-      if (bi === keep) continue;
+      if (ks.includes(bi)) continue;
       if (!gone) {
         for (const o of k.geos.values()) { o.g.dispose(); if (o.hg) o.hg.dispose(); }
         if (k.mat.map) k.mat.map.dispose();

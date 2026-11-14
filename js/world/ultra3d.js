@@ -64,6 +64,13 @@ G.Ultra3D = (() => {
   const uni = { time: { value: 0 } };                      // (el viento de los modelos)
   const kinds = new Map();                                 // "bi:modelo" -> { im, ih, cap, n, used }
   const ins = new Map();                                   // id -> { key, x, y, z, a, s, c, w, h, cast } a la vista este fotograma
+  /*
+   * (14-11-2026, la sesión de rendimiento: al llegar a la arena, fotogramas de 190-350 ms haciendo atlas y modelos) Lo 3D de un
+   * bioma nuevo se hace repartido: en el túnel de la grieta (lo tapa todo), con tope de BUILD_MS por fotograma; el bioma
+   * siguiente del mundo se va preparando antes, con WARM_MS; y se guardan los 3 últimos biomas (volver de la arena, sin rehacer).
+   */
+  const BUILD_MS = 6, WARM_MS = 2;
+  let buildUntil = Infinity, recent = [], warmT = 0;
   let atCap = 0, allIns = [], rockAll = [], insSig = 0, floraOn = false, okAt = -1e9;
 
   /*
@@ -394,7 +401,7 @@ G.Ultra3D = (() => {
         const inner = at(tx - 1, ty) === 1 && at(tx + 1, ty) === 1 && at(tx, ty - 1) === 1 && at(tx, ty + 1) === 1;
         const key = bi + (inner ? ':wallI' + ((H(tx, ty, 74) * 2) | 0) : ':wall' + ((H(tx, ty, 74) * 4) | 0));
         const k = kindOf(key);
-        if (!k) continue;
+        if (!k) { e.partial = true; continue; }                          // (a medias por el tope de tiempo: se rehace)
         row.inst.push({ id: 'w' + tx + ',' + ty, key, x: tx * TS + TS / 2 + (h1 - 0.5) * 5, y: ty * TS + TS / 2 + (h2 - 0.5) * 5, z: 0,
           a: h3 * 6.2832, s: 0.96 + h1 * 0.1, c: 0.9 + h2 * 0.14, w: k.w, h: k.h });
       }
@@ -698,6 +705,8 @@ G.Ultra3D = (() => {
   function kindOf(key) {
     let k = kinds.get(key);
     if (k) return k;
+    // (Tope de tiempo: en el túnel de la grieta y al preparar el bioma siguiente, como mucho unos ms por fotograma.)
+    if (performance.now() > buildUntil) return null;
     const i = key.indexOf(':'), bi = +key.slice(0, i), name = key.slice(i + 1), fade = name.endsWith('~'), base = fade ? name.slice(0, -1) : name;
     let o = null;
     if (base.startsWith('rock')) {
@@ -840,14 +849,16 @@ G.Ultra3D = (() => {
       // Sombras y contornos, del tono oscuro del mapa y no negros.
       const edge = G.Tileset.pal(bi).edge;
       plane.material.color.set(edge); shared.hullMat.color.set(edge);
-      // (Otro bioma: los modelos del de antes, fuera.)
-      for (const key of [...kinds.keys()]) if (!key.startsWith(bi + ':')) dropKind(key);
-      if (G.Props3D) G.Props3D.free(false, bi);
-      tinted = bi;
+      // (Otro bioma: se guardan los modelos de los 3 últimos; los demás, fuera.)
+      recent = [bi, ...recent.filter(b => b !== bi)].slice(0, 3);
+      for (const key of [...kinds.keys()]) if (!recent.includes(+key.slice(0, key.indexOf(':')))) dropKind(key);
+      if (G.Props3D) G.Props3D.free(false, recent);
+      tinted = bi; warmT = 0;
     }
     frame++;
     floraOn = false;
     glowSeen = [];
+    buildUntil = G.Rift && G.Rift.traveling ? performance.now() + BUILD_MS : Infinity;
     // Tamaño del lienzo 3D (y como mucho 4096 de lado: memoria de lienzos).
     KL = scaleFor(Kd, Wd, Hd);
     const lim = mob ? 1024 : 4096;
@@ -887,7 +898,7 @@ G.Ultra3D = (() => {
     for (let cy = r0; cy <= r1 && walls; cy++) for (let cx = c0; cx <= c1; cx++) {
       const k = cx + ',' + cy;
       let e = chunks.get(k);
-      if (e && (e.bi !== bi || e.c !== W.chunk(cx, cy) || !!e.rock !== rocky)) { dropChunk(k); e = null; }
+      if (e && (e.bi !== bi || e.c !== W.chunk(cx, cy) || !!e.rock !== rocky || e.partial)) { dropChunk(k); e = null; }
       if (!e && rocky) { e = rockChunk(cx, cy, bi); chunks.set(k, e); shadowDirty = true; nBuilt++; }
       if (!e) {
         // Los del margen, como mucho 2 por fotograma (se hacen antes de verse); los que ya se ven, al momento.
@@ -942,7 +953,27 @@ G.Ultra3D = (() => {
     plane.updateMatrix(); plane.updateMatrixWorld(true);
     if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
     floraOn = true; okAt = performance.now();
+    warmNext(bi);
     return true;
+  }
+
+  /** Prepara poco a poco (WARM_MS por fotograma) los modelos del bioma siguiente del mundo, tras un rato en este. */
+  function warmNext(bi) {
+    if (!G.Props3D || (G.Rift && (G.Rift.traveling || G.Rift.inArena)) || (warmT += 1) < 600) return;
+    const n = G.Tiles.BIOMES.length, nb = (bi + 1) % n;
+    if (nb >= (G.Tiles.ARENA || 3) || recent.includes(nb) && warmT > 4000) return;
+    const keys = warmKeys(nb);
+    buildUntil = performance.now() + WARM_MS;
+    for (const k of keys) { if (performance.now() > buildUntil) break; if (!kinds.has(nb + ':' + k)) kindOf(nb + ':' + k); }
+    buildUntil = Infinity;
+    if (keys.every(k => kinds.has(nb + ':' + k))) { if (!recent.includes(nb)) recent = [...recent.slice(0, 2), nb]; warmT = 4001; }
+  }
+  /** Los modelos de un bioma (para prepararlos antes). */
+  function warmKeys(bi) {
+    const P3 = G.Props3D, out = ['rock0', 'rock1', 'rock0x', 'rock1x', 'altar0', 'altar1', 'altar2', 'altar3', 'altarU', 'spring', 'springD', 'boom', 'fshroom', 'fcrystal'];
+    for (const look of [0, 1]) { const k = P3.keyOf({ type: 'tree', look }, bi); if (k && !out.includes(k)) out.push(k); }
+    if (rockWalls()) out.push('wall0', 'wall1', 'wall2', 'wall3', 'wallI0', 'wallI1');
+    return out;
   }
 
   /** Las filas de pared a la vista, para el orden por Y de game.js: { y, u3row }. */
