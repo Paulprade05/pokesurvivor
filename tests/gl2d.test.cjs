@@ -53,8 +53,8 @@ test('se carga después de los ajustes y antes del juego, y la fila de Ajustes e
 test('shader: «lighter» en el mismo lote y el 3D de three.js pasado a sRGB', () => {
   const src = read('js/core/gl2d.js');
   assert.match(src, /void main\(\) \{ shade\(\); if \(vR == 1 && o\.a > 0\.0\) o\.rgb = srgb\(clamp\(o\.rgb \/ o\.a, 0\.0, 1\.0\)\) \* o\.a; if \(vR == 2\) o = vec4\(o\.a\); if \(vA == 1\) o\.a = 0\.0; \}/);
-  // («lighter» con alfa 0 sólo sobre la pantalla, que es opaca; en una capa transparente no daría lo mismo.)
-  assert.match(src, /if \(this\.s\.comp === 'lighter' && !t\) \{ setBlend\('source-over'\); addQ = 1; \}/);
+  // («lighter» con alfa 0 en el mismo lote, también en las capas: decisión del dueño, 14-11-2026.)
+  assert.match(src, /if \(this\.s\.comp === 'lighter'\) \{ setBlend\('source-over'\); addQ = 1; \}/);
   const u3 = read('js/world/ultra3d.js');
   assert.match(u3, /type: T\.HalfFloatType/);
   assert.match(u3, /linear: true/);

@@ -636,8 +636,11 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
       if (open && open !== this) open._close();
       bindTarget(t);
       if (open === this) this._close();
-      // (En la pantalla, que es opaca, «lighter» va en el mismo lote que lo normal; en una capa transparente, aparte.)
-      if (this.s.comp === 'lighter' && !t) { setBlend('source-over'); addQ = 1; }
+      // «lighter» va en el mismo lote que lo normal (alfa 0 premultiplicado con source-over = suma). En la pantalla, que es opaca,
+      // da lo mismo que el Canvas 2D. En una capa transparente (el aire con perspectiva de Ultra y Máxima) los brillos salen algo
+      // más claros, porque la capa no se queda con su alfa: lo eligió el dueño (14-11-2026) a cambio de ~100 lotes menos y ~1,7 ms
+      // menos de GPU en la horda.
+      if (this.s.comp === 'lighter') { setBlend('source-over'); addQ = 1; }
       else { setBlend(this.s.comp); addQ = 0; }
       return true;
     }

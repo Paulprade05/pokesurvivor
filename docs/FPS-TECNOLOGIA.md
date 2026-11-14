@@ -236,3 +236,16 @@ Sin tope (sólo orientativo, Chrome sin ventana): horda en Alta, 94 FPS con WebG
 - Sin pantalla de 120 Hz de verdad no se puede confirmar (Chrome sin ventana no las imita bien).
 
 Equilibrio: idéntico byte a byte. Píxeles: 0,02-0,46 % en 5 escenas × 3 calidades. Tests: 319/319.
+
+## Brillos («lighter») en la capa del aire: truco de alfa 0 también ahí (elegido por el dueño, 14-11-2026)
+En Ultra y Máxima, el aire con perspectiva va en una capa transparente y alternaba lotes normales y «lighter» (~110 llamadas por
+fotograma). Ahora va todo en el mismo lote. Los brillos salen algo más claros que con el Canvas 2D (la capa no guarda su alfa).
+
+| calidad | escena | llamadas | GPU real | JS media / p95 | píxeles distintos |
+|---|---|---|---|---|---|
+| Ultra | horda al tope | ~110 → 13,5 | 5,7 ms | 5,1 / 7,6 ms | 0,80 % |
+| Máxima | horda al tope | ~115 → 22 | 6,7 ms | 5,9 / 9,0 ms | 0,73 % |
+| Máxima | arena | → 17,6 | 7,0 ms | 3,4 / 5,2 ms | 0,17 % |
+| Máxima | jefe | | | | 0,80 % |
+
+Con esto, en Máxima la GPU de la horda ya cabe en los 8,3 ms de 120 Hz.
