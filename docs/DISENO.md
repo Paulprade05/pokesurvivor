@@ -438,6 +438,15 @@ Reglas:
 
 ---
 
+## 14b. La pausa: mesa de combinaciones (14-11-2026)
+
+`run-ui.js pauseSummary`, CSS `.pz-*`. Pedido del dueño: ver de un vistazo ataques, pasivas, qué evoluciona con qué, el daño y las estadísticas.
+- **Izquierda, «Ataques y evoluciones»**: una fila por hueco (`.pz-row`): medallón del ataque (con el vínculo, `+N`), nivel con rombos, daño (total, % y por segundo, con su barra) y, unida con una flecha de corteza (`.pz-link`), la pasiva que pide con su nivel y lo que falta (`.pz-st`). Flecha verde: la pasiva ya llega; dorada y fila dorada: lista para evolucionar. Huecos libres, punteados.
+- **Derecha**: pasivas (las que usa un ataque tuyo, con borde verde), tu Pokémon (todas las estadísticas, también recogida y experiencia), objeto y Z o megaevolución.
+- **Rejilla, nunca columnas CSS** (`column-count`, `column-span`): en WebKit las tarjetas se montaban (lo vigila `tests/pausa.test.cjs`).
+- Tableta y ventana estrecha: la mesa arriba y el resto debajo. Móvil de pie: una columna y la pasiva debajo de su ataque. Móvil tumbado: dos columnas más bajas.
+- Sin sonido: el volumen está en Ajustes (botón de la propia pausa).
+
 ## 15. Piezas ya hechas (para copiar)
 
 - **Pantalla de carga** (`#boot`, `#tap-start`): logotipo `.wordmark` + Poké Ball que gira (`.boot-ld::before`).

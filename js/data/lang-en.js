@@ -2591,3 +2591,25 @@ G.I18n.add({
   "El juego como programa de PC. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».": "The game as a PC program. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”.",
   "Descargar": "Download"
 });
+
+// Pausa «mesa de combinaciones» (13-11-2026, run-ui.js pauseSummary)
+G.I18n.add({
+  "Ataques y evoluciones": "Moves and evolutions",
+  "Tu Pokémon": "Your Pokémon",
+  "Hueco de ataque libre": "Free move slot",
+  "Ya evolucionó": "Already evolved",
+  "Evolucionado": "Evolved",
+  "¡Lista! Sale al subir de nivel": "Ready! It shows up when you level up",
+  "Sin hueco para {x}": "No slot left for {x}",
+  "ataque a Nv. {x}": "move to Lv. {x}",
+  "pasiva a Nv. {x}": "passive to Lv. {x}",
+  "Falta: {x}": "Missing: {x}",
+  "{x} y {x}": "{x} and {x}",
+  "no hace daño": "deals no damage",
+  "Evoluciona: {x}": "Evolves: {x}",
+  "Puede evolucionar {x} ataque que no llevas": "Can evolve {x} move you don't have",
+  "Puede evolucionar {x} ataques que no llevas": "Can evolve {x} moves you don't have",
+  "No evoluciona ninguno de tus ataques": "Evolves none of your moves",
+  "Recogida": "Pickup",
+  "Experiencia": "Experience"
+});

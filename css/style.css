@@ -5121,7 +5121,6 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
 .pause-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(300px, calc(50% - 7px))), 1fr)); column-gap: 14px; align-items: start; }
 #pause-sum { display: contents; }
 .ps-card {
-  -webkit-column-break-inside: avoid; break-inside: avoid;
   margin: 0 0 14px; padding: 14px;
   border-radius: var(--rad-l); background: rgba(1, 6, 3, .35); border: 0; box-shadow: 0 0 0 1.5px var(--line-2), inset 0 2px 8px rgba(0, 0, 0, .4);
 }
@@ -5151,8 +5150,139 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
 }
 .own-card b { flex: 1; min-width: 0; font: 600 14px/1.2 var(--font-display); overflow-wrap: anywhere; }
 .own-card .badge { flex: none; }
-#pause-sound { max-width: none; margin: 0; }
-#pause-sound .snd-row { grid-template-columns: 22px minmax(64px, auto) minmax(0, 1fr); }
+
+/* ---- Pausa: mesa de combinaciones (13-11-2026, run-ui.js pauseSummary) ----
+ * Rejilla de 2 columnas: a la izquierda «Ataques y evoluciones» (una fila por hueco: el
+ * ataque, su nivel con rombos, su daño y, unida con una flecha, la pasiva que pide); a la
+ * derecha tu Pokémon, tus pasivas, el objeto y el Z. De pie (estrecho), una columna. Nada de
+ * columnas CSS: en WebKit las tarjetas se montaban unas encima de otras. */
+.pause-cols.pz-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
+.pz-side { display: grid; gap: 12px; min-width: 0; }
+.pz-side > .ps-card, .pz-atk { margin: 0; }
+.pz-card > h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 10px; font-size: var(--fs-l); line-height: 1.2; }
+.pz-card > h3 > small { font: 700 var(--fs-s)/1.2 var(--font); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pz-legend { margin-left: auto; font: 500 var(--fs-xs)/1.2 var(--font); color: var(--muted); text-shadow: none; }
+.pz-mon { margin-left: auto; text-shadow: none; }
+/* Medallón (ataque, pasiva): baldosa redonda con el color del tipo y aro de corteza. */
+.pz-med { --tc: #3f7a4a; position: relative; flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--tc) 48%, transparent), rgba(1, 6, 3, .6) 72%);
+  box-shadow: 0 0 0 2.5px var(--bark), 0 0 0 4px var(--bark-ink), inset 0 1px 0 rgba(168, 122, 72, .45); }
+.pz-med > img { display: block; image-rendering: pixelated; }
+.pz-med.s { width: 44px; height: 44px; }
+.pz-med.blue { --tc: #1d6b5e; } .pz-med.purple { --tc: #7a4fd0; }
+.pz-med.has { box-shadow: 0 0 0 2.5px var(--c-yellow), 0 0 0 4px var(--bark-ink), 0 0 10px rgba(var(--hl-rgb), .4); }
+.pz-med.ready { box-shadow: 0 0 0 2.5px #ffd86b, 0 0 0 4px var(--bark-ink), 0 0 12px rgba(255, 216, 107, .55); }
+.pz-med.empty { background: rgba(1, 6, 3, .35); box-shadow: none; border: 2px dashed rgba(200, 160, 110, .4); }
+.pz-n, .pz-bond { position: absolute; z-index: 1; min-width: 24px; padding: 0 5px; border-radius: 9px; text-align: center; white-space: nowrap;
+  font: 700 12px/18px var(--font); font-variant-numeric: tabular-nums; background: #0b170e; color: var(--ink); box-shadow: 0 0 0 1.5px var(--bark-hi); }
+.pz-n { right: -8px; bottom: -5px; }
+.pz-n.max { color: var(--c-yellow); box-shadow: 0 0 0 1.5px var(--c-yellow); }
+.pz-bond { left: -6px; top: -5px; background: #3a1a35; color: var(--bond); box-shadow: 0 0 0 1.5px var(--bond); }
+.pz-pips { display: inline-flex; flex-wrap: wrap; gap: 3px; vertical-align: middle; }
+.pz-pips > i { width: 8px; height: 8px; transform: rotate(45deg); background: rgba(0, 0, 0, .55); box-shadow: 0 0 0 1px rgba(200, 160, 110, .45); }
+.pz-pips > i.on { background: var(--pc); box-shadow: 0 0 0 1px var(--bark-ink), 0 0 5px color-mix(in srgb, var(--pc) 60%, transparent); }
+/* Filas de ataque: medallón · nombre, nivel y daño · flecha · pasiva que pide y lo que falta. */
+.pz-rows { display: flex; flex-direction: column; gap: 8px; }
+.pz-row { display: grid; grid-template-columns: 56px minmax(0, 1.15fr) 30px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 76px;
+  padding: 8px 12px 8px 10px; border-radius: var(--rad-m); background: var(--card-bg); box-shadow: var(--bark-edge); }
+.pz-row.ready { box-shadow: 0 0 0 2px #ffd86b, 0 0 0 3.5px var(--bark-ink), 0 0 14px rgba(255, 216, 107, .3); }
+.pz-row.empty { display: flex; min-height: 64px; opacity: .6; background: rgba(1, 6, 3, .3); box-shadow: 0 0 0 1.5px var(--line-1); }
+.pz-free { color: var(--muted); font-size: var(--fs-s); }
+.pz-info { min-width: 0; }
+.pz-name { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; }
+.pz-name > b { font: 700 19px/1.1 var(--font-display); color: var(--title-ink); }
+.pz-also { font: 700 14px/1.1 var(--font-display); color: var(--bond); }
+.pz-tag { padding: 0 7px; border-radius: 8px; font: 700 11px/1.5 var(--font); }
+.pz-tag.bond { background: #3a1a35; color: var(--bond); }
+.pz-tag.evo { background: #3a2e10; color: #ffd86b; }
+.pz-lv { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; margin-top: 3px; font: 700 13px/1.2 var(--font); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pz-dmg { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: 8px; margin-top: 4px; }
+.pz-dmg > b { font: 700 18px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.pz-dmg > small { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.pz-bar { grid-column: 1 / -1; display: block; height: 5px; margin-top: 5px; border-radius: 3px; background: rgba(0, 0, 0, .5); overflow: hidden; }
+.pz-bar > i { display: block; height: 100%; border-radius: inherit; }
+/* La flecha de corteza que une el ataque con su pasiva: verde si ya la llevas al nivel; dorada si está lista. */
+.pz-link { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--bark), var(--bark-hi)); box-shadow: 0 0 0 1.5px var(--bark-ink); }
+.pz-link::after { content: ''; position: absolute; right: -3px; top: 50%; width: 10px; height: 10px; transform: translateY(-50%) rotate(45deg); background: var(--bark-hi); box-shadow: 0 0 0 1.5px var(--bark-ink); }
+.pz-link.has { background: linear-gradient(90deg, #3f9a3a, #b9f07a); }
+.pz-link.has::after { background: #b9f07a; }
+.pz-link.ready { background: linear-gradient(90deg, #c08a2a, #ffd86b); box-shadow: 0 0 0 1.5px var(--bark-ink), 0 0 10px rgba(255, 216, 107, .6); }
+.pz-link.ready::after { background: #ffd86b; }
+.pz-link.none { visibility: hidden; }
+.pz-need { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.pz-nt { min-width: 0; }
+.pz-nt > b { display: block; font: 700 16px/1.15 var(--font-display); }
+.pz-st { display: block; margin-top: 2px; font: 500 13px/1.3 var(--font); color: var(--muted); }
+.pz-st.ready { color: #ffd86b; font-weight: 700; }
+.pz-st.blocked { color: var(--err); }
+.pz-st.done { color: #ffd86b; }
+.pz-st.none { opacity: .75; }
+.pz-into { display: block; color: var(--faint); font-size: 12px; line-height: 1.25; }
+/* Tu Pokémon: filas de dos en dos. */
+.pz-sgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.pz-st-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 36px; padding: 2px 0; border-bottom: 1px solid rgba(200, 160, 110, .12); }
+.pz-si { display: grid; place-items: center; line-height: 0; }
+.pz-si > img { image-rendering: pixelated; }
+.pz-sl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 14px/1.2 var(--font); color: var(--muted); }
+.pz-st-row > b { text-align: right; font: 700 15px/1.1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pz-st-row > b > small { display: block; font: 500 11px/1.2 var(--font); color: var(--muted); }
+/* Pasivas: medallón con su nivel, nombre, rombos y lo que evolucionan (las que usa uno de tus ataques, con borde verde). */
+.pz-plist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pz-pas { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 7px 10px 7px 8px; border-radius: var(--rad-m); background: var(--card-bg); box-shadow: var(--bark-edge); }
+.pz-pas.linked { box-shadow: 0 0 0 2px #3f9a3a, 0 0 0 3.5px var(--bark-ink); }
+.pz-pas.empty { opacity: .55; background: rgba(1, 6, 3, .3); box-shadow: 0 0 0 1.5px var(--line-1); }
+.pz-pas.empty > small { color: var(--muted); }
+.pz-pt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pz-pt > b { font: 700 15px/1.1 var(--font-display); }
+.pz-pt .pz-pips > i { width: 6px; height: 6px; }
+.pz-pt > small { color: var(--muted); font-size: 12px; line-height: 1.25; }
+/* Tableta y ventana estrecha: la mesa arriba y lo demás debajo, en dos columnas. */
+@media (max-width: 980px) and (min-height: 521px) {
+  .pause-cols.pz-grid { grid-template-columns: minmax(0, 1fr); }
+  .pz-side { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+}
+/* Móvil de pie: todo en una columna y filas más bajas; la pasiva que pide, debajo del ataque. */
+@media (max-width: 599px) and (min-height: 521px) {
+  .pz-row { grid-template-columns: 48px minmax(0, 1fr); row-gap: 6px; }
+  .pz-row > .pz-link { display: none; }
+  .pz-row > .pz-need { grid-column: 2; padding-top: 6px; border-top: 1px solid rgba(200, 160, 110, .14); }
+  .pz-med { width: 48px; height: 48px; }
+  .pz-plist { grid-template-columns: minmax(0, 1fr); }
+  .pz-legend { display: none; }
+}
+/* Móvil tumbado: las dos columnas siguen; todo más bajo para que quepan los 4 ataques a la vista. */
+@media (max-height: 520px) {
+  .pause-cols.pz-grid { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 8px; }
+  .pz-side { gap: 8px; }
+  .pz-card > h3 { margin-bottom: 6px; font-size: var(--fs-m); }
+  .pz-legend { display: none; }
+  .pz-rows { gap: 6px; }
+  .pz-row { grid-template-columns: 44px minmax(0, 1.1fr) 18px minmax(0, 1fr); gap: 6px; min-height: 60px; padding: 5px 8px 5px 6px; }
+  .pz-med { width: 44px; height: 44px; }
+  .pz-med.s { width: 36px; height: 36px; }
+  .pz-med > img, .pz-si > img { width: 26px; height: 26px; }
+  .pz-name > b { font-size: 16px; }
+  .pz-lv { margin-top: 1px; font-size: 12px; }
+  .pz-pips > i { width: 6px; height: 6px; }
+  .pz-dmg { margin-top: 2px; }
+  .pz-dmg > b { font-size: 15px; }
+  .pz-dmg > small { font-size: 12px; }
+  .pz-bar { height: 4px; margin-top: 3px; }
+  .pz-link::after { width: 8px; height: 8px; }
+  .pz-need { gap: 12px; }
+  .pz-st-row > b > small { display: inline; margin-left: 4px; }
+  .pz-nt > b { font-size: 14px; }
+  .pz-st { font-size: 12px; }
+  .pz-into { display: none; }
+  .pz-sgrid { grid-template-columns: minmax(0, 1fr); }
+  .pz-st-row { min-height: 28px; grid-template-columns: 26px minmax(0, 1fr) auto; }
+  .pz-sl { font-size: 13px; }
+  .pz-st-row > b { font-size: 14px; }
+  .pz-plist { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .pz-pas { padding: 4px 8px 4px 6px; gap: 10px; }
+  .pz-pt > b { font-size: 14px; }
+  .pz-pt > small { font-size: 11.5px; }
+}
 
 /* ---- Huecos (24-10-2026, run-ui.js slotsHtml): como en Vampire Survivors ----
    Arriba de la pausa, tus 4 huecos de ataque, tus 4 de pasiva y el objeto, cada uno
@@ -5298,7 +5428,6 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   .own-card > .ico-tile { --tile: 28px; border-radius: 8px; }
   .own-card b { font-size: 12.5px; }
   .own-card .badge { min-height: 16px; padding: 0 6px; }
-  #pause-sound .snd-row { row-gap: 0; }
 }
 /* De pie: las estadísticas en tres columnas (en 375 caben 3 de unos 105 px): el
    icono, a 20, junto a su nombre y la cifra debajo, a todo el ancho. */
@@ -5588,9 +5717,6 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
 body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) :is(.chip, .seg button) { min-height: var(--tap); }
 body.touch :is(#scr-levelup, #scr-item, #scr-bond, #scr-pause, #scr-over, #scr-layout) .btn.small {
   padding-top: calc(var(--tap) / 2 - 11px); padding-bottom: calc(var(--tap) / 2 - 11px); line-height: 20px; }
-body.touch #pause-sound input[type=range] { height: 44px; background: linear-gradient(transparent 18px, var(--sunk) 18px 26px, transparent 26px); }
-body.touch #pause-sound input[type=range]::-webkit-slider-thumb { width: 26px; height: 26px; }
-body.touch #pause-sound input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
 
 /* -- iconos y evoluciones (23-10-2026) --
  * Con qué evoluciona cada ataque, siempre a la vista (run-ui.js): en las cartas

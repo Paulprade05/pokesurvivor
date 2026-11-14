@@ -146,13 +146,14 @@ G.EnemyAI = (() => {
     //  de ti (no esperando en el corro de alrededor) y sin nada que lo pare (raíces, arenas...), se le saca como a uno
     //  atascado. Nunca a los jefes (se plantan a lanzar sus ataques).
     const P = e.aiP || (e.aiP = { x: e.x, y: e.y, t: 0 });
-    const waiting = dist < 150 && (e.pathV == null || e.pathV <= 15);
+    // (13-11-2026) e.pathShore: estás en un lago en el que no puede entrar y espera en la orilla (pathing.js dirFor).
+    const waiting = (dist < 150 && (e.pathV == null || e.pathV <= 15)) || e.pathShore;
     if (e.boss || touching || holding || e.noClip || waiting || spd < 8 || (e.sts && (e.sts.root || e.sts.sink)) ||
         Math.abs(e.x - P.x) + Math.abs(e.y - P.y) > TS * 0.75) { P.x = e.x; P.y = e.y; P.t = 0; }
     else if ((P.t += dt) > HARD) { P.x = e.x; P.y = e.y; P.t = 0; unstick(e, pl); return; }
     const m = e.pathV != null ? e.pathV / 5 * TS : dist;
     let w = e.aiW;
-    if (!w || touching || holding || e.noClip) { e.aiW = { t: 0, m, x: e.x, y: e.y, hit: false }; e.aiStuckT = 0; return; }
+    if (!w || touching || holding || e.noClip || e.pathShore) { e.aiW = { t: 0, m, x: e.x, y: e.y, hit: false }; e.aiStuckT = 0; return; }
     w.t += dt;
     if (n) w.hit = true;
     if (m < w.m - TS * 0.3) { w.t = 0; w.m = m; w.x = e.x; w.y = e.y; e.aiStuckT = 0; return; }

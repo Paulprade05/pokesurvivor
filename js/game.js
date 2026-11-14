@@ -1512,26 +1512,24 @@ G.Game = (() => {
         P[0] = sx; P[1] = sy; P[2] = k; P[3] = ky; P[4] = fx; P[5] = fy;
         return P;
       };
-      // (Ultra 3D) Lo 3D va por lotes en el orden por Y: un lote acaba justo antes de lo 2D que se le cruza en la pantalla
-      //  (it.u3flush: se dibuja ahí). Todos se dibujan antes en el lienzo 3D, juntos (ultra3d.js), y luego se pegan.
-      let last = null;
+      // (14-11-2026) Los lotes los hace ultra3d.js (batch): cada cosa 3D, justo después del último sprite que tiene encima.
+      let after = null;
+      const blitAll = l => { for (const b of l) G.Ultra3D.blit(ctx, b); };
       if (u3) {
-        const batches = [];
-        for (const it of items) {
-          if (it.u3 || it.u3row) { last = G.Ultra3D.add(last, it); continue; }
-          if (!last) continue;
+        const rect = it => {
           const q = place(it.prop || it.ent);
-          if (!q) continue;
+          if (!q) return null;
           const r = Math.max(70, ((it.prop || it.ent).r || 0) * 3) * q[2];      // (lo que puede ocupar un sprite: de sobra)
-          if (G.Ultra3D.hits(last, q[0] - r, q[1] - 2.4 * r, q[0] + r, q[1] + 0.4 * r)) { it.u3flush = last; batches.push(last); last = null; }
-        }
-        if (last) batches.push(last);
-        G.Ultra3D.render(batches);
+          return [q[0] - r, q[1] - 2.4 * r, q[0] + r, q[1] + 0.4 * r];
+        };
+        const pre = G.Ultra3D.batch(items, rect);
         G.Ultra3D.ground(ctx);                  // las sombras de lo 3D, en el suelo
+        blitAll(pre);
       }
       for (const it of items) {
-        if (it.u3flush) G.Ultra3D.blit(ctx, it.u3flush);
+        if (after) { blitAll(after); after = null; }
         if (it.u3 || it.u3row) continue;
+        after = it.u3after || null;
         const o = it.prop || it.ent;
         if (!place(o)) continue;
         const [sx, sy, k, ky, fx, fy] = P;
@@ -1554,7 +1552,7 @@ G.Game = (() => {
         ctx.setTransform(k, 0, 0, ky, sx - k * fx, sy - ky * fy);
         if (it.prop) G.World.drawProp(ctx, it.prop, t); else it.ent.draw(ctx);
       }
-      if (last) G.Ultra3D.blit(ctx, last);
+      if (after) blitAll(after);
 
       // 3) Aire: proyectiles y efectos, en su lienzo, y a la pantalla por franjas.
       if (air) {
