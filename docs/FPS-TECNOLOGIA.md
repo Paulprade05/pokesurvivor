@@ -249,3 +249,27 @@ fotograma). Ahora va todo en el mismo lote. Los brillos salen algo más claros q
 | Máxima | jefe | | | | 0,80 % |
 
 Con esto, en Máxima la GPU de la horda ya cabe en los 8,3 ms de 120 Hz.
+
+---
+
+# Fase 2, paso 3: menos picos (menos basura de memoria)
+`perf.cjs --asignaciones`: quién crea memoria, por función (muestreo del montón de Chrome, también lo ya recogido). Lo que más creaba
+en la horda y se ha quitado, sin cambiar nada de lo que se ve ni del juego:
+- **Motor**: colores `rgb(a)(...)` leídos carácter a carácter en un arreglo reutilizado (el juego compone muchos en cada fotograma);
+  la clave de cada texto, sólo cuando cambia el estilo (luego un mapa por texto); estados y trazados reutilizados; sin `arguments`.
+- **vfx.js**: la caché de sprites de efectos se busca por forma → paleta → fotograma y se ordena por un número de uso (antes: una
+  clave de texto y reordenar el Map en cada uso); la copia ampliada para girar, colgada de su lienzo; sin `{}` nuevo por llamada.
+- **fx.js**: las opciones de cada efecto y de cada tramo de rayo, en objetos reutilizados.
+
+## Medidas (Chrome, 60 Hz, 10 s por escena, Canvas 2D → WebGL2)
+
+| calidad | escena | JS media | JS p95 | JS p99 | basura |
+|---|---|---|---|---|---|
+| Alta | horda al tope | 6,6 → 4,4 ms | 8,3 → 6,1 | 14,8 → **7,7** | 23 → 28 MB/s |
+| Alta | arena | 3,4 → 3,1 | 5,1 → 4,4 | 6,1 → 5,7 | 12 → 17 MB/s |
+| Máxima | horda al tope | 9,6 → 5,1 | 12,8 → **7,8** | 14,8 → 12,1 | 36 → 33 MB/s |
+| Máxima | arena | 4,8 → 3,3 | 7,1 → 4,7 | 8,7 → 8,9 | 16 → 17 MB/s |
+
+Con el motor WebGL2, la horda en Alta ya cumple el objetivo de 120 Hz en este PC (p99 < 8,3 ms, y la GPU ~5 ms). En Máxima, el
+95 % de los fotogramas cabe; el 1 % más lento aún llega a 12 ms. Equilibrio idéntico; tests 319/319. `tools/gl-compara.cjs`:
+0,02-0,8 % (Máxima horda 1,4 %: en el espejo, las rocas 3D salen mal leídas; en la captura de WebGL2 están bien).

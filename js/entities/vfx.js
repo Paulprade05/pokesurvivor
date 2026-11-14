@@ -611,9 +611,12 @@ G.VFX = (() => {
     if (SHAPES[shape] && SHAPES[shape].img) return pxImgs[SHAPES[shape].img];
     const S = SHAPES[shape] || SHAPES.ball;
     const f = (frame | 0) % (S.frames || 1);
+    // (fps-tecnologia) Búsqueda sin crear la clave de texto ni reordenar el Map en cada uso (era basura en cada efecto de cada
+    //  fotograma): por forma → paleta → fotograma, y el último uso con un número. Se suelta igual: el que lleva más sin usarse.
+    const f1 = fast.get(shape), f2 = f1 && f1.get(pal);
+    let cv = f2 && f2[f];
+    if (cv) { cv.__use = ++useN; return cv; }
     const k = shape + '|' + pal + '|' + f;
-    let cv = cache.get(k);
-    if (cv) { cache.delete(k); cache.set(k, cv); return cv; }
     if (Date.now() < noCanvasUntil) return null;
     const P = gridOf(S, shape, f, k);
     cv = document.createElement('canvas');
@@ -622,19 +625,31 @@ G.VFX = (() => {
     if (!c) { G.U.freeCanvas(cv); noCanvasUntil = Date.now() + 1000; return null; }
     paint(c, P, S, pal, 0, 0, 1);
     while (cache.size >= CACHE_MAX) {
-      const [ok, oc] = cache.entries().next().value;
-      cache.delete(ok); G.U.freeCanvas(oc);
+      let ok = null, oc = null;
+      for (const [kk, cc] of cache) if (!oc || cc.__use < oc.__use) { ok = kk; oc = cc; }
+      cache.delete(ok); unfast(oc); G.U.freeCanvas(oc);
     }
     cache.set(k, cv);
+    cv.__use = ++useN; cv.__fk = [shape, pal, f];
+    let g1 = fast.get(shape); if (!g1) fast.set(shape, g1 = new Map());
+    let g2 = g1.get(pal); if (!g2) g1.set(pal, g2 = []);
+    g2[f] = cv;
     return cv;
   }
+  const fast = new Map();              // forma -> paleta -> [fotograma] -> lienzo (lo mismo que cache, para buscar sin claves)
+  let useN = 0;
+  function unfast(cv) { const fk = cv && cv.__fk, g = fk && fast.get(fk[0]), g2 = g && g.get(fk[1]); if (g2 && g2[fk[2]] === cv) g2[fk[2]] = undefined; }
 
   /** Copia ampliada ×4 (al píxel más cercano) de un sprite, para dibujarlo girado con suavizado. null si no hay lienzo. */
   const bigs = new Map();
   const BIG_MAX = 120, BIG_K = 4;
-  function bigOf(cv, key) {
-    let b = bigs.get(key);
-    if (b) { bigs.delete(key); bigs.set(key, b); return b; }
+  // (fps-tecnologia) La copia va colgada de su lienzo (cv.__big): sin construir la clave ni reordenar el Map en cada uso.
+  function bigOf(cv, shape, pal, f) {
+    let b = cv.__big;
+    if (b && b.width) { b.__use = ++useN; return b; }
+    const key = shape + '|' + pal + '|' + f;
+    b = bigs.get(key);
+    if (b && b.width) { b.__use = ++useN; cv.__big = b; return b; }
     if (Date.now() < noCanvasUntil || !cv.width || !cv.height || cv.width * cv.height > 4096) return null;
     b = document.createElement('canvas');
     b.width = cv.width * BIG_K; b.height = cv.height * BIG_K;
@@ -642,22 +657,28 @@ G.VFX = (() => {
     if (!c) { G.U.freeCanvas(b); noCanvasUntil = Date.now() + 1000; return null; }
     c.imageSmoothingEnabled = false;
     c.drawImage(cv, 0, 0, b.width, b.height);
-    while (bigs.size >= BIG_MAX) { const [ok, oc] = bigs.entries().next().value; bigs.delete(ok); G.U.freeCanvas(oc); }
-    bigs.set(key, b);
+    while (bigs.size >= BIG_MAX) {
+      let ok = null, oc = null;
+      for (const [kk, cc] of bigs) if (!oc || (cc.__use | 0) < (oc.__use | 0)) { ok = kk; oc = cc; }
+      bigs.delete(ok); G.U.freeCanvas(oc);
+    }
+    bigs.set(key, b); b.__use = ++useN; cv.__big = b;
     return b;
   }
 
   /** Suelta los lienzos guardados (sin memoria, o si Safari los ha vaciado); se rehacen al dibujar. */
   function purge() {
     for (const c of cache.values()) G.U.freeCanvas(c);
-    cache.clear();
+    cache.clear(); fast.clear();
     for (const c of bigs.values()) G.U.freeCanvas(c);
     bigs.clear();
     noCanvasUntil = 0;
   }
 
   /** Dibuja centrado en (x, y). opts: angle, scale (1 = píxel de juego), frame, alpha, flip (mirando a la izquierda). */
-  function draw(ctx, shape, pal, x, y, o = {}) {
+  // (Sin opciones: el mismo objeto vacío siempre, no uno nuevo por llamada; draw no lo cambia.)
+  const NOOPT = Object.freeze({});
+  function draw(ctx, shape, pal, x, y, o = NOOPT) {
     shape = live(shape);
     const S = SHAPES[shape] || SHAPES.ball;
     const cv = sprite(shape, pal, o.frame || 0);
@@ -682,7 +703,7 @@ G.VFX = (() => {
     // (Pulido 12-11-2026, «algunos efectos se ven en bloques») Girado, el pixel art al píxel más cercano salía con dientes
     // y píxeles de distinto ancho. Ahora, si gira, se dibuja desde una copia ampliada ×4 (cada píxel, 4×4) con suavizado:
     // los píxeles siguen nítidos y sólo se suaviza su borde. Sin girar, como siempre (cae en la rejilla del arte).
-    const big = a && cv ? bigOf(cv, shape + '|' + pal + '|' + ((o.frame || 0) | 0) % (S.frames || 1)) : null;
+    const big = a && cv ? bigOf(cv, shape, pal, ((o.frame || 0) | 0) % (S.frames || 1)) : null;
     if (big) { ctx.imageSmoothingEnabled = true; ctx.drawImage(big, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k); }
     else if (cv) ctx.drawImage(cv, -S.w * k / 2, -S.h * k / 2, S.w * k, S.h * k);
     else {

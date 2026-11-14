@@ -67,6 +67,7 @@ const ROOT = path.resolve(opt('raiz', path.join(__dirname, '..')));
 const PW = opt('pw', process.env.PLAYWRIGHT_CORE);
 const CHROME_ARG = opt('chrome', process.env.CHROME);
 const PROFILE = flag('perfil');
+const ALLOC = flag('asignaciones');       // (fps-tecnologia) quién crea memoria (basura): muestreo del montón por función
 const COUNT = !flag('sin-contar');
 const HZ = +opt('hz', 0);                 // (fps-tecnologia) pantalla de N Hz: sin vsync y el tope del juego a N
 const UNCAP = flag('sin-tope') || HZ > 0;
@@ -389,6 +390,8 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         const m0 = await metrics();
         let pt0 = 0;
         if (PROFILE && cdp) { await cdp.send('Profiler.start'); pt0 = await p.evaluate(() => performance.now()); }
+        // (Con includeObjectsCollectedByMajorGC/MinorGC: cuenta también lo que ya se recogió, que es la basura.)
+        if (ALLOC && cdp) await cdp.send('HeapProfiler.startSampling', { samplingInterval: 4096, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true });
         let traceEv = null;
         if (TRACE && cdp) {
           traceEv = [];
@@ -417,6 +420,18 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         o.estado = await p.evaluate(() => ({ enemigos: G.EnemyMgr.all ? G.EnemyMgr.all().length : 0, proyectiles: G.Projectiles.all ? G.Projectiles.all().length : (G.Projectiles.count || null),
           arena: !!(G.Rift && G.Rift.inArena), fx: G.Settings.fx, ultra: G.Settings.ultra, estado: G.Game.state,
           lienzo: (document.getElementById('game') || {}).width + '×' + (document.getElementById('game') || {}).height }));
+        if (ALLOC && cdp) {
+          const { profile } = await cdp.send('HeapProfiler.stopSampling');
+          const self = new Map(); let all = 0;
+          const walk = (n, stack) => {
+            const cf = n.callFrame, name = (cf.functionName || '(anónima)') + ' ' + (cf.url || '').replace(/^.*\/(js\/)/, '$1') + ':' + (cf.lineNumber + 1);
+            if (n.selfSize) { self.set(name, (self.get(name) || 0) + n.selfSize); all += n.selfSize; }
+            for (const c of n.children || []) walk(c, stack);
+          };
+          walk(profile.head, []);
+          o.asignaciones = { MBs: +(all / SECS / 1048576).toFixed(2),
+            top: [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => [k, +(v / SECS / 1048576).toFixed(2)]) };
+        }
         if (PROFILE && cdp) {
           const { profile } = await cdp.send('Profiler.stop');
           const fn = path.join(OUT, `${NAV}-${Q}-${S}.cpuprofile`);

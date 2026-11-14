@@ -127,6 +127,7 @@ G.FX = (() => {
   function clear() { parts = []; sprites = []; texts = []; rings = []; slashes = []; beams = []; lights = []; }
 
   const snap = v => Math.round(v / PX) * PX;
+  const VO = { angle: 0, scale: 1, alpha: 1, frame: 0 }, VB = { angle: 0.0001, scale: 1.5, frame: 0 };
 
   /*
    * «Transparencia de tus ataques» (Ajustes, ownFx: 1 · 0,6 · 0,35): lo que es
@@ -356,7 +357,8 @@ G.FX = (() => {
         const gap = 26, off = (now * 420) % gap;
         for (let d = off; d < b.len - 6; d += gap) {
           const yo = Math.sin(d * 0.3 + b.seed) * b.width * 0.18;
-          G.VFX.draw(ctx, b.shape, b.pal, d, yo, { angle: 0.0001, scale: 1.5, frame: (d / gap + now * 12) | 0 });
+          VB.frame = (d / gap + now * 12) | 0;
+          G.VFX.draw(ctx, b.shape, b.pal, d, yo, VB);
         }
       }
     }
@@ -434,10 +436,9 @@ G.FX = (() => {
     for (const s of sprites) {
       const k = 1 - s.t / s.life;
       if (s.twinkle) { G.Icons.twinkle(ctx, s.x, s.y, s.t / s.life, PX); continue; }
-      G.VFX.draw(ctx, s.shape, s.pal, s.x, s.y, {
-        angle: s.angle, scale: s.scale, alpha: (s.fade ? step(k) : 1) * (s.own ? own : 1),
-        frame: Math.floor(s.t * s.fr)
-      });
+      // (fps-tecnologia) Las opciones en un objeto reutilizado: uno nuevo por efecto y fotograma era basura (VFX.draw no lo guarda).
+      VO.angle = s.angle; VO.scale = s.scale; VO.alpha = (s.fade ? step(k) : 1) * (s.own ? own : 1); VO.frame = Math.floor(s.t * s.fr);
+      G.VFX.draw(ctx, s.shape, s.pal, s.x, s.y, VO);
     }
 
     // Números de daño (siempre opacos). La fuente y el trazo se ponen una vez
