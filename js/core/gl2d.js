@@ -45,7 +45,8 @@ G.GL2D = (() => {
   const U = 8;                                          // texturas por llamada
   const MAXQ = 8192, STRIDE = 40;                       // quads por lote; bytes por vértice
   const buf = new ArrayBuffer(MAXQ * 4 * STRIDE), F = new Float32Array(buf), B = new Uint8Array(buf);
-  let nq = 0, addQ = 0;                                 // addQ: los quads que vienen, «lighter» dentro del lote (ver FS)
+  let nq = 0, addQ = 0, srgbQ = 0;  // srgbQ: el próximo quad viene en lineal (three.js a una textura) y se pasa a sRGB
+                                  // addQ: los quads que vienen, «lighter» dentro del lote (ver FS)
   const units = new Array(U).fill(null);
   let nunits = 0, blendNow = '', target = null;          // target: { fbo, w, h } (null = la pantalla)
   let frameId = 1, queued = false, open = null;          // open: el contexto con un trozo de respaldo abierto
@@ -61,16 +62,16 @@ G.GL2D = (() => {
   const VS = `#version 300 es
 layout(location=0) in vec2 aP; layout(location=1) in vec2 aUV; layout(location=2) in vec4 aCl; layout(location=3) in vec4 aCol; layout(location=4) in vec4 aI;
 uniform vec2 uRes; uniform float uFlip;
-out vec2 vUV; flat out vec4 vCl; out vec4 vCol; flat out int vU; flat out int vS; flat out int vA;
+out vec2 vUV; flat out vec4 vCl; out vec4 vCol; flat out int vU; flat out int vS; flat out int vA; flat out int vR;
 void main() {
   vec2 p = aP / uRes * 2.0 - 1.0;
   gl_Position = vec4(p.x, -p.y * uFlip, 0.0, 1.0);
-  vUV = aUV; vCl = aCl; vCol = aCol; vU = int(aI.x * 255.0 + 0.5); vS = int(aI.y * 255.0 + 0.5); vA = int(aI.z * 255.0 + 0.5);
+  vUV = aUV; vCl = aCl; vCol = aCol; vU = int(aI.x * 255.0 + 0.5); vS = int(aI.y * 255.0 + 0.5); vA = int(aI.z * 255.0 + 0.5); vR = int(aI.w * 255.0 + 0.5);
 }`;
   const FS = `#version 300 es
 precision highp float; precision highp int;
 uniform highp sampler2D uT[8];
-in vec2 vUV; flat in vec4 vCl; in vec4 vCol; flat in int vU; flat in int vS; flat in int vA;
+in vec2 vUV; flat in vec4 vCl; in vec4 vCol; flat in int vU; flat in int vS; flat in int vA; flat in int vR;
 out vec4 o;
 vec4 tf(int u, ivec2 p) {
   if (u == 0) return texelFetch(uT[0], p, 0); if (u == 1) return texelFetch(uT[1], p, 0);
@@ -103,7 +104,9 @@ void shade() {
   o = mix(mix(tf(vU, a), tf(vU, ivec2(c.x, a.y)), f.x), mix(tf(vU, ivec2(a.x, c.y)), tf(vU, c), f.x), f.y) * vCol;
 }
 // vA 1: «lighter» sobre lo opaco dentro del mismo lote: alfa 0 con source-over premultiplicado = suma exacta.
-void main() { shade(); if (vA == 1) o.a = 0.0; }`;
+// vR 1: color en lineal (three.js pintando a una textura no lo pasa a sRGB; a la pantalla sí): se pasa aquí, como haría él.
+vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
+void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a, 0.0, 1.0)) * o.a; if (vA == 1) o.a = 0.0; }`;
 
   function init(cv) {
     const g = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false,
@@ -242,7 +245,7 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
     F[o + 30] = A * xb + C * yb + E; F[o + 31] = Bm * xb + D * yb + Fm; F[o + 32] = u1; F[o + 33] = v1;
     for (let i = 0; i < 4; i++) {
       const k = o + i * 10 + 4; F[k] = c0; F[k + 1] = c1; F[k + 2] = c2; F[k + 3] = c3;
-      const bb = ob + i * STRIDE; B[bb] = r; B[bb + 1] = g; B[bb + 2] = b; B[bb + 3] = a; B[bb + 4] = unit; B[bb + 5] = mode; B[bb + 6] = addQ;
+      const bb = ob + i * STRIDE; B[bb] = r; B[bb + 1] = g; B[bb + 2] = b; B[bb + 3] = a; B[bb + 4] = unit; B[bb + 5] = mode; B[bb + 6] = addQ; B[bb + 7] = srgbQ;
     }
     nq++;
   }
@@ -296,7 +299,7 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
   /** La textura de lo que se va a dibujar: { tex, w, h, flip } o null si aún no hay nada que dibujar. */
   function entry(src) {
     if (src && src.__gl2dLayer) return src._entry();
-    if (src && src.__gl2dExt) { const r = src._f(); return r && r.tex ? { tex: r.tex, w: r.w, h: r.h, flip: true } : null; }
+    if (src && src.__gl2dExt) { const r = src._f(); return r && r.tex ? { tex: r.tex, w: r.w, h: r.h, flip: true, srgb: !!r.linear } : null; }
     if (src === screen) return screenCopy();
     // Lo de siempre (la misma imagen o el mismo lienzo sin cambios): directo. Los cambios suben su versión (__v): un lienzo
     // 2D al dibujar en él o cambiar de tamaño, una imagen al cambiar de dirección (ver patch).
@@ -577,8 +580,10 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
       const s = this.s, al = s.alpha;
       if (al <= 0 && s.comp !== 'copy') return;
       const u = unitFor(E.tex), A = al * 255 + 0.5 | 0, sm = s.smooth ? 1 : 0;
+      srgbQ = E.srgb ? 1 : 0;
       if (E.flip) quad(s.m, dx, dy, dw, dh, sx, E.h - sy, sx + sw, E.h - sy - sh, sx, E.h - sy - sh, sx + sw, E.h - sy, u, sm, A, A, A, A);
       else { const ox = E.ox || 0, oy = E.oy || 0; sx += ox; sy += oy; quad(s.m, dx, dy, dw, dh, sx, sy, sx + sw, sy + sh, sx, sy, sx + sw, sy + sh, u, sm, A, A, A, A); }
+      srgbQ = 0;
     }
 
     // ---- formas nativas ----
@@ -1093,15 +1098,18 @@ void main() { shade(); if (vA == 1) o.a = 0.0; }`;
     const fb = gl.createFramebuffer(), prev = target;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.tex, 0);
-    const d = new Uint8Array(r.w * r.h * 4);
-    gl.readPixels(0, 0, r.w, r.h, gl.RGBA, gl.UNSIGNED_BYTE, d);
+    // (La de three.js es de media precisión: se lee en coma flotante.)
+    let d = new Uint8Array(r.w * r.h * 4);
+    if (r.linear) { const f = new Float32Array(r.w * r.h * 4); gl.readPixels(0, 0, r.w, r.h, gl.RGBA, gl.FLOAT, f); for (let i = 0; i < f.length; i++) d[i] = Math.max(0, Math.min(255, f[i] * 255 + 0.5)); }
+    else gl.readPixels(0, 0, r.w, r.h, gl.RGBA, gl.UNSIGNED_BYTE, d);
     gl.bindFramebuffer(gl.FRAMEBUFFER, prev ? prev.fbo : null); gl.deleteFramebuffer(fb);
     const c = a.__teeC || (a.__teeC = document.createElement('canvas'));
     c.__gl2dScratch = true; c.width = r.w; c.height = r.h;
     const img = new ImageData(r.w, r.h), o = img.data, W4 = r.w * 4;
+    const cv = r.linear ? (v => { v = Math.min(1, v / 255); return 255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055); }) : (v => v);
     for (let y = 0; y < r.h; y++) {
       const s = (r.h - 1 - y) * W4, t = y * W4;
-      for (let i = 0; i < W4; i += 4) { const al = d[s + i + 3], k = al ? 255 / al : 0; o[t + i] = d[s + i] * k; o[t + i + 1] = d[s + i + 1] * k; o[t + i + 2] = d[s + i + 2] * k; o[t + i + 3] = al; }
+      for (let i = 0; i < W4; i += 4) { const al = d[s + i + 3], k = al ? 255 / al : 0; o[t + i] = cv(d[s + i] * k); o[t + i + 1] = cv(d[s + i + 1] * k); o[t + i + 2] = cv(d[s + i + 2] * k); o[t + i + 3] = al; }
     }
     c.getContext('2d').putImageData(img, 0, 0);
     a.__teeF = frameId;

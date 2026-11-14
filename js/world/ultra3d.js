@@ -118,9 +118,10 @@ G.Ultra3D = (() => {
         // (Motor WebGL2) El mismo contexto; three.js pinta a la textura rt (antialias como el lienzo de antes: MSAA en PC).
         renderer = new T.WebGLRenderer({ canvas: document.createElement('canvas'), context: own, antialias: false, alpha: true, depth: true,
           stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
-        rt = new T.WebGLRenderTarget(16, 16, { samples: (+new URLSearchParams(location.search).get("msaa") || 0), depthBuffer: true, stencilBuffer: false });
+        // (three.js a una textura deja el color en lineal: el motor lo pasa a sRGB al pegarlo. En media precisión, sin bandas en lo oscuro.)
+        rt = new T.WebGLRenderTarget(16, 16, { samples: 0, type: T.HalfFloatType, depthBuffer: true, stencilBuffer: false });
         glGen = G.GL2D.gen;
-        glcv = G.GL2D.external(() => { const pr = renderer && renderer.properties.get(rt.texture); return pr && pr.__webglTexture ? { tex: pr.__webglTexture, w: rt.width, h: rt.height } : null; });
+        glcv = G.GL2D.external(() => { const pr = renderer && renderer.properties.get(rt.texture); return pr && pr.__webglTexture ? { tex: pr.__webglTexture, w: rt.width, h: rt.height, linear: true } : null; });
         G.GL2D.restore();
       } else {
       glcv = document.createElement('canvas');
@@ -1095,7 +1096,7 @@ G.Ultra3D = (() => {
       for (const b of list) out.push(b);
       if (j >= 0) d2[j].it.u3after = list;
     }
-    if (!/no3dr/.test(location.search)) render(out);   // TEMP-MEDIR
+    render(out);
     return slots.get(-1) || [];
   }
 
