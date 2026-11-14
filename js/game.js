@@ -30,7 +30,10 @@ G.Game = (() => {
 
   function init() {
     cv = document.getElementById('game');
-    ctx = cv.getContext('2d');
+    // (fps-tecnologia, 14-11-2026) Con el motor WebGL2 (Ajustes › Gráficos, o ?gl=1), el mismo dibujo por la GPU en lotes
+    // (core/gl2d.js); sin WebGL2, o si no arranca, el Canvas 2D de siempre.
+    ctx = (G.GL2D && G.GL2D.create(cv)) || cv.getContext('2d');
+    G.Settings.on(k => { if (k === 'glDraw') G.UI.toast('El motor de dibujo cambia al recargar la página', 3000); });
     resize();
     addEventListener('resize', resizeSoon);
     G.Settings.on(k => { if (k === 'eco' || k === 'quality') resize(); });      // ahorro de energía y Máxima: cambian la resolución
@@ -212,7 +215,7 @@ G.Game = (() => {
 
   /** Cambia el lienzo del juego por uno nuevo, en el mismo sitio y con lo mismo que escuchaba. */
   function remakeCanvas() {
-    const nv = cv.cloneNode(false), nx = nv.getContext('2d');
+    const nv = cv.cloneNode(false), nx = (G.GL2D && G.GL2D.on && G.GL2D.create(nv)) || nv.getContext('2d');
     if (!nx) { G.U.freeCanvas(nv); return false; }     // (sin memoria de lienzos: se sigue con el que hay)
     const old = cv;
     if (cvRO) cvRO.unobserve(old);
@@ -1416,6 +1419,8 @@ G.Game = (() => {
     let gcv = null, gx = null, acv = null, ax = null;
     // (iPhone: tirones, 02-11-2026) A saltos de 64 px y sin encoger por poco: con la cámara temblando (muchos
     // golpes) el tamaño cambiaba en cada fotograma y Safari volvía a reservar los dos lienzos grandes cada vez.
+    // (fps-tecnologia) Con el motor WebGL2, las capas del suelo y del aire también en la GPU (sin subirlas en cada fotograma).
+    const layerCanvas = () => (G.GL2D && G.GL2D.on && !(ctx instanceof CanvasRenderingContext2D) ? G.GL2D.canvas() : document.createElement('canvas'));
     const fit = (c, W, H) => {
       const w = Math.ceil(W / 64) * 64, h = Math.ceil(H / 64) * 64;
       if (c.width < W || c.width > w + 128) c.width = w;
@@ -1436,7 +1441,7 @@ G.Game = (() => {
       // 1) Suelo, a 1 px por unidad de mundo y alineado a los píxeles del pintor (de GS en GS: 3).
       const GS = G.World.GS, ox = Math.floor((cx - ex) / GS) * GS, oy = Math.floor((cy + dvT) / GS) * GS;
       const GW = Math.ceil(cx + ex - ox) + 2, GH = (Math.ceil((cy + dvB - oy) / GB) + 1) * GB;
-      if (!gcv) { gcv = document.createElement('canvas'); }
+      if (!gcv) { gcv = layerCanvas(); }
       fit(gcv, GW, GH);
       if (!gx) gx = gcv.getContext('2d', { alpha: false });
       if (!gx) { purgeGfx(); return false; } // sin memoria de lienzos (iPhone): se suelta lo guardado y este fotograma va en 2D
@@ -1560,15 +1565,21 @@ G.Game = (() => {
       if (air) {
         const aox = cx - ex, aoy = cy + dvT;
         const AW = Math.ceil(2 * ex * Kd) + 2, AH = Math.ceil((dvB - dvT) * Kd) + 2;
-        if (!acv) { acv = document.createElement('canvas'); }
-        fit(acv, AW, AH);
-        if (!ax) ax = acv.getContext('2d');
-        if (!ax) {
+        // (fps-tecnologia) Con el motor WebGL2 y sin perspectiva, el aire va directo a la pantalla: la capa se pegaba 1:1 y,
+        // en una capa transparente, los brillos («lighter») no pueden ir en el mismo lote que lo demás (~85 llamadas más).
+        const direct = !K && G.GL2D && G.GL2D.on && !(ctx instanceof CanvasRenderingContext2D);
+        if (!direct) {
+          if (!acv) { acv = layerCanvas(); }
+          fit(acv, AW, AH);
+          if (!ax) ax = acv.getContext('2d');
+        }
+        if (direct || !ax) {
           // (iPhone: ataques invisibles, 02-11-2026) Sin memoria para el lienzo del aire: antes no se dibujaba
           // ningún ataque; ahora van directamente a la pantalla, sin la perspectiva (sólo mientras dure).
-          purgeGfx();
+          if (!direct) purgeGfx();
           ctx.setTransform(Kd, 0, 0, Kd, (hw + shX - cx) * Kd, (hh + shY - cy) * Kd);
           ctx.imageSmoothingEnabled = false;
+          if (direct) G.Ambient.air(ctx, cam);
           G.Projectiles.draw(ctx);
           G.Combat.drawAirFields(ctx);
           G.FX.draw(ctx);
@@ -1720,6 +1731,11 @@ G.Game = (() => {
     let a = null, ax2 = null, b = null, bx2 = null, ok = null;
     function apply() {
       if (!G.Settings.max || G.Settings.fx < 2 || G.Settings.get('calm')) return;
+      // (fps-tecnologia) Con el motor WebGL2, lo mismo en la GPU (core/gl2d.js bloom), sin lienzos 2D ni subidas.
+      if (G.GL2D && G.GL2D.on && !(ctx instanceof CanvasRenderingContext2D)) {
+        const bw0 = Math.max(8, Math.round(cv.width / 4)), bh0 = Math.max(8, Math.round(cv.height / 4));
+        if (G.GL2D.bloom(ctx, bw0, bh0, Math.max(2, Math.round(bw0 / 160)), 0.34)) return;
+      }
       if (ok === null) { const t = document.createElement('canvas').getContext('2d'); ok = !!t && typeof t.filter === 'string'; }
       if (!ok) return;
       const W = cv.width, Hh = cv.height, bw = Math.max(8, Math.round(W / 4)), bh = Math.max(8, Math.round(Hh / 4));

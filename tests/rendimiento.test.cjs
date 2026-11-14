@@ -16,11 +16,11 @@ function settings(stored = {}) {
   return sb.G.Settings;
 }
 
-test('tope de FPS: 60 de serie, y se puede quitar', () => {
+test('tope de FPS: 60 de serie, 120 para pantallas rápidas, y se puede quitar', () => {
   assert.equal(settings().get('fpsCap'), 60);
   assert.equal(settings({ fpsCap: 0 }).get('fpsCap'), 0);
   const ui = read('js/ui/settings-ui.js');
-  assert.match(ui, /choice\('fpsCap', \[\[30, '30'\], \[60, '60'\], \[0, 'Sin límite'\]\]/);
+  assert.match(ui, /choice\('fpsCap', \[\[30, '30'\], \[60, '60'\], \[120, '120'\], \[0, 'Sin límite'\]\]/);
   const en = read('js/data/lang-en.js');
   for (const k of ['Límite de FPS', 'Sin límite']) assert.ok(en.includes(JSON.stringify(k) + ':'), 'falta en inglés: ' + k);
 });

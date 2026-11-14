@@ -72,6 +72,7 @@ const HZ = +opt('hz', 0);                 // (fps-tecnologia) pantalla de N Hz: 
 const UNCAP = flag('sin-tope') || HZ > 0;
 const SPLIT = flag('desglose');           // ms propios de cada parte (simulación, dibujo...) por fotograma
 const TRACE = flag('traza');
+const GLON = flag('gl');                  // (fps-tecnologia) con el motor WebGL2 (core/gl2d.js, ?gl=1); sin él, ?gl=0
 // Para saber qué cuesta cada capa: --quitar World.drawGround,HUD.draw,Ultra3D.flat=false (esa función deja de hacer nada y
 // devuelve lo que pongas tras el =). Sólo para medir: lo que se ve cambia.
 const DROP = (opt('quitar', '') || '').split(',').filter(Boolean);              // Chrome: tiempo ocupado de cada hilo (página, GPU, compositor)
@@ -111,6 +112,8 @@ function instrument({ seed, count }) {
     if (P.hooked && !P.ran) return;          // (el tope de FPS del juego se saltó este aviso: no es un fotograma)
     const m = performance.memory;
     P.fr.push({ ts, t0, ms: performance.now() - t0, heap: m ? m.usedJSHeapSize : 0, c: Object.assign({}, C), sp: P.sp });
+    // (Motor WebGL2: lo que mandó en este fotograma; se lee tras la tanda de microtareas.)
+    if (window.G && G.GL2D && G.GL2D.on) { const r = P.fr[P.fr.length - 1]; setTimeout(() => { r.gl = G.GL2D.stats(); }, 0); }
   });
   if (!count) return;
   const wrap = (proto, names, key) => { for (const n of names) { const o = proto && proto[n]; if (typeof o !== 'function') continue;
@@ -280,6 +283,10 @@ function stats(fr, secs, nav) {
     for (const k of [...ks].sort()) { const v = f.reduce((a, x) => a + ((x.sp || {})[k] || 0), 0) / n; o.desglose[k] = +v.toFixed(3); sum += v; }
     o.desglose.otros = +(o.ms - sum).toFixed(3);
   }
+  if (f.some(x => x.gl)) {
+    o.gl = {};
+    for (const k of ['quads', 'draws', 'uploads', 'upPx', 'fb', 'groups', 'groupPx', 'textNew', 'resets']) o.gl[k] = +(f.reduce((a, x) => a + ((x.gl || {})[k] || 0), 0) / n).toFixed(1);
+  }
   const keys = new Set(); for (const x of f) for (const k in x.c) keys.add(k);
   o.porFotograma = {};
   for (const k of keys) o.porFotograma[k] = +(f.reduce((a, x) => a + (x.c[k] || 0), 0) / n).toFixed(1);
@@ -348,11 +355,11 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
     const p = await ctx.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push('[err] ' + e.message));
-    p.on('console', m => { if (m.type() === 'error' && !/favicon|firebase|ERR_|Failed to load|identitytoolkit|googleapis|404/.test(m.text())) errs.push('[c] ' + m.text().slice(0, 300)); });
+    p.on('console', m => { const t = m.text(); if ((m.type() === 'error' && !/favicon|firebase|ERR_|Failed to load|identitytoolkit|googleapis|404/.test(t)) || /^[GL2D]/.test(t)) errs.push('[c] ' + t.slice(0, 300)); });
     await p.addInitScript(instrument, { seed: SEED, count: COUNT });
     // (Calidad antes de cargar: la aldea y el tamaño del lienzo ya salen con ella.)
     await p.addInitScript(q => { try { const s = JSON.parse(localStorage.getItem('ps.settings') || '{}'); s.quality = q.q; s.fps = false; if (q.uncap) s.fpsCap = q.hz || 0; localStorage.setItem('ps.settings', JSON.stringify(s)); } catch (e) { /* */ } }, { q: Q, uncap: UNCAP, hz: HZ });
-    await p.goto(`http://127.0.0.1:${port}/dev.html?dev`, { waitUntil: 'load' });
+    await p.goto(`http://127.0.0.1:${port}/dev.html?dev&gl=${GLON ? 1 : 0}${process.env.GLDBG ? '&gldbg=1' : ''}${process.env.QX || ''}`, { waitUntil: 'load' });
     await p.evaluate(HELPERS);
     await p.waitForFunction(() => window.G && G.Pad && G.Game, null, { timeout: 60000 });
     await p.evaluate(s => __hook(s), SPLIT);
@@ -365,7 +372,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
     if (cdp) { await cdp.send('Performance.enable'); if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); } }
     const gpu = await p.evaluate(() => { try { const c = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
       const e = c && c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; } catch (e) { return '?'; } });
-    const res = { nav: NAV, sinTope: UNCAP, hz: HZ || null, calidad: Q, tam: TAM, gpu, semilla: SEED, seg: SECS, fecha: new Date().toISOString(), escenas: {} };
+    const res = { nav: NAV, sinTope: UNCAP, hz: HZ || null, gl: GLON, calidad: Q, tam: TAM, gpu, semilla: SEED, seg: SECS, fecha: new Date().toISOString(), escenas: {} };
     const entered = await p.evaluate(() => __enter());
     if (process.env.PERF_DEBUG) console.log('entrada', entered, await p.evaluate(() => G.Game.state + ' ' + [...document.querySelectorAll('.scr:not(.hidden)')].map(e => e.id).join(',')));
     await p.waitForFunction(() => window.G && G.Village && G.Village.mode !== 'loading', null, { timeout: 60000 }).catch(() => { });
@@ -389,11 +396,13 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
           cdp.on('Tracing.dataCollected', d => { for (const e of d.value) traceEv.push(e); });
           await cdp.send('Tracing.start', { traceConfig: { includedCategories: ['toplevel', '__metadata'], recordMode: 'recordContinuously' }, transferMode: 'ReportEvents' });
         }
-        await p.evaluate(() => { __perf.fr = []; __perf.on = true; });
+        await p.evaluate(() => { __perf.fr = []; __perf.on = true; if (G.GL2D && G.GL2D.gpu) G.GL2D.gpu(true); });
         await sleep(SECS * 1000);
         const fr = await p.evaluate(() => { __perf.on = false; const f = __perf.fr; __perf.fr = []; return f; });
+        const gpuMs = await p.evaluate(() => (G.GL2D && G.GL2D.gpu ? G.GL2D.gpu(true) : {}));
         const m1 = await metrics();
         const o = stats(fr, SECS, NAV);
+        if (Object.keys(gpuMs).length) o.gpuMs = gpuMs;
         if (traceEv) {
           const done = new Promise(r => cdp.once('Tracing.tracingComplete', r));
           await cdp.send('Tracing.end'); await done;
@@ -416,13 +425,14 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
           const slow = fr.filter(x => x.ms > 50).map(x => [x.t0 - 2, x.t0 + x.ms + 2]);
           if (slow.length) o.topLentos = topSelf(profile, 25, slow, pt0);
         }
+        if (process.env.GLDBG) { o.census = await p.evaluate(() => G.GL2D.census && G.GL2D.census()); await p.evaluate(() => G.GL2D.census && G.GL2D.census().length && 0); }
         res.escenas[S] = o;
         if (S === 'grieta' || S === 'arena') { /* la arena sigue en la grieta */ }
       } catch (e) { res.escenas[S] = { error: String(e && e.message || e).slice(0, 300) }; }
       const r = res.escenas[S];
       console.log(`${NAV} ${Q} ${S}: ` + (r.error ? 'ERROR ' + r.error : `${r.fps} FPS, ${r.ms} ms (p95 ${r.p95}, p99 ${r.p99}), tirones ${r.tirones}, peor ${r.maxGap} ms` +
         (r.mbs != null ? `, basura ${r.mbs} MB/s, gc ${r.gc}` : '') + `, enemigos ${r.estado.enemigos}, proyectiles ${r.estado.proyectiles}` +
-        (r.desglose ? `\n   desglose ms ${JSON.stringify(r.desglose)}` : '') + (r.hilos ? `\n   hilos % ${JSON.stringify(r.hilos)}` : '') + ` | ${JSON.stringify(r.porFotograma)}`));
+        (r.gpuMs ? ` | GPU ms ${JSON.stringify(r.gpuMs)}` : '') + (r.gl ? `\n   gl ${JSON.stringify(r.gl)}` : '') + (r.desglose ? `\n   desglose ms ${JSON.stringify(r.desglose)}` : '') + (r.hilos ? `\n   hilos % ${JSON.stringify(r.hilos)}` : '') + ` | ${JSON.stringify(r.porFotograma)}`));
     }
     res.errores = errs.slice(0, 30);
     const fn = path.join(OUT, `${NAV}-${Q}${REPS > 1 ? '-' + rep : ''}.json`);
