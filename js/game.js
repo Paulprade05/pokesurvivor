@@ -1731,6 +1731,11 @@ G.Game = (() => {
     let a = null, ax2 = null, b = null, bx2 = null, ok = null;
     function apply() {
       if (!G.Settings.max || G.Settings.fx < 2 || G.Settings.get('calm')) return;
+      // (fps-tecnologia) Con el motor WebGL2, lo mismo en la GPU (core/gl2d.js bloom), sin lienzos 2D ni subidas.
+      if (G.GL2D && G.GL2D.on && !(ctx instanceof CanvasRenderingContext2D)) {
+        const bw0 = Math.max(8, Math.round(cv.width / 4)), bh0 = Math.max(8, Math.round(cv.height / 4));
+        if (G.GL2D.bloom(ctx, bw0, bh0, Math.max(2, Math.round(bw0 / 160)), 0.34)) return;
+      }
       if (ok === null) { const t = document.createElement('canvas').getContext('2d'); ok = !!t && typeof t.filter === 'string'; }
       if (!ok) return;
       const W = cv.width, Hh = cv.height, bw = Math.max(8, Math.round(W / 4)), bh = Math.max(8, Math.round(Hh / 4));

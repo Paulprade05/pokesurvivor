@@ -1058,6 +1058,95 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
 
   function flushAll() { if (open) open._close(); draw(); }
 
+  // ---------------- bloom de Máxima (game.js Bloom), en la GPU ----------------
+  // Lo mismo que con el Canvas 2D: la pantalla a un cuarto de tamaño con filter 'brightness(0.8) contrast(2.8) saturate(1.35)'
+  // (suavizado sencillo), difuminado gaussiano de r px (blur(r px): sigma r) y sumado («lighter») con globalAlpha 0,34. Antes eran
+  // dos lienzos 2D con filtros y una subida a la GPU en cada fotograma.
+  const BL = { prog: null, vao: null, a: null, b: null, w: 0, h: 0, gen: -1 };
+  const BVS = `#version 300 es
+out vec2 vT;
+void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); vT = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  const BFS = `#version 300 es
+precision highp float;
+uniform sampler2D uS; uniform int uMode; uniform vec2 uStep; uniform float uSig; uniform vec2 uSrcPx;
+in vec2 vT; out vec4 o;
+void main() {
+  if (uMode == 0) {
+    // (bilineal en el centro de cada píxel de destino, como drawImage reducido sin más calidad)
+    vec4 c = texture(uS, vT);
+    vec3 r = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
+    r *= 0.8;
+    r = (r - 0.5) * 2.8 + 0.5;
+    r = clamp(r, 0.0, 1.0);
+    float s = 1.35;
+    mat3 m = mat3(0.213 + 0.787 * s, 0.213 - 0.213 * s, 0.213 - 0.213 * s,
+                  0.715 - 0.715 * s, 0.715 + 0.285 * s, 0.715 - 0.715 * s,
+                  0.072 - 0.072 * s, 0.072 - 0.072 * s, 0.072 + 0.928 * s);
+    r = clamp(m * r, 0.0, 1.0);
+    o = vec4(r * c.a, c.a);
+    return;
+  }
+  // Gaussiana separable (3 sigmas a cada lado).
+  vec4 acc = vec4(0.0); float wsum = 0.0;
+  int n = int(ceil(uSig * 3.0));
+  for (int i = -24; i <= 24; i++) {
+    if (i < -n || i > n) continue;
+    float w = exp(-0.5 * float(i * i) / (uSig * uSig));
+    acc += texture(uS, vT + uStep * float(i)) * w; wsum += w;
+  }
+  o = acc / wsum;
+}`;
+  function bloomSetup() {
+    if (BL.prog && BL.gen === gen) return true;
+    const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) { console.error('[GL2D] bloom', gl.getShaderInfoLog(o)); return null; } return o; };
+    const v = sh(gl.VERTEX_SHADER, BVS), f = sh(gl.FRAGMENT_SHADER, BFS);
+    if (!v || !f) return false;
+    const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return false;
+    BL.prog = pr; BL.vao = gl.createVertexArray(); BL.gen = gen; BL.a = BL.b = null; BL.w = BL.h = 0;
+    BL.u = { s: gl.getUniformLocation(pr, 'uS'), mode: gl.getUniformLocation(pr, 'uMode'), step: gl.getUniformLocation(pr, 'uStep'), sig: gl.getUniformLocation(pr, 'uSig') };
+    return true;
+  }
+  function bloomTarget(w, h) {
+    const t = { tex: newTex(), fbo: gl.createFramebuffer(), w, h };
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
+    return t;
+  }
+  /** Bloom en la GPU sobre lo que hay en la pantalla. bw×bh: el tamaño reducido; r: el difuminado (px); k: globalAlpha. */
+  function bloom(ctx, bw, bh, r, k) {
+    if (!gl || lost || !bloomSetup()) return false;
+    flushAll();
+    const src = screenCopy();                       // (lo de la pantalla, en una textura; filas de abajo arriba)
+    if (BL.w !== bw || BL.h !== bh) {
+      for (const t of [BL.a, BL.b]) if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }
+      BL.a = bloomTarget(bw, bh); BL.b = bloomTarget(bw, bh); BL.w = bw; BL.h = bh;
+    }
+    gl.useProgram(BL.prog); gl.bindVertexArray(BL.vao);
+    gl.disable(gl.BLEND); gl.viewport(0, 0, bw, bh);
+    gl.activeTexture(gl.TEXTURE0); gl.uniform1i(BL.u.s, 0);
+    // 1) reducido con el filtro de color (la copia de la pantalla, suavizada)
+    gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, BL.a.fbo); gl.uniform1i(BL.u.mode, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // 2) difuminado: en x (a → b) y en y (b → a)
+    gl.uniform1i(BL.u.mode, 1); gl.uniform1f(BL.u.sig, Math.max(0.5, r));
+    gl.bindTexture(gl.TEXTURE_2D, BL.a.tex); gl.bindFramebuffer(gl.FRAMEBUFFER, BL.b.fbo); gl.uniform2f(BL.u.step, 1 / bw, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindTexture(gl.TEXTURE_2D, BL.b.tex); gl.bindFramebuffer(gl.FRAMEBUFFER, BL.a.fbo); gl.uniform2f(BL.u.step, 0, 1 / bh); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    st.draws += 4;
+    // Lo de este motor otra vez, y el resultado sumado a la pantalla (con su suavizado al ampliarlo).
+    G.GL2D.restore();
+    const s = ctx.s, m = s.m.slice(), al = s.alpha, cp = s.comp, sm = s.smooth;
+    s.m = [1, 0, 0, 1, 0, 0]; s.alpha = k; s.comp = 'lighter'; s.smooth = true;
+    ctx.drawImage({ __gl2dExt: true, _f: () => ({ tex: BL.a.tex, w: bw, h: bh }) }, 0, 0, bw, bh, 0, 0, screen.width, screen.height);
+    s.m = m; s.alpha = al; s.comp = cp; s.smooth = sm;
+    return true;
+  }
+
   /** El contexto de la pantalla en WebGL2, o null (se queda el Canvas 2D). */
   function create(cv) {
     if (!wanted() || typeof WebGL2RenderingContext === 'undefined') return null;
@@ -1158,6 +1247,8 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     get gl() { return gl && !lost ? gl : null; },
     get gen() { return gen; },
     get maxTex() { return MAXT; },
+    /** Bloom de Máxima en la GPU (game.js Bloom): false si no se puede (se hace como siempre). */
+    bloom,
     /** (?glgpu=1) Marca el principio de una parte del fotograma para medir su tiempo de GPU; gpu(): media de ms por fotograma. */
     gpuMark(l) { if (GT.on) { draw(); gpuMark(l); } },
     gpu(reset) { const o = {}; for (const k in GT.acc) o[k] = +(GT.acc[k] / Math.max(1, GT.n)).toFixed(3); if (reset) { GT.acc = {}; GT.n = 0; } return o; },
