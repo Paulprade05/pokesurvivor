@@ -46,6 +46,11 @@ G.Ultra3D = (() => {
   const L = [-0.45 / 1.25, -0.6 / 1.25, 1 / 1.25];          // hacia la luz (arriba a la izquierda y del norte)
   let T = null, state = 'idle', lost = false, gl2 = false, aniso = 1, mob = false;
   let renderer = null, glcv = null, scene, cam3, sun, hemi, plane, frame = 0, tinted = -1;
+  // (fps-tecnologia, 14-11-2026) Con el motor WebGL2 del juego (core/gl2d.js): three.js en el MISMO contexto, pintando a una
+  // textura (rt) que el motor usa directamente. Con su propio lienzo, el motor tenía que copiarlo entero en cada fotograma
+  // de un contexto a otro (medido: un tercio del trabajo de la GPU). glcv es entonces esa textura vista como imagen.
+  let rt = null, glGen = -1;
+  const setSz = (w, h) => { if (rt) rt.setSize(w, h); else renderer.setSize(w, h, false); };
   let Wl = 0, Hl = 0, R = 1, Ox = 0, Oy = 0;
   const P = new Float64Array(16);                          // la proyección (por filas), también para las cajas de tijera
   const chunks = new Map();                                // "cx,cy" -> { c, bi, rows: [{ ty, mesh }], tex, top, used }
@@ -87,6 +92,8 @@ G.Ultra3D = (() => {
   function on() {
     if (!wanted()) return false;
     if (state === 'idle') load();
+    // (Motor WebGL2: si su contexto se perdió y volvió, lo de three.js ya no vale: este 3D se apaga y queda el 2D.)
+    if (rt && G.GL2D.gen !== glGen) { state = 'fail'; return false; }
     return state === 'ready' && !lost;
   }
 
@@ -106,6 +113,17 @@ G.Ultra3D = (() => {
   function start() {
     try {
       mob = !!(G.U.IOS || G.Settings.touch);
+      const own = G.GL2D && G.GL2D.gl;
+      if (own) {
+        // (Motor WebGL2) El mismo contexto; three.js pinta a la textura rt (antialias como el lienzo de antes: MSAA en PC).
+        renderer = new T.WebGLRenderer({ canvas: document.createElement('canvas'), context: own, antialias: false, alpha: true, depth: true,
+          stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+        // (three.js a una textura deja el color en lineal: el motor lo pasa a sRGB al pegarlo. En media precisión, sin bandas en lo oscuro.)
+        rt = new T.WebGLRenderTarget(16, 16, { samples: 0, type: T.HalfFloatType, depthBuffer: true, stencilBuffer: false });
+        glGen = G.GL2D.gen;
+        glcv = G.GL2D.external(() => { const pr = renderer && renderer.properties.get(rt.texture); return pr && pr.__webglTexture ? { tex: pr.__webglTexture, w: rt.width, h: rt.height, linear: true } : null; });
+        G.GL2D.restore();
+      } else {
       glcv = document.createElement('canvas');
       glcv.width = glcv.height = 16;
       glcv.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
@@ -119,6 +137,7 @@ G.Ultra3D = (() => {
       // (Pulido) Antialias en PC; en móvil, como siempre (el lienzo pequeño, sin MSAA: memoria y batería).
       renderer = new T.WebGLRenderer({ canvas: glcv, antialias: !mob, alpha: true, depth: true, stencil: false,
         powerPreference: 'high-performance', preserveDrawingBuffer: false });
+      }
       renderer.setPixelRatio(1);
       renderer.setClearColor(0x000000, 0);
       renderer.shadowMap.enabled = true;
@@ -863,7 +882,7 @@ G.Ultra3D = (() => {
     KL = scaleFor(Kd, Wd, Hd);
     const lim = mob ? 1024 : 4096;
     const wl = Math.min(lim, Math.ceil(Wd * KL / Kd) + 2), hl = Math.min(lim, Math.ceil(Hd * KL / Kd) + 2);
-    if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; renderer.setSize(Wl, Hl, false); }    // (el atlas crece en render())
+    if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; setSz(Wl, Hl); }    // (el atlas crece en render())
     R = Kd / KL;
     // Cámara pegada a la rejilla de píxeles del lienzo 3D (sin «nadar» al moverse); el resto se corrige al pasarlo a la pantalla.
     const hw = cam.w / 2, hh = cam.h / 2, a = cam.persp / hh, b = a;
@@ -1089,9 +1108,13 @@ G.Ultra3D = (() => {
   /** Una pasada al atlas: la imagen entera (Wl×Hl) con su esquina en (0, oy) del lienzo, sólo lo de la tijera. */
   function draw(oy, sx, sy, sw, sh, layer) {
     const Ha = glcv.height;
+    // (A una textura, three.js usa el viewport y la tijera de la textura.)
+    if (rt) { rt.viewport.set(0, Ha - oy - Hl, Wl, Hl); rt.scissor.set(sx, Ha - (sy + oy) - sh, sw, sh); rt.scissorTest = true; renderer.setRenderTarget(rt); }
+    else {
     renderer.setViewport(0, Ha - oy - Hl, Wl, Hl);
     renderer.setScissor(sx, Ha - (sy + oy) - sh, sw, sh);
     renderer.setScissorTest(true);
+    }
     cam3.layers.set(layer);
     renderer.render(scene, cam3);
     nPass++;
@@ -1137,8 +1160,11 @@ G.Ultra3D = (() => {
     // (Hasta 4 pantallas de atlas; menos si el navegador no da un lienzo tan alto: se mira el de verdad, drawingBufferHeight.)
     let cap = Math.min(4 * Hl, atCap || Infinity), pk = pack(list, Wl, Hl, cap);
     let H = Math.min(cap, Math.ceil(pk.maxY / Hl) * Hl);
-    if (glcv.height < H) renderer.setSize(Wl, H, false);
-    const db = renderer.getContext().drawingBufferHeight;
+    if (glcv.height < H) setSz(Wl, H);
+    const db = rt ? Math.min(rt.height, G.GL2D.maxTex || 4096) : renderer.getContext().drawingBufferHeight;
+    // (Motor WebGL2: lo pendiente del juego, mandado; three.js empieza con su estado y luego se devuelve el del motor.)
+    if (rt) { G.GL2D.flush(); G.GL2D.gpuMark("3d"); renderer.resetState(); renderer.setRenderTarget(rt); }
+    try {
     if (db < H) { atCap = Math.floor(db / Hl) * Hl || Hl * 2; cap = atCap; pk = pack(list, Wl, Hl, cap); H = Math.min(cap, Math.ceil(pk.maxY / Hl) * Hl); }
     nMerged += pk.merged;
     for (const b of list) if (b.ay >= 0 && b.ay + b.h > Math.min(H, db)) nClip++;
@@ -1147,8 +1173,11 @@ G.Ultra3D = (() => {
     if (renderer.shadowMap.needsUpdate) {
       nShadow++;
       fill(allIns);                                             // (para las sombras, todos los de instancing)
+      if (rt) { rt.scissor.set(0, 0, 0, 0); rt.scissorTest = true; renderer.setRenderTarget(rt); }
+      else {
       renderer.setScissorTest(true);
       renderer.setScissor(0, 0, 0, 0);
+      }
       cam3.layers.enableAll();
       renderer.render(scene, cam3);
     }
@@ -1164,6 +1193,7 @@ G.Ultra3D = (() => {
       for (const m of lay) m.layers.disable(1);
       lay.clear();
     }
+    } finally { if (rt) { renderer.setRenderTarget(null); G.GL2D.restore(); G.GL2D.gpuMark("dibujo"); } }
     if (dbg.on) dbgFrame(list);
   }
 
@@ -1274,7 +1304,7 @@ G.Ultra3D = (() => {
 
   /** Para medir: chunks, filas, objetos y llamadas de dibujo y triángulos del último fotograma. */
   function stats() {
-    return { built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
+    return { built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: rt ? [rt.width, rt.height] : renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, shared: !!rt, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
       aa: !mob, calls, tris, inst: allIns.length, kinds: kinds.size, mem: renderer ? { ...renderer.info.memory } : null };
   }
 

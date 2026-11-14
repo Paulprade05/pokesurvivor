@@ -220,8 +220,10 @@ G.SettingsUI = (() => {
         toggle('lowHpWarn', 'Aviso de poca vida', 'Con menos del 30 % de vida, los bordes de la pantalla laten en rojo.'),
         toggle('eco', 'Ahorro de energía', 'Dibuja a resolución normal (1×): un poco menos nítido, pero se calienta menos y gasta menos batería.'),
         // (Rendimiento, 13-11-2026) Tope de FPS (game.js loop).
-        choice('fpsCap', [[30, '30'], [60, '60'], [0, 'Sin límite']], 'Límite de FPS',
+        choice('fpsCap', [[30, '30'], [60, '60'], [120, '120'], [0, 'Sin límite']], 'Límite de FPS',
           'Cuántos fotogramas por segundo dibuja como mucho. Con 60 basta; en pantallas de 120 Hz o más, «Sin límite» va más suave pero calienta y gasta mucho más. 30, para ahorrar batería.'),
+        // (fps-tecnologia, 14-11-2026) Motor de dibujo WebGL2 (core/gl2d.js), en pruebas hasta que iguale al Canvas 2D.
+        typeof WebGL2RenderingContext !== 'undefined' ? toggle('glDraw', 'Motor WebGL2 (pruebas)', 'Dibuja la partida con WebGL2: mucho menos trabajo para la gráfica, para ir a 60 o 120 FPS estables. En pruebas: si algo se ve raro, apágalo. Se aplica al recargar la página.') : '',
         // (13-11-2026) El zoom de la cámara: en PC, también con la rueda del ratón en la partida.
         choice('zoom', [[0.93, 'Lejos'], [1, 'Normal'], [1.12, 'Cerca'], [1.25, 'Muy cerca']], 'Zoom de la cámara',
           G.Settings.touch ? 'Cuánto se acerca la cámara en la partida.' : 'Cuánto se acerca la cámara en la partida. También con la rueda del ratón mientras juegas.'),

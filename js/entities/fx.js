@@ -13,6 +13,7 @@ G.FX = (() => {
   const CAP_PARTS = [350, 800, 1400, 2400], CAP_SPRITES = [110, 210, 320, 520], CAP_TEXTS = [25, 45, 70, 90], DENS = [0.35, 0.65, 1, 1.35];
   const q = () => G.Settings.fx === 2 && G.Settings.max ? 3 : G.Settings.fx;
   let parts = [], sprites = [], texts = [], rings = [], slashes = [], beams = [];
+  const partPool = [], sprPool = [];          // (objetos de partículas y sprites ya usados, para reutilizarlos)
   /*
    * (Arte animado, 05-11-2026) Golpes con dibujo propio de cada tipo. Sólo aspecto: se cuelga de lo que ya se ve al golpear
    * (Enemy.showHurt, burst, ring) y no toca el daño. Coste con tope: como mucho HIT_MAX golpes con adornos por fotograma y
@@ -127,6 +128,7 @@ G.FX = (() => {
   function clear() { parts = []; sprites = []; texts = []; rings = []; slashes = []; beams = []; lights = []; }
 
   const snap = v => Math.round(v / PX) * PX;
+  const VO = { angle: 0, scale: 1, alpha: 1, frame: 0 }, VB = { angle: 0.0001, scale: 1.5, frame: 0 };
 
   /*
    * «Transparencia de tus ataques» (Ajustes, ownFx: 1 · 0,6 · 0,35): lo que es
@@ -146,8 +148,12 @@ G.FX = (() => {
   /** Partícula cuadrada. o: { vx, vy, life, size (en píxeles de arte), grav, drag } */
   function px(x, y, color, o = {}) {
     if (parts.length >= CAP_PARTS[q()]) return;
-    parts.push({ x, y, vx: o.vx || 0, vy: o.vy || 0, t: 0, life: o.life || 0.4, color,
-                 s: (o.size || 1) * PX, grav: o.grav || 0, drag: o.drag == null ? 0.9 : o.drag, own: mine });
+    // (fps-tecnologia) Reutilizadas: viven lo justo para pasar a la memoria «vieja» y luego morir, y eso forzaba recogidas
+    //  grandes de la memoria (pausas de hasta 13 ms en Máxima). Mismos campos y mismo orden de dibujo que antes.
+    const p = partPool.pop() || {};
+    p.x = x; p.y = y; p.vx = o.vx || 0; p.vy = o.vy || 0; p.t = 0; p.life = o.life || 0.4; p.color = color;
+    p.s = (o.size || 1) * PX; p.grav = o.grav || 0; p.drag = o.drag == null ? 0.9 : o.drag; p.own = mine;
+    parts.push(p);
   }
 
   function burst(x, y, color, n = 8, power = 110) {
@@ -172,15 +178,20 @@ G.FX = (() => {
   /** Sprite de efecto suelto. o: { vx, vy, life, scale, angle, spin, grav, frameRate, fade } */
   function sp(shape, pal, x, y, o = {}) {
     if (sprites.length >= CAP_SPRITES[q()]) return;
-    sprites.push({ shape, pal, x, y, vx: o.vx || 0, vy: o.vy || 0, t: 0, life: o.life || 0.4,
-                   scale: o.scale || 1, angle: o.angle || 0, spin: o.spin || 0, grav: o.grav || 0,
-                   fr: o.frameRate || 10, fade: o.fade !== false, own: !foe });
+    const p = sprPool.pop() || {};
+    p.twinkle = false; p.shape = shape; p.pal = pal; p.x = x; p.y = y; p.vx = o.vx || 0; p.vy = o.vy || 0; p.t = 0; p.life = o.life || 0.4;
+    p.scale = o.scale || 1; p.angle = o.angle || 0; p.spin = o.spin || 0; p.grav = o.grav || 0;
+    p.fr = o.frameRate || 10; p.fade = o.fade !== false; p.own = !foe;
+    sprites.push(p);
   }
 
   /** Centelleo de shiny (cruz de píxeles que nace y se apaga). */
   function twinkle(x, y) {
     if (sprites.length >= CAP_SPRITES[q()]) return;
-    sprites.push({ twinkle: true, x, y, vx: 0, vy: -8, t: 0, life: G.U.rand(0.45, 0.7) });
+    const p = sprPool.pop() || {};
+    p.twinkle = true; p.shape = undefined; p.pal = undefined; p.x = x; p.y = y; p.vx = 0; p.vy = -8; p.t = 0; p.life = G.U.rand(0.45, 0.7);
+    p.scale = undefined; p.angle = undefined; p.spin = 0; p.grav = 0; p.fr = undefined; p.fade = undefined; p.own = undefined;
+    sprites.push(p);
   }
 
   /** Partículas de estela de los proyectiles, según el material. */
@@ -284,7 +295,7 @@ G.FX = (() => {
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
       p.t += dt;
-      if (p.t >= p.life) { parts.splice(i, 1); continue; }
+      if (p.t >= p.life) { parts.splice(i, 1); if (partPool.length < 2400) partPool.push(p); continue; }
       p.vy += p.grav * dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
       const k = Math.pow(p.drag, dt * 60);
@@ -293,7 +304,7 @@ G.FX = (() => {
     for (let i = sprites.length - 1; i >= 0; i--) {
       const s = sprites[i];
       s.t += dt;
-      if (s.t >= s.life) { sprites.splice(i, 1); continue; }
+      if (s.t >= s.life) { sprites.splice(i, 1); if (sprPool.length < 520) sprPool.push(s); continue; }
       s.vy += (s.grav || 0) * dt;
       s.x += s.vx * dt; s.y += s.vy * dt;
       if (s.spin) s.angle += s.spin * dt;
@@ -356,7 +367,8 @@ G.FX = (() => {
         const gap = 26, off = (now * 420) % gap;
         for (let d = off; d < b.len - 6; d += gap) {
           const yo = Math.sin(d * 0.3 + b.seed) * b.width * 0.18;
-          G.VFX.draw(ctx, b.shape, b.pal, d, yo, { angle: 0.0001, scale: 1.5, frame: (d / gap + now * 12) | 0 });
+          VB.frame = (d / gap + now * 12) | 0;
+          G.VFX.draw(ctx, b.shape, b.pal, d, yo, VB);
         }
       }
     }
@@ -434,10 +446,9 @@ G.FX = (() => {
     for (const s of sprites) {
       const k = 1 - s.t / s.life;
       if (s.twinkle) { G.Icons.twinkle(ctx, s.x, s.y, s.t / s.life, PX); continue; }
-      G.VFX.draw(ctx, s.shape, s.pal, s.x, s.y, {
-        angle: s.angle, scale: s.scale, alpha: (s.fade ? step(k) : 1) * (s.own ? own : 1),
-        frame: Math.floor(s.t * s.fr)
-      });
+      // (fps-tecnologia) Las opciones en un objeto reutilizado: uno nuevo por efecto y fotograma era basura (VFX.draw no lo guarda).
+      VO.angle = s.angle; VO.scale = s.scale; VO.alpha = (s.fade ? step(k) : 1) * (s.own ? own : 1); VO.frame = Math.floor(s.t * s.fr);
+      G.VFX.draw(ctx, s.shape, s.pal, s.x, s.y, VO);
     }
 
     // Números de daño (siempre opacos). La fuente y el trazo se ponen una vez

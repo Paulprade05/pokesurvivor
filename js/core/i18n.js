@@ -178,7 +178,10 @@ G.I18n = (() => {
   // ---------------- canvas y ventanas del navegador ----------------
   const P = CanvasRenderingContext2D.prototype;
   const canvasText = Object.fromEntries(['fillText', 'strokeText', 'measureText'].map(k => [k, P[k]]));
-  function rawCanvas(ctx, method, text, ...args) { return canvasText[method].call(ctx, text, ...args); }
+  function rawCanvas(ctx, method, text, ...args) {
+    if (ctx && ctx.__gl2d) return ctx.raw(method, text, ...args);      // (motor WebGL2, core/gl2d.js: lo pinta su lienzo 2D de respaldo)
+    return canvasText[method].call(ctx, text, ...args);
+  }
   if (lang !== 'es') {
     for (const k of ['fillText', 'strokeText', 'measureText']) {
       const orig = P[k];

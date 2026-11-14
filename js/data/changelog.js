@@ -6,6 +6,14 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-14', title: ["Motor de dibujo WebGL2 (pruebas)", "WebGL2 renderer (testing)"], new: [
+    ["Ajustes › Gráficos › Motor WebGL2 (pruebas): dibuja la partida con WebGL2, con mucho menos trabajo para la tarjeta gráfica: en la horda más grande, de ir justa a ir holgada en un portátil. Se ve igual. Apagado de serie mientras se prueba; se aplica al recargar la página.",
+     "Settings › Graphics › WebGL2 renderer (testing): draws the game with WebGL2, with much less work for the graphics card: in the biggest horde on a laptop, from maxed out to plenty of headroom. It looks the same. Off by default while it is being tested; it takes effect when the page reloads."],
+    ["Límite de FPS: nueva opción de 120 para pantallas rápidas.",
+     "FPS limit: new 120 option for fast screens."],
+    ["Con el motor WebGL2, el filtro «Pokémon más nítidos» y el destello de los golpes los hace la tarjeta gráfica: la horda más grande pasa de unos 10 a unos 5 ms de trabajo del procesador por fotograma.",
+     "With the WebGL2 renderer, the “Sharper Pokémon” filter and the hit flash are done by the graphics card: the biggest horde goes from about 10 to about 5 ms of processor work per frame."]
+  ] },
   { d: '2026-11-14', title: ["Menos tirones y menos calor", "Fewer stutters and less heat"], new: [
     ["Ajustes › Gráficos › Límite de FPS: 60 de serie, 30 para ahorrar batería o sin límite. En pantallas de 120 Hz o más el juego dibujaba el doble de fotogramas y calentaba el doble sin que se notara.",
      "Settings › Graphics › FPS limit: 60 by default, 30 to save battery, or no limit. On 120 Hz or faster screens the game drew twice the frames and heated up twice as much without anyone noticing."]

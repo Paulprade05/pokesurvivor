@@ -443,7 +443,20 @@ G.Sprites = (() => {
       if (alpha < 1) ctx.globalAlpha = prev * alpha;
       // (12-11-2026) Filtro «Pokémon más nítidos» (Ajustes › Gráficos, pixfilter.js): el fotograma ampliado con un
       // escalador de pixel art y dibujado suavizado a su tamaño. Apagado (o mientras se hace), el de siempre.
-      const pf = G.PixFilter && G.PixFilter.on && !opts.noPix ? G.PixFilter.frame(s.img, sx, sy, m.w, m.h) : null;
+      const pfOn = G.PixFilter && G.PixFilter.on && !opts.noPix;
+      // (fps-tecnologia) Con el motor WebGL2, el mismo filtro en la GPU (gl2d.js drawPix): sin ampliar en la CPU ni lienzos nuevos.
+      if (pfOn && ctx.drawPix) {
+        const algo = G.PixFilter.algo;
+        let ok = true;
+        if (!opts.flash || opts.softFlash) ok = ctx.drawPix(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k, algo, false);
+        if (ok && opts.flash) {
+          if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
+          ok = ctx.drawPix(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k, algo, true);
+        }
+        if (ok) { ctx.globalAlpha = prev; return; }
+        ctx.globalAlpha = prev * alpha;
+      }
+      const pf = pfOn ? G.PixFilter.frame(s.img, sx, sy, m.w, m.h) : null;
       const sm = ctx.imageSmoothingEnabled;
       if (pf) ctx.imageSmoothingEnabled = true;
       // Destello: blanco entero (enemigos) o medio blanco encima (tu Pokémon).
@@ -453,8 +466,11 @@ G.Sprites = (() => {
       }
       if (opts.flash) {
         if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
-        const wc = pf ? white(pf.c) : white(s.img, sx, sy, m.w, m.h);
-        if (wc) ctx.drawImage(wc, dx, dy, m.w * k, m.h * k);
+        // (Motor WebGL2: la silueta blanca en la GPU, sin crear otro lienzo.)
+        if (pf || !ctx.drawWhite || !ctx.drawWhite(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k)) {
+          const wc = pf ? white(pf.c) : white(s.img, sx, sy, m.w, m.h);
+          if (wc) ctx.drawImage(wc, dx, dy, m.w * k, m.h * k);
+        }
       }
       if (pf) ctx.imageSmoothingEnabled = sm;
       ctx.globalAlpha = prev;
