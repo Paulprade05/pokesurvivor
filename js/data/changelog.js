@@ -18,7 +18,9 @@ G.CHANGELOG = [
     ["Entrar en una grieta ya no da un tirón largo: el mapa de la arena se prepara poco a poco mientras dura el viaje por el túnel, y sus colores, flores y agua se preparan sin esperar a la tarjeta gráfica.",
      "Entering a rift no longer causes a long stutter: the arena map is prepared bit by bit during the tunnel trip, and its colors, flowers and water are prepared without waiting for the graphics card."],
     ["Menos tirones cuando aparecen Pokémon nuevos o árboles y cristales que brillan, y los efectos de los ataques se dibujan con menos trabajo.",
-     "Fewer stutters when new Pokémon or glowing trees and crystals appear, and attack effects take less work to draw."]
+     "Fewer stutters when new Pokémon or glowing trees and crystals appear, and attack effects take less work to draw."],
+    ["Si la partida empezaba con la ventana o la pestaña escondida, cada fotograma fallaba y a los pocos segundos la partida se daba por terminada. Ahora espera a que se vea.",
+     "If a run started with the window or tab hidden, every frame failed and after a few seconds the run was ended. Now it waits until it is visible."]
   ] },
   { d: '2026-11-14', title: ["Muros de rocas en 3D", "3D rock walls"], chg: [
     ["En PC con calidad Alta o más, los muros de la partida son montones de rocas en 3D, también en las arenas de las grietas: con musgo en los bosques y praderas, con cristales en las cuevas y con lava al pie en el volcán. Chocas con ellos igual que antes.",

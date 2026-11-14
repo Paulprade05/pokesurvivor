@@ -1149,6 +1149,9 @@ G.World = (() => {
    */
   const edges = new Map();           // color -> { cv, w, h, a, r0, r1 }
   function drawEdge(ctx, w, h, rgb, a, r0, r1) {
+    // (14-11-2026) Con el lienzo sin tamaño (pestaña o panel oculto al empezar): nada que oscurecer. Antes, w = 0 daba un degradado
+    //  con NaN y fallaba el fotograma entero, uno tras otro (y a los 180 seguidos se daba la partida por terminada).
+    if (!(w > 0) || !(h > 0)) return;
     let e = edges.get(rgb);
     if (!e || e.w !== w || e.h !== h) {
       if (e) G.U.freeCanvas(e.cv);

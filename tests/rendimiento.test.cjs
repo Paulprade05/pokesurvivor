@@ -87,3 +87,18 @@ test('tools/perf.cjs compara dos medidas', () => {
   assert.match(out, /\| chrome-high \| horda \| 40 → 55 \|/);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+test('lienzo sin tamaño (oculto al empezar): la viñeta no falla y la partida no se dibuja', () => {
+  // drawEdge de world.js, tal cual, con un lienzo de mentira que falla como el de verdad con números no finitos.
+  const src = read('js/world/world.js');
+  const a = src.indexOf('  const edges = new Map();'), b = src.indexOf('  function purgeEdges()');
+  assert.ok(a > 0 && b > a, 'drawEdge no encontrado');
+  const fin = (...v) => { for (const x of v) if (!Number.isFinite(x)) throw new TypeError('The provided double value is non-finite.'); };
+  const ctx2 = () => ({ createRadialGradient(...v) { fin(...v); return { addColorStop() {} }; }, fillRect(...v) { fin(...v); },
+    drawImage(c, ...v) { fin(...v); }, imageSmoothingEnabled: false });
+  const sb = vm.createContext({ G: { U: { freeCanvas() {} } }, Map, Math, document: { createElement: () => ({ getContext: ctx2 }) } });
+  vm.runInContext(src.slice(a, b) + '\nthis.drawEdge = drawEdge;', sb);
+  for (const [w, h] of [[0, 0], [0, 600], [800, 0], [NaN, 600]]) assert.doesNotThrow(() => sb.drawEdge(ctx2(), w, h, '0,0,0', 0.5, 0.42, 0.78), `w ${w} h ${h}`);
+  assert.doesNotThrow(() => sb.drawEdge(ctx2(), 800, 600, '0,0,0', 0.5, 0.42, 0.78));
+  assert.match(read('js/game.js'), /if \(pl && state !== 'ui'\) \{ if \(w > 0 && h > 0\) render\(\); \}/);
+});

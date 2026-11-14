@@ -56,7 +56,10 @@ intercalados y con varias repeticiones (medianas), y se cuenta sobre todo lo que
    los efectos, la resolución interna baja ×0,85 y luego ×0,7 (nunca por debajo de ×1) hasta la siguiente partida.
 6. **Menos trabajo al dibujar**: `G.VFX.draw` sin `save`/`restore` ni `translate` cuando el sprite no gira ni se voltea (casi todos);
    la aldea consulta el DOM una vez por fotograma (`covered`), no tres.
-7. La pestaña oculta ya pausaba la partida (y `requestAnimationFrame` no corre): sin cambios.
+7. **Lienzo sin tamaño al empezar** (pestaña o panel oculto, 14-11-2026; también pasaba en `main`): `drawEdge` dividía entre `w = 0`,
+   el degradado salía con NaN y fallaba cada fotograma; a los 180 seguidos se cerraba la partida. Ahora `drawEdge` no hace nada sin
+   tamaño y `game.js` no dibuja la partida hasta que el lienzo lo tiene. Test en `tests/rendimiento.test.cjs`.
+8. La pestaña oculta ya pausaba la partida (y `requestAnimationFrame` no corre): sin cambios.
 
 ## Lo que no se tocó (y por qué)
 - **Partículas**: ~1000 `fillRect` por fotograma en la horda. Probado aparte: agruparlas por color no gana nada y pintarlas con un

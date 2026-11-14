@@ -1220,7 +1220,9 @@ G.Game = (() => {
     // La red se atiende siempre (también con las cartas de nivel abiertas).
     if (G.Coop.active && pl && state !== 'ui' && state !== 'over') G.Coop.tick(dt);
 
-    if (pl && state !== 'ui') render();
+    // (14-11-2026) Con el lienzo sin tamaño (oculto al empezar: w = 0) no se dibuja la partida: la lógica sigue y, cuando
+    //  aparece, resize lo pone a su tamaño. Antes cada fotograma fallaba dibujando y a los 180 se cerraba la partida.
+    if (pl && state !== 'ui') { if (w > 0 && h > 0) render(); }
     // (11-11-2026) En el menú, la aldea (js/world/village.js) si está a la vista; si no, el fondo de siempre.
     else if (state === 'ui' && G.Village && G.Village.frame(ctx, w, h, dpr, real)) { bdAcc = 0; Backdrop.stale(); }
     else {
