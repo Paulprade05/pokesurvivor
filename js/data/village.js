@@ -24,53 +24,63 @@ G.VILLAGE = (() => {
    * (a: el de la choza, glow: el de su luz). npc: el tendero (dex) y dónde está, con sus frases.
    * Los textos en español; el inglés, en lang-en.js.
    */
+  /*
+   * (17-11-2026, pedido del dueño: «no quiero que sea tan simétrica [...] las más útiles más cerca del portal y el resto
+   * más dispersas») Plano sin espejo. Cerca del Altar del Portal, lo que se usa en cada vuelta de una partida: recoger
+   * premios (Tótem de misiones), gastar en Mejoras, tirar en el Gacha, comprar en Kecleon y cambiar de Pokémon en la
+   * Pokédex, alrededor de la plaza. Lejos y repartido, lo que se mira de vez en cuando: Compendio (oeste), Vitrina de
+   * logros (noreste), Almacén (este, junto al mercado), Grupo y Ranking (sureste, junto a la charca) y, al suroeste, el
+   * barrio con tu choza y las casas de los vecinos (DECOR house). Buzón y Terminal, pequeños, junto a la plaza.
+   */
   const PLACES = [
     // (13-11-2026, pedido del dueño: «mejora el altar para entrar a la partida») El Altar del Portal: más grande, con su
     // estrado y el círculo donde ponerse (door: el centro del círculo).
     { id: 'play', go: 'play', name: 'Altar del Portal', act: 'Jugar', sub: 'Entra en la mazmorra', icon: 'ball',
       x: 23, y: 8, w: 6, h: 3.6, door: [23, 9.4], look: { kind: 'altar' },
-      npc: { dex: 185, at: [28.2, 11.9], lines: ['¿Un árbol? ¡Sí, soy un árbol! ...No me mires así.', 'Ponte en el círculo de luz del altar y el portal te llevará a la mazmorra.', 'Los Pokémon de la aldea lo cuidan. Dicen que lo construyó alguien de otro mundo.'] } },
+      npc: { dex: 185, at: [27.4, 12.2], lines: ['¿Un árbol? ¡Sí, soy un árbol! ...No me mires así.', 'Ponte en el círculo de luz del altar y el portal te llevará a la mazmorra.', 'Los Pokémon de la aldea lo cuidan. Dicen que lo construyó alguien de otro mundo.'] } },
     { id: 'goals', go: 'goals', name: 'Tótem de misiones', act: 'Mirar', sub: 'Misiones y premios', icon: 'medal3',
-      x: 15.5, y: 9.2, w: 3, h: 1, door: [15.5, 10.6], look: { kind: 'board', glow: '#5ff0ff' },
-      npc: { dex: 441, at: [13.4, 10.8], lines: ['¡Atención, atención! Hay misiones nuevas en el tótem.', 'Cumple misiones y recoge tus premios aquí.', '¡Cuidado! ¡Los encargos no se hacen solos!'] } },
-    { id: 'ach', go: 'ach', name: 'Vitrina de logros', act: 'Mirar', sub: 'Tus logros', icon: 'medal1',
-      x: 30.5, y: 9.2, w: 2.2, h: 1.4, door: [30.5, 10.6], look: { kind: 'case', glow: '#b07aff' },
-      npc: { dex: 302, at: [32.6, 10.8], lines: ['Brillan... ¡todos tus logros brillan!', 'Me encantan las cosas que relucen. Consigue más logros, ¿vale?', 'No pienso comérmelos. Bueno... quizá uno.'] } },
+      x: 17.2, y: 11.2, w: 3, h: 1, door: [17.2, 12.6], look: { kind: 'board', glow: '#5ff0ff' },
+      npc: { dex: 441, at: [15.0, 12.2], lines: ['¡Atención, atención! Hay misiones nuevas en el tótem.', 'Cumple misiones y recoge tus premios aquí.', '¡Cuidado! ¡Los encargos no se hacen solos!'] } },
     { id: 'upgrades', go: 'upgrades', name: 'Carpa de Mejoras', act: 'Entrar', sub: 'Haz más fuerte cada run', icon: 'up',
-      x: 8, y: 12, w: 3.6, h: 3, door: [8, 14.3], look: { kind: 'pod', form: 'bulb', a: '#a8402e', glow: '#ff9a4a', r: 1.75 },
-      npc: { dex: 67, at: [10.2, 14.4], lines: ['¡Entrena duro y vuelve más fuerte!', 'Cada mejora cuenta. ¡Hasta la más pequeña!', '¡Uno, dos! ¡Uno, dos! ¿Entrenas conmigo?'] } },
+      x: 11.6, y: 15.2, w: 3.6, h: 3, door: [11.6, 17.5], look: { kind: 'pod', form: 'bulb', a: '#a8402e', glow: '#ff9a4a', r: 1.75 },
+      npc: { dex: 67, at: [9.2, 17.6], lines: ['¡Entrena duro y vuelve más fuerte!', 'Cada mejora cuenta. ¡Hasta la más pequeña!', '¡Uno, dos! ¡Uno, dos! ¿Entrenas conmigo?'] } },
     { id: 'gacha', go: 'gacha', name: 'Carpa del Gacha', act: 'Entrar', sub: '9 regiones · Pokémon y shinies', icon: 'ball4',
-      x: 38, y: 12, w: 3.8, h: 3.2, door: [38, 14.4], look: { kind: 'pod', form: 'dome', a: '#6a3a9a', glow: '#ff6ad8', r: 1.85, ball: true },
-      npc: { dex: 52, at: [35.8, 14.6], lines: ['¡Tira y prueba suerte, nya!', 'Dicen que hoy salen muchos shinies... o eso digo yo.', 'Las monedas brillan, pero un shiny brilla más, nya.'] } },
-    { id: 'dex', go: 'dex', name: 'Carpa de la Pokédex', act: 'Entrar', sub: 'Tus Pokémon', icon: 'book',
-      x: 7.5, y: 19, w: 3.4, h: 3, door: [7.5, 21.2], look: { kind: 'pod', form: 'cone', a: '#2e5a9a', glow: '#5ff0ff', r: 1.7 },
-      npc: { dex: 137, at: [9.7, 21.4], lines: ['Datos cargados. Tu Pokédex te espera.', 'Pi-pi. Registro cada Pokémon que consigues.', 'Error 404: Pokémon no encontrado. ¡Ve a buscarlo!'] } },
+      x: 31.2, y: 12.4, w: 3.8, h: 3.2, door: [31.2, 14.8], look: { kind: 'pod', form: 'dome', a: '#6a3a9a', glow: '#ff6ad8', r: 1.85, ball: true },
+      npc: { dex: 52, at: [33.6, 15.2], lines: ['¡Tira y prueba suerte, nya!', 'Dicen que hoy salen muchos shinies... o eso digo yo.', 'Las monedas brillan, pero un shiny brilla más, nya.'] } },
     { id: 'shop', go: 'shop', name: 'Tienda Kecleon', act: 'Entrar', sub: 'Mentas, Cápsulas y MT', icon: 'shop',
-      x: 38.5, y: 19, w: 3.8, h: 2.2, door: [38.5, 20.9], look: { kind: 'stall', a: '#3a8a5a', glow: '#7cff7a' },
-      npc: { dex: 352, at: [38.5, 19.22], counter: true, lines: ['¡Bienvenido! ¡Bienvenido! Pasa y mira.', 'Hoy tengo mentas y cápsulas a buen precio.', 'Aquí no se roba, ¿eh? Je, je.'] } },
-    { id: 'compendium', go: 'compendium', name: 'Carpa del Compendio', act: 'Entrar', sub: 'Ataques, pasivas y objetos', icon: 'cards',
-      x: 8, y: 25.6, w: 3.4, h: 3, door: [8, 28], look: { kind: 'pod', form: 'bulb', a: '#4a3a8a', glow: '#b07aff', r: 1.7 },
-      npc: { dex: 178, at: [10.2, 27.9], lines: ['Lo veo todo: pasado, presente... y tus ataques.', 'El saber es la mejor arma de un explorador.', '...'] } },
-    { id: 'bag', go: 'bag', name: 'Almacén', act: 'Entrar', sub: 'Tu mochila', icon: 'bag',
-      x: 38, y: 25.2, w: 3.4, h: 2.4, door: [38, 27.2], look: { kind: 'mush', a: '#c8586a', glow: '#ff7ad8' },
-      npc: { dex: 115, at: [35.8, 27.4], lines: ['Te guardo todo lo que traigas. Bien guardadito.', 'Mi bolsa siempre tiene sitio para una cosa más.', '¿Has mirado tu mochila? Igual llevas algo útil.'] } },
-    { id: 'home', go: 'home', name: 'Tu choza', act: 'Entrar', sub: 'Personalízala con monedas', icon: 'sprout',
-      x: 12, y: 29.8, w: 3.6, h: 2.6, door: [12, 31.8], look: { kind: 'home' } },
+      x: 30.4, y: 19.4, w: 3.8, h: 2.2, door: [30.4, 21.3], look: { kind: 'stall', a: '#3a8a5a', glow: '#7cff7a' },
+      npc: { dex: 352, at: [30.4, 19.62], counter: true, lines: ['¡Bienvenido! ¡Bienvenido! Pasa y mira.', 'Hoy tengo mentas y cápsulas a buen precio.', 'Aquí no se roba, ¿eh? Je, je.'] } },
+    { id: 'dex', go: 'dex', name: 'Carpa de la Pokédex', act: 'Entrar', sub: 'Tus Pokémon', icon: 'book',
+      x: 15.6, y: 20.4, w: 3.4, h: 3, door: [15.6, 22.6], look: { kind: 'pod', form: 'cone', a: '#2e5a9a', glow: '#5ff0ff', r: 1.7 },
+      npc: { dex: 137, at: [13.2, 22.4], lines: ['Datos cargados. Tu Pokédex te espera.', 'Pi-pi. Registro cada Pokémon que consigues.', 'Error 404: Pokémon no encontrado. ¡Ve a buscarlo!'] } },
     { id: 'news', go: 'news', name: 'Buzón de novedades', act: 'Leer', sub: 'Lo nuevo del juego', icon: 'star',
-      x: 17.6, y: 31, w: 1, h: 0.8, door: [17.6, 32.1], look: { kind: 'mailbox', glow: '#ffc04a' },
-      npc: { dex: 279, at: [19.2, 31.6], lines: ['¡Correo! ¡Hay novedades en el buzón!', 'Reparto las noticias de la aldea. ¡Todas!', 'Esta noche el bosque brilla más que nunca.'] } },
+      x: 26.6, y: 23.4, w: 1, h: 0.8, door: [26.6, 24.5], look: { kind: 'mailbox', glow: '#ffc04a' },
+      npc: { dex: 279, at: [28.4, 24.2], lines: ['¡Correo! ¡Hay novedades en el buzón!', 'Reparto las noticias de la aldea. ¡Todas!', 'Esta noche el bosque brilla más que nunca.'] } },
     { id: 'settings', go: 'settings', name: 'Terminal de ajustes', act: 'Usar', sub: 'Sonido, gráficos y controles', icon: 'scope-lens',
-      x: 21, y: 31, w: 1.6, h: 1, door: [21.2, 32.2], look: { kind: 'pc', glow: '#5ff0ff' },
-      npc: { dex: 479, at: [19.9, 30.2], lines: ['¡Bzzt! Vivo dentro de este terminal. Y lo arreglo todo.', 'Sonido, gráficos, controles... ¡Lo que quieras!', '¡Bzzzt! Los cables de la aldea me hacen cosquillas.'] } },
+      x: 19.4, y: 24.2, w: 1.6, h: 1, door: [19.6, 25.4], look: { kind: 'pc', glow: '#5ff0ff' },
+      npc: { dex: 479, at: [17.6, 24.6], lines: ['¡Bzzt! Vivo dentro de este terminal. Y lo arreglo todo.', 'Sonido, gráficos, controles... ¡Lo que quieras!', '¡Bzzzt! Los cables de la aldea me hacen cosquillas.'] } },
+    { id: 'compendium', go: 'compendium', name: 'Carpa del Compendio', act: 'Entrar', sub: 'Ataques, pasivas y objetos', icon: 'cards',
+      x: 6.4, y: 21.6, w: 3.4, h: 3, door: [6.4, 24], look: { kind: 'pod', form: 'bulb', a: '#4a3a8a', glow: '#b07aff', r: 1.7 },
+      npc: { dex: 178, at: [8.8, 24.2], lines: ['Lo veo todo: pasado, presente... y tus ataques.', 'El saber es la mejor arma de un explorador.', '...'] } },
+    { id: 'ach', go: 'ach', name: 'Vitrina de logros', act: 'Mirar', sub: 'Tus logros', icon: 'medal1',
+      x: 38.4, y: 8.6, w: 2.2, h: 1.4, door: [38.4, 10], look: { kind: 'case', glow: '#b07aff' },
+      npc: { dex: 302, at: [36.2, 10.4], lines: ['Brillan... ¡todos tus logros brillan!', 'Me encantan las cosas que relucen. Consigue más logros, ¿vale?', 'No pienso comérmelos. Bueno... quizá uno.'] } },
+    { id: 'bag', go: 'bag', name: 'Almacén', act: 'Entrar', sub: 'Tu mochila', icon: 'bag',
+      x: 39.4, y: 18.8, w: 3.4, h: 2.4, door: [39.4, 20.8], look: { kind: 'mush', a: '#c8586a', glow: '#ff7ad8' },
+      npc: { dex: 115, at: [37.0, 21.2], lines: ['Te guardo todo lo que traigas. Bien guardadito.', 'Mi bolsa siempre tiene sitio para una cosa más.', '¿Has mirado tu mochila? Igual llevas algo útil.'] } },
     { id: 'friends', go: 'friends', name: 'Carpa del Grupo', act: 'Entrar', sub: 'Juega en grupo, hasta 4', icon: 'friends',
-      x: 28, y: 29.8, w: 4.4, h: 2.8, door: [28, 32.2], look: { kind: 'pod', form: 'wide', a: '#2a7a6a', glow: '#7cff7a', r: 1.9, wide: true },
-      npc: { dex: 327, at: [30.8, 32.1], lines: ['¡Juntos se explora mejor! Hasta cuatro a la vez.', 'Invita a tus amigos y entrad en la mazmorra.', 'Bailo así desde que nací. ¿Bailas conmigo?'] } },
+      x: 30.8, y: 27.6, w: 4.4, h: 2.8, door: [30.8, 30], look: { kind: 'pod', form: 'wide', a: '#2a7a6a', glow: '#7cff7a', r: 1.9, wide: true },
+      npc: { dex: 327, at: [27.4, 30.2], lines: ['¡Juntos se explora mejor! Hasta cuatro a la vez.', 'Invita a tus amigos y entrad en la mazmorra.', 'Bailo así desde que nací. ¿Bailas conmigo?'] } },
     { id: 'rank', go: 'rank', name: 'Podio del Ranking', act: 'Mirar', sub: 'Quién aguanta más', icon: 'trophy',
-      x: 34.2, y: 30.6, w: 3, h: 1.4, door: [34.2, 32.1], look: { kind: 'podium', glow: '#ffc04a' },
-      npc: { dex: 448, at: [36.4, 32.2], lines: ['Los mejores exploradores suben a este podio.', 'Aguanta más que nadie y tu nombre saldrá aquí.', 'Siento tu aura. Hoy puedes batir tu récord.'] } }
+      x: 38.2, y: 25.4, w: 3, h: 1.4, door: [38.2, 26.9], look: { kind: 'podium', glow: '#ffc04a' },
+      npc: { dex: 448, at: [40.6, 26.8], lines: ['Los mejores exploradores suben a este podio.', 'Aguanta más que nadie y tu nombre saldrá aquí.', 'Siento tu aura. Hoy puedes batir tu récord.'] } },
+    // (17-11-2026) Tu choza: se entra por la puerta a su interior (world/home-in.js), se decora y se invita a vivir a
+    // tus Pokémon. Fuera, en el barrio del suroeste, con las casas de los vecinos.
+    { id: 'home', go: 'home', name: 'Tu choza', act: 'Entrar', sub: 'Decórala e invita a tus Pokémon', icon: 'sprout',
+      x: 11.2, y: 29.6, w: 3.6, h: 2.6, door: [11.2, 31.6], look: { kind: 'home' } }
   ];
   /** Dónde descansa la mascota de tu choza (data/home.js): junto a la puerta. */
-  const PET = [14.2, 32];
+  const PET = [13.4, 31.8];
 
   /*
    * Paseantes (clásicos fijos, decisión del dueño). at: dónde vive (pasea cerca); r: cuánto se aleja (casillas).
@@ -78,21 +88,29 @@ G.VILLAGE = (() => {
    * lowq: en calidad baja también sale (si no, sólo con calidad media o alta).
    */
   const CAST = [
-    { dex: 25, at: [23, 22], r: 5, follow: true, lowq: true, emote: '!', lines: ['¡Pika! ¡Pikachu!', '¡Pika pika! (Sus mejillas chispean en la oscuridad.)', '¡Chuuu!'] },
-    { dex: 133, at: [19, 24], r: 4, follow: true, lowq: true, emote: '♥', lines: ['¡Vui! (Te mira con curiosidad.)', '¡Eevee! (Mueve la cola.)', '¡Vuii!'] },
-    { dex: 1, at: [15, 17], r: 3, follow: true, lowq: true, emote: '♪', lines: ['¡Bulba! (Su bulbo brilla un poco de noche.)', '¡Bulbasaur!', '¡Saur, saur!'] },
-    { dex: 4, at: [30, 17], r: 3, follow: true, emote: '!', lines: ['¡Char! (Su llama alumbra el camino.)', '¡Charmander!', '¡Chaaar!'] },
-    { dex: 7, at: [32, 24], r: 3, follow: true, emote: '♪', lines: ['¡Vamos a la mazmorra! ...¡Squirtle!', '¡Squirtle squirt!', '¡Vamo vamo!'] },
-    { dex: 39, at: [23, 15.8], r: 2, emote: '♪', lines: ['¡Jiggly... puuuff! ♪ (Canta junto al manantial.)', '¡Puri puri! ♪', '...¿Te has dormido? ¡Qué falta de respeto!'] },
-    { dex: 54, at: [37.5, 31.5], r: 1.5, emote: '?', lines: ['¿Psy...? (Le duele la cabeza.)', '¡Psyduck! ...¿Psy?', '...'] },
-    { dex: 175, at: [14, 27], r: 2.5, follow: true, emote: '♥', lines: ['¡Toge togepi! ♥', '¡Prrriii!', '¡Togepi!'] },
-    { dex: 183, at: [39.5, 29.2], r: 2, emote: '♪', lines: ['¡Marill! (Juega junto a la charca.)', '¡Ma-rill!', '¡Riru!'] },
-    { dex: 16, at: [17, 13.5], r: 4, emote: '!', lines: ['¡Pidgey! (Picotea las esporas que caen.)', '¡Pi-pidgey!', '¡Gey!'] },
-    { dex: 43, at: [30, 26], r: 2, emote: '♪', lines: ['¡Oddish! (Baila con las luciérnagas.)', '¡Odd-odd!', '¡Shhh! Estoy tomando la luz de la luna.'] },
-    { dex: 12, at: [11, 23], r: 4, fly: true, emote: '♪', lines: ['¡Free! ¡Butterfree! (Revolotea entre las setas.)', '¡Furi furi!', '¡Free!'] },
-    { dex: 143, at: [4.6, 20.4], still: 'Sleep', lowq: true, emote: 'z', lines: ['Zzz... Zzz...', 'Zzz... ¿comida...? Zzz...', '...Ronca tan fuerte que tiemblan las setas.'] },
-    { dex: 79, at: [39.2, 32.6], still: 'Idle', dir: 3, emote: '…', lines: ['... ... ...¿Slow?', '(Lleva toda la noche pescando. No ha pescado nada.)', '...Poke.'] },
-    { dex: 129, at: [42.6, 31.4], still: 'Idle', water: true, emote: '!', lines: ['¡Splash! ¡Splash!', '(Salta y salta. No pasa nada.)', '¡Karp!'] }
+    { dex: 25, at: [21, 22.4], r: 5, follow: true, lowq: true, emote: '!', lines: ['¡Pika! ¡Pikachu!', '¡Pika pika! (Sus mejillas chispean en la oscuridad.)', '¡Chuuu!'] },
+    { dex: 133, at: [25.2, 21.8], r: 4, follow: true, lowq: true, emote: '♥', lines: ['¡Vui! (Te mira con curiosidad.)', '¡Eevee! (Mueve la cola.)', '¡Vuii!'] },
+    { dex: 1, at: [12.8, 19.4], r: 2.5, follow: true, lowq: true, emote: '♪', lines: ['¡Bulba! (Su bulbo brilla un poco de noche.)', '¡Bulbasaur!', '¡Saur, saur!'] },
+    { dex: 4, at: [34.4, 17.6], r: 3, follow: true, emote: '!', lines: ['¡Char! (Su llama alumbra el camino.)', '¡Charmander!', '¡Chaaar!'] },
+    { dex: 7, at: [34.4, 24.2], r: 3, follow: true, emote: '♪', lines: ['¡Vamos a la mazmorra! ...¡Squirtle!', '¡Squirtle squirt!', '¡Vamo vamo!'] },
+    { dex: 39, at: [21, 15.6], r: 2, emote: '♪', lines: ['¡Jiggly... puuuff! ♪ (Canta junto al manantial.)', '¡Puri puri! ♪', '...¿Te has dormido? ¡Qué falta de respeto!'] },
+    { dex: 54, at: [37.8, 30.6], r: 1.5, emote: '?', lines: ['¿Psy...? (Le duele la cabeza.)', '¡Psyduck! ...¿Psy?', '...'] },
+    { dex: 175, at: [14.6, 26.6], r: 2.5, follow: true, emote: '♥', lines: ['¡Toge togepi! ♥', '¡Prrriii!', '¡Togepi!'] },
+    { dex: 183, at: [40.6, 28.8], r: 1.5, emote: '♪', lines: ['¡Marill! (Juega junto a la charca.)', '¡Ma-rill!', '¡Riru!'] },
+    { dex: 16, at: [20.2, 13.2], r: 3, emote: '!', lines: ['¡Pidgey! (Picotea las esporas que caen.)', '¡Pi-pidgey!', '¡Gey!'] },
+    { dex: 43, at: [25.4, 27.6], r: 2, emote: '♪', lines: ['¡Oddish! (Baila con las luciérnagas.)', '¡Odd-odd!', '¡Shhh! Estoy tomando la luz de la luna.'] },
+    { dex: 12, at: [9.8, 21.2], r: 4, fly: true, emote: '♪', lines: ['¡Free! ¡Butterfree! (Revolotea entre las setas.)', '¡Furi furi!', '¡Free!'] },
+    { dex: 143, at: [4.4, 15.2], still: 'Sleep', lowq: true, emote: 'z', lines: ['Zzz... Zzz...', 'Zzz... ¿comida...? Zzz...', '...Ronca tan fuerte que tiemblan las setas.'] },
+    { dex: 79, at: [39.2, 33.4], still: 'Idle', dir: 3, emote: '…', lines: ['... ... ...¿Slow?', '(Lleva toda la noche pescando. No ha pescado nada.)', '...Poke.'] },
+    { dex: 129, at: [42.6, 31.8], still: 'Idle', water: true, emote: '!', lines: ['¡Splash! ¡Splash!', '(Salta y salta. No pasa nada.)', '¡Karp!'] },
+    // (17-11-2026, pedido del dueño: «chozas que no sean útiles, que simplemente sean casas de otros Pokémon») Los
+    // vecinos: viven en las casas del barrio (DECOR house: neighbor) y pasean delante de su puerta.
+    { dex: 399, at: [7.4, 29.4], r: 2, neighbor: 'burrow', emote: '♪', lines: ['¡Bidoof! (Está muy orgulloso de su madriguera.)', 'Cavé mi casa yo solito. ¡Con los dientes!', '¿Vecino nuevo? ¡Bienvenido al barrio!'] },
+    { dex: 163, at: [9.4, 11.6], r: 2, neighbor: 'stump', emote: '?', lines: ['¡Huu-huu! (Vive en el tocón hueco.)', 'De noche no duermo: vigilo la aldea.', 'Huu... ¿Qué hora es? Siempre es de noche aquí.'] },
+    { dex: 285, at: [18.6, 29.4], r: 2, neighbor: 'mush', emote: '♪', lines: ['¡Shroo! (Su casa es una seta como él.)', 'Mi casa brilla de noche. ¡Como yo!', 'Si llueve, la seta crece. ¡Casa más grande!'] },
+    { dex: 179, at: [24.6, 33], r: 2, neighbor: 'hut', emote: '!', lines: ['¡Mareep! (Su lana chisporrotea.)', 'Le doy luz a la choza con mi lana. ¡Ahorro mucho!', '¡Bzz! Perdona, te he dado un calambre.'] },
+    { dex: 194, at: [37.4, 33.4], r: 1.5, neighbor: 'hut', emote: '?', lines: ['¿Wooper? (Te mira sin pestañear.)', 'Vivo al lado de la charca. Me gusta la humedad.', '...¿Eh? ¿Me hablabas?'] },
+    { dex: 216, at: [41, 15.6], r: 2, neighbor: 'hut', emote: '♥', lines: ['¡Teddi! (Lleva miel en la pata.)', 'Mi choza huele a miel. ¿Quieres pasar? ...¡No, es mía!', '¡Teddiursa! ♥'] }
   ];
 
   /** Frases de cuando te sigue o se va. */
@@ -105,58 +123,74 @@ G.VILLAGE = (() => {
    *   bulb: farol-flor; pylon: pilón de cristal de energía; spring: el manantial de la plaza; log: banco de tronco;
    *   pod: vaina de semillas; crate: caja de la tribu con su luz; rock: roca con musgo que brilla; fern: helecho;
    *   totem: tótem de la tribu con su holograma; well: pozo de energía; fence: valla de raíces (de a a b);
-   *   flowers: flores que brillan; reeds: juncos; cable: cable de luz de a a b ([x, y, alto en mundo]).
+   *   flowers: flores que brillan; reeds: juncos; cable: cable de luz de a a b ([x, y, alto en mundo]);
+   *   house: casa de un vecino (17-11-2026; v: burrow madriguera, stump tocón hueco, mush seta, hut choza; a: color del
+   *   techo; c: su luz). No se entra: es la casa de un Pokémon de la aldea (CAST neighbor).
    */
   const DECOR = [
-    { k: 'spring', x: 23, y: 19.2, r: 1.15 },
+    { k: 'spring', x: 23, y: 17.8, r: 1.15 },
+    // las casas de los vecinos (repartidas: el barrio del suroeste, el bosque del noroeste, la charca y el este)
+    { k: 'house', v: 'burrow', x: 5.4, y: 27.8, a: '#6a5238', c: '#ffc04a' },
+    { k: 'house', v: 'stump', x: 7.2, y: 9.8, a: '#2e7048', c: '#5ff0ff' },
+    { k: 'house', v: 'mush', x: 16.6, y: 28.2, a: '#c8586a', c: '#ff7ad8' },
+    { k: 'house', v: 'hut', x: 22.4, y: 31.6, a: '#d89a2a', c: '#ffc04a' },
+    { k: 'house', v: 'hut', x: 35, y: 32.2, a: '#2fa8a0', c: '#5ff0ff' },
+    { k: 'house', v: 'hut', x: 41.2, y: 13.2, a: '#7a48c8', c: '#ff7ad8' },
     // árboles enormes junto al bosque del borde (y alguno suelto)
     { k: 'gtree', x: 4, y: 4.6, s: 1.1, r: 0.6 }, { k: 'gtree', x: 8.6, y: 4.2, s: 0.95, r: 0.55 }, { k: 'gtree', x: 14, y: 3.8, s: 1.05, r: 0.6 },
     { k: 'gtree', x: 32, y: 3.8, s: 1.05, r: 0.6 }, { k: 'gtree', x: 37.4, y: 4.2, s: 0.95, r: 0.55 }, { k: 'gtree', x: 42, y: 4.8, s: 1.1, r: 0.6 },
-    { k: 'gtree', x: 3.6, y: 9.4, s: 0.9, r: 0.5 }, { k: 'gtree', x: 42.6, y: 9.6, s: 0.9, r: 0.5 }, { k: 'gtree', x: 3.4, y: 19, s: 1.2, r: 0.65 },
-    { k: 'gtree', x: 42.8, y: 17.6, s: 1, r: 0.55 }, { k: 'gtree', x: 3.6, y: 29.4, s: 1, r: 0.55 }, { k: 'gtree', x: 43, y: 24.6, s: 0.9, r: 0.5 },
-    { k: 'gtree', x: 4.4, y: 33.2, s: 0.85, r: 0.5 }, { k: 'gtree', x: 25.6, y: 34, s: 0.8, r: 0.5 }, { k: 'gtree', x: 14.6, y: 22.6, s: 0.8, r: 0.5 },
-    { k: 'gtree', x: 31.8, y: 21.6, s: 0.8, r: 0.5 },
+    { k: 'gtree', x: 3.4, y: 10.2, s: 0.9, r: 0.5 }, { k: 'gtree', x: 42.8, y: 9.4, s: 0.9, r: 0.5 }, { k: 'gtree', x: 3.2, y: 19.4, s: 1.2, r: 0.65 },
+    { k: 'gtree', x: 43, y: 17.8, s: 1, r: 0.55 }, { k: 'gtree', x: 3.2, y: 32.2, s: 1, r: 0.55 }, { k: 'gtree', x: 43, y: 24, s: 0.9, r: 0.5 },
+    { k: 'gtree', x: 18.6, y: 34.4, s: 0.8, r: 0.5 }, { k: 'gtree', x: 8.6, y: 26.2, s: 0.8, r: 0.5 }, { k: 'gtree', x: 35.6, y: 6.6, s: 0.85, r: 0.5 },
+    { k: 'gtree', x: 26.8, y: 34.2, s: 0.75, r: 0.45 },
     // farol-flores por los caminos
-    { k: 'bulb', x: 21.4, y: 12.6, r: 0.25 }, { k: 'bulb', x: 24.6, y: 12.6, r: 0.25 }, { k: 'bulb', x: 21.4, y: 26.4, r: 0.25 }, { k: 'bulb', x: 24.6, y: 26.4, r: 0.25 },
-    { k: 'bulb', x: 13.4, y: 20.2, r: 0.25 }, { k: 'bulb', x: 32.6, y: 20.2, r: 0.25 }, { k: 'bulb', x: 10.2, y: 16.6, r: 0.25 }, { k: 'bulb', x: 35.8, y: 16.6, r: 0.25 },
-    { k: 'bulb', x: 16.2, y: 33.2, r: 0.25 }, { k: 'bulb', x: 31.2, y: 33.2, r: 0.25 },
+    { k: 'bulb', x: 21.4, y: 13.4, r: 0.25 }, { k: 'bulb', x: 24.6, y: 13.6, r: 0.25 }, { k: 'bulb', x: 14.2, y: 14, r: 0.25 }, { k: 'bulb', x: 27.4, y: 22.4, r: 0.25 },
+    { k: 'bulb', x: 20.8, y: 26.6, r: 0.25 }, { k: 'bulb', x: 14.2, y: 29.4, r: 0.25 }, { k: 'bulb', x: 33.4, y: 23.6, r: 0.25 }, { k: 'bulb', x: 34, y: 26.6, r: 0.25 },
+    { k: 'bulb', x: 36.4, y: 12.8, r: 0.25 }, { k: 'bulb', x: 10.2, y: 25.6, r: 0.25 },
     // cables de luz entre faroles (cruzan los caminos por arriba)
-    { k: 'cable', a: [21.4, 12.6, 76], b: [24.6, 12.6, 76] }, { k: 'cable', a: [21.4, 26.4, 76], b: [24.6, 26.4, 76] },
-    { k: 'cable', a: [10.2, 16.6, 76], b: [13.4, 20.2, 76] }, { k: 'cable', a: [35.8, 16.6, 76], b: [32.6, 20.2, 76] },
-    // la plaza
-    { k: 'log', x: 19.2, y: 16.4, r: 0.4 }, { k: 'log', x: 26.8, y: 16.4, r: 0.4 }, { k: 'flowers', x: 19.4, y: 22.2 }, { k: 'flowers', x: 26.6, y: 22.2 },
-    { k: 'totem', x: 18.6, y: 19.4, r: 0.3, c: '#5ff0ff' }, { k: 'totem', x: 27.4, y: 19.4, r: 0.3, c: '#ff7ad8' },
-    // tienda y almacén
-    { k: 'pod', x: 36, y: 18.4, r: 0.3 }, { k: 'crate', x: 41, y: 18.6, r: 0.32 }, { k: 'pod', x: 40.6, y: 25, r: 0.3 }, { k: 'crate', x: 40.4, y: 26.2, r: 0.32 },
-    { k: 'crate', x: 35.6, y: 24.6, r: 0.32 },
+    { k: 'cable', a: [21.4, 13.4, 76], b: [24.6, 13.6, 76] }, { k: 'cable', a: [27.4, 22.4, 76], b: [33.4, 23.6, 76] },
+    { k: 'cable', a: [33.4, 23.6, 76], b: [34, 26.6, 76] }, { k: 'cable', a: [10.2, 25.6, 76], b: [14.2, 29.4, 76] },
+    // la plaza (un banco a cada lado, pero no iguales)
+    { k: 'log', x: 19.4, y: 15.6, r: 0.4 }, { k: 'log', x: 26.8, y: 16.6, r: 0.4 }, { k: 'flowers', x: 19.8, y: 20.6 }, { k: 'flowers', x: 26.2, y: 20.2 },
+    { k: 'totem', x: 27.2, y: 18.8, r: 0.3, c: '#ff7ad8' },
+    // mercado: tienda y almacén
+    { k: 'pod', x: 36, y: 18.2, r: 0.3 }, { k: 'crate', x: 35.2, y: 19.6, r: 0.32 }, { k: 'pod', x: 42, y: 20.4, r: 0.3 }, { k: 'crate', x: 41.8, y: 21.6, r: 0.32 },
     // choza y jardín
-    { k: 'flowers', x: 9.4, y: 31.4 }, { k: 'fence', a: [8.6, 30.1], b: [8.6, 32.6] }, { k: 'well', x: 6.8, y: 30.6, r: 0.6 },
+    { k: 'flowers', x: 8.8, y: 31.8 }, { k: 'fence', a: [14.6, 27.8], b: [14.6, 29.8] }, { k: 'well', x: 7.6, y: 28.0, r: 0.6 },
     // charca
-    { k: 'reeds', x: 39, y: 30 }, { k: 'reeds', x: 44, y: 29.4 }, { k: 'reeds', x: 44.2, y: 32.6 }, { k: 'rock', x: 38.4, y: 31.2, r: 0.35 }, { k: 'rock', x: 43.6, y: 28.6, r: 0.3 },
+    { k: 'reeds', x: 38.8, y: 29.8 }, { k: 'reeds', x: 44, y: 29.8 }, { k: 'reeds', x: 44.2, y: 32.8 }, { k: 'rock', x: 43.6, y: 29.0, r: 0.3 }, { k: 'rock', x: 38.2, y: 32.2, r: 0.35 },
     // el Altar del Portal: pilones de cristal a los lados (los cables hasta el arco salen del altar)
-    { k: 'pylon', x: 18.8, y: 9.6, r: 0.3, c: '#ff7ad8' }, { k: 'pylon', x: 27.2, y: 9.6, r: 0.3, c: '#5ff0ff' },
+    { k: 'pylon', x: 19.2, y: 9.2, r: 0.3, c: '#ff7ad8' }, { k: 'pylon', x: 27.2, y: 9.6, r: 0.3, c: '#5ff0ff' },
     // setas y helechos por todas partes
-    { k: 'shroom', x: 6, y: 7.4, c: '#5ff0ff' }, { k: 'shroom', x: 40.4, y: 7.6, c: '#ff7ad8' }, { k: 'shroom', x: 17.4, y: 6.4, c: '#7cff7a' }, { k: 'shroom', x: 28.8, y: 6.6, c: '#5ff0ff' },
-    { k: 'shroom', x: 5.4, y: 16, c: '#7cff7a' }, { k: 'shroom', x: 41, y: 21.6, c: '#5ff0ff' }, { k: 'shroom', x: 16.6, y: 26, c: '#ff7ad8' }, { k: 'shroom', x: 30.4, y: 23.6, c: '#7cff7a' },
-    { k: 'shroom', x: 5.6, y: 24.4, c: '#ff7ad8' }, { k: 'shroom', x: 24.6, y: 35, c: '#5ff0ff' }, { k: 'shroom', x: 33, y: 35.2, c: '#ff7ad8' }, { k: 'shroom', x: 42, y: 13.6, c: '#7cff7a' },
-    { k: 'fern', x: 5.2, y: 12.4 }, { k: 'fern', x: 41.6, y: 11.6 }, { k: 'fern', x: 15.8, y: 15 }, { k: 'fern', x: 30.6, y: 14.6 }, { k: 'fern', x: 6.4, y: 34.4 },
-    { k: 'fern', x: 20.4, y: 35 }, { k: 'fern', x: 36.4, y: 34.8 }, { k: 'fern', x: 27, y: 24.6 },
-    { k: 'rock', x: 5.2, y: 14.6, r: 0.35 }, { k: 'rock', x: 41.4, y: 14.2, r: 0.3 }
+    { k: 'shroom', x: 6, y: 7.4, c: '#5ff0ff' }, { k: 'shroom', x: 40.6, y: 7.2, c: '#ff7ad8' }, { k: 'shroom', x: 17.4, y: 6.4, c: '#7cff7a' }, { k: 'shroom', x: 28.8, y: 6.6, c: '#5ff0ff' },
+    { k: 'shroom', x: 6.4, y: 13.6, c: '#7cff7a' }, { k: 'shroom', x: 41, y: 23, c: '#5ff0ff' }, { k: 'shroom', x: 20.2, y: 29.6, c: '#ff7ad8' }, { k: 'shroom', x: 29.4, y: 24.4, c: '#7cff7a' },
+    { k: 'shroom', x: 3.8, y: 24.8, c: '#ff7ad8' }, { k: 'shroom', x: 24.6, y: 34.6, c: '#5ff0ff' }, { k: 'shroom', x: 32.4, y: 34.6, c: '#ff7ad8' }, { k: 'shroom', x: 40.4, y: 11, c: '#7cff7a' },
+    { k: 'fern', x: 5, y: 12 }, { k: 'fern', x: 41.8, y: 10.6 }, { k: 'fern', x: 18.4, y: 16 }, { k: 'fern', x: 28.2, y: 16.4 }, { k: 'fern', x: 6.4, y: 34.4 },
+    { k: 'fern', x: 20.4, y: 34.4 }, { k: 'fern', x: 38, y: 34.4 }, { k: 'fern', x: 24.4, y: 28.6 },
+    { k: 'rock', x: 6, y: 17.2, r: 0.35 }, { k: 'rock', x: 42.2, y: 22.8, r: 0.3 }
   ];
 
   /** Caminos (de tierra oscura con piedras que brillan): tramos [x0, y0, x1, y1] con su ancho (casillas). La plaza: un círculo. */
+  // (17-11-2026) Sin cuadrícula: tramos que van en diagonal de un sitio a otro, como senderos hechos a pie.
   const PATHS = [
-    [23, 9.6, 23, 15.8], [23, 22.6, 23, 32.8],
-    [15.5, 11, 30.5, 11], [8, 14.8, 11.6, 14.8], [11.6, 14.8, 11.6, 28.4], [8, 28.4, 11.6, 28.4], [7.5, 21.6, 19.6, 21.6],
-    [38, 14.8, 34.4, 14.8], [34.4, 14.8, 34.4, 27.8], [38, 27.8, 34.4, 27.8], [26.4, 21.6, 38.5, 21.6],
-    [12, 32.8, 34.2, 32.8]
+    [23, 9.6, 23, 14.4],                                                   // altar → plaza
+    [23, 11.4, 17.2, 13], [17.2, 13, 11.6, 17.8], [17.2, 13, 9.6, 11.8], [9.6, 11.8, 7.2, 11.2],   // misiones, mejoras, tocón
+    [23, 11.4, 27.6, 13.6], [27.6, 13.6, 31.2, 15.2],                      // gacha
+    [31.2, 15.2, 34.6, 12.4], [34.6, 12.4, 38.4, 10.2], [38.4, 10.2, 41.2, 14.6],   // vitrina y la choza de Teddiursa
+    [26, 19.8, 30.4, 21.6], [30.4, 21.6, 34.6, 22.2], [34.6, 22.2, 39.4, 21.1],    // tienda y almacén
+    [20, 19.8, 15.6, 22.9], [15.6, 22.9, 10.6, 24.4], [10.6, 24.4, 6.4, 24.3],      // pokédex y compendio
+    [23, 21.2, 23, 25.2], [23, 24.4, 26.6, 24.8], [23, 25.2, 19.6, 25.7],          // al sur: buzón y terminal
+    [23, 25.2, 21.4, 27.6], [21.4, 27.6, 15.2, 31], [15.2, 31, 11.2, 31.9], [11.2, 31.9, 7.4, 30.6], [7.4, 30.6, 5.6, 29],   // el barrio
+    [23.4, 25.6, 25.8, 30.4], [25.8, 30.4, 30.8, 30.4],                    // del barrio al Grupo
+    [34.6, 22.2, 35.4, 25], [35.4, 25, 35.4, 29.4], [35.4, 27.2, 38.2, 27.2], [35.4, 29.4, 30.8, 30.4]   // sureste: ranking y grupo
   ];
   const PATH_W = 1.7;
-  const PLAZA = { x: 23, y: 19.2, r: 3.7 };
-  const POND = { x: 41.6, y: 31, rx: 2.9, ry: 2.1 };
+  const PLAZA = { x: 23, y: 17.8, r: 3.5 };
+  const POND = { x: 41.6, y: 31.6, rx: 2.9, ry: 2.1 };
   /** Hierba alta (manchas: x, y, radio). */
-  const GRASS = [[14.6, 16.4, 1.9], [31.6, 16.2, 1.9], [5.4, 26.8, 1.7], [41.2, 6.8, 1.8], [5.2, 6.6, 1.6], [16.8, 25.6, 1.4], [29.8, 25.4, 1.5], [28.4, 6.4, 1.1], [17.6, 6.6, 1.1]];
-  const SPAWN = [23, 24];
+  const GRASS = [[9, 13.6, 1.4], [34.8, 16.6, 1.5], [3.6, 23.2, 1.3], [41.2, 6.4, 1.6], [5.2, 6.4, 1.6], [19.2, 29.6, 1.2], [27.4, 26.4, 1.3],
+    [28.4, 6.4, 1.1], [17.6, 6.6, 1.1], [33, 33.2, 1.4], [13.4, 34, 1.3]];
+  const SPAWN = [23, 23];
   /** El estrado del altar (casillas): ahí no crece el bosque del borde ni la hierba. */
   const ALTAR = { x: 23, y: 8, r: 2.9 };
 

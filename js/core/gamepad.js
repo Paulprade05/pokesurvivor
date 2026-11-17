@@ -335,6 +335,7 @@ G.Pad = (() => {
       if (hit(BT.START) || hit(BT.BACK)) G.Input.virtual('escape');
       if (hit(BT.A)) { G.Input.virtual('space'); G.Input.virtualAct('open'); }
       if (now[BT.A]) G.Input.virtualHold('open');
+      if (now[BT.B]) G.Input.virtualHold('run');            // (17-11-2026) correr en la aldea (village.js running)
       if (hit(BT.X)) G.Input.virtualAct('zmove');
     }
   }
