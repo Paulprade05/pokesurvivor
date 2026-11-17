@@ -58,7 +58,8 @@ G.Spawner = (() => {
   const lateR = t => Math.pow(G.U.clamp((t - 900) / 900, 0, 1), 1.5);
   // (11-11-2026) El daño, desde el minuto 20 (LATE_KNEE) sube con LATE_DMG2 en vez de 0,55: ×1,31 en el 30 (antes ×1,55). Ver
   //  G.Enemies.scale: del 20 al 30 se recibía el doble por golpe y el dueño no aguantaba ni con todo al máximo.
-  const LATE_KNEE = 1200, LATE_DMG2 = 0.25;
+  // (17-11-2026) LATE_DMG2 0,25 → 0,15: ×1,23 en el 30 (no se pasaba del 22 con todo al máximo).
+  const LATE_KNEE = 1200, LATE_DMG2 = 0.15;
   const lateHp = t => 1 + 0.8 * lateR(t);
   const lateDmg = t => 1 + 0.55 * lateR(Math.min(t, LATE_KNEE)) + LATE_DMG2 * Math.max(0, lateR(t) - lateR(LATE_KNEE));
   // Campeones: del 1 % en el minuto 8 (efectivo; el 16 del reloj) al 6 %; como

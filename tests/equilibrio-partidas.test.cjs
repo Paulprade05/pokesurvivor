@@ -66,11 +66,11 @@ test('minutos 20-30: el daño de los enemigos y jefes sube la mitad de rápido d
   near(E.scale(1800).hp, 1 + 1080 / 95, 1e-9, 'vida del minuto 30');
 });
 
-test('minutos 20-30: el tope del director es ×1,25 en el 20 y ×1,3 en el 30 (antes 1,3 y 1,5)', () => {
+test('minutos 20-30: el tope del director es ×1,2 del 20 al 30 (17-11-2026; antes 1,25 y 1,3, y antes 1,3 y 1,5)', () => {
   const G = enemies();
   vm.runInContext(source('js/systems/director.js'), vm.createContext({ G, Math, console }), { filename: 'director.js' });
-  near(G.Director.dmgMaxAt(1200), 1.25, 1e-9, 'minuto 20');
-  near(G.Director.dmgMaxAt(1800), 1.3, 1e-9, 'minuto 30');
+  near(G.Director.dmgMaxAt(1200), 1.2, 1e-9, 'minuto 20');
+  near(G.Director.dmgMaxAt(1800), 1.2, 1e-9, 'minuto 30');
   near(G.Director.dmgMaxAt(600), 1.1, 1e-9, 'minuto 10, igual');
 });
 
