@@ -288,7 +288,6 @@ G.I18n.add({
   '{x} solicitud': '{x} request', '{x} solicitudes': '{x} requests',
   'Runs': 'Runs', '· Mejor tiempo': '· Best time', 'Mejor nivel': 'Best level', '· Derrotados': '· Defeated', 'Modo invitado: no se guarda': 'Guest mode: not saved',
   'Salir': 'Log out', 'Eres invitado: se perderá todo el progreso. ¿Salir?': 'You\'re a guest: all your progress will be lost. Log out?',
-  'Proyecto de fan sin ánimo de lucro · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK ·': 'Non-profit fan project · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK ·',
   'Aviso legal': 'Legal notice',
   // colección
   'Volver': 'Back', 'Todos': 'All', 'Tengo': 'Owned', 'Me faltan': 'Missing', 'Legendaria': 'Legendary', 'Épica': 'Epic', 'Rara': 'Rare',
