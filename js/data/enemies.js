@@ -40,8 +40,13 @@ G.Enemies = (() => {
     { from: 70,  bst: [300, 405], hp: 32,  spd: 62, dmg: 8.5, xp: 5,  cast: 7 },
     { from: 160, bst: [385, 465], hp: 52,  spd: 60, dmg: 11, xp: 8,  cast: 7 },
     { from: 260, bst: [445, 515], hp: 88,  spd: 70, dmg: 14, xp: 13, cast: 7 },
-    { from: 380, bst: [495, 560], hp: 150, spd: 66, dmg: 22, xp: 24, cast: 7 },
-    { from: 500, bst: [530, 620], hp: 250, spd: 72, dmg: 28, xp: 38, cast: 7 }
+    // (17-11-2026, el dueño: «no he llegado a más de 22 minutos nunca teniendo todo al máximo») Golpe de los dos últimos
+    //  tramos más bajo. Sus partidas subidas (16 con todo al máximo) acaban en el minuto 9-20, mediana ~17, sobre todo por
+    //  disparos y zonas de enemigos normales (salen de e.dmg). Este tramo entra hacia el 16,2 y subía el golpe un 57 % de una
+    //  vez (22, ahora 20: +43 %); el siguiente, hacia el 19,6, un 27 % (28, ahora 25: +25 %; medido con el bot: del 19 al 20
+    //  se recibía el doble por minuto).
+    { from: 380, bst: [495, 560], hp: 150, spd: 66, dmg: 20, xp: 24, cast: 7 },
+    { from: 500, bst: [530, 620], hp: 250, spd: 72, dmg: 25, xp: 38, cast: 7 }
   ];
 
   // Franjas de jefe: minuto en que salen, PV base y franja de BST.
