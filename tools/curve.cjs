@@ -4,7 +4,8 @@
  *
  * Uso:  node tools/curve.cjs [--par 6] [--speed 2] [--cap 1860] [--out <carpeta>] 6:max 6:zero:2 225:max 150:zero ...
  *       node tools/curve.cjs --report <carpeta>...
- *   (puppeteer-core: `--pp <carpeta node_modules>` o PUPPETEER_CORE=<ruta>; Chrome: `--chrome <exe>` o CHROME=<exe>)
+ *   (puppeteer-core: `--pp <carpeta node_modules>` o PUPPETEER_CORE=<ruta>; Chrome: `--chrome <exe>` o CHROME=<exe>;
+ *    CURVE_SEED=<n>: azar con semilla por partida, para emparejar antes y después)
  *
  * Cada trabajo es `dex:mejoras[:repeticiones]`, con mejoras `max` (todas las del Pokémon al máximo, también
  * Persistencia, Propulsión y Réplica) o `zero` (ninguna). Pokémon de referencia: 225 Delibird (flojo), 6 Charizard
@@ -418,6 +419,13 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
   page.on('console', m => { if (m.type() === 'error' && !/beforeunload|favicon|firebase|ERR_|Failed to load resource/i.test(m.text())) { errors++; console.log('  !! console.error', m.text().slice(0, 300)); for (const h of m.args()) h.evaluate(x => (x && x.stack) || '').then(t => { if (t) console.log('  !! pila', t.slice(0, 500)); }).catch(() => {}); } });
   await page.setViewport({ width: 932, height: 430, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   const log = s => console.log(s);
+  // (17-11-2026) CURVE_SEED=N: Math.random con semilla (N + la etiqueta de la partida), para comparar antes y después
+  //  emparejando partidas. El mapa, el calendario y las primeras cartas salen iguales; el resto se separa con el tiempo
+  //  de los fotogramas, así que sigue haciendo falta comparar medianas.
+  if (process.env.CURVE_SEED) {
+    let s = (+process.env.CURVE_SEED >>> 0) ^ [...tag].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+    await page.evaluateOnNewDocument(a => { Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }, s);
+  }
   try {
     // (Con muchas a la vez, cargar puede tardar: 30 s no bastaban con 12.)
     await page.goto(`http://127.0.0.1:${server.address().port}/dev.html?dev`, { waitUntil: 'load', timeout: 180000 });
