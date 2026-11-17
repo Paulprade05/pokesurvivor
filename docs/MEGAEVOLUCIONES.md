@@ -100,16 +100,24 @@ Con 600 derrotados por minuto, lo más alto medido, la mega estaría puesta el 7
 
 ### 3.4 Estadísticas
 
-Los stats de la mega salen de las fórmulas de `tools/fetch_pokedex.py` y se ajustan **al generar los
-datos**, una vez. En la partida se aplica la naturaleza, como en cualquier fase.
+Desde el 17-11-2026 (el dueño: «que suban todas las estadísticas como en las de la mega») los stats salen
+de los **oficiales de la mega frente a los de su Pokémon** (`megaStats` en `tools/fetch_megas.cjs`; los
+oficiales quedan en `st` y `st0` de cada mega) y se calculan **al generar los datos**, una vez
+(`node tools/fetch_megas.cjs --stats`). En la partida se aplica la naturaleza, como en cualquier fase.
+**Ninguno baja:** si un stat oficial baja (la Velocidad de Camerupt, la Defensa de Diancie...), se queda
+como el de tu Pokémon. Lo fija `tests/mega-stats.test.cjs`.
 
 | Qué | Regla |
 |---|---|
-| Daño | **Según la rareza:** 1 y 2, +40 %; 3, +35 %; 4, +30 %; 5 y legendarios, +25 %. Glalie, Camerupt y Abomasnow, +25 %, porque ya están entre los mejores. La fórmula sólo reparte entre físico y especial |
+| Ataque y At. Esp. | **En la misma proporción que los oficiales:** 100 → 120 = ×1,2. El mayor de los dos (el daño) nunca sube menos que antes del 17-11 (rareza 1 y 2, +40 %; 3, +35 %; 4, +30 %; 5 y legendarios, +25 %; Glalie, Camerupt y Abomasnow, +25 %) ni más de ×1,8, ni de lo que la pondría por encima del mejor Pokémon sin mega (`DMG_CAP`: Glalie ×1,34, Camerupt ×1,26, Charizard ×1,39, Abomasnow ×1,39, Blaziken ×1,31) |
+| Defensa y Def. Esp. | Las oficiales de la mega, como en cualquier fase (el juego usa las base tal cual) |
+| PS y Velocidad | Como una evolución: las fórmulas de `tools/fetch_pokedex.py` con los oficiales de la mega |
 | Daño recibido | **−15 %**, además de sus defensas |
-| Velocidad | La de la fórmula, nunca más de un 10 % más lenta |
-| Vida | No cambia y no cura |
 | Tamaño | Se ve más grande; el choque sigue siendo el de la forma normal |
+
+Los PS oficiales no cambian en ninguna mega salvo Zygarde (108 → 216: +48 en el juego, que se suman al
+megaevolucionar y se quitan al acabar, como en una evolución). La tabla de la sección 6 es la del
+diseño del 06-11-2026 (stats de entonces).
 
 ### 3.5 Tipo
 
@@ -329,6 +337,10 @@ pokeemerald-expansion no hay ninguna de esas), Mega-Floette (Floette no es forma
   rápido. Mega-Abomasnow daba 2,50 (2,70 en el pico, la más alta) y está en el 5 % mejor, como Glalie y
   Camerupt: se frena a ×1,25 (2,36). En el pico quedan por encima Mega-Glalie (2,58, ya era así) y
   Mega-Blaziken (2,59). No cuenta habilidades: Impulso de Blaziken no está medido.
+- **Stats oficiales (17-11-2026, rama `megas-z`):** ver 3.4. Con el mismo método (mejor sin mega 2,44),
+  ninguna pasa al mejor al ritmo rápido; en el pico, mientras dura, quedan por encima las seis de antes
+  (Charizard X e Y, Glalie, Abomasnow, Blaziken y Camerupt). Suben mucho las flojas con subida oficial
+  grande: Pidgeot y Zygarde ×1,8 (tope), Lopunny ×1,79, Skarmory ×1,75, Medicham y Beedrill ×1,67.
 
 ## 7. Datos que hay que generar
 
