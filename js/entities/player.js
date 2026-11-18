@@ -90,7 +90,6 @@ G.Player = class Player {
     this.bellHeal = 0;         // curación pendiente del Cascabel Concha
     this.statsTaken = {};      // mejoras de stat cogidas (condición de evolución)
     this.abil = null;          // efecto de su habilidad (data/ability-fx.js), lo pone game.js
-    this.sturdyAt = -Infinity; // última vez que le salvó Robustez (tiempo de partida)
     // (Movimiento Z, this.z: lo pone combat.js, zOf, la primera vez que se mira; null sin Pulsera Z.)
   }
 
@@ -403,7 +402,7 @@ G.Player = class Player {
         G.FX.dmgText(this.x, this.y - this.bodyH - 4, '¡Esquiva!', '#bfe8ff');
         return;
       }
-      if (ab.inMul) amount *= ab.inMul(this, type, cls);
+      if (ab.inMul) amount *= ab.inMul(this, type, cls, src);
     }
     // Escudos (familia ward, combat.js): paran entero un golpe de un enemigo (no la lava, las trampas ni Arceus).
     if (!pure && (type || cat) && G.Combat.wardBlock(this)) return;
@@ -420,7 +419,15 @@ G.Player = class Player {
     // Con un ataque cuerpo a cuerpo activo se recibe un 25 % menos: hay que
     // estar encima de los enemigos para pegar (iban muy por detrás).
     const close = this.activeGroup().some(m => m.kind === 'melee') ? 0.75 : 1;
-    const d = pure ? Math.max(1, amount) : Math.max(1, amount * (1 - this.reduction) * close);
+    let d = pure ? Math.max(1, amount) : Math.max(1, amount * (1 - this.reduction) * close);
+    // Habilidades (17-11-2026, data/ability-fx.js): lo que queda del golpe (Caparazón, Ignorante...) y la barrera.
+    if (ab && ab.taken && !pure) d = Math.max(1, ab.taken(this, d, src));
+    if (this.abShield > 0 && !pure) {
+      const a = Math.min(this.abShield, d);
+      this.abShield -= a; d -= a;
+      G.FX.ring(this.x, this.y, this.r * 2.2, this.r * 1.2, '#bfe8ff', 0.25, 2);
+      if (d <= 0) { this.invuln = 0.3; G.FX.dmgText(this.x, this.y - this.bodyH - 4, '-' + Math.round(a), '#bfe8ff'); return; }
+    }
     this.dmgTaken += Math.min(d, Math.max(0, this.hp));
     if (!this.remote) G.Reg.hurt(this, Math.min(d, Math.max(0, this.hp)), src, how, type);
     // Golpes fuertes (de una vez, un 20 % de la vida o más): Puño Certero se cancela sólo con estos.
@@ -444,14 +451,9 @@ G.Player = class Player {
       G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Banda Focus!', '#ff9a3d', true);
       G.FX.ring(this.x, this.y, 6, 70, '#ff9a3d', 0.5, 4);
     }
-    // Robustez (habilidad): lo mismo, una vez cada 90 s.
-    if (this.hp <= 0 && ab && ab.sturdy && now - this.sturdyAt > 90) {
-      this.sturdyAt = now;
-      this.hp = 1; this.invuln = 1.2; this.graceT = Math.max(this.graceT, 1.2);
-      G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Robustez!', '#c9b48a', true);
-      G.FX.ring(this.x, this.y, 6, 70, '#c9b48a', 0.5, 4);
-    }
-    if (ab && ab.hurt && this.hp > 0) ab.hurt(this, type, cls);
+    // Habilidad que salva de caer (Robustez, Fénix Sagrado...: gancho fall de data/ability-fx.js).
+    if (this.hp <= 0 && ab && ab.fall && !this.remote && ab.fall(this)) this.hp = Math.max(1, this.hp);
+    if (ab && ab.hurt && this.hp > 0) ab.hurt(this, type, cls, src);
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true;
       if (G.Mega) G.Mega.down(this);                // (al caer se acaba la mega)

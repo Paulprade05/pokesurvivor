@@ -22,7 +22,7 @@
 G.Village = (() => {
   const $ = id => document.getElementById(id);
   const V = () => G.VILLAGE;
-  const TS = 48, SPEED = 200, CYCLE = 600;
+  const TS = 48, SPEED = 200, CYCLE = 600, RUN = 1.75, COUNTER_LIFT = 26;
   let three = 'idle', threeErr = '', T = null;
   let active = false, failed = '', forceClassic = false, glOk = null;
   let pl = null, npcs = [], followers = [], trail = [];
@@ -34,6 +34,8 @@ G.Village = (() => {
   let tileWait = 0, lastPartner = '';
   let pet = null, holo = null, homeKey = '', homeOpen = false, homePreview = null, prepP = null;
   let intro = null, flashPending = false, zoom = 1;     // la entrada a la partida (startIntro)
+  let guestsOut = [], guestKey = '';                    // tus invitados de la choza, paseando por el barrio (syncGuestsOut)
+  let runHold = false, runLatch = false, runShown = null; // sprint: el botón táctil (mantener o tocar para dejarlo puesto)
 
   // ---------------- ¿aldea o menú clásico? ----------------
   function webgl() {
@@ -114,7 +116,7 @@ G.Village = (() => {
       softTries++;
       console.warn('[Aldea] se reintenta (' + softTries + '/' + SOFT_TRIES + '):', why);
       for (const n of npcs) { try { G.Village3D.unsprite(n); } catch (e) { /* nada */ } }
-      npcs = []; pl = null; pet = null; holo = null; followers = []; lastPartner = ''; homeKey = ''; prepP = null;
+      npcs = []; pl = null; pet = null; holo = null; followers = []; lastPartner = ''; homeKey = ''; prepP = null; guestsOut = []; guestKey = '';
       waiting();
       clearTimeout(softT);
       softT = setTimeout(() => { softT = 0; if (G.UI.isOpen('scr-menu') && !active) show(); }, 700 * softTries);
@@ -197,10 +199,54 @@ G.Village = (() => {
       if (still === 'Sleep') G.Sprites.sheet(cfg.pet, 'Sleep');
       npcs.push(pet);
     }
+    syncGuestsOut(cfg.pet, pd);
     // Holograma: tu Pokémon, de luz, girando sobre el proyector.
     if (holo && (!info.holo || holo.anim.dex !== pd)) { G.Village3D.unsprite(holo); holo = null; }
     if (info.holo && !holo) { holo = mon(pd, false); holo.holo = true; holo.x = info.holo[0]; holo.y = info.holo[1]; }
   }
+  /*
+   * (17-11-2026) Tus invitados (data/home.js room().guests) también se ven fuera: pasean por el barrio, delante de tu choza,
+   * y te siguen un rato si les hablas (como los paseantes). Sin tu compañero (eres tú) ni la mascota del cojín (ya está).
+   */
+  const GUEST_SPOTS = [[13.8, 33.2], [9.2, 33.2], [16.2, 32.6], [7.6, 32]];
+  function syncGuestsOut(petDex, partner) {
+    const want = G.Home && G.Home.room ? G.Home.room().guests.filter(d => G.DEX_BY[d] && d !== partner && d !== petDex) : [];
+    const key = want.join(',');
+    if (key === guestKey) return;
+    guestKey = key;
+    for (const n of guestsOut) { G.Village3D.unsprite(n); npcs = npcs.filter(o => o !== n); followers = followers.filter(o => o !== n); }
+    guestsOut = want.map((d, i) => {
+      const n = mon(d, false), at = GUEST_SPOTS[i % GUEST_SPOTS.length];
+      Object.assign(n, { home: [tile(at[0]), tile(at[1])], wander: tile(2), mode: 'idle', tt: rnd(0.5, 2.5), li: 0, isGuest: true,
+        lines: ['(Vive en tu choza. Se le ve contento.)', '¡Qué bien se vive en tu choza!', '(Te saluda desde el barrio.)'],
+        cast: { follow: true, emote: '♥' } });
+      n.x = n.home[0]; n.y = n.home[1];
+      if (blocked(n.x, n.y, n.r)) unstick(n);
+      npcs.push(n);
+      return n;
+    });
+  }
+
+  // ---------------- dentro de tu choza (world/home-in.js) ----------------
+  function enterHome() {
+    if (!G.HomeIn || !active || !pl) return false;
+    target = null; setQuick(false); near = null; prompt();
+    followers.forEach(n => { n.mode = 'home'; }); followers = [];
+    G.HomeIn.enter();
+    shown = '';
+    return true;
+  }
+  /** Sale de la choza: tu Pokémon aparece delante de su puerta, mirando al sur. */
+  function exitHome() {
+    if (!G.HomeIn || !G.HomeIn.on) return;
+    G.HomeIn.leave();
+    const h = V().PLACES.find(p => p.id === 'home');
+    if (pl && h) { pl.x = tile(h.door[0]); pl.y = tile(h.door[1] + 0.6); pl.anim.dir = 0; unstick(pl); snapCam(); }
+    { const s = G.DB.save; syncGuestsOut(G.Home.current().pet, s && G.DEX_BY[s.partner] ? s.partner : 25); }
+    shown = ''; near = null; prompt();
+    walkPrev = false;
+  }
+
   /** La tienda de la choza (ui/home-ui.js): abierta o cerrada (la cámara va a tu choza) y la pieza que se prueba. */
   function homePanel(on) {
     homeOpen = !!on && active;
@@ -266,7 +312,7 @@ G.Village = (() => {
 
   function spawnAll() {
     for (const n of npcs) G.Village3D.unsprite(n);
-    npcs = []; followers = []; trail = [];
+    npcs = []; followers = []; trail = []; guestsOut = []; guestKey = '';
     if (holo) G.Village3D.unsprite(holo);
     pet = null; holo = null; homeKey = '';
     if (pl) { G.Village3D.unsprite(pl); }
@@ -475,9 +521,19 @@ G.Village = (() => {
     const cov = covered(), walk = walking();
     if (cov === 2) { walkPrev = false; return true; }          // tapada: se queda quieta (como el fondo del menú)
     t += dt;
+    // Dentro de tu choza: la dibuja home-in.js (nada de 3D).
+    if (G.HomeIn && G.HomeIn.on) {
+      const inWalk = active && !quick && G.Game && G.Game.state === 'ui' && G.UI.isOpen('scr-menu') && !covered();
+      if (inWalk && walkPrev && !homeOpen && (G.Input.tap('escape') || G.Input.tap('keym'))) { exitHome(); walkPrev = false; return true; }
+      runBtn(inWalk && !homeOpen);
+      G.HomeIn.frame(ctx, w, h, dpr, dt, inWalk && !homeOpen, walkPrev, running());
+      walkPrev = inWalk && !homeOpen;
+      return true;
+    }
     camSize();
     if (intro) introTick(dt);
     else if (walk) { update(dt, walkPrev); G.Village3D.tune && G.Village3D.tune(real); } else idle(dt);
+    runBtn(walk && !intro);
     if (!active || !pl) return true;                // (la entrada ha acabado: ya ha empezado la partida y la aldea duerme)
     walkPrev = walk;
     // Con una ventana encima, a 20 FPS (casi no se ve y calienta menos).
@@ -498,7 +554,9 @@ G.Village = (() => {
       if (d < 8) { const then = target.then; target = null; if (then) then(); }
       else { mx = dx / d; my = dy / d; }
     }
-    const sp = SPEED * Math.min(1, Math.hypot(mx, my));
+    // (17-11-2026, pedido del dueño) Sprint: Mayús en el PC, B en el mando y el botón de correr en el móvil.
+    const run = running();
+    const sp = SPEED * (run ? RUN : 1) * Math.min(1, Math.hypot(mx, my));
     let moved = 0;
     if (sp > 1) {
       moved = move(pl, mx / Math.hypot(mx, my) * sp * dt, my / Math.hypot(mx, my) * sp * dt);
@@ -507,7 +565,7 @@ G.Village = (() => {
       const last = trail[0];
       if (!last || Math.hypot(last[0] - pl.x, last[1] - pl.y) > 10) { trail.unshift([pl.x, pl.y]); if (trail.length > 60) trail.pop(); }
     }
-    pl.anim.loop(moved > 0.2 ? 'Walk' : 'Idle');
+    pl.anim.loop(moved > 0.2 ? 'Walk' : 'Idle', run && moved > 0.2 ? 1.6 : 1);
     pl.anim.update(dt);
     // (Si algo se le ha puesto encima, p. ej. una pieza nueva de tu choza, sale de ahí.)
     if (!moved && blocked(pl.x, pl.y, pl.r)) unstick(pl);
@@ -551,7 +609,7 @@ G.Village = (() => {
         const i = followers.indexOf(n), p = trail[Math.min(trail.length - 1, 4 + i * 5)] || [pl.x, pl.y];
         const dx = p[0] - n.x, dy = p[1] - n.y, d = Math.hypot(dx, dy);
         if (d > 14 && dP > 40) {
-          const sp = Math.min(SPEED * 1.05, d * 4);
+          const sp = Math.min(SPEED * (running() ? RUN + 0.05 : 1.05), d * 4);
           moving = move(n, dx / d * sp * dt, dy / d * sp * dt) > 0.2;
           if (moving) n.anim.dir = G.Sprites.dirFromAngle(Math.atan2(dy, dx));
           // Si se queda atrás o atascado, aparece a tu lado.
@@ -670,6 +728,7 @@ G.Village = (() => {
   }
 
   function act() {
+    if (G.HomeIn && G.HomeIn.on) { G.HomeIn.act(); return; }
     if (!near) return;
     if (near.npc) { talk(near.npc); return; }
     go(near.place.go);
@@ -680,6 +739,8 @@ G.Village = (() => {
   const CLASSIC = ['play', 'dex', 'upgrades', 'shop', 'bag', 'gacha', 'friends', 'rank', 'compendium'];
   /** Abre el apartado de un sitio (también desde el desplegable). → true si lo ha abierto. */
   function go(what) {
+    // Desde dentro de tu choza, a cualquier otro sitio: primero se sale.
+    if (G.HomeIn && G.HomeIn.on && what !== 'home') exitHome();
     // Jugar (sin sala): primero la entrada por el portal; al acabar, el botón de siempre.
     if (what === 'play' && active && pl && !(G.Social && G.Social.room) && !covered()) { if (!intro) startIntro(); return true; }
     if (CLASSIC.includes(what)) {
@@ -692,7 +753,7 @@ G.Village = (() => {
     if (what === 'goals') G.GoalsUI.open('missions');
     else if (what === 'ach') G.GoalsUI.open('ach');
     else if (what === 'profile') G.GoalsUI.open('profile');
-    else if (what === 'home') { if (G.HomeUI) G.HomeUI.open(); else return false; }
+    else if (what === 'home') { if (!enterHome()) { if (G.HomeUI) G.HomeUI.open(); else return false; } }
     else if (what === 'settings') { const b = $('btn-settings'); if (b) b.click(); else return false; }
     else if (what === 'news') { const b = $('btn-news'); if (b) b.click(); else return false; }
     else if (what === 'partner') { const b = $('menu-stage'); if (b) b.click(); else return false; }
@@ -703,6 +764,10 @@ G.Village = (() => {
   // ---------------- tocar o hacer clic en la aldea ----------------
   function pointer(e) {
     if (intro) { skipIntro(); return; }
+    if (G.HomeIn && G.HomeIn.on) {
+      if (e.target === document.getElementById('game') && active && !quick && !covered() && (!e.button || e.button === 0)) G.HomeIn.pointer(e, !homeOpen);
+      return;
+    }
     if (!walking() || e.target !== document.getElementById('game')) return;
     if (e.pointerType !== 'mouse' && G.Touch && G.Touch.stick && G.Touch.stick.id === e.pointerId) return;   // ha cogido el joystick
     if (e.button && e.button !== 0) return;
@@ -746,7 +811,8 @@ G.Village = (() => {
 
   function draw(ctx, w, h, dpr, dt) {
     const hz = G.Village3D.heightAt || (() => 0);
-    for (const n of npcs) { n.gz = n.z = hz(n.x, n.y); G.Village3D.sprite(n); }
+    // (17-11-2026, auditoría) Kecleon, detrás de su mostrador, sube a una tarima: si no, el mostrador y el toldo lo tapaban entero.
+    for (const n of npcs) { n.gz = n.z = hz(n.x, n.y) + (n.place && n.place.npc.counter ? COUNTER_LIFT : 0); G.Village3D.sprite(n); }
     pl.gz = hz(pl.x, pl.y); pl.z = pl.gz + (pl.lift || 0); pl.lit = true;
     G.Village3D.sprite(pl);
     const A = G.Village3D.altar ? G.Village3D.altar() : null;
@@ -992,7 +1058,30 @@ G.Village = (() => {
     $('vil-quick-close').onclick = () => { G.Audio.sfx('click'); setQuick(false); };
     $('vq-partner').onclick = () => { setQuick(false); go('partner'); };
     $('vil-go').onclick = () => { G.Audio.sfx('click'); setQuick(!quick); };
-    $('vil-act').onclick = () => { if (walking()) act(); };
+    $('vil-act').onclick = () => { if (walking() || (G.HomeIn && G.HomeIn.on && !homeOpen)) act(); };
+    // Correr (móvil): mantenido corre; un toque corto lo deja puesto hasta el siguiente toque.
+    const rb = $('vil-run');
+    if (rb) {
+      let t0 = 0;
+      const up = () => { if (!runHold) return; runHold = false; if (performance.now() - t0 < 260) runLatch = !runLatch; rb.classList.toggle('on', runLatch); rb.setAttribute('aria-pressed', runLatch ? 'true' : 'false'); };
+      rb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); runHold = true; t0 = performance.now(); rb.classList.add('on'); try { rb.setPointerCapture(e.pointerId); } catch (er) { /* nada */ } });
+      rb.addEventListener('pointerup', up); rb.addEventListener('pointercancel', up); rb.addEventListener('lostpointercapture', up);
+    }
+    const dec = $('vil-deco'), out = $('vil-out');
+    if (dec) dec.onclick = () => { if (G.HomeUI) G.HomeUI.open('in'); };
+    if (out) out.onclick = () => exitHome();
+  }
+  /** ¿Se corre? (Mayús, B del mando o el botón táctil) */
+  function running() {
+    return runHold || runLatch || G.Input.held('shiftleft') || G.Input.held('shiftright') || G.Input.actHeld('run');
+  }
+  /** El botón de correr: sólo en el móvil y mientras se pasea. */
+  function runBtn(v) {
+    const show = !!v && !!(G.Touch && G.Touch.active);
+    if (show === runShown) return;
+    runShown = show;
+    const b = $('vil-run');
+    if (b) b.classList.toggle('hidden', !show);
   }
   /** Los textos del desplegable, con lo mismo que dice el menú clásico (Pokédex, mochila, premios, amigos, sala). */
   function refreshQuick() {
@@ -1048,9 +1137,13 @@ G.Village = (() => {
     active = false; quick = false; lastShot = null;
     if (homeOpen && G.HomeUI) G.HomeUI.close(true);
     homeOpen = false; homePreview = null;
+    if (G.HomeIn) G.HomeIn.leave(true);
+    guestsOut = []; guestKey = ''; runHold = false; runLatch = false;
   }
 
   return { init, show, frame, sleep, go, walking, wanted, prepare, homePanel, previewHome, syncHome, nearest: () => near, takeFlash,
+    enterHome, exitHome, running, paint: { pill, bubble, emo },
+    get inside() { return !!(G.HomeIn && G.HomeIn.on); },
     get intro() { return !!intro; },
     get homeOpen() { return homeOpen; },
     get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : (three === 'loading' || veilOn) ? 'loading' : 'classic'; },

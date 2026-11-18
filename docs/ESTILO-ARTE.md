@@ -46,6 +46,7 @@ Capturas de Exploradores del Cielo en Mystery Dungeon Franchise Wiki. Se toma la
 ## Dónde está
 - Dibujos propios: `tools/pxl/*.px.js`, en `assets/pxl/`. Construir: `PXL=<carpeta de claude-pxl> node tools/pxl/build.cjs`.
 - Iconos de ataques (133 de 140): `tools/pxl/ataques/*.px.js`, en `js/data/move-art.js`. Construir: `PXL=<carpeta de claude-pxl> node tools/pxl/ataques.cjs`. Se dibujan a 28×28 con los colores de su tipo (`base.px.js`) y el contorno los lleva a 30×30. Tienen que leerse a 30 px, el tamaño del Compendio, y enseñar lo que hace el ataque, no la forma de su familia.
+- Interior de tu choza (17-11-2026): `tools/pxl/choza.px.js`, en `assets/pxl/chozain.png` (un atlas: suelos, paredes y muebles; `world/home-in.js` ART dice dónde va cada pieza). 24 px por casilla, contorno oscuro en lo que está de pie y lo plano sin él; se dibuja a un número entero de píxeles de pantalla.
 - Tilesets: `assets/tiles-pmd/`, con `tools/fetch_tiles.py`.
 - Hierba: `tiles.js grass24` y `tileset.js seatSheet`. Objetos del suelo: `icons.js chunky`.
 

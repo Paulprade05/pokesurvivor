@@ -6,6 +6,45 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-17', title: ["Menos avisos en pantalla", "Fewer notices on screen"], chg: [
+    ["Quitado el «Proyecto de fan sin ánimo de lucro» del pie de la pantalla. Sigue en Ajustes › Acerca de.",
+     "Removed “Non-profit fan project” from the screen footer. It is still in Settings › About."]
+  ] },
+  { d: '2026-11-17', title: ["Megas y movimientos Z más fuertes", "Stronger Megas and Z-Moves"], chg: [
+    ["Megaevoluciones: ahora suben como sus estadísticas oficiales. El Ataque y el Ataque Especial suben en la misma proporción que en la mega de los juegos (si pasa de 100 a 150, pega ×1,5), con un mínimo igual a lo que daban antes y un tope para que ninguna supere al mejor Pokémon. La Defensa, la Defensa Especial, los PS y la Velocidad cambian como en una evolución, y ninguna estadística baja nunca al megaevolucionar. Suben sobre todo Mega-Pidgeot, Mega-Zygarde, Mega-Lopunny, Mega-Skarmory, Mega-Medicham, Mega-Beedrill y Mega-Diancie.",
+     "Mega Evolutions now grow like their official stats. Attack and Special Attack rise by the same proportion as the Mega in the games (from 100 to 150 hits ×1.5), never less than before and with a cap so none outdoes the best Pokémon. Defense, Special Defense, HP and Speed change like in an evolution, and no stat ever drops when you Mega Evolve. The biggest gains go to Mega Pidgeot, Mega Zygarde, Mega Lopunny, Mega Skarmory, Mega Medicham, Mega Beedrill and Mega Diancie."],
+    ["Movimientos Z: los más flojos, a la par de los demás. Hélice Trepanadora llega mucho más lejos (radio 110 → 160); Megatón Floral lanza 4 columnas en vez de 3; Dracoaliento Devastador es más ancho y Ráfaga Demoledora llega más lejos.",
+     "Z-Moves: the weakest ones now match the rest. Corkscrew Crash reaches much farther (radius 110 → 160); Bloom Doom throws 4 columns instead of 3; Devastating Drake is wider and All-Out Pummeling reaches farther."]] },
+  { d: '2026-11-17', title: ["Habilidades nuevas y útiles", "New, useful abilities"], new: [
+    ["Cada legendario y singular tiene ahora una habilidad propia que no lleva nadie más: Articuno congela con una ventisca, Zapdos llama rayos, Ho-Oh renace de sus cenizas, Dialga detiene el tiempo, Kyogre trae el mar del albor, Eternatus dispara el Rayo Infinito… 83 en total, y se ven en partida.",
+     "Every legendary and mythical Pokémon now has an ability of its own that nobody else has: Articuno freezes with a blizzard, Zapdos calls down lightning, Ho-Oh rises from its ashes, Dialga stops time, Kyogre brings the primordial sea, Eternatus fires the Eternabeam… 83 in all, and you can see them in the run."],
+    ["Muchas habilidades hacen ahora algo de verdad: ondas al recibir golpes, auras que frenan o envenenan a los de alrededor, rayos, barreras, contraataques, enemigos que revientan al caer… Ya no hay dos habilidades que hagan lo mismo.",
+     "Many abilities now really do something: waves when you get hit, auras that slow or poison those around you, lightning, barriers, counterattacks, enemies that burst when they fall… No two abilities do the same thing any more."],
+    ["La pausa enseña tu habilidad y lo que hace (en dorado, si es de legendario).",
+     "The pause screen shows your ability and what it does (in gold if it belongs to a legendary)."]
+  ], chg: [
+    ["Espesura, Mar Llamas, Torrente y Enjambre sueltan una onda de su tipo cada 6 s con poca vida. Presión frena a los de alrededor; Caparazón impide que un golpe te quite más del 12 % de la vida; Robustez, al salvarte, aparta a los enemigos. Las mejoras planas que quedan son de verdad (nada de +3 %).",
+     "Overgrow, Blaze, Torrent and Swarm release a wave of their type every 6 s when low on HP. Pressure slows those around you; Shell Armor stops any hit from taking more than 12% of your HP; Sturdy pushes enemies away when it saves you. The flat boosts that remain are real ones (no more +3%)."]
+  ] },
+  { d: '2026-11-17', title: ["Entra en tu choza", "Step inside your hut"], new: [
+    ["Ya se puede entrar en tu choza: por dentro es una habitación con suelo, pared y muebles. Pon, mueve, voltea y quita muebles y adornos (cama, mesa, faroles, estantería, sofá, hornillo, pecera, alfombra, cuadros, guirnaldas...) con «Decorar»; los de serie son gratis y los demás se compran una vez con monedas.",
+     "You can now go inside your hut: it's a room with a floor, walls and furniture. Place, move, flip and remove furniture and decorations (bed, table, lamps, bookshelf, sofa, stove, fish tank, rug, paintings, string lights...) with “Decorate”; the basic ones are free and the rest are bought once with coins."],
+    ["Invita a vivir en tu choza a hasta 4 de tus Pokémon: pasean dentro, duermen en la cama o en su cojín y también se ven por el barrio de la aldea. Si tenías mascota en la puerta, se ha mudado dentro.",
+     "Invite up to 4 of your Pokémon to live in your hut: they wander inside, sleep on the bed or their cushion, and can also be seen around the village neighborhood. If you had a pet at the door, it has moved in."],
+    ["Correr en la aldea: mantén Mayús en el PC, B en el mando o el botón del rayo en el móvil (un toque lo deja puesto).",
+     "Run in the village: hold Shift on PC, B on a controller or the lightning button on mobile (one tap keeps it on)."],
+    ["Seis casas de vecinos por la aldea (Bidoof, Hoothoot, Shroomish, Mareep, Wooper y Teddiursa), con su dueño paseando delante.",
+     "Six neighbor homes around the village (Bidoof, Hoothoot, Shroomish, Mareep, Wooper and Teddiursa), with their owner strolling outside."]],
+  chg: [
+    ["La aldea ya no es simétrica: lo que más se usa después de cada partida (misiones, Mejoras, Gacha, Tienda Kecleon y Pokédex) está junto al Altar del Portal, y lo demás repartido, con senderos que lo unen. Tu choza está en el barrio del suroeste.",
+     "The village is no longer symmetric: what you use most after each run (missions, Upgrades, Gacha, Kecleon Shop and Pokédex) is next to the Portal Altar, and the rest is spread out, linked by trails. Your hut is in the southwest neighborhood."]],
+  fix: [
+    ["Kecleon ya se ve detrás de su mostrador (lo tapaba el toldo).",
+     "Kecleon can now be seen behind its counter (the awning hid it)."],
+    ["Los pinos del borde de abajo ya no tapan a tu Pokémon en el camino del sur.",
+     "The pines along the bottom edge no longer hide your Pokémon on the southern path."],
+    ["En el móvil, las tarjetas de Pokémon de la tienda de tu choza (Mascota) ya no se salen de su recuadro.",
+     "On mobile, the Pokémon cards in your hut's shop (Pet) no longer spill out of their box."]] },
   { d: '2026-11-17', title: ["Final de partida algo más suave", "A slightly gentler late game"], chg: [
     ["Algo menos difícil desde el minuto 16 hasta el final, para que con todas las mejoras y jugando bien se pueda llegar a la Sentencia de Arceus. Los Pokémon que aparecen hacia los minutos 16 y 20 pegan menos (antes el golpe subía de una vez un 57 % y un 27 %), el daño del tramo final sube más despacio y, si vas muy por encima del nivel típico, los enemigos ya no pegan más de un 15 % de más por tu nivel. Golpes, disparos y zonas quitan un 15 % menos del minuto 17 al 20 y entre un 20 y un 25 % menos del 20 al 30: el minuto 28 pega ahora como antes el 22. Sigue siendo lo más duro de la partida.",
      "A bit less hard from minute 16 to the end, so that with every upgrade and good play you can reach Arceus's Judgment. The Pokémon that show up around minutes 16 and 20 hit less hard (their hits used to jump 57% and 27% at once), late-game damage grows more slowly and, if you are far above the usual level, enemies no longer hit more than 15% harder because of your level. Hits, shots and zones deal 15% less from minute 17 to 20 and 20-25% less from 20 to 30: minute 28 now hits like minute 22 used to. It is still the hardest part of the run."]] },

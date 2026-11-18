@@ -898,7 +898,9 @@ G.Village3D = (() => {
       if (at(tx, ty) !== 1) continue;
       let dx = 0, dy = 0, n = 0;
       for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (open(tx + i, ty + j)) { dx += i; dy += j; n++; }
-      const edge = n > 0, south = ty >= Hh - 3;
+      // (17-11-2026, auditoría) Las cuatro filas de abajo, sólo plantas bajas: los pinos de la fila 34 tapaban a tu Pokémon
+      // en el camino del sur (la cámara mira desde el sur).
+      const edge = n > 0, south = ty >= Hh - 4;
       const L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
       const count = edge ? 1 + (H(tx, ty, 650) < 0.45 * k ? 1 : 0) + (k > 1.2 && H(tx, ty, 651) < 0.4 ? 1 : 0) : (H(tx, ty, 652) < 0.5 * k ? 1 : 0) + (k > 1.2 && H(tx, ty, 653) < 0.35 ? 1 : 0);
       for (let q = 0; q < count; q++) {
@@ -1737,7 +1739,54 @@ G.Village3D = (() => {
         flowerTuft(X + Math.cos(a) * rr, Z + Math.sin(a) * rr * 0.7, col);
       } break;
       case 'reeds': for (let k = 0; k < 6; k++) reed(X + (H(k, d.x * 5, 1) - 0.5) * 40, Z + (H(k, d.y * 5, 2) - 0.5) * 20); break;
+      case 'house': neighbor(d, X, Z); break;
     }
+  }
+  /*
+   * Casa de un vecino (17-11-2026, pedido del dueño: «chozas que no sean útiles, que simplemente sean casas de otros
+   * Pokémon»). Más pequeñas que las carpas, con la puerta encendida (alguien vive dentro) y una ventana. No se entra.
+   */
+  function neighbor(d, X, Z) {
+    const col = d.c || AMBER, roof = d.a || '#2e7048', v = d.v || 'hut';
+    let front = Z + 46, doorY = 18, dw = 24, dh = 34;
+    if (v === 'burrow') {
+      // Madriguera: un montículo de tierra con musgo y una puerta redonda.
+      put(cap(58, 12), lambert('burrow' + roof, () => stex(foliage(64, [shade(roof, -0.45), shade(roof, -0.25), roof, shade(roof, 0.2)], 41))), { x: X, y: 0, z: Z, sy: 0.62 }, { hull: 2.4 });
+      put(cap(26, 10), lambert('mossy', () => stex(foliage(64, MOSS, 43))), { x: X - 14, y: 30, z: Z - 10, sy: 0.5 }, { hull: false });
+      put(cyl(3, 3, 26, 5), barkM(), { x: X + 46, y: 13, z: Z + 30 }, { hull: 1 });
+      put(box(22, 12, 3), woodM(), { x: X + 46, y: 26, z: Z + 31 }, { hull: false });
+      front = Z + 50; doorY = 14; dw = 26; dh = 26;
+    } else if (v === 'stump') {
+      // Tocón hueco: tronco ancho, raíces bajas, musgo arriba y una ventana redonda.
+      put(cyl(44, 52, 66, 10), barkM(), { x: X, y: 33, z: Z }, { hull: 2.2 });
+      put(cyl(42, 44, 4, 10), lambert('mossy', () => stex(foliage(64, MOSS, 43))), { x: X, y: 67, z: Z }, { hull: 1.2 });
+      put(ball(16, 1), lambert('leafy' + roof, () => stex(scales(5, roof, 32, 5))), { x: X - 12, y: 76, z: Z - 8, sy: 0.7 }, { hull: 1.6 });
+      for (const a of [2.4, 3.6, 5.6, 0.4]) {
+        const g = cone(12, 30, 6); g.rotateZ(-Math.PI / 2); g.translate(15, 0, 0);
+        put(g, barkM(), compose({ x: X + Math.cos(a) * 44, y: 3, z: Z + Math.sin(a) * 40, ry: -a, rz: -0.16, sy: 0.6 }), { hull: 1.2 });
+      }
+      put(new T.CircleGeometry(8, 12), doorM(col), { x: X + 22, y: 48, z: Z + 46 }, { hull: false, cast: false });
+      front = Z + 51;
+    } else if (v === 'mush') {
+      // Casa-seta: pie claro y sombrero de color con lunares que brillan.
+      put(cyl(32, 38, 54, 10), paleM(), { x: X, y: 27, z: Z }, { hull: 2 });
+      put(cap(70, 12), lambert('nhcap' + roof, () => stex(capTex(roof, 7, false))), { x: X, y: 48, z: Z, sy: 0.6 }, { hull: 2.4 });
+      for (let k = 0; k < 6; k++) {
+        const a = k * 2.5 + 0.7, rr = 22 + (k % 3) * 14, yy = 48 + Math.sqrt(Math.max(0, 1 - (rr / 70) ** 2)) * 70 * 0.6;
+        put(ball(5 - (k % 2), 0), glowM(col, 1), { x: X + Math.cos(a) * rr, y: yy, z: Z + Math.sin(a) * rr * 0.9, sy: 0.4 }, { hull: false, cast: false });
+      }
+      front = Z + 37.5; doorY = 16; dw = 22; dh = 30;
+    } else {
+      // Choza: paredes de tablas y techo de hojas en cono, con chimenea.
+      put(cyl(42, 46, 42, 10), woodM(), { x: X, y: 21, z: Z }, { hull: 2.2 });
+      put(cone(58, 50, 10), lambert('nhroof' + roof, () => stex(scales(6, roof, 32, 11))), { x: X, y: 42 + 25, z: Z, ry: Math.PI / 10 }, { hull: 2.4 });
+      put(box(10, 26, 10), mossStoneM(), { x: X + 22, y: 78, z: Z - 14 }, { hull: 1.2 });
+      put(new T.PlaneGeometry(12, 10), doorM(col), { x: X - 24, y: 28, z: Z + 40 }, { hull: false, cast: false });
+      front = Z + 46.5;
+    }
+    put(new T.PlaneGeometry(dw, dh), doorM(col), { x: X, y: doorY, z: front }, { hull: false, cast: false });
+    glow(X, front + 18, 56, col, 0.6);
+    halo(X, doorY + dh / 2, front + 2, col, 36, 0.45);
   }
   /** Sombrero de seta que brilla: el centro claro, el borde más oscuro y lunares. */
   const capM = c => glowTexM('cap' + c, () => stex(capTex(c, c.length)), '#ffffff', 0.85);

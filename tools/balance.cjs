@@ -663,6 +663,7 @@ function habilidades() {
     const b = () => ({ src: [] });
     return {
       mon, dex: mon.dex, x: 0, y: 0, r: 14, bodyH: 24, level: REF.level, maxHp: 400, hp: 400, dead: false, remote: false,
+      atk: REF.atk, aim: 0, walking: true, dmgTaken: 0,      // (17-11-2026: el daño de las habilidades crece con el ataque, ability-fx.js pow)
       baseAtk: mon.atk, atkMul: 1, spdMul: 1, cdMul: 1, dmgReduce: 0, regenFlat: 0, magnet: 78, xpMul: 1, coinMul: 1,
       critChance: CTX.crit0, critDmg: 0, slowT: 0, item: null, inLiquid: false, invuln: 0, graceT: 0, kills: 0, coins: 0, statsTaken: {},
       buffs: { atk: b(), patk: b(), satk: b(), spd: b(), def: b(), regen: b() }, moves: [], slots: [],
@@ -676,9 +677,11 @@ function habilidades() {
   }
   // Lo que les pasa a los enemigos por la habilidad (contacto, bajas): se cuenta aparte.
   const eff = { burn: 0, psn: 0, slow: 0, stun: 0, dmg: 0 };
-  const FOE = { x: 30, y: 0, r: 14, bodyH: 22, types: ['normal'], hp: 1, maxHp: 1, boss: false, remote: false, dead: false, shield: 0,
+  const FOE = { x: 30, y: 0, r: 14, bodyH: 22, types: ['normal'], hp: 1, maxHp: 1, boss: false, remote: false, dead: false, shield: 0, slow: 0, stunT: 0, poison: 0, burn: 0,
     applySlow(f, d) { eff.slow += f * (d || 1.2); }, applyBurn(n) { eff.burn += n || 1; }, applyPoison(n) { eff.psn += n || 1; },
     applyStun(d) { eff.stun += d; }, hurt(a) { eff.dmg += a; } };
+  // La multitud de las ondas y auras (evalOne): copias de FOE repartidas en el círculo que se pide (girasol).
+  const CROWD = Array.from({ length: 12 }, () => Object.assign({}, FOE));
   // (Daño de referencia, para lo que hacen al contacto: la media geométrica de jefe y horda, con ataque REF.atk.)
   const DPS_REF = Math.sqrt(MED.evo.jefe * MED.evo.horda) * REF.atk;
   const BURN_DMG = 6 * 1.6 * (1 + REF.level * 0.06), PSN_DMG = 0.25 * REF.hp * 0.012 * (4 / 0.6);
@@ -700,6 +703,18 @@ function habilidades() {
     const mon = Object.assign({}, mon0, { types: mon0.types.slice() });
     const fx = FX.of(id, mon);
     const pl = mockPl(mon);
+    /*
+     * (17-11-2026) Las ondas, rayos y auras de las habilidades (ability-fx.js) buscan enemigos alrededor: aquí, una
+     * multitud de FOE (4 a menos de 150 px, más con el radio), y su daño y sus estados cuentan en eff. Lo que va en
+     * el tick de las «aura» se mide aparte, en el combate de verdad (simAb).
+     */
+    const qc = G.EnemyMgr.queryCircle;
+    // Quien pega (src de player.hurt): los de cuerpo a cuerpo, pegados; los de lejos, a 220 px; 1 de cada 8, un jefe.
+    const srcOf = (x, k) => ({ hurt: a => { eff.dmg += a; }, applySlow: FOE.applySlow, applyStun: FOE.applyStun, dead: false, x: x.contact ? 25 : 220, y: 0, r: 14, boss: k % 8 === 0 });
+    G.EnemyMgr.queryCircle = (x, y, r) => {
+      const n = Math.max(1, Math.min(12, Math.round(4 * (r / 150) ** 2)));
+      return CROWD.slice(0, n).map((e, k) => Object.assign(e, { x: x + Math.cos(k * 2.4) * r * Math.sqrt((k + 0.5) / n), y: y + Math.sin(k * 2.4) * r * Math.sqrt((k + 0.5) / n) }));
+    };
     // (Lo mismo que player.js setAbility; un ability-fx.js de antes, --fx, sin begin: cdMul y start.)
     if (FX.begin) FX.begin(pl, fx);
     else { if (fx.cdMul) pl.cdMul *= fx.cdMul; if (fx.start) fx.start(pl); }
@@ -723,9 +738,9 @@ function habilidades() {
       for (let n = poisson(CTX.contactsMin / 60 * DT, rr); n > 0; n--) if (fx.contact) fx.contact(pl, FOE);
       for (let n = poisson(CTX.hitsMin / 60 * DT, rr); n > 0; n--) {
         const x = INC[Math.floor(rr() * WILD.length)];
-        if (fx.hurt) { pl.touchHit = x.contact; fx.hurt(pl, x.type, x.cls); pl.touchHit = false; }
+        if (fx.hurt) { pl.touchHit = x.contact; fx.hurt(pl, x.type, x.cls, srcOf(x, n)); pl.touchHit = false; }
       }
-      if (fx.tick && !fx.aura) fx.tick(pl, DT);
+      if (fx.tick) fx.tick(pl, DT);
       healEff += Math.max(0, pl.hp - hp0) / pl.maxHp;
       refEff += Math.min(1 - h, 0.005 * DT);
       pl.hp = h * pl.maxHp;
@@ -752,7 +767,7 @@ function habilidades() {
         else {
           pl.touchHit = x.contact;
           if (fx.dodge) d *= 1 - Math.min(1, fx.dodge(pl, x.type, x.cls));
-          if (fx.inMul) d *= fx.inMul(pl, x.type, x.cls);
+          if (fx.inMul) d *= fx.inMul(pl, x.type, x.cls, srcOf(x, i * 4 + j));
           pl.touchHit = false;
           d *= Math.max(0, 1 - pl.buffOf('def') / 0.84);
         }
@@ -763,6 +778,7 @@ function habilidades() {
       pl.decay(DT);
     }
     WX = null;
+    G.EnemyMgr.queryCircle = qc;
     const T = STEPS * DT;
     // --- daño ---
     const fit = (mn, cat) => G.Stats.fit(mn, cat);
@@ -771,8 +787,9 @@ function habilidades() {
     const v0 = pool.map((m, j) => MV[m].v * fit(mon0, INST[m].cat) * mono(mon0, INST[m].type) * baseAcc[j] / STEPS);
     const v1 = pool.map((m, j) => MV[m].v * fit(mon, INST[m].cat) * mono(mon, INST[m].type) * atkK * outAcc[j] / STEPS);
     // Lo que hace al golpear, Potencia Bruta, Dicha y las auras: con el combate de verdad (sus 3 mejores ataques).
-    const simAb = (fx.hit || fx.touchPoison || fx.sheer || fx.serene || fx.aura)
-      ? { hit: fx.hit, touchPoison: fx.touchPoison, sheer: fx.sheer, serene: fx.serene, tick: fx.aura ? fx.tick : undefined, mon } : null;
+    // (Las auras y ondas, 17-11-2026: con la multitud de FOE de arriba, no aquí: así no cuentan dos veces.)
+    const simAb = (fx.hit || fx.touchPoison || fx.sheer || fx.serene)
+      ? { hit: fx.hit, touchPoison: fx.touchPoison, sheer: fx.sheer, serene: fx.serene, mon } : null;
     if (simAb) {
       const top = v1.map((v, j) => [j, v]).sort((a, b) => b[1] - a[1]).slice(0, 3);
       for (const [j] of top) {
@@ -810,7 +827,10 @@ function habilidades() {
     const spd = PTS.spd * (S - 1);
     // (Los potenciadores y escudos no se miden aquí: lo que se recargan antes, a ojo, 1 punto por cada 8 %.)
     const util = PTS.mag * (pl.magnet / 78 - 1) + PTS.xp * (pl.xpMul - 1) + PTS.coin * (pl.coinMul - 1) + (1 - (fx.statusCd || 1)) * 12;
-    return { off, def, heal, spd, util, v: off + def + heal + spd + util };
+    // (Lo que no se puede medir aquí —barreras, salvarse de caer, topes por golpe—: fx.pts, a ojo, en «otros».)
+    // Barreras (barrier: [parte de la vida, cada s]): como una regeneración, gastada en un 80 %.
+    const util2 = util + (fx.pts || 0) + (fx.barrier ? PTS.regen * fx.barrier[0] / fx.barrier[1] * 0.8 : 0);
+    return { off, def, heal, spd, util: util2, v: off + def + heal + spd + util2 };
   }
 
   const holders = {};
