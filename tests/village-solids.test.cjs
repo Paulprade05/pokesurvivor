@@ -72,7 +72,7 @@ test('choques: todo lo que está de pie choca y lo plano no', async () => {
   for (const p of V.PLACES) if (p.id !== 'home') assert.ok(by.get('p:' + p.id), 'sin choque: ' + p.id);
   assert.ok(home.length > 0, 'tu choza choca');
   assert.ok(fixed.some(s => s.id === 'pond'), 'la charca choca');
-  const STAND = ['gtree', 'bulb', 'pylon', 'spring', 'log', 'pod', 'crate', 'rock', 'totem', 'well', 'fence', 'shroom'];
+  const STAND = ['gtree', 'bulb', 'pylon', 'spring', 'log', 'pod', 'crate', 'rock', 'totem', 'well', 'fence', 'shroom', 'house'];
   const FLAT = ['flowers', 'reeds', 'cable', 'fern'];
   V.DECOR.forEach((d, i) => {
     const n = fixed.filter(s => s.id === 'd:' + i + ':' + d.k).length;
