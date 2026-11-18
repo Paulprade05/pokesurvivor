@@ -22,7 +22,7 @@
 G.Village = (() => {
   const $ = id => document.getElementById(id);
   const V = () => G.VILLAGE;
-  const TS = 48, SPEED = 200, CYCLE = 600, RUN = 1.75;
+  const TS = 48, SPEED = 200, CYCLE = 600, RUN = 1.75, COUNTER_LIFT = 26;
   let three = 'idle', threeErr = '', T = null;
   let active = false, failed = '', forceClassic = false, glOk = null;
   let pl = null, npcs = [], followers = [], trail = [];
@@ -811,7 +811,8 @@ G.Village = (() => {
 
   function draw(ctx, w, h, dpr, dt) {
     const hz = G.Village3D.heightAt || (() => 0);
-    for (const n of npcs) { n.gz = n.z = hz(n.x, n.y); G.Village3D.sprite(n); }
+    // (17-11-2026, auditoría) Kecleon, detrás de su mostrador, sube a una tarima: si no, el mostrador y el toldo lo tapaban entero.
+    for (const n of npcs) { n.gz = n.z = hz(n.x, n.y) + (n.place && n.place.npc.counter ? COUNTER_LIFT : 0); G.Village3D.sprite(n); }
     pl.gz = hz(pl.x, pl.y); pl.z = pl.gz + (pl.lift || 0); pl.lit = true;
     G.Village3D.sprite(pl);
     const A = G.Village3D.altar ? G.Village3D.altar() : null;

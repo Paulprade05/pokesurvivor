@@ -296,9 +296,14 @@ G.HomeIn = (() => {
     if (innerHeight < 500) top = 56;
     const aw = Math.max(100, w - right - left - 16) * dpr, ah = Math.max(100, h - top - bottom) * dpr;
     const fw = RW() + SIDE * 2, fh = RH() + 14;
-    const k = Math.max(1, Math.floor(Math.min(aw / fw, ah / fh)));
+    let k = Math.max(1, Math.floor(Math.min(aw / fw, ah / fh)));
+    // (Móvil tumbado, con el lienzo a ×1,5) A escala 1 se ve diminuta: si a la siguiente cabe usando casi todo el alto
+    // (la barra de arriba sólo tapa un poco la pared por las esquinas), se usa esa.
+    if (k < 3 && (k + 1) * fh <= (h - 12) * dpr && (k + 1) * fw <= (w - right - 16) * dpr) { k++; top = Math.max(6, (h - fh * k / dpr) / 2 - 4); }
+    const ahk = (h - top - bottom) * dpr;
     const s = k / PX;
-    const ox = Math.round(left * dpr + ((w - right - left) * dpr - RW() * k) / 2), oy = Math.round(top * dpr + (ah - (RH() + 8) * k) / 2);
+    const lw = (w - right - left) * dpr >= fw * k ? left : 0;
+    const ox = Math.round(lw * dpr + ((w - right - lw) * dpr - RW() * k) / 2), oy = Math.round(top * dpr + Math.max(4 * k, (ahk - (RH() + 8) * k) / 2));
     lay = { s, ox, oy, k, dpr };
   }
   /** Mundo → px de pantalla (css). */
