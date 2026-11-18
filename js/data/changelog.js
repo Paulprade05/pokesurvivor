@@ -6,6 +6,17 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-17', title: ["Habilidades nuevas y útiles", "New, useful abilities"], new: [
+    ["Cada legendario y singular tiene ahora una habilidad propia que no lleva nadie más: Articuno congela con una ventisca, Zapdos llama rayos, Ho-Oh renace de sus cenizas, Dialga detiene el tiempo, Kyogre trae el mar del albor, Eternatus dispara el Rayo Infinito… 83 en total, y se ven en partida.",
+     "Every legendary and mythical Pokémon now has an ability of its own that nobody else has: Articuno freezes with a blizzard, Zapdos calls down lightning, Ho-Oh rises from its ashes, Dialga stops time, Kyogre brings the primordial sea, Eternatus fires the Eternabeam… 83 in all, and you can see them in the run."],
+    ["Muchas habilidades hacen ahora algo de verdad: ondas al recibir golpes, auras que frenan o envenenan a los de alrededor, rayos, barreras, contraataques, enemigos que revientan al caer… Ya no hay dos habilidades que hagan lo mismo.",
+     "Many abilities now really do something: waves when you get hit, auras that slow or poison those around you, lightning, barriers, counterattacks, enemies that burst when they fall… No two abilities do the same thing any more."],
+    ["La pausa enseña tu habilidad y lo que hace (en dorado, si es de legendario).",
+     "The pause screen shows your ability and what it does (in gold if it belongs to a legendary)."]
+  ], chg: [
+    ["Espesura, Mar Llamas, Torrente y Enjambre sueltan una onda de su tipo cada 6 s con poca vida. Presión frena a los de alrededor; Caparazón impide que un golpe te quite más del 12 % de la vida; Robustez, al salvarte, aparta a los enemigos. Las mejoras planas que quedan son de verdad (nada de +3 %).",
+     "Overgrow, Blaze, Torrent and Swarm release a wave of their type every 6 s when low on HP. Pressure slows those around you; Shell Armor stops any hit from taking more than 12% of your HP; Sturdy pushes enemies away when it saves you. The flat boosts that remain are real ones (no more +3%)."]
+  ] },
   { d: '2026-11-17', title: ["Final de partida algo más suave", "A slightly gentler late game"], chg: [
     ["Algo menos difícil desde el minuto 16 hasta el final, para que con todas las mejoras y jugando bien se pueda llegar a la Sentencia de Arceus. Los Pokémon que aparecen hacia los minutos 16 y 20 pegan menos (antes el golpe subía de una vez un 57 % y un 27 %), el daño del tramo final sube más despacio y, si vas muy por encima del nivel típico, los enemigos ya no pegan más de un 15 % de más por tu nivel. Golpes, disparos y zonas quitan un 15 % menos del minuto 17 al 20 y entre un 20 y un 25 % menos del 20 al 30: el minuto 28 pega ahora como antes el 22. Sigue siendo lo más duro de la partida.",
      "A bit less hard from minute 16 to the end, so that with every upgrade and good play you can reach Arceus's Judgment. The Pokémon that show up around minutes 16 and 20 hit less hard (their hits used to jump 57% and 27% at once), late-game damage grows more slowly and, if you are far above the usual level, enemies no longer hit more than 15% harder because of your level. Hits, shots and zones deal 15% less from minute 17 to 20 and 20-25% less from 20 to 30: minute 28 now hits like minute 22 used to. It is still the hardest part of the run."]] },

@@ -727,12 +727,16 @@ G.RunUI = (() => {
     const rows = pl.slots.filter(g => g && g[0]).map(g => pzRow(g, pl, total, t));
     for (let i = rows.length; i < pl.maxMoves; i++) rows.push(`<div class="pz-row empty"><span class="pz-med empty"></span><span class="pz-free">${G.T('Hueco de ataque libre')}</span></div>`);
     const used = new Set(pl.moves.map(m => { const e = G.LevelUp.evoNeed(m, pl); return e && e.needs; }).filter(Boolean));
+    // Su habilidad (17-11-2026): qué hace, para verla también en partida (las de legendario, en dorado).
+    const fx = pl.abil, abName = pl.abilId && G.Mons.abilityName(pl.abilId);
+    const abil = fx && abName ? `<section class="ps-card pz-card ps-gear"><h3>Habilidad</h3>
+        <div class="ps-item"><div><b translate="no"${fx.leg ? ' class="gold"' : ''}>${abName}</b><small>${G.T(fx.d)}${fx.d2 ? ' ' + G.T(fx.d2) : ''}</small></div></div></section>` : '';
     const it = pl.item && G.Items.BY[pl.item];
     const item = it ? `<section class="ps-card pz-card ps-gear"><h3>Objeto</h3>
         <div class="ps-item"><span class="ico-tile t-gold">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div></section>` : '';
     return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.slots.length}/${pl.maxMoves}</small>
         <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section>
-      <div class="pz-side">${pzPassives(pl, used)}${pzStats(pl)}${item}${zCard(pl)}</div>`;
+      <div class="pz-side">${pzPassives(pl, used)}${pzStats(pl)}${abil}${item}${zCard(pl)}</div>`;
   }
 
   /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
