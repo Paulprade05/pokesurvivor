@@ -14,8 +14,9 @@
  * y sin ampliar: fetch_sprites.py --megas monta las hojas. SpriteCollab manda: si un día
  * dibuja una de estas, al volver a ejecutar se usa la suya.
  *
- * Los stats salen de las fórmulas de tools/fetch_pokedex.py y se ajustan AQUÍ, una vez
- * (sección 3.4 del documento): el juego no hace cuentas, sólo lee estos números.
+ * Los stats salen de los oficiales de la mega frente a los de su Pokémon (megaStats, sección 3.4
+ * del documento) y se calculan AQUÍ, una vez: el juego no hace cuentas, sólo lee estos números.
+ * Sólo los stats, sin añadir ni quitar megas (17-11-2026):  node tools/fetch_megas.cjs --stats
  */
 'use strict';
 const fs = require('fs'), path = require('path'), https = require('https'), vm = require('vm');
@@ -28,13 +29,17 @@ const TRACKER = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master
 // con overworld_normal.pal y overworld_shiny.pal al lado.
 const RHH = 'https://raw.githubusercontent.com/rh-hideout/pokeemerald-expansion/master/graphics/pokemon/';
 
-// Ajustes de la sección 3.4. Tope de daño por rareza del Pokémon (el legendario, como la 5).
-// La fórmula sola da de +4 % a +51 %: reparte entre físico y especial, pero el total lo fija la rareza.
-const DMG = { 1: 1.4, 2: 1.4, 3: 1.35, 4: 1.3, 5: 1.25 }, SPD_MIN = 0.9;
-// Glalie y Camerupt ya están entre los mejores (tools/medir-mega.cjs): con ×1,35 pasarían al mejor de todos.
-// Abomasnow (07-11-2026), igual: está en el 5 % mejor y con ×1,35 sería la mega más fuerte (2,50 frente al
-// 2,57 de Glaceon al ritmo rápido; 2,70 en el pico).
+// Ajustes de la sección 3.4 (17-11-2026, el dueño: «que suban todas las estadísticas como en las de la mega»).
+// Daño: el Ataque y el Ataque Especial del juego suben en la misma proporción que los oficiales (100 → 120 = ×1,2).
+// El mayor de los dos (atk) nunca sube menos que antes (DMG, por rareza; el legendario, como la 5; DMG_DEX),
+// nunca más de DMG_MAX ni de lo que la dejaría por encima del mejor Pokémon sin mega (DMG_CAP, medido con
+// tools/medir-mega.cjs al ritmo rápido: mejor sin mega 2,44 el 17-11-2026).
+const DMG = { 1: 1.4, 2: 1.4, 3: 1.35, 4: 1.3, 5: 1.25 }, DMG_MAX = 1.8;
+// Glalie, Camerupt y Abomasnow ya estaban entre los mejores (06/07-11-2026): su suelo es ×1,25.
 const DMG_DEX = { 362: 1.25, 323: 1.25, 460: 1.25 };
+const DMG_CAP = { 362: 1.34, 323: 1.26, 6: 1.39, 460: 1.39, 257: 1.31 };
+// Oficiales de PokeAPI, en este orden: PS, Ataque, Defensa, Ataque Especial, Defensa Especial, Velocidad.
+const STATS = ['hp', 'attack', 'defense', 'special-attack', 'special-defense', 'speed'];
 // Formas de SpriteCollab que no entran: otro color, otra forma que el juego no tiene, o no oficiales.
 const SKIP = /altcolor|alternate|shadow|skytemple|baby|original|stretchy|droopy/i;
 // Sólo la especie importa aquí: Mega-Floette es de la Floette de flor eterna, no de la forma final (Florges).
@@ -77,6 +82,28 @@ function exists(url, tries = 4) {
 }
 const nameIn = (o, lang) => ((o.names || []).find(n => n.language.name === lang) || {}).name;
 const r2 = v => Math.round(v * 100) / 100;
+/** Los stats oficiales de un pokemon de PokeAPI, en el orden de STATS. */
+const official = p => { const b = {}; for (const s of p.stats) b[s.stat.name] = s.base_stat; return STATS.map(k => b[k]); };
+
+/**
+ * Stats del juego de una mega (sección 3.4). mon: su Pokémon (G.DEX_BY); st, st0: los oficiales de la
+ * mega y de su Pokémon. Ninguno baja: lo que baja en los oficiales se queda como en tu Pokémon.
+ *   pa, sa   × (oficial de la mega / el de su Pokémon); el mayor, entre el suelo y el tope de arriba
+ *   df, sd   los oficiales de la mega, como en cualquier fase (el juego usa los base tal cual)
+ *   hp, spd  como una evolución: las fórmulas de tools/fetch_pokedex.py con los oficiales de la mega
+ */
+function megaStats(mon, st, st0) {
+  const up = i => Math.max(1, st[i] / st0[i]);
+  let pa = mon.pa * up(1), sa = mon.sa * up(3);
+  const k0 = Math.max(pa, sa) / mon.atk;
+  const k = Math.min(Math.max(k0, DMG_DEX[mon.dex] || DMG[mon.leg ? 5 : mon.rarity]), DMG_CAP[mon.dex] || DMG_MAX);
+  pa = Math.max(mon.pa, pa * k / k0); sa = Math.max(mon.sa, sa * k / k0);
+  return { hp: Math.max(mon.hp, Math.round(70 + st[0] * 0.45)), spd: Math.max(mon.spd, Math.round(78 + st[5] * 0.42)),
+           atk: r2(Math.max(pa, sa)), pa: r2(pa), sa: r2(sa), df: Math.max(st[2], mon.df), sd: Math.max(st[4], mon.sd) };
+}
+const off0 = {};
+/** Los oficiales del Pokémon dex (una vez cada uno). */
+async function officialOf(dex) { return off0[dex] || (off0[dex] = official(await get(`${API}pokemon/${dex}`))); }
 
 function loadGame() {
   const G = {};
@@ -97,25 +124,19 @@ async function makeRow(G, dex, sp, suf, p, warn) {
   const itemSlug = (STONE[dex] || sp.name + 'ite') + (/^[xyz]$/.test(suf) ? '-' + suf : '');
   const item = await get(`${API}item/${itemSlug}`);
   if (!item) warn.push(`${slug}: sin objeto ${itemSlug} en PokeAPI`);
-  const b = {}; for (const st of p.stats) b[st.stat.name] = st.base_stat;
+  const st = official(p), st0 = await officialOf(dex);
   const abil = ((p.abilities || []).find(a => a.ability) || { ability: null }).ability;
   const abilId = abil && abil.name;
   if (!abilId) warn.push(`${slug}: PokeAPI no da su habilidad (conserva la tuya)`);
   else if (!KEEP_OWN.has(abilId) && !G.hasFx(abilId)) warn.push(`${slug}: ${abilId} no tiene efecto en ability-fx.js (conserva la tuya)`);
   else if (!KEEP_OWN.has(abilId) && !G.ABIL[abilId]) warn.push(`${slug}: ${abilId} no tiene nombre en abilities.js`);
 
-  const form = v => 0.70 + v / 100 * 0.55;
-  let pa = form(b.attack), sa = form(b['special-attack']);
-  const best = Math.max(pa, sa), k = DMG_DEX[dex] || DMG[mon.leg ? 5 : mon.rarity];
-  pa *= k * mon.atk / best; sa *= k * mon.atk / best;
-  const spd = Math.max(Math.round(78 + b.speed * 0.42), Math.round(mon.spd * SPD_MIN));
-
   const lab = suf === 'primal' ? '' : suf ? ' ' + suf.toUpperCase() : '';
   const es = suf === 'primal' ? mon.name + ' Primigenio' : 'Mega-' + mon.name + lab;
   const en = suf === 'primal' ? 'Primal ' + mon.name : 'Mega ' + mon.name + lab;
   return { id: p.id, dex, name: [es, en], stone: [item ? nameIn(item, 'es') || item.name : itemSlug, item ? nameIn(item, 'en') || item.name : itemSlug], ico: itemSlug,
            types: p.types.map(x => x.type.name), abil: abilId && !KEEP_OWN.has(abilId) && G.hasFx(abilId) && G.ABIL[abilId] ? abilId : '',
-           hp: mon.hp, spd, atk: r2(Math.max(pa, sa)), pa: r2(pa), sa: r2(sa), df: b.defense, sd: b['special-defense'], height: p.height };
+           ...megaStats(mon, st, st0), height: p.height, st, st0 };
 }
 
 /** ¿Puede entrar una mega de este Pokémon? (si no, lo apunta en warn) */
@@ -179,22 +200,42 @@ async function main() {
   jobs.sort((a, b) => a.id - b.id);
   fs.mkdirSync(path.dirname(JOBS), { recursive: true });
   fs.writeFileSync(JOBS, JSON.stringify(jobs));
+  write(rows);
+  console.log(`\n${rows.length} megas en js/data/megas.js (${rhh.length} con el sprite de pokeemerald-expansion)`);
+  if (rhh.length) console.log('  pokeemerald-expansion: ' + rhh.join(' '));
+  for (const w of warn) console.log('! ' + w);
+}
 
+/** --stats: los stats de las megas que ya hay, con los oficiales de ahora (lo demás, igual). */
+async function statsOnly() {
+  const G = loadGame();
+  vm.runInNewContext(fs.readFileSync(OUT, 'utf8'), { G });
+  const rows = [];
+  for (const id in G.MEGA) {
+    const r = G.MEGA[id], st = official(await get(`${API}pokemon/${id}`)), st0 = await officialOf(r.dex);
+    rows.push(Object.assign(r, megaStats(G.DEX_BY[r.dex], st, st0), { st, st0 }));
+  }
+  rows.sort((a, b) => a.dex - b.dex || a.id - b.id);
+  write(rows);
+  console.log(`${rows.length} megas: stats al día en js/data/megas.js`);
+}
+
+function write(rows) {
   const head = `/* ============ megas.js — GENERADO por tools/fetch_megas.cjs, no editar a mano ============
  * G.MEGA[id]: una megaevolución (id: su número en PokeAPI; viaja por la red en el dato de la
  * fase, ver coop.js). No entran en G.DEX: no cuentan en el gacha, la Pokédex ni los logros.
  *   dex    el Pokémon del que sale (forma final)      name, stone  [es, en]   ico  icono de la piedra
  *   types  sus tipos                                  abil  su habilidad ('' = se queda la tuya)
  *   hp spd atk pa sa df sd   stats del juego, ya ajustados (docs/MEGAEVOLUCIONES.md, 3.4)
+ *   st, st0                  los oficiales de la mega y de su Pokémon: PS, Ataque, Defensa, At. Esp., Def. Esp., Velocidad
  * G.MEGA_OF[dex] = [ids]: las de cada Pokémon (Charizard y Mewtwo tienen dos: X e Y).
  */
 `;
   const body = rows.map(r => `  ${r.id}: ${JSON.stringify(r)}`).join(',\n');
   const tail = `\n};\n\nG.MEGA_OF = {};\nfor (const id in G.MEGA) (G.MEGA_OF[G.MEGA[id].dex] = G.MEGA_OF[G.MEGA[id].dex] || []).push(+id);\n`;
   fs.writeFileSync(OUT, head + 'G.MEGA = {\n' + body + tail);
-  console.log(`\n${rows.length} megas en js/data/megas.js (${rhh.length} con el sprite de pokeemerald-expansion)`);
-  if (rhh.length) console.log('  pokeemerald-expansion: ' + rhh.join(' '));
-  for (const w of warn) console.log('! ' + w);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+// (Con require, sólo la regla de los stats: tests/mega-stats.test.cjs.)
+module.exports = { megaStats, DMG, DMG_DEX, DMG_CAP, DMG_MAX };
+if (require.main === module) (process.argv.includes('--stats') ? statsOnly() : main()).catch(e => { console.error(e); process.exit(1); });
