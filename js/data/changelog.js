@@ -6,6 +6,14 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-20', title: ["Menos tirones en la grieta y con muchos enemigos", "Less stutter in rifts and big crowds"], fix: [
+    ["Al entrar en una grieta, el mapa de la arena (suelo, árboles y objetos 3D) se prepara poco a poco durante el viaje por el túnel: ya no se congela la imagen al llegar.",
+     "When you enter a rift, the arena map (ground, trees and 3D objects) is prepared bit by bit during the tunnel trip: the picture no longer freezes when you arrive."],
+    ["Con muchos enemigos y la calidad Máxima, el filtro «Pokémon más nítidos» ya no se atasca rehaciendo los mismos sprites una y otra vez: con una horda enorme la partida va bastante más fluida y sin los parones largos.",
+     "With lots of enemies on Max quality, the “Sharper Pokémon” filter no longer gets stuck remaking the same sprites over and over: with a huge horde the game runs much more smoothly, without the long hitches."],
+    ["El destello blanco de los golpes ya no crea cientos de imágenes por segundo con una horda golpeada, y la imagen 3D ya no cambia de tamaño en mitad de la partida (cada cambio paraba la tarjeta gráfica un momento).",
+     "The white hit flash no longer creates hundreds of images per second when a horde is being hit, and the 3D image no longer changes size mid-run (each change paused the graphics card for a moment)."]
+  ] },
   { d: '2026-11-17', title: ["Menos avisos en pantalla", "Fewer notices on screen"], chg: [
     ["Quitado el «Proyecto de fan sin ánimo de lucro» del pie de la pantalla. Sigue en Ajustes › Acerca de.",
      "Removed “Non-profit fan project” from the screen footer. It is still in Settings › About."]

@@ -42,15 +42,23 @@ G.Sprites = (() => {
   const ids = new WeakMap();
   let nextId = 1;
   const whites = new Map();            // "id|sx|sy|w|h" -> lienzo blanco (orden: el último usado al final)
-  let whiteBytes = 0, whiteFailUntil = 0;
+  let whiteBytes = 0, whiteFailUntil = 0, whiteMark = -1, whiteLeft = 0;
   const WHITE_MAX = (G.U.IOS ? 8 : 24) * 1048576;
   function white(img, sx = 0, sy = 0, w = img.width, h = img.height) {
     let id = ids.get(img);
     if (!id) { id = nextId++; ids.set(img, id); }
     const k = id + '|' + sx + '|' + sy + '|' + w + '|' + h;
+    // (tirones, 20-11-2026) La hora del fotograma de la pantalla (la misma en todo el fotograma) para saber qué se está viendo.
+    const tl = typeof document !== 'undefined' && document.timeline && document.timeline.currentTime, now = tl || performance.now();
     let c = whites.get(k);
-    if (c) { whites.delete(k); whites.set(k, c); return c; }
+    if (c) { whites.delete(k); whites.set(k, c); c._u = now; return c; }
     if (Date.now() < whiteFailUntil) return null;   // (sin memoria hace nada: no se crean lienzos en vano)
+    // Llena con lo que está a la vista (el más viejo se usó hace menos de 1 s): no se echa a nadie, sin destello (lo dibuja quien
+    //  llama: el sprite de siempre). Antes, con una horda golpeada, cada destello echaba a otro y se creaban cientos de lienzos por segundo.
+    let over = whiteBytes + Math.max(1, w) * Math.max(1, h) * 4 - WHITE_MAX;
+    if (over > 0) for (const o of whites.values()) { if (now - (o._u || 0) < 1000) return null; over -= o.width * o.height * 4; if (over <= 0) break; }
+    if (whiteMark !== now) { whiteMark = now; whiteLeft = 24; }
+    if (whiteLeft-- <= 0) return null;                // (y como mucho 24 nuevos por fotograma)
     while (whiteBytes > WHITE_MAX && whites.size) {
       const [ok, oc] = whites.entries().next().value;
       whites.delete(ok); whiteBytes -= oc.width * oc.height * 4; G.U.freeCanvas(oc);
@@ -63,6 +71,7 @@ G.Sprites = (() => {
     x.globalCompositeOperation = 'source-in';
     x.fillStyle = '#ffffff';
     x.fillRect(0, 0, c.width, c.height);
+    c._u = now;
     whites.set(k, c); whiteBytes += c.width * c.height * 4;
     return c;
   }
@@ -470,6 +479,8 @@ G.Sprites = (() => {
         if (pf || !ctx.drawWhite || !ctx.drawWhite(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k)) {
           const wc = pf ? white(pf.c) : white(s.img, sx, sy, m.w, m.h);
           if (wc) ctx.drawImage(wc, dx, dy, m.w * k, m.h * k);
+          // (Sin silueta este fotograma: el sprite de siempre, no un hueco. Tu Pokémon, softFlash, ya lo lleva debajo.)
+          else if (!opts.softFlash) { if (pf) ctx.drawImage(pf.c, dx, dy, m.w * k, m.h * k); else ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k); }
         }
       }
       if (pf) ctx.imageSmoothingEnabled = sm;

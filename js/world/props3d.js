@@ -41,7 +41,10 @@ G.Props3D = (() => {
    * 256×256 (móvil 128): corteza | hojas / piedra | sombrero de seta (arriba) y blanco (abajo, para lo que va de un color).
    */
   const REG = { bark: [0, 0, 0.5], leaf: [0.5, 0, 0.5], stone: [0, 0.5, 0.5], cap: [0.5, 0.5, 0.25], white: [0.5, 0.75, 0.25] };
-  function atlas(B, pal) {
+  function atlas(B, pal) { const it = atlasSteps(B, pal); let r; while (!(r = it.next()).done); return r.value; }
+  /** (tirones, 20-11-2026) El atlas en 4 pasos (corteza, hojas, piedra, setas: ~20 ms cada uno en el PC), para prepararlo
+   *  repartido en el túnel de la grieta (prepare). Mismo resultado que de una vez. */
+  function* atlasSteps(B, pal) {
     const S = mob ? 128 : 256, h = S / 2, cv = document.createElement('canvas');
     cv.width = cv.height = S;
     const g = cv.getContext('2d');
@@ -51,11 +54,14 @@ G.Props3D = (() => {
     g.fillStyle = '#ffffff'; g.fillRect(0, 0, S, S);
     if (kit) {
       const b = kit.bark(h, r4(trunk.length > 1 ? [shadeH(trunk[0], -0.2), trunk[0], trunk[1], shadeH(trunk[1], 0.2)] : trunk), 9);
+      yield;
       const f = kit.foliage(h, r4(leaf.length > 1 ? leaf : kit.ramp(leaf[0])), 23);
+      yield;
       const st = kit.soft(h, h, (x, y) => {
         const n = kit.pn(x, y, h / 4, 41, h), d = kit.pn(x, y, h / 12, 43, h);
         return kit.tone(r4(rock), 0.2 + n * 0.7 + (d - 0.5) * 0.45);
       });
+      yield;
       const cap = kit.soft(h, h / 2, (x, y) => {
         // Sombrero rojo de seta con lunares blancos suaves (las setas explosivas).
         const t = y / (h / 2);
@@ -109,7 +115,33 @@ G.Props3D = (() => {
     if (k) return k;
     const B = G.Tiles.BIOMES[bi], pal = G.Tileset.pal(bi);
     if (!B) return null;
-    const map = atlas(B, pal);
+    // (Si se estaba preparando en el túnel, se acaba ese.)
+    const it = pend.get(bi);
+    pend.delete(bi);
+    let map;
+    if (it) { let r; while (!(r = it.next()).done); map = r.value; } else map = atlas(B, pal);
+    return makeKit(bi, B, pal, map);
+  }
+  /**
+   * (tirones, 20-11-2026) Prepara el kit del bioma bi un paso cada vez (rift.js, en el túnel de la grieta): true cuando está.
+   * Espera a la paleta del tileset (con ella se pinta el atlas: si no, saldría con otros tonos que el de siempre).
+   */
+  const pend = new Map();
+  function prepare(bi) {
+    if (kits.has(bi) || !T) return true;
+    const B = G.Tiles.BIOMES[bi], pal = G.Tileset.pal(bi);
+    if (!B) return true;
+    if (!pal) return false;
+    let it = pend.get(bi);
+    if (!it) pend.set(bi, it = atlasSteps(B, pal));
+    const r = it.next();
+    if (!r.done) return false;
+    pend.delete(bi);
+    makeKit(bi, B, pal, r.value);
+    return true;
+  }
+  function makeKit(bi, B, pal, map) {
+    let k;
     const mat = shaderOf(new T.MeshLambertMaterial({ map, vertexColors: true, side: T.FrontSide, shadowSide: T.DoubleSide }), true);
     const edge = pal && pal.edge ? pal.edge : '#141010';
     const hullMat = shaderOf(new T.MeshBasicMaterial({ color: edge, side: T.BackSide }), false);
@@ -442,6 +474,7 @@ G.Props3D = (() => {
   /** Suelta todo menos el bioma (o los biomas) keep (al perder el contexto: gone, sin dispose: ya no existe en la GPU). */
   function free(gone = false, keep = -1) {
     const ks = Array.isArray(keep) ? keep : [keep];
+    for (const bi of [...pend.keys()]) if (gone || !ks.includes(bi)) pend.delete(bi);
     for (const [bi, k] of [...kits]) {
       if (ks.includes(bi)) continue;
       if (!gone) {
@@ -501,5 +534,5 @@ G.Props3D = (() => {
     };
   }
 
-  return { init, geo, keyOf, portal, FLORA, free, ORB, get DEPTH() { return DEPTH; } };
+  return { init, geo, keyOf, portal, FLORA, free, ORB, prepare, get DEPTH() { return DEPTH; } };
 })();

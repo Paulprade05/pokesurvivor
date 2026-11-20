@@ -30,7 +30,8 @@ G.PixFilter = (() => {
   const ids = new WeakMap();
   let nextId = 1;
   const cache = new Map();                  // "id|sx|sy|w|h|algo" -> { c, k } (el último usado, al final)
-  let bytes = 0, budget = 0, frameMark = -1, failUntil = 0, made = 0, ms = 0;
+  let bytes = 0, budget = 0, frameMark = -1, failUntil = 0, made = 0, ms = 0, spent = 0;
+  const SPEND = () => (mobile() ? 1 : 2.5);  // ms por fotograma de la pantalla, como mucho, ampliando (tirones, 20-11-2026)
   let algo = null;                          // (para comparar en las pruebas: 'epx2' | 'adv3' | 'epx4'; null: el de serie)
 
   // Clave de color: transparente (alfa < 128) es un solo «color»; si no, el RGB.
@@ -94,6 +95,14 @@ G.PixFilter = (() => {
     return epx(epx(d, w, h), w * 2, h * 2);
   }
 
+  /** ¿Cabe need bytes más echando sólo lo que no se ha visto en el último segundo? (la caché va del menos al más reciente) */
+  function room(need, f) {
+    let over = bytes + need - MAXB();
+    if (over <= 0) return true;
+    for (const o of cache.values()) { if (f - (o.u || 0) < 1000) return false; over -= o.c.width * o.c.height * 4; if (over <= 0) return true; }
+    return false;
+  }
+
   let tmp = null, tx = null;
   /** El fotograma (sx, sy, w, h) de img, ampliado. null: apagado, aún no (tope de este fotograma) o sin memoria. */
   function frame(img, sx, sy, w, h) {
@@ -101,13 +110,20 @@ G.PixFilter = (() => {
     let id = ids.get(img);
     if (!id) { id = nextId++; ids.set(img, id); }
     const name = ALGO(), key = id + '|' + sx + '|' + sy + '|' + w + '|' + h + '|' + name;
+    // (tirones, 20-11-2026) La hora del fotograma de la pantalla: la misma durante todo el fotograma (document.timeline).
+    //  Antes el tope se renovaba cada 12 ms de reloj: en un fotograma lento (una horda de especies nuevas) se renovaba
+    //  varias veces dentro del mismo fotograma, y cuanto más lento, más ampliaba (con 600 enemigos, 75 ms por fotograma).
+    const tl = typeof document !== 'undefined' && document.timeline && document.timeline.currentTime;
+    const f = tl || performance.now();
     let e = cache.get(key);
-    if (e) { cache.delete(key); cache.set(key, e); return e; }
+    if (e) { cache.delete(key); cache.set(key, e); e.u = f; return e; }
     // Tope por fotograma de la pantalla: los que no caben, sin filtro este fotograma (no hay tirones).
     // (Por tiempo y no por fotograma del juego: también vale en las cartas, la Pokédex o el gacha.)
-    const f = performance.now();
-    if (f - frameMark > 12) { frameMark = f; budget = mobile() ? 1 : 18; }
-    if (budget <= 0 || Date.now() < failUntil) return null;
+    if (tl ? f !== frameMark : f - frameMark > 12) { frameMark = f; budget = mobile() ? 1 : 18; spent = 0; }
+    if (budget <= 0 || spent > SPEND() || Date.now() < failUntil) return null;
+    // Si para que quepa hay que echar algo que se ha visto hace menos de 1 s: no se hace (sin filtro). Si no, con más fotogramas
+    //  en pantalla de los que caben, cada uno echaba a otro que hacía falta al siguiente fotograma, y así sin parar.
+    if (!room(w * h * SCALE[name] * SCALE[name] * 4, f)) return null;
     budget--;
     const t0 = performance.now();
     try {
@@ -127,7 +143,9 @@ G.PixFilter = (() => {
       // (iPhone: sin memoria de lienzos) Se suelta todo y un rato sin filtro.
       purge(); failUntil = Date.now() + 3000; return null;
     }
-    cache.set(key, e); bytes += e.c.width * e.c.height * 4; made++; ms += performance.now() - t0;
+    e.u = f;
+    const dt = performance.now() - t0;
+    cache.set(key, e); bytes += e.c.width * e.c.height * 4; made++; ms += dt; spent += dt;
     while (bytes > MAXB() && cache.size > 1) {
       const [ok, oe] = cache.entries().next().value;
       cache.delete(ok); bytes -= oe.c.width * oe.c.height * 4; G.U.freeCanvas(oe.c);

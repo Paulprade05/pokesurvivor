@@ -51,12 +51,13 @@ if (flag('comparar')) {
     for (const k of Object.keys(B.escenas)) {
       const x = A.escenas[k], y = B.escenas[k];
       if (!x || !y || x.error || y.error) continue;
-      rows.push([f.replace('.json', ''), k, x.fps + ' → ' + y.fps, x.ms + ' → ' + y.ms, x.p95 + ' → ' + y.p95, x.p99 + ' → ' + y.p99,
-                 x.tirones + ' → ' + y.tirones, (x.maxGap | 0) + ' → ' + (y.maxGap | 0), (x.mbs != null ? x.mbs + ' → ' + y.mbs : '-')]);
+      const ab = (key, f = v => v) => (x[key] != null ? f(x[key]) : '?') + ' → ' + (y[key] != null ? f(y[key]) : '?');
+      rows.push([f.replace('.json', ''), k, ab('fps'), ab('p50'), ab('p99'), ab('maxMs'), ab('gap50'), ab('gap99'), ab('maxGap', v => v | 0), ab('tir33'), ab('tirones'),
+                 (x.mbs != null ? x.mbs + ' → ' + y.mbs : '-')]);
     }
   }
-  console.log('| prueba | escena | FPS | ms CPU | p95 | p99 | tirones >50 ms | peor hueco ms | basura MB/s |');
-  console.log('|---|---|---|---|---|---|---|---|---|');
+  console.log('| prueba | escena | FPS | ms CPU p50 | ms CPU p99 | peor ms CPU | hueco p50 | hueco p99 | peor hueco | huecos >33 ms | >50 ms | basura MB/s |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const r of rows) console.log('| ' + r.join(' | ') + ' |');
   process.exit(0);
 }
@@ -68,6 +69,9 @@ const SECS = +opt('seg', 5);
 const REPS = +opt('repes', 1);
 const OUT = path.resolve(opt('out', 'perf-out'));
 const ROOT = path.resolve(opt('raiz', path.join(__dirname, '..')));
+// (tirones, 20-11-2026) --respaldo <carpeta>: lo que no esté en --raiz se sirve de aquí. Para medir otra versión sólo con su
+// js/ y dev.html (git archive <rama> js dev.html) y los assets de esta copia.
+const R2 = opt('respaldo', null), ROOT2 = R2 && path.resolve(R2);
 const PW = opt('pw', process.env.PLAYWRIGHT_CORE);
 const CHROME_ARG = opt('chrome', process.env.CHROME);
 const PROFILE = flag('perfil');
@@ -84,6 +88,9 @@ const GLON = flag('gl');                  // (fps-tecnologia) con el motor WebGL
 const DROP = (opt('quitar', '') || '').split(',').filter(Boolean);              // Chrome: tiempo ocupado de cada hilo (página, GPU, compositor)
 const TAM = opt('tam', NAV === 'webkit' ? '852x393@3' : '1536x864@1.25');
 const SEED = +opt('semilla', 4242);
+// (tirones, 20-11-2026) Para investigar: --antes "<js>" corre en la página justo antes de medir cada escena y --sonda "<js>"
+// al acabar (su resultado va en estado.sonda). P. ej. contar llamadas: --antes "window.__n=0;const f=G.X.y;G.X.y=function(){__n++;return f.apply(this,arguments)}" --sonda "__n"
+const PRE = opt('antes', null), PROBE = opt('sonda', null);
 let pw;
 try { pw = require(PW ? path.resolve(/playwright-core$/.test(PW) ? PW : path.join(PW, 'playwright-core')) : 'playwright-core'); }
 catch (e) { console.error('Falta playwright-core: npm i --prefix <tmp>/pw playwright-core@1.64 y pasa --pw <tmp>/pw/node_modules'); process.exit(2); }
@@ -97,7 +104,9 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
 const srv = http.createServer((q, r) => {
   let f = path.join(ROOT, decodeURIComponent(new URL(q.url, 'http://x').pathname));
   if (!f.startsWith(ROOT)) { r.writeHead(403); return r.end(); }
-  try { if (fs.statSync(f).isDirectory()) f = path.join(f, 'index.html'); } catch (e) { /* 404 */ }
+  try { if (fs.statSync(f).isDirectory()) f = path.join(f, 'index.html'); } catch (e) {
+    if (ROOT2) { const g = path.join(ROOT2, path.relative(ROOT, f)); if (g.startsWith(ROOT2) && fs.existsSync(g)) f = g; }
+  }
   fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); r.end(d); });
 });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -171,6 +180,7 @@ const HELPERS = () => {
     if (document.querySelector('#scr-levelup:not(.hidden)')) { const c = document.querySelector('#scr-levelup .pick-card, #scr-levelup [data-i], #scr-levelup .card'); if (c) c.click(); }
   }, 100); };
   window.__play = async (seed) => {
+    clearInterval(window.__rainI);
     if (G.Game.state === 'playing' || G.Game.player) return;
     document.querySelector('#scr-menu [data-go="play"]').click();
     for (let i = 0; i < 60 && G.Game.state !== 'playing'; i++) await sleep(200);
@@ -258,6 +268,34 @@ const HELPERS = () => {
       for (let i = 0; i < 14 && G.EnemyMgr.count < top; i++) { G.Spawner.debugWave(['surge', 'ring', 'swarm', 'stampede'][i % 4]); await sleep(350); }
       await sleep(2500); return;
     }
+    // (tirones, 20-11-2026) Multitud: 600 enemigos alrededor (por encima del tope, a mano) y los 4 ataques evolucionados.
+    if (k === 'multitud' || k === 'lluvia') {
+      G.Game.debugTime(14 * 60); G.Spawner.debugBossesFrom(30 * 60);
+      G.EnemyMgr.clear(); G.Projectiles.clear();
+      __heavy();
+      const N = k === 'multitud' ? 600 : 120, bag = G.Enemies.bagAt(G.Game.st.time).filter(d => !/thief|stampede|bomber/.test(d.behavior));
+      for (let i = 0, tries = 0; i < N && tries < N * 20; tries++) {
+        const a = Math.random() * 6.2832, d = 180 + Math.random() * 760, x = P.x + Math.cos(a) * d, y = P.y + Math.sin(a) * d * 0.8;
+        if (!G.World.isFree(x, y, 14)) continue;
+        const e = G.Spawner.debugMake(bag[i % bag.length], G.Game.st.time, G.Game.everyone(), false);
+        if (e) { e.x = x; e.y = y; e.maxHp = e.hp = 1e9; i++; }      // (muy duros: el número no cambia entre medidas)
+      }
+      // Lluvia: además, disparos enemigos que caen sin parar desde un anillo (unos 250 en el aire).
+      if (k === 'lluvia') {
+        clearInterval(window.__rainI);
+        const types = ['fire', 'water', 'grass', 'electric', 'ice', 'psychic', 'poison', 'ghost'];
+        window.__rainI = setInterval(() => {
+          if (G.Game.state !== 'playing' || G.Projectiles.count > 420) return;
+          for (let j = 0; j < 14; j++) {
+            const a = Math.random() * 6.2832, x = P.x + Math.cos(a) * 520, y = P.y + Math.sin(a) * 420, t = types[j % types.length];
+            const sp = 150 + Math.random() * 90, b = Math.atan2(P.y - y, P.x - x) + (Math.random() - 0.5) * 0.9;
+            G.Projectiles.spawn({ x, y, vx: Math.cos(b) * sp, vy: Math.sin(b) * sp, dmg: 1, r: 6, life: 4, friendly: false, color: '#ff7a9e',
+              vis: G.VFX.forType(t), mtype: t, cat: 'special' });
+          }
+        }, 100);
+      }
+      await sleep(2500); return;
+    }
     if (k === 'grieta') {
       G.Rift.debugOpen(); await sleep(400);
       const r = G.Rift.rift; if (r) { P.x = r.x; P.y = r.y - 10; G.Camera.x = P.x; G.Camera.y = P.y; }
@@ -277,6 +315,14 @@ function stats(fr, secs, nav) {
   const q = (arr, p) => arr[Math.min(arr.length - 1, Math.floor(arr.length * p))];
   const o = { frames: n, fps: +(n / span).toFixed(1), ms: +(ms.reduce((a, b) => a + b, 0) / n).toFixed(2), p95: +q(ms, 0.95).toFixed(2), p99: +q(ms, 0.99).toFixed(2),
     maxMs: +ms[n - 1].toFixed(1), tirones: gaps.filter(g => g > 50).length, maxGap: +Math.max(...gaps).toFixed(1) };
+  // (tirones, 20-11-2026) Lo que se nota: el hueco entre fotogramas (p50, p99) y los de más de 33 ms (por debajo de 30 FPS).
+  const gs = gaps.slice().sort((a, b) => a - b);
+  o.p50 = +q(ms, 0.5).toFixed(2); o.gap50 = +q(gs, 0.5).toFixed(1); o.gap99 = +q(gs, 0.99).toFixed(1); o.tir33 = gaps.filter(g => g > 33.4).length;
+  o.lentos33 = ms.filter(x => x > 33.4).length;
+  // Los 5 huecos más largos: cuándo (s desde el principio), el hueco, los ms de JS de ese fotograma y su desglose.
+  o.peores = f.slice(1).map((x, i) => ({ t: +((x.ts - f[0].ts) / 1000).toFixed(2), hueco: +(x.ts - f[i].ts).toFixed(1), js: +f[i].ms.toFixed(1),
+    sp: Object.fromEntries(Object.entries(f[i].sp || {}).filter(([, v]) => v > 1).map(([k, v]) => [k, +v.toFixed(1)])) }))
+    .sort((a, b) => b.hueco - a.hueco).slice(0, 5);
   // Basura: lo que crece el montón entre fotogramas (asignado) y las bajadas (recogidas).
   if (f[0].heap) {
     let up = 0, gc = 0, freed = 0;
@@ -407,6 +453,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
           cdp.on('Tracing.dataCollected', d => { for (const e of d.value) traceEv.push(e); });
           await cdp.send('Tracing.start', { traceConfig: { includedCategories: ['toplevel', '__metadata', 'v8', 'devtools.timeline'], recordMode: 'recordContinuously' }, transferMode: 'ReportEvents' });
         }
+        if (PRE) await p.evaluate(PRE);
         await p.evaluate(() => { __perf.fr = []; __perf.on = true; if (G.GL2D && G.GL2D.gpu) G.GL2D.gpu(true); });
         await sleep(SECS * 1000);
         const fr = await p.evaluate(() => { __perf.on = false; const f = __perf.fr; __perf.fr = []; return f; });
@@ -432,7 +479,8 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         }
         o.estado = await p.evaluate(() => ({ enemigos: G.EnemyMgr.all ? G.EnemyMgr.all().length : 0, proyectiles: G.Projectiles.all ? G.Projectiles.all().length : (G.Projectiles.count || null),
           arena: !!(G.Rift && G.Rift.inArena), fx: G.Settings.fx, ultra: G.Settings.ultra, estado: G.Game.state,
-          lienzo: (document.getElementById('game') || {}).width + '×' + (document.getElementById('game') || {}).height }));
+          pix: G.PixFilter && G.PixFilter.stats ? G.PixFilter.stats() : null, lienzo: (document.getElementById('game') || {}).width + '×' + (document.getElementById('game') || {}).height }));
+        if (PROBE) o.estado.sonda = await p.evaluate(PROBE).catch(e => 'error: ' + e.message);
         if (ALLOC && cdp) {
           const { profile } = await cdp.send('HeapProfiler.stopSampling');
           const self = new Map(); let all = 0;
@@ -458,7 +506,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         if (S === 'grieta' || S === 'arena') { /* la arena sigue en la grieta */ }
       } catch (e) { res.escenas[S] = { error: String(e && e.message || e).slice(0, 300) }; }
       const r = res.escenas[S];
-      console.log(`${NAV} ${Q} ${S}: ` + (r.error ? 'ERROR ' + r.error : `${r.fps} FPS, ${r.ms} ms (p95 ${r.p95}, p99 ${r.p99}), tirones ${r.tirones}, peor ${r.maxGap} ms` +
+      console.log(`${NAV} ${Q} ${S}: ` + (r.error ? 'ERROR ' + r.error : `${r.fps} FPS, ${r.ms} ms (p50 ${r.p50}, p99 ${r.p99}, peor ${r.maxMs}), hueco p50 ${r.gap50} p99 ${r.gap99}, >33 ${r.tir33}, >50 ${r.tirones}, peor ${r.maxGap} ms` +
         (r.mbs != null ? `, basura ${r.mbs} MB/s, gc ${r.gc}` : '') + `, enemigos ${r.estado.enemigos}, proyectiles ${r.estado.proyectiles}` +
         (r.gpuMs ? ` | GPU ms ${JSON.stringify(r.gpuMs)}` : '') + (r.gl ? `\n   gl ${JSON.stringify(r.gl)}` : '') + (r.desglose ? `\n   desglose ms ${JSON.stringify(r.desglose)}` : '') + (r.hilos ? `\n   hilos % ${JSON.stringify(r.hilos)}` : '') + ` | ${JSON.stringify(r.porFotograma)}`));
     }
