@@ -511,6 +511,8 @@ G.Coop = (() => {
       case 'wx': G.Weather.onEvent(ev); break;
       case 'ev': G.Events.onNet(ev); break;
       case 'hz': G.Hazards.add(ev[1], true); break;
+      // (20-11-2026) Su dueño murió o se le inmovilizó antes de que cayeran: sus avisos se borran (hazards.js cut).
+      case 'hzx': if (typeof ev[1] === 'number' && G.Hazards.cut) G.Hazards.cut(ev[1]); break;
       case 'fxr':
         if (typeof ev[4] === 'string') G.FX.ring(num(ev[1], 0, -1e6, 1e6), num(ev[2], 0, -1e6, 1e6), 8, num(ev[3], 8, 0, 2000), ev[4], 0.5, 3);
         break;

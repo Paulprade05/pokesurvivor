@@ -15,6 +15,13 @@
  * barre, cruz...) son un grupo y te golpean como mucho una vez cada GRP_GAP s,
  * aunque estés donde se solapan varias (un peligro se salta la invulnerabilidad
  * de después de un golpe). Una versión vieja no lo lee y cuenta cada una.
+ *
+ * Casteo cortado (20-11-2026): un aviso es un ataque que aún no se ha lanzado. Si su
+ * dueño (foe; por la red, oid = su id) muere antes de que caiga, o queda inmovilizado
+ * (Enemy.cutCast), el aviso se borra con un efecto corto y no hace daño (cut). Lo que
+ * ya se lanzó (disparos en vuelo, zonas que ya golpean) sigue. La explosión de un
+ * kamikaze (selfK: se mata él al estallar) no se corta. En cooperativo lo decide el
+ * anfitrión y manda ['hzx', id]; una versión vieja no lo conoce y su aviso cae igual.
  */
 G.Hazards = (() => {
   const GRP_GAP = 0.45;
@@ -22,20 +29,52 @@ G.Hazards = (() => {
   const grpHit = new Map();       // grupo -> cuándo te golpeó (reloj de los peligros)
   let clock = 0;
 
-  /** h: { kind, x, y, r | angle, len, w, delay, dmg, type, color, pct?, pure?, vis?, grp? } */
+  /** h: { kind, x, y, r | angle, len, w, delay, dmg, type, color, pct?, pure?, vis?, grp?, foe? } */
   function add(h, fromNet = false) {
     const o = Object.assign({ t: 0, hit: false, end: 0.3 }, h);
     if (fromNet && typeof o.grp !== 'number') o.grp = 0;
+    if (fromNet) { if (typeof o.oid !== 'number') delete o.oid; }
+    else if (o.foe && typeof o.foe.id === 'number') o.oid = o.foe.id;
     list.push(o);
     if (!fromNet && G.Coop.isHost) {
       G.Coop.broadcast(['hz', { kind: o.kind, x: Math.round(o.x), y: Math.round(o.y), r: o.r, angle: o.angle, len: o.len, w: o.w,
                                 delay: o.delay, dmg: Math.round(o.dmg), type: o.type, color: o.color, pct: o.pct, pure: o.pure, vis: o.vis, cat: o.cat,
-                                boom: o.boom ? 1 : 0, grp: o.grp || undefined }]);
+                                boom: o.boom ? 1 : 0, grp: o.grp || undefined, oid: o.oid }]);
     }
     return o;
   }
 
   function clear() { list = []; grpHit.clear(); }
+
+  /** ¿Tiene avisos que aún no han caído? */
+  function owns(foe) { for (const h of list) if (!h.hit && h.foe === foe) return true; return false; }
+
+  /**
+   * Borra los avisos que aún no han caído de un enemigo (o de su id, lo que manda el anfitrión),
+   * y los campos que aún no han empezado de su firma (BossSig.cut). → cuántos.
+   */
+  function cut(foe) {
+    const byId = typeof foe === 'number', id = byId ? foe : foe && foe.id;
+    let n = 0;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const h = list[i];
+      if (h.hit || !(byId ? h.oid === id : h.foe === foe)) continue;
+      list.splice(i, 1); n++;
+      fizzle(h);
+    }
+    if (G.BossSig && G.BossSig.cut) n += G.BossSig.cut(byId ? null : foe, id);
+    if (n && !byId && typeof id === 'number' && G.Coop.isHost) G.Coop.broadcast(['hzx', id]);
+    return n;
+  }
+
+  /** Lo que se ve al borrarse un aviso: se deshace en humo gris. */
+  function fizzle(h) {
+    const x = h.kind === 'zone' ? h.x : h.x + Math.cos(h.angle) * h.len / 2, y = h.kind === 'zone' ? h.y : h.y + Math.sin(h.angle) * h.len / 2;
+    if (!G.Camera.sees(x, y, 120)) return;
+    const r = h.kind === 'zone' ? h.r : Math.min(h.len / 2, 120);
+    G.FX.ring(x, y, r, r * 0.2, '#c8c8d0', 0.25, 2);
+    G.FX.burst(x, y - 4, '#c8c8d0', Math.max(4, Math.min(10, Math.round(r / 8))), 50);
+  }
 
   /** ¿Te puede golpear ya esta marca? (las de un grupo, una vez cada GRP_GAP s) */
   function grpReady(h) {
@@ -59,8 +98,11 @@ G.Hazards = (() => {
     const pl = G.Game.player;
     clock += dt;
     // (Hacia delante en orden: en un grupo, la primera marca que cae es la que cuenta.)
+    let gone = null;
     for (let i = 0; i < list.length; i++) {
       const h = list[i];
+      // Su dueño ha muerto antes de que cayera (este fotograma: EnemyMgr aún no lo ha quitado): no golpea.
+      if (!h.hit && h.foe && h.foe.dead && !h.foe.selfK) { (gone || (gone = [])).push(h.foe); continue; }
       h.t += dt;
       if (!h.hit && h.t >= h.delay) {
         h.hit = true;
@@ -73,6 +115,7 @@ G.Hazards = (() => {
         }
       }
     }
+    if (gone) for (const f of gone) cut(f);
     for (let i = list.length - 1; i >= 0; i--) {
       const h = list[i];
       if (h.hit && h.t >= h.delay + h.end) list.splice(i, 1);
@@ -320,5 +363,5 @@ G.Hazards = (() => {
     }
   }
 
-  return { add, clear, update, draw, purge, inside, get all() { return list; }, get count() { return list.length; } };
+  return { add, clear, update, draw, purge, inside, cut, owns, get all() { return list; }, get count() { return list.length; } };
 })();
