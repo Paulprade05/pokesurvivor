@@ -91,6 +91,9 @@ const SEED = +opt('semilla', 4242);
 // (tirones, 20-11-2026) Para investigar: --antes "<js>" corre en la página justo antes de medir cada escena y --sonda "<js>"
 // al acabar (su resultado va en estado.sonda). P. ej. contar llamadas: --antes "window.__n=0;const f=G.X.y;G.X.y=function(){__n++;return f.apply(this,arguments)}" --sonda "__n"
 const PRE = opt('antes', null), PROBE = opt('sonda', null);
+// (estudio-60fps) --movil: Chrome con perfil de móvil táctil (Pixel 7 en horizontal: pointer coarse, el juego va en modo móvil).
+// --lento N: la CPU N veces más lenta (CDP Emulation.setCPUThrottlingRate): un móvil flojo. La GPU sigue siendo la del PC.
+const MOVIL = flag('movil'), LENTO = +opt('lento', 0);
 let pw;
 try { pw = require(PW ? path.resolve(/playwright-core$/.test(PW) ? PW : path.join(PW, 'playwright-core')) : 'playwright-core'); }
 catch (e) { console.error('Falta playwright-core: npm i --prefix <tmp>/pw playwright-core@1.64 y pasa --pw <tmp>/pw/node_modules'); process.exit(2); }
@@ -296,6 +299,28 @@ const HELPERS = () => {
       }
       await sleep(2500); return;
     }
+    // (estudio-60fps) El peor caso de verdad: la horda al tope del juego (capAt + OVER, minuto 19, 4 ataques evolucionados y
+    // fusionados) y, encima, la lluvia de disparos enemigos (~430 en el aire).
+    if (k === 'peor') {
+      G.Game.debugTime(19 * 60); G.Spawner.debugBossesFrom(30 * 60);
+      G.EnemyMgr.clear(); G.Projectiles.clear();
+      __heavy();
+      const top = G.Spawner.capAt(G.Game.st.time) + 20;
+      for (let i = 0; i < 14 && G.EnemyMgr.count < top; i++) { G.Spawner.debugWave(['surge', 'ring', 'swarm', 'stampede'][i % 4]); await sleep(350); }
+      for (const e of G.EnemyMgr.all()) e.maxHp = e.hp = 1e9;
+      clearInterval(window.__rainI);
+      const types = ['fire', 'water', 'grass', 'electric', 'ice', 'psychic', 'poison', 'ghost'];
+      window.__rainI = setInterval(() => {
+        if (G.Game.state !== 'playing' || G.Projectiles.count > 480) return;
+        for (let j = 0; j < 14; j++) {
+          const a = Math.random() * 6.2832, x = P.x + Math.cos(a) * 520, y = P.y + Math.sin(a) * 420, t = types[j % types.length];
+          const sp = 150 + Math.random() * 90, b = Math.atan2(P.y - y, P.x - x) + (Math.random() - 0.5) * 0.9;
+          G.Projectiles.spawn({ x, y, vx: Math.cos(b) * sp, vy: Math.sin(b) * sp, dmg: 1, r: 6, life: 4, friendly: false, color: '#ff7a9e',
+            vis: G.VFX.forType(t), mtype: t, cat: 'special' });
+        }
+      }, 100);
+      await sleep(2500); return;
+    }
     if (k === 'grieta') {
       G.Rift.debugOpen(); await sleep(400);
       const r = G.Rift.rift; if (r) { P.x = r.x; P.y = r.y - 10; G.Camera.x = P.x; G.Camera.y = P.y; }
@@ -405,7 +430,8 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
       browser = await pw.chromium.launch({ executablePath: CHROME, headless: true,
         args: ['--mute-audio', '--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=d3d11', '--enable-precise-memory-info'].concat(process.env.JSFLAGS ? ['--js-flags=' + process.env.JSFLAGS] : [])
           .concat(UNCAP ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : []) });
-      ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR });
+      const dev = MOVIL && (pw.devices['Pixel 7 landscape'] || pw.devices['Pixel 5 landscape']);
+      ctx = await browser.newContext(dev ? Object.assign({}, dev, { viewport: { width: W, height: H }, deviceScaleFactor: DPR }) : { viewport: { width: W, height: H }, deviceScaleFactor: DPR });
     }
     const p = CDP_URL ? ctx.pages()[0] : await ctx.newPage();
     const errs = [];
@@ -424,6 +450,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
       const v = ret === undefined ? undefined : JSON.parse(ret); o[fn] = () => v; return d;
     }).join(', '), DROP));
     const cdp = NAV === 'chrome' || CDP_URL ? await ctx.newCDPSession(p) : null;
+    if (cdp && LENTO > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: LENTO });
     if (cdp) { await cdp.send('Performance.enable'); if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); } }
     const gpu = await p.evaluate(() => { try { const c = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
       const e = c && c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; } catch (e) { return '?'; } });
