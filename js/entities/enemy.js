@@ -341,6 +341,32 @@
       if (this.remote) { G.Coop.status(this, 't', dur); return; }
       if (this.under) return;
       this.stunT = Math.max(this.stunT || 0, dur);
+      if (dur > 0) this.cutCast();
+    }
+
+    /**
+     * (20-11-2026) Inmovilizado (aturdido, congelado, dormido, en el aire): pierde el ataque que preparaba. Sus avisos
+     * en el suelo y los campos de su firma que aún no han empezado se borran sin daño (G.Hazards.cut); la embestida que
+     * apuntaba, la mecha y el salto en el que aún se agachaba, también. Lo ya lanzado (disparos en vuelo, zonas que ya
+     * golpean, el salto ya en el aire) sigue. Un jefe o legendario, como mucho una vez cada 4 s (como interrupt, combat.js;
+     * se le aturde casi con cada golpe): entre medias, como antes. Sólo quien tiene los enemigos de verdad.
+     */
+    cutCast() {
+      if (this.dead || this.remote) return;
+      const ai = this.ai, c = ai && ai.cast, H = G.Hazards;
+      if (this.boss) {
+        const now = G.Game && G.Game.st ? G.Game.st.time : 0;
+        if ((!c && !(H.owns && H.owns(this))) || this.intAt > now) return;
+        this.intAt = now + 4;
+      }
+      if (this.behavior === 'charger' && (this.phase === 'aim' || this.phase === 'dash')) { this.phase = 'walk'; this.pt = 1.1; }
+      if (this.behavior === 'bomber' && this.phase === 'fuse') { this.phase = 'walk'; this.pt = 1.2; this.flash = 0; }
+      if (this.jump && this.jump.t < 0) this.jump = null;
+      if (c) {
+        if (c.id === 'sig') G.BossSig.abort(this);
+        else { ai.cast = null; ai.cd = Math.max(ai.cd || 0, 1.2); }
+      }
+      if (H.cut) H.cut(this);
     }
 
     applySlow(factor, dur = 1.2) {
@@ -1435,6 +1461,8 @@
         const e = list[i];
         if (e.remote) continue;
         if (e.dead) {
+          // (20-11-2026) Muerto antes de lanzarlo: sus avisos y los campos de su firma que no han empezado, fuera (hazards.js).
+          if (!e.selfK && G.Hazards.cut) G.Hazards.cut(e);
           pl.kills++;                                          // (del equipo: el anfitrión lo manda a todos)
           killHook(pl, players, e);
           G.Reg.kill(e);
@@ -1876,6 +1904,9 @@ G.BossSig = (() => {
   }
   /** Campo o marca: aquí y, si mandas en un grupo, a los demás. Devuelve el de aquí. */
   function emit(o) {
+    // (20-11-2026) oid: el jefe que la lanza, para borrarla si muere o se le inmoviliza antes de que empiece (cut).
+    const by = G.Reg && G.Reg.actor;
+    if (by && by.boss && o.oid == null && typeof by.id === 'number') o.oid = by.id;
     const m = add(o);
     if (G.Coop.isHost) G.Coop.broadcast(['bsg', o]);
     return m;
@@ -2966,7 +2997,9 @@ G.BossSig = (() => {
     stop: [1, 0, 10], sc: [1, 0.5, 3], dex: [0, 0, 2000], sh: [0, 0, 1], rb: [0, 0, 1], big: [0, 0, 1], terr: [0, 0, 1], tw: [0, 0, 1],
     // (28-10-2026)
     p: [0, 0, 1e6], rad: [0, 0, 1], back: [0, 0, 5], slide: [0, 0, 1], sleep: [0, 0, 1], pull: [0, 0, 1], whirl: [0, 0, 1], spk: [0, 0, 2], ret: [0, 0, 1], wall: [0, 0, 1],
-    soft: [0, 0, 1], ang: [0, -20, 20], len: [0, 0, 2000], L: [300, 0, 2000], gap: [0, -2000, 2000], arms: [3, 1, 8], per: [2, 1, 5], av: [1, -10, 10], a0: [0, -20, 20] };
+    soft: [0, 0, 1], ang: [0, -20, 20], len: [0, 0, 2000], L: [300, 0, 2000], gap: [0, -2000, 2000], arms: [3, 1, 8], per: [2, 1, 5], av: [1, -10, 10], a0: [0, -20, 20],
+    // (20-11-2026)
+    oid: [0, 0, 1e12] };
   const EFFS = new Set(['stun', 'freeze', 'sleep', 'conf', 'burn', 'yawn', 'slow', 'knock']);
   function onNet(o) {
     if (!o || typeof o !== 'object' || (!FIELD.has(o.k) && !MARK.has(o.k))) return;
@@ -3242,6 +3275,31 @@ G.BossSig = (() => {
     if (me && !me.dead) { ps.lx = me.x; ps.ly = me.y; }
   }
 
+  // (20-11-2026) Casteo cortado: lo que se ve de lo que iba a caer (G.Hazards.cut).
+  const CUT_MARK = new Set(['sky', 'slash']);
+  /**
+   * Borra de un jefe (foe, o su id si viene del anfitrión) los campos que aún no han empezado (charcos, ondas,
+   * «zap»...) y las marcas de lo que iba a caer. Lo que ya está activo sigue. → cuántos.
+   */
+  function cut(foe, id) {
+    const mine = f => (foe && f.foe === foe) || (id != null && f.oid === id);
+    let n = 0;
+    for (let i = fields.length - 1; i >= 0; i--) { const f = fields[i]; if (f.t < (f.delay || 0) && mine(f)) { fields.splice(i, 1); n++; } }
+    for (let i = marks.length - 1; i >= 0; i--) { const m = marks[i]; if (CUT_MARK.has(m.k) && mine(m)) { marks.splice(i, 1); n++; } }
+    return n;
+  }
+  /** Inmovilizado a media firma (Enemy.cutCast): la deja como si hubiera acabado y espera a la siguiente. */
+  function abort(e) {
+    const c = e.ai && e.ai.cast;
+    if (!c || c.id !== 'sig') return;
+    e.sigK = 1;
+    if (e.sigHide) hide(e, false);
+    if (c.onEnd) { try { c.onEnd(); } catch (err) { console.warn('[BossSig]', err); } }
+    e.ai.sigT = interval(e);
+    e.ai.cast = null;
+    e.ai.cd = Math.max(e.ai.cd || 0, 1.2);
+  }
+
   /** Quien manda, cada fotograma de un jefe (bossMove): potenciadores con tiempo y Ceniza Sagrada. */
   function tickBoss(e, dt) {
     if (e.sigHaste && clock < e.sigHaste && e.ai) e.ai.cd -= dt * 0.7;
@@ -3420,7 +3478,7 @@ G.BossSig = (() => {
     return out;
   }
 
-  return { init, phase, due, start, cast, tickBoss, update, clear, onNet, drawables, hidden, drawOn, botFields, forDex, flavorOf, SIG, BY_TYPE,
+  return { init, phase, due, start, cast, tickBoss, update, clear, onNet, cut, abort, drawables, hidden, drawOn, botFields, forDex, flavorOf, SIG, BY_TYPE,
            /** Para las pruebas: lo que le pasa a tu Pokémon. */
            get status() { return ps; },
            get fields() { return fields; }, get marks() { return marks; } };

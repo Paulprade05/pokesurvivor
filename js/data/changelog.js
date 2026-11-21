@@ -23,6 +23,11 @@ G.CHANGELOG = [
     ["El destello blanco de los golpes ya no crea cientos de imágenes por segundo con una horda golpeada, y la imagen 3D ya no cambia de tamaño en mitad de la partida (cada cambio paraba la tarjeta gráfica un momento).",
      "The white hit flash no longer creates hundreds of images per second when a horde is being hit, and the 3D image no longer changes size mid-run (each change paused the graphics card for a moment)."]
   ] },
+  { d: '2026-11-20', title: ["Ataques cortados a tiempo", "Attacks cut off in time"], fix: [
+    ["Si derrotas a un Pokémon mientras prepara un ataque con aviso en el suelo (rayos, zonas, saltos, explosiones, meteoros de los jefes...), el aviso se deshace y ya no te hace daño. Antes muchos golpeaban aunque ya estuvieran derrotados.",
+     "If you defeat a Pokémon while it is charging an attack with a warning on the ground (beams, zones, jumps, explosions, boss meteors...), the warning fades away and no longer hurts you. Before, many still hit you after being defeated."],
+    ["Aturdirlo, congelarlo, dormirlo o lanzarlo por los aires también le corta el ataque que preparaba. A los jefes y legendarios, como mucho una vez cada 4 s. Lo que ya ha lanzado (disparos en vuelo, zonas que ya golpean) sigue igual, y el kamikaze que estalla él solo sigue estallando.",
+     "Stunning, freezing, putting it to sleep or launching it into the air also cancels the attack it was charging. Bosses and legendaries, at most once every 4 s. What it already launched (shots in flight, zones already hitting) stays, and a self-destructing Pokémon still blows up."]] },
   { d: '2026-11-17', title: ["Menos avisos en pantalla", "Fewer notices on screen"], chg: [
     ["Quitado el «Proyecto de fan sin ánimo de lucro» del pie de la pantalla. Sigue en Ajustes › Acerca de.",
      "Removed “Non-profit fan project” from the screen footer. It is still in Settings › About."]

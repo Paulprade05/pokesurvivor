@@ -2661,6 +2661,8 @@ G.Combat = (() => {
     }
     if (dur > x.t) x.t = dur;
     if (o) Object.assign(x, o);
+    // (20-11-2026) En el aire no ataca: pierde lo que preparaba (congelado y dormido, ya por applyStun). Ver Enemy.cutCast.
+    if (kind === 'air' && !e.remote && e.cutCast) e.cutCast();
     return x;
   }
   /** Suma pilas (vulnerable, barro, agujas...) hasta max. */
