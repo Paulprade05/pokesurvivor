@@ -170,7 +170,7 @@ G.EvoUI = (() => {
     el.innerHTML = `<div class="box pick-box evo-box">
       <header class="pick-head">
         <div class="pick-title"><span class="ico-tile pick-ico" id="evo-ico">${G.Icons.html('up', 30)}</span><h2 id="evo-title"></h2></div>
-        <p class="sub"><span id="evo-sub">${T('Elige su evolución')}</span><span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd>…</span></p>
+        <p class="sub"><span id="evo-sub">${T('Elige su evolución')}</span><span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd>…</span><span class="pad-hint">&nbsp;· ${G.Pad.hintHtml('ok')}</span></p>
       </header>
       <div id="evo-cards" class="cards pick-cards evo-cards"></div>
     </div>`;

@@ -195,12 +195,15 @@ G.Input = (() => {
     virtualAct(a) { vacts.add(a); },
     /** La acción sigue mantenida en este fotograma (el mando; el bot de tools/curve.cjs). */
     virtualHold(a) { vheld.add(a); },
-    /** Nombre de la tecla de una acción ('Q', '1', 'Espacio'...), o '—' si no tiene. */
-    keyLabel(a) { binds(); return labels[a] || '—'; },
+    /** Nombre de la tecla de una acción ('Q', '1', 'Espacio'...), o '—' si no tiene. Jugando con mando, el de su botón
+     *  ('A', 'LB'...; '—' si no tiene) (mando, 21-11-2026). */
+    keyLabel(a) { if (G.Pad && G.Pad.active && G.Pad.ACTS[a]) return G.Pad.label(a) || '—'; binds(); return labels[a] || '—'; },
+    /** Sólo la tecla (Ajustes > Controles > En PC), aunque se juegue con mando. */
+    kbLabel(a) { binds(); return labels[a] || '—'; },
     codeLabel, moveLabel, bind,
     resetKeys() { G.Settings.set('keys', null); },
-    /** La pista de teclas del HUD, con las teclas elegidas. */
-    hint() { binds(); return hintText; },
+    /** La pista de teclas del HUD, con las teclas elegidas (o los botones, jugando con mando). */
+    hint() { if (G.Pad && G.Pad.active) return G.Pad.hint(); binds(); return hintText; },
     /** La siguiente tecla que se pulse va a fn(código) y no al juego (null: deja de esperar). */
     grab(fn) { grabFn = fn || null; },
     /** ¿Es una tecla del juego pulsada fuera de un campo de texto? (touch.js vuelve al modo PC) */

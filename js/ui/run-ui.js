@@ -749,9 +749,26 @@ G.RunUI = (() => {
       + (z ? k(I.keyLabel('zmove')) + ' movimiento Z · ' : G.Mega && G.Mega.of(pl) ? k(I.keyLabel('zmove')) + ' megaevolución · ' : '') + k('Esc') + ' pausa';
   }
 
-  function showPause(coop = false) {
+  /** (mando, 21-11-2026) La misma pista con los botones del mando elegidos (Ajustes > Controles > Con mando). */
+  function padHint() {
+    const P = G.Pad, g = a => P.glyph(a), pl = G.Game.player, z = pl && G.Combat.zOf(pl);
+    const ms = ['m1', 'm2', 'm3', 'm4'].filter(a => P.label(a));
+    return '<span class="pbtn pb-sh" translate="no">Stick</span> moverse · ' + (ms.length ? ms.map(g).join(' ') + ' movimiento · ' : '')
+      + g('prev') + '/' + g('next') + ' ciclar · '
+      + (!P.label('zmove') ? '' : z ? g('zmove') + ' movimiento Z · ' : G.Mega && G.Mega.of(pl) ? g('zmove') + ' megaevolución · ' : '')
+      + g('pause') + ' pausa';
+  }
+  function hints() {
     const kh = document.querySelector('#scr-pause .kbd-hint');
     if (kh) kh.innerHTML = keyHint();
+    const ph = $('pause-pad-hint');
+    if (ph) ph.innerHTML = padHint();
+  }
+  // Al coger o soltar el mando con la pausa abierta, o al cambiar sus botones.
+  G.Pad.on(() => { if (G.Game.state === 'paused' && G.UI.isOpen('scr-pause')) hints(); });
+
+  function showPause(coop = false) {
+    hints();
     $('pause-sum').innerHTML = pauseSummary();
     $('pause-coop').classList.toggle('hidden', !coop);
     $('btn-quit').querySelector('.quit-t').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
