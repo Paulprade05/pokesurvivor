@@ -2519,6 +2519,8 @@ body.touch .dx-tab { min-height: var(--tap); }
 .upg-prog .meter { display: block; flex: 1 1 auto; min-width: 40px; height: 8px; }
 .upg-prog b { font: 600 var(--fs-m)/1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .upg-prog b small { font-size: var(--fs-xs); color: var(--muted); }
+/* Recargo: cuánto sube cada compra (G.Upgrades.STEP) y lo que llevas. */
+.upg-tax { flex: 1 1 100%; min-width: 0; font: 600 var(--fs-xs)/1.25 var(--font); color: var(--muted); }
 /* Cómo se compra: de uno en uno o todos los niveles que puedas pagar (el botón de cada fila lo dice). */
 .upg-mode { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .upg-mode > .eyebrow { margin: 0; }
@@ -2654,6 +2656,7 @@ body.touch .dx-tab { min-height: var(--tap); }
   .upg-sum { flex-direction: column; align-items: stretch; gap: 5px; }
   .upg-prog { flex: none; gap: 6px; }
   .upg-prog b { font-size: 13px; }
+  .upg-tax { font-size: 10.5px; line-height: 1.2; }
   .upg-mode > .eyebrow { display: none; }
   .upg-mode .seg button { padding: 5px 4px; }
   #upg-partner { padding: 5px 6px; font-size: 12px; line-height: 15px; }
