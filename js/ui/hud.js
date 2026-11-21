@@ -958,7 +958,8 @@ G.HUD = (() => {
         ctx.fillStyle = fused ? BOND : on ? C.yellow : C.ink2;
         ctx.textAlign = 'left';
         ctx.fillText(String(i + 1), x + (cmp ? 4 : 5), y + (cmp ? 12 : 13));
-      } else {
+      } else if (!(G.Pad.active && !G.Pad.label('m' + (i + 1)))) {
+        // (Jugando con mando, sólo si ese ataque tiene botón: de serie no tiene.)
         const key = String((G.Input.keyLabel && G.Input.keyLabel('m' + (i + 1))) || i + 1);
         const kw = Math.min(S + 6, Math.max(16, ctx.measureText(key).width + 10));
         panel(ctx, x - 5, y - 5, kw, 16, 8, ip, on ? C.yellow : 'rgba(6,14,8,.95)', fused ? BOND : on ? null : C.edge);
@@ -1286,7 +1287,7 @@ G.HUD = (() => {
   function drawChestCue(ctx, w, h, c, touch) {
     const big = c.type === 'bigchest', f = big ? G.U.clamp(c.open / G.Interact.CHEST_TIME, 0, 1) : 0;
     if (!touch) {
-      const p = G.Camera.toScreen(c.x, c.y - 72), key = G.Pad.recent ? 'A' : String(G.Input.keyLabel('open'));
+      const p = G.Camera.toScreen(c.x, c.y - 72), key = String(G.Input.keyLabel('open'));
       const txt = big ? 'Mantén para abrir' : 'Abrir';
       ctx.font = F(600, 13);
       const tw = ctx.measureText(txt).width;

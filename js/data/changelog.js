@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-21', title: ["Juega todo con mando", "Play everything with a controller"], new: [
+    ["Botones del mando a tu gusto: en Ajustes › Controles › Con mando pulsa una acción y luego el botón nuevo. Se puede cambiar cada acción de la partida (ataque anterior y siguiente, abrir cofres, movimiento Z, pausa, correr, y ahora también elegir los ataques 1-4 directamente) y de los menús (aceptar, atrás, pestañas, cambiar y descartar cartas). Si el botón lo usaba otra acción, se intercambian y te avisa; «Restablecer botones» lo deja como venía. Se guarda con tus ajustes de este aparato.",
+     "Remap your controller: in Settings › Controls › With a controller, press an action and then the new button. You can change every in-run action (previous and next move, open chests, Z-Move, pause, run, and now also picking moves 1-4 directly) and every menu action (accept, back, tabs, reroll and discard cards). If another action was using that button, they swap and you get a notice; “Reset buttons” puts everything back. It is saved with your settings on this device."],
+    ["Interfaz pensada para mando: al abrir cualquier ventana ya sale algo elegido con el recuadro dorado, LB / RB cambian de pestaña (Gacha, Pokédex, Ajustes, Misiones, Compendio, tu choza...), y las pistas enseñan los botones del mando (Xbox, PlayStation o Switch, con los que hayas elegido) en vez de las teclas. Al tocar el teclado, el ratón o la pantalla vuelven las pistas de siempre.",
+     "Controller-friendly interface: when any window opens, something is already selected with the golden frame, LB / RB switch tabs (Gacha, Pokédex, Settings, Missions, Compendium, your hut...), and the hints show your controller's buttons (Xbox, PlayStation or Switch, with the ones you chose) instead of keys. Touch the keyboard, mouse or screen and the usual hints come back."],
+    ["Tu choza con mando: Start abre «Ir a…» (como en la aldea), y al decorar la cruceta mueve el mueble, A lo deja, Y lo voltea, B lo cancela y X elige un mueble ya puesto para moverlo o quitarlo.",
+     "Your hut with a controller: Start opens “Go to…” (as in the village), and while decorating the D-pad moves the furniture, A places it, Y flips it, B cancels and X picks a placed piece to move or remove it."]],
+  fix: [
+    ["Con mando, en las listas largas (Mejoras, Pokédex...) la selección ya no se queda atascada en lo último que se ve: la lista baja sola.",
+     "With a controller, long lists (Upgrades, Pokédex...) no longer get the selection stuck on the last visible item: the list scrolls on its own."],
+    ["Al decorar tu choza con el teclado, las flechas y E ya mueven y dejan el mueble (antes sólo iba con el ratón).",
+     "When decorating your hut with the keyboard, the arrow keys and E now move and place the furniture (before it only worked with the mouse)."]] },
   { d: '2026-11-21', title: ["60 FPS estables en el ordenador", "Steady 60 FPS on computers"], chg: [
     ["En el ordenador (y en la app de Windows) la partida se dibuja ya de serie con el motor WebGL2: con hordas y lluvias de disparos va a 60 FPS donde antes bajaba a 30-45. Se ve igual. Si algo se ve raro, se puede volver al dibujo de siempre en Ajustes › Gráficos › «Motor WebGL2». En el móvil sigue el dibujo de siempre.",
      "On computers (and in the Windows app) the game is now drawn with the WebGL2 renderer by default: with hordes and showers of shots it runs at 60 FPS where it used to drop to 30-45. It looks the same. If something looks odd, you can go back to the usual renderer in Settings › Graphics › “WebGL2 renderer”. Phones keep the usual renderer."],

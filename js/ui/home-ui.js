@@ -174,7 +174,10 @@ G.HomeUI = (() => {
       }).join('');
       if (placing) {
         const f = H.furn(placing.id), touch = G.Touch && G.Touch.active;
-        foot = `<p class="vh-desc">${esc(G.T(f.name))} · ${esc(G.T(touch ? 'Toca dónde ponerlo y toca otra vez para dejarlo.' : 'Haz clic donde ponerlo (o flechas y E).'))}</p>` +
+        // (mando, 21-11-2026) Con mando: la cruceta lo mueve y sus botones (gamepad.js) lo dejan, voltean o cancelan.
+        const P = G.Pad;
+        foot = `<p class="vh-desc">${esc(G.T(f.name))} · ${P.active ? G.I18n.f('Cruceta: moverlo · {x} dejarlo · {x} voltearlo · {x} cancelar', P.glyph('ok'), P.glyph('reroll'), P.glyph('back'))
+          : esc(G.T(touch ? 'Toca dónde ponerlo y toca otra vez para dejarlo.' : 'Haz clic donde ponerlo (o flechas y E).'))}</p>` +
           `<div class="vh-btns"><button class="btn" type="button" data-act="flip">${esc(G.T('Voltear'))}</button>` +
           (touch ? `<button class="btn gold" type="button" data-act="drop"${placing.ok ? '' : ' disabled'}>${esc(G.T('Dejarlo aquí'))}</button>` : '') +
           `<button class="btn" type="button" data-act="cancel">${esc(G.T('Cancelar'))}</button></div>`;
@@ -186,7 +189,8 @@ G.HomeUI = (() => {
       } else if (sel && H.furn(sel) && !H.owns('furn', sel)) {
         const it = H.furn(sel);
         foot = `<p class="vh-desc">${esc(G.T(it.desc))}</p><button class="btn gold big block" type="button" data-act="buyf"${(s.coins || 0) < it.price ? ' disabled' : ''}>${G.Icons.html('coin', 18)} ${esc(G.T('Comprar'))} · ${fmt(it.price)}</button>`;
-      } else foot = `<p class="vh-desc">${esc(G.T('Elige un mueble para ponerlo, o toca uno de la habitación para moverlo o quitarlo.'))} (${room.items.length}/${H.MAX_ITEMS})</p>`;
+      } else foot = `<p class="vh-desc">${G.Pad.active ? G.I18n.f('Elige un mueble para ponerlo, o pulsa {x} para elegir uno de la habitación y moverlo o quitarlo.', G.Pad.glyph('discard'))
+        : esc(G.T('Elige un mueble para ponerlo, o toca uno de la habitación para moverlo o quitarlo.'))} (${room.items.length}/${H.MAX_ITEMS})</p>`;
     } else if (icat === 'floor' || icat === 'wallp') {
       const key = icat === 'floor' ? 'floor' : 'wall';
       list = H.IN_BY[icat].items.map(it => {

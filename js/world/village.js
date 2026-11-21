@@ -526,7 +526,9 @@ G.Village = (() => {
       const inWalk = active && !quick && G.Game && G.Game.state === 'ui' && G.UI.isOpen('scr-menu') && !covered();
       if (inWalk && walkPrev && !homeOpen && (G.Input.tap('escape') || G.Input.tap('keym'))) { exitHome(); walkPrev = false; return true; }
       runBtn(inWalk && !homeOpen);
-      G.HomeIn.frame(ctx, w, h, dpr, dt, inWalk && !homeOpen, walkPrev, running());
+      // (mando, 21-11-2026) Con el editor abierto (homeOpen) también valen las teclas (mover el mueble con las flechas,
+      //  Intro para dejarlo): antes walkPrev era siempre false con él abierto y no se podía colocar sin ratón.
+      G.HomeIn.frame(ctx, w, h, dpr, dt, inWalk && !homeOpen, walkPrev || (inWalk && homeOpen), running());
       walkPrev = inWalk && !homeOpen;
       return true;
     }
@@ -723,7 +725,8 @@ G.Village = (() => {
     const k = $('vil-key');
     if (!k) return;
     const pad = G.Pad && G.Pad.recent, touch = G.Touch && G.Touch.active;
-    k.textContent = pad ? 'A' : 'E';
+    // (mando, 21-11-2026) Con mando, el botón elegido para «Abrir cofres · entrar y hablar».
+    k.textContent = pad ? G.Pad.label('open') || '—' : 'E';
     k.classList.toggle('hidden', !!touch && !pad);
   }
 
@@ -875,7 +878,7 @@ G.Village = (() => {
     if (on) {
       const pad = G.Pad && G.Pad.recent, touch = G.Touch && G.Touch.active && !pad;
       const s = G.Village3D.toScreen(view, pl.x, pl.y, G.Sprites.bodyHeight(pl.anim.dex) + 34 + (pl.z || 0));
-      const txt = touch ? G.T('Toca «Jugar» para empezar') : G.T(pad ? 'Pulsa A para jugar' : 'Pulsa E para jugar');
+      const txt = touch ? G.T('Toca «Jugar» para empezar') : pad ? G.I18n.f('Pulsa {x} para jugar', G.Pad.label('open') || '—') : G.T('Pulsa E para jugar');
       ctx.globalAlpha = 0.85 + 0.15 * Math.sin(t * 5);
       pill(ctx, s.x, s.y, txt, true);
       ctx.globalAlpha = 1;
@@ -1122,6 +1125,8 @@ G.Village = (() => {
     // Esc con el desplegable abierto lo cierra (y no llega a otra cosa).
     addEventListener('keydown', e => { if (quick && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setQuick(false); walkPrev = false; } }, true);
     addEventListener('resize', () => { if (active) snapCam(); });
+    // (mando, 21-11-2026) Al pasar del mando al teclado (o al cambiar sus botones), la pista del botón de entrar, al día.
+    if (G.Pad && G.Pad.on) G.Pad.on(keyHint);
     // En reposo, three.js a la caché (si va a hacer falta): así la aldea sale antes.
     if (wanted()) setTimeout(() => { if (three === 'idle') loadThree(); }, 1500);
   }

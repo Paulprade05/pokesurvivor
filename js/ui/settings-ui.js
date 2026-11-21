@@ -46,7 +46,7 @@ G.SettingsUI = (() => {
     $('scr-settings').classList.remove('hidden');
     render();
   }
-  function close() { stopBind(); keyMsg = ''; $('scr-settings').classList.add('hidden'); }
+  function close() { stopBind(); stopPadBind(); keyMsg = padMsg = ''; $('scr-settings').classList.add('hidden'); }
   const isOpen = () => !$('scr-settings').classList.contains('hidden');
 
   // ---------------- pantalla completa ----------------
@@ -132,7 +132,7 @@ G.SettingsUI = (() => {
   function keyBtn(a) {
     const d = DIRS[a], on = binding === a;
     return `<button type="button" class="btn small keybind${on ? ' gold' : ''}" data-bind="${a}"${d ? ` title="${d[1]}"` : ''}>`
-      + (d ? `<small>${d[0]}</small> ` : '') + (on ? '…' : esc(G.Input.keyLabel(a))) + '</button>';
+      + (d ? `<small>${d[0]}</small> ` : '') + (on ? '…' : esc(G.Input.kbLabel(a))) + '</button>';
   }
   /** Una acción y sus teclas (o botones del mando) en una fila. */
   const keyRow = (keys, what) => `<div class="key-row"><span class="key-lbl">${what}</span><span class="key-keys">${keys}</span></div>`;
@@ -154,6 +154,7 @@ G.SettingsUI = (() => {
   /** Espera la siguiente tecla para la acción `a` (pulsar otra vez el mismo botón cancela). */
   function bindKey(a) {
     if (binding === a) { stopBind(); keep(); return; }
+    stopPadBind();
     binding = a; keyMsg = '';
     G.Input.grab(c => {
       binding = null;
@@ -166,6 +167,43 @@ G.SettingsUI = (() => {
   /** Redibuja sin volver arriba (las teclas están al final de la pestaña). */
   function keep() { const y = $('set-body').scrollTop; render(); $('set-body').scrollTop = y; }
 
+  // ---------------- botones del mando (mando, 21-11-2026) ----------------
+  // Como las teclas: se pulsa la acción y luego el botón nuevo en el mando (G.Pad.grab). Si otra acción que se usa a la vez
+  // lo tenía, se intercambian y se avisa debajo; Aceptar, Atrás y Pausa nunca se quedan sin botón.
+  let padBinding = null, padMsg = '';
+  const PAD_GAME = ['prev', 'next', 'open', 'zmove', 'pause', 'run', 'm1', 'm2', 'm3', 'm4'];
+  const PAD_UI = ['ok', 'back', 'tabPrev', 'tabNext', 'reroll', 'discard'];
+  function padBtn(a) {
+    const on = padBinding === a, g = G.Pad.glyph(a, true);
+    return `<button type="button" class="btn small keybind padbind${on ? ' gold' : ''}${g ? '' : ' none'}" data-padbind="${a}">${on ? '…' : g || '—'}</button>`;
+  }
+  const padRows = acts => acts.map(a => keyRow(padBtn(a), esc(G.Pad.ACTS[a].name))).join('');
+  /** El aviso tras elegir un botón: si otra acción lo tenía, qué ha pasado con ella. */
+  function padResult(r) {
+    const P = G.Pad, nm = o => '«' + G.T(P.ACTS[o].s || P.ACTS[o].name) + '»';
+    if (r.err === 'dpad') return G.T('La cruceta sirve para moverte y elegir en los menús: elige otro botón.');
+    if (r.err === 'need') return G.I18n.f('Ese botón es el único de {x}: dale antes otro botón.', nm(r.other));
+    if (r.err || !r.other) return '';
+    if (r.lost) return G.I18n.f('Ese botón lo usaba {x}: se ha quedado sin botón.', nm(r.other));
+    if (r.gave !== null && r.gave !== undefined) return G.I18n.f('Ese botón lo usaba {x}: ahora va con {x}.', nm(r.other), P.btnLabel(r.gave));
+    return G.I18n.f('{x} ya no usa ese botón.', nm(r.other));
+  }
+  /** Espera el botón nuevo de la acción `a` (pulsar otra vez cancela; a los 6 s se deja). */
+  function bindPad(a) {
+    if (padBinding === a) { stopPadBind(); keep(); return; }
+    stopBind();
+    padBinding = a; padMsg = '';
+    G.Pad.grab(b => {
+      padBinding = null;
+      padMsg = b === null ? G.T('No se ha pulsado ningún botón.') : padResult(G.Pad.bind(a, b));
+      // (El aviso de abajo puede quedar fuera de la vista: también en un aviso flotante.)
+      if (padMsg) G.UI.toast(padMsg, 4000);
+      if (isOpen() && tab === 'ctl') keep();
+    });
+    keep();
+  }
+  function stopPadBind() { if (padBinding) { padBinding = null; G.Pad.grab(null); } }
+
   const PAD = s => `<span class="padkey">${s}</span>`;
   function ctlTab() {
     const pn = G.Pad.name;
@@ -174,16 +212,15 @@ G.SettingsUI = (() => {
         : 'Xbox, PlayStation, Switch y la mayoría de mandos USB o Bluetooth. Conéctalo y pulsa cualquier botón.')
       + list(toggle('gamepad', 'Usar mando', 'Moverte, cambiar de ataque y manejar los menús con el mando.'),
         toggle('padRumble', 'Vibración', 'El mando vibra al recibir daño (si el mando y el navegador lo permiten).'))
+      + '<p class="set-sub">Pulsa una acción y luego el botón nuevo en el mando. Si otra acción lo usaba, se intercambian.</p>'
       + '<div class="set-card keys">'
       + keyRow(`${PAD('Stick izq.')} o ${PAD('Cruceta')}`, 'moverse · elegir en los menús')
-      + keyRow(`${PAD('LB')} / ${PAD('RB')}`, 'ataque anterior / siguiente')
-      + keyRow(PAD('Start'), 'pausa')
-      + keyRow(PAD('A'), 'pulsar (en los menús) · abrir cofres (el de candado, mantén pulsado) · saltar la animación de Arceus')
-      + keyRow(PAD('X'), 'movimiento Z')
-      + keyRow(PAD('B'), 'atrás / cerrar')
-      + keyRow(PAD('Y'), 'cambiar las cartas al subir de nivel')
       + keyRow(PAD('Stick der.'), 'desplazar las listas · apuntar (si activas Apuntar a mano en Accesibilidad)')
-      + '</div>';
+      + '</div>'
+      + '<p class="set-sub"><b>En la partida y en la aldea</b></p><div class="set-card keys">' + padRows(PAD_GAME) + '</div>'
+      + '<p class="set-sub"><b>En los menús, las cartas y la pausa</b></p><div class="set-card keys">' + padRows(PAD_UI) + '</div>'
+      + `<p class="note set-note" aria-live="polite">${padBinding ? esc(G.T('Pulsa en el mando el botón nuevo…')) : padMsg ? esc(padMsg) : ''}</p>`
+      + '<div class="set-acts"><button type="button" class="btn small ghost" id="set-pad-reset">Restablecer botones</button></div>';
     const mobile = section('En móvil o tablet', 'Arrastra el joystick para moverte. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Cerca de un cofre sale un botón para abrirlo.')
       + list(choice('stickMode', [['fixed', 'Fijo'], ['float', 'Flotante']], 'Joystick', 'Fijo: siempre en el mismo sitio. Flotante: aparece donde pones el dedo.'),
         choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']], 'Tamaño del joystick', 'Cuánto hay que arrastrar el dedo.'),
@@ -281,7 +318,7 @@ G.SettingsUI = (() => {
   }
 
   function render() {
-    if (tab !== 'ctl') { stopBind(); keyMsg = ''; }
+    if (tab !== 'ctl') { stopBind(); stopPadBind(); keyMsg = padMsg = ''; }
     document.querySelectorAll('#set-nav .set-tab').forEach(b => {
       const on = b.dataset.t === tab;
       b.classList.toggle('on', on);
@@ -382,6 +419,8 @@ G.SettingsUI = (() => {
     const lay = $('set-layout'); if (lay) lay.onclick = () => G.LayoutUI.open();
     box.querySelectorAll('[data-bind]').forEach(b => { b.onclick = () => bindKey(b.dataset.bind); });
     const kr = $('set-keys-reset'); if (kr) kr.onclick = () => { stopBind(); keyMsg = ''; G.Input.resetKeys(); keep(); };
+    box.querySelectorAll('[data-padbind]').forEach(b => { b.onclick = () => bindPad(b.dataset.padbind); });
+    const pr = $('set-pad-reset'); if (pr) pr.onclick = () => { stopPadBind(); padMsg = ''; G.Pad.reset(); keep(); };
     box.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => { if (b.dataset.lang !== G.I18n.lang) G.I18n.set(b.dataset.lang); }; });
     const lo = $('set-login'); if (lo) lo.onclick = () => { close(); leave(); };
     const out = $('set-logout'); if (out) out.onclick = () => { close(); leave(); };

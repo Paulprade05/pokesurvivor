@@ -221,9 +221,18 @@ G.Touch = (() => {
   }
   /** Ratón de verdad (no lo que simula el navegador tras un toque) o teclado: modo PC. */
   function usedPointer(e) {
-    if (e.pointerType !== 'mouse') { touchAt = performance.now(); return; }
+    if (e.pointerType !== 'mouse') {
+      touchAt = performance.now();
+      // (mando, 21-11-2026) Si lo había quitado el mando, tocar la pantalla en cualquier sitio lo devuelve.
+      if (padOff && e.isTrusted && e.type === 'pointerdown') { padOff = false; setActive(true); }
+      return;
+    }
     if (active && (e.type !== 'pointermove' || e.movementX || e.movementY)) toPc(e);
   }
+  /** (mando, 21-11-2026) Al coger el mando en el móvil o la tableta: fuera el joystick y los botones táctiles (como con el
+   *  teclado); al volver a tocar la pantalla, vuelven. */
+  let padOff = false;
+  function toPad() { if (!active || stick) return; padOff = true; setActive(false); }
   function toPc(e) {
     if (!active || stick || !e.isTrusted || performance.now() - touchAt < 1000) return;
     setActive(false);
@@ -301,5 +310,5 @@ G.Touch = (() => {
   }
 
   return { init, bind, vector, draw, drawStick, clearButtons, addButton, held, reset, safeArea, resetSafe, spot, stickBase, stickDef, R, STICK_DEF,
-           get active() { return active; }, get stick() { return stick; } };
+           toPad, get active() { return active; }, get stick() { return stick; } };
 })();

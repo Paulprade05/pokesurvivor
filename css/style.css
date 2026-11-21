@@ -855,6 +855,25 @@ kbd {
   display: inline-block; padding: 0 6px; border: 1px solid var(--line-3); border-bottom-width: 2px;
   border-radius: 5px; font: 700 14px/1.45 var(--font); text-shadow: none; background: rgba(1, 6, 3, .5); color: var(--muted);
 }
+/* (mando, 21-11-2026) Botón del mando en las pistas (gamepad.js btnGlyph): los cuatro de la derecha, redondos con la
+ * letra o el símbolo de su color (Xbox: A verde, B roja, X azul, Y amarilla; PlayStation: ✕ ○ □ △); el resto, una pastilla.
+ * Las pistas del mando (.pad-hint) sólo se ven jugando con mando (body.pad); entonces se esconden las del teclado. */
+.pbtn {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px;
+  border-radius: var(--rad-pill); border: 1.5px solid var(--line-3); background: rgba(1, 6, 3, .62);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .35); color: var(--ink); font: 800 12px/1 var(--font); text-shadow: none;
+  vertical-align: middle; white-space: nowrap;
+}
+.pbtn:is(.pb-xbox0, .pb-xbox1, .pb-xbox2, .pb-xbox3, .pb-ps0, .pb-ps1, .pb-ps2, .pb-ps3) { width: 22px; padding: 0; font-size: 13px; }
+.pb-xbox0 { color: #7ddc6a; border-color: #4f9a43; } .pb-xbox1 { color: #ff7a6b; border-color: #a9473d; }
+.pb-xbox2 { color: #6fb2ff; border-color: #3f6fa8; } .pb-xbox3 { color: #ffd453; border-color: #a8862c; }
+.pb-ps0 { color: #8fb6ff; border-color: #4b6aa6; } .pb-ps1 { color: #ff8585; border-color: #a64b4b; }
+.pb-ps2 { color: #f0a0e0; border-color: #9a5c90; } .pb-ps3 { color: #5fdcc0; border-color: #34917c; }
+.pb-or { font-style: normal; margin: 0 2px; opacity: .6; }
+.pad-hint { display: none; }
+body.pad .pad-hint { display: revert; }
+body.pad span.pad-hint { display: inline-flex; align-items: center; gap: 4px; }
+body.pad :is(.kbd-hint, .card .key) { display: none !important; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -4506,6 +4525,9 @@ body.touch #scr-settings .set-vol input[type=range] {
 #scr-settings .keybind:hover { background: var(--card-press); filter: none; }
 #scr-settings .keybind.gold { background: var(--leaf-bg); color: var(--c-on-yellow); border-color: rgba(255, 255, 255, .4); }
 #scr-settings .keybind small { font-size: 12px; opacity: .75; }
+#scr-settings .padbind { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; }
+#scr-settings :is(.set-list, .set-card) + .set-sub { margin-top: 14px; }
+#scr-settings .padbind.none { color: var(--muted); border-style: dashed; background: transparent; }
 #scr-settings .padkey {
   display: inline-flex; align-items: center; min-height: 26px; padding: 2px 10px; border-radius: var(--rad-pill);
   background: var(--card-hi); border: 1px solid var(--line-3); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25);
@@ -5496,7 +5518,7 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   .pause-hint p { font-size: var(--fs-s); }   /* es una frase: 12 px en el móvil */
   /* Tumbado no sobra alto: la pista de controles (ya sale al empezar la partida) se
      quita; el aviso de partida en grupo, no. */
-  #scr-pause .pause-hint :is(.kbd-hint, .touch-hint) { display: none; }
+  #scr-pause .pause-hint :is(.kbd-hint, .touch-hint, .pad-hint) { display: none; }
   #scr-pause .pause-hint:not(:has(> .pause-coop:not(.hidden))) { display: none; }
   #scr-pause .pause-body { padding-top: 8px; }
   .ps-card { padding: 8px 10px; }

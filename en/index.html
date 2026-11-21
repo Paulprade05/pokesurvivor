@@ -126,7 +126,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/style.css?v=89de90048b">
+<link rel="stylesheet" href="css/style.css?v=7fb6028875">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -893,12 +893,12 @@
   <div class="box pick-box">
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="up"></span><h2>¡Nivel <span id="lvl-num">2</span>!</h2></div>
-      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></p>
+      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span><span class="pad-hint">&nbsp;· <span data-pad-act="ok"></span></span></p>
     </header>
     <div id="cards" class="cards pick-cards"></div>
     <footer class="pick-foot">
-      <button id="lvl-reroll" class="btn ghost ic hidden" data-sfx="none"><span class="rr-ico" aria-hidden="true"></span><span>Cambiar opciones (<span id="lvl-rr-n">1</span>)</span><span class="kbd-hint"><kbd>R</kbd></span></button>
-      <button id="lvl-discard" class="btn ghost ic hidden" data-sfx="none" aria-pressed="false"><span class="dc-ico" aria-hidden="true"></span><span>Descartar (<span id="lvl-dc-n">2</span>)</span><span class="kbd-hint"><kbd>X</kbd></span></button>
+      <button id="lvl-reroll" class="btn ghost ic hidden" data-sfx="none"><span class="rr-ico" aria-hidden="true"></span><span>Cambiar opciones (<span id="lvl-rr-n">1</span>)</span><span class="kbd-hint"><kbd>R</kbd></span><span class="pad-hint" data-pad-act="reroll"></span></button>
+      <button id="lvl-discard" class="btn ghost ic hidden" data-sfx="none" aria-pressed="false"><span class="dc-ico" aria-hidden="true"></span><span>Descartar (<span id="lvl-dc-n">2</span>)</span><span class="kbd-hint"><kbd>X</kbd></span><span class="pad-hint" data-pad-act="discard"></span></button>
       <label id="lvl-always" class="lvl-always hidden"><input type="checkbox" id="lvl-always-cb"><span>Elegir siempre esta opción</span></label>
       <p id="lvl-wait" class="pick-wait hidden"></p>
     </footer>
@@ -923,7 +923,7 @@
   <div class="box pick-box">
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bag"></span><h2>¡Un objeto!</h2></div>
-      <p class="sub">Sólo puedes llevar uno<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd></span></p>
+      <p class="sub">Sólo puedes llevar uno<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd></span><span class="pad-hint">&nbsp;· <span data-pad-act="ok"></span></span></p>
     </header>
     <div id="item-cards" class="cards pick-cards"></div>
   </div>
@@ -942,6 +942,7 @@
       </div>
       <div class="sheet-row pause-hint">
         <p class="kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
+        <p class="pad-hint" id="pause-pad-hint"></p>
         <p class="touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
         <p id="pause-coop" class="pause-coop hidden">Partida en grupo: el juego sigue mientras estás aquí.</p>
       </div>
@@ -975,6 +976,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=61dbe330d6"></script>
+<script defer src="js/app.min.js?v=9a30922413"></script>
 </body>
 </html>
