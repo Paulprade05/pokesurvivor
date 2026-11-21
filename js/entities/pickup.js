@@ -218,12 +218,14 @@ G.Pickups = (() => {
       }
       ctx.globalAlpha = 0.34;
       // (Siempre a 2 unidades por píxel, como los Pokémon: el tamaño cambia con el radio del dibujo, no estirándolo.)
-      const gi = glowImg(p.kind === 'item' ? '#ffe14d' : k.glow, f, p.kind === 'item' ? 10 : Math.round(r));
+      // (Objetos, 21-11-2026: la clave es 'id:rareza'; brillan del color de su rareza, data/items.js.)
+      const io = p.kind === 'item' ? G.Items.parse(p.value) : null;
+      const gi = glowImg(io ? G.Items.color(io.r) : p.kind === 'item' ? '#ffe14d' : k.glow, f, p.kind === 'item' ? (io && io.r >= 2 ? 12 : 10) : Math.round(r));
       if (gi) { const D = gi.width * 2; ctx.drawImage(gi, Math.round(p.x - D / 2), Math.round(y - D / 2), D, D); }
       ctx.globalAlpha = 1;
 
       // La moneda gira: el mismo dibujo, cada vez más estrecho.
-      const name = xp ? xpSprite(p.value) : p.kind === 'item' ? p.value : SPRITE[p.kind];
+      const name = xp ? xpSprite(p.value) : p.kind === 'item' ? (io ? io.id : p.value) : SPRITE[p.kind];
       if (p.kind === 'coin' && anim) {
         const w = [1, 0.75, 0.3, 0.75][(p.t * 2.2) & 3];
         ctx.save();
@@ -253,7 +255,7 @@ G.Pickups = (() => {
         ctx.beginPath(); ctx.ellipse(p.x, y, r * sx * 0.5, r * 0.5, 0, 0, 6.2832); ctx.fill();
       } else {
         const sz = p.kind === 'ticket10' || p.kind === 'item' ? 24 : 18;
-        G.Icons.draw(ctx, p.kind === 'item' ? p.value : SPRITE[p.kind], p.x - sz / 2, y - sz / 2 - 1, sz);
+        G.Icons.draw(ctx, name, p.x - sz / 2, y - sz / 2 - 1, sz);
         continue;
       }
       ctx.fillStyle = 'rgba(255,255,255,.8)';

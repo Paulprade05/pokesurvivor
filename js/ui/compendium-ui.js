@@ -328,7 +328,7 @@ G.CompendiumUI = (() => {
     }
     if (tab === 'items') {
       return `<button ${a}><span class="ico-tile s t-gold">${G.Icons.html(x.id, 30)}</span>`
-        + `<span class="cmp-rt"><b>${esc(x.name)}</b><small>${esc(x.desc)}</small></span></button>`;
+        + `<span class="cmp-rt"><b>${esc(x.name)}</b><small>${G.Items.lines(x.id, 0).map(l => `<span>${esc(l)}</span>`).join(' ')}</small></span></button>`;
     }
     return `<button ${a} style="--c:${typeCol(x.types[0])}"><span class="cmp-num">#${String(x.dex).padStart(3, '0')}</span>`
       + `<span class="cmp-rt"><b>${esc(x.name)}</b></span><span class="cmp-tys">${x.types.map(t => `<i style="background:${typeCol(t)}" title="${esc(G.U.TYPE_NAME[t])}"></i>`).join('')}</span>`
@@ -517,10 +517,15 @@ G.CompendiumUI = (() => {
   function itemDetail(id) {
     const it = G.Items.BY[id];
     if (!it) return '';
+    // (21-11-2026) Sus cuatro rarezas, cada una con sus números, y lo que gana al evolucionar (data/items.js).
+    const L = ls => `<ul class="cmp-rar-l">${ls.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
+    const rars = G.Items.RAR.map((R, r) => `<div class="cmp-rar" style="--rc:${R.col}"><span class="rar-badge" style="--rc:${R.col}">${esc(R.name)}</span>`
+      + L(G.Items.lines(id, r, false)) + `<p class="cmp-rar-e"><b>${esc(it.evo)}</b></p>` + L(G.Items.lines(id, r, true)) + '</div>').join('');
     return hero(G.Icons.html(id, 60), 't-gold', esc(it.name), '<span class="badge gold">Objeto</span>')
-      + `<p class="cmp-desc">${esc(it.desc)}</p>`
-      + `<ul class="cmp-facts"><li>${G.UI.svg('check', 14)}<span>Sólo puedes llevar uno por partida: si encuentras otro, eliges con cuál te quedas.</span></li>`
-      + `<li>${G.UI.svg('check', 14)}<span>Sale de los cofres (sobre todo de los de candado) y lo sueltan los jefes.</span></li></ul>`;
+      + sec('Por rareza', `<div class="cmp-rars">${rars}</div>`)
+      + `<ul class="cmp-facts"><li>${G.UI.svg('check', 14)}<span>Llevas uno; al fusionar tus 4 movimientos se abre un segundo hueco y puedes llevar dos.</span></li>`
+      + `<li>${G.UI.svg('check', 14)}<span>Tras 10 minutos de partida llevándolo, evoluciona: mucho más fuerte y con una pasiva propia. Si lo cambias, su progreso se pierde.</span></li>`
+      + `<li>${G.UI.svg('check', 14)}<span>Común, raro, épico o legendario: cuanto más raro, más fuerte. Sale de los cofres y de los jefes (de los jefes y los cofres grandes, más raros).</span></li></ul>`;
   }
 
   function monDetail(dex) {
