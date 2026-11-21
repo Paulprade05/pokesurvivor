@@ -85,8 +85,8 @@ G.Player = class Player {
     this.dead = false;
     this.power = null;         // poder de altar activo: { def, t, dur }
     this.slowT = 0;            // pegado por una trampa
-    this.item = null;          // objeto equipado (data/items.js), uno por run
-    this.sashT = -Infinity;    // última vez que salvó la Banda Focus (tiempo de partida)
+    // Objetos equipados (data/items.js, 21-11-2026): { id, r rareza, t s llevándolo, evo, v, s }. Un hueco; dos con los 4 fusionados (itemSlots).
+    this.items = [];
     this.bellHeal = 0;         // curación pendiente del Cascabel Concha
     this.statsTaken = {};      // mejoras de stat cogidas (condición de evolución)
     this.abil = null;          // efecto de su habilidad (data/ability-fx.js), lo pone game.js
@@ -133,6 +133,8 @@ G.Player = class Player {
       this.hp = Math.min(this.maxHp, Math.max(1, this.hp + Math.max(0, up)));
       if (fx && cure) this.heal(this.maxHp * 0.25, 'evolución');
       this.baseAtk = mon.atk;
+      // (Objetos: Mineral Evolutivo depende de si aún puede evolucionar, y la vida de más va con la máxima nueva.)
+      if (this.items.length) G.Items.refresh(this);
       // (El movimiento Z no cambia: va con la Pulsera Z del elegido y el tipo de tus
       // ataques, no con los tipos de la fase; ver combat.js zOf.)
     }
@@ -198,14 +200,15 @@ G.Player = class Player {
   monoType(type) { const t = (G.Mega ? G.Mega.cardMon(this) : this.mon).types; return t.length === 1 && type === t[0]; }
   get spd() {
     // (Habilidades: "steady" no se frena; speed() multiplica, ver data/ability-fx.js.)
-    const ab = this.abil || {}, stuck = this.slowT > 0 && !ab.steady;
+    // (Hierba Blanca, this.itSteady: como «steady».)
+    const ab = this.abil || {}, steady = ab.steady || this.itSteady, stuck = this.slowT > 0 && !steady;
     const s = this.baseSpd * this.spdMul * (1 + this.buffs.spd.n * this.buffs.spd.amount) * (stuck ? 0.5 : 1) * (ab.speed ? ab.speed(this) : 1);
     const w = G.Weather.speedFor(this.mon.types);
-    const slow = this.inLiquid && !ab.steady ? G.World.liquidEffect(this.mon.types).slow || 1 : 1;
+    const slow = this.inLiquid && !steady ?G.World.liquidEffect(this.mon.types).slow || 1 : 1;
     return G.Judgment && G.Judgment.active ? G.Judgment.capSpd(s * slow * w) : s * slow * w;
   }
   get reduction() { return Math.min(0.8, this.dmgReduce + this.buffs.def.n * this.buffs.def.amount); }
-  get regen() { return this.regenFlat + this.maxHp * this.regenK + this.buffs.regen.n * this.buffs.regen.amount; }
+  get regen() { return this.regenFlat + this.maxHp * (this.regenK + ((this._itS && this._itS.regen) || 0)) +this.buffs.regen.n * this.buffs.regen.amount; }
 
   // ---------------- movimientos ----------------
   addMove(id) {
@@ -257,7 +260,7 @@ G.Player = class Player {
     // hace daño (#92: con Agilidad activa al cogerla te quedabas sin atacar).
     const cur = this.activeGroup();
     // (Ni si es un escudo o un barrido de pantalla: con Canto Mortal te quedabas sin atacar 45 s.)
-    if (this.hasItem('choiceband') && cur.some(m => !G.Moves.nonAttacking(m.kind))) {
+    if (G.Items.locked(this) && cur.some(m => !G.Moves.nonAttacking(m.kind))) {
       G.FX.dmgText(this.x, this.y - this.bodyH - 8, 'Cinta Elección', '#ff8ad8');
       return;
     }
@@ -336,7 +339,7 @@ G.Player = class Player {
     this.arrange();
     // Se pasa al grupo, salvo con la Cinta Elección (sigues en el hueco que tenías, si queda).
     const a = this.slots.indexOf(cur);
-    this.active = this.hasItem('choiceband') && a >= 0 ? a : this.slots.indexOf(target);
+    this.active = G.Items.locked(this) && a >= 0 ? a : this.slots.indexOf(target);
     this.bonds = Math.max(0, this.bonds - 1);
     G.Projectiles.clearOrbs(this);
     return target;
@@ -354,7 +357,7 @@ G.Player = class Player {
   cast(m) {
     // Vidasfera: cada ataque cuesta un poco de vida (nunca te deja KO). Ganar un escudo no es un ataque.
     // (El movimiento Z, tampoco: se lanza solo y muy seguido.)
-    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && m.kind !== 'ward' && !m.z && !this.remote) {
+    if (G.Items.orbCost(this) && m.kind !== 'orbit' && m.kind !== 'trail' && m.kind !== 'ward' && !m.z && !this.remote) {
       this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));
     }
     const anim = this.pickAnim(m.kind);
@@ -404,6 +407,12 @@ G.Player = class Player {
       }
       if (ab.inMul) amount *= ab.inMul(this, type, cls, src);
     }
+    // Objetos que esquivan (Polvo Brillo; data/items.js).
+    if (!pure && this.items.length && G.Items.dodge(this)) {
+      this.invuln = 0.3;
+      G.FX.dmgText(this.x, this.y - this.bodyH - 4, '¡Esquiva!', '#fff4b0');
+      return;
+    }
     // Escudos (familia ward, combat.js): paran entero un golpe de un enemigo (no la lava, las trampas ni Arceus).
     if (!pure && (type || cat) && G.Combat.wardBlock(this)) return;
     // (Y los que empiezan como preevolución, algo menos al principio: G.Enemies.youngK, 29-10-2026.)
@@ -422,6 +431,7 @@ G.Player = class Player {
     let d = pure ? Math.max(1, amount) : Math.max(1, amount * (1 - this.reduction) * close);
     // Habilidades (17-11-2026, data/ability-fx.js): lo que queda del golpe (Caparazón, Ignorante...) y la barrera.
     if (ab && ab.taken && !pure) d = Math.max(1, ab.taken(this, d, src));
+    if (!pure && this.items.length) d = Math.max(1, G.Items.taken(this, d));
     if (this.abShield > 0 && !pure) {
       const a = Math.min(this.abShield, d);
       this.abShield -= a; d -= a;
@@ -441,16 +451,11 @@ G.Player = class Player {
     if (!this.remote) G.Pad.rumble(0.25 + Math.min(0.75, d / this.maxHp * 3), 140);
     G.FX.dmgText(this.x, this.y - this.bodyH - 4, '-' + Math.round(d), eff === 'super' ? '#ff3048' : eff === 'weak' ? '#c9a0a8' : '#ff6b7a', eff === 'super');
     G.FX.burst(this.x, this.y - this.bodyH * 0.5, '#ff5f6d', 6, 90);
-    // Banda Focus: aguanta el golpe con 1 de vida (una vez cada 60 s de partida;
-    // con performance.now() contaba la pausa y no iba hasta 60 s después de cargar la página).
-    // Los 1,2 s son de gracia: una lluvia de 4-6 zonas de un jefe ya no te remata.
-    const now = G.Game.st.time;
-    if (this.hp <= 0 && this.hasItem('focussash') && now - this.sashT > 60) {
-      this.sashT = now;
-      this.hp = 1; this.invuln = 1.2; this.graceT = Math.max(this.graceT, 1.2);
-      G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Banda Focus!', '#ff9a3d', true);
-      G.FX.ring(this.x, this.y, 6, 70, '#ff9a3d', 0.5, 4);
-    }
+    // Banda Focus: aguanta el golpe con 1 de vida (una vez cada 60 s de partida, menos cuanto más rara;
+    // G.Items.sash). Los 1,2 s son de gracia: una lluvia de 4-6 zonas de un jefe ya no te remata.
+    if (this.hp <= 0 && this.items.length) G.Items.sash(this);
+    // Objetos que reaccionan al golpe (Seguro Debilidad, Casco Púas, Hierba Pura).
+    if (this.hp > 0 && this.items.length) G.Items.hurt(this, d, eff === 'super');
     // Habilidad que salva de caer (Robustez, Fénix Sagrado...: gancho fall de data/ability-fx.js).
     if (this.hp <= 0 && ab && ab.fall && !this.remote && ab.fall(this)) this.hp = Math.max(1, this.hp);
     if (ab && ab.hurt && this.hp > 0) ab.hurt(this, type, cls, src);
@@ -467,7 +472,9 @@ G.Player = class Player {
   /** @param src  de dónde viene (registro de la partida): el id del ataque, 'comida', 'carta'... */
   heal(amount, src = null) {
     if (this.abil && this.abil.healMul) amount *= this.abil.healMul;     // Gula, Recogida
+    if (this.items.length) amount *= G.Items.healK(this);                // Cascabel Alivio
     const before = this.hp;
+    if (this.items.length) G.Items.overflow(this, this.hp + amount - this.maxHp);   // (Campana Serena: lo que sobra, a barrera)
     this.hp = Math.min(this.maxHp, this.hp + amount);
     this.healed += Math.max(0, this.hp - before);
     if (!this.remote) G.Reg.heal(this, this.hp - before, src || G.Reg.hsrc);
@@ -492,19 +499,30 @@ G.Player = class Player {
     return leveled;
   }
 
-  // ---------------- objeto equipado ----------------
-  hasItem(id) { return this.item === id; }
+  // ---------------- objetos equipados (data/items.js) ----------------
+  /** El primero que llevas (o null): lo miran las habilidades (Liviano, Zoquete) y el registro. */
+  get item() { return this.items.length ? this.items[0].id : null; }
+  hasItem(id) { return this.items.some(i => i.id === id); }
+  /** Huecos de objeto: 1; 2 desde que tienes los 4 movimientos fusionados (21-11-2026). */
+  itemSlots() { return this.fullGroup() ? 2 : 1; }
 
-  /** Se pone un objeto (y se quita el que llevara). */
-  equip(id) {
-    if (this.item) G.Items.BY[this.item].off(this);
-    this.item = id;
-    if (id) G.Items.BY[id].on(this);
+  /**
+   * Se pone el objeto `k` ('id:r', o un id) en el hueco `slot` (y deja el que hubiera ahí: su progreso se pierde).
+   * k null: vacía el hueco.
+   */
+  equipAt(slot, k) {
+    const o = k ? G.Items.parse(k) : null;
+    if (o) this.items[slot] = { id: o.id, r: o.r, t: 0, evo: false, v: null, s: null };
+    else this.items.splice(slot, 1);
+    this.items = this.items.filter(Boolean);
+    G.Items.refresh(this);
   }
+  /** (Como antes: el primer hueco.) */
+  equip(k) { this.equipAt(0, k); }
 
-  /** Cascabel Concha: un poco de vida por el daño que haces (tope 4/s). */
+  /** Cascabel Concha: un poco de vida por el daño que haces (con un tope por segundo, G.Items.bell). */
   onDealt(dmg) {
-    if (this.item === 'shellbell') this.bellHeal = Math.min(4, this.bellHeal + dmg * 0.04);
+    if (this.items.length) G.Items.bell(this, dmg);
   }
 
   /** Poder de un altar (ver systems/interact.js): se aplica y se quita solo. */
@@ -568,7 +586,7 @@ G.Player = class Player {
     }
     if (this.slowT > 0) this.slowT -= dt;
     const hp0 = this.hp;       // Cascabel Concha y regeneración: cuentan en la curación
-    if (this.bellHeal > 0) { const h = Math.min(this.bellHeal, 4 * dt); this.hp = Math.min(this.maxHp, this.hp + h); this.bellHeal -= h; }
+    if (this.bellHeal > 0) { const h = Math.min(this.bellHeal, (this.bellCap || 4) * dt); this.hp = Math.min(this.maxHp, this.hp + h); this.bellHeal -= h; }
     const hpB = this.hp;
     if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
@@ -576,9 +594,10 @@ G.Player = class Player {
       this.healed += this.hp - hp0;
       if (!this.remote) { G.Reg.heal(this, hpB - hp0, 'cascabel'); G.Reg.heal(this, this.hp - hpB, 'regeneración'); }
     }
-    const hp1 = this.hp;       // y lo que cura la habilidad (Cura Lluvia, Gélido, Mudar...)
+    const hp1 = this.hp;       // y lo que cura la habilidad (Cura Lluvia, Gélido, Mudar...) o los objetos (Restos Eternos...)
     if (this.abil && this.abil.tick) this.abil.tick(this, dt);
     if (this.hp > hp1) { this.healed += this.hp - hp1; if (!this.remote) G.Reg.heal(this, this.hp - hp1, 'habilidad'); }
+    if (!this.remote && this.items.length) G.Items.tick(this, dt);
     // Sequía, Llovizna...: su clima al empezar y cada 3 min, si no hay otro (en
     // grupo lo pone el anfitrión, que es quien manda el clima a todos).
     if (this.abil && this.abil.summon && (!G.Coop.active || G.Coop.isHost) && (this.sumT = (this.sumT || 0) - dt) <= 0) {
@@ -612,7 +631,7 @@ G.Player = class Player {
 
     // --- terreno líquido ---
     // (Levitación: flota por encima del agua y la lava.)
-    this.inLiquid = !(this.abil && this.abil.levitate) && G.World.isLiquid(this.x, this.y);
+    this.inLiquid = !(this.abil && this.abil.levitate) && !this.itFloat && G.World.isLiquid(this.x, this.y);   // (y el Globo Helio)
     if (this.inLiquid) {
       const le = G.World.liquidEffect(this.mon.types);
       if (le.dmg && !(this.abil && this.abil.lavaProof)) {

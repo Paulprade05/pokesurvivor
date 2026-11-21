@@ -944,12 +944,15 @@ G.Game = (() => {
       G.RunUI.showBond(opt, picked => {
         try {
           if (picked === 'over') { overFuse(); return; }
+          const slots0 = pl.itemSlots();
           const group = pl.fuse(picked, opt.group);
           G.Reg.ev('vinculo', group.map(m => m.id));
           G.Audio.sfx('legend');
           G.FX.ring(pl.x, pl.y, 8, 130, '#ff8ad8', 0.8, 6);
           G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffb3e6', 40, 240);
           G.Spawner.say('¡Vínculo! ' + group.length + ' movimientos a la vez', 2.6, true);
+          // (21-11-2026) Con los 4 fusionados se abre el segundo hueco de objeto (HUD: junto al primero).
+          if (pl.itemSlots() > slots0) { G.Spawner.say('¡Segundo hueco de objeto! Ya puedes llevar dos', 3.2, true); G.Reg.ev('hueco-objeto', 2); }
         } catch (e) { fail(e); }
         finally { end(); }
       });
@@ -967,33 +970,42 @@ G.Game = (() => {
    * terminar. (Antes una cerraba la otra, nadie podía terminar de elegir y la
    * partida se quedaba parada para todos.)
    */
-  let openItem = null;           // { cur, next, take } elección de objeto sin terminar
+  let openItem = null;           // { show, take, mine } elección de objeto sin terminar
   const laterItems = [];         // objetos recogidos con las cartas de nivel abiertas
   function afterLevelUp() {
     if (state !== 'playing' && state !== 'held') return;
     if (openItem && !G.UI.isOpen('scr-item')) {
       const o = openItem;
       if (o.mine) { state = 'choice'; if (G.Coop.active) G.Coop.holdStart(); }
-      try { G.RunUI.showItemChoice(o.cur, o.next, o.take); }
-      catch (e) { console.error('[Game] no se pudo abrir la elección de objeto:', e); G.UI.hide('scr-item'); o.take(o.cur); }
+      try { o.show(); }
+      catch (e) { console.error('[Game] no se pudo abrir la elección de objeto:', e); G.UI.hide('scr-item'); o.take(-1); }
       return;
     }
     if (laterItems.length) offerItem(laterItems.shift());
   }
 
-  /** Has cogido un objeto: si no llevas ninguno te lo pones; si no, eliges. */
-  function offerItem(id) {
-    if (!pl || !G.Items.BY[id]) return;
-    if (state === 'levelup' || G.UI.isOpen('scr-levelup') || G.EvoUI.isOpen()) { laterItems.push(id); return; }
+  /**
+   * Has cogido un objeto (clave 'id:r', data/items.js). Con un hueco libre te lo pones; si ya llevas ese
+   * mismo con igual o más rareza, nada; si no, eliges (con dos huecos, cuál de los dos cambias). El que dejas
+   * se pierde con su progreso de evolución.
+   */
+  function offerItem(k) {
+    const o = pl && G.Items.parse(k);
+    if (!o) return;
+    k = G.Items.key(o.id, o.r);
+    if (state === 'levelup' || G.UI.isOpen('scr-levelup') || G.EvoUI.isOpen()) { laterItems.push(k); return; }
+    const same = pl.items.findIndex(i => i.id === o.id);
+    if (same >= 0 && pl.items[same].r >= o.r) { G.Spawner.say('Ya llevas ' + G.Items.nameOf(pl.items[same]), 2, true); return; }
     let mine = false;            // esta elección es la que ha parado el juego
-    const take = got => {
+    // slot: el hueco donde se pone (-1: te quedas con lo que llevas y lo dejas en el suelo).
+    const take = slot => {
       openItem = null;
       // Si falla al ponértelo, se sigue jugando igual (y en grupo, se avisa).
       try {
-        if (got !== pl.item) {
-          pl.equip(got);
-          G.Spawner.say('¡Llevas ' + G.Items.BY[got].name + '!', 2.6, true);
-          G.Progress.event('item', { id: got });
+        if (slot >= 0) {
+          pl.equipAt(slot, k);
+          G.Spawner.say('¡Llevas ' + G.Items.BY[o.id].name + '!', 2.6, true);
+          G.Progress.event('item', { id: o.id, r: o.r });
         }
       } catch (e) { console.error('[Game] fallo al cambiar de objeto:', e); }
       finally {
@@ -1004,8 +1016,7 @@ G.Game = (() => {
       }
       afterLevelUp();
     };
-    if (!pl.item) { take(id); return; }
-    if (pl.item === id) { G.Spawner.say('Ya llevas ' + G.Items.BY[id].name, 2, true); return; }
+    if (same < 0 && pl.items.length < pl.itemSlots()) { take(pl.items.length); return; }
     // Se para el juego mientras eliges; en grupo, para todos (como con las
     // fusiones). Antes en grupo seguía y te pegaban mientras elegías.
     if (state === 'playing' || state === 'held') {
@@ -1013,9 +1024,10 @@ G.Game = (() => {
       state = 'choice';
       if (G.Coop.active) G.Coop.holdStart();
     }
-    openItem = { cur: pl.item, next: id, take, get mine() { return mine; } };
-    try { G.RunUI.showItemChoice(pl.item, id, take); }
-    catch (e) { console.error('[Game] no se pudo abrir la elección de objeto:', e); G.UI.hide('scr-item'); take(pl.item); }
+    const show = () => G.RunUI.showItemChoice(pl, k, same, take);
+    openItem = { show, take, get mine() { return mine; } };
+    try { show(); }
+    catch (e) { console.error('[Game] no se pudo abrir la elección de objeto:', e); G.UI.hide('scr-item'); take(-1); }
   }
 
   /** @param who  quien lo ha cogido (en cooperativo puede ser un compañero) */
@@ -1096,8 +1108,9 @@ G.Game = (() => {
       return;
     }
     if (G.UI.isOpen('scr-item')) {
-      for (let i = 0; i < 2; i++) {
-        if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) document.querySelectorAll('#item-cards .card')[i].click();
+      const cards = document.querySelectorAll('#item-cards .card');
+      for (let i = 0; i < cards.length; i++) {
+        if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) cards[i].click();
       }
       return;
     }
@@ -1882,6 +1895,8 @@ G.Game = (() => {
 
   return {
     init, startRun, everyone, levelXp, flash, offerBond, offerMega,
+    /** Experiencia de un objeto (Huevo Dorado): sube niveles con sus cartas, como recogerla. */
+    giveXp(n) { if (pl && n > 0) pendingLevels += pl.gainXp(n); },
     /** Para pruebas: salta el reloj de la run. */
     debugTime(t) { tampered = true; time = t; },
     /** Para grabar vídeos: cámara lenta (0,5 = mitad de velocidad). */

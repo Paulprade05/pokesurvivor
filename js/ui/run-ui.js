@@ -423,16 +423,42 @@ G.RunUI = (() => {
 
   // ---------------- objeto ----------------
 
-  /** Has encontrado un objeto llevando ya otro: ¿con cuál te quedas? */
-  function showItemChoice(cur, next, cb) {
+  // (21-11-2026, objetos con rareza y evolución: data/items.js.)
+  const mmss = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  /** Chapita de la rareza (con ★ si ha evolucionado). */
+  const rarBadge = (r, evo) => `<span class="rar-badge${evo ? ' evo' : ''}" style="--rc:${G.Items.color(r)}">${G.Items.rarName(r)}${evo ? ' ★' : ''}</span>`;
+  /** Lo que hace, una frase por línea (cada una se traduce sola). */
+  const itemLines = (id, r, evo) => G.Items.lines(id, r, evo).map(l => `<span class="it-ln">${l}</span>`).join('');
+  /** Cómo va su evolución: «Evoluciona en 6:20» o «Evolucionado». */
+  // (who: el nombre delante, cuando la carta habla de dos objetos.)
+  const itemProg = (it, who) => (who ? `<span class="it-who">${who}:</span> ` : '') + (it.evo ? `<span class="it-prog done">${G.T('Evolucionado')}</span>`
+    : `<span class="it-prog"><span>Evoluciona en</span> <b>${mmss(G.Items.EVO_T - it.t)}</b></span>`);
+  /** Lo que ganará al evolucionar (para el que aún no lo ha hecho). */
+  const itemEvo = (id, r) => `<span class="pc-evo it-evo"><span>A los 10 min llevándolo evoluciona a</span> <b>${G.Items.BY[id].evo}</b>: `
+    + G.Items.evoLines(id, r).map(l => `<span>${l}</span>`).join(' ') + '</span>';
+
+  /**
+   * Has encontrado un objeto (clave 'id:r') y no tienes hueco libre: ¿con cuál te quedas?
+   * Una carta para quedarte con lo que llevas y una por cada objeto que puedes cambiar (same: el mismo
+   * objeto de menos rareza, sólo ése). cb(hueco) o cb(-1) para quedarte como estabas.
+   */
+  function showItemChoice(pl, k, same, cb) {
     headIcons('scr-item');
+    const o = G.Items.parse(k), N = G.Items.BY[o.id], two = pl.itemSlots() > 1;
+    $('item-sub-t').textContent = two ? 'Llevas dos: elige cuál cambias' : 'Sólo puedes llevar uno';
     const box = $('item-cards');
     box.innerHTML = '';
-    [[cur, 'Quedarme con'], [next, 'Cambiar a']].forEach(([id, verb], i) => {
-      const it = G.Items.BY[id];
-      box.appendChild(cardEl({ cls: i ? 'is-next' : 'is-cur', icon: id, tile: i ? 't-gold' : 't-blue', eyebrow: verb, title: it.name, desc: it.desc },
-        i, () => { if (guarded()) return; G.UI.hide('scr-item'); cb(id); }, false));
-    });
+    const mine = pl.items, names = mine.map(i => G.Items.nameOf(i));
+    const cards = [{ slot: -1, cls: 'is-cur', icon: mine[0].id, tile: 'tint', tileC: G.Items.color(mine[0].r), eyebrow: 'Quedarme con',
+      title: names.join(' + '), badge: mine.length === 1 ? rarBadge(mine[0].r, mine[0].evo) : '',
+      desc: (mine.length === 1 ? itemLines(mine[0].id, mine[0].r, mine[0].evo) + itemProg(mine[0]) : mine.map((it, j) => `<span class="it-ln">${itemProg(it, names[j])}</span>`).join('')) }];
+    for (const i of same >= 0 ? [same] : mine.map((_, j) => j)) {
+      const lost = !mine[i].evo && mine[i].t >= 30 ? `<span class="it-lost">${G.T('Pierdes el progreso de')} ${names[i]}</span>` : '';
+      cards.push({ slot: i, cls: 'is-next', icon: o.id, tile: 'tint', tileC: G.Items.color(o.r), eyebrow: mine.length > 1 || same >= 0 ? 'Cambiar ' + names[i] + ' por' : 'Cambiar a',
+        title: N.name, badge: rarBadge(o.r), desc: itemLines(o.id, o.r, false) + lost, evo: itemEvo(o.id, o.r) });
+    }
+    cards.forEach((c, i) => box.appendChild(cardEl(c, i, () => { if (guarded()) return; G.UI.hide('scr-item'); cb(c.slot); }, false)));
+    $('item-keys').innerHTML = cards.map((_, i) => '<kbd>' + (i + 1) + '</kbd>').join(' ');
     G.UI.show('scr-item');
     guard(box);
   }
@@ -731,9 +757,11 @@ G.RunUI = (() => {
     const fx = pl.abil, abName = pl.abilId && G.Mons.abilityName(pl.abilId);
     const abil = fx && abName ? `<section class="ps-card pz-card ps-gear"><h3>Habilidad</h3>
         <div class="ps-item"><div><b translate="no"${fx.leg ? ' class="gold"' : ''}>${abName}</b><small>${G.T(fx.d)}${fx.d2 ? ' ' + G.T(fx.d2) : ''}</small></div></div></section>` : '';
-    const it = pl.item && G.Items.BY[pl.item];
-    const item = it ? `<section class="ps-card pz-card ps-gear"><h3>Objeto</h3>
-        <div class="ps-item"><span class="ico-tile t-gold">${G.Icons.html(pl.item, 30)}</span><div><b>${it.name}</b><small>${it.desc}</small></div></div></section>` : '';
+    // Objetos (21-11-2026): cada uno con su rareza, lo que hace y cuánto le falta para evolucionar.
+    const slots = pl.itemSlots ? pl.itemSlots() : 1;
+    const item = pl.items && pl.items.length ? `<section class="ps-card pz-card ps-gear"><h3><span>${slots > 1 ? 'Objetos' : 'Objeto'}</span> <small>${pl.items.length}/${slots}</small></h3>
+        ${pl.items.map(i => `<div class="ps-item"><span class="ico-tile tint${i.evo ? ' it-evo-ico' : ''}" style="--tile-c:${G.Items.color(i.r)}">${G.Icons.html(i.id, 30)}</span>`
+          + `<div><b>${G.Items.nameOf(i)}</b> ${rarBadge(i.r, i.evo)}<small>${itemLines(i.id, i.r, i.evo)}${itemProg(i)}</small></div></div>`).join('')}</section>` : '';
     return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.slots.length}/${pl.maxMoves}</small>
         <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section>
       <div class="pz-side">${pzPassives(pl, used)}${pzStats(pl)}${abil}${item}${zCard(pl)}</div>`;

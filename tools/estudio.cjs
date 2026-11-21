@@ -98,7 +98,7 @@ w('  aura golpea más a menudo); Puntería +5 % de crítico y +10 % de daño cr�
 w('  propio, como Golpe Kárate, Hoja Afilada o Tajo Aéreo, ganan algo más: columna «Puntería»). Vigor, Carrera, Coraza,');
 w('  Síntesis, Imán y Aprendizaje no tocan el daño: sólo deciden **qué ataques evolucionan** (y pocos ataques leen tu vida o');
 w('  tu velocidad: Tambor, Rueda Fuego, Giro Bola, Agilidad...).');
-w('- **Objetos de la partida** (uno a la vez): ' + G.Items.LIST.map(i => `${i.name} (${i.desc.replace(/\.$/, '')})`).join('; ') + '.');
+w('- **Objetos de la partida** (uno; dos con los 4 fusionados; rareza común a legendaria; evolucionan a los 10 min; números de un común): ' + G.Items.LIST.map(i => `${i.name} (${G.Items.lines(i.id, 0).join(' ').replace(/\.$/, '')})`).join('; ') + '.');
 w('- **Mejoras de la torre**: ' + G.Upgrades.LIST.filter(u => ['atk', 'cd', 'crit', 'dur', 'pspd', 'amt'].includes(u.id)).map(u => `${u.name} ${u.unit} (hasta ${u.max})`).join('; ') +
   '. Persistencia, Propulsión y Réplica de la torre suman a las cartas del mismo nombre (abajo, columnas «pasivas»).');
 w('- **El jugador**: cada ataque sin evolucionar ×1,08 y evolucionado ×0,74 (`Player.MOVE_K` / `EVO_K`): ya va en «evo/máx».');

@@ -271,30 +271,38 @@ G.HUD = (() => {
   }
 
   // Ficha del objeto: al pasar el ratón por encima (PC) o 3 s al tocarlo.
-  let tipUntil = 0, tipIt = null, tipName = '', tipLines = [], tipW = 0;
-  function itemTip(ctx, it, ix, iy, S, W, a, px) {
+  // (21-11-2026) Con rareza (su color en el nombre), lo que hace y cuánto le falta para evolucionar.
+  let tipUntil = 0, tipSlot = 0, tipKey = '', tipName = '', tipRar = '', tipLines = [], tipW = 0;
+  function itemTip(ctx, ent, ix, iy, S, W, a, px) {
     ctx.save();
     ctx.globalAlpha = a;
-    if (tipIt !== it) {
-      // Se traduce y se parte en líneas una vez por objeto.
-      tipIt = it; tipName = G.T(it.name);
+    const k = ent.id + ':' + ent.r + (ent.evo ? '*' : '');
+    const s = Math.max(0, Math.ceil(G.Items.EVO_T - ent.t));
+    const prog = ent.evo ? G.T('Evolucionado') : G.I18n.f('Evoluciona en {x}', Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'));
+    if (tipKey !== k) {
+      // Se traduce y se parte en líneas una vez por objeto (cada frase por su cuenta, que es como se traducen).
+      tipKey = k; tipName = G.T(G.Items.nameOf(ent)); tipRar = G.T(G.Items.rarName(ent.r)) + (ent.evo ? ' ★' : '');
       ctx.font = N(700, 12);
-      tipLines = wrap(ctx, G.T(it.desc), 240);
+      tipLines = [];
+      for (const l of G.Items.lines(ent.id, ent.r, ent.evo)) tipLines.push(...wrap(ctx, G.T(l), 240));
       tipW = 0;
       for (const l of tipLines) tipW = Math.max(tipW, G.I18n.rawCanvas(ctx, 'measureText', l).width);
       ctx.font = F(600, 13);
-      tipW = Math.max(tipW, G.I18n.rawCanvas(ctx, 'measureText', tipName).width);
+      tipW = Math.max(tipW, G.I18n.rawCanvas(ctx, 'measureText', tipName + '  ' + tipRar).width, 150);
     }
-    const bw = tipW + 24, bh = 32 + tipLines.length * 15;
+    const bw = tipW + 24, bh = 50 + tipLines.length * 15;
     const bx = G.U.clamp(ix, 6, Math.max(6, W - bw - 6));
     let by = iy - 20 - bh;
     if (by < 6) by = iy + S + 8;                     // barra arriba (móvil): debajo
-    panel(ctx, bx, by, bw, bh, 12, px, 'rgba(10,22,14,.96)', C.edge, 1.5 * px);
+    const col = G.Items.color(ent.r);
+    panel(ctx, bx, by, bw, bh, 12, px, 'rgba(10,22,14,.96)', col, 1.5 * px);
     ctx.textAlign = 'left';
-    ctx.font = F(600, 13); ctx.fillStyle = C.yellow;
-    G.I18n.rawCanvas(ctx, 'fillText', tipName, bx + 12, by + 20);
+    ctx.font = F(600, 13); ctx.fillStyle = col;
+    G.I18n.rawCanvas(ctx, 'fillText', tipName + '  ' + tipRar, bx + 12, by + 20);
     ctx.font = N(700, 12); ctx.fillStyle = C.ink;
     for (let i = 0; i < tipLines.length; i++) G.I18n.rawCanvas(ctx, 'fillText', tipLines[i], bx + 12, by + 37 + i * 15);
+    ctx.fillStyle = ent.evo ? col : C.yellow;
+    G.I18n.rawCanvas(ctx, 'fillText', prog, bx + 12, by + 41 + tipLines.length * 15);
     ctx.restore();
   }
 
@@ -514,7 +522,7 @@ G.HUD = (() => {
   // Nombre del ataque activo (encima de su hueco) y del objeto: se ven un rato al cambiar y se
   // van (24-10-2026; antes siempre a la vista, encima de la barra de ataques).
   const NAME_MS = 2600, ITEM_MS = 4000;
-  const shown = { a: -1, m: null, n: 0, e: false, t: 0, item: null, it: 0 };
+  const shown = { a: -1, m: null, n: 0, e: false, t: 0, item: ['', ''], it: [0, 0] };
 
   function draw(ctx, w, h, pl, st) {
     ctx.save();
@@ -698,6 +706,8 @@ G.HUD = (() => {
     // Movimiento Z (24-10-2026): su botón, del tamaño de un hueco, a la derecha de los huecos
     // (separado como el objeto a la izquierda). Sólo con el Cristal Z de un tipo de tu compañero.
     const z = G.Combat.zOf(pl), mg = G.Mega ? G.Mega.of(pl) : null, ZW = z || mg ? IG + S : 0;     // (mega: el mismo hueco)
+    // Objetos (21-11-2026): uno; con los 4 fusionados, dos (el segundo a la izquierda del primero, EXW de más).
+    const nIt = pl.itemSlots ? pl.itemSlots() : 1, EXW = nIt > 1 ? S + GAP : 0;
     const totalW = n * S + (n - 1) * GAP;
     let sx = (W - totalW) / 2;
     // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
@@ -708,8 +718,8 @@ G.HUD = (() => {
     // En vertical, igual pero centrado abajo (y se ven los huecos vacíos).
     const pb = touch && G.Touch.spot('bar', w, h);
     if (pb || tall) {
-      const bw = S + IG + nAll * S + (nAll - 1) * GAP + ZW;
-      sx = G.U.clamp((pb ? pb[0] * W : W / 2) - bw / 2, 6, Math.max(6, W - bw - 6)) + S + IG;
+      const bw = EXW + S + IG + nAll * S + (nAll - 1) * GAP + ZW;
+      sx = G.U.clamp((pb ? pb[0] * W : W / 2) - bw / 2, 6, Math.max(6, W - bw - 6)) + EXW + S + IG;
       sy = G.U.clamp(pb ? pb[1] * H - S / 2 : sy, Math.max(24, sa.top + 6), H - S - 6);   // (no bajo la barra de estado)
     }
     // Vínculo guardado: a la derecha de los huecos o, en vertical si no cabe, encima del último.
@@ -852,15 +862,21 @@ G.HUD = (() => {
     const cdOf = m => m.kind === 'orbit' ? 0 : G.U.clamp(m.t / G.Combat.cooldown(pl, m), 0, 1);
     // Toda la barra (también entre los huecos y en los vacíos) es zona de botones:
     // ahí no sale el joystick flotante. Los huecos, registrados después, mandan.
-    G.Touch.addButton((sx - S - IG) * kb, (sy - RISE) * kb, (S + IG + nDraw * (S + GAP) - GAP + ZW) * kb, (S + RISE) * kb, noop, 4);
+    G.Touch.addButton((sx - S - IG - EXW) * kb, (sy - RISE) * kb, (EXW + S + IG + nDraw * (S + GAP) - GAP + ZW) * kb, (S + RISE) * kb, noop, 4);
     // (En el móvil: radio 12, icono a 28 y el halo del activo de 4 px.)
     // Medallones redondos desde el 13-11-2026 (TR = S / 2); el vínculo (4 iconos) sigue en baldosa (TRB).
     const TR = S / 2, TRB = cmp ? 12 : 14, ICO = cmp ? 28 : 32, HALO = cmp ? 4 : 5;
     // Cuánto se ven el nombre del activo y el del objeto (ver shown): del todo al cambiar y se van.
     const g0 = pl.slots[pl.active], m0 = g0 ? g0[0] : null, gl = g0 ? g0.length : 0, ev0 = !!(m0 && m0.evolved);
     if (pl.active !== shown.a || m0 !== shown.m || gl !== shown.n || ev0 !== shown.e) { shown.a = pl.active; shown.m = m0; shown.n = gl; shown.e = ev0; shown.t = now; }
-    if (pl.item !== shown.item) { shown.item = pl.item; shown.it = now; }
-    const nameA = G.U.clamp((NAME_MS - (now - shown.t)) / 350, 0, 1), itemA = pl.item ? G.U.clamp((ITEM_MS - (now - shown.it)) / 350, 0, 1) : 0;
+    // (Cada hueco de objeto, su nombre un rato al cambiar o evolucionar lo que lleva.)
+    const itA = [0, 0];
+    for (let j = 0; j < 2; j++) {
+      const e = pl.items[j], key = e ? e.id + ':' + e.r + (e.evo ? '*' : '') : '';
+      if (key !== shown.item[j]) { shown.item[j] = key; shown.it[j] = now; }
+      itA[j] = e ? G.U.clamp((ITEM_MS - (now - shown.it[j])) / 350, 0, 1) : 0;
+    }
+    const nameA = G.U.clamp((NAME_MS - (now - shown.t)) / 350, 0, 1), itemA = Math.max(itA[0], itA[1]);
 
     for (let i = 0; i < nDraw; i++) {
       const x = sx + i * (S + GAP);
@@ -1002,29 +1018,50 @@ G.HUD = (() => {
       }
     }
 
-    // ---------- objeto equipado (a la izquierda de los movimientos) ----------
-    {
-      const ix = sx - S - IG, iy = sy, IS = cmp ? 30 : 36;
-      panel(ctx, ix, iy, S, S, TR, ip, pl.item ? 'rgba(40,34,14,.92)' : 'rgba(6,16,9,.55)',
-            pl.item ? 'rgba(242,195,90,.9)' : 'rgba(255,255,255,.1)', pl.item ? 1.5 : ip);
-      if (pl.item) {
-        const it = G.Items.BY[pl.item];
-        G.Icons.draw(ctx, pl.item, ix + (S - IS) / 2, iy + (S - IS) / 2, IS);
-        // Su nombre, unos segundos al cogerlo (luego basta el icono; la ficha sale al tocarlo).
-        if (itemA > 0) {
-          ctx.font = N(800, 11);
-          ctx.textAlign = 'center';
-          ctx.globalAlpha = itemA;
-          outlined(ctx, it.name, ix + S / 2, iy - (cmp ? 5 : 7), C.yellow, 3, S + (cmp ? 20 : 30));
-          ctx.globalAlpha = 1;
-        }
-        // Qué hace: al pasar el ratón por encima o 3 s al tocarlo (o hacer clic).
-        G.Touch.addButton(ix * kb, iy * kb, S * kb, S * kb, () => { tipUntil = performance.now() + 3000; }, 4);
-        const ms = G.Input.mouse();
-        const hover = !touch && G.Game.state === 'playing' &&
-          ms.x >= ix * kb && ms.x <= (ix + S) * kb && ms.y >= iy * kb && ms.y <= (iy + S) * kb;
-        if (hover || now < tipUntil) itemTip(ctx, it, ix, iy, S, W, hover ? 1 : Math.min(1, (tipUntil - now) / 300), ip);
+    // ---------- objetos equipados (a la izquierda de los movimientos; 21-11-2026: rareza, evolución y 2.º hueco) ----------
+    // El aro de su color es la rareza; el arco dorado de alrededor, lo que lleva hacia su evolución (10 min);
+    // evolucionado, late en su color con una ★. El segundo hueco sale al fusionar los 4 (vacío: «+»).
+    for (let j = 0; j < nIt; j++) {
+      const ix = sx - S - IG - j * (S + GAP), iy = sy, IS = cmp ? 30 : 36, ent = pl.items[j];
+      const col = ent ? G.Items.color(ent.r) : null, cx = ix + S / 2, cy = iy + S / 2;
+      if (ent && ent.evo) {
+        ctx.globalAlpha = 0.28 + 0.14 * Math.sin(now / 260);
+        roundRect(ctx, ix - HALO, iy - HALO, S + HALO * 2, S + HALO * 2, TR + HALO);
+        ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = 1;
       }
+      panel(ctx, ix, iy, S, S, TR, ip, ent ? 'rgba(40,34,14,.92)' : 'rgba(6,16,9,.55)',
+            ent ? col : 'rgba(255,255,255,.1)', ent ? 2 : ip);
+      if (!ent) {
+        if (j > 0) { ctx.font = F(700, cmp ? 18 : 20); ctx.textAlign = 'center'; outlined(ctx, '+', cx, cy + 7, 'rgba(255,255,255,.45)', 3); }
+        continue;
+      }
+      G.Icons.draw(ctx, ent.id, ix + (S - IS) / 2, iy + (S - IS) / 2, IS);
+      // Progreso hacia la evolución (o la estrella si ya ha evolucionado).
+      if (!ent.evo) {
+        const f = G.U.clamp(ent.t / G.Items.EVO_T, 0, 1), rr = S / 2 + (cmp ? 3 : 4);
+        ctx.lineWidth = cmp ? 2.5 : 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 6.2832); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+        if (f > 0) { ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2, -Math.PI / 2 + f * 6.2832); ctx.strokeStyle = '#FFD86B'; ctx.stroke(); }
+        ctx.lineCap = 'butt';
+      } else {
+        ctx.font = F(800, cmp ? 12 : 14); ctx.textAlign = 'right';
+        outlined(ctx, '★', ix + S + (cmp ? 4 : 5), iy + S + (cmp ? 3 : 4), col, 3);
+      }
+      // Su nombre, unos segundos al cogerlo o evolucionar (luego basta el icono; la ficha sale al tocarlo).
+      if (itA[j] > 0) {
+        ctx.font = N(800, 11);
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = itA[j];
+        outlined(ctx, G.Items.nameOf(ent), cx, iy - (cmp ? 7 : 10), col, 3, S + (cmp ? 20 : 30));
+        ctx.globalAlpha = 1;
+      }
+      // Qué hace: al pasar el ratón por encima o 3 s al tocarlo (o hacer clic).
+      G.Touch.addButton(ix * kb, iy * kb, S * kb, S * kb, () => { tipUntil = performance.now() + 3000; tipSlot = j; }, 4);
+      const ms = G.Input.mouse();
+      const hover = !touch && G.Game.state === 'playing' &&
+        ms.x >= ix * kb && ms.x <= (ix + S) * kb && ms.y >= iy * kb && ms.y <= (iy + S) * kb;
+      if (hover || (now < tipUntil && tipSlot === j)) itemTip(ctx, ent, ix, iy, S, W, hover ? 1 : Math.min(1, (tipUntil - now) / 300), ip);
     }
     ctx.restore();
 
