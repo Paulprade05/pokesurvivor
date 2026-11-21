@@ -24,6 +24,9 @@
  * un resumen anónimo al acabar (net/stats.js, con cuenta y si no lo has desactivado).
  */
 G.Reg = (() => {
+  /** Objetos que lleva, 'id:rareza' y * si ha evolucionado, separados por comas (21-11-2026; antes sólo el id). */
+  const itemKey = pl => (pl.items && pl.items.length ? pl.items.map(i => i.id + ':' + i.r + (i.evo ? '*' : '')).join(',') : pl.item || null);
+
   const DB_NAME = 'ps-partidas', RUNS = 'runs', SUMS = 'sums', MAX = 500;
   const TL_EVERY = 10, SNAP_EVERY = 30;
   const TL_KEYS = ['t', 'hp', 'maxHp', 'lv', 'dps', 'hps', 'tps', 'enem', 'fps', 'kills', 'zona'];
@@ -99,7 +102,7 @@ G.Reg = (() => {
       cards: [], pass: [], items: [], ev: [], bosses: [], downs: [], lv: [], kinds: { h: 0, b: 0, l: 0, a: 0 },
       moves: {}, tl: []
     };
-    seen = { item: pl.item || null, form: pl.form, arena: false, judge: false, biome: '', wx: '', lvl: pl.level, pass: {} };
+    seen = { item: itemKey(pl), form: pl.form, arena: false, judge: false, biome: '', wx: '', lvl: pl.level, pass: {} };
     last = { dealt: 0, healed: 0, taken: 0, kills: 0 };
     for (const m of pl.moves || []) moveSeen(m);
     try { seen.biome = G.World.biomeName(); cur.ev.push([0, 'bioma', seen.biome]); } catch (e) { /* sin mundo */ }
@@ -211,7 +214,8 @@ G.Reg = (() => {
       if (m.evolved && r.evo == null) r.evo = t;
       if (s.length > 1 && r.fuse == null) r.fuse = t;
     }
-    if (pl.item !== seen.item) { seen.item = pl.item; cur.items.push([t, pl.item || null]); }
+    const ik = itemKey(pl);
+    if (ik !== seen.item) { seen.item = ik; cur.items.push([t, ik]); }
     if (pl.form !== seen.form) { cur.ev.push([t, 'evo', pl.form]); seen.form = pl.form; }
     if (pl.level !== seen.lvl) { seen.lvl = pl.level; cur.lv.push([t, pl.level]); }
     const st = pl.statsTaken || {};
@@ -253,7 +257,7 @@ G.Reg = (() => {
     out.end = Date.now();
     out.lvl = pl.level; out.kills = pl.kills || 0; out.bossesN = pl.bosses || 0;
     out.coinsRun = pl.coins || 0; out.xp = Math.round(pl.xp || 0);
-    out.form = pl.form; out.item = pl.item || null;
+    out.form = pl.form; out.item = pl.item || null; out.itemsNow = itemKey(pl);
     out.dealt = r1(pl.dmgDealt); out.taken = r1(pl.dmgTaken); out.healed = r1(pl.healed);
     out.hp = r1(pl.hp); out.maxHp = r1(pl.maxHp);
     out.statsTaken = Object.assign({}, pl.statsTaken || {});

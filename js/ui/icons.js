@@ -40,6 +40,11 @@ G.Icons = (() => {
     leftovers: 'leftovers', choiceband: 'choice-band', quickclaw: 'quick-claw', focussash: 'focus-sash',
     shellbell: 'shell-bell', amuletcoin: 'amulet-coin', luckyegg: 'lucky-egg', lifeorb: 'life-orb',
     choicescarf: 'choice-scarf', rockyhelmet: 'rocky-helmet', assaultvest: 'assault-vest',
+    // (21-11-2026, objetos-rareza: los nuevos)
+    brightpowder: 'bright-powder', liechiberry: 'liechi-berry', oranberry: 'oran-berry', metalcoat: 'metal-coat',
+    eviolite: 'eviolite', toxicorb: 'toxic-orb', soothebell: 'soothe-bell', whiteherb: 'white-herb', airballoon: 'air-balloon',
+    souldew: 'soul-dew', weaknesspolicy: 'weakness-policy', snowball: 'snowball', stickybarb: 'sticky-barb',
+    machobrace: 'macho-brace', expertbelt: 'expert-belt',
     // Experiencia que sueltan los enemigos, de menos a más (pickup.js)
     xp1: 'exp-candy-xs', xp2: 'exp-candy-s', xp3: 'exp-candy-m', xp4: 'exp-candy-l', xp5: 'exp-candy-xl',
     // Con su nombre de PokeAPI (pasivas y familias de ataque nuevas). Cualquier

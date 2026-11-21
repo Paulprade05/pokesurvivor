@@ -1925,11 +1925,15 @@ G.Combat = (() => {
   // Habilidad de quien pega (data/ability-fx.js): × al daño, crítico, estados y
   // lo que hace al golpear. (Los compañeros no la llevan aquí: pegan en su ordenador.)
   const abilOut = (pl, m, e) => (pl.abil && pl.abil.out && m ? pl.abil.out(pl, m, e) : 1);
+  // Objetos que pegan más según a quién o cómo (Baya Lichi, Rocío Bondad, Cinta Experto...: data/items.js, con su tope).
+  const itemOut = (pl, m, e, type) => (pl.items && pl.items.length ? G.Items.out(pl, m, e, type) : 1);
   // (+ lo que suman las cartas de Puntería, pl.critDmg: +0,1 cada una.)
   const critMul = pl => ((pl.abil && pl.abil.critMul) || CRIT_MUL) + (pl.critDmg || 0);
   /** × a quemaduras, venenos, frenazos y empujones: Potencia Bruta los quita, Dicha los dobla. */
   const statusK = pl => (!pl.abil ? 1 : pl.abil.sheer ? 0 : pl.abil.serene ? 2 : 1);
   function afterHit(pl, e, m) {
+    if (e.dead) return;
+    if (pl.items && pl.items.length && !ghost) G.Items.hit(pl, e);   // (Toxisfera)
     const a = pl.abil;
     if (!a || e.dead) return;
     if (a.hit) a.hit(pl, e, m);
@@ -1946,7 +1950,7 @@ G.Combat = (() => {
     if (G.EnemyAI && G.EnemyAI.hidden(e)) return;
     const type = (o && o.type) || m.castType || m.type, cat = (o && o.cat) || m.cat;
     const M = o && o.raw ? null : MECH[m.id];
-    let k = typeKm(type, e, m) * G.Stats.taken(e.mon, cat) * abilOut(pl, m, e);
+    let k = typeKm(type, e, m) * G.Stats.taken(e.mon, cat) * abilOut(pl, m, e) * itemOut(pl, m, e, type);
     k *= hitPre(pl, e, m, null, dmg * k, type, M);   // estados (vulnerable, empapado, congelado...) y M.k
     const crit = critOf(pl, e, m, null, M), sk = statusK(pl);
     dmg *= k * (crit ? critMul(pl) : 1);
@@ -2083,7 +2087,7 @@ G.Combat = (() => {
         // (Ataques únicos: estados del enemigo y M.k, ver hitPre; críticos de más, critOf; p.hitK, el × del proyectil.)
         const type = p.mtype, pk = p.src ? hitPre(pl, e, p.src, p, p.dmg, type, M) : 1;
         const crit = critOf(pl, e, p.src, p, M), sk = statusK(pl);
-        const k = (type ? typeKm(type, e, p.src) : 1) * G.Stats.taken(e.mon, p.mcat) * (crit ? critMul(pl) : 1) * abilOut(pl, p.src, e) *
+        const k = (type ? typeKm(type, e, p.src) : 1) * G.Stats.taken(e.mon, p.mcat) * (crit ? critMul(pl) : 1) * abilOut(pl, p.src, e) * itemOut(pl, p.src, e, type) *
                   (p.hitK ? p.hitK(p, e) : 1) * pk;
         e.hurt(p.dmg * k, p.color, p.vx || (e.x - pl.x), p.vy || (e.y - pl.y), sk ? p.knock : 0,
                crit ? 'crit' : p.mtype ? G.Types.label(G.Types.mult(p.mtype, e.types)) : null);
@@ -2128,7 +2132,7 @@ G.Combat = (() => {
       try { pl.hurt(e.dmg * (pl.u3 ? mistK3(pl, e.x, e.y, e.types && e.types.includes('dragon')) : 1), e.atkType, false, e.cat, e, 'toque'); } finally { pl.touchHit = false; incoming3 = 0; }
       if (pl.u3 && pl.u3.anchor > 0) touch3(pl, e);                // (Cuerpo Pesado)
       mxTouched(pl, e);                               // (Barrera Espinosa, Fortaleza, Defensa Férrea...)
-      if (pl.hasItem('rockyhelmet')) e.hurt(15 + pl.level * 4, '#9aa6b5', e.x - pl.x, e.y - pl.y, 80);
+      if (pl.items && pl.items.length) G.Items.contact(pl, e);           // (Casco Dentado, Bola de Nieve: data/items.js)
       if (pl.abil && pl.abil.contact && !pl.dead && !e.dead) pl.abil.contact(pl, e);     // Elec. Estática, Cuerpo Llama...
       const [nx, ny] = G.U.norm(e.x - pl.x, e.y - pl.y);
       e.kx += nx * 150; e.ky += ny * 150;
@@ -3452,7 +3456,7 @@ G.Combat = (() => {
       return true;
     }
     if (p && p.cx != null && G.U.dist2(e.x, e.y, p.cx, p.cy) < (24 + e.r) ** 2) return true;
-    let c = (pl.critChance || 0) + ((m && m.crit2) || 0) + ((p && p.crit2) || 0);
+    let c = (pl.critChance || 0) + ((m && m.crit2) || 0) + ((p && p.crit2) || 0) + (pl.items && pl.items.length ? G.Items.crit(pl, m) : 0);
     if (u) c += u.crit.length * 0.02 + (u.critT > now() ? u.critK || 0 : 0);
     if (M && M.crit) { const x = M.crit(pl, e, m, p); if (x === true || x >= 1) return true; c += x || 0; }
     return c > 0 && Math.random() < c;

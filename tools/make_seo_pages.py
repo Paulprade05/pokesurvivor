@@ -442,17 +442,24 @@ def moves_page(lang):
 # ================= objetos =================
 def items_page(lang):
     pid = 'items'
-    rows = ''.join(f'<li><b>{esc(L(lang, i["name"]))}</b><span>{esc(L(lang, i["desc"]))}</span></li>' for i in D['items'])
+    # (21-11-2026) Con rareza y evolución: sus frases (de un común) y lo que gana al evolucionar.
+    dec = (lambda s: s) if lang == 'es' else (lambda s: re.sub(r'(\d),(\d)', r'\1.\2', s))   # (1,3 % -> 1.3%)
+    lines = lambda xs: ' '.join(esc(dec(L(lang, x))) for x in (xs if isinstance(xs, list) else [xs]))
+    evo_w = 'Evoluciona a' if lang == 'es' else 'Evolves into'
+    rows = ''.join(f'<li><b>{esc(L(lang, i["name"]))}</b><span>{lines(i["desc"])}'
+                   + (f' <i>{evo_w} {esc(L(lang, i["evo"]))}: {lines(i.get("evoDesc", []))}</i>' if i.get('evo') else '') + '</span></li>' for i in D['items'])
     ni = len(D['items'])
     if lang == 'es':
         h1 = 'Objetos equipables de PokéSurvivor'
-        intro = ('<p class="lead">Durante la partida puedes encontrar <b>objetos equipables</b> en los cofres y al derrotar a los jefes. Sólo puedes llevar <b>uno</b> '
-                 'a la vez: si encuentras otro, eliges con cuál quedarte. Duran lo que dura la run.</p>')
+        intro = ('<p class="lead">Durante la partida puedes encontrar <b>objetos equipables</b> en los cofres y al derrotar a los jefes. Cada uno es <b>común, raro, épico o legendario</b> '
+                 '(cuanto más raro, más fuerte). Llevas <b>uno</b>; al fusionar tus 4 movimientos puedes llevar <b>dos</b>. Y si llevas el mismo '
+                 '<b>10 minutos</b>, evoluciona: mucho más fuerte y con una pasiva propia.</p>')
         title, desc, c = f'Objetos de PokéSurvivor: los {ni} objetos equipables', f'Los {ni} objetos equipables de PokéSurvivor (Restos, Cinta Elección, Banda Focus, Vidasfera…) y qué hace cada uno.', 'Encuéntralos: jugar gratis'
     else:
         h1 = 'PokéSurvivor held items'
-        intro = ('<p class="lead">During a run you can find <b>held items</b> in chests and by defeating bosses. You can only hold <b>one</b> at a time: '
-                 'if you find another, you choose which one to keep. They last for the whole run.</p>')
+        intro = ('<p class="lead">During a run you can find <b>held items</b> in chests and by defeating bosses. Each one is <b>common, rare, epic or legendary</b> '
+                 '(the rarer, the stronger). You hold <b>one</b>; once your 4 moves are fused you can hold <b>two</b>. Hold the same one for '
+                 '<b>10 minutes</b> and it evolves: much stronger and with its own passive.</p>')
         title, desc, c = f'PokéSurvivor items: all {ni} held items', f'The {ni} held items in PokéSurvivor (Leftovers, Choice Band, Focus Sash, Life Orb…) and what each one does.', 'Find them: play free'
     body = f'<article class="doc"><h1>{h1}</h1>{intro}<ul class="items">{rows}</ul>{cta(pid, lang, c)}</article>'
     write(pid, lang, page(pid, lang, title, desc, body, {'@context': 'https://schema.org', '@graph': [crumbs(pid, lang, h1)]}))

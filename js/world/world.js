@@ -715,7 +715,7 @@ G.World = (() => {
       G.Camera.kick(0.4);
       for (let i = 0; i < 9; i++) G.Pickups.drop('coin', p.x + G.U.rand(-22, 22), p.y + G.U.rand(-14, 14), 4);
       for (let i = 0; i < 18; i++) G.Pickups.drop('coin', p.x + G.U.rand(-26, 26), p.y + G.U.rand(-16, 16), 5);
-      if (Math.random() < 0.5) G.Pickups.drop('item', p.x + 14, p.y - 14, G.Items.roll());
+      if (Math.random() < 0.5) G.Pickups.drop('item', p.x + 14, p.y - 14, G.Items.roll(1));   // (cofre grande: mejores rarezas)
       G.Pickups.dropXp(p.x, p.y, G.Game.levelXp());
       G.Progress.event('chest');
       return;

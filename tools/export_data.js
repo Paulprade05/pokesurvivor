@@ -34,7 +34,8 @@ const out = {
   dex: G.DEX,
   legends: G.DEX.filter(p => p.leg).map(p => p.dex),
   moves,
-  items: (G.Items.LIST || []).map(i => ({ id: i.id, name: i.name, desc: i.desc })),
+  // (21-11-2026) Con rareza y evolución: desc y evoDesc son frases (las de un común), cada una se traduce sola.
+  items: (G.Items.LIST || []).map(i => ({ id: i.id, name: i.name, desc: G.Items.lines(i.id, 0), evo: i.evo, evoDesc: G.Items.evoLines(i.id, 0) })),
   achievements: (G.AchDefs.LIST || []).map(a => ({ id: a.id, cat: a.cat, name: a.name, desc: a.desc, tier: a.tier, title: a.title || '', reward: a.reward || {} })),
   achCats: G.AchDefs.CATS || null,
   types: G.Types.CHART,

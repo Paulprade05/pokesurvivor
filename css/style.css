@@ -6273,3 +6273,24 @@ html:not(.no-anim) #scr-menu .logo .t1 { animation: logo-float 4.6s ease-in-out 
 #scr-settings .set-pix { min-height: 0; gap: 12px; }
 #scr-settings .set-pix canvas { width: 240px; height: 112px; flex: none; border-radius: 10px; background: rgba(20, 30, 26, .85); }
 #scr-settings .set-pix small { opacity: .75; }
+
+/* (21-11-2026) Objetos con rareza (data/items.js): chapa del color de su rareza (--rc), una frase por línea,
+   cuánto le falta para evolucionar y lo que gana; en el Compendio, sus cuatro rarezas. */
+.rar-badge { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 999px; font: 800 11px/1.5 var(--font-ui, inherit); letter-spacing: .02em;
+  color: #10160f; background: var(--rc); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); white-space: nowrap; vertical-align: middle; }
+.rar-badge.evo { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 10px var(--rc); }
+.pick-card.is-next, .pick-card.is-cur { border-color: color-mix(in srgb, var(--pc) 70%, transparent); }
+.it-ln { display: block; }
+.it-prog { display: block; margin-top: 3px; color: #ffd86b; font-weight: 700; }
+.it-prog.done { color: var(--ok, #6ee7a0); }
+.it-lost { display: block; margin-top: 3px; color: #ff9aa5; font-weight: 700; }
+.pc-evo.it-evo b { color: #ffd86b; }
+.ps-item .ico-tile.it-evo-ico { box-shadow: 0 0 0 2px var(--tile-c), 0 0 12px var(--tile-c); }
+.cmp-rars { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.cmp-rar { border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent); border-radius: 12px; padding: 8px 10px;
+  background: color-mix(in srgb, var(--rc) 10%, transparent); }
+.cmp-rar-l { margin: 6px 0 0; padding-left: 18px; font-size: var(--fs-s); line-height: 1.4; }
+.cmp-rar-e { margin: 8px 0 0; font-size: var(--fs-s); color: var(--rc); }
+.ps-item .it-prog b, .it-ln .it-prog b { display: inline; font: inherit; }
+.it-ln .it-prog { display: inline; }
+.it-who { color: var(--muted); font-weight: 600; }
