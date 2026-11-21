@@ -51,6 +51,12 @@ G.Ultra3D = (() => {
   // de un contexto a otro (medido: un tercio del trabajo de la GPU). glcv es entonces esa textura vista como imagen.
   let rt = null, glGen = -1;
   const setSz = (w, h) => { if (rt) rt.setSize(w, h); else renderer.setSize(w, h, false); };
+  /*
+   * (tirones, 20-11-2026) El lienzo 3D sólo crece: cambiarle el tamaño para la GPU (medido: 40-110 ms cada vez) y pasaba al
+   * llegar a la grieta, con el zoom de la arena y cada vez que Q.tune movía la resolución. draw() usa su viewport y su tijera
+   * (Wl×Hl) y blit lee sólo su trozo: un lienzo más grande se ve igual. Nunca más grande que lo que ya se podía pedir.
+   */
+  const grow = (w, h) => { const cw = glcv.width | 0, ch = glcv.height | 0; if (w > cw || h > ch) setSz(Math.max(w, cw), Math.max(h, ch)); };
   let Wl = 0, Hl = 0, R = 1, Ox = 0, Oy = 0;
   const P = new Float64Array(16);                          // la proyección (por filas), también para las cajas de tijera
   const chunks = new Map();                                // "cx,cy" -> { c, bi, rows: [{ ty, mesh }], tex, top, used }
@@ -76,7 +82,7 @@ G.Ultra3D = (() => {
    */
   const BUILD_MS = 6, WARM_MS = 2;
   let buildUntil = Infinity, recent = [], warmT = 0;
-  let atCap = 0, allIns = [], rockAll = [], insSig = 0, floraOn = false, okAt = -1e9;
+  let atCap = 0, allIns = [], rockAll = [], insSig = 0, floraOn = false, okAt = -1e9, nRebuilt = 0;
 
   /*
    * (Pulido 12-11-2026) En PC, con calidad alta, las rocas y los cofres van en 3D también con la vista normal (sin
@@ -92,9 +98,19 @@ G.Ultra3D = (() => {
   function on() {
     if (!wanted()) return false;
     if (state === 'idle') load();
-    // (Motor WebGL2: si su contexto se perdió y volvió, lo de three.js ya no vale: este 3D se apaga y queda el 2D.)
-    if (rt && G.GL2D.gen !== glGen) { state = 'fail'; return false; }
+    // (Motor WebGL2: si su contexto se perdió y volvió, lo de three.js ya no vale. fps-60, 21-11-2026: antes este 3D se apagaba
+    //  para el resto de la sesión (en iPhone, al volver de otra app); ahora se rehace sobre el contexto recuperado.)
+    // (Y mientras está perdido, nada de 3D: three.js fallaba en cada fotograma leyendo sus shaders.)
+    if (rt && G.GL2D.lost) return false;
+    if (rt && G.GL2D.gen !== glGen) rebuild();
     return state === 'ready' && !lost;
+  }
+  /** Rehace three.js en el contexto del motor recuperado: lo de antes ya no existe en la GPU (se olvida sin borrarlo). */
+  function rebuild() {
+    dropAll(true);
+    renderer = null; rt = null; glcv = null; Wl = Hl = 0; atCap = 0;
+    nRebuilt++;
+    start();
   }
 
   function load() {
@@ -882,7 +898,9 @@ G.Ultra3D = (() => {
     KL = scaleFor(Kd, Wd, Hd);
     const lim = mob ? 1024 : 4096;
     const wl = Math.min(lim, Math.ceil(Wd * KL / Kd) + 2), hl = Math.min(lim, Math.ceil(Hd * KL / Kd) + 2);
-    if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; setSz(Wl, Hl); }    // (el atlas crece en render())
+    // (El atlas crece en render(). tirones, 20-11-2026: en el PC nace con 2 pantallas de alto, lo que piden la arena o una horda:
+    //  así no crece en mitad de la partida. Sólo crece, ver grow.)
+    if (wl !== Wl || hl !== Hl) { Wl = wl; Hl = hl; grow(Wl, Math.min(Math.max(lim, Hl), Hl * (mob ? 1 : 2))); }
     R = Kd / KL;
     // Cámara pegada a la rejilla de píxeles del lienzo 3D (sin «nadar» al moverse); el resto se corrige al pasarlo a la pantalla.
     const hw = cam.w / 2, hh = cam.h / 2, a = cam.persp / hh, b = a;
@@ -986,6 +1004,24 @@ G.Ultra3D = (() => {
     for (const k of keys) { if (performance.now() > buildUntil) break; if (!kinds.has(nb + ':' + k)) kindOf(nb + ':' + k); }
     buildUntil = Infinity;
     if (keys.every(k => kinds.has(nb + ':' + k))) { if (!recent.includes(nb)) recent = [...recent.slice(0, 2), nb]; warmT = 4001; }
+  }
+  /**
+   * (tirones, 20-11-2026) Lo 3D del bioma bi, preparado antes de verlo (rift.js, en el túnel de la grieta, antes de llegar a la
+   * arena): un paso cada vez y, los modelos, hasta ms. true cuando está todo. Antes, al llegar, el atlas de texturas del bioma
+   * (~80 ms) y los primeros modelos se hacían en un solo fotograma: el tirón de 150-200 ms de la grieta.
+   */
+  function prepare(bi, ms) {
+    if (!on() || !G.Props3D || !sharedParts()) return true;
+    if (!G.World.pmdOn(bi)) return false;                    // (con el tileset del bioma: sus tonos)
+    if (!G.Props3D.prepare(bi)) return false;
+    if (!rockWalls() && !faceMat(bi)) return false;        // (como begin)
+    const keys = warmKeys(bi);
+    buildUntil = performance.now() + ms;
+    try { for (const k of keys) { if (performance.now() > buildUntil) break; if (!kinds.has(bi + ':' + k)) kindOf(bi + ':' + k); } }
+    finally { buildUntil = Infinity; }
+    if (!keys.every(k => kinds.has(bi + ':' + k))) return false;
+    if (!recent.includes(bi)) recent = [...recent.slice(0, 2), bi];
+    return true;
   }
   /** Los modelos de un bioma (para prepararlos antes). */
   function warmKeys(bi) {
@@ -1160,7 +1196,7 @@ G.Ultra3D = (() => {
     // (Hasta 4 pantallas de atlas; menos si el navegador no da un lienzo tan alto: se mira el de verdad, drawingBufferHeight.)
     let cap = Math.min(4 * Hl, atCap || Infinity), pk = pack(list, Wl, Hl, cap);
     let H = Math.min(cap, Math.ceil(pk.maxY / Hl) * Hl);
-    if (glcv.height < H) setSz(Wl, H);
+    if (glcv.height < H) grow(Wl, H);
     const db = rt ? Math.min(rt.height, G.GL2D.maxTex || 4096) : renderer.getContext().drawingBufferHeight;
     // (Motor WebGL2: lo pendiente del juego, mandado; three.js empieza con su estado y luego se devuelve el del motor.)
     if (rt) { G.GL2D.flush(); G.GL2D.gpuMark("3d"); renderer.resetState(); renderer.setRenderTarget(rt); }
@@ -1304,14 +1340,14 @@ G.Ultra3D = (() => {
 
   /** Para medir: chunks, filas, objetos y llamadas de dibujo y triángulos del último fotograma. */
   function stats() {
-    return { built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: rt ? [rt.width, rt.height] : renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, shared: !!rt, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
+    return { rebuilt: nRebuilt, built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: rt ? [rt.width, rt.height] : renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, shared: !!rt, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
       aa: !mob, calls, tris, inst: allIns.length, kinds: kinds.size, mem: renderer ? { ...renderer.info.memory } : null };
   }
 
   /** ¿Van las rocas y los cofres en 3D con la vista normal (sin Ultra)? (game.js dibuja entonces por D3 sin perspectiva) */
   const flat = () => !G.Settings.ultra && flatOk() && on();
 
-  return { on, flat, begin, ground, rows, owns, add, hits, render, batch, blit, free, stats, get state() { return state; },
+  return { on, flat, begin, ground, rows, owns, add, hits, render, batch, blit, free, stats, prepare, get state() { return state; },
     /** ¿Va la flora en 3D? (ambient.js no la dibuja entonces: la deja en G.Ambient.flora3d) */
     // (Sólo si el último fotograma fue en 3D: con la calidad bajada a mitad de partida, la flora vuelve al 2D al momento.)
     get floraOn() { return floraOn && performance.now() - okAt < 250; },

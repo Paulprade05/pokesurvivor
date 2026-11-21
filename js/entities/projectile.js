@@ -35,7 +35,8 @@ G.Projectiles = (() => {
       color: '#fff', homing: 0, slow: 0, burn: 0, poison: 0, knock: 0,
       orb: false, rehit: 0.34, hitLog: null, phits: null
     }, o);
-    if (p.friendly && !p.orb && !p.phits) p.phits = new Set();
+    // (fps-60, 21-11-2026) phits (los objetos del mapa ya golpeados) se crea al primer golpe a uno (combat.js resolve): casi
+    //  ningún disparo toca objetos y era un Set nuevo por disparo.
     list.push(p);
     return p;
   }
@@ -173,17 +174,37 @@ G.Projectiles = (() => {
     if (i >= 0) list.splice(i, 1);
   }
 
+  // (fps-60, 21-11-2026) Las opciones de VFX.draw en un objeto reutilizado (VFX.draw no lo guarda): uno nuevo por disparo y
+  //  fotograma era lo que más basura hacía con una lluvia de disparos.
+  const VO = { angle: 0, alpha: 1, scale: 1, frame: 0 }, HO = { alpha: 1, frame: 0, scale: 1 };
+  // Las elipses del lote (x, y, rx, ry, transparencia), en un arreglo que sólo crece.
+  // (Se escribe en el bucle, sin llamar a una función por disparo: en V8 cada número con decimales que se pasa a una función
+  //  que no se mete en línea va en una caja nueva, y eso era la basura del dibujo de una lluvia de disparos.)
+  let OVB = new Float64Array(5 * 512);
+  const grow = n => { if ((n + 1) * 5 > OVB.length) { const b = new Float64Array(OVB.length * 2); b.set(OVB); OVB = b; } };
+
   function draw(ctx) {
     const L = G.LIFT;
+    // ¿Se ve? (con su sombra, su halo y lo que sube: G.LIFT): la cuenta de G.Camera.sees, con la vista leída una vez.
+    // Lo de fuera de la pantalla no se dibuja.
+    const cam = G.Camera, K = cam.persp, f = K ? K / (1 - K) : 0, cw = cam.w, ch = cam.h;
+    const vx0 = cam.x - cw / 2 - cw / 2 * f, vx1 = cam.x + cw / 2 + cw / 2 * f, vy0 = cam.y - ch / 2 - ch / 2 * f, vy1 = cam.y + ch / 2;
+    const shown = p => { const pad = 60 + L + p.r * 4 * (p.ds || 1); return p.x > vx0 - pad && p.x < vx1 + pad && p.y > vy0 - pad && p.y < vy1 + pad; };
     // «Transparencia de tus ataques»: los tuyos (y su sombra), más suaves; los enemigos, igual.
     const own = G.FX.ownAlpha();
+    // (fps-60) Con el motor WebGL2, todas las elipses de una vez (ctx.fillOvals: la misma forma, el mismo orden); con Canvas 2D,
+    //  una a una como siempre.
+    const ov = typeof ctx.fillOvals === 'function';
     // Sombras primero, todas juntas.
     ctx.fillStyle = 'rgba(0,0,0,.25)';
+    let n = 0;
     for (const p of list) {
-      if (p.noShadow) continue;                 // va por el aire (parábola): sin sombra
+      if (p.noShadow || !shown(p)) continue;      // va por el aire (parábola): sin sombra
+      if (ov) { grow(n); const o = n++ * 5; OVB[o] = p.x; OVB[o + 1] = p.y; OVB[o + 2] = p.r * 0.9; OVB[o + 3] = p.r * 0.38; OVB[o + 4] = p.friendly ? own : 1; continue; }
       ctx.globalAlpha = p.friendly ? own : 1;
       ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 0.9, p.r * 0.38, 0, 0, 6.2832); ctx.fill();
     }
+    if (n) { ctx.globalAlpha = 1; ctx.fillOvals(OVB, n); }      // (la transparencia de cada una va en el lote)
     ctx.globalAlpha = 1;
     // Los disparos enemigos llevan un aro rojo en el suelo: "esto te hace daño".
     // Con «Avisos de alto contraste», amarillo con borde negro (el rojo sobre la
@@ -191,15 +212,19 @@ G.Projectiles = (() => {
     const hi = G.Settings.get('hazardHi');
     ctx.fillStyle = hi ? 'rgba(255,225,77,.6)' : 'rgba(255,60,80,.35)';
     if (hi) { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 1.5; }
+    n = 0;
     for (const p of list) {
-      if (p.friendly) continue;
+      if (p.friendly || !shown(p)) continue;
+      if (ov && !hi) { grow(n); const o = n++ * 5; OVB[o] = p.x; OVB[o + 1] = p.y; OVB[o + 2] = p.r * 1.5; OVB[o + 3] = p.r * 0.6; OVB[o + 4] = 1; continue; }
       ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.5, p.r * 0.6, 0, 0, 6.2832); ctx.fill();
       if (hi) ctx.stroke();
     }
+    if (n) ctx.fillOvals(OVB, n);
     let glowN = G.Settings.fx > 1 ? (G.Settings.max ? 140 : 70) : 28;
     for (const p of list) {
       // (Ataques únicos: su propio dibujo, p.drawFn(ctx, p, alpha).)
       if (p.drawFn) { p.drawFn(ctx, p, p.friendly ? own : 1); continue; }
+      if (!shown(p)) continue;
       const v = p.vis || G.VFX.forType('normal');
       const shape = v.proj;
       // (La lluvia aparece poco a poco: en vertical nace ya dentro de la pantalla.)
@@ -212,13 +237,12 @@ G.Projectiles = (() => {
       if (p.friendly && !p.orb && G.Anim.on && G.Settings.fx > 0) {
         const pc = G.VFX.PAL[v.pal];
         if (glowN-- > 0 && pc) { const R = p.r >= 8 ? (p.ds || 1.5) * 16 : 18; G.FX.glowAt(ctx, p.x, p.y - L, R, R * 0.78, pc[3], 0.5 * a * own); }
-        else G.VFX.draw(ctx, 'halo', v.pal, p.x, p.y - L, { alpha: 0.45 * a * own, frame: (p.t * 10) | 0, scale: p.r >= 8 ? 1.25 : 1 });
+        else { HO.alpha = 0.45 * a * own; HO.frame = (p.t * 10) | 0; HO.scale = p.r >= 8 ? 1.25 : 1; G.VFX.draw(ctx, 'halo', v.pal, p.x, p.y - L, HO); }
       }
       // (Los de un movimiento Z, del tamaño de lo que golpean: las bolas de fuego gigantes se ven gigantes.)
-      G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, {
-        angle, alpha: (p.friendly ? a * own : a) * (p.alpha || 1), scale: p.ds || (p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1),
-        frame: Math.floor(p.t * 12)
-      });
+      VO.angle = angle; VO.alpha = (p.friendly ? a * own : a) * (p.alpha || 1);
+      VO.scale = p.ds || (p.r >= 8 ? (p.src && p.src.z ? Math.max(1.5, p.r / 6) : 1.5) : 1); VO.frame = Math.floor(p.t * 12);
+      G.VFX.draw(ctx, shape, v.pal, p.x, p.y - L, VO);
     }
   }
 

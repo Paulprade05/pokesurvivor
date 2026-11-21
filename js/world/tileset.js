@@ -710,7 +710,9 @@ G.Tileset = (() => {
     if (!base) return null;
     const cv = document.createElement('canvas');
     cv.width = base.width; cv.height = base.height;
-    const g = cv.getContext('2d');
+    // (tirones, 20-11-2026) En la memoria normal: se copia en los fotogramas del árbol (anim.js sway / sheen), que se leen; desde
+    //  la GPU, esa copia esperaba a que acabase todo lo pendiente (medido: 260 ms en el túnel de la grieta).
+    const g = cv.getContext('2d', RD);
     if (!g) { G.U.freeCanvas(cv); return null; }
     g.drawImage(base, 1, 2);
     g.globalCompositeOperation = 'source-in';
@@ -894,6 +896,19 @@ G.Tileset = (() => {
   /** Suelta los árboles, rocas y caras repintados (Safari los ha vaciado, game.js gfxCheck); se rehacen al dibujar. */
   function purge() { for (const c of propCache.values()) G.U.freeCanvas(c); propCache.clear(); liqLive.length = 0; }
 
-  return { T, RULE, FH, FH3, haze, cliffFace, floraSheet, enabled, ready, preload, warm, paintChunk, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
+  /**
+   * (tirones, 20-11-2026) Los horneados del bioma bi que no dependen del mapa, como pasos (cada uno, una función que devuelve
+   * true hecho / false aún no: el tileset sin cargar). rift.js los hace en el túnel de la grieta, unos pocos por fotograma:
+   * antes se horneaban al dibujar el primer fotograma de la arena (hojas del suelo y de la hierba, árboles con su brillo...).
+   */
+  function prepare(bi) {
+    const step = f => () => { if (!ready(bi)) return false; f(); return true; };
+    const out = [step(() => floorSheet(st[bi], meta[bi], bi)), step(() => seatSheet(bi)), step(() => decorSheet(bi)), step(() => floraSheet(bi)),
+      step(() => haze(bi))];
+    for (const look of [0, 1, 2]) out.push(step(() => treeFrame(bi, look, 0)));
+    return out;
+  }
+
+  return { T, RULE, FH, FH3, haze, cliffFace, floraSheet, enabled, ready, preload, warm, paintChunk, prepare, animated, drawLiquid, pal, prop, isPx, top3d, face3d, pxImg, purge,
     set onReady(fn) { onReady = fn; } };
 })();

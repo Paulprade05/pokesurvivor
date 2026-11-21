@@ -80,7 +80,7 @@ G.SettingsUI = (() => {
   const label = (name, desc) => `<span class="grow"><b>${esc(name)}</b>${desc ? `<small>${desc}</small>` : ''}</span>`;
   /** Interruptor: toda la fila es el botón. */
   // (El filtro de los Pokémon, de serie, va con la calidad Máxima: se enseña lo que está de verdad.)
-  const cur = k => k === 'pixSmooth' && G.PixFilter ? G.PixFilter.on : !!G.Settings.get(k);
+  const cur = k => k === 'pixSmooth' && G.PixFilter ? G.PixFilter.on : k === 'glDraw' && G.GL2D ? G.GL2D.wanted() : !!G.Settings.get(k);
   function toggle(key, name, desc) {
     const on = cur(key);
     return `<button type="button" class="list-row set-row set-switch" role="switch" aria-checked="${on}" data-k="${key}">`
@@ -222,8 +222,8 @@ G.SettingsUI = (() => {
         // (Rendimiento, 13-11-2026) Tope de FPS (game.js loop).
         choice('fpsCap', [[30, '30'], [60, '60'], [120, '120'], [0, 'Sin límite']], 'Límite de FPS',
           'Cuántos fotogramas por segundo dibuja como mucho. Con 60 basta; en pantallas de 120 Hz o más, «Sin límite» va más suave pero calienta y gasta mucho más. 30, para ahorrar batería.'),
-        // (fps-tecnologia, 14-11-2026) Motor de dibujo WebGL2 (core/gl2d.js), en pruebas hasta que iguale al Canvas 2D.
-        typeof WebGL2RenderingContext !== 'undefined' ? toggle('glDraw', 'Motor WebGL2 (pruebas)', 'Dibuja la partida con WebGL2: mucho menos trabajo para la gráfica, para ir a 60 o 120 FPS estables. En pruebas: si algo se ve raro, apágalo. Se aplica al recargar la página.') : '',
+        // (fps-tecnologia, 14-11-2026) Motor de dibujo WebGL2 (core/gl2d.js). (fps-60, 21-11-2026) De serie en PC; en táctil, apagado.
+        typeof WebGL2RenderingContext !== 'undefined' ? toggle('glDraw', 'Motor WebGL2', 'Dibuja la partida con WebGL2: mucho menos trabajo para la gráfica, para ir a 60 FPS estables. De serie, encendido en el ordenador. Si algo se ve raro, apágalo y vuelve al dibujo de siempre. Se aplica al recargar la página.') : '',
         // (13-11-2026) El zoom de la cámara: en PC, también con la rueda del ratón en la partida.
         choice('zoom', [[0.93, 'Lejos'], [1, 'Normal'], [1.12, 'Cerca'], [1.25, 'Muy cerca']], 'Zoom de la cámara',
           G.Settings.touch ? 'Cuánto se acerca la cámara en la partida.' : 'Cuánto se acerca la cámara en la partida. También con la rueda del ratón mientras juegas.'),

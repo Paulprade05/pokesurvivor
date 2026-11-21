@@ -280,14 +280,17 @@ G.Village3D = (() => {
     return mixc(rgb(tones[i]), rgb(tones[i + 1]), t - i);
   }
   /** Ruido suave periódico (se repite cada `per` px sin costura): tres octavas. */
+  // (tirones, 20-11-2026) Sin funciones nuevas en cada píxel y con 4 módulos por octava en vez de 8 (los mismos números): es lo
+  //  que más cuesta al pintar las texturas 3D de un bioma (al llegar a la grieta) y las de la aldea.
+  function pn1(x, y, k, sd, per) {
+    const ps = per / k, fx0 = x / k, fy0 = y / k, x0 = Math.floor(fx0), y0 = Math.floor(fy0), tx = fx0 - x0, ty = fy0 - y0;
+    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const ax = ((x0 % ps) + ps) % ps, bx = (((x0 + 1) % ps) + ps) % ps, ay = ((y0 % ps) + ps) % ps, by = (((y0 + 1) % ps) + ps) % ps;
+    const a = H(ax, ay, sd), b = H(bx, ay, sd), c = H(ax, by, sd), d = H(bx, by, sd);
+    return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+  }
   function pn(x, y, s, seed, per) {
-    const one = (k, sd) => {
-      const ps = per / k, fx0 = x / k, fy0 = y / k, x0 = Math.floor(fx0), y0 = Math.floor(fy0), tx = fx0 - x0, ty = fy0 - y0;
-      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty), m = v => ((v % ps) + ps) % ps;
-      const a = H(m(x0), m(y0), sd), b = H(m(x0 + 1), m(y0), sd), c = H(m(x0), m(y0 + 1), sd), d = H(m(x0 + 1), m(y0 + 1), sd);
-      return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
-    };
-    return one(s, seed) * 0.6 + one(s / 2, seed + 1) * 0.28 + one(s / 4, seed + 2) * 0.12;
+    return pn1(x, y, s, seed, per) * 0.6 + pn1(x, y, s / 2, seed + 1, per) * 0.28 + pn1(x, y, s / 4, seed + 2, per) * 0.12;
   }
   /** Lo oscuro de una junta a distancia d (px) de su centro, de ancho w, con el borde suavizado. */
   const seam = (d, w) => 1 - sstep(w * 0.5 - 0.6, w * 0.5 + 0.6, Math.abs(d));

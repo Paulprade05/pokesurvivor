@@ -2030,8 +2030,8 @@ G.Combat = (() => {
           G.World.damageProp(prop, p.dmg, p.color);
           continue;
         }
-        if (p.phits.has(prop.id)) continue;
-        p.phits.add(prop.id);
+        if (p.phits && p.phits.has(prop.id)) continue;
+        (p.phits || (p.phits = new Set())).add(prop.id);       // (fps-60: el Set, al primer objeto que toca; antes, uno por disparo)
         if (!p.ghost) G.World.damageProp(prop, p.dmg, p.color);
         // La hierba no frena; lo sólido sí gasta perforación (salvo a lo que va por el aire).
         if (prop.solid && !p.air) {
@@ -2661,6 +2661,8 @@ G.Combat = (() => {
     }
     if (dur > x.t) x.t = dur;
     if (o) Object.assign(x, o);
+    // (20-11-2026) En el aire no ataca: pierde lo que preparaba (congelado y dormido, ya por applyStun). Ver Enemy.cutCast.
+    if (kind === 'air' && !e.remote && e.cutCast) e.cutCast();
     return x;
   }
   /** Suma pilas (vulnerable, barro, agujas...) hasta max. */

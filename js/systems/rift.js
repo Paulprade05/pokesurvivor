@@ -221,7 +221,7 @@ G.Rift = (() => {
     const pl = G.Game.player;
     // Lo que ve en el túnel: tu Pokémon y, en grupo, los demás detrás.
     const who = [pl, ...G.Game.everyone().filter(p => p !== pl && !p.dead)].slice(0, 4);
-    travel = { t: 0, cfg, ported: false, canSkip: authority(),
+    travel = { t: 0, cfg, ported: false, canSkip: authority(), prep: prepSteps(G.Tiles && G.Tiles.arenaBiome ? G.Tiles.arenaBiome(cfg.type) : -1),
                mons: who.map(p => { const a = new G.Sprites.Animator(p.form || p.dex, 1, !!p.shiny); a.dir = 0; return a; }) };
     G.Sprites.preload(Array.isArray(cfg.dexes) ? cfg.dexes.filter(d => G.DEX_BY[d]).slice(0, 3) : [cfg.dex], 8000);
     // (Rendimiento, 13-11-2026) Y las imágenes del mapa de la arena: así ya están al llegar (a los 0,45 s) y no se pinta dos veces.
@@ -230,9 +230,34 @@ G.Rift = (() => {
     G.Audio.sfx('rift');
   }
 
+  /*
+   * (tirones, 20-11-2026) Lo que necesita el bioma de la arena, preparado en el túnel (lo tapa todo) y antes de llegar: los
+   * horneados del tileset (suelo, hierba, árboles) y lo 3D (atlas de texturas y modelos). Pasos con tope de PREP_MS por
+   * fotograma (al menos uno); el que aún no puede (su imagen sin cargar) espera al siguiente. Antes se hacía todo en el primer
+   * fotograma de la arena: 150-200 ms de tirón en mitad del viaje. Sólo dibujo: nada del juego cambia.
+   */
+  const PREP_MS = 4;
+  function prepSteps(bi) {
+    if (!(bi >= 0)) return [];
+    const out = G.Tileset && G.Tileset.prepare ? G.Tileset.prepare(bi) : [];
+    if (G.Ultra3D && G.Ultra3D.prepare) out.push(() => G.Ultra3D.prepare(bi, PREP_MS));
+    return out;
+  }
+  function prepTick() {
+    const q = travel.prep;
+    if (!q || !q.length) return;
+    const until = performance.now() + PREP_MS;
+    for (let i = 0; i < q.length && performance.now() < until;) {
+      let done = true;
+      try { done = q[i]() !== false; } catch (e) { done = true; console.warn('[grieta] preparar la arena:', e); }   // (se hará al dibujar, como antes)
+      if (done) q.splice(i, 1); else i++;
+    }
+  }
+
   /** Durante el viaje (lo llama la Sentencia, que es quien lleva las animaciones: ver judgment.js). */
   function travelTick(dt) {
     if (!travel) return;
+    prepTick();
     const t0 = travel.t;
     travel.t += dt;
     for (const a of travel.mons) a.loop('Walk', 1.6), a.update(dt);
