@@ -2412,6 +2412,8 @@ G.I18n.add({
   "Buzón de novedades": "News Mailbox", "Lo nuevo del juego": "What's new in the game", "PC de ajustes": "Settings PC", "Sonido, gráficos y controles": "Sound, graphics and controls",
   "Carpa del Grupo": "Group Tent", "Podio del Ranking": "Leaderboard Podium",
   "Ir a": "Go to", "Ir a…": "Go to…", "Ir a cualquier sitio sin andar": "Go anywhere without walking", "Preparando la aldea…": "Getting the village ready…",
+  "Elige un sitio y apareces allí": "Pick a place and you're there", "Estás aquí": "You are here", "Tienda": "Shop",
+  "Prepara tu run": "Get ready for your run", "Colección y progreso": "Collection & progress", "Jugadores": "Players", "Aldea y ajustes": "Village & settings",
   "¿Un árbol? ¡Sí, soy un árbol! ...No me mires así.": "A tree? Yes, I'm a tree! ...Don't look at me like that.",
   "El portal lleva a la mazmorra. Nadie sabe quién plantó este árbol.": "The portal leads to the dungeon. Nobody knows who planted this tree.",
   "Cuando cae la noche, el portal brilla más.": "When night falls, the portal glows brighter.",
