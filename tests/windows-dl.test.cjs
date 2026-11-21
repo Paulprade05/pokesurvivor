@@ -49,10 +49,31 @@ test('sólo sale en la web en PC con Windows, no en la app, el móvil ni otros s
   assert.equal(boot({ ua: UA.win, uad: { platform: 'macOS', mobile: false } }).W.isWindowsPC(), false, 'userAgentData manda');
 });
 
-test('enlace fijo a la última release, con el nombre de archivo que hace desktop/empaquetar.cjs', () => {
+test('enlace fijo a la última release: el instalador que hace desktop-rust/instalador.iss, o el .zip de antes', () => {
   const { W } = boot();
-  assert.equal(W.URL, 'https://github.com/Paulprade05/pokesurvivor/releases/latest/download/PokeSurvivor-Windows.zip');
+  assert.equal(W.URL, 'https://github.com/Paulprade05/pokesurvivor/releases/latest/download/PokeSurvivor-Windows-Setup.exe');
+  assert.equal(W.url(), W.URL, 'sin preguntar aún: el instalador');
+  assert.deepEqual([...W.ARCHIVOS], ['PokeSurvivor-Windows-Setup.exe', 'PokeSurvivor-Windows.zip']);
+  assert.match(source('desktop-rust/instalador.iss'), /^OutputBaseFilename=PokeSurvivor-Windows-Setup$/m);
   assert.match(source('desktop/empaquetar.cjs'), /PokeSurvivor-Windows\.zip/);
+});
+
+test('con instalador y .zip en la release, la fila enlaza al instalador con su tamaño', async () => {
+  const { W } = boot({ fetchImpl: ok(release({ tag_name: 'win-v0.7.0', assets: [
+    { name: 'PokeSurvivor-Windows.zip', size: 255 * 1048576 },
+    { name: 'PokeSurvivor-Windows-Setup.exe', size: 98 * 1048576 },
+  ] })) });
+  const r = await W.check();
+  assert.deepEqual(JSON.parse(JSON.stringify(r)), { ok: true, version: '0.7.0', mb: 98,
+    url: 'https://github.com/Paulprade05/pokesurvivor/releases/latest/download/PokeSurvivor-Windows-Setup.exe' });
+  assert.equal(W.url(), r.url);
+});
+
+test('si la última release aún no trae el instalador (win-v0.6.0), la fila enlaza al .zip: sin enlaces rotos', async () => {
+  const { W } = boot({ fetchImpl: ok(release()) });
+  await W.check();
+  assert.equal(W.can(), true);
+  assert.equal(W.url(), 'https://github.com/Paulprade05/pokesurvivor/releases/latest/download/PokeSurvivor-Windows.zip');
 });
 
 test('sin release, sin el archivo, en borrador o sin red: la fila no sale (nada de enlaces rotos)', async () => {
@@ -77,13 +98,14 @@ test('sin release, sin el archivo, en borrador o sin red: la fila no sale (nada 
 test('con la release publicada sale con versión y tamaño, y se pregunta una sola vez por sesión', async () => {
   const { W, calls, store } = boot({ fetchImpl: ok(release()) });
   const [a, b] = await Promise.all([W.check(), W.check()]);
-  assert.deepEqual(JSON.parse(JSON.stringify(a)), { ok: true, version: '0.2.0', mb: 243 });
+  assert.deepEqual(JSON.parse(JSON.stringify(a)), { ok: true, version: '0.2.0', mb: 243,
+    url: 'https://github.com/Paulprade05/pokesurvivor/releases/latest/download/PokeSurvivor-Windows.zip' });
   assert.equal(a, b);
   assert.equal(W.can(), true);
   await W.check();
   assert.equal(calls.length, 1);
   assert.deepEqual(calls, ['https://api.github.com/repos/Paulprade05/pokesurvivor/releases/latest']);
-  assert.ok(store['ps.windl'], 'guardado para la sesión');
+  assert.ok(store['ps.windl2'], 'guardado para la sesión');
 });
 
 test('en la app de Windows ni se pregunta a GitHub', () => {
@@ -106,7 +128,9 @@ test('Ajustes › Acerca de lleva la fila, con el aviso de SmartScreen, en espa�
 
 test('la app de Windows busca el mismo archivo y su versión sigue el formato de las etiquetas', () => {
   const main = source('desktop/main.cjs');
+  assert.match(main, /const INSTALADOR = 'PokeSurvivor-Windows-Setup\.exe'/);
   assert.match(main, /const ARCHIVO = 'PokeSurvivor-Windows\.zip'/);
+  assert.ok(main.indexOf('a.name === INSTALADOR') < main.indexOf('a.name === ARCHIVO'), 'prefiere el instalador');
   assert.match(main, /releases\/latest/);
   assert.match(JSON.parse(source('desktop/package.json')).version, /^\d+\.\d+\.\d+$/);
 });
@@ -139,6 +163,8 @@ test('el workflow de la release sube el archivo que buscan Ajustes y la app, sin
   assert.match(y, /workflow_dispatch/);
   assert.match(y, /contents: write/);
   assert.match(y, /PokeSurvivor-Windows\.zip/);
+  assert.match(y, /node instalador\.cjs/);
+  assert.match(y, /ARCHIVOS=\("desktop-rust\/dist\/PokeSurvivor-Windows-Setup\.exe"/);
   assert.match(y, /desktop\/package\.json/, 'comprueba que la etiqueta y la versión de la app coinciden');
   assert.doesNotMatch(y, /--draft(?!=false)|--prerelease(?!=false)|secrets\.(?!GITHUB_TOKEN)/);
   assert.doesNotMatch(y, /pages/i, 'no toca GitHub Pages');

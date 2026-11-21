@@ -297,7 +297,7 @@ G.SettingsUI = (() => {
       // Descargar para Windows (windows-dl.js: sólo en la web en PC con Windows y con la descarga publicada).
       + (G.WindowsDL && G.WindowsDL.can() ? list(action('Descargar para Windows',
             'El juego como programa de PC. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».',
-            `<a class="btn small gold" href="${esc(G.WindowsDL.URL)}" rel="noopener" data-windl>Descargar`
+            `<a class="btn small gold" href="${esc(G.WindowsDL.url())}" rel="noopener" data-windl>Descargar`
             + (G.WindowsDL.info().mb ? ` <small translate="no">${esc(G.WindowsDL.info().mb)} MB</small>` : '') + '</a>')) : '')
       + section('Créditos')
       + `<ul class="credits">
