@@ -3074,5 +3074,21 @@ G.I18n.add({
   '¡{x} ha evolucionado a {x}!': '{x} evolved into {x}!', 'Objeto': 'Item', 'Por rareza': 'By rarity', '¡Esquiva!': 'Dodge!',
   'Llevas uno; al fusionar tus 4 movimientos se abre un segundo hueco y puedes llevar dos.': 'You hold one; fusing your 4 moves opens a second slot so you can hold two.',
   'Tras 10 minutos de partida llevándolo, evoluciona: mucho más fuerte y con una pasiva propia. Si lo cambias, su progreso se pierde.': 'After 10 minutes held in a run it evolves: much stronger and with its own passive. If you swap it, its progress is lost.',
-  'Común, raro, épico o legendario: cuanto más raro, más fuerte. Sale de los cofres y de los jefes (de los jefes y los cofres grandes, más raros).': 'Common, rare, epic or legendary: the rarer, the stronger. Found in chests and dropped by bosses (rarer from bosses and big chests).'
+  'Común, raro, épico o legendario: cuanto más raro, más fuerte. Sale de los cofres y de los jefes (de los jefes y los cofres grandes, más raros).': 'Common, rare, epic or legendary: the rarer, the stronger. Found in chests and dropped by bosses (rarer from bosses and big chests).',
+
+  // ---------------- builds planeadas (21-11-2026, systems/build.js y ui/build-ui.js) ----------------
+  'De tu build': 'In your build', 'Tu build': 'Your build', 'Build': 'Build', 'Editar': 'Edit',
+  'Planear build': 'Plan build', 'Editar build': 'Edit build', 'Build de {x}': "{x}'s build",
+  'Planea qué ataques, pasivas y objetos quieres: en las cartas y en el suelo verás su sello.': 'Plan which moves, passives and items you want: their seal will show on the cards and on the ground.',
+  'aún no': 'not yet', 'Elige qué ataques, pasivas y objetos quieres llevar.': 'Choose which moves, passives and items you want to take.',
+  'Vaciar': 'Clear', 'Tu plan': 'Your plan', 'Qué planear': 'What to plan', '¿Vaciar la build de este Pokémon?': "Clear this Pokémon's build?",
+  'Ya tienes 4 ataques: quita uno primero': 'You already have 4 moves: remove one first',
+  'Ya tienes 4 pasivas: quita una primero': 'You already have 4 passives: remove one first',
+  'Ya tienes 2 objetos: quita uno primero': 'You already have 2 items: remove one first',
+  'Evoluciona con {x}': 'Evolves with {x}', 'Quitar {x}': 'Remove {x}', 'No fusionar': "Don't fuse",
+  'Fusionar en un vínculo': 'Fuse in a bond', 'Fusionar': 'Fuse',
+  'Evoluciona {x} de tus ataques': 'Evolves {x} of your moves', 'Evoluciona 1 de tus ataques': 'Evolves 1 of your moves',
+  'Marca al menos dos ataques para fusionarlos.': 'Mark at least two moves to fuse them.',
+  'En la partida, lo que sea de tu build lleva este sello en las cartas, los objetos y la pausa. Sólo es una ayuda: no cambia lo que sale.': "In a run, whatever belongs to your build carries this seal on the cards, items and pause screen. It's only a guide: it doesn't change what shows up.",
+  'Buscar ataque': 'Search move', 'Ningún ataque con ese nombre': 'No move with that name'
 });
