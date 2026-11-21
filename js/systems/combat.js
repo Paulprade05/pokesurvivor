@@ -2030,8 +2030,8 @@ G.Combat = (() => {
           G.World.damageProp(prop, p.dmg, p.color);
           continue;
         }
-        if (p.phits.has(prop.id)) continue;
-        p.phits.add(prop.id);
+        if (p.phits && p.phits.has(prop.id)) continue;
+        (p.phits || (p.phits = new Set())).add(prop.id);       // (fps-60: el Set, al primer objeto que toca; antes, uno por disparo)
         if (!p.ghost) G.World.damageProp(prop, p.dmg, p.color);
         // La hierba no frena; lo sólido sí gasta perforación (salvo a lo que va por el aire).
         if (prop.solid && !p.air) {

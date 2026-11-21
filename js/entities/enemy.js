@@ -92,6 +92,10 @@
     return share || { rate: hp / (0.6 * ttk), max: hp * 0.1, pool: hp * 0.1, by: null };
   }
 
+  // (fps-60, 21-11-2026) Lo de cada dibujo, reutilizado (draw no lo guarda): sin objetos nuevos por enemigo y fotograma.
+  const DO = { flash: false, alpha: 1, noPix: false };
+  const SUP = { healer: 'heart', shielder: 'shield', summoner: 'friends' };     // apoyos: su icono encima
+
   class Enemy {
     constructor(def, x, y, sc, boss = false) {
       this.id = nextId++;
@@ -489,7 +493,9 @@
       if (this.stunT > 0) { this.stunT -= dt; this.anim.loop('Idle'); return; }
 
       const spd = this.spd * (1 - this.slow) * terrainMul * G.Weather.speedFor(this.types);
-      let [dx, dy] = G.U.norm(pl.x - this.x, pl.y - this.y);
+      // (fps-60, 21-11-2026) Hacia el jugador sin G.U.norm (un arreglo nuevo por enemigo y fotograma); los mismos números.
+      const ux = pl.x - this.x, uy = pl.y - this.y, um = Math.hypot(ux, uy);
+      let dx = um > 1e-6 ? ux / um : 0, dy = um > 1e-6 ? uy / um : 0;
       const dist = G.U.dist(this.x, this.y, pl.x, pl.y);
       // Duende del tesoro: huye de ti (en zigzag) en cuanto te acercas.
       if (this.behavior === 'thief') {
@@ -1168,19 +1174,23 @@
         ctx.restore();
       }
 
-      ctx.save();
       // (2.0, bloque 4) Fantasma dentro de una pared: medio transparente. Nadando o hundiéndose para excavar: recortado.
       const st = this.net ? this.net.st : 0;
       const a = alpha * (this.inWall || st & 128 ? 0.45 : 1);
       const sink = this.digSink > 0 ? this.digSink * this.bodyH * 0.8 : this.swimming || st & 64 ? Math.min(12, this.bodyH * 0.3) : 0;
+      // (fps-60, 21-11-2026) save/restore sólo para el recorte (nadando, excavando); si no, basta devolver la transparencia
+      //  (la sombra y el sprite dejan lo demás como estaba). Con una horda, un save/restore por enemigo era trabajo de más.
+      const ga = ctx.globalAlpha;
+      if (sink) ctx.save();
       ctx.globalAlpha = a;
       if (!sink) G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);
       // Los que flotan ya van en el aire en su sprite: sólo se mecen un poco.
       // (Y los que saltan, en arco.)
       const lift = (this.flying && !this.boss ? 1 + Math.sin(this.bob) * 1.5 : 0) + (this.jumpLift || 0);
       if (sink) { ctx.beginPath(); ctx.rect(this.x - 200, this.y - 400, 400, 400 - sink + 2); ctx.clip(); ctx.translate(0, sink * 0.8); }
-      this.anim.draw(ctx, this.x, this.y - lift, { flash: this.flash > 0, alpha: a, noPix: !this.boss && G.PixFilter && G.PixFilter.cheap });   // (móvil: la horda, sin el filtro)
-      ctx.restore();
+      DO.flash = this.flash > 0; DO.alpha = a; DO.noPix = !this.boss && !!G.PixFilter && G.PixFilter.cheap;   // (móvil: la horda, sin el filtro)
+      this.anim.draw(ctx, this.x, this.y - lift, DO);
+      if (sink) ctx.restore(); else ctx.globalAlpha = ga;
 
       if (this.dead) return;
       // Lo de su firma encima (barrera, carga, aura, forma de Deoxys, «Zzz»).
@@ -1206,15 +1216,15 @@
       }
 
       if (this.burn > 0 || this.poison > 0 || (this.net && this.net.st & 3)) {
-        ctx.save();
+        const ga2 = ctx.globalAlpha, fs2 = ctx.fillStyle;
         ctx.globalAlpha = 0.45;
         ctx.fillStyle = this.burn > 0 || (this.net && this.net.st & 1) ? '#ff8a3d' : '#c86bdc';
-        ctx.beginPath(); ctx.ellipse(this.x, this.y, this.r * 1.2, this.r * 0.5, 0, 0, 6.2832); ctx.fill();
-        ctx.restore();
+        if (ctx.fillOval) ctx.fillOval(this.x, this.y, this.r * 1.2, this.r * 0.5);
+        else { ctx.beginPath(); ctx.ellipse(this.x, this.y, this.r * 1.2, this.r * 0.5, 0, 0, 6.2832); ctx.fill(); }
+        ctx.globalAlpha = ga2; ctx.fillStyle = fs2;
       }
 
       // Apoyos: icono encima, para saber a quién ir primero.
-      const SUP = { healer: 'heart', shielder: 'shield', summoner: 'friends' };
       if (SUP[this.behavior]) G.Icons.draw(ctx, SUP[this.behavior], Math.round(this.x - 6), Math.round(this.y - this.bodyH - (this.hp < this.maxHp ? 26 : 18)), 12);
 
       if (this.boss || this.champ || this.hp < this.maxHp) {

@@ -24,8 +24,8 @@ function gl2d(search, glDraw) {
   return sb.G.GL2D;
 }
 
-test('interruptor: apagado de serie; ?gl=1 / ?gl=0 mandan sobre el ajuste', () => {
-  assert.equal(settings().get('glDraw'), false);
+test('interruptor: ?gl=1 / ?gl=0 mandan sobre el ajuste (de serie, según el aparato: tests/fps60.test.cjs)', () => {
+  assert.equal(settings().get('glDraw'), null);
   assert.equal(gl2d('', false).wanted(), false);
   assert.equal(gl2d('', true).wanted(), true);
   assert.equal(gl2d('?gl=1', false).wanted(), true);
@@ -45,9 +45,9 @@ test('se carga después de los ajustes y antes del juego, y la fila de Ajustes e
   const html = read('dev.html');
   const i = html.indexOf('js/core/settings.js'), j = html.indexOf('js/core/gl2d.js'), k = html.indexOf('js/game.js');
   assert.ok(i > 0 && j > i && k > j, 'orden de scripts');
-  assert.match(read('js/ui/settings-ui.js'), /toggle\('glDraw', 'Motor WebGL2 \(pruebas\)'/);
+  assert.match(read('js/ui/settings-ui.js'), /toggle\('glDraw', 'Motor WebGL2'/);
   const en = read('js/data/lang-en.js');
-  for (const s of ['Motor WebGL2 (pruebas)', 'El motor de dibujo cambia al recargar la página']) assert.ok(en.includes(JSON.stringify(s) + ':'), 'falta en inglés: ' + s);
+  for (const s of ['Motor WebGL2', 'El motor de dibujo cambia al recargar la página']) assert.ok(en.includes(JSON.stringify(s) + ':'), 'falta en inglés: ' + s);
 });
 
 test('shader: «lighter» en el mismo lote y el 3D de three.js pasado a sRGB', () => {

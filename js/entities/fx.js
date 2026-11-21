@@ -436,7 +436,12 @@ G.FX = (() => {
     for (const s of slashes) drawSlash(ctx, s, own);
     for (const r of rings) drawRing(ctx, r);
 
+    // (fps-60, 21-11-2026) Lo que está fuera de la pantalla no se dibuja.
+    // (fps-60) Color y transparencia sólo cuando cambian: las partículas vienen en tandas del mismo color (cada explosión) y la
+    //  transparencia va a escalones (step): con mil partículas, mil cambios de estado de menos.
+    const cam = G.Camera;
     for (const p of parts) {
+      if (!cam.sees(p.x, p.y, 16)) continue;
       ctx.globalAlpha = step(1 - p.t / p.life) * (p.own ? own : 1);
       ctx.fillStyle = p.color;
       ctx.fillRect(snap(p.x), snap(p.y), p.s, p.s);
@@ -445,6 +450,7 @@ G.FX = (() => {
 
     for (const s of sprites) {
       const k = 1 - s.t / s.life;
+      if (!cam.sees(s.x, s.y, 48 * (s.scale || 1))) continue;
       if (s.twinkle) { G.Icons.twinkle(ctx, s.x, s.y, s.t / s.life, PX); continue; }
       // (fps-tecnologia) Las opciones en un objeto reutilizado: uno nuevo por efecto y fotograma era basura (VFX.draw no lo guarda).
       VO.angle = s.angle; VO.scale = s.scale; VO.alpha = (s.fade ? step(k) : 1) * (s.own ? own : 1); VO.frame = Math.floor(s.t * s.fr);

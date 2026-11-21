@@ -19,8 +19,9 @@
  *     se pinta con un Canvas 2D de verdad en un lienzo aparte del tamaño de la pantalla y, cuando vuelve lo nativo, el
  *     trozo pintado se sube y se pone en su sitio, en el mismo orden. Se ve igual (lo pinta el Canvas 2D).
  *
- * Interruptor (hasta que iguale o supere al Canvas 2D): ?gl=1 / ?gl=0 en la dirección, o Ajustes › Gráficos «Motor
- * WebGL2» (ajuste 'glDraw', se aplica al recargar). Sin WebGL2, o si falla al empezar, el juego sigue con el Canvas 2D.
+ * Interruptor: ?gl=1 / ?gl=0 en la dirección, o Ajustes › Gráficos «Motor WebGL2» (ajuste 'glDraw', se aplica al recargar).
+ * (fps-60, 21-11-2026) De serie (sin elegir), encendido en PC y en la app de Windows y apagado en táctil. Sin WebGL2, o si
+ * falla al empezar, el juego sigue con el Canvas 2D.
  *
  *   G.GL2D.wanted()        ¿se pidió? (ajuste o dirección)
  *   G.GL2D.create(cv)      contexto para el lienzo de la pantalla, o null (sin WebGL2: usa getContext('2d'))
@@ -36,7 +37,8 @@ G.GL2D = (() => {
     const q = QS.get('gl');
     if (q === '1') return true;
     if (q === '0') return false;
-    try { return !!(G.Settings && G.Settings.get('glDraw')); } catch (e) { return false; }
+    // (fps-60, 21-11-2026) Sin elegir (null): de serie en PC y en la app de Windows; en táctil (iPhone, Android), el Canvas 2D.
+    try { const v = G.Settings && G.Settings.get('glDraw'); return v == null ? !!G.Settings && !G.Settings.touch : !!v; } catch (e) { return false; }
   }
 
   // ---------------- estado de la GPU ----------------
@@ -314,6 +316,26 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     for (let i = 0; i < 4; i++) {
       const k = o + i * 10 + 4; F[k] = c0; F[k + 1] = c1; F[k + 2] = c2; F[k + 3] = c3;
       const bb = ob + i * STRIDE; B[bb] = r; B[bb + 1] = g; B[bb + 2] = b; B[bb + 3] = a; B[bb + 4] = unit; B[bb + 5] = mode; B[bb + 6] = addQ; B[bb + 7] = srgbQ;
+    }
+    nq++;
+  }
+
+  /*
+   * (fps-60, 21-11-2026) El quad de una forma (elipse o rectángulo redondeado), escrito directamente en el lote: lo mismo que
+   * quad(M, -ex, -ey, 2ex, 2ey, -ex, -ey, ex, ey, hx, hy, r, lw, 255, mode, ...) pero sin la llamada, que en V8 metía cada número
+   * con decimales en una caja nueva (basura por forma). (A..Fm: la matriz de la forma; r, g, b, a: el color premultiplicado.)
+   */
+  function shapeQ(A, Bm, C, D, E, Fm, ex, ey, hx, hy, rr, lw, mode, r, g, b, a) {
+    if (nq >= MAXQ) draw();
+    const o = nq * 40, ob = nq * 4 * STRIDE + 32;
+    const xa = -ex, xb = ex, ya = -ey, yb = ey;
+    F[o] = A * xa + C * ya + E; F[o + 1] = Bm * xa + D * ya + Fm; F[o + 2] = xa; F[o + 3] = ya;
+    F[o + 10] = A * xb + C * ya + E; F[o + 11] = Bm * xb + D * ya + Fm; F[o + 12] = xb; F[o + 13] = ya;
+    F[o + 20] = A * xa + C * yb + E; F[o + 21] = Bm * xa + D * yb + Fm; F[o + 22] = xa; F[o + 23] = yb;
+    F[o + 30] = A * xb + C * yb + E; F[o + 31] = Bm * xb + D * yb + Fm; F[o + 32] = xb; F[o + 33] = yb;
+    for (let i = 0; i < 4; i++) {
+      const k = o + i * 10 + 4; F[k] = hx; F[k + 1] = hy; F[k + 2] = rr; F[k + 3] = lw;
+      const bb = ob + i * STRIDE; B[bb] = r; B[bb + 1] = g; B[bb + 2] = b; B[bb + 3] = a; B[bb + 4] = 255; B[bb + 5] = mode; B[bb + 6] = addQ; B[bb + 7] = srgbQ;
     }
     nq++;
   }
@@ -809,21 +831,68 @@ void main() { shade(); if (vR == 1 && o.a > 0.0) o.rgb = srgb(clamp(o.rgb / o.a,
     // mode 2 elipse / 4 rectángulo redondeado, en el sistema de la matriz m centrado en (cx, cy) y girado rot.
     _shape(m, mode, cx, cy, hx, hy, r, lw, style, rot) {
       if (!this._prep()) return;
-      const s = this.s, c = rgba(style), a = c[3] * s.alpha;
+      // (fps-60, 21-11-2026) El último color, ya leído: las sombras y aros de los disparos repiten el mismo cientos de veces.
+      if (style !== this._lcs) { const q = rgba(style), L = this._lc || (this._lc = [0, 0, 0, 1]); L[0] = q[0]; L[1] = q[1]; L[2] = q[2]; L[3] = q[3]; this._lcs = style; }
+      const s = this.s, c = this._lc, a = c[3] * s.alpha;
       if (a <= 0) return;
       const stroke = lw > 0;
       // La matriz de la forma: m · trasladar(cx, cy) · girar(rot)
       let A = m[0], Bm = m[1], C = m[2], D = m[3];
       const E = m[4] + A * cx + C * cy, Fm = m[5] + Bm * cx + D * cy;
       if (rot) { const co = Math.cos(rot), si = Math.sin(rot), a0 = A, b0 = Bm; A = a0 * co + C * si; Bm = b0 * co + D * si; C = -a0 * si + C * co; D = -b0 * si + D * co; }
-      const M = this._sm || (this._sm = [0, 0, 0, 0, 0, 0]);
-      M[0] = A; M[1] = Bm; M[2] = C; M[3] = D; M[4] = E; M[5] = Fm;
       const k = Math.min(Math.hypot(A, Bm), Math.hypot(C, D)) || 1;
       const pad = (stroke ? lw / 2 : 0) + 1.5 / k;
-      const ex = hx + pad, ey = hy + pad;
       st.shapes++;
-      quad(M, -ex, -ey, 2 * ex, 2 * ey, -ex, -ey, ex, ey, hx, hy, r, lw, 255, mode + (stroke ? 1 : 0),
+      schedule();
+      shapeQ(A, Bm, C, D, E, Fm, hx + pad, hy + pad, hx, hy, r, lw, mode + (stroke ? 1 : 0),
         c[0] * a + 0.5 | 0, c[1] * a + 0.5 | 0, c[2] * a + 0.5 | 0, a * 255 + 0.5 | 0);
+    }
+    /**
+     * (fps-60, 21-11-2026) Muchas elipses rellenas del fillStyle de ahora, de una vez: buf (Float32Array) lleva n de 5 números
+     * (x, y, rx, ry, transparencia, que se multiplica por globalAlpha). Lo mismo que una a una con beginPath + ellipse + fill, en
+     * el mismo orden y con el mismo shader: se ve igual. Sin una llamada (ni cajas para sus números) por elipse.
+     */
+    fillOvals(buf, n) {
+      const s = this.s;
+      if (!(typeof s.fill === 'string' && this._native())) {
+        const ga = s.alpha;
+        for (let i = 0; i < n; i++) { const o = i * 5; this.globalAlpha = ga * buf[o + 4]; this.beginPath(); this.ellipse(buf[o], buf[o + 1], buf[o + 2], buf[o + 3], 0, 0, TAU); this.fill(); }
+        this.globalAlpha = ga;
+        return;
+      }
+      if (!n || !this._prep()) return;
+      if (s.fill !== this._lcs) { const q = rgba(s.fill), L = this._lc || (this._lc = [0, 0, 0, 1]); L[0] = q[0]; L[1] = q[1]; L[2] = q[2]; L[3] = q[3]; this._lcs = s.fill; }
+      const c = this._lc, ca = c[3] * s.alpha, m = s.m, A = m[0], Bm = m[1], C = m[2], D = m[3];
+      const pad = 1.5 / (Math.min(Math.hypot(A, Bm), Math.hypot(C, D)) || 1);
+      schedule();
+      const E0 = m[4], F0 = m[5], c0 = c[0], c1 = c[1], c2 = c[2];
+      // (Lo de shapeQ, aquí dentro: llamarla por elipse volvía a meter sus números en cajas nuevas.)
+      for (let i = 0; i < n; i++) {
+        const j = i * 5, x = buf[j], y = buf[j + 1], hx = buf[j + 2], hy = buf[j + 3], a = ca * buf[j + 4];
+        if (!(a > 0) || !(hx >= 0 && hy >= 0) || !isFinite(x) || !isFinite(y)) continue;
+        st.shapes++;
+        if (nq >= MAXQ) draw();
+        const E = E0 + A * x + C * y, Fm = F0 + Bm * x + D * y, ex = hx + pad, ey = hy + pad;
+        const o = nq * 40, ob = nq * 4 * STRIDE + 32, r = c0 * a + 0.5 | 0, g = c1 * a + 0.5 | 0, b = c2 * a + 0.5 | 0, al = a * 255 + 0.5 | 0;
+        F[o] = -A * ex - C * ey + E; F[o + 1] = -Bm * ex - D * ey + Fm; F[o + 2] = -ex; F[o + 3] = -ey;
+        F[o + 10] = A * ex - C * ey + E; F[o + 11] = Bm * ex - D * ey + Fm; F[o + 12] = ex; F[o + 13] = -ey;
+        F[o + 20] = -A * ex + C * ey + E; F[o + 21] = -Bm * ex + D * ey + Fm; F[o + 22] = -ex; F[o + 23] = ey;
+        F[o + 30] = A * ex + C * ey + E; F[o + 31] = Bm * ex + D * ey + Fm; F[o + 32] = ex; F[o + 33] = ey;
+        for (let v = 0; v < 4; v++) {
+          const k = o + v * 10 + 4; F[k] = hx; F[k + 1] = hy; F[k + 2] = 0; F[k + 3] = 0;
+          const bb = ob + v * STRIDE; B[bb] = r; B[bb + 1] = g; B[bb + 2] = b; B[bb + 3] = al; B[bb + 4] = 255; B[bb + 5] = 2; B[bb + 6] = addQ; B[bb + 7] = srgbQ;
+        }
+        nq++;
+      }
+    }
+    /**
+     * (fps-60, 21-11-2026) Una elipse rellena del fillStyle de ahora: lo mismo que beginPath + ellipse(x, y, rx, ry, 0, 0, 2π) +
+     * fill, pero sin pasar por el trazado (las sombras y aros de cientos de disparos por fotograma). Mismo shader, se ve igual.
+     */
+    fillOval(x, y, rx, ry) {
+      const s = this.s;
+      if (typeof s.fill === 'string' && this._native() && rx >= 0 && ry >= 0 && isFinite(x) && isFinite(y)) { this._shape(s.m, 2, x, y, rx, ry, 0, 0, s.fill, 0); return; }
+      this.beginPath(); this.ellipse(x, y, rx, ry, 0, 0, TAU); this.fill();
     }
     /** ¿El trazado es una sola forma que se puede hacer nativa? → [mode, cx, cy, hx, hy, r, rot, mIndex] o null. */
     // (El resultado de _single en un arreglo reutilizado: sin basura por forma.)
@@ -1530,12 +1599,27 @@ void main() {
         P['__d' + p] = d;
         Object.defineProperty(P, p, { configurable: true, get: d.get, set(v) { try { teeCtx(this)[p] = v; } catch (e) { /* */ } d.set.call(this, v); } });
       }
+      // (fps-60) Las elipses sin trazado: en el espejo, con el trazado de siempre del Canvas 2D.
+      P.__ooval = P.fillOval;
+      P.fillOval = function (x, y, rx, ry) {
+        const t = teeCtx(this);
+        try { t.beginPath(); t.ellipse(x, y, rx, ry, 0, 0, TAU); t.fill(); } catch (e) { /* */ }
+        this._teeOff = true;
+        try { return P.__ooval.call(this, x, y, rx, ry); } finally { this._teeOff = false; }
+      };
+      P.__oovals = P.fillOvals;
+      P.fillOvals = function (buf, n) {
+        const t = teeCtx(this);
+        try { const ga = t.globalAlpha; for (let i = 0; i < n; i++) { const o = i * 5; t.globalAlpha = ga * buf[o + 4]; t.beginPath(); t.ellipse(buf[o], buf[o + 1], buf[o + 2], buf[o + 3], 0, 0, TAU); t.fill(); } t.globalAlpha = ga; } catch (e) { /* */ }
+        this._teeOff = true;
+        try { return P.__oovals.call(this, buf, n); } finally { this._teeOff = false; }
+      };
       // (Al vaciar un contexto, también su espejo.)
       P.__oreset = P._reset;
       P._reset = function () { if (this.canvas && (this._layer || this.canvas).__tee) { const t = (this._layer || this.canvas).__tee; t.canvas.width = t.canvas.width; } return P.__oreset.call(this); };
     } else {
       for (const n of TEE_M) { P[n] = P['__o' + n]; delete P['__o' + n]; }
-      P.raw = P.__oraw; P._reset = P.__oreset; P.drawPix = P.__opix; P.drawWhite = P.__owhite;
+      P.raw = P.__oraw; P._reset = P.__oreset; P.drawPix = P.__opix; P.drawWhite = P.__owhite; P.fillOval = P.__ooval; P.fillOvals = P.__oovals;
       for (const p in PROPS) Object.defineProperty(P, p, P['__d' + p]);
     }
   }

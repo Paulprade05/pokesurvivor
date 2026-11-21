@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-21', title: ["60 FPS estables en el ordenador", "Steady 60 FPS on computers"], chg: [
+    ["En el ordenador (y en la app de Windows) la partida se dibuja ya de serie con el motor WebGL2: con hordas y lluvias de disparos va a 60 FPS donde antes bajaba a 30-45. Se ve igual. Si algo se ve raro, se puede volver al dibujo de siempre en Ajustes › Gráficos › «Motor WebGL2». En el móvil sigue el dibujo de siempre.",
+     "On computers (and in the Windows app) the game is now drawn with the WebGL2 renderer by default: with hordes and showers of shots it runs at 60 FPS where it used to drop to 30-45. It looks the same. If something looks odd, you can go back to the usual renderer in Settings › Graphics › “WebGL2 renderer”. Phones keep the usual renderer."],
+    ["Menos trabajo dibujando enemigos, disparos y efectos (lo que está fuera de la pantalla ya no se dibuja) y menos memoria desechada en cada fotograma: menos parones.",
+     "Less work drawing enemies, shots and effects (what is off screen is no longer drawn) and less memory thrown away every frame: fewer hitches."]
+  ], fix: [
+    ["Con el motor WebGL2, si el navegador perdía la gráfica (por ejemplo al volver de otra app), las rocas, árboles y muros en 3D desaparecían hasta recargar. Ahora vuelven solos.",
+     "With the WebGL2 renderer, if the browser lost the graphics context (for example when coming back from another app), the 3D rocks, trees and walls disappeared until reload. Now they come back on their own."]
+  ] },
   { d: '2026-11-20', title: ["Menos tirones en la grieta y con muchos enemigos", "Less stutter in rifts and big crowds"], fix: [
     ["Al entrar en una grieta, el mapa de la arena (suelo, árboles y objetos 3D) se prepara poco a poco durante el viaje por el túnel: ya no se congela la imagen al llegar.",
      "When you enter a rift, the arena map (ground, trees and 3D objects) is prepared bit by bit during the tunnel trip: the picture no longer freezes when you arrive."],

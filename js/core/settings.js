@@ -40,8 +40,9 @@
  *
  *   shareStats  true | false                     subir el resumen anónimo de cada partida (net/stats.js)
  *   zoom        0.85 .. 1.25                      zoom de la cámara en la partida (la rueda del ratón; camera.js); 1 de serie
- *   glDraw      true | false                     (fps-tecnologia, 14-11-2026) dibujar el lienzo del juego con WebGL2 (core/gl2d.js) en vez
- *                                                 del Canvas 2D; en pruebas, apagado de serie; se aplica al recargar (también ?gl=1 / ?gl=0)
+ *   glDraw      true | false | null              (fps-tecnologia, 14-11-2026) dibujar el lienzo del juego con WebGL2 (core/gl2d.js) en vez
+ *                                                 del Canvas 2D; se aplica al recargar (también ?gl=1 / ?gl=0). (fps-60, 21-11-2026) null (de
+ *                                                 serie): encendido en PC y en la app de Windows, apagado en táctil (iPhone, Android)
  *   fpsCap      60 | 30 | 0                       tope de fotogramas por segundo (game.js loop, 13-11-2026): 60 de serie, para que
  *                                                 las pantallas de 120 Hz o más no calienten el doble; 0 = sin tope
  *   pixSmooth   true/false                        «Pokémon más nítidos»: los sprites con un escalador de pixel art
@@ -57,7 +58,7 @@ G.Settings = (() => {
   const DESK = typeof window !== 'undefined' && !!window.pokeEscritorio && window.pokeEscritorio.esEscritorio !== false;
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null,
-    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true, pixSmooth: null, zoom: 1, fpsCap: 60, glDraw: false };
+    padP: null, tipVert: false, pmdTiles: true, ultra3d: true, maxPick: 'ask', shareStats: true, anim: true, pixSmooth: null, zoom: 1, fpsCap: 60, glDraw: null };
   let s = Object.assign({}, DEF);
   try {
     const old = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -67,6 +68,9 @@ G.Settings = (() => {
     // (12-11-2026) En la app de Windows, la primera vez, calidad Máxima (después manda lo que elijas en Ajustes).
     const first = DESK && !old.qDesk;
     if (first) { old.qDesk = 1; if (!old.quality || old.quality === 'auto') old.quality = 'max'; }
+    // (fps-60, 21-11-2026) El motor WebGL2 pasa a «de serie según el aparato» (null). Hasta hoy se guardaba false con los demás
+    //  ajustes aunque nadie lo eligiera (estaba apagado de serie): ese false pasa a automático una vez; quien lo encendió (true), sigue.
+    if (!old.glV) { old.glV = 1; if (old.glDraw === false) old.glDraw = null; }
     Object.assign(s, old);
     if (first) localStorage.setItem(KEY, JSON.stringify(s));
   } catch (e) { /* nada */ }

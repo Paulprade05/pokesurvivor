@@ -82,7 +82,7 @@ G.Ultra3D = (() => {
    */
   const BUILD_MS = 6, WARM_MS = 2;
   let buildUntil = Infinity, recent = [], warmT = 0;
-  let atCap = 0, allIns = [], rockAll = [], insSig = 0, floraOn = false, okAt = -1e9;
+  let atCap = 0, allIns = [], rockAll = [], insSig = 0, floraOn = false, okAt = -1e9, nRebuilt = 0;
 
   /*
    * (Pulido 12-11-2026) En PC, con calidad alta, las rocas y los cofres van en 3D también con la vista normal (sin
@@ -98,9 +98,19 @@ G.Ultra3D = (() => {
   function on() {
     if (!wanted()) return false;
     if (state === 'idle') load();
-    // (Motor WebGL2: si su contexto se perdió y volvió, lo de three.js ya no vale: este 3D se apaga y queda el 2D.)
-    if (rt && G.GL2D.gen !== glGen) { state = 'fail'; return false; }
+    // (Motor WebGL2: si su contexto se perdió y volvió, lo de three.js ya no vale. fps-60, 21-11-2026: antes este 3D se apagaba
+    //  para el resto de la sesión (en iPhone, al volver de otra app); ahora se rehace sobre el contexto recuperado.)
+    // (Y mientras está perdido, nada de 3D: three.js fallaba en cada fotograma leyendo sus shaders.)
+    if (rt && G.GL2D.lost) return false;
+    if (rt && G.GL2D.gen !== glGen) rebuild();
     return state === 'ready' && !lost;
+  }
+  /** Rehace three.js en el contexto del motor recuperado: lo de antes ya no existe en la GPU (se olvida sin borrarlo). */
+  function rebuild() {
+    dropAll(true);
+    renderer = null; rt = null; glcv = null; Wl = Hl = 0; atCap = 0;
+    nRebuilt++;
+    start();
   }
 
   function load() {
@@ -1330,7 +1340,7 @@ G.Ultra3D = (() => {
 
   /** Para medir: chunks, filas, objetos y llamadas de dibujo y triángulos del último fotograma. */
   function stats() {
-    return { built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: rt ? [rt.width, rt.height] : renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, shared: !!rt, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
+    return { rebuilt: nRebuilt, built: nBuilt, passes: nPass, shadows: nShadow, merged: nMerged, clip: nClip, db: rt ? [rt.width, rt.height] : renderer ? [renderer.getContext().drawingBufferWidth, renderer.getContext().drawingBufferHeight] : null, shared: !!rt, cv: glcv ? [glcv.width, glcv.height] : null, state, lost, chunks: chunks.size, rows: shownRows.length, props: props.size, size: [Wl, Hl], KL: +KL.toFixed(2), q: Q.q,
       aa: !mob, calls, tris, inst: allIns.length, kinds: kinds.size, mem: renderer ? { ...renderer.info.memory } : null };
   }
 
