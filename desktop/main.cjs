@@ -212,11 +212,14 @@ app.on('second-instance', () => {
 });
 
 // ---- ¿Hay versión nueva? ---------------------------------------------------
-// La app se reparte en GitHub Releases como PokeSurvivor-Windows.zip, con la
-// etiqueta win-vX.Y.Z = la versión de desktop/package.json. Al abrir (como mucho
-// una vez al día) se mira la última; si es más nueva, se avisa y se abre la
-// descarga en el navegador. Sin red o sin releases, no pasa nada.
+// La app se reparte en GitHub Releases con la etiqueta win-vX.Y.Z = la versión
+// de desktop/package.json. Desde la 0.7.0 la descarga principal es el instalador
+// PokeSurvivor-Windows-Setup.exe (lleva la app de Rust, más ligera; la partida
+// de %APPDATA%\PokeSurvivor\ es la misma); si la release no lo trae, el .zip.
+// Al abrir (como mucho una vez al día) se mira la última; si es más nueva, se
+// avisa y se abre la descarga en el navegador. Sin red o sin releases, no pasa nada.
 const RELEASES = 'https://api.github.com/repos/Paulprade05/pokesurvivor/releases/latest';
+const INSTALADOR = 'PokeSurvivor-Windows-Setup.exe';
 const ARCHIVO = 'PokeSurvivor-Windows.zip';
 
 function masNueva(a, b) {          // ¿la versión a es mayor que b? ('win-v0.10.0' > '0.9.1')
@@ -235,18 +238,23 @@ async function comprobarVersion(win) {
     fs.writeFileSync(marca, String(Date.now()));
     if (!r.ok) return;
     const rel = await r.json();
-    const zip = (rel.assets || []).find(a => a.name === ARCHIVO);
+    const assets = rel.assets || [];
+    const zip = assets.find(a => a.name === INSTALADOR) || assets.find(a => a.name === ARCHIVO);
+    const instalador = !!zip && zip.name === INSTALADOR;
     if (!zip || rel.draft || rel.prerelease || !masNueva(rel.tag_name, app.getVersion())) return;
     const es = /^es/i.test(app.getLocale());
     const nueva = String(rel.tag_name).replace(/^\D+/, '');
     const { response } = await dialog.showMessageBox(win, {
       type: 'info', title: 'PokéSurvivor',
       message: es ? `Hay una versión nueva para PC (${nueva}).` : `A new PC version is available (${nueva}).`,
-      detail: es ? `Tienes la ${app.getVersion()}. Descarga el .zip, ciérrala y descomprime la nueva encima: tu partida se queda.`
-        : `You have ${app.getVersion()}. Download the .zip, close the game and unzip the new one over it: your save stays.`,
+      detail: instalador
+        ? (es ? `Tienes la ${app.getVersion()}. Descarga el instalador, cierra el juego y ábrelo: tu partida se queda.`
+          : `You have ${app.getVersion()}. Download the installer, close the game and open it: your save stays.`)
+        : (es ? `Tienes la ${app.getVersion()}. Descarga el .zip, ciérrala y descomprime la nueva encima: tu partida se queda.`
+          : `You have ${app.getVersion()}. Download the .zip, close the game and unzip the new one over it: your save stays.`),
       buttons: es ? ['Descargar', 'Ahora no'] : ['Download', 'Not now'], defaultId: 0, cancelId: 1,
     });
-    if (response === 0) shell.openExternal(zip.browser_download_url || `https://github.com/Paulprade05/pokesurvivor/releases/latest/download/${ARCHIVO}`);
+    if (response === 0) shell.openExternal(zip.browser_download_url || `https://github.com/Paulprade05/pokesurvivor/releases/latest/download/${zip.name}`);
   } catch (e) { /* sin red: otra vez será */ }
 }
 

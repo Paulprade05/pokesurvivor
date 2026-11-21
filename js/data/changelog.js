@@ -6,6 +6,10 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-21', title: ["Instalador para Windows", "Windows installer"], chg: [
+    ["Ajustes › Acerca de › «Descargar para Windows» baja ahora un instalador de verdad (unos 76 MB, antes un .zip de 255 MB): eliges la carpeta, los accesos directos del Escritorio y del menú Inicio, y queda en «Aplicaciones instaladas» para desinstalarlo. Para actualizar, abre el instalador nuevo. Tu partida no se borra al actualizar ni al desinstalar.",
+     "Settings › About › “Download for Windows” now gets a real installer (about 76 MB, before it was a 255 MB .zip): you choose the folder and the Desktop and Start menu shortcuts, and it shows up in “Installed apps” so you can uninstall it. To update, open the new installer. Your save isn't deleted when updating or uninstalling."]
+  ] },
   { d: '2026-11-21', title: ["Juega todo con mando", "Play everything with a controller"], new: [
     ["Botones del mando a tu gusto: en Ajustes › Controles › Con mando pulsa una acción y luego el botón nuevo. Se puede cambiar cada acción de la partida (ataque anterior y siguiente, abrir cofres, movimiento Z, pausa, correr, y ahora también elegir los ataques 1-4 directamente) y de los menús (aceptar, atrás, pestañas, cambiar y descartar cartas). Si el botón lo usaba otra acción, se intercambian y te avisa; «Restablecer botones» lo deja como venía. Se guarda con tus ajustes de este aparato.",
      "Remap your controller: in Settings › Controls › With a controller, press an action and then the new button. You can change every in-run action (previous and next move, open chests, Z-Move, pause, run, and now also picking moves 1-4 directly) and every menu action (accept, back, tabs, reroll and discard cards). If another action was using that button, they swap and you get a notice; “Reset buttons” puts everything back. It is saved with your settings on this device."],

@@ -6,9 +6,11 @@ Por qué Electron y no otra cosa: nota «Versión para Windows» del vault
 (`04 Técnico/Windows y escritorio/`).
 
 **Hay también una app en Rust** (`../desktop-rust/`, wry/tao sobre WebView2): hace lo mismo
-con un .zip de ~105 MB en vez de ~243, y guarda en la misma carpeta. Esta app Electron se queda
-de **respaldo** hasta que la de Rust la iguale en todo (sobre todo la gráfica potente en
-portátiles con dos gráficas). Ver `../desktop-rust/LEEME.md`.
+con un .zip de ~105 MB en vez de ~255, y guarda en la misma carpeta. **Desde la 0.7.0 la
+descarga principal es el instalador `PokeSurvivor-Windows-Setup.exe` (76 MB), que lleva la app de
+Rust**: lo enlazan Ajustes y el aviso de versión nueva de las dos apps. Esta app Electron se queda
+de **respaldo**, sólo en .zip portátil, hasta probar la gráfica potente de la de Rust en
+portátiles con dos gráficas. Ver `../desktop-rust/LEEME.md` (sección «Instalador»).
 
 ## Usar
 
@@ -69,12 +71,15 @@ El nombre real de la gráfica se lee en la página con WebGL (`WEBGL_debug_rende
 
 La release la hace GitHub Actions (`.github/workflows/windows-release.yml`, gratis, con el
 token del propio workflow): en un runner `windows-latest` compila y prueba la app de Rust
-(`cargo test`, `desktop-rust/empaquetar.cjs`), hace `npm ci` aquí, copia la web **ya compilada
-del commit** (no compila el juego ni publica la web), empaqueta las dos y las sube a una release
-normal (ni borrador ni prerelease, marcada como la última) titulada «PokéSurvivor para Windows
-X.Y.Z», con una nota es/en sobre SmartScreen.
+(`cargo test`, `desktop-rust/empaquetar.cjs`), hace su instalador (`desktop-rust/instalador.cjs`,
+Inno Setup 6), hace `npm ci` aquí, copia la web **ya compilada del commit** (no compila el juego
+ni publica la web), empaqueta las dos y sube `PokeSurvivor-Windows-Setup.exe` y los dos .zip a
+una release normal (ni borrador ni prerelease, marcada como la última) titulada «PokéSurvivor
+para Windows X.Y.Z», con una nota es/en: cómo instalar, el aviso de SmartScreen, actualizar,
+desinstalar y los .zip portátiles.
 
-`PRINCIPAL` (arriba del workflow) dice cuál va como `PokeSurvivor-Windows.zip`, el de Ajustes:
+`PRINCIPAL` (arriba del workflow) dice cuál va como `PokeSurvivor-Windows.zip`, el que buscan
+las apps 0.6.0 y anteriores (las 0.7.0+ y Ajustes prefieren el instalador):
 - `electron` (ahora): Electron es `PokeSurvivor-Windows.zip` y Rust `PokeSurvivor-Windows-Rust.zip`.
 - `rust`: Rust es `PokeSurvivor-Windows.zip` y Electron `PokeSurvivor-Windows-Electron.zip`.
   Las apps Electron ya instaladas avisarán de la versión nueva y bajarán la de Rust; la partida
@@ -97,8 +102,10 @@ X.Y.Z», con una nota es/en sobre SmartScreen.
 A mano (sin Actions): `npm run empaquetar` y subir `dist/PokeSurvivor-Windows.zip` **con ese
 nombre exacto** a una release con la misma etiqueta.
 
-Sin release no sale la fila (no hay enlace roto). Para actualizar, el jugador descomprime el
-.zip nuevo encima del viejo: la partida está en `%APPDATA%\PokeSurvivor\`, no en la carpeta.
+Sin release no sale la fila (no hay enlace roto). Si la última release aún no trae el
+instalador (p. ej. `win-v0.6.0`), la fila enlaza a `PokeSurvivor-Windows.zip`. Para actualizar,
+el jugador abre el instalador nuevo (o descomprime el .zip nuevo encima del viejo): la partida
+está en `%APPDATA%\PokeSurvivor\`, no en la carpeta del programa.
 
 ## Archivos
 
@@ -116,6 +123,6 @@ Sin release no sale la fila (no hay enlace roto). Para actualizar, el jugador de
 
 ## Falta
 
-Instalador (por ahora .zip portable), actualización sin descomprimir a mano, login de Google
+Actualización sin abrir el instalador a mano (hoy la app avisa y abre la descarga), login de Google
 desde el navegador del sistema, ajustes de PC dentro del juego, Discord. Sin firma de código:
 Windows avisa con SmartScreen («Más información» → «Ejecutar de todas formas»).

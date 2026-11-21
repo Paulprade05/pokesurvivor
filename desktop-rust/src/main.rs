@@ -60,8 +60,10 @@ pub static AmdPowerXpressRequestHighPerformance: i32 = 1;
 
 const ORIGEN: &str = "http://127.0.0.1:39017";
 const RELEASES_ULTIMA: &str = "https://github.com/Paulprade05/pokesurvivor/releases/latest";
-/// Archivos de la release que sirven a esta app, por orden de preferencia.
-const ARCHIVOS: [&str; 2] = ["PokeSurvivor-Windows-Rust.zip", "PokeSurvivor-Windows.zip"];
+/// Archivos de la release que sirven a esta app, por orden de preferencia: el
+/// instalador (desde la 0.7.0) y, si la release no lo trae, los .zip de antes.
+const INSTALADOR: &str = "PokeSurvivor-Windows-Setup.exe";
+const ARCHIVOS: [&str; 3] = [INSTALADOR, "PokeSurvivor-Windows-Rust.zip", "PokeSurvivor-Windows.zip"];
 const TITULO: &str = "PokéSurvivor";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -374,18 +376,20 @@ fn revisar_version(base: &Path, v: &Value) {
     }
     let tag = v["tag"].as_str().unwrap_or("");
     let assets = v["assets"].as_array().cloned().unwrap_or_default();
-    let zip = ARCHIVOS.iter().find_map(|n| assets.iter().find(|a| a["name"] == json!(n)).and_then(|a| a["url"].as_str().map(str::to_owned)));
-    let Some(zip) = zip else { return };
+    let elegido = ARCHIVOS.iter().find_map(|n| assets.iter().find(|a| a["name"] == json!(n)).and_then(|a| a["url"].as_str().map(|u| (*n, u.to_owned()))));
+    let Some((nombre, zip)) = elegido else { return };
+    let instalador = nombre == INSTALADOR;
     if !mas_nueva(tag, VERSION) {
         return;
     }
     let nueva = tag.trim_start_matches(|c: char| !c.is_ascii_digit()).to_owned();
     // En otro hilo, para que el juego siga mientras se lee el aviso.
     std::thread::spawn(move || {
-        let texto = if en_espanol() {
-            format!("Hay una versión nueva para PC ({nueva}).\n\nTienes la {VERSION}. Descarga el .zip, cierra el juego y descomprime la nueva encima: tu partida se queda.\n\n¿Descargarla ahora?")
-        } else {
-            format!("A new PC version is available ({nueva}).\n\nYou have {VERSION}. Download the .zip, close the game and unzip the new one over it: your save stays.\n\nDownload it now?")
+        let texto = match (en_espanol(), instalador) {
+            (true, true) => format!("Hay una versión nueva para PC ({nueva}).\n\nTienes la {VERSION}. Descarga el instalador, cierra el juego y ábrelo: actualiza el juego y tu partida se queda.\n\n¿Descargarlo ahora?"),
+            (true, false) => format!("Hay una versión nueva para PC ({nueva}).\n\nTienes la {VERSION}. Descarga el .zip, cierra el juego y descomprime la nueva encima: tu partida se queda.\n\n¿Descargarla ahora?"),
+            (false, true) => format!("A new PC version is available ({nueva}).\n\nYou have {VERSION}. Download the installer, close the game and open it: it updates the game and your save stays.\n\nDownload it now?"),
+            (false, false) => format!("A new PC version is available ({nueva}).\n\nYou have {VERSION}. Download the .zip, close the game and unzip the new one over it: your save stays.\n\nDownload it now?"),
         };
         if aviso(&texto, true) {
             abrir_fuera(if zip.starts_with("https://github.com/") { &zip } else { RELEASES_ULTIMA });
@@ -414,7 +418,7 @@ fn main() {
         return;
     }
     if !o.www.join("index.html").is_file() {
-        aviso(&format!("No encuentro el juego en {}.\nDescomprime otra vez PokeSurvivor-Windows.zip entero.", o.www.display()), false);
+        aviso(&format!("No encuentro el juego en {}.\nVuelve a instalarlo con PokeSurvivor-Windows-Setup.exe (o descomprime otra vez el .zip entero).", o.www.display()), false);
         return;
     }
     let _ = std::fs::create_dir_all(&o.base);

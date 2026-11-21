@@ -1,12 +1,13 @@
 # Versión para Windows: compila las dos apps de Windows y las sube a una
 # release de GitHub.
-#   - App en Rust (desktop-rust/, wry/tao sobre WebView2): ~105 MB.
-#   - App Electron (desktop/): ~245 MB, de respaldo mientras la de Rust no la
-#     iguale en todo.
-# PRINCIPAL dice cuál va con el nombre fijo PokeSurvivor-Windows.zip, el que
-# buscan js/ui/windows-dl.js (Ajustes › Acerca de) y el aviso de versión nueva
-# de las dos apps. La otra va como PokeSurvivor-Windows-Rust.zip o
-# PokeSurvivor-Windows-Electron.zip. Para pasar a Rust: PRINCIPAL: rust.
+#   - PokeSurvivor-Windows-Setup.exe: instalador (Inno Setup 6,
+#     desktop-rust/instalador.iss) con la app en Rust (wry/tao sobre WebView2).
+#     Es la descarga principal desde la 0.7.0: la buscan js/ui/windows-dl.js
+#     (Ajustes › Acerca de) y el aviso de versión nueva de las dos apps.
+#   - Los .zip portátiles de siempre (Rust ~110 MB, Electron ~255 MB), de
+#     respaldo y para las apps 0.6.0 y anteriores, que sólo buscan .zip.
+#     PRINCIPAL dice cuál va con el nombre fijo PokeSurvivor-Windows.zip; la otra
+#     va como PokeSurvivor-Windows-Rust.zip o PokeSurvivor-Windows-Electron.zip.
 #
 # Se lanza al empujar una etiqueta win-vX.Y.Z (X.Y.Z = "version" de
 # desktop/package.json y de desktop-rust/Cargo.toml) o a mano desde la pestaña
@@ -41,7 +42,8 @@ jobs:
         shell: bash
     env:
       ETIQUETA: ${{ inputs.etiqueta || github.ref_name }}
-      # electron | rust: la que se publica como PokeSurvivor-Windows.zip.
+      # electron | rust: la que se publica como PokeSurvivor-Windows.zip (el
+      # instalador lleva siempre la de Rust).
       PRINCIPAL: electron
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -98,6 +100,20 @@ jobs:
         working-directory: desktop-rust
         run: node empaquetar.cjs "$ZIP_RUST"
 
+      # ---- Instalador (app de Rust) ----
+      # Inno Setup 6 viene en las imágenes windows-latest de GitHub; si faltara,
+      # se instala con Chocolatey (paquete innosetup, que baja de jrsoftware.org).
+      - name: Crear el instalador
+        working-directory: desktop-rust
+        run: |
+          set -euo pipefail
+          ISCC_DIR="/c/Program Files (x86)/Inno Setup 6"
+          if [ ! -f "$ISCC_DIR/ISCC.exe" ] && ! command -v ISCC.exe >/dev/null; then
+            choco install innosetup -y --no-progress
+          fi
+          if [ -f "$ISCC_DIR/ISCC.exe" ]; then export PATH="$ISCC_DIR:$PATH"; fi
+          node instalador.cjs
+
       # ---- App Electron (respaldo) ----
       - name: Instalar Electron y el empaquetador
         working-directory: desktop
@@ -119,27 +135,32 @@ jobs:
           test -f desktop-rust/dist/PokeSurvivor/www/index.html
           test -f desktop/dist/PokeSurvivor/PokeSurvivor.exe
           test -f desktop/dist/PokeSurvivor/resources/app.asar
-          ls -l "desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON"
+          test -f desktop-rust/dist/PokeSurvivor-Windows-Setup.exe
+          ls -l desktop-rust/dist/PokeSurvivor-Windows-Setup.exe "desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON"
 
       - name: Notas de la release
         run: |
-          if [ "$PRINCIPAL" = rust ]; then
-            OTRA="**$ZIP_ELECTRON**: la versión anterior (Electron), por si la nueva te da problemas. / The previous (Electron) version, in case the new one gives you trouble."
-          else
-            OTRA="**$ZIP_RUST**: prueba la versión nueva, más ligera (Rust + WebView2 de Windows). / Try the new, lighter version (Rust + Windows WebView2)."
-          fi
           cat > notas.md <<EOF
           **PokéSurvivor para Windows $VERSION** (juego $HUELLA)
 
-          Descarga **PokeSurvivor-Windows.zip**, descomprímelo y abre \`PokeSurvivor/PokeSurvivor.exe\`.
-          Windows avisará al abrirlo porque no va firmado: pulsa **«Más información»** y luego **«Ejecutar de todas formas»**.
-          Para actualizar, descomprime la versión nueva encima: tu partida se queda.
+          ### Español
+          1. Descarga **PokeSurvivor-Windows-Setup.exe** y ábrelo. Si el navegador dice que no se descarga a menudo, elige **«Conservar»**.
+          2. Windows avisará porque el instalador no va firmado (la firma cuesta dinero y este juego es gratis): en «Windows protegió su PC» pulsa **«Más información»** y luego **«Ejecutar de todas formas»**.
+          3. El asistente te deja elegir la carpeta (por defecto la tuya, sin pedir administrador, o para todos los usuarios), los accesos directos del Escritorio y del menú Inicio, y abrir el juego al acabar.
 
-          Download **PokeSurvivor-Windows.zip**, unzip it and open \`PokeSurvivor/PokeSurvivor.exe\`.
-          Windows will warn you because it isn't signed: click **“More info”** and then **“Run anyway”**.
-          To update, unzip the new version on top: your save stays.
+          Para **actualizar**, abre el instalador nuevo: se pone encima de la versión anterior. Para **desinstalar**: Configuración › Aplicaciones › Aplicaciones instaladas › PokéSurvivor. Tu partida (\`%APPDATA%\PokeSurvivor\`) no se borra nunca.
+          Hace falta Windows 10 u 11 de 64 bits con WebView2 (Windows 11 ya lo trae).
 
-          $OTRA
+          ### English
+          1. Download **PokeSurvivor-Windows-Setup.exe** and open it. If your browser says it isn't commonly downloaded, choose **“Keep”**.
+          2. Windows will warn you because the installer isn't signed (signing costs money and this game is free): in “Windows protected your PC” click **“More info”** and then **“Run anyway”**.
+          3. The wizard lets you pick the folder (your user folder by default, no admin needed, or for all users), Desktop and Start menu shortcuts, and opening the game when it finishes.
+
+          To **update**, open the new installer: it installs over the previous version. To **uninstall**: Settings › Apps › Installed apps › PokéSurvivor. Your save (\`%APPDATA%\PokeSurvivor\`) is never deleted.
+          Requires 64-bit Windows 10 or 11 with WebView2 (Windows 11 already has it).
+
+          ### Portátil / Portable
+          **$ZIP_RUST** y **$ZIP_ELECTRON**: sin instalar, descomprime y abre \`PokeSurvivor/PokeSurvivor.exe\`; la de Electron es de respaldo por si la otra te da problemas. / No install: unzip and open \`PokeSurvivor/PokeSurvivor.exe\`; the Electron one is a fallback in case the other gives you trouble.
 
           Proyecto de fan sin ánimo de lucro / Non-profit fan project. Pokémon © Nintendo/Creatures/GAME FREAK.
           EOF
@@ -148,7 +169,7 @@ jobs:
         run: |
           set -euo pipefail
           TITULO="PokéSurvivor para Windows $VERSION"
-          ARCHIVOS=("desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON")
+          ARCHIVOS=("desktop-rust/dist/PokeSurvivor-Windows-Setup.exe" "desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON")
           if gh release view "$ETIQUETA" >/dev/null 2>&1; then
             gh release upload "$ETIQUETA" "${ARCHIVOS[@]}" --clobber
             gh release edit "$ETIQUETA" --title "$TITULO" --notes-file notas.md --draft=false --prerelease=false --latest
