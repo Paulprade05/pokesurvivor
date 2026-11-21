@@ -2,7 +2,7 @@
 name = "pokesurvivor"
 # Igual que desktop/package.json (la app Electron): el aviso de versión nueva
 # compara este número con la etiqueta win-vX.Y.Z de la release.
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 publish = false
 description = "PokéSurvivor para Windows: host nativo en Rust (wry/tao sobre WebView2)"
