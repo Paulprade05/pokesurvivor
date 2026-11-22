@@ -1,26 +1,26 @@
-// Prueba la app de Windows en Rust como un jugador, y la compara con la app
-// Electron en arranque y memoria. No juega partidas (eso es desktop/medir-fps.cjs).
+// Prueba la app de Windows en Rust como un jugador. No juega partidas (eso es
+// medir-perf.cjs con tools/perf.cjs).
 //
-//   node probar.cjs            prueba dist/PokeSurvivor/PokeSurvivor.exe (npm run empaquetar antes)
-//   node probar.cjs --debug    prueba target/debug/PokeSurvivor.exe con ../desktop/www
+//   node probar.cjs            prueba dist/PokeSurvivor/PokeSurvivor.exe (node empaquetar.cjs antes)
+//   node probar.cjs --debug    prueba target/debug/PokeSurvivor.exe con www/ (node copiar-web.cjs)
+// playwright-core: PLAYWRIGHT_CORE=<carpeta node_modules> (npm i --prefix <tmp>/pw playwright-core).
 //
 // Comprueba: arranca y sale la entrada de invitado; window.pokeEscritorio; la
-// calidad Máxima; F11; una segunda copia no abre otra ventana; al cerrar
-// (WM_CLOSE) copia la partida en disco; con el navegador vacío la recupera del
-// disco; el mando (Gamepad API) existe. Mide: tiempo hasta la entrada y memoria
-// (el .exe y todos sus procesos hijos) en la aldea, frente a la app Electron
-// (desktop/dist/PokeSurvivor/PokeSurvivor.exe, si está empaquetada).
+// calidad Máxima; siempre a pantalla completa (también tras F11); una segunda
+// copia no abre otra ventana; al cerrar (WM_CLOSE) copia la partida en disco;
+// con el navegador vacío la recupera del disco; el mando (Gamepad API) existe.
+// Mide: tiempo hasta la entrada y memoria (el .exe y todos sus procesos hijos) en la aldea.
 'use strict';
-const { chromium, _electron } = require(require.resolve('playwright-core', { paths: [require('path').join(__dirname, '..', 'desktop')] }));
+const path = require('path');
+const PW = process.env.PLAYWRIGHT_CORE;
+const { chromium } = require(PW ? path.resolve(/playwright-core$/.test(PW) ? PW : path.join(PW, 'playwright-core')) : 'playwright-core');
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
-const path = require('path');
 
 const DEBUG = process.argv.includes('--debug');
 const EXE = DEBUG ? path.join(__dirname, 'target', 'debug', 'PokeSurvivor.exe') : path.join(__dirname, 'dist', 'PokeSurvivor', 'PokeSurvivor.exe');
-const WWW = DEBUG ? ['--www=' + path.join(__dirname, '..', 'desktop', 'www')] : [];
-const ELECTRON = path.join(__dirname, '..', 'desktop', 'dist', 'PokeSurvivor', 'PokeSurvivor.exe');
+const WWW = DEBUG ? ['--www=' + path.join(__dirname, 'www')] : [];
 const espera = ms => new Promise(r => setTimeout(r, ms));
 const resultados = [];
 const ok = (nombre, bien, detalle = '') => { resultados.push({ nombre, bien: !!bien, detalle }); console.log(`${bien ? 'OK  ' : 'MAL '} ${nombre}${detalle ? ' — ' + detalle : ''}`); };
@@ -91,17 +91,21 @@ async function entrarComoInvitado(page) {
     await entrarComoInvitado(page);
     const q = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('ps.settings') || '{}').quality; } catch (e) { return null; } });
     ok('calidad Máxima elegida sola', q === 'max', String(q));
+    const tope = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('ps.settings') || '{}').fpsCap; } catch (e) { return null; } });
+    ok('sin tope de FPS (al ritmo de la pantalla)', tope === 0, String(tope));
     medidas.rust.memoria = memoria(proc.pid);
     ok('memoria en la aldea', true, `${medidas.rust.memoria.mb} MB en ${medidas.rust.memoria.procesos} procesos`);
 
-    // 2. F11: pantalla completa y vuelta.
-    const antes = await page.evaluate(() => [innerWidth, innerHeight]);
+    // 2. Siempre a pantalla completa: al abrir y después de F11 y Alt+Intro (no hacen nada).
+    const tam = () => page.evaluate(() => [innerWidth, innerHeight, screen.width, screen.height]);
+    const pc = await tam();
     await page.keyboard.press('F11'); await espera(1200);
-    const pc = await page.evaluate(() => [innerWidth, innerHeight, screen.width, screen.height]);
-    await page.keyboard.press('F11'); await espera(1200);
-    const despues = await page.evaluate(() => [innerWidth, innerHeight]);
-    ok('F11 pone y quita la pantalla completa', pc[0] === pc[2] && pc[1] === pc[3] && despues[0] === antes[0] && despues[1] === antes[1],
-      `${antes.join('×')} → ${pc.slice(0, 2).join('×')} (pantalla ${pc.slice(2).join('×')}) → ${despues.join('×')}`);
+    await page.keyboard.press('Alt+Enter'); await espera(1200);
+    const despues = await tam();
+    const lleno = t => t[0] === t[2] && t[1] === t[3];
+    ok('siempre a pantalla completa (también tras F11 y Alt+Intro)', lleno(pc) && lleno(despues),
+      `${pc.slice(0, 2).join('×')} → ${despues.slice(0, 2).join('×')} (pantalla ${pc.slice(2).join('×')})`);
+    ok('sin botón de pantalla completa en el juego', await page.evaluate(() => { const b = document.getElementById('btn-full'); return !b || b.classList.contains('hidden'); }));
 
     // 3. Una segunda copia no abre otra ventana.
     const t0 = Date.now();
@@ -125,30 +129,13 @@ async function entrarComoInvitado(page) {
     ok('recupera la partida del disco', recuperadas === claves && claves > 0, `${recuperadas} de ${claves} claves`);
     await cerrar(proc);
 
-    // 6. La misma copia que la app Electron: sirve para pasar de una a otra.
-    ok('guarda donde la app Electron', fs.existsSync(path.join(perfil, 'guardado', 'partida.json')) && fs.existsSync(path.join(perfil, 'guardado', 'partida.json.anterior')),
+    // 6. La misma carpeta que usaba la antigua app Electron: quien venía de ella sigue con su partida.
+    ok('guarda en la carpeta de siempre', fs.existsSync(path.join(perfil, 'guardado', 'partida.json')) && fs.existsSync(path.join(perfil, 'guardado', 'partida.json.anterior')),
       '%APPDATA%\\PokeSurvivor\\guardado\\partida.json (+ .anterior)');
   } catch (e) {
     ok('sin fallos', false, e.message);
   }
 
-  // 7. La app Electron, para comparar arranque y memoria.
-  if (fs.existsSync(ELECTRON)) {
-    const p2 = fs.mkdtempSync(path.join(os.tmpdir(), 'ps-electron-'));
-    const t0 = Date.now();
-    const app = await _electron.launch({ executablePath: ELECTRON, args: ['--perfil=' + p2, '--sin-avisos'] });
-    try {
-      const page = await app.firstWindow();
-      await page.waitForSelector('#btn-guest', { state: 'visible', timeout: 60000 });
-      medidas.electron = { arranqueMs: Date.now() - t0 };
-      await entrarComoInvitado(page);
-      medidas.electron.memoria = memoria(app.process().pid);
-    } finally {
-      await Promise.race([app.close(), espera(10000)]);
-      try { execFileSync('taskkill', ['/PID', String(app.process().pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) { /* */ }
-    }
-    console.log(`Electron: arranque ${medidas.electron.arranqueMs} ms, memoria ${medidas.electron.memoria.mb} MB en ${medidas.electron.memoria.procesos} procesos`);
-  }
   const salida = path.join(__dirname, 'dist', 'pruebas.json');
   fs.mkdirSync(path.dirname(salida), { recursive: true });
   fs.writeFileSync(salida, JSON.stringify({ fecha: new Date().toISOString(), exe: EXE, resultados, medidas }, null, 2));

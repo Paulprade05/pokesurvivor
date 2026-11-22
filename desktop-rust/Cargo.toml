@@ -1,7 +1,7 @@
 [package]
 name = "pokesurvivor"
-# Igual que desktop/package.json (la app Electron): el aviso de versión nueva
-# compara este número con la etiqueta win-vX.Y.Z de la release.
+# El aviso de versión nueva compara este número con la etiqueta win-vX.Y.Z de
+# la release (el workflow comprueba que coinciden).
 version = "0.8.0"
 edition = "2024"
 publish = false
@@ -27,6 +27,8 @@ windows = { version = "=0.62.2", features = [
   "Win32_System_Threading",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
+  # Prioridad del proceso de la GPU de WebView2 en el planificador de la gráfica (D3DKMT).
+  "Wdk_Graphics_Direct3D",
 ] }
 serde_json = "1"
 

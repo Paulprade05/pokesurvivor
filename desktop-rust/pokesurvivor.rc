@@ -1,7 +1,7 @@
 #include <winver.h>
 
 // Icono del .exe y de la ventana (tao lo carga con el número 1).
-1 ICON "../desktop/icono.ico"
+1 ICON "icono.ico"
 
 // Manifiesto: Windows 10/11, ventanas nítidas con escalado y controles modernos.
 1 24 "pokesurvivor.manifest"

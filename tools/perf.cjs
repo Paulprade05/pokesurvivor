@@ -24,8 +24,8 @@
  *                  esperan mucho más que de verdad).
  *   --nav webkit   WebKit de Playwright con el perfil de iPhone 15 en horizontal (no es Safari de verdad).
  *   --cdp <url>    se conecta a un Chromium ya abierto con depuración remota (p. ej. la app de Windows en Rust con
- *                  --depuracion=9222, la de Electron con --remote-debugging-port=9222, o Edge/Chrome con ventana) y mide
- *                  en su pestaña, con su tamaño de ventana. --nav sólo pone el nombre (rust, electron, edge...).
+ *                  --depuracion=9222, o Edge/Chrome con --remote-debugging-port=9222) y mide
+ *                  en su pestaña, con su tamaño de ventana. --nav sólo pone el nombre (rust, edge, chrome).
  *                  Una calidad por conexión: abre la app de nuevo para cada --calidad.
  *   --perfil       guarda un perfil de CPU (.cpuprofile, se abre en DevTools) por escenario y dice las funciones que más
  *                  tiempo propio gastan (sólo Chrome).
@@ -83,6 +83,10 @@ const UNCAP = flag('sin-tope') || HZ > 0;
 const SPLIT = flag('desglose');           // ms propios de cada parte (simulación, dibujo...) por fotograma
 const TRACE = flag('traza');
 const GLON = flag('gl');                  // (fps-tecnologia) con el motor WebGL2 (core/gl2d.js, ?gl=1); sin él, ?gl=0
+// (escritorio-rust, 21-11-2026) --gl-auto: sin ?gl (lo que elige el juego solo, como un jugador). --url <página>: mide el juego
+// servido por otro (p. ej. http://127.0.0.1:39017/index.html, la app de Windows sirviéndose a sí misma) en vez de este servidor;
+// si empieza por / (p. ej. /index.html, la versión compilada), de este servidor.
+const GLAUTO = flag('gl-auto'), PAGE = opt('url', null);
 // Para saber qué cuesta cada capa: --quitar World.drawGround,HUD.draw,Ultra3D.flat=false (esa función deja de hacer nada y
 // devuelve lo que pongas tras el =). Sólo para medir: lo que se ve cambia.
 const DROP = (opt('quitar', '') || '').split(',').filter(Boolean);              // Chrome: tiempo ocupado de cada hilo (página, GPU, compositor)
@@ -440,7 +444,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
     await p.addInitScript(instrument, { seed: SEED, count: COUNT });
     // (Calidad antes de cargar: la aldea y el tamaño del lienzo ya salen con ella.)
     await p.addInitScript(q => { try { const s = JSON.parse(localStorage.getItem('ps.settings') || '{}'); s.quality = q.q; s.fps = false; if (q.uncap) s.fpsCap = q.hz || 0; localStorage.setItem('ps.settings', JSON.stringify(s)); } catch (e) { /* */ } }, { q: Q, uncap: UNCAP, hz: HZ });
-    await p.goto(`http://127.0.0.1:${port}/dev.html?dev&gl=${GLON ? 1 : 0}${process.env.GLDBG ? '&gldbg=1' : ''}${process.env.QX || ''}`, { waitUntil: 'load' });
+    await p.goto(`${PAGE ? (PAGE[0] === '/' ? `http://127.0.0.1:${port}${PAGE}` : PAGE) : `http://127.0.0.1:${port}/dev.html`}?dev${GLAUTO ? '' : '&gl=' + (GLON ? 1 : 0)}${process.env.GLDBG ? '&gldbg=1' : ''}${process.env.QX || ''}`, { waitUntil: 'load' });
     await p.evaluate(HELPERS);
     await p.waitForFunction(() => window.G && G.Pad && G.Game, null, { timeout: 60000 });
     await p.evaluate(s => __hook(s), SPLIT);
@@ -506,7 +510,8 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
         }
         o.estado = await p.evaluate(() => ({ enemigos: G.EnemyMgr.all ? G.EnemyMgr.all().length : 0, proyectiles: G.Projectiles.all ? G.Projectiles.all().length : (G.Projectiles.count || null),
           arena: !!(G.Rift && G.Rift.inArena), fx: G.Settings.fx, ultra: G.Settings.ultra, estado: G.Game.state,
-          pix: G.PixFilter && G.PixFilter.stats ? G.PixFilter.stats() : null, lienzo: (document.getElementById('game') || {}).width + '×' + (document.getElementById('game') || {}).height }));
+          pix: G.PixFilter && G.PixFilter.stats ? G.PixFilter.stats() : null, lienzo: (document.getElementById('game') || {}).width + '×' + (document.getElementById('game') || {}).height,
+          gl2d: !!(G.GL2D && G.GL2D.on), dpr: devicePixelRatio, ventana: innerWidth + '×' + innerHeight }));
         if (PROBE) o.estado.sonda = await p.evaluate(PROBE).catch(e => 'error: ' + e.message);
         if (ALLOC && cdp) {
           const { profile } = await cdp.send('HeapProfiler.stopSampling');
@@ -534,7 +539,7 @@ function topSelf(profile, k = 25, win = null, t0 = 0) {
       } catch (e) { res.escenas[S] = { error: String(e && e.message || e).slice(0, 300) }; }
       const r = res.escenas[S];
       console.log(`${NAV} ${Q} ${S}: ` + (r.error ? 'ERROR ' + r.error : `${r.fps} FPS, ${r.ms} ms (p50 ${r.p50}, p99 ${r.p99}, peor ${r.maxMs}), hueco p50 ${r.gap50} p99 ${r.gap99}, >33 ${r.tir33}, >50 ${r.tirones}, peor ${r.maxGap} ms` +
-        (r.mbs != null ? `, basura ${r.mbs} MB/s, gc ${r.gc}` : '') + `, enemigos ${r.estado.enemigos}, proyectiles ${r.estado.proyectiles}` +
+        (r.mbs != null ? `, basura ${r.mbs} MB/s, gc ${r.gc}` : '') + `, enemigos ${r.estado.enemigos}, proyectiles ${r.estado.proyectiles}, gl2d ${r.estado.gl2d}, lienzo ${r.estado.lienzo} dpr ${r.estado.dpr}` +
         (r.gpuMs ? ` | GPU ms ${JSON.stringify(r.gpuMs)}` : '') + (r.gl ? `\n   gl ${JSON.stringify(r.gl)}` : '') + (r.desglose ? `\n   desglose ms ${JSON.stringify(r.desglose)}` : '') + (r.hilos ? `\n   hilos % ${JSON.stringify(r.hilos)}` : '') + ` | ${JSON.stringify(r.porFotograma)}`));
     }
     res.errores = errs.slice(0, 30);

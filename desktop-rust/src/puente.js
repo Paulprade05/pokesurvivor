@@ -1,5 +1,5 @@
 // Puente entre el juego (la página) y la app de Windows en Rust. Hace lo mismo
-// que desktop/preload.cjs de la app Electron: corre antes que el juego, no le
+// que hacía desktop/preload.cjs de la antigua app Electron: corre antes que el juego, no le
 // cambia nada, copia en disco lo que el juego guarda en el navegador
 // (localStorage), lo recupera si un día aparece vacío y presenta la app con
 // window.pokeEscritorio. main.rs cambia __INFO__ y __DISCO__ por los datos.
@@ -38,30 +38,27 @@
   addEventListener('pagehide', copiar);
   Object.defineProperty(window, '__psFoto', { value: function () { try { return foto(); } catch (e) { return null; } } });
 
-  // 3. Pantalla completa con F11 o Alt+Intro (como en la app Electron).
+  // 3. La app va siempre a pantalla completa (21-11-2026): F11 y Alt+Intro no hacen nada.
   addEventListener('keydown', function (e) {
-    if (e.key === 'F11' || (e.altKey && e.key === 'Enter')) {
-      e.preventDefault(); e.stopImmediatePropagation();
-      if (!e.repeat) mandar({ t: 'pantalla-completa' });
-    }
+    if (e.key === 'F11' || (e.altKey && e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
 
   // 4. Lo que el juego puede usar si quiere saber que va en la app de Windows.
   //    Es estable: se puede AÑADIR algo, pero no quitar ni cambiar lo que hay
-  //    (lo usan el juego y la calidad de gráficos). Lista en desktop/LEEME.md.
+  //    (lo usan el juego y la calidad de gráficos). Lista en desktop-rust/LEEME.md.
   var gpu = INFO.gpu || { dispositivos: [], activa: null, varias: false, probableDedicada: null };
   Object.defineProperty(window, 'pokeEscritorio', {
     enumerable: true,
     value: Object.freeze({
       esEscritorio: true,
       plataforma: 'windows',
-      version: INFO.version || '',      // versión de la app (desktop-rust/Cargo.toml = desktop/package.json)
+      version: INFO.version || '',      // versión de la app (desktop-rust/Cargo.toml)
       juego: INFO.juego || '',          // huella del juego que lleva dentro (version.json)
       electron: '',                     // vacío: esta app no es Electron
       chromium: INFO.webview2 || '',    // WebView2 es Chromium (de Edge): su versión
       gpu: gpu,                         // { dispositivos, activa, varias, probableDedicada }
-      ajustes: INFO.ajustes || {},      // { gpuDedicada, sinTope, pantallaCompleta } al abrir la app
-      pantallaCompleta: function () { mandar({ t: 'pantalla-completa' }); },
+      ajustes: INFO.ajustes || {},      // { gpuDedicada, sinTope, pantallaCompleta } al abrir la app (pantallaCompleta: siempre true)
+      pantallaCompleta: function () { /* ya lo está siempre: se queda por compatibilidad */ },
       // Nuevo en la app de Rust (sólo se añade):
       contenedor: 'rust',               // 'rust' (wry/tao + WebView2); en Electron no existe
       webview2: INFO.webview2 || '',

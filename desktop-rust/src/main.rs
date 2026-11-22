@@ -1,7 +1,7 @@
 // PokéSurvivor para Windows: host nativo en Rust (wry/tao sobre WebView2).
 //
-// Hace lo mismo que la app Electron (desktop/main.cjs), con el WebView2 que ya
-// trae Windows (el Chromium de Edge) en lugar de un Chromium propio:
+// Es la única app de escritorio desde la 0.9.0 (la de Electron, desktop/, se quitó).
+// Usa el WebView2 que ya trae Windows (el Chromium de Edge):
 //   - Abre la MISMA versión compilada que GitHub Pages (carpeta www junto al .exe).
 //     Las páginas se sirven desde dentro de la app, sin abrir ningún puerto:
 //     WebView2 pide http://127.0.0.1:39017/... y la app contesta con el archivo.
@@ -9,12 +9,13 @@
 //     127.0.0.1 (js/core/db.js), y el navegador la trata como segura.
 //   - Pide la gráfica potente (--force_high_performance_gpu a WebView2 y
 //     NvOptimusEnablement/AmdPowerXpressRequestHighPerformance en el .exe).
-//   - FPS sin tope opcional (--sin-tope o "sinTope" en escritorio.json).
-//   - Pantalla completa con F11 o Alt+Intro, y la del botón del juego.
+//   - Sin tope de FPS del juego (va al ritmo de la pantalla); sin vsync con --sin-tope o
+//     "sinTope" en escritorio.json (sólo para medir).
+//   - Siempre a pantalla completa (sin modo ventana; 21-11-2026, pedido del dueño).
 //   - Copia de la partida en disco (%APPDATA%\PokeSurvivor\guardado\, la misma
-//     carpeta que la app Electron), que se recupera sola si se vacía el navegador.
+//     carpeta que usaba la app Electron), que se recupera sola si se vacía el navegador.
 //   - Al abrir, mira si hay una versión nueva en GitHub Releases y avisa.
-//   - window.pokeEscritorio para el juego (src/puente.js; lista en desktop/LEEME.md).
+//   - window.pokeEscritorio para el juego (src/puente.js; lista en LEEME.md).
 #![windows_subsystem = "windows"]
 
 use std::{
@@ -25,28 +26,33 @@ use std::{
 
 use serde_json::{Value, json};
 use tao::{
-    dpi::{LogicalSize, PhysicalSize},
+    dpi::PhysicalSize,
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     platform::windows::IconExtWindows,
-    window::{Fullscreen, Icon, Window, WindowBuilder},
+    window::{Fullscreen, Icon, WindowBuilder},
 };
 use webview2_com::{
-    ContainsFullScreenElementChangedEventHandler, Microsoft::Web::WebView2::Win32::*,
-    WebResourceRequestedEventHandler, take_pwstr,
+    Microsoft::Web::WebView2::Win32::*, ProcessInfosChangedEventHandler, WebResourceRequestedEventHandler, take_pwstr,
 };
 use windows::{
+    Wdk::Graphics::Direct3D::{D3DKMT_SCHEDULINGPRIORITYCLASS_ABOVE_NORMAL, D3DKMTSetProcessSchedulingPriorityClass},
     Win32::{
-        Foundation::{ERROR_ALREADY_EXISTS, GetLastError},
+        Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE},
         Globalization::GetUserDefaultUILanguage,
         Graphics::Dxgi::*,
-        System::Threading::CreateMutexW,
+        System::Threading::{
+            ABOVE_NORMAL_PRIORITY_CLASS, CreateMutexW, GetCurrentProcess, OpenProcess, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION, PROCESS_POWER_THROTTLING_STATE,
+            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, ProcessPowerThrottling, SetPriorityClass,
+            SetProcessInformation,
+        },
         UI::{
             Shell::{SHCreateMemStream, ShellExecuteW},
             WindowsAndMessaging::*,
         },
     },
-    core::{BOOL, HSTRING, PWSTR, w},
+    core::{HSTRING, PWSTR, w},
 };
 use wry::{WebContext, WebViewBuilder, WebViewBuilderExtWindows, WebViewExtWindows};
 
@@ -61,18 +67,15 @@ pub static AmdPowerXpressRequestHighPerformance: i32 = 1;
 const ORIGEN: &str = "http://127.0.0.1:39017";
 const RELEASES_ULTIMA: &str = "https://github.com/Paulprade05/pokesurvivor/releases/latest";
 /// Archivos de la release que sirven a esta app, por orden de preferencia: el
-/// instalador (desde la 0.7.0) y, si la release no lo trae, los .zip de antes.
+/// instalador (desde la 0.7.0) y, si la release no lo trae, el .zip de esta app.
+/// (Desde la 0.9.0 no hay app Electron ni su PokeSurvivor-Windows.zip.)
 const INSTALADOR: &str = "PokeSurvivor-Windows-Setup.exe";
-const ARCHIVOS: [&str; 3] = [INSTALADOR, "PokeSurvivor-Windows-Rust.zip", "PokeSurvivor-Windows.zip"];
+const ARCHIVOS: [&str; 2] = [INSTALADOR, "PokeSurvivor-Windows-Rust.zip"];
 const TITULO: &str = "PokéSurvivor";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug)]
 enum Evento {
-    /// F11, Alt+Intro o pokeEscritorio.pantallaCompleta(): cambia la de la ventana.
-    AlternarPantalla,
-    /// El botón de pantalla completa del juego (la API de HTML) entra o sale.
-    PantallaHtml(bool),
     Guardar(String),
     Version(Value),
     /// Al cerrar: la última copia de la partida que da la página.
@@ -83,10 +86,10 @@ enum Evento {
 // ---- Opciones ---------------------------------------------------------------
 struct Opciones {
     base: PathBuf,
+    perfil_prueba: Option<String>,
     www: PathBuf,
     gpu_dedicada: bool,
     sin_tope: bool,
-    pantalla_completa: bool,
     sin_avisos: bool,
     depuracion: Option<u16>,
 }
@@ -96,31 +99,29 @@ fn opciones() -> Opciones {
     let valor = |k: &str| args.iter().find_map(|a| a.strip_prefix(k).map(str::to_owned));
     let tiene = |k: &str| args.iter().any(|a| a == k);
     // Sólo para pruebas: --perfil=<carpeta> usa un perfil limpio (como un jugador nuevo).
-    let base = valor("--perfil=").map(PathBuf::from).unwrap_or_else(|| {
+    let perfil_prueba = valor("--perfil=");
+    let base = perfil_prueba.clone().map(PathBuf::from).unwrap_or_else(|| {
         PathBuf::from(std::env::var_os("APPDATA").unwrap_or_else(|| ".".into())).join("PokeSurvivor")
     });
     let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_default();
     let www = valor("--www=").map(PathBuf::from).unwrap_or_else(|| exe_dir.join("www"));
-    // %APPDATA%\PokeSurvivor\escritorio.json, el mismo que la app Electron, p. ej. {"sinTope": true}
+    // %APPDATA%\PokeSurvivor\escritorio.json (el mismo que la antigua app Electron), p. ej. {"sinTope": true}
     let mut gpu_dedicada = true;
     let mut sin_tope = false;
-    let mut pantalla_completa = false;
     if let Ok(t) = std::fs::read_to_string(base.join("escritorio.json")) {
         if let Ok(v) = serde_json::from_str::<Value>(&t) {
             gpu_dedicada = v["gpuDedicada"].as_bool().unwrap_or(gpu_dedicada);
             sin_tope = v["sinTope"].as_bool().unwrap_or(sin_tope);
-            pantalla_completa = v["pantallaCompleta"].as_bool().unwrap_or(pantalla_completa);
         }
     }
     if tiene("--sin-tope") { sin_tope = true; }
     if tiene("--gpu-integrada") { gpu_dedicada = false; }
-    if tiene("--pantalla-completa") { pantalla_completa = true; }
     Opciones {
         base,
+        perfil_prueba,
         www,
         gpu_dedicada,
         sin_tope,
-        pantalla_completa,
         sin_avisos: tiene("--sin-avisos") || cfg!(debug_assertions),
         // Sólo para medir y probar: abre la depuración remota de WebView2 en ese puerto (127.0.0.1).
         depuracion: valor("--depuracion=").and_then(|p| p.parse().ok()),
@@ -159,7 +160,7 @@ fn graficas(dedicada: bool) -> Value {
         }
     }
     let activa = dis.first().cloned().unwrap_or(Value::Null);
-    // Sólo una pista, como en la app Electron: NVIDIA siempre es dedicada; Intel
+    // Sólo una pista (como hacía la app Electron): NVIDIA siempre es dedicada; Intel
     // casi nunca; AMD sola puede ser integrada (Ryzen con Radeon) o dedicada.
     let fab = activa["fabricante"].as_str().unwrap_or("");
     let probable = if fab == "NVIDIA" { json!(true) } else if fab == "Intel" { json!(false) } else if dis.len() > 1 { json!(true) } else { Value::Null };
@@ -324,10 +325,23 @@ fn aviso(texto: &str, pregunta: bool) -> bool {
     }
 }
 
+/// Nombre del candado de una sola copia. El de siempre (el instalador lo busca en
+/// `AppMutex` para pedir que se cierre el juego); con `--perfil=` (sólo pruebas), uno
+/// propio de ese perfil, para medir o probar con el juego del jugador abierto.
+fn nombre_candado(perfil: Option<&str>) -> String {
+    match perfil {
+        None => "Local\\PokeSurvivor.unica".to_owned(),
+        Some(p) => {
+            let h = p.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+            format!("Local\\PokeSurvivor.unica.{h:016x}")
+        }
+    }
+}
+
 /// Una sola ventana del juego: si se abre otra vez, se trae la que ya hay.
-fn soy_la_unica() -> bool {
+fn soy_la_unica(candado: &str) -> bool {
     unsafe {
-        let m = CreateMutexW(None, true, w!("Local\\PokeSurvivor.unica"));
+        let m = CreateMutexW(None, true, &HSTRING::from(candado));
         if m.is_ok() && GetLastError() == ERROR_ALREADY_EXISTS {
             if let Ok(h) = FindWindowW(None, &HSTRING::from(TITULO)) {
                 let _ = ShowWindow(h, SW_RESTORE);
@@ -337,6 +351,79 @@ fn soy_la_unica() -> bool {
         }
         std::mem::forget(m); // que el mutex dure lo que la app
         true
+    }
+}
+
+// ---- Todos los recursos para el juego (21-11-2026) ---------------------------------
+/// Prioridad por encima de lo normal y fuera del ahorro de energía de Windows 11
+/// (EcoQoS, que baja la velocidad de la CPU para ese proceso y el detalle de sus
+/// temporizadores). No se pone la prioridad «alta»: le quitaría tiempo al sonido y
+/// al ratón del propio Windows, y el juego no lo necesita.
+fn a_toda_maquina(proceso: HANDLE) -> bool {
+    let estado = PROCESS_POWER_THROTTLING_STATE {
+        Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+        ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION,
+        StateMask: 0, // 0 = nunca en modo ahorro
+    };
+    unsafe {
+        let prioridad = SetPriorityClass(proceso, ABOVE_NORMAL_PRIORITY_CLASS).is_ok();
+        let ahorro = SetProcessInformation(
+            proceso,
+            ProcessPowerThrottling,
+            &estado as *const _ as *const core::ffi::c_void,
+            size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+        )
+        .is_ok();
+        prioridad && ahorro
+    }
+}
+
+/// Lo mismo para los procesos de WebView2 que hacen el trabajo: el de la página (el
+/// JavaScript del juego), el de la GPU (dibuja) y el principal. También los que nazcan
+/// después (si uno se cae, WebView2 lo vuelve a abrir).
+fn procesos_a_toda_maquina(env: &ICoreWebView2Environment) {
+    let Ok(env8) = windows::core::Interface::cast::<ICoreWebView2Environment8>(env) else { return };
+    fn aplicar(env8: &ICoreWebView2Environment8) {
+        unsafe {
+            let Ok(lista) = env8.GetProcessInfos() else { return };
+            let mut n = 0u32;
+            let _ = lista.Count(&mut n);
+            for i in 0..n {
+                let Ok(p) = lista.GetValueAtIndex(i) else { continue };
+                let (mut pid, mut tipo) = (0i32, COREWEBVIEW2_PROCESS_KIND::default());
+                if p.ProcessId(&mut pid).is_err() || p.Kind(&mut tipo).is_err() {
+                    continue;
+                }
+                if [COREWEBVIEW2_PROCESS_KIND_RENDERER, COREWEBVIEW2_PROCESS_KIND_GPU, COREWEBVIEW2_PROCESS_KIND_BROWSER].contains(&tipo) {
+                    if let Ok(h) = OpenProcess(PROCESS_SET_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION, false, pid as u32) {
+                        if !a_toda_maquina(h) {
+                            eprintln!("[recursos] no se pudo con el proceso {pid}");
+                        }
+                        // La gráfica se reparte entre los programas que la usan: el que dibuja el juego, por delante de
+                        // los que van con prioridad normal (otro navegador, otra app abierta). Medido el 22-11-2026.
+                        if tipo == COREWEBVIEW2_PROCESS_KIND_GPU
+                            && D3DKMTSetProcessSchedulingPriorityClass(h, D3DKMT_SCHEDULINGPRIORITYCLASS_ABOVE_NORMAL).is_err()
+                        {
+                            eprintln!("[recursos] sin prioridad de GPU para el proceso {pid}");
+                        }
+                        let _ = CloseHandle(h);
+                    }
+                }
+            }
+        }
+    }
+    aplicar(&env8);
+    let mut token = 0i64;
+    unsafe {
+        let _ = env8.add_ProcessInfosChanged(
+            &ProcessInfosChangedEventHandler::create(Box::new(|env, _| {
+                if let Some(e) = env.and_then(|e| windows::core::Interface::cast::<ICoreWebView2Environment8>(&e).ok()) {
+                    aplicar(&e);
+                }
+                Ok(())
+            })),
+            &mut token,
+        );
     }
 }
 
@@ -408,13 +495,9 @@ fn es_emergente_permitida(url: &str) -> bool {
             .is_some_and(|(host, resto)| host.ends_with(".firebaseapp.com") && resto.starts_with("__/auth/"))
 }
 
-fn poner_pantalla(w: &Window, si: bool) {
-    w.set_fullscreen(if si { Some(Fullscreen::Borderless(None)) } else { None });
-}
-
 fn main() {
     let o = opciones();
-    if !soy_la_unica() {
+    if !soy_la_unica(&nombre_candado(o.perfil_prueba.as_deref())) {
         return;
     }
     if !o.www.join("index.html").is_file() {
@@ -427,10 +510,9 @@ fn main() {
     let proxy: EventLoopProxy<Evento> = event_loop.create_proxy();
     let window = WindowBuilder::new()
         .with_title(TITULO)
-        .with_inner_size(LogicalSize::new(1280.0, 800.0))
-        .with_min_inner_size(LogicalSize::new(800.0, 480.0))
         .with_window_icon(Icon::from_resource(1, Some(PhysicalSize::new(256, 256))).ok())
-        .with_fullscreen(if o.pantalla_completa { Some(Fullscreen::Borderless(None)) } else { None })
+        // Siempre a pantalla completa, en la pantalla donde se abre.
+        .with_fullscreen(Some(Fullscreen::Borderless(None)))
         .build(&event_loop)
         .expect("ventana");
 
@@ -446,7 +528,7 @@ fn main() {
         "juego": juego,
         "webview2": webview2,
         "gpu": graficas(o.gpu_dedicada),
-        "ajustes": { "gpuDedicada": o.gpu_dedicada, "sinTope": o.sin_tope, "pantallaCompleta": o.pantalla_completa },
+        "ajustes": { "gpuDedicada": o.gpu_dedicada, "sinTope": o.sin_tope, "pantallaCompleta": true },
         "comprobar": toca_comprobar(&o),
     });
     let puente = include_str!("puente.js").replace("__INFO__", &info.to_string()).replace("__DISCO__", &leer_guardado(&o.base));
@@ -491,7 +573,6 @@ fn main() {
             let Ok(m) = serde_json::from_str::<Value>(req.body()) else { return };
             let ev = match m["t"].as_str() {
                 Some("guardar") => m["texto"].as_str().map(|t| Evento::Guardar(t.to_owned())),
-                Some("pantalla-completa") => Some(Evento::AlternarPantalla),
                 Some("version") => Some(Evento::Version(m)),
                 _ => None,
             };
@@ -537,31 +618,15 @@ fn main() {
         aviso(&format!("No se pudo preparar el juego: {e}"), false);
         return;
     }
-    // El botón de pantalla completa del juego (API de HTML): la ventana entera.
-    unsafe {
-        let p = proxy.clone();
-        let mut token = 0i64;
-        let _ = webview.webview().add_ContainsFullScreenElementChanged(
-            &ContainsFullScreenElementChangedEventHandler::create(Box::new(move |wv, _| {
-                if let Some(wv) = wv {
-                    let mut si = BOOL::default();
-                    wv.ContainsFullScreenElement(&mut si)?;
-                    let _ = p.send_event(Evento::PantallaHtml(si.as_bool()));
-                }
-                Ok(())
-            })),
-            &mut token,
-        );
-    }
+    a_toda_maquina(unsafe { GetCurrentProcess() });
+    procesos_a_toda_maquina(&webview.environment());
     let _ = webview.load_url(&format!("{ORIGEN}/index.html"));
 
     let base = o.base.clone();
-    let mut f11 = o.pantalla_completa;
-    let mut html = false;
     let mut cerrando = false;
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
-        let _ = &contexto; // el contexto de WebView2 vive lo que la app
+        let _ = (&contexto, &window); // el contexto de WebView2 y la ventana viven lo que la app
         match event {
             Event::NewEvents(StartCause::Init) => {}
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -584,15 +649,6 @@ fn main() {
                 }
             }
             Event::UserEvent(ev) => match ev {
-                Evento::AlternarPantalla => {
-                    f11 = !(f11 || html);
-                    html = false;
-                    poner_pantalla(&window, f11);
-                }
-                Evento::PantallaHtml(si) => {
-                    html = si;
-                    poner_pantalla(&window, f11 || html);
-                }
                 Evento::Guardar(t) => {
                     let b = base.clone();
                     std::thread::spawn(move || escribir_guardado(&b, &t));
@@ -642,6 +698,14 @@ mod pruebas {
         assert_eq!(p("/js%5c..%5c..%5csecreto.txt").0, 403);
         assert_eq!(p("/C:/Windows/win.ini").0, 403);
         assert_eq!(p("/no-existe.png").0, 404);
+    }
+
+    #[test]
+    fn candado_de_una_copia() {
+        assert_eq!(nombre_candado(None), "Local\\PokeSurvivor.unica");
+        let a = nombre_candado(Some("C:\\tmp\\a"));
+        assert!(a.starts_with("Local\\PokeSurvivor.unica.") && a != nombre_candado(Some("C:\\tmp\\b")));
+        assert_eq!(a, nombre_candado(Some("C:\\tmp\\a")));
     }
 
     #[test]

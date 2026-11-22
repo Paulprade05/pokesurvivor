@@ -1,6 +1,7 @@
-// Copia la versión web COMPILADA del juego (la de GitHub Pages) a desktop/www,
+// Copia la versión web COMPILADA del juego (la de GitHub Pages) a desktop-rust/www,
 // que es lo que la app de Windows lleva dentro. No compila nada: antes hay que
 // haber hecho `node tools/build.js` en la raíz (index.html y js/app.min.js).
+// (Antes en desktop/, la app Electron; desde la 0.9.0 sólo la usa esta app.)
 // Sólo copia archivos que estén en git, para no meter basura local.
 'use strict';
 const { execFileSync } = require('child_process');
@@ -8,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RAIZ = path.resolve(__dirname, '..');
-// Destino: desktop/www (app Electron) o el que se pase, p. ej. la carpeta de la app de Rust.
+// Destino: desktop-rust/www o el que se pase (empaquetar.cjs: dist/PokeSurvivor/www).
 const DESTINO = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, 'www');
 
 // Lo que el juego necesita para funcionar. Lo demás (herramientas, pruebas,
