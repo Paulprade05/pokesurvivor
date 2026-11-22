@@ -17,18 +17,13 @@ const CARPETA = path.join(DIST, 'PokeSurvivor');
 const ZIP = path.join(DIST, process.argv[2] || 'PokeSurvivor-Windows-Rust.zip');
 
 const version = fs.readFileSync(path.join(__dirname, 'Cargo.toml'), 'utf8').match(/^version\s*=\s*"([^"]+)"/m)[1];
-const electron = JSON.parse(fs.readFileSync(path.join(RAIZ, 'desktop', 'package.json'), 'utf8')).version;
-if (version !== electron) {
-  console.error(`desktop-rust/Cargo.toml dice ${version} y desktop/package.json ${electron}: tienen que ser iguales.`);
-  process.exit(1);
-}
 
 execFileSync('cargo', ['build', '--release', '--locked'], { cwd: __dirname, stdio: 'inherit' });
 
 fs.rmSync(CARPETA, { recursive: true, force: true });
 fs.mkdirSync(CARPETA, { recursive: true });
 fs.copyFileSync(path.join(__dirname, 'target', 'release', 'PokeSurvivor.exe'), path.join(CARPETA, 'PokeSurvivor.exe'));
-execFileSync(process.execPath, [path.join(RAIZ, 'desktop', 'copiar-web.cjs'), path.join(CARPETA, 'www')], { stdio: 'inherit' });
+execFileSync(process.execPath, [path.join(__dirname, 'copiar-web.cjs'), path.join(CARPETA, 'www')], { stdio: 'inherit' });
 
 fs.rmSync(ZIP, { force: true });
 // tar.exe de Windows 10/11 sabe hacer .zip.

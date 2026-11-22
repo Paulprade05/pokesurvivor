@@ -50,7 +50,8 @@ G.SettingsUI = (() => {
   const isOpen = () => !$('scr-settings').classList.contains('hidden');
 
   // ---------------- pantalla completa ----------------
-  function canFull() { return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled); }
+  // (escritorio-rust, 21-11-2026) La app de Windows va siempre a pantalla completa: ni botón ni interruptor.
+  function canFull() { return !G.Settings.desk && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled); }
   function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   // iPhone: Safari no deja poner una web a pantalla completa (por eso a veces
   // no salía la opción). Sí se puede abriéndola desde la pantalla de inicio.

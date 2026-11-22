@@ -126,7 +126,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/style.css?v=d79ffb7680">
+<link rel="stylesheet" href="css/style.css?v=e8c3d72def">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -689,6 +689,33 @@
   </div>
 </section>
 
+<!-- ====== Planear la build de un Pokémon (21-11-2026, js/ui/build-ui.js): encima de la Pokédex, Mejoras o la pausa.
+     «Tu plan» a la izquierda (arriba en el móvil de pie) y lo que puede llevar en pestañas a la derecha. ====== -->
+<section id="scr-build" class="scr dim modal hidden" role="dialog" aria-modal="true" aria-labelledby="bld-title">
+  <div class="box sheet-box wide tall bld-box">
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
+      <div class="grow">
+        <h2 id="bld-title">Build</h2>
+        <p class="sub">Elige qué ataques, pasivas y objetos quieres llevar.</p>
+      </div>
+      <button id="bld-clear" class="btn small ghost ic" type="button" data-ico="close" data-ico-size="18"><span>Vaciar</span></button>
+    </header>
+    <div class="sheet-body bld-body">
+      <aside class="bld-plan" id="bld-plan" aria-label="Tu plan"></aside>
+      <div class="bld-pick">
+        <div class="tabs bld-tabs" role="tablist" aria-label="Qué planear">
+          <button class="tab on" type="button" role="tab" data-k="m" aria-selected="true" aria-controls="bld-grid">Ataques</button>
+          <button class="tab" type="button" role="tab" data-k="p" aria-selected="false" aria-controls="bld-grid">Pasivas</button>
+          <button class="tab" type="button" role="tab" data-k="i" aria-selected="false" aria-controls="bld-grid">Objetos</button>
+        </div>
+        <div class="bld-tools" id="bld-tools"></div>
+        <div class="bld-grid" id="bld-grid"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ====== Perfil público de un jugador (ventana que tapa la barra) ====== -->
 <section id="scr-profile" class="scr dim modal hidden">
   <div class="box sheet-box profile-sheet">
@@ -976,6 +1003,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=68c331dc5f"></script>
+<script defer src="js/app.min.js?v=f5208451b2"></script>
 </body>
 </html>

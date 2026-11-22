@@ -598,6 +598,7 @@ G.I18n.add({
   '{x} empezará también con {x}': '{x} will also start with {x}',
   'El segundo ataque saldrá al azar': 'The second move will be random',
   'Al azar': 'Random', 'Necesita Repertorio': 'Needs Repertoire', 'Primero compra Repertorio': 'Buy Repertoire first',
+  'Cada nivel comprado sube todos sus precios un {x} % · ahora +{x} %': 'Each level bought raises all its prices by {x}% · now +{x}%',
   'Sin guardar en la nube: pulsa Guardar': 'Not saved to the cloud: press Save',
   'Sin conexión: pulsa Guardar cuando vuelva': 'Offline: press Save when you are back online',
   'Aún no tienes amigos añadidos.': 'You have not added any friends yet.',
@@ -2412,6 +2413,8 @@ G.I18n.add({
   "Buzón de novedades": "News Mailbox", "Lo nuevo del juego": "What's new in the game", "PC de ajustes": "Settings PC", "Sonido, gráficos y controles": "Sound, graphics and controls",
   "Carpa del Grupo": "Group Tent", "Podio del Ranking": "Leaderboard Podium",
   "Ir a": "Go to", "Ir a…": "Go to…", "Ir a cualquier sitio sin andar": "Go anywhere without walking", "Preparando la aldea…": "Getting the village ready…",
+  "Elige un sitio y apareces allí": "Pick a place and you're there", "Estás aquí": "You are here", "Tienda": "Shop",
+  "Prepara tu run": "Get ready for your run", "Colección y progreso": "Collection & progress", "Jugadores": "Players", "Aldea y ajustes": "Village & settings",
   "¿Un árbol? ¡Sí, soy un árbol! ...No me mires así.": "A tree? Yes, I'm a tree! ...Don't look at me like that.",
   "El portal lleva a la mazmorra. Nadie sabe quién plantó este árbol.": "The portal leads to the dungeon. Nobody knows who planted this tree.",
   "Cuando cae la noche, el portal brilla más.": "When night falls, the portal glows brighter.",
@@ -2666,7 +2669,7 @@ G.I18n.add({
   "(Vigila tu choza mientras estás fuera.)": "(It guards your hut while you're away.)"
 });
 
-// (12-11-2026) Ajustes › Acerca de › «Descargar para Windows» (windows-dl.js) y avisos de la app de PC (desktop/).
+// (12-11-2026) Ajustes › Acerca de › «Descargar para Windows» (windows-dl.js) y avisos de la app de PC (desktop-rust/).
 G.I18n.add({
   "Descargar para Windows": "Download for Windows",
   "El juego como programa de PC. Windows avisará al abrirlo porque no va firmado: pulsa «Más información» y luego «Ejecutar de todas formas».": "The game as a PC program. Windows will warn you when you open it because it isn't signed: click “More info” and then “Run anyway”.",
@@ -3074,5 +3077,21 @@ G.I18n.add({
   '¡{x} ha evolucionado a {x}!': '{x} evolved into {x}!', 'Objeto': 'Item', 'Por rareza': 'By rarity', '¡Esquiva!': 'Dodge!',
   'Llevas uno; al fusionar tus 4 movimientos se abre un segundo hueco y puedes llevar dos.': 'You hold one; fusing your 4 moves opens a second slot so you can hold two.',
   'Tras 10 minutos de partida llevándolo, evoluciona: mucho más fuerte y con una pasiva propia. Si lo cambias, su progreso se pierde.': 'After 10 minutes held in a run it evolves: much stronger and with its own passive. If you swap it, its progress is lost.',
-  'Común, raro, épico o legendario: cuanto más raro, más fuerte. Sale de los cofres y de los jefes (de los jefes y los cofres grandes, más raros).': 'Common, rare, epic or legendary: the rarer, the stronger. Found in chests and dropped by bosses (rarer from bosses and big chests).'
+  'Común, raro, épico o legendario: cuanto más raro, más fuerte. Sale de los cofres y de los jefes (de los jefes y los cofres grandes, más raros).': 'Common, rare, epic or legendary: the rarer, the stronger. Found in chests and dropped by bosses (rarer from bosses and big chests).',
+
+  // ---------------- builds planeadas (21-11-2026, systems/build.js y ui/build-ui.js) ----------------
+  'De tu build': 'In your build', 'Tu build': 'Your build', 'Build': 'Build', 'Editar': 'Edit',
+  'Planear build': 'Plan build', 'Editar build': 'Edit build', 'Build de {x}': "{x}'s build",
+  'Planea qué ataques, pasivas y objetos quieres: en las cartas y en el suelo verás su sello.': 'Plan which moves, passives and items you want: their seal will show on the cards and on the ground.',
+  'aún no': 'not yet', 'Elige qué ataques, pasivas y objetos quieres llevar.': 'Choose which moves, passives and items you want to take.',
+  'Vaciar': 'Clear', 'Tu plan': 'Your plan', 'Qué planear': 'What to plan', '¿Vaciar la build de este Pokémon?': "Clear this Pokémon's build?",
+  'Ya tienes 4 ataques: quita uno primero': 'You already have 4 moves: remove one first',
+  'Ya tienes 4 pasivas: quita una primero': 'You already have 4 passives: remove one first',
+  'Ya tienes 2 objetos: quita uno primero': 'You already have 2 items: remove one first',
+  'Evoluciona con {x}': 'Evolves with {x}', 'Quitar {x}': 'Remove {x}', 'No fusionar': "Don't fuse",
+  'Fusionar en un vínculo': 'Fuse in a bond', 'Fusionar': 'Fuse',
+  'Evoluciona {x} de tus ataques': 'Evolves {x} of your moves', 'Evoluciona 1 de tus ataques': 'Evolves 1 of your moves',
+  'Marca al menos dos ataques para fusionarlos.': 'Mark at least two moves to fuse them.',
+  'En la partida, lo que sea de tu build lleva este sello en las cartas, los objetos y la pausa. Sólo es una ayuda: no cambia lo que sale.': "In a run, whatever belongs to your build carries this seal on the cards, items and pause screen. It's only a guide: it doesn't change what shows up.",
+  'Buscar ataque': 'Search move', 'Ningún ataque con ese nombre': 'No move with that name'
 });

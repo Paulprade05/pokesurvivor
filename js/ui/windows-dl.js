@@ -2,8 +2,8 @@
  * Pedido del dueño (12-11-2026): que la versión de PC se pueda descargar desde
  * Ajustes › Acerca de. La app de Windows se reparte en GitHub Releases con nombre fijo:
  *   https://github.com/Paulprade05/pokesurvivor/releases/latest/download/PokeSurvivor-Windows-Setup.exe
- * (instalador desde el 21-11-2026, desktop-rust/instalador.iss). Si la última
- * release aún no lo trae, se enlaza el .zip de antes (PokeSurvivor-Windows.zip).
+ * (instalador desde el 21-11-2026, desktop-rust/instalador.iss). Desde la 0.9.0 la app
+ * de Windows es sólo la de Rust: ya no se enlaza el .zip de la antigua app Electron.
  * - Sólo sale en la web, en un PC con Windows. En la propia app
  *   (window.pokeEscritorio), en el móvil y en otros sistemas, no.
  * - Sólo sale si la release existe de verdad y lleva ese archivo: se pregunta a
@@ -14,7 +14,7 @@
 G.WindowsDL = (() => {
   const REPO = 'Paulprade05/pokesurvivor';
   const ARCHIVO = 'PokeSurvivor-Windows-Setup.exe';
-  const ARCHIVOS = [ARCHIVO, 'PokeSurvivor-Windows.zip'];   // por orden de preferencia
+  const ARCHIVOS = [ARCHIVO];
   const API = `https://api.github.com/repos/${REPO}/releases/latest`;
   const dl = nombre => `https://github.com/${REPO}/releases/latest/download/${nombre}`;
   const DL = dl(ARCHIVO);
@@ -64,7 +64,7 @@ G.WindowsDL = (() => {
   /** ¿Hay que preguntar a GitHub antes de poder decidirlo? */
   const unknown = () => isWindowsPC() && !info;
 
-  /** Enlace de la fila: el instalador o, si la release aún no lo trae, el .zip. */
+  /** Enlace de la fila: el instalador. */
   const url = () => (info && info.url) || DL;
 
   return { REPO, ARCHIVO, ARCHIVOS, URL: DL, url, isWindowsPC, parse, check, can, unknown, info: () => info };

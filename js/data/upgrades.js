@@ -48,9 +48,19 @@ G.Upgrades = (() => {
   const PASS_MAX = { dur: PASS_PER.dur * BY.dur.max, pspd: PASS_PER.pspd * BY.pspd.max, amt: PASS_PER.amt * BY.amt.max };
   const r2 = v => Math.round(v * 100) / 100;
 
-  function cost(id, lvl) {
+  // Recargo (21-11-2026): cada nivel comprado de este Pokémon (de cualquier mejora) sube todos sus
+  // precios un poco, en línea: la última compra posible cuesta un 75 % más que con 0 compradas.
+  // Las partidas que ya tienen niveles pagan según lo que ya llevan (no se devuelve nada).
+  const TOTAL = LIST.reduce((a, u) => a + u.max, 0);
+  const SURCHARGE = 0.75, STEP = SURCHARGE / (TOTAL - 1);
+  /** Niveles comprados en total (cada uno hasta su máximo). */
+  const bought = (levels = {}) => LIST.reduce((a, u) => a + Math.max(0, Math.min(u.max, Math.floor(+levels[u.id] || 0))), 0);
+  const mult = n => 1 + STEP * Math.max(0, Math.min(TOTAL - 1, n));
+
+  /** Precio del nivel lvl → lvl+1 de la mejora id con n niveles ya comprados (de todas). */
+  function cost(id, lvl, n = 0) {
     const u = BY[id];
-    return Math.round(u.base * Math.pow(u.grow, lvl) / 10) * 10;
+    return Math.round(u.base * Math.pow(u.grow, lvl) * mult(n) / 10) * 10;
   }
 
   /** Niveles comprados -> modificadores para G.Player. */
@@ -78,5 +88,5 @@ G.Upgrades = (() => {
     };
   }
 
-  return { LIST, BY, GROUPS, PASS_PER, PASS_MAX, cost, perks };
+  return { LIST, BY, GROUPS, PASS_PER, PASS_MAX, TOTAL, SURCHARGE, STEP, bought, mult, cost, perks };
 })();

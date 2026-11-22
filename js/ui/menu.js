@@ -580,7 +580,7 @@ G.MenuUI = (() => {
             <button type="button" class="${viewShiny ? 'on' : ''}" data-v="1">${G.Icons.html('shiny', 16)} Shiny</button></div>` : ''}
         ${own ? `<div class="dx-foot">${usingThis
           ? `<div class="dx-partner">${G.Icons.html('crown', 30)}<span>Es tu compañero</span></div>`
-          : `<button id="dex-pick" class="btn gold block" type="button" data-sfx="confirm">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}</div>` : ''}
+          : `<button id="dex-pick" class="btn gold block" type="button" data-sfx="confirm">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}${buildBtn('dex-build', dex)}</div>` : ''}
       </div>`;
 
     let body;
@@ -608,9 +608,20 @@ G.MenuUI = (() => {
     wireDetail(dex, box, hasSh);
   }
 
+  /**
+   * «Planear build» (21-11-2026, ui/build-ui.js): en la ficha de la Pokédex y en Mejoras. Con build, cuántas cosas lleva.
+   */
+  function buildBtn(id, dex) {
+    const n = G.Build.count(G.Build.get(dex));
+    return `<button id="${id}" class="btn ghost block ic bld-open" type="button">${G.Icons.html('build', 20)}<span>${n ? 'Editar build' : 'Planear build'}</span>`
+      + (n ? `<small class="bld-n">${n}</small>` : '') + '</button>';
+  }
+
   /** Lo que hacen los botones de la ficha. */
   function wireDetail(dex, box, hasSh) {
     const s = G.DB.save, p = G.DEX_BY[dex];
+    const bb = $('dex-build');
+    if (bb) bb.onclick = () => G.BuildUI.open(dex, { host: 'scr-dex', onClose: () => { if (G.UI.isOpen('scr-dex')) { showDetail.last = null; showDetail(dex); } } });
     box.querySelectorAll('.dx-seg button').forEach(b => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
@@ -922,7 +933,8 @@ G.MenuUI = (() => {
       <div class="upg-mode"><span class="eyebrow" id="upg-mode-lbl">Comprar</span>
         <div class="seg" role="group" aria-labelledby="upg-mode-lbl">
           <button type="button" data-n="1" title="Un nivel cada vez">×1</button><button type="button" data-n="0" title="Todos los niveles que puedes pagar">Máx.</button></div></div>
-      <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm">Elegir de compañero</button>`);
+      <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm">Elegir de compañero</button>
+      <div id="upg-build-box"></div>`);
     who.parentNode.insertAdjacentHTML('beforeend', '<div class="upg-quick hidden" id="upg-quick"><span class="eyebrow">Tus Pokémon</span><div class="upg-qgrid" id="upg-qgrid"></div></div>');
     who.querySelectorAll('.upg-mode button').forEach(b => {
       b.onclick = () => { const n = +b.dataset.n; if (n === upgMode) return; upgMode = n; G.Audio.sfx('select'); renderUpgrades(); };
@@ -1020,6 +1032,8 @@ G.MenuUI = (() => {
     $('upg-name').textContent = mon.name;
     $('upg-tag').textContent = isPartner ? 'Compañero' : '';
     $('upg-partner').classList.toggle('hidden', isPartner);
+    $('upg-build-box').innerHTML = buildBtn('upg-build', upgDex).replace('btn ghost block', 'btn small ghost block');
+    $('upg-build').onclick = () => G.BuildUI.open(upgDex, { host: 'scr-upgrades', onClose: () => { if (G.UI.isOpen('scr-upgrades')) renderUpgrades(); } });
     document.querySelectorAll('#scr-upgrades .upg-mode button').forEach(b => {
       const on = +b.dataset.n === upgMode;
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
@@ -1033,8 +1047,11 @@ G.MenuUI = (() => {
     // Debajo del selector: sus tipos y cuántos niveles lleva de todos los que hay.
     const done = G.Upgrades.LIST.reduce((a, u) => a + Math.min(u.max, levels[u.id] || 0), 0);
     const all = G.Upgrades.LIST.reduce((a, u) => a + u.max, 0);
+    // Y el recargo: cada nivel comprado sube un poco todos sus precios (G.Upgrades.cost).
+    const pct = v => (v * 100).toLocaleString(G.I18n.locale, { maximumFractionDigits: 1 });
+    const tax = done < all ? `<small class="upg-tax">${G.I18n.f('Cada nivel comprado sube todos sus precios un {x} % · ahora +{x} %', pct(G.Upgrades.STEP), pct(G.Upgrades.mult(done) - 1))}</small>` : '';
     $('upg-sum').innerHTML = `<span class="upg-types">${G.UI.typeChips(mon.types)}</span>
-      <span class="upg-prog"><span class="meter green"><i style="width:${(done / all * 100).toFixed(1)}%"></i></span><b>${done}<small>/${all}</small></b></span>`;
+      <span class="upg-prog"><span class="meter green"><i style="width:${(done / all * 100).toFixed(1)}%"></i></span><b>${done}<small>/${all}</small></b></span>${tax}`;
 
     // La lista, por apartados (sin perder por dónde ibas: se rehace entera al comprar).
     const body = st.closest('.upg-body'), top = body ? body.scrollTop : 0;
@@ -1066,7 +1083,7 @@ G.MenuUI = (() => {
   /** Una fila de Mejoras: icono · nombre, nivel, efecto y segmentos · el botón de comprar. */
   function upgRow(u, levels, mon) {
     const s = G.DB.save, lvl = levels[u.id] || 0, maxed = lvl >= u.max;
-    const cost = maxed ? 0 : G.Upgrades.cost(u.id, lvl);
+    const cost = maxed ? 0 : G.Upgrades.cost(u.id, lvl, G.Upgrades.bought(levels));
     // Mejoras que necesitan otra (Segundo movimiento inicial → Repertorio).
     const locked = !maxed && u.needs && !levels[u.needs];
     const pick2 = u.id === 'start2' && lvl > 0 ? G.startMove2Of(upgDex) : null;
@@ -1088,7 +1105,7 @@ G.MenuUI = (() => {
     let act;
     if (maxed) act = `<span class="badge gold upg-maxed">${G.UI.svg('check', 14)}<span>Máx.</span></span>`;
     else {
-      const [many, total] = upgMode === 0 && !locked ? maxBuy(u, lvl, s.coins) : [0, 0];
+      const [many, total] = upgMode === 0 && !locked ? maxBuy(u, levels, s.coins) : [0, 0];
       const k = many > 1 ? many : 1, price = many > 1 ? total : cost;
       act = `<button class="btn small gold ic upg-buy${many > 1 ? ' many' : ''}" type="button" data-buy data-sfx="none" ${locked || s.coins < cost ? 'disabled' : ''}${locked ? ` title="${G.T('Primero compra Repertorio')}"` : ''}>`
         + (upgMode === 0 ? `<b class="upg-k">+${k}</b>` : '') + `${G.Icons.html('coin', 30)}<span>${nf(price)}</span></button>`;
@@ -1115,7 +1132,7 @@ G.MenuUI = (() => {
     if (q('[data-start2]')) q('[data-start2]').onclick = () => { start2Open = !start2Open; renderUpgrades(); };
     // Comprar: se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).
     if (q('[data-buy]')) q('[data-buy]').onclick = () => {
-      const [k] = upgMode === 0 ? maxBuy(u, G.DB.upgradesOf(upgDex)[u.id] || 0, G.DB.save.coins) : [1];
+      const [k] = upgMode === 0 ? maxBuy(u, G.DB.upgradesOf(upgDex), G.DB.save.coins) : [1];
       let got = 0;
       for (let i = 0; i < Math.max(1, k); i++) { const lv = buyLevel(u); if (!lv) break; got = lv; }
       if (got) bought(mon, u, got); else { G.Audio.sfx('error'); renderUpgrades(); }
@@ -1230,7 +1247,7 @@ G.MenuUI = (() => {
     // Se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).
     const sv = G.DB.save, lv = G.DB.upgradesOf(upgDex), now = lv[u.id] || 0;
     if (now >= u.max || (u.needs && !lv[u.needs])) return 0;
-    const price = G.Upgrades.cost(u.id, now);
+    const price = G.Upgrades.cost(u.id, now, G.Upgrades.bought(lv));
     if (sv.coins < price) return 0;
     sv.coins -= price;
     lv[u.id] = now + 1;
@@ -1247,11 +1264,12 @@ G.MenuUI = (() => {
     renderUpgrades();
   }
 
-  /** Cuántos niveles seguidos de u se pueden pagar desde el nivel lvl → [niveles, coste total]. */
-  function maxBuy(u, lvl, coins) {
+  /** Cuántos niveles seguidos de u se pueden pagar con estas mejoras (levels) → [niveles, coste total]. */
+  function maxBuy(u, levels, coins) {
+    const lvl = levels[u.id] || 0, n = G.Upgrades.bought(levels);
     let k = 0, total = 0;
     while (lvl + k < u.max) {
-      const c = G.Upgrades.cost(u.id, lvl + k);
+      const c = G.Upgrades.cost(u.id, lvl + k, n + k);   // cada nivel de la tanda ya sube el siguiente
       if (total + c > coins) break;
       total += c; k++;
     }

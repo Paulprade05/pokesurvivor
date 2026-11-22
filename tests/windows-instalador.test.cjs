@@ -47,12 +47,12 @@ test('español e inglés, accesos directos con casillas y abrir al acabar', () =
 
 test('desinstalador con icono, compresión fuerte y juego cerrado antes de tocar archivos', () => {
   linea(/^UninstallDisplayIcon=\{app\}\\PokeSurvivor\.exe$/m);
-  linea(/^SetupIconFile=\.\.\\desktop\\icono\.ico$/m);
+  linea(/^SetupIconFile=icono\.ico$/m);
   linea(/^Compression=lzma2\/ultra64$/m);
   linea(/^SolidCompression=yes$/m);
   linea(/^CloseApplications=yes$/m);
   // El mismo mutex que crea la app al abrir (una sola copia).
-  assert.match(source('desktop-rust/src/main.rs'), /w!\("Local\\\\PokeSurvivor\.unica"\)/);
+  assert.match(source('desktop-rust/src/main.rs'), /None => "Local\\\\PokeSurvivor\.unica"\.to_owned\(\)/);
   linea(/^AppMutex=Local\\PokeSurvivor\.unica$/m);
 });
 
@@ -68,8 +68,8 @@ test('la partida nunca se borra: sólo se toca la carpeta del programa', () => {
   assert.match(rs, /WebContext::new\(Some\(o\.base\.join\("WebView2"\)\)\)/);
 });
 
-test('las apps avisan con el instalador primero y el .zip de reserva', () => {
+test('la app avisa con el instalador primero y el .zip de Rust de reserva', () => {
   const rs = source('desktop-rust/src/main.rs');
   assert.match(rs, /const INSTALADOR: &str = "PokeSurvivor-Windows-Setup\.exe";/);
-  assert.match(rs, /const ARCHIVOS: \[&str; 3\] = \[INSTALADOR, "PokeSurvivor-Windows-Rust\.zip", "PokeSurvivor-Windows\.zip"\];/);
+  assert.match(rs, /const ARCHIVOS: \[&str; 2\] = \[INSTALADOR, "PokeSurvivor-Windows-Rust\.zip"\];/);
 });

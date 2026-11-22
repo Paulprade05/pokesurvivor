@@ -22,6 +22,6 @@ docs/CONTACTOS_CREADORES.md
 # Caché local de wrangler (Cloudflare)
 .wrangler/
 
-# App de Windows (desktop/): copia del juego y paquetes generados
-desktop/www/
-desktop/dist/
+# App de Windows (desktop-rust/): copia del juego y paquetes generados
+# (desktop/, la antigua app Electron, se quitó en la 0.9.0)
+desktop-rust/www/

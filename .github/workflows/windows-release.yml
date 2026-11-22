@@ -1,18 +1,15 @@
-# Versión para Windows: compila las dos apps de Windows y las sube a una
-# release de GitHub.
+# Versión para Windows: compila la app de Windows (Rust, wry/tao sobre WebView2;
+# desde la 0.9.0 es la única: la de Electron se quitó) y la sube a una release
+# de GitHub.
 #   - PokeSurvivor-Windows-Setup.exe: instalador (Inno Setup 6,
-#     desktop-rust/instalador.iss) con la app en Rust (wry/tao sobre WebView2).
-#     Es la descarga principal desde la 0.7.0: la buscan js/ui/windows-dl.js
-#     (Ajustes › Acerca de) y el aviso de versión nueva de las dos apps.
-#   - Los .zip portátiles de siempre (Rust ~110 MB, Electron ~255 MB), de
-#     respaldo y para las apps 0.6.0 y anteriores, que sólo buscan .zip.
-#     PRINCIPAL dice cuál va con el nombre fijo PokeSurvivor-Windows.zip; la otra
-#     va como PokeSurvivor-Windows-Rust.zip o PokeSurvivor-Windows-Electron.zip.
+#     desktop-rust/instalador.iss). Es la descarga principal: la buscan
+#     js/ui/windows-dl.js (Ajustes › Acerca de) y el aviso de versión nueva de la app.
+#   - PokeSurvivor-Windows-Rust.zip: la misma app sin instalar (portátil).
 #
 # Se lanza al empujar una etiqueta win-vX.Y.Z (X.Y.Z = "version" de
-# desktop/package.json y de desktop-rust/Cargo.toml) o a mano desde la pestaña
-# Actions con esa etiqueta. Usa la versión web YA COMPILADA que hay en el commit
-# (index.html, js/app.min.js...): no compila el juego ni publica la web.
+# desktop-rust/Cargo.toml) o a mano desde la pestaña Actions con esa etiqueta.
+# Usa la versión web YA COMPILADA que hay en el commit (index.html,
+# js/app.min.js...): no compila el juego ni publica la web.
 # Gratis: runner de GitHub (con Rust y C++ de Visual Studio ya instalados) y el
 # token del propio workflow, sin secretos nuevos.
 name: Versión para Windows
@@ -23,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       etiqueta:
-        description: 'Etiqueta de la release (win-vX.Y.Z, igual que desktop/package.json y desktop-rust/Cargo.toml)'
+        description: 'Etiqueta de la release (win-vX.Y.Z, igual que desktop-rust/Cargo.toml)'
         required: true
 
 permissions:
@@ -42,9 +39,7 @@ jobs:
         shell: bash
     env:
       ETIQUETA: ${{ inputs.etiqueta || github.ref_name }}
-      # electron | rust: la que se publica como PokeSurvivor-Windows.zip (el
-      # instalador lleva siempre la de Rust).
-      PRINCIPAL: electron
+      ZIP_RUST: PokeSurvivor-Windows-Rust.zip
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -52,32 +47,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
 
-      - name: Comprobar etiqueta y versión de las apps
+      - name: Comprobar etiqueta y versión de la app
         run: |
           set -euo pipefail
           if ! [[ "$ETIQUETA" =~ ^win-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::La etiqueta tiene que ser win-vX.Y.Z (es '$ETIQUETA')"; exit 1
           fi
           VERSION="${ETIQUETA#win-v}"
-          APP="$(node -p "require('./desktop/package.json').version")"
           RUST="$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' desktop-rust/Cargo.toml | head -1)"
-          if [ "$VERSION" != "$APP" ] || [ "$VERSION" != "$RUST" ]; then
-            echo "::error::La etiqueta es $VERSION pero desktop/package.json dice $APP y desktop-rust/Cargo.toml $RUST: súbelas antes."; exit 1
-          fi
-          if [ "$PRINCIPAL" = rust ]; then
-            echo "ZIP_RUST=PokeSurvivor-Windows.zip" >> "$GITHUB_ENV"
-            echo "ZIP_ELECTRON=PokeSurvivor-Windows-Electron.zip" >> "$GITHUB_ENV"
-          else
-            echo "ZIP_RUST=PokeSurvivor-Windows-Rust.zip" >> "$GITHUB_ENV"
-            echo "ZIP_ELECTRON=PokeSurvivor-Windows.zip" >> "$GITHUB_ENV"
+          if [ "$VERSION" != "$RUST" ]; then
+            echo "::error::La etiqueta es $VERSION pero desktop-rust/Cargo.toml dice $RUST: súbela antes."; exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "HUELLA=$(node -p "require('./version.json').v")" >> "$GITHUB_ENV"
 
-      # ---- App en Rust ----
       - name: Preparar Rust
         run: |
           rustup toolchain install stable --profile minimal --no-self-update
@@ -92,15 +76,14 @@ jobs:
             desktop-rust/target
           key: rust-${{ runner.os }}-${{ hashFiles('desktop-rust/Cargo.lock') }}
 
-      - name: Probar la app de Rust
+      - name: Probar la app
         working-directory: desktop-rust
         run: cargo test --locked --release
 
-      - name: Compilar y empaquetar la app de Rust
+      - name: Compilar y empaquetar la app
         working-directory: desktop-rust
         run: node empaquetar.cjs "$ZIP_RUST"
 
-      # ---- Instalador (app de Rust) ----
       # Inno Setup 6 viene en las imágenes windows-latest de GitHub; si faltara,
       # se instala con Chocolatey (paquete innosetup, que baja de jrsoftware.org).
       - name: Crear el instalador
@@ -114,29 +97,13 @@ jobs:
           if [ -f "$ISCC_DIR/ISCC.exe" ]; then export PATH="$ISCC_DIR:$PATH"; fi
           node instalador.cjs
 
-      # ---- App Electron (respaldo) ----
-      - name: Instalar Electron y el empaquetador
-        working-directory: desktop
-        env:
-          # @electron/packager baja su propio Electron; el de npm no hace falta.
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: npm ci
-
-      - name: Copiar la web compilada y empaquetar Electron
-        working-directory: desktop
-        run: |
-          npm run empaquetar
-          if [ "$ZIP_ELECTRON" != PokeSurvivor-Windows.zip ]; then mv dist/PokeSurvivor-Windows.zip "dist/$ZIP_ELECTRON"; fi
-
       - name: Comprobar los paquetes
         run: |
           set -euo pipefail
           test -f desktop-rust/dist/PokeSurvivor/PokeSurvivor.exe
           test -f desktop-rust/dist/PokeSurvivor/www/index.html
-          test -f desktop/dist/PokeSurvivor/PokeSurvivor.exe
-          test -f desktop/dist/PokeSurvivor/resources/app.asar
           test -f desktop-rust/dist/PokeSurvivor-Windows-Setup.exe
-          ls -l desktop-rust/dist/PokeSurvivor-Windows-Setup.exe "desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON"
+          ls -l desktop-rust/dist/PokeSurvivor-Windows-Setup.exe "desktop-rust/dist/$ZIP_RUST"
 
       - name: Notas de la release
         run: |
@@ -148,7 +115,7 @@ jobs:
           2. Windows avisará porque el instalador no va firmado (la firma cuesta dinero y este juego es gratis): en «Windows protegió su PC» pulsa **«Más información»** y luego **«Ejecutar de todas formas»**.
           3. El asistente te deja elegir la carpeta (por defecto la tuya, sin pedir administrador, o para todos los usuarios), los accesos directos del Escritorio y del menú Inicio, y abrir el juego al acabar.
 
-          Para **actualizar**, abre el instalador nuevo: se pone encima de la versión anterior. Para **desinstalar**: Configuración › Aplicaciones › Aplicaciones instaladas › PokéSurvivor. Tu partida (\`%APPDATA%\PokeSurvivor\`) no se borra nunca.
+          El juego se abre siempre a pantalla completa. Para **actualizar**, abre el instalador nuevo: se pone encima de la versión anterior. Para **desinstalar**: Configuración › Aplicaciones › Aplicaciones instaladas › PokéSurvivor. Tu partida (\`%APPDATA%\PokeSurvivor\`) no se borra nunca.
           Hace falta Windows 10 u 11 de 64 bits con WebView2 (Windows 11 ya lo trae).
 
           ### English
@@ -156,11 +123,11 @@ jobs:
           2. Windows will warn you because the installer isn't signed (signing costs money and this game is free): in “Windows protected your PC” click **“More info”** and then **“Run anyway”**.
           3. The wizard lets you pick the folder (your user folder by default, no admin needed, or for all users), Desktop and Start menu shortcuts, and opening the game when it finishes.
 
-          To **update**, open the new installer: it installs over the previous version. To **uninstall**: Settings › Apps › Installed apps › PokéSurvivor. Your save (\`%APPDATA%\PokeSurvivor\`) is never deleted.
+          The game always opens full screen. To **update**, open the new installer: it installs over the previous version. To **uninstall**: Settings › Apps › Installed apps › PokéSurvivor. Your save (\`%APPDATA%\PokeSurvivor\`) is never deleted.
           Requires 64-bit Windows 10 or 11 with WebView2 (Windows 11 already has it).
 
           ### Portátil / Portable
-          **$ZIP_RUST** y **$ZIP_ELECTRON**: sin instalar, descomprime y abre \`PokeSurvivor/PokeSurvivor.exe\`; la de Electron es de respaldo por si la otra te da problemas. / No install: unzip and open \`PokeSurvivor/PokeSurvivor.exe\`; the Electron one is a fallback in case the other gives you trouble.
+          **$ZIP_RUST**: sin instalar, descomprime y abre \`PokeSurvivor/PokeSurvivor.exe\`. / No install: unzip and open \`PokeSurvivor/PokeSurvivor.exe\`.
 
           Proyecto de fan sin ánimo de lucro / Non-profit fan project. Pokémon © Nintendo/Creatures/GAME FREAK.
           EOF
@@ -169,7 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           TITULO="PokéSurvivor para Windows $VERSION"
-          ARCHIVOS=("desktop-rust/dist/PokeSurvivor-Windows-Setup.exe" "desktop-rust/dist/$ZIP_RUST" "desktop/dist/$ZIP_ELECTRON")
+          ARCHIVOS=("desktop-rust/dist/PokeSurvivor-Windows-Setup.exe" "desktop-rust/dist/$ZIP_RUST")
           if gh release view "$ETIQUETA" >/dev/null 2>&1; then
             gh release upload "$ETIQUETA" "${ARCHIVOS[@]}" --clobber
             gh release edit "$ETIQUETA" --title "$TITULO" --notes-file notas.md --draft=false --prerelease=false --latest

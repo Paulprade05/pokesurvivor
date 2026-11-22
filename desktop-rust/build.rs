@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn main() {
     println!("cargo:rerun-if-changed=pokesurvivor.rc");
     println!("cargo:rerun-if-changed=pokesurvivor.manifest");
-    println!("cargo:rerun-if-changed=../desktop/icono.ico");
+    println!("cargo:rerun-if-changed=icono.ico");
     let dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
@@ -18,7 +18,7 @@ fn main() {
         .unwrap()
         .replace("PS_VER_NUM", &num)
         .replace("PS_VER_STR", &format!("\"{version}\""))
-        .replace("\"../desktop/icono.ico\"", &format!("\"{}\"", ruta("../desktop/icono.ico")))
+        .replace("\"icono.ico\"", &format!("\"{}\"", ruta("icono.ico")))
         .replace("\"pokesurvivor.manifest\"", &format!("\"{}\"", ruta("pokesurvivor.manifest")));
     let f = out.join("pokesurvivor.rc");
     std::fs::write(&f, rc).unwrap();

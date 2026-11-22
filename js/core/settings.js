@@ -45,7 +45,8 @@
  *                                                 del Canvas 2D; se aplica al recargar (también ?gl=1 / ?gl=0). (fps-60, 21-11-2026) null (de
  *                                                 serie): encendido en PC y en la app de Windows, apagado en táctil (iPhone, Android)
  *   fpsCap      60 | 30 | 0                       tope de fotogramas por segundo (game.js loop, 13-11-2026): 60 de serie, para que
- *                                                 las pantallas de 120 Hz o más no calienten el doble; 0 = sin tope
+ *                                                 las pantallas de 120 Hz o más no calienten el doble; 0 = sin tope (de serie en la
+ *                                                 app de Windows desde el 21-11-2026: va al ritmo de la pantalla)
  *   pixSmooth   true/false                        «Pokémon más nítidos»: los sprites con un escalador de pixel art
  *                                                 (core/pixfilter.js; en la aldea, en su shader). null (de serie):
  *                                                 encendido sólo con la calidad Máxima (lo eligió el dueño, 13-11-2026)
@@ -55,7 +56,7 @@
  */
 G.Settings = (() => {
   const KEY = 'ps.settings';
-  // La app de Windows (Electron, desktop/preload.cjs) se presenta con window.pokeEscritorio.
+  // La app de Windows (desktop-rust/, src/puente.js) se presenta con window.pokeEscritorio.
   const DESK = typeof window !== 'undefined' && !!window.pokeEscritorio && window.pokeEscritorio.esEscritorio !== false;
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, stickMode: 'fixed', stickV: 2, pad: null, gamepad: true, padRumble: true, aimManual: false,
     hpUnder: true, hudScale: 1, lowHpWarn: true, eco: false, ownFx: 1, hazardHi: false, keys: null, padMap: null,
@@ -72,8 +73,12 @@ G.Settings = (() => {
     // (fps-60, 21-11-2026) El motor WebGL2 pasa a «de serie según el aparato» (null). Hasta hoy se guardaba false con los demás
     //  ajustes aunque nadie lo eligiera (estaba apagado de serie): ese false pasa a automático una vez; quien lo encendió (true), sigue.
     if (!old.glV) { old.glV = 1; if (old.glDraw === false) old.glDraw = null; }
+    // (escritorio-rust, 21-11-2026) En la app de Windows, sin tope de FPS (va al ritmo de la pantalla: 60, 120, 144 Hz...),
+    //  una vez: el 60 de serie que se guardaba con los demás ajustes pasa a 0. Después manda lo que elijas en Ajustes.
+    const capFirst = DESK && !old.capDesk;
+    if (capFirst) { old.capDesk = 1; if (old.fpsCap == null || +old.fpsCap === 60) old.fpsCap = 0; }
     Object.assign(s, old);
-    if (first) localStorage.setItem(KEY, JSON.stringify(s));
+    if (first || capFirst) localStorage.setItem(KEY, JSON.stringify(s));
   } catch (e) { /* nada */ }
   const fns = new Set();
 

@@ -1,11 +1,11 @@
 // Mide el juego con tools/perf.cjs (mismas escenas, semilla fija) en cada
-// contenedor de Windows, todos con ventana de 1280×800 y la GPU de verdad:
-//   rust      la app de Rust (dist/PokeSurvivor/PokeSurvivor.exe, WebView2)
-//   electron  la app Electron (../desktop/dist/PokeSurvivor/PokeSurvivor.exe)
-//   edge      Microsoft Edge (el mismo motor que WebView2)
-//   chrome    Google Chrome
+// contenedor de Windows, con la GPU de verdad y el motor de dibujo que elige el juego solo:
+//   rust      la app de Rust (dist/PokeSurvivor/PokeSurvivor.exe, WebView2, siempre a pantalla completa)
+//   edge      Microsoft Edge (el mismo motor que WebView2), a pantalla completa
+//   chrome    Google Chrome, a pantalla completa
 //
-//   node medir-perf.cjs [rust electron edge chrome] [--calidad max] [--seg 5] [--escenas aldea,horda] [--sin-tope]
+//   node medir-perf.cjs [rust edge chrome] [--calidad max] [--seg 5] [--escenas aldea,horda] [--sin-tope]
+// playwright-core: PLAYWRIGHT_CORE=<carpeta node_modules> (npm i --prefix <tmp>/pw playwright-core).
 //
 // Cada contenedor se abre con depuración remota en 127.0.0.1, perf.cjs se
 // conecta (--cdp) y mide en su pestaña; luego se cierra. Resultado en
@@ -23,7 +23,8 @@ const CALIDAD = opt('calidad', 'max');
 const SEG = opt('seg', '5');
 const ESCENAS = opt('escenas', 'aldea,tranquila,jefe,horda,grieta,arena');
 const SIN_TOPE = args.includes('--sin-tope') ? (args.splice(args.indexOf('--sin-tope'), 1), true) : false;
-const OBJETIVOS = args.length ? args : ['rust', 'electron', 'edge', 'chrome'];
+const OBJETIVOS = args.length ? args : ['rust', 'edge', 'chrome'];
+const PW = process.env.PLAYWRIGHT_CORE || '';
 const SALIDA = path.join(__dirname, 'dist', SIN_TOPE ? 'perf-sin-tope' : 'perf');
 const espera = ms => new Promise(r => setTimeout(r, ms));
 const navegador = n => [
@@ -37,14 +38,10 @@ function lanzar(nombre, puerto, perfil) {
     return spawn(path.join(__dirname, 'dist', 'PokeSurvivor', 'PokeSurvivor.exe'),
       ['--perfil=' + perfil, '--sin-avisos', '--depuracion=' + puerto, ...(SIN_TOPE ? ['--sin-tope'] : [])], { stdio: 'ignore' });
   }
-  if (nombre === 'electron') {
-    return spawn(path.join(RAIZ, 'desktop', 'dist', 'PokeSurvivor', 'PokeSurvivor.exe'),
-      ['--perfil=' + perfil, '--sin-avisos', '--remote-debugging-port=' + puerto, ...(SIN_TOPE ? ['--sin-tope'] : [])], { stdio: 'ignore' });
-  }
   const exe = navegador(nombre === 'edge' ? 'msedge' : 'chrome');
   if (!exe) throw new Error('No encuentro ' + nombre);
   return spawn(exe, ['--remote-debugging-port=' + puerto, '--user-data-dir=' + perfil, '--no-first-run', '--no-default-browser-check',
-    '--window-size=1280,800', '--mute-audio', ...tope, 'about:blank'], { stdio: 'ignore' });
+    '--start-fullscreen', '--mute-audio', ...tope, 'about:blank'], { stdio: 'ignore' });
 }
 
 (async () => {
@@ -58,12 +55,12 @@ function lanzar(nombre, puerto, perfil) {
       await espera(250);
       listo = await fetch(`http://127.0.0.1:${puerto}/json/version`).then(r => r.ok).catch(() => false);
     }
-    await espera(n === 'rust' || n === 'electron' ? 4000 : 500);    // que la app termine de abrir su página
+    await espera(n === 'rust' ? 4000 : 500);    // que la app termine de abrir su página
     console.log(`== ${n} (puerto ${puerto}) ==`);
     try {
       if (!listo) throw new Error('sin depuración remota');
       execFileSync(process.execPath, [path.join(RAIZ, 'tools', 'perf.cjs'), '--cdp', `http://127.0.0.1:${puerto}`, '--nav', n,
-        '--calidad', CALIDAD, '--seg', SEG, '--escenas', ESCENAS, '--out', SALIDA, '--pw', path.join(RAIZ, 'desktop', 'node_modules'),
+        '--calidad', CALIDAD, '--seg', SEG, '--escenas', ESCENAS, '--out', SALIDA, '--gl-auto', ...(PW ? ['--pw', PW] : []),
         ...(SIN_TOPE ? ['--sin-tope'] : [])], { stdio: 'inherit', cwd: RAIZ });
     } catch (e) { console.log(`${n}: FALLO ${e.message}`); }
     try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) { /* ya cerrada */ }
