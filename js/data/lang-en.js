@@ -598,6 +598,7 @@ G.I18n.add({
   '{x} empezará también con {x}': '{x} will also start with {x}',
   'El segundo ataque saldrá al azar': 'The second move will be random',
   'Al azar': 'Random', 'Necesita Repertorio': 'Needs Repertoire', 'Primero compra Repertorio': 'Buy Repertoire first',
+  'Cada nivel comprado sube todos sus precios un {x} % · ahora +{x} %': 'Each level bought raises all its prices by {x}% · now +{x}%',
   'Sin guardar en la nube: pulsa Guardar': 'Not saved to the cloud: press Save',
   'Sin conexión: pulsa Guardar cuando vuelva': 'Offline: press Save when you are back online',
   'Aún no tienes amigos añadidos.': 'You have not added any friends yet.',
