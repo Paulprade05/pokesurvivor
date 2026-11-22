@@ -2,7 +2,7 @@
 name = "pokesurvivor"
 # El aviso de versión nueva compara este número con la etiqueta win-vX.Y.Z de
 # la release (el workflow comprueba que coinciden).
-version = "0.9.0"
+version = "0.10.0"
 edition = "2024"
 publish = false
 description = "PokéSurvivor para Windows: host nativo en Rust (wry/tao sobre WebView2)"
