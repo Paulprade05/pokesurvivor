@@ -13,7 +13,7 @@
  *   - teclado: Intro, Espacio, F4 o Alt+flechas abren; flechas, Inicio, Fin, Re Pág /
  *     Av Pág y la primera letra mueven; Intro o Espacio eligen; Esc o Tab cierran.
  *     Cerrado, las flechas cambian de opción directamente (como el de Windows);
- *   - mando: gamepad.js sigue pasando a la siguiente opción con A.
+ *   - mando: A abre esta misma lista; cruceta o stick mueven, LT / RT saltan, A elige y B cierra (padOpen...).
  * Con giro, getBoundingClientRect() e innerWidth / innerHeight ya hablan en píxeles de
  * la vista (rotate.js) y position: fixed dentro del <body> girado va en esos mismos.
  *
@@ -285,5 +285,12 @@ G.Dropdown = (() => {
     if (pop && e.target === sel && e.relatedTarget && !inPop(e.relatedTarget)) close(false);
   });
 
-  return { close, get open() { return !!pop; } };
+  // ---------------- mando (mando-menus, 22-11-2026; gamepad.js) ----------------
+  // A abre la lista con la opción actual resaltada; cruceta / stick la mueven (LT / RT de 8 en 8), A elige, B cierra.
+  return {
+    close, get open() { return !!pop; },
+    padOpen(s) { const t = selectOf(s); if (t) open(t, true); },
+    padMove(d) { if (pop && opts.length) highlight(act < 0 ? 0 : step(act, d), false); },
+    padPick() { if (!pop) return; if (act >= 0) pick(act, false); else close(false); }
+  };
 })();

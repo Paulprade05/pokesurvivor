@@ -43,7 +43,11 @@ test('de serie: cada acción con sus botones y sin repetir botón entre las que 
   const { P } = boot();
   const m = P.map();
   assert.deepEqual([...m.prev], [4, 6]); assert.deepEqual([...m.next], [5, 7]);
-  assert.deepEqual([...m.open], [0]); assert.deepEqual([...m.zmove], [2]); assert.deepEqual([...m.pause], [9, 8]);
+  assert.deepEqual([...m.open], [0]); assert.deepEqual([...m.zmove], [2]); assert.deepEqual([...m.pause], [9]);
+  // (mando-menus) Back abre «Ir a…» en la aldea; en los menús, LB / RB pestañas y LT / RT páginas.
+  assert.deepEqual([...m.goto], [8]);
+  assert.deepEqual([...m.tabPrev], [4]); assert.deepEqual([...m.tabNext], [5]);
+  assert.deepEqual([...m.pageUp], [6]); assert.deepEqual([...m.pageDown], [7]);
   assert.deepEqual([...m.run], [1]); assert.deepEqual([...m.m1], []);
   assert.deepEqual([...m.ok], [0]); assert.deepEqual([...m.back], [1, 8]); assert.deepEqual([...m.reroll], [3]); assert.deepEqual([...m.discard], [2]);
   for (const ctx of ['game', 'ui']) {
@@ -217,4 +221,80 @@ test('los textos nuevos del mando tienen su inglés', () => {
   for (const k of ['Pulsa una acción y luego el botón nuevo en el mando. Si otra acción lo usaba, se intercambian.', 'En la partida y en la aldea',
     'En los menús, las cartas y la pausa', 'Restablecer botones', 'Pulsa {x} para jugar']) keys.add(k);
   for (const k of keys) assert.ok(has(k), 'sin inglés: ' + k);
+});
+
+// ---------------- (mando-menus, 22-11-2026) navegación de los menús, atajos y barra de pistas ----------------
+
+test('Back (View) en la partida pausa como Start; en los menús es Atrás', () => {
+  const b = boot('playing');
+  assert.deepEqual(b.tap(8), ['key:escape']);
+  const u = boot('ui');
+  assert.deepEqual(u.tap(8), ['key:escape'], 'Atrás sin ventana: Esc');
+  // LT / RT ya no cambian de pestaña ni mandan teclas en los menús (son página; sin lista no hacen nada).
+  assert.deepEqual(u.tap(6), []); assert.deepEqual(u.tap(7), []);
+});
+
+test('mantener la cruceta repite cada vez más deprisa', () => {
+  const { P } = boot();
+  const g = [0, 0.5, 1, 2, 4].map(P.repeatGap);
+  for (let i = 1; i < g.length; i++) assert.ok(g[i] <= g[i - 1], 'no acelera en ' + i);
+  assert.ok(g[0] >= 0.1 && g[g.length - 1] <= 0.05);
+});
+
+test('la selección se reconoce aunque la pantalla se vuelva a pintar (para recordarla)', () => {
+  const { P } = boot();
+  const el = (o) => Object.assign({ id: '', dataset: {}, tagName: 'BUTTON', classList: ['tab'], textContent: '  Logros ' }, o);
+  assert.equal(P.sigOf(el({ id: 'vq-partner' })), '#vq-partner');
+  assert.equal(P.sigOf(el({ dataset: { vgo: 'dex', pad: '1', sfx: 'none' }, classList: ['vq-item'] })), 'BUTTON.vq-item[vgo=dex]');
+  assert.equal(P.sigOf(el({})), 'BUTTON.tab:Logros');
+});
+
+/** pad-ui.js con un G.Pad de mentira: lo que pondría la barra según lo que cuente gamepad.js. */
+function bootBar(ctx) {
+  const g = { Pad: { context: () => ctx, glyph: a => '[' + a + ']', on() {} }, T: s => s };
+  const c = { G: g, document: { body: { classList: { contains: () => true } } }, setInterval() {}, clearInterval() {} };
+  vm.createContext(c);
+  vm.runInContext(source('js/ui/pad-ui.js'), c, { filename: 'pad-ui.js' });
+  return g.PadUI;
+}
+const strip = h => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+test('barra de pistas: dice lo de cada pantalla y nada si no hay mando', () => {
+  assert.equal(bootBar(null).html(), '', 'sin mando (o jugando): nada');
+  const walk = strip(bootBar({ mode: 'walk' }).html());
+  assert.match(walk, /\[open\] Entrar · hablar/); assert.match(walk, /\[pause\] \/ \[goto\] Ir a…/);
+  const list = strip(bootBar({ mode: 'list' }).html());
+  assert.match(list, /\[ok\] Elegir/); assert.match(list, /\[back\] Cerrar/); assert.match(list, /\[pageUp\] \/ \[pageDown\]/);
+  const dex = strip(bootBar({ mode: 'ui', top: 'scr-dex', focus: 'btn', tabs: true, page: true, x: 'Filtros', y: 'Orden' }).html());
+  for (const t of ['[ok] Aceptar', '[back] Atrás', '[tabPrev] / [tabNext] Pestaña', '[pageUp] / [pageDown] Página', '[discard] Filtros', '[reroll] Orden']) assert.ok(dex.includes(t), t + ' en: ' + dex);
+  // Cartas: B no hace nada (no se enseña); un desplegable se «abre»; una barra se ajusta con la cruceta.
+  const lvl = strip(bootBar({ mode: 'ui', top: 'scr-levelup', focus: 'btn', tabs: false, page: false, x: 'Descartar', y: 'Cambiar cartas' }).html());
+  assert.ok(!lvl.includes('[back]') && lvl.includes('[reroll] Cambiar cartas'));
+  assert.match(strip(bootBar({ mode: 'ui', top: 'scr-dex', focus: 'select' }).html()), /\[ok\] Abrir/);
+  assert.match(strip(bootBar({ mode: 'ui', top: 'scr-settings', focus: 'range' }).html()), /← → ajustar/);
+  assert.match(strip(bootBar({ mode: 'ui', top: 'scr-pause', focus: 'btn' }).html()), /\[back\] Continuar/);
+});
+
+test('los atajos y primeras selecciones de pad-ui apuntan a cosas que existen', () => {
+  const P = bootBar(null);
+  const all = source('dev.html') + fs.readdirSync(path.join(root, 'js/ui')).map(f => source('js/ui/' + f)).join('\n');
+  for (const [scr, sp] of Object.entries(P.SPEC)) {
+    assert.ok(all.includes('id="' + scr + '"') || all.includes(scr), 'pantalla ' + scr);
+    const sels = [sp.first || '', sp.x && sp.x.sel, sp.y && sp.y.sel].filter(Boolean).join(';');
+    for (const id of sels.matchAll(/#([\w-]+)/g)) assert.ok(all.includes('id="' + id[1] + '"') || all.includes('id="${') || all.includes("'" + id[1] + "'"), scr + ': #' + id[1]);
+  }
+});
+
+test('textos nuevos de los menús con mando: en inglés', () => {
+  const en = source('js/data/lang-en.js'), js = source('js/ui/pad-ui.js');
+  const has = k => en.includes(JSON.stringify(k) + ':') || en.includes("'" + k.replace(/'/g, "\'") + "':");
+  const keys = new Set([...js.matchAll(/(?:label: |item\((?:stick|g\('\w+'\)|pair\('\w+', '\w+'\)), )'([^']+)'/g)].map(m => m[1]));
+  assert.ok(keys.size > 15, 'pocas etiquetas: ' + keys.size);
+  for (const k of keys) assert.ok(has(k), 'sin inglés: ' + k);
+});
+
+test('dev.html carga pad-ui.js; el desplegable se maneja con mando', () => {
+  assert.match(source('dev.html'), /<script defer src="js\/ui\/pad-ui.js"><\/script>/);
+  const dd = source('js/ui/dropdown.js');
+  for (const f of ['padOpen', 'padMove', 'padPick']) assert.ok(dd.includes(f + '('), f);
 });

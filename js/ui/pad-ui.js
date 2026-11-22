@@ -1,0 +1,114 @@
+/* ============ pad-ui.js — jugar con mando: atajos de cada pantalla y barra de pistas (mando-menus, 22-11-2026) ============
+ * gamepad.js mueve la selección, pulsa y cambia de pestaña en cualquier pantalla. Aquí va lo que es de cada una:
+ *   first   dónde empieza la selección al abrirla (selectores separados por «;», el primero que haya; también vale
+ *           un contenedor: su primer botón)
+ *   noBack  B no hace nada ahí (cartas, objeto, resumen final): la barra no lo enseña
+ *   x / y   el atajo de X y de Y: { sel: lo que se pulsa, label: lo que dice la barra, key: tecla en vez de pulsar }.
+ *           Un desplegable se abre; un campo coge el foco.
+ * Y la barra de pistas: con mando, abajo y en pequeño, qué hace cada botón en esa pantalla, con los botones del
+ * mando que se usa (Xbox, PlayStation o Switch; los elegidos en Ajustes). Al tocar ratón, teclado o pantalla se va
+ * (body.pad, gamepad.js), así que en el móvil sin mando no sale nunca.
+ *
+ * Atajos de serie (todos se cambian en Ajustes › Controles › Con mando):
+ *   A aceptar · B atrás (lo abierto desde «Ir a…» vuelve a «Ir a…») · LB / RB pestaña · LT / RT página de la lista
+ *   Start pausa / «Ir a…» · Back (View) «Ir a…» en la aldea, atrás en los menús · stick derecho desplaza
+ *   X / Y lo de cada pantalla (abajo).
+ */
+G.PadUI = (() => {
+  const SPEC = {
+    'scr-upgrades': {
+      first: '.upg-buy:not([disabled]); .upg-acts',
+      x: { sel: '#upg-build', label: 'Planear build' },
+      y: { sel: '.upg-mode [data-n]:not(.on)', label: '×1 / Máx.' }
+    },
+    'scr-dex': {
+      first: '#dex-grid',
+      x: { sel: '#dex-more', label: 'Filtros' },
+      y: { sel: '#dex-sort', label: 'Orden' }
+    },
+    'scr-compendium': {
+      first: '#cmp-rows .cmp-row.on; #cmp-rows',
+      x: { sel: '#cmp-tools select[data-f="type"]', label: 'Tipo' },
+      y: { sel: '#cmp-tools select[data-f="fam"]', label: 'Familia' }
+    },
+    'scr-gacha': {
+      first: '#pull-1; #pull-10; #pull-10b',
+      x: { sel: '#pull-10', label: 'Tirar ×10' }
+    },
+    'scr-shop': { first: '.shop-pane .shop-buy:not([disabled]); .shop-pane' },
+    'scr-build': { first: '#bld-grid; #bld-plan', y: { sel: '#bld-clear', label: 'Vaciar' } },
+    'scr-starters': { first: '#starter-grid .on; #starter-grid', y: { sel: '#starter-ok', label: 'Elegir' } },
+    'scr-levelup': {
+      noBack: true,
+      y: { sel: '#lvl-reroll', key: 'keyr', label: 'Cambiar cartas' },
+      x: { sel: '#lvl-discard', key: 'keyx', label: 'Descartar' }
+    },
+    'scr-pause': {
+      first: '#btn-resume',
+      x: { sel: '#btn-pause-cmp', label: 'Compendio' },
+      y: { sel: '#pause-build', label: 'Planear build' }
+    },
+    'scr-over': { first: '#btn-again', noBack: true },
+    'scr-item': { noBack: true },
+    'scr-bond': { noBack: true },
+    'scr-lobby': { first: '#lobby-start; #lobby-invite' },
+    'vil-quick': { first: '.vq-item.play' }
+  };
+
+  // ---------------- barra de pistas ----------------
+  let bar = null, last = '', timer = 0;
+  const T = s => G.T(s);
+  const item = (glyph, label) => (glyph ? `<span class="pb-i">${glyph}<b>${T(label)}</b></span>` : '');
+  const g = a => G.Pad.glyph(a);
+  const pair = (a, b) => { const x = g(a), y = g(b); return x && y ? x + '<i class="pb-or">/</i>' + y : x || y; };
+  const stick = `<span class="pbtn pb-sh pb-dpad" translate="no">✥</span>`;
+
+  /** Lo que dice la barra ahora ('' si no hay nada que decir). */
+  function html() {
+    const c = G.Pad.context();
+    if (!c) return '';
+    if (c.mode === 'walk') {
+      return item(stick, 'Moverse') + item(g('open'), 'Entrar · hablar') + item(g('run'), 'Correr') + item(pair('pause', 'goto'), 'Ir a…');
+    }
+    if (c.mode === 'list') return item(stick, 'Mover') + item(g('ok'), 'Elegir') + item(g('back'), 'Cerrar') + item(pair('pageUp', 'pageDown'), 'De 8 en 8');
+    if (c.placing) return '';      // (decorando la choza, la pista va en su ventana)
+    const ok = c.focus === 'select' ? 'Abrir' : c.focus === 'text' ? 'Escribir' : c.focus === 'range' ? '' : 'Aceptar';
+    let h = c.focus === 'range' ? item(stick, '← → ajustar') : item(stick, 'Mover');
+    if (ok) h += item(g('ok'), ok);
+    const sp = SPEC[c.dialog] || SPEC[c.top];
+    if (!(sp && sp.noBack)) h += item(g('back'), c.top === 'scr-pause' ? 'Continuar' : 'Atrás');
+    if (c.tabs) h += item(pair('tabPrev', 'tabNext'), 'Pestaña');
+    if (c.page) h += item(pair('pageUp', 'pageDown'), 'Página');
+    if (c.x) h += item(g('discard'), c.x);
+    if (c.y) h += item(g('reroll'), c.y);
+    return h;
+  }
+  function tick() {
+    const on = document.body.classList.contains('pad');
+    const h = on ? html() : '';
+    if (h === last) return;
+    last = h;
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'pad-bar';
+      bar.className = 'pad-bar';
+      bar.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML = h;
+    bar.classList.toggle('on', !!h);
+  }
+  function watch(active) {
+    clearInterval(timer);
+    if (active) { timer = setInterval(tick, 200); tick(); } else tick();
+  }
+  if (G.Pad) G.Pad.on(watch);
+
+  return {
+    /** Lo de la pantalla (o ventanita) `id`: { first, x, y } o null. */
+    spec(id) { return SPEC[id] || null; },
+    SPEC,
+    /** (Para las pruebas) lo que pondría la barra ahora. */
+    html
+  };
+})();

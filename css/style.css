@@ -519,6 +519,10 @@ a.btn.google { color: #1f2a44; }
 :is(.btn, .icon-btn, .chip, .gen-tab, .tab, .answer, .card, .cell, .seg button, .menu-item, .tb-btn, a, select, summary):focus-visible,
 .dex-tools input:focus-visible { outline: var(--focus); outline-offset: 2px; }
 .pad-focus { outline: 3px solid var(--c-yellow) !important; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(var(--hl-rgb), .22), 0 0 18px rgba(var(--hl-rgb), .55) !important; }
+/* (mando-menus, 22-11-2026) La selección del mando late un poco (se ve en cualquier fondo) y al desplazarse a ella deja aire. */
+.pad-focus { scroll-margin: 22px 16px; animation: pad-pulse 1.4s ease-in-out infinite; }
+@keyframes pad-pulse { 50% { outline-color: #e9ffc9; box-shadow: 0 0 0 9px rgba(var(--hl-rgb), .16), 0 0 26px rgba(var(--hl-rgb), .7); } }
+@media (prefers-reduced-motion: reduce) { .pad-focus { animation: none; } }
 ::selection { background: rgba(var(--hl-rgb), .45); color: #fff; }
 
 /* ---------- 7. Maquetación ---------- */
@@ -874,6 +878,23 @@ kbd {
 body.pad .pad-hint { display: revert; }
 body.pad span.pad-hint { display: inline-flex; align-items: center; gap: 4px; }
 body.pad :is(.kbd-hint, .card .key) { display: none !important; }
+/* (mando-menus, 22-11-2026) Barra de pistas del mando (ui/pad-ui.js): abajo, en pequeño, qué hace cada botón en esta
+ * pantalla. Sólo con mando (body.pad); no tapa clics. */
+.pad-bar {
+  position: fixed; left: 50%; bottom: 8px; z-index: 9000; transform: translate(-50%, 6px); opacity: 0; pointer-events: none;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 12px; width: max-content; max-width: calc(100vw - 24px);
+  padding: 5px 14px; border-radius: var(--rad-pill); background: rgba(10, 16, 9, .88); color: var(--ink);
+  box-shadow: 0 0 0 1.5px var(--bark), 0 0 0 2.5px var(--bark-ink), var(--sh-2); font: 600 13px/1.2 var(--font);
+  transition: opacity .18s, transform .18s;
+}
+body.pad .pad-bar.on { opacity: 1; transform: translate(-50%, 0); }
+.pad-bar .pb-i { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pad-bar .pb-i > .pbtn + .pbtn { margin-left: -2px; }
+.pad-bar b { font-weight: 600; }
+.pbtn.pb-dpad { padding: 0 5px; font-size: 14px; }
+@media (max-height: 520px) { .pad-bar { bottom: 4px; padding: 3px 10px; font-size: 12px; gap: 2px 10px; } }
+/* Desplegable abierto con mando: la fila elegida, como la selección. */
+body.pad .dd-opt.act { outline: 2px solid var(--c-yellow); outline-offset: -2px; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
