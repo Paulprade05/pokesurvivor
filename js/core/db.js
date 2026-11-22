@@ -85,6 +85,7 @@ G.DB = (() => {
       pused: {},              // dex -> partidas jugadas con él (orden "más usados")
       pstart: {},             // dex -> movimiento inicial elegido (Mejoras → Movimiento inicial)
       pstart2: {},            // dex -> segundo movimiento inicial (Mejoras → Segundo movimiento inicial)
+      pbuild: {},             // dex -> { m, f, p, i, at }: la build que planeas con él (21-11-2026, systems/build.js)
       // Tienda Kecleon (20-10-2026, ver data/shop.js y systems/mons.js):
       bag: {},                // Mochila: id -> cuántos (mint, cap, caph); en la libreta, como las monedas
       tms: {},                // MT sin usar: movimiento -> cuántas; también en la libreta
@@ -166,7 +167,7 @@ G.DB = (() => {
    * idempotente: si un aparato con la versión de antes vuelve a traer una preevolución,
    * se pasa otra vez y queda igual (por eso todo es «el mayor», no sumas).
    */
-  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pmg', 'pzt', 'pjudg', 'prec'];
+  const FAM_KEYS = ['owned', 'shiny', 'pupg', 'ptm', 'pnat', 'pabil', 'dfav', 'pused', 'pstart', 'pstart2', 'pbind', 'pban', 'pz', 'pmg', 'pzt', 'pjudg', 'prec', 'pbuild'];
   const famOk = () => !!(G.Fam && G.Fam.ready());
   const isPre = d => !!G.DEX_BY[d] && !G.Fam.isFinal(+d);
 
@@ -241,7 +242,7 @@ G.DB = (() => {
     const mine = before.has(f) ? f : list.filter(d => before.has(d))
       .sort((a, b) => used(b) - used(a) || G.Fam.lineOf(b).length - G.Fam.lineOf(a).length)[0];
     // Movimiento inicial, atajos, vetos y tipo Z: los de la final; si no, los de «tu» Pokémon (o de quien los tenga).
-    for (const k of ['pstart', 'pstart2', 'pbind', 'pban', 'pzt']) {
+    for (const k of ['pstart', 'pstart2', 'pbind', 'pban', 'pzt', 'pbuild']) {
       if (!isObj(s[k]) || s[k][f] != null) continue;
       const from = mine != null && s[k][mine] != null ? mine : list.find(d => s[k][d] != null);
       if (from != null) put(k, JSON.parse(JSON.stringify(s[k][from])));
@@ -405,6 +406,13 @@ G.DB = (() => {
         s.pban[d] = [...new Set(l.filter(id => typeof id === 'string' && (!G.Moves || G.Moves.BY_ID[id])))].slice(0, 3);
       }
     } else s.pban = {};
+    // Builds planeadas (systems/build.js): ids que existan, sin repetir y con sus topes. (Una vaciada se queda, con
+    // su fecha: así, al juntar con la nube, no vuelve la de antes.)
+    if (!isObj(s.pbuild)) s.pbuild = {};
+    for (const d of Object.keys(s.pbuild)) {
+      const b = G.DEX_BY && !G.DEX_BY[d] ? null : G.Build ? G.Build.clean(s.pbuild[d]) : s.pbuild[d];
+      if (b) s.pbuild[d] = b; else delete s.pbuild[d];
+    }
     if (G.Upgrades) for (const d of Object.keys(s.pupg || {})) {
       const u = s.pupg[d];
       if (!u || typeof u !== 'object') { delete s.pupg[d]; continue; }
@@ -556,6 +564,12 @@ G.DB = (() => {
     for (const k of ['pstart', 'pstart2', 'pzt']) {
       r[k] = r[k] || {};
       for (const d in older[k] || {}) if (!(d in r[k])) r[k][d] = older[k][d];
+    }
+    // Builds planeadas: de cada Pokémon, la que se tocó la última (at), en cualquier aparato.
+    r.pbuild = isObj(r.pbuild) ? r.pbuild : {};
+    for (const d in isObj(older.pbuild) ? older.pbuild : {}) {
+      const o = older.pbuild[d], n = r.pbuild[d];
+      if (isObj(o) && (!isObj(n) || (+o.at || 0) > (+n.at || 0))) r.pbuild[d] = JSON.parse(JSON.stringify(o));
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
     // (y Cristales Z y Pulseras Z: comprado en cualquier aparato, lo tienes en todos, una vez).

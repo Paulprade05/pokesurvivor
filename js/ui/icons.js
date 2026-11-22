@@ -77,6 +77,9 @@ G.Icons = (() => {
 
   const FALLBACK = 'poke-ball';                                           // nombre desconocido
   const FILES = new Set([...Object.values(ITEM), ...Object.values(TM)]);  // también valen como nombre
+  // Dibujos propios hechos con pxl (tools/pxl/*.px.js → assets/pxl/), que no son objetos de la Mochila.
+  // build: el sello de lo que es de tu build (21-11-2026, ui/build-ui.js).
+  const PXL = { build: 'assets/pxl/build.png' };
   const TINT = { medal1: 'bronze', medalOff: 'off', starDim: 'off' };    // variantes con filtro CSS
 
   // ---------------- controles de la interfaz (SVG 24×24, trazo redondeado) ----------------
@@ -864,6 +867,8 @@ G.Icons = (() => {
       r.t = 'type';
     } else if (own(VEC, name) || own(VEC_COLOR, name)) {
       r.t = 'vec';
+    } else if (own(PXL, name)) {
+      r.file = PXL[name];
     } else {
       const f = own(ITEM, name) ? ITEM[name] : FILES.has(name) ? name : '';
       if (!f) console.warn('[Icons] icono sin objeto:', name);     // (una vez: se guarda)
@@ -877,7 +882,7 @@ G.Icons = (() => {
   /** ¿Tiene icono propio este nombre? */
   function has(name) {
     name = String(name);
-    return own(ITEM, name) || FILES.has(name) || own(VEC, name) || own(VEC_COLOR, name) || name.startsWith('type:') ||
+    return own(ITEM, name) || own(PXL, name) || FILES.has(name) || own(VEC, name) || own(VEC_COLOR, name) || name.startsWith('type:') ||
       (name.startsWith('move:') && !!G.Moves && !!G.Moves.BY_ID[name.slice(5)]);
   }
 
@@ -1277,6 +1282,7 @@ G.Icons = (() => {
   /** Pide ya todos los sprites (los usa el canvas: HUD, objetos del suelo, tienda...). */
   function preload() {
     for (const k in ITEM) pic(DIR + ITEM[k] + '.png');
+    for (const k in PXL) pic(PXL[k]);
     for (const k in VEC_COLOR) pic(vecUrl(k));
   }
   // Después de cargar la página, sin prisa.

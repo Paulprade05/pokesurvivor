@@ -201,7 +201,7 @@ G.Pickups = (() => {
   function purge() { for (const c of glowC.values()) G.U.freeCanvas(c); glowC.clear(); if (shadowC) G.U.freeCanvas(shadowC); shadowC = null; G.Icons.purgeChunks(); }
 
   function draw(ctx) {
-    const anim = G.Anim.on, sh = shadowImg();
+    const anim = G.Anim.on, sh = shadowImg(), build = G.Build && G.Game ? G.Build.of(G.Game.player) : null;
     for (const p of list) {
       if (!G.Camera.sees(p.x, p.y, 30)) continue;
       const k = KIND[p.kind];
@@ -237,6 +237,8 @@ G.Pickups = (() => {
       } else if (G.Icons.chunky(ctx, name, p.x, y)) {
         // Un destello en los que valen algo: los caramelos grandes, los objetos.
         if (anim && (p.kind === 'item' || p.kind === 'xpBig') && ((p.t * 0.7 + p.id) & 7) === 0) G.Icons.twinkle(ctx, p.x + 6, y - 7, (p.t * 0.7 + p.id) % 1, 2);
+        // (21-11-2026) Un objeto de tu build (systems/build.js): su sello encima, que se vea desde lejos.
+        if (io && build && build.i.includes(io.id)) G.Icons.chunky(ctx, 'build', p.x, y - 26 - (anim ? Math.round(Math.sin(p.t * 3) * 2) * 2 : 0));
         continue;
       }
 

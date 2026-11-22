@@ -580,7 +580,7 @@ G.MenuUI = (() => {
             <button type="button" class="${viewShiny ? 'on' : ''}" data-v="1">${G.Icons.html('shiny', 16)} Shiny</button></div>` : ''}
         ${own ? `<div class="dx-foot">${usingThis
           ? `<div class="dx-partner">${G.Icons.html('crown', 30)}<span>Es tu compañero</span></div>`
-          : `<button id="dex-pick" class="btn gold block" type="button" data-sfx="confirm">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}</div>` : ''}
+          : `<button id="dex-pick" class="btn gold block" type="button" data-sfx="confirm">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}${buildBtn('dex-build', dex)}</div>` : ''}
       </div>`;
 
     let body;
@@ -608,9 +608,20 @@ G.MenuUI = (() => {
     wireDetail(dex, box, hasSh);
   }
 
+  /**
+   * «Planear build» (21-11-2026, ui/build-ui.js): en la ficha de la Pokédex y en Mejoras. Con build, cuántas cosas lleva.
+   */
+  function buildBtn(id, dex) {
+    const n = G.Build.count(G.Build.get(dex));
+    return `<button id="${id}" class="btn ghost block ic bld-open" type="button">${G.Icons.html('build', 20)}<span>${n ? 'Editar build' : 'Planear build'}</span>`
+      + (n ? `<small class="bld-n">${n}</small>` : '') + '</button>';
+  }
+
   /** Lo que hacen los botones de la ficha. */
   function wireDetail(dex, box, hasSh) {
     const s = G.DB.save, p = G.DEX_BY[dex];
+    const bb = $('dex-build');
+    if (bb) bb.onclick = () => G.BuildUI.open(dex, { host: 'scr-dex', onClose: () => { if (G.UI.isOpen('scr-dex')) { showDetail.last = null; showDetail(dex); } } });
     box.querySelectorAll('.dx-seg button').forEach(b => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
@@ -922,7 +933,8 @@ G.MenuUI = (() => {
       <div class="upg-mode"><span class="eyebrow" id="upg-mode-lbl">Comprar</span>
         <div class="seg" role="group" aria-labelledby="upg-mode-lbl">
           <button type="button" data-n="1" title="Un nivel cada vez">×1</button><button type="button" data-n="0" title="Todos los niveles que puedes pagar">Máx.</button></div></div>
-      <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm">Elegir de compañero</button>`);
+      <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm">Elegir de compañero</button>
+      <div id="upg-build-box"></div>`);
     who.parentNode.insertAdjacentHTML('beforeend', '<div class="upg-quick hidden" id="upg-quick"><span class="eyebrow">Tus Pokémon</span><div class="upg-qgrid" id="upg-qgrid"></div></div>');
     who.querySelectorAll('.upg-mode button').forEach(b => {
       b.onclick = () => { const n = +b.dataset.n; if (n === upgMode) return; upgMode = n; G.Audio.sfx('select'); renderUpgrades(); };
@@ -1020,6 +1032,8 @@ G.MenuUI = (() => {
     $('upg-name').textContent = mon.name;
     $('upg-tag').textContent = isPartner ? 'Compañero' : '';
     $('upg-partner').classList.toggle('hidden', isPartner);
+    $('upg-build-box').innerHTML = buildBtn('upg-build', upgDex).replace('btn ghost block', 'btn small ghost block');
+    $('upg-build').onclick = () => G.BuildUI.open(upgDex, { host: 'scr-upgrades', onClose: () => { if (G.UI.isOpen('scr-upgrades')) renderUpgrades(); } });
     document.querySelectorAll('#scr-upgrades .upg-mode button').forEach(b => {
       const on = +b.dataset.n === upgMode;
       b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);

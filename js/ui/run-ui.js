@@ -146,16 +146,22 @@ G.RunUI = (() => {
   const lvBadge = (lvl, up, cls = 'blue') => badge(`<span>Nv.</span> ${lvl}${up ? ' → ' + (lvl + 1) : ''}`, cls);
 
   /**
+   * Sello «Build» (21-11-2026, systems/build.js): lo que es de la build que planeaste lleva el marcapáginas turquesa
+   * colgado de su baldosa, «Build» debajo y el borde turquesa (.in-build). Sólo ayuda visual.
+   */
+  const buildMark = () => `<span class="pc-build" title="${G.T('De tu build')}">${G.Icons.html('build', 30)}<b>Build</b></span>`;
+
+  /**
    * Una carta. o: { cls, icon, tile (clase de la baldosa), tileC (color para .tint),
-   * badge, eyebrow, title, chips, desc, evo (línea de evolución, abajo) }. i: su número (tecla 1-4).
+   * badge, eyebrow, title, chips, desc, evo (línea de evolución, abajo), build (es de tu build) }. i: su número (tecla 1-4).
    */
   function cardEl(o, i, onPick, ownSfx = true) {
     const el = document.createElement('div');
-    el.className = 'card pick-card' + (o.cls ? ' ' + o.cls : '');
+    el.className = 'card pick-card' + (o.cls ? ' ' + o.cls : '') + (o.build ? ' in-build' : '');
     el.style.setProperty('--i', i);
     if (o.tileC) el.style.setProperty('--pc', o.tileC);
     el.innerHTML = `<span class="key">${i + 1}</span>
-      <span class="pc-art"><span class="ico-tile pc-ico${o.tile ? ' ' + o.tile : ''}"${o.tileC ? ` style="--tile-c:${o.tileC}"` : ''}>${G.Icons.html(o.icon, 60)}</span>${o.badge || ''}</span>
+      <span class="pc-art"><span class="ico-tile pc-ico${o.tile ? ' ' + o.tile : ''}"${o.tileC ? ` style="--tile-c:${o.tileC}"` : ''}>${G.Icons.html(o.icon, 60)}</span>${o.build ? buildMark() : ''}${o.badge || ''}</span>
       <span class="pc-txt">${o.eyebrow ? `<span class="pc-eyebrow">${o.eyebrow}</span>` : ''}<span class="nm">${o.title}</span>`
       + `${o.chips ? `<span class="pc-chips">${o.chips}</span>` : ''}<span class="ds">${o.desc || ''}</span>${o.evo || ''}</span>`;
     if (ownSfx) el.dataset.sfx = 'none';             // el juego pone su propio sonido al elegir
@@ -298,7 +304,7 @@ G.RunUI = (() => {
     const box = $('cards'), p = G.Game.player;
     box.innerHTML = '';
     list.forEach((c, i) => {
-      const el = cardEl(levelCard(c), i, () => pick(i));
+      const el = cardEl(Object.assign(levelCard(c), { build: G.Build.card(p, c) }), i, () => pick(i));
       if (!G.LevelUp.canDiscard(p, c)) el.classList.add('no-discard');
       box.appendChild(el);
     });
@@ -450,12 +456,13 @@ G.RunUI = (() => {
     box.innerHTML = '';
     const mine = pl.items, names = mine.map(i => G.Items.nameOf(i));
     const cards = [{ slot: -1, cls: 'is-cur', icon: mine[0].id, tile: 'tint', tileC: G.Items.color(mine[0].r), eyebrow: 'Quedarme con',
+      build: mine.length === 1 && G.Build.item(pl, mine[0].id),
       title: names.join(' + '), badge: mine.length === 1 ? rarBadge(mine[0].r, mine[0].evo) : '',
       desc: (mine.length === 1 ? itemLines(mine[0].id, mine[0].r, mine[0].evo) + itemProg(mine[0]) : mine.map((it, j) => `<span class="it-ln">${itemProg(it, names[j])}</span>`).join('')) }];
     for (const i of same >= 0 ? [same] : mine.map((_, j) => j)) {
       const lost = !mine[i].evo && mine[i].t >= 30 ? `<span class="it-lost">${G.T('Pierdes el progreso de')} ${names[i]}</span>` : '';
       cards.push({ slot: i, cls: 'is-next', icon: o.id, tile: 'tint', tileC: G.Items.color(o.r), eyebrow: mine.length > 1 || same >= 0 ? 'Cambiar ' + names[i] + ' por' : 'Cambiar a',
-        title: N.name, badge: rarBadge(o.r), desc: itemLines(o.id, o.r, false) + lost, evo: itemEvo(o.id, o.r) });
+        title: N.name, badge: rarBadge(o.r), desc: itemLines(o.id, o.r, false) + lost, evo: itemEvo(o.id, o.r), build: G.Build.item(pl, o.id) });
     }
     cards.forEach((c, i) => box.appendChild(cardEl(c, i, () => { if (guarded()) return; G.UI.hide('scr-item'); cb(c.slot); }, false)));
     $('item-keys').innerHTML = cards.map((_, i) => '<kbd>' + (i + 1) + '</kbd>').join(' ');
@@ -496,7 +503,7 @@ G.RunUI = (() => {
         : step2 ? 'Se lanzará a la vez que ' + G.T(first.name) + '. Queda un hueco libre.'
         : m.desc || '';
       box.appendChild(cardEl({ cls: opt.mode === 'add' || step2 ? 'bond' : '', icon: 'move:' + m.id, tile: 'tint', tileC: typeCol(m),
-        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name), chips: moveChips(m, false), desc,
+        badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name), chips: moveChips(m, false), desc, build: G.Build.fuse(G.Game.player, m.id),
         evo: evoHtml(m, G.LevelUp.evoNeed(m, G.Game.player), 'pc-evo') }, i, () => pickBond(i)));
     });
     // (07-11-2026) Sobrefusión: con un grupo de 4 ya hecho, la última carta sube su daño en vez de unir ataques nuevos.
@@ -746,6 +753,32 @@ G.RunUI = (() => {
     const name = G.Mons && pl.mon ? `<small class="pz-mon">${G.Mons.name ? G.Mons.name(pl.mon.name) : pl.mon.name} · <span>Nv.</span> ${pl.level}</small>` : '';
     return `<section class="ps-card pz-card pz-stats"><h3><span>Tu Pokémon</span> ${name}</h3><div class="pz-sgrid">${rows}</div></section>`;
   }
+  /**
+   * Tu build en la pausa (21-11-2026, systems/build.js): cuánto llevas («5/8») y cada cosa planeada, encendida si ya la
+   * llevas (con ✓) y apagada si aún no; los ataques que quieres fusionar, con la cadena. «Editar» abre el planificador.
+   * Sin build, una frase y «Planear build».
+   */
+  function pzBuild(pl) {
+    if (pl.buildDex == null) return '';
+    const b = G.Build.get(pl.buildDex), pr = G.Build.progress(pl, b);
+    const btn = `<button id="pause-build" class="btn small ghost ic" type="button">${G.Icons.html('build', 20)}<span>${pr && pr.total ? 'Editar' : 'Planear build'}</span></button>`;
+    if (!pr || !pr.total) {
+      return `<section class="ps-card pz-card pz-build empty"><h3><span>Tu build</span></h3>
+        <p class="pzb-txt">${G.T('Planea qué ataques, pasivas y objetos quieres: en las cartas y en el suelo verás su sello.')}</p>${btn}</section>`;
+    }
+    const mine = new Set(pl.moves.map(m => m.id)), pas = new Set(G.LevelUp.passivesOf(pl).map(p => p.id)), its = new Set(pl.items.map(i => i.id));
+    const ok = `<i class="pzb-ok">${G.UI.svg('check', 12)}</i>`;
+    const tile = (on, ico, name, cls = '', extra = '') => `<span class="pzb-t${on ? ' on' : ''}${cls ? ' ' + cls : ''}" title="${G.T(name)}${on ? '' : ' · ' + G.T('aún no')}">`
+      + `${G.Icons.html(ico, 30)}${on ? ok : ''}${extra}</span>`;
+    const fz = `<i class="pzb-fz">${G.Icons.html('bond', 20)}</i>`;
+    const row = (lbl, n, tiles) => tiles.length ? `<div class="pzb-row"><span class="pzb-l">${lbl} <small>${n[0]}/${n[1]}</small></span><span class="pzb-ts">${tiles.join('')}</span></div>` : '';
+    const mv = b.m.map(id => tile(mine.has(id), 'move:' + id, G.Moves.BY_ID[id].name, '', b.f.length >= 2 && b.f.includes(id) ? fz : ''));
+    const ps = b.p.map(id => { const s = G.LevelUp.STATS.find(x => x.id === id); return tile(pas.has(id), s.icon, s.title); });
+    const it = b.i.map(id => tile(its.has(id), id, G.Items.BY[id].name));
+    return `<section class="ps-card pz-card pz-build"><h3><span class="pzb-h">${G.Icons.html('build', 20)}<span>Tu build</span></span> <small>${pr.done}/${pr.total}</small>${btn}</h3>
+      ${row(G.T('Ataques'), pr.m, mv)}${row(G.T('Pasivas'), pr.p, ps)}${row(G.T('Objetos'), pr.i, it)}</section>`;
+  }
+
   function pauseSummary() {
     const pl = G.Game.player;
     if (!pl) return '';
@@ -764,7 +797,7 @@ G.RunUI = (() => {
           + `<div><b>${G.Items.nameOf(i)}</b> ${rarBadge(i.r, i.evo)}<small>${itemLines(i.id, i.r, i.evo)}${itemProg(i)}</small></div></div>`).join('')}</section>` : '';
     return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.slots.length}/${pl.maxMoves}</small>
         <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section>
-      <div class="pz-side">${pzPassives(pl, used)}${pzStats(pl)}${abil}${item}${zCard(pl)}</div>`;
+      <div class="pz-side">${pzBuild(pl)}${pzPassives(pl, used)}${pzStats(pl)}${abil}${item}${zCard(pl)}</div>`;
   }
 
   /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
@@ -797,12 +830,19 @@ G.RunUI = (() => {
 
   function showPause(coop = false) {
     hints();
-    $('pause-sum').innerHTML = pauseSummary();
+    renderPauseSum();
     $('pause-coop').classList.toggle('hidden', !coop);
     $('btn-quit').querySelector('.quit-t').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
     G.UI.show('scr-pause');
     const body = $('scr-pause').querySelector('.pause-body');
     if (body) body.scrollTop = 0;
+  }
+
+  /** La mesa de la pausa y su botón de la build (al cerrar el planificador se redibuja con lo nuevo). */
+  function renderPauseSum() {
+    $('pause-sum').innerHTML = pauseSummary();
+    const b = $('pause-build'), pl = G.Game.player;
+    if (b && pl) b.onclick = () => G.BuildUI.open(pl.buildDex, { host: 'scr-pause', onClose: () => { if (G.UI.isOpen('scr-pause')) renderPauseSum(); } });
   }
 
   function wirePause(onResume, onQuit) {

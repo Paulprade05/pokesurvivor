@@ -376,6 +376,7 @@ G.Game = (() => {
 
     pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(chosen));
     G.Evo.start(pl, chosen);
+    pl.buildDex = chosen;                     // (la build que planeaste con él: systems/build.js; se mira en vivo)
     G.EvoUI.clear();
     pl.setAbility(G.Mons.abilityOf(chosen).id);
     banked = { t1: 0, t10: 0 };
