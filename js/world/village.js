@@ -1041,7 +1041,15 @@ G.Village = (() => {
   }
 
   // ---------------- desplegable «Ir a…» ----------------
-  const ORDER = ['play', 'upgrades', 'gacha', 'dex', 'shop', 'bag', 'home', 'goals', 'ach', 'compendium', 'friends', 'rank', 'profile', 'news', 'settings'];
+  // (21-11-2026, pedido del dueño: «hazla más fácil de leer y de localizar cada apartado») Por grupos, cada uno con su
+  // color, y con el nombre corto de lo que hay (el del sitio, en la pista del ratón). Jugar va aparte, arriba.
+  const GROUPS = [
+    { name: 'Prepara tu run', color: '#f2c35a', items: [['upgrades', 'Mejoras'], ['gacha', 'Gacha'], ['shop', 'Tienda'], ['bag', 'Mochila']] },
+    { name: 'Colección y progreso', color: '#c49bff', items: [['dex', 'Pokédex'], ['goals', 'Misiones'], ['ach', 'Logros'], ['compendium', 'Compendio']] },
+    { name: 'Jugadores', color: '#6fd8f2', items: [['friends', 'Grupo'], ['rank', 'Ranking'], ['profile', 'Tu perfil']] },
+    { name: 'Aldea y ajustes', color: '#9be36a', items: [['home', 'Tu choza'], ['news', 'Novedades'], ['settings', 'Ajustes']] }
+  ];
+  const ORDER = ['play'].concat(...GROUPS.map(g => g.items.map(i => i[0])));
   /** Lo del desplegable que no es un sitio de la aldea. */
   const EXTRA = { profile: { name: 'Tu perfil', sub: 'Tu perfil y tus partidas', icon: 'crown' } };
   function buildQuick() {
@@ -1049,14 +1057,19 @@ G.Village = (() => {
     if (!box || box.dataset.built) return;
     box.dataset.built = '1';
     const byGo = Object.assign(Object.fromEntries(V().PLACES.map(p => [p.go, p])), EXTRA);
-    box.innerHTML = '<header class="vq-head"><span class="vq-title">' + G.T('Ir a') + '</span>' +
+    const here = '<span class="vq-here">' + G.T('Estás aquí') + '</span>';
+    const item = (go, label, cls) => {
+      const p = byGo[go];
+      return `<button class="vq-item${cls}" type="button" data-vgo="${go}" title="${G.T(p.name)}"><span class="vq-ico" aria-hidden="true">${G.Icons.html(p.icon, 28)}</span>` +
+        `<span class="vq-t">${G.T(label)}</span><small class="vq-s" data-vsub="${go}">${G.T(p.sub)}</small>${here}</button>`;
+    };
+    box.innerHTML = '<header class="vq-head"><div class="vq-htxt"><span class="vq-title">' + G.T('Ir a') + '</span>' +
+      '<small class="vq-hint">' + G.T('Elige un sitio y apareces allí') + '</small></div>' + item('play', 'Jugar', ' play') +
       '<button class="icon-btn" id="vil-quick-close" type="button" aria-label="' + G.T('Cerrar') + '" title="' + G.T('Cerrar') + '">' + G.UI.svg('close') + '</button></header>' +
-      '<button class="vq-partner" id="vq-partner" type="button"></button>' +
-      '<div class="vq-list">' + ORDER.map(go => {
-        const p = byGo[go];
-        return `<button class="vq-item${go === 'play' ? ' play' : ''}" type="button" data-vgo="${go}"><span class="vq-ico" aria-hidden="true">${G.Icons.html(p.icon, 24)}</span>` +
-          `<span class="vq-t">${G.T(go === 'play' ? 'Jugar' : p.name)}</span><small class="vq-s" data-vsub="${go}">${G.T(p.sub)}</small></button>`;
-      }).join('') + '</div><div class="vq-stats" id="vq-stats"></div>';
+      '<div class="vq-groups">' + GROUPS.map((g, i) =>
+        `<section class="vq-grp" style="--g:${g.color}" aria-labelledby="vq-g${i}"><h3 class="vq-gh" id="vq-g${i}">${G.T(g.name)}</h3>` +
+        `<div class="vq-glist">${g.items.map(([go, label]) => item(go, label, '')).join('')}</div></section>`).join('') + '</div>' +
+      '<div class="vq-foot"><button class="vq-partner" id="vq-partner" type="button"></button><div class="vq-stats" id="vq-stats"></div></div>';
     box.querySelectorAll('[data-vgo]').forEach(b => { b.onclick = () => { setQuick(false); go(b.dataset.vgo); }; });
     $('vil-quick-close').onclick = () => { G.Audio.sfx('click'); setQuick(false); };
     $('vq-partner').onclick = () => { setQuick(false); go('partner'); };
@@ -1105,6 +1118,36 @@ G.Village = (() => {
     }
     const st = $('menu-stats');
     if (st) $('vq-stats').innerHTML = st.innerHTML;
+    // El sitio donde estás (dentro de tu choza, o junto a uno de la aldea: lo bastante cerca para ver su nombre), marcado.
+    let at = G.HomeIn && G.HomeIn.on ? 'home' : null;
+    if (!at && pl) {
+      let bd = tile(3.4);
+      for (const p of V().PLACES) { const d = Math.hypot(pl.x - tile(p.x), pl.y - tile(p.y)); if (d < bd) { bd = d; at = p.go; } }
+    }
+    box.querySelectorAll('[data-vgo]').forEach(b => b.classList.toggle('here', b.dataset.vgo === at));
+  }
+  /** Teclado con el desplegable abierto: flechas (al más cercano por ese lado), Tab y Mayús+Tab, Intro o espacio.
+   *  → true si la tecla era suya. */
+  function quickKey(e) {
+    const box = $('vil-quick'), k = e.key;
+    const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k];
+    if (!dir && k !== 'Tab' && k !== 'Enter' && k !== ' ') return false;
+    const btns = [...box.querySelectorAll('button')].filter(b => b.getClientRects().length);
+    const cur = btns.indexOf(document.activeElement);
+    if (k === 'Enter' || k === ' ') { if (cur < 0) return false; btns[cur].click(); return true; }
+    let to = null;
+    if (cur < 0) to = box.querySelector('.vq-item.here') || box.querySelector('.vq-item.play');
+    else if (k === 'Tab') to = btns[(cur + (e.shiftKey ? -1 : 1) + btns.length) % btns.length];
+    else {
+      const c = r => [r.left + r.width / 2, r.top + r.height / 2], [x0, y0] = c(btns[cur].getBoundingClientRect());
+      let bd = Infinity;
+      for (const b of btns) {
+        const [x, y] = c(b.getBoundingClientRect()), along = (x - x0) * dir[0] + (y - y0) * dir[1], side = Math.abs((x - x0) * dir[1] + (y - y0) * dir[0]);
+        if (along > 4 && along + side * 2 < bd) { bd = along + side * 2; to = b; }
+      }
+    }
+    if (to) { to.focus(); try { to.scrollIntoView({ block: 'nearest' }); } catch (er) { /* nada */ } }
+    return true;
   }
   function setQuick(on) {
     quick = !!on && active;
@@ -1112,7 +1155,7 @@ G.Village = (() => {
     if (!box) return;
     box.classList.toggle('hidden', !quick);
     if (b) b.setAttribute('aria-expanded', quick ? 'true' : 'false');
-    if (quick) { refreshQuick(); target = null; }
+    if (quick) { refreshQuick(); target = null; box.scrollTop = 0; }
     else if (document.activeElement && box.contains(document.activeElement)) document.activeElement.blur();
   }
 
@@ -1123,7 +1166,11 @@ G.Village = (() => {
     // Fuera del desplegable, un clic lo cierra.
     addEventListener('pointerdown', e => { if (quick && !e.target.closest('#vil-quick, #vil-go')) setQuick(false); }, true);
     // Esc con el desplegable abierto lo cierra (y no llega a otra cosa).
-    addEventListener('keydown', e => { if (quick && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setQuick(false); walkPrev = false; } }, true);
+    addEventListener('keydown', e => {
+      if (!quick) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setQuick(false); walkPrev = false; }
+      else if (quickKey(e)) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
     addEventListener('resize', () => { if (active) snapCam(); });
     // (mando, 21-11-2026) Al pasar del mando al teclado (o al cambiar sus botones), la pista del botón de entrar, al día.
     if (G.Pad && G.Pad.on) G.Pad.on(keyHint);
