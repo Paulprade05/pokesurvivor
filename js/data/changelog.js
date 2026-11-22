@@ -6,6 +6,19 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-22', title: ["Menús pensados para el mando", "Menus built for controllers"], new: [
+    ["Atajos con mando en todos los menús: LB / RB (L1 / R1) cambian de pestaña (tienda, Pokédex y su ficha, regiones del gacha, Compendio, Misiones y Logros, Ajustes, planificador de builds…); LT / RT (L2 / R2) pasan página en las listas largas; Back (View) abre «Ir a…» en la aldea; X e Y hacen lo más útil de cada pantalla (Máx. y Planear build en Mejoras, Filtros y Orden en la Pokédex, Tipo y Familia en el Compendio, Tirar ×10 en el gacha, Compendio y Planear build en la pausa…).",
+     "Controller shortcuts in every menu: LB / RB (L1 / R1) switch tabs (shop, Pokédex and its page, gacha regions, Compendium, Missions and Achievements, Settings, build planner…); LT / RT (L2 / R2) flip pages in long lists; Back (View) opens “Go to…” in the village; X and Y do the handiest thing on each screen (Max and Plan build in Upgrades, Filters and Sort in the Pokédex, Type and Family in the Compendium, Pull ×10 in the gacha, Compendium and Plan build on the pause screen…)."],
+    ["Barra de pistas: con mando, abajo sale qué hace cada botón en esa pantalla, con los botones de tu mando (Xbox o PlayStation). Se va al usar ratón, teclado o la pantalla táctil.",
+     "Hint bar: with a controller, the bottom of the screen shows what each button does on that screen, with your controller's buttons (Xbox or PlayStation). It goes away when you use the mouse, keyboard or touch screen."],
+    ["Los desplegables (tipo, orden, Pokémon de Mejoras…) se abren con A y se eligen con la cruceta.",
+     "Dropdowns (type, sort, the Upgrades Pokémon…) open with A and you pick with the D-pad."]],
+  chg: [
+    ["Moverse por los menús con mando va mucho mejor: la selección late para verse siempre, salta a lo más cercano en cada dirección, la lista se desplaza sola, mantener la cruceta acelera, cada pantalla empieza en lo importante (el primer Pokémon, el primer ataque, «Tirar»…) y al volver a una pantalla o a «Ir a…» sigues donde estabas. Lo que abres desde «Ir a…» vuelve a «Ir a…» con B.",
+     "Moving through menus with a controller is much better: the selection pulses so you always see it, jumps to the nearest thing in each direction, lists scroll by themselves, holding the D-pad speeds up, each screen starts on what matters (the first Pokémon, the first move, “Pull”…) and when you return to a screen or to “Go to…” you're where you left off. What you open from “Go to…” goes back to “Go to…” with B."],
+    ["Mando: LT / RT ya no cambian de pestaña en los menús (ahora pasan página); en la partida siguen cambiando de ataque. Todo se puede cambiar en Ajustes › Controles › Con mando.",
+     "Controller: LT / RT no longer switch tabs in menus (they flip pages now); in a run they still switch moves. You can change everything in Settings › Controls › Controller."]] },
+
   { d: '2026-11-22', title: ["App de Windows a pantalla completa", "Full-screen Windows app"], chg: [
     ["La app para Windows se abre siempre a pantalla completa y usa lo que da el PC: más prioridad para el juego y su gráfica, sin el ahorro de energía de Windows y sin límite de FPS (va al ritmo de tu pantalla; se puede cambiar en Ajustes › Gráficos).",
      "The Windows app always opens full screen and uses what your PC has: higher priority for the game and its graphics, no Windows power saving and no FPS limit (it follows your screen's refresh rate; you can change it in Settings › Graphics)."],

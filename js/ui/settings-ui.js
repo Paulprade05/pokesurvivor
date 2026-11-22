@@ -172,8 +172,8 @@ G.SettingsUI = (() => {
   // Como las teclas: se pulsa la acción y luego el botón nuevo en el mando (G.Pad.grab). Si otra acción que se usa a la vez
   // lo tenía, se intercambian y se avisa debajo; Aceptar, Atrás y Pausa nunca se quedan sin botón.
   let padBinding = null, padMsg = '';
-  const PAD_GAME = ['prev', 'next', 'open', 'zmove', 'pause', 'run', 'm1', 'm2', 'm3', 'm4'];
-  const PAD_UI = ['ok', 'back', 'tabPrev', 'tabNext', 'reroll', 'discard'];
+  const PAD_GAME = ['prev', 'next', 'open', 'zmove', 'pause', 'goto', 'run', 'm1', 'm2', 'm3', 'm4'];
+  const PAD_UI = ['ok', 'back', 'tabPrev', 'tabNext', 'pageUp', 'pageDown', 'reroll', 'discard'];
   function padBtn(a) {
     const on = padBinding === a, g = G.Pad.glyph(a, true);
     return `<button type="button" class="btn small keybind padbind${on ? ' gold' : ''}${g ? '' : ' none'}" data-padbind="${a}">${on ? '…' : g || '—'}</button>`;

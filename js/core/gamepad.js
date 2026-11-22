@@ -7,22 +7,28 @@
  *   En la partida y paseando por la aldea:
  *                   stick izquierdo o cruceta   moverse (no se cambia)
  *                   LB / RB (o LT / RT)         ataque anterior / siguiente          prev / next
- *                   Start (o Back)              pausa · «Ir a…» en la aldea y en tu choza   pause
+ *                   Start                       pausa · «Ir a…» en la aldea y en tu choza   pause
+ *                   Back (View, Create, −)      «Ir a…» en la aldea · pausa en la partida   goto
  *                   A                           abrir cofres (mantenido, el de candado) · entrar y hablar en la aldea ·
  *                                               saltar la animación de Arceus        open
  *                   B                           correr en la aldea                   run
  *                   X                           movimiento Z o mega                  zmove
  *                   (sin botón)                 ataque 1-4                           m1..m4
  *                   stick derecho               apuntar (con "Apuntar a mano" en Accesibilidad; no se cambia)
- *   En menús, cartas y pausa:
- *                   stick o cruceta             mover la selección (recuadro dorado); en una barra (volumen),
- *                                               izquierda / derecha la mueven; colocando un mueble, lo mueven
- *                   A                           pulsar                               ok
- *                   B (o Back)                  atrás / cerrar (como Esc)            back
- *                   LB / RB (o LT / RT)         pestaña anterior / siguiente         tabPrev / tabNext
- *                   Y                           cambiar las cartas (como R) · girar el mueble   reroll
- *                   X                           descartar (como X) · elegir un mueble de tu choza   discard
+ *   En menús, cartas y pausa (mando-menus, 22-11-2026: navegación de verdad):
+ *                   stick o cruceta             mover la selección al vecino más cercano en esa dirección (recuadro
+ *                                               dorado que late); mantenido repite, cada vez más deprisa; en una barra
+ *                                               (volumen), izquierda / derecha la mueven; colocando un mueble, lo mueven
+ *                   A                           pulsar · un desplegable abre su lista (cruceta, A elige, B cierra)  ok
+ *                   B (o Back)                  atrás / cerrar (como Esc); lo abierto desde «Ir a…» vuelve a «Ir a…»  back
+ *                   LB / RB                     pestaña anterior / siguiente (la fila más cercana a la selección)  tabPrev / tabNext
+ *                   LT / RT                     página anterior / siguiente de la lista larga        pageUp / pageDown
+ *                   Y                           cambiar las cartas (como R) · atajo de la pantalla (G.PadUI) · girar el mueble   reroll
+ *                   X                           descartar (como X) · atajo de la pantalla · elegir un mueble de tu choza   discard
+ *                   Start                       cerrar (pausa: seguir)
  *                   stick derecho               desplazar las listas
+ *   Al volver a una pantalla (o a «Ir a…») la selección sigue en lo último que elegiste. Dónde empieza cada pantalla y sus
+ *   atajos X / Y, en ui/pad-ui.js, que también pinta la barra de pistas.
  * Dos acciones que se usan a la vez (las de la partida, o las de los menús) no comparten botón: al elegir uno ocupado se
  * intercambian. Aceptar, Atrás y Pausa nunca se quedan sin botón.
  *
@@ -44,7 +50,8 @@ G.Pad = (() => {
   const NATIVE = 'button, a[href], input, select, textarea, label[for], [data-pad]';
   let vec = [0, 0], aimVec = [0, 0], aimAt = 0;
   let focus = null, focusScope = null, showing = false, lastPos = null;
-  let navDir = null, navT = 0, autoT = 0;
+  let navDir = null, navT = 0, navHeld = 0, autoT = 0, fresh = false;
+  let backTo = null, wantQuick = 0, walkT = 0, memWait = 0, tabPanel = null;   // volver a «Ir a…» al cerrar con B lo que se abrió desde ahí
   // Por índice de mando: qué tenía pulsado, cuándo se usó, su eje "hat" y cuánto lleva cada eje en el centro.
   const sigs = [], used = [], hats = [], still = [];
   const prevs = [];   // botones del fotograma anterior, de cada mando (para saber qué se acaba de pulsar)
@@ -60,16 +67,19 @@ G.Pad = (() => {
     next: { ctx: 'game', def: [5, 7], name: 'Ataque siguiente' },
     open: { ctx: 'game', def: [0], name: 'Abrir cofres · entrar y hablar en la aldea', s: 'Abrir cofres' },
     zmove: { ctx: 'game', def: [2], name: 'Movimiento Z o mega' },
-    pause: { ctx: 'game', def: [9, 8], name: 'Pausa · «Ir a…» en la aldea', s: 'Pausa', need: true },
+    pause: { ctx: 'game', def: [9], name: 'Pausa · «Ir a…» en la aldea', s: 'Pausa', need: true },
+    goto: { ctx: 'game', def: [8], name: '«Ir a…» en la aldea · pausa en la partida', s: '«Ir a…»' },
     run: { ctx: 'game', def: [1], name: 'Correr en la aldea' },
     m1: { ctx: 'game', def: [], name: 'Ataque 1' }, m2: { ctx: 'game', def: [], name: 'Ataque 2' },
     m3: { ctx: 'game', def: [], name: 'Ataque 3' }, m4: { ctx: 'game', def: [], name: 'Ataque 4' },
     ok: { ctx: 'ui', def: [0], name: 'Aceptar', need: true },
     back: { ctx: 'ui', def: [1, 8], name: 'Atrás / cerrar', s: 'Atrás', need: true },
-    tabPrev: { ctx: 'ui', def: [4, 6], name: 'Pestaña anterior' },
-    tabNext: { ctx: 'ui', def: [5, 7], name: 'Pestaña siguiente' },
-    reroll: { ctx: 'ui', def: [3], name: 'Cambiar las cartas · girar el mueble', s: 'Cambiar las cartas' },
-    discard: { ctx: 'ui', def: [2], name: 'Descartar cartas · elegir un mueble de tu choza', s: 'Descartar cartas' }
+    tabPrev: { ctx: 'ui', def: [4], name: 'Pestaña anterior' },
+    tabNext: { ctx: 'ui', def: [5], name: 'Pestaña siguiente' },
+    pageUp: { ctx: 'ui', def: [6], name: 'Página anterior en las listas largas', s: 'Página anterior' },
+    pageDown: { ctx: 'ui', def: [7], name: 'Página siguiente en las listas largas', s: 'Página siguiente' },
+    reroll: { ctx: 'ui', def: [3], name: 'Cambiar las cartas · atajo de la pantalla (ordenar, «Máx.»…) · girar el mueble', s: 'Cambiar las cartas' },
+    discard: { ctx: 'ui', def: [2], name: 'Descartar cartas · atajo de la pantalla (filtros, planear build…) · elegir un mueble de tu choza', s: 'Descartar cartas' }
   };
   const LIST = Object.keys(ACTS);
   const NB = 17;                                   // botones de la distribución "standard"
@@ -292,9 +302,9 @@ G.Pad = (() => {
     const tap = document.getElementById('tap-start');
     if (tap && !tap.classList.contains('hidden')) return [tap];
     if (top) out.push(top);
-    // La barra de arriba (Guardar, Ajustes...) cuenta si no hay una ventana encima.
+    // La barra de arriba (Guardar, Ajustes...) cuenta si no hay una ventana encima (ni una ventanita como «Ir a…»).
     const bar = document.getElementById('topbar');
-    if (bar && !bar.classList.contains('hidden') && (!top || !top.classList.contains('dim'))) out.push(bar);
+    if (bar && !bar.classList.contains('hidden') && (!top || !top.classList.contains('dim')) && !innerDialog()) out.push(bar);
     return out;
   }
 
@@ -329,15 +339,37 @@ G.Pad = (() => {
   const center = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
   const rect = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
 
-  function setFocus(el) {
+  // (mando-menus, 22-11-2026) Lo último elegido en cada pantalla (y en cada ventanita, como «Ir a…»): al volver, sigue ahí.
+  const mem = new Map();
+  const memKey = () => { const t = topScreen(), d = innerDialog(); return t ? t.id + '|' + (d ? d.id || 'dlg' : '') : ''; };
+  /** Cómo reconocer un botón aunque la pantalla se haya vuelto a pintar: su id o sus data-*; si no, su texto. */
+  function sigOf(el) {
+    if (el.id) return '#' + el.id;
+    const d = Object.keys(el.dataset).filter(k => k !== 'pad' && k !== 'sfx').map(k => k + '=' + el.dataset[k]).join(',');
+    return el.tagName + '.' + (el.classList[0] || '') + (d ? '[' + d + ']' : ':' + el.textContent.trim().slice(0, 40));
+  }
+
+  /** auto: la elige el juego (al abrir o redibujar), no el jugador: no se apunta para la próxima vez. */
+  /** El botón que se reconoce por `s`, si ya está en la pantalla (aunque aún no se vea). */
+  function findSig(s) {
+    const t = innerDialog() || topScreen();
+    if (!t) return null;
+    if (s[0] === '#') { const e = document.getElementById(s.slice(1)); return e && t.contains(e) ? e : null; }
+    for (const el of t.getElementsByTagName(s.split('.')[0])) if (sigOf(el) === s) return el;
+    return null;
+  }
+  function setFocus(el, auto) {
     if (focus) focus.classList.remove('pad-focus');
     focus = el;
     focusScope = topScreen();
     if (!el) return;
     el.classList.add('pad-focus');
     showing = true;
+    // (scroll-margin de .pad-focus: se ve con algo de aire, no pegado al borde de la lista.)
     try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nada */ }
     lastPos = { scr: focusScope, at: center(el) };
+    const k = !auto && memKey();
+    if (k) mem.set(k, sigOf(el));
   }
   function hideFocus() {
     if (focus) focus.classList.remove('pad-focus');
@@ -355,13 +387,31 @@ G.Pad = (() => {
     const d = [...top.querySelectorAll('[role="dialog"]:not(.hidden)')].filter(e => e.getClientRects().length);
     return d[d.length - 1] || null;
   }
+  const TAB = '[role="tab"], .vh-tab, .tabs > .tab';
+  const isTab = el => el.matches(TAB);
+  /** Lo que dice G.PadUI de la pantalla de arriba (o de su ventanita): primera selección y atajos X / Y. */
+  function spec() {
+    if (!G.PadUI) return null;
+    const d = innerDialog(), t = topScreen();
+    return (d && d.id && G.PadUI.spec(d.id)) || (t && G.PadUI.spec(t.id)) || null;
+  }
   function firstOf(list) {
     const bar = document.getElementById('topbar'), dlg = innerDialog();
     const inDlg = dlg ? list.filter(el => dlg.contains(el)) : [];
     if (inDlg.length) list = inDlg;
+    // (mando-menus) Lo que la pantalla dice que va primero (el primer Pokémon de la Pokédex, «Tirar» en el gacha...).
+    const sp = spec();
+    if (sp && sp.first) {
+      for (const sel of sp.first.split(/\s*;\s*/)) {
+        const f = list.find(el => el.matches(sel) || !!el.closest(sel));
+        if (f) return f;
+      }
+    }
     const inWin = list.filter(el => !(bar && bar.contains(el)));
     const rest = (inWin.length ? inWin : list).filter(el => !isBack(el));
-    const pool = rest.length ? rest : inWin.length ? inWin : list;
+    // Las pestañas se cambian con LB / RB: antes lo de dentro.
+    const noTabs = rest.filter(el => !isTab(el));
+    const pool = noTabs.length ? noTabs : rest.length ? rest : inWin.length ? inWin : list;
     const main = pool.find(el => el.matches('.play, .btn.gold, .card'));
     if (main) return main;
     return pool.slice().sort((a, b) => { const [ax, ay] = center(a), [bx, by] = center(b); return (ay - by) || (ax - bx); })[0] || null;
@@ -370,6 +420,9 @@ G.Pad = (() => {
   /** ¿La selección sigue entre lo que se puede pulsar? Igual que candidates().includes(focus), sin recorrer toda la pantalla. */
   function valid() {
     if (!focus || !focus.isConnected || focusScope !== topScreen()) return false;
+    // (mando-menus) Con una ventanita abierta («Ir a…»), la selección va dentro de ella.
+    const dlg = innerDialog();
+    if (dlg && !dlg.contains(focus)) return false;
     for (const sc of scopes()) {
       if (sc.id === 'tap-start') return focus === sc;
       if (focus === sc || !sc.contains(focus)) continue;
@@ -413,7 +466,7 @@ G.Pad = (() => {
   function move(dx, dy) {
     let list = candidates();
     if (!list.length) { hideFocus(); return; }
-    if (!valid()) { setFocus(firstOf(list)); return; }
+    if (!valid()) { setFocus(firstOf(list), true); return; }
     // Si no hay nada más por ese lado pero la lista sigue (lo de debajo, recortado, no cuenta), se desliza y se mira otra vez.
     for (let tries = 0; tries < 4; tries++) {
       const others = list.filter(el => el !== focus);
@@ -445,19 +498,41 @@ G.Pad = (() => {
       const dlg = innerDialog();
       if (dlg && !dlg.contains(best) && list.some(el => dlg.contains(el))) best = null;
     }
-    setFocus(best || firstOf(list));
+    // (mando-menus) Si se vuelve a una pantalla (o a «Ir a…»), lo que se eligió la última vez.
+    if (!best && !fresh) {
+      const s = mem.get(memKey());
+      if (s) best = list.find(el => sigOf(el) === s) || null;
+      // Aún entrando (la ventana se está abriendo y lo de abajo no se ve del todo): un momento más.
+      // (Si está en la lista pero fuera de la vista, se desliza hasta él y se mira otra vez.)
+      const hid = s && !best && (memWait += 0.15) < 0.6 && findSig(s);
+      if (hid) { try { hid.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nada */ } return; }
+    }
+    memWait = 0;
+    if (!best && fresh && tabPanel) {
+      const inP = list.filter(el => tabPanel.contains(el) && !isTab(el));
+      if (inP.length) best = firstOf(inP);
+    }
+    fresh = false; tabPanel = null;
+    setFocus(best || firstOf(list), true);
   }
 
   function press() {
-    if (!valid()) { const list = candidates(); setFocus(firstOf(list)); return; }
-    const el = focus;
+    if (!valid()) { const list = candidates(); setFocus(firstOf(list), true); return; }
+    activate(focus);
+  }
+  /** Pulsar `el` como con el ratón. Un desplegable abre su lista (dropdown.js: cruceta, A elige, B cierra). */
+  function activate(el) {
     if (el.matches('input[type=range]')) return;          // se mueve con izquierda / derecha
-    if (el.matches('select')) {                           // un desplegable no se abre: pasa a la siguiente opción
+    if (el.matches('select')) {
+      if (G.Dropdown && G.Dropdown.padOpen) { G.Dropdown.padOpen(el); return; }
       el.selectedIndex = (el.selectedIndex + 1) % Math.max(1, el.options.length);
       el.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
-    if (el.matches('input, select, textarea')) { el.focus(); return; }
+    if (el.matches('input, textarea')) { el.focus(); return; }
+    // (mando-menus) Lo que se abre desde «Ir a…» vuelve a «Ir a…» con B (y con lo que se eligió ahí).
+    const q = document.getElementById('vil-quick');
+    if (q && q.contains(el)) backTo = el.matches('.play') ? null : 'quick';
     lastPos = { scr: topScreen(), at: center(el) };
     el.click();
     // Si al pulsar se redibuja la misma pantalla (un Sí/No de Ajustes), sigue en lo que haya en el mismo sitio; si cambia
@@ -481,6 +556,9 @@ G.Pad = (() => {
   /** Atrás: colocando un mueble, lo cancela; si no, el botón de cerrar o volver de la ventana, si lo tiene; si no, Esc. */
   function back() {
     if (G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen) { G.HomeIn.cancelPlace(); G.HomeUI.selected(-1); return; }
+    const q = typeof document.getElementById === 'function' && document.getElementById('vil-quick');
+    if (q && innerDialog() === q) backTo = null;      // se cierra «Ir a…» mismo
+    else if (backTo === 'quick') wantQuick = performance.now();
     const top = topScreen();
     if (top) {
       const btns = [...top.querySelectorAll('button, a')].filter(b => b.getBoundingClientRect().width > 0);
@@ -491,21 +569,124 @@ G.Pad = (() => {
   }
 
   /** LB / RB en un menú: la pestaña de al lado (de la fila de pestañas donde está la selección, o la primera que se vea). */
-  function tab(d) {
+  /** Las filas de pestañas que se ven en la pantalla de arriba (cada una, sus pestañas). */
+  function tabRows() {
     const top = topScreen();
-    if (!top) return;
-    const tabs = [...top.querySelectorAll('[role="tab"], .vh-tab')].filter(t => t.getClientRects().length && !t.disabled);
-    if (!tabs.length) return;
-    const row = (focus && tabs.find(t => t.parentElement.contains(focus))) || tabs[0];
-    const mine = tabs.filter(t => t.parentElement === row.parentElement);
+    if (!top) return [];
+    const rows = new Map();
+    for (const t of top.querySelectorAll(TAB)) {
+      if (t.disabled || !t.getClientRects().length) continue;
+      const p = t.parentElement;
+      if (!rows.has(p)) rows.set(p, []);
+      rows.get(p).push(t);
+    }
+    return [...rows.entries()].map(([p, tabs]) => ({ p, tabs }));
+  }
+  /** La fila que manejan LB / RB: la más cercana a la selección (la de la ficha si estás en la ficha); si no, la primera. */
+  function tabRow() {
+    const rows = tabRows();
+    if (!rows.length) return null;
+    let best = rows[0], bd = Infinity, panel = null;
+    if (!focus) return best;
+    for (const r of rows) {
+      // Lo que hay que subir desde la fila hasta algo que contenga la selección: cuanto menos, más cerca.
+      let a = r.p, n = 0;
+      while (a && !a.contains(focus)) { a = a.parentElement; n++; }
+      if (a && n < bd) { bd = n; best = r; panel = a; }
+    }
+    best.panel = panel;   // lo que tiene la fila y la selección (la ficha, o la pantalla entera)
+    return best;
+  }
+  /** LB / RB en un menú: la pestaña de al lado (y la selección, dentro de lo nuevo). */
+  function tab(d) {
+    const row = tabRow();
+    if (!row) return false;
+    const mine = row.tabs;
     let i = mine.findIndex(t => t.getAttribute('aria-selected') === 'true' || t.classList.contains('on'));
     if (i < 0) i = 0;
     const next = mine[(i + d + mine.length) % mine.length];
-    if (next === mine[i]) return;
-    const inRow = focus && mine.includes(focus);
+    if (next === mine[i]) return true;
+    const inRow = focus && mine.includes(focus), was = focus;
+    const nsig = sigOf(next), chain = [];
+    for (let a = row.panel; a && a !== document.body; a = a.parentElement) chain.push(a);
     next.click();
     if (inRow && next.isConnected) setFocus(next);
-    else { lastPos = null; autoT = 0.1; }
+    else if (inRow) {
+      // Se ha vuelto a pintar la fila: la selección, en la pestaña nueva (se reconoce como al volver a una pantalla).
+      const k = memKey();
+      if (k) mem.set(k, nsig);
+      lastPos = null; if (focus) focus.classList.remove('pad-focus'); focus = null; autoT = 0.05;
+    } else if (was && was.isConnected && valid()) { /* no se ha vuelto a pintar: sigue donde estaba */ }
+    else {
+      // Lo de dentro de la pestaña nueva, en la misma zona (la ficha sigue en la ficha).
+      // (Si la zona se ha vuelto a pintar entera, la de fuera que sigue: la ficha de la Pokédex.)
+      tabPanel = chain.find(a => a.isConnected) || null;
+      lastPos = null; fresh = true; if (focus) focus.classList.remove('pad-focus'); focus = null; autoT = 0.05;
+    }
+    return true;
+  }
+
+  /** La lista larga de la pantalla: la que se desliza y más sitio ocupa. */
+  function mainScroller() {
+    const top = topScreen();
+    if (!top) return null;
+    let best = null, ba = 0;
+    for (const s of top.querySelectorAll('*')) {
+      if (!scrolls(s)) continue;
+      const a = s.clientWidth * s.clientHeight;
+      if (a > ba) { ba = a; best = s; }
+    }
+    return best;
+  }
+  /** LT / RT: una página de la lista hacia arriba o hacia abajo, con la selección en el mismo sitio de la pantalla. */
+  function page(d) {
+    if (G.Dropdown && G.Dropdown.open && G.Dropdown.padMove) { G.Dropdown.padMove(d * 8); return; }
+    let sc = null;
+    for (let s = valid() ? focus.parentElement : null; s && s !== document.body; s = s.parentElement) if (scrolls(s)) { sc = s; break; }
+    sc = sc || mainScroller();
+    if (!sc) return;
+    const had = valid() && sc.contains(focus) ? center(focus) : null;
+    const from = sc.scrollTop;
+    sc.scrollTop = from + d * Math.max(60, sc.clientHeight * 0.85);
+    const moved = sc.scrollTop !== from;
+    const box = sc.getBoundingClientRect();
+    const inside = candidates().filter(el => sc.contains(el));
+    if (!inside.length) return;
+    let best = null;
+    if (!moved) {
+      // Ya en el borde: el primero o el último.
+      const ord = inside.slice().sort((a, b) => { const [ax, ay] = center(a), [bx, by] = center(b); return (ay - by) || (ax - bx); });
+      best = d > 0 ? ord[ord.length - 1] : ord[0];
+    } else {
+      // El que quede en el mismo sitio de la pantalla (sin selección dentro, arriba a la izquierda de la lista).
+      const at = had || [box.left + 30, box.top + 30];
+      const seen = inside.filter(el => { const r = el.getBoundingClientRect(); return r.top >= box.top - 2 && r.bottom <= box.bottom + 2; });
+      let bd = Infinity;
+      for (const el of seen.length ? seen : inside) { const [x, y] = center(el); const dd = (x - at[0]) ** 2 + (y - at[1]) ** 2; if (dd < bd) { bd = dd; best = el; } }
+    }
+    if (best) setFocus(best);
+  }
+
+  /** X / Y: el atajo de la pantalla (G.PadUI), si lo tiene y se ve. → true si lo ha hecho. */
+  function shortcut(k) {
+    const sp = spec(), a = sp && sp[k];
+    if (!a) return false;
+    const el = target(a);
+    if (!el) return false;
+    if (a.key) { G.Input.virtual(a.key); return true; }
+    if (el.matches('select, input, textarea')) { setFocus(el); activate(el); return true; }
+    // Un atajo no mueve la selección: si la pantalla se vuelve a pintar, sigue donde estaba.
+    const here = valid() ? { scr: topScreen(), at: center(focus) } : null;
+    activate(el);
+    if (here) lastPos = here;
+    return true;
+  }
+  /** El botón de un atajo, si se ve y se puede pulsar. */
+  function target(a) {
+    const top = topScreen();
+    if (!top || !a || !a.sel) return null;
+    for (const el of top.querySelectorAll(a.sel)) if (!el.disabled && el.getClientRects().length && !el.closest('.hidden')) return el;
+    return null;
   }
 
   /** En el editor de tu choza (sin colocar nada): elige el mueble siguiente de la habitación. */
@@ -583,13 +764,25 @@ G.Pad = (() => {
     const on = a => M[a].some(hit), held = a => M[a].some(i => now[i]);
     if (uiMode()) {
       vec = [0, 0];
+      walkT = 0;
       // Colocando un mueble en tu choza: la cruceta lo mueve, A lo deja, Y lo gira y B lo cancela.
       const placing = !!(G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen);
       // Mover la selección: al empujar, y repitiendo si se mantiene.
       const dir = Math.hypot(x, y) < 0.5 ? null : Math.abs(x) > Math.abs(y) ? (x > 0 ? 'r' : 'l') : (y > 0 ? 'd' : 'u');
-      const go = placing ? d => G.Input.virtual({ r: 'arrowright', l: 'arrowleft', d: 'arrowdown', u: 'arrowup' }[d]) : step;
-      if (dir !== navDir) { navDir = dir; navT = 0.38; if (dir) go(dir); }
-      else if (dir && (navT -= dt) <= 0) { navT = 0.14; go(dir); }
+      // Con un desplegable abierto (dropdown.js): arriba / abajo eligen, A acepta, B cierra, LT / RT saltan de 8 en 8.
+      const dd = !placing && G.Dropdown && G.Dropdown.open && G.Dropdown.padMove;
+      const go = placing ? d => G.Input.virtual({ r: 'arrowright', l: 'arrowleft', d: 'arrowdown', u: 'arrowup' }[d])
+        : dd ? d => { if (d === 'u' || d === 'd') G.Dropdown.padMove(d === 'd' ? 1 : -1); } : step;
+      // (mando-menus) Mantenido, repite y cada vez más deprisa (listas largas).
+      if (dir !== navDir) { navDir = dir; navT = 0.36; navHeld = 0; if (dir) go(dir); }
+      else if (dir) { navHeld += dt; if ((navT -= dt) <= 0) { navT = repeatGap(navHeld); go(dir); } }
+      if (dd) {
+        if (on('ok')) G.Dropdown.padPick();
+        else if (on('back') || M.pause.some(hit)) G.Dropdown.close(false);
+        if (on('pageUp')) page(-1);
+        if (on('pageDown')) page(1);
+        return;
+      }
       if (isActive && !placing) autoFocus(dt);
       if (on('ok')) { if (placing) G.Input.virtual('enter'); else press(); }
       if (on('back')) back();
@@ -597,13 +790,22 @@ G.Pad = (() => {
       else if (M.pause.some(i => hit(i) && !LIST.some(a => ACTS[a].ctx === 'ui' && M[a].includes(i)))) G.Input.virtual('escape');
       if (on('tabPrev')) tab(-1);
       if (on('tabNext')) tab(1);
-      if (on('reroll')) { if (placing) G.HomeIn.flipGhost(); else G.Input.virtual('keyr'); }
-      if (on('discard') && !placing && !cycleFurniture()) G.Input.virtual('keyx');
+      if (on('pageUp')) page(-1);
+      if (on('pageDown')) page(1);
+      // Y / X: en las cartas, cambiar y descartar; en otras pantallas, su atajo (G.PadUI); colocando un mueble, voltearlo.
+      if (on('reroll')) { if (placing) G.HomeIn.flipGhost(); else if (!shortcut('y')) G.Input.virtual('keyr'); }
+      if (on('discard') && !placing && !cycleFurniture() && !shortcut('x')) G.Input.virtual('keyx');
       const ry = axisR(p, 3);
       if (Math.abs(ry) > DEAD) scrollLists(ry, dt);
     } else {
       if (showing) hideFocus();
       navDir = null;
+      // Se ha cerrado con B lo que se abrió desde «Ir a…»: vuelve «Ir a…» (si nada más se ha abierto).
+      if (wantQuick && G.Village && G.Village.walking && G.Village.walking()) {
+        const q = document.getElementById('vil-quick'), b = document.getElementById('vil-go');
+        if (performance.now() - wantQuick < 1500 && q && q.classList.contains('hidden') && b) b.click();
+        wantQuick = 0; backTo = null;
+      } else if ((walkT += dt) > 0.6) backTo = null;   // (un rato paseando o jugando: ya no se vuelve)
       vec = [x, y];
       const ax = axisR(p, 2), ay = axisR(p, 3);
       if (Math.hypot(ax, ay) > 0.35) { aimVec = [ax, ay]; aimAt = performance.now(); } else aimVec = [0, 0];
@@ -611,12 +813,35 @@ G.Pad = (() => {
       for (const a of ['prev', 'next', 'zmove', 'm1', 'm2', 'm3', 'm4']) if (on(a)) G.Input.virtualAct(a);
       // Pausa; en tu choza (como en la aldea), «Ir a…» (su botón; con Esc se sale de la choza).
       const go = G.HomeIn && G.HomeIn.on && G.Village && G.Village.walking() && document.getElementById('vil-go');
-      if (on('pause')) { if (go) go.click(); else G.Input.virtual('escape'); }
+      // Back / View: lo mismo (en la aldea, «Ir a…»; jugando, la pausa).
+      if (on('pause') || on('goto')) { if (go) go.click(); else G.Input.virtual('escape'); }
       if (on('open')) { G.Input.virtual('space'); G.Input.virtualAct('open'); }
       if (held('open')) G.Input.virtualHold('open');
       if (held('run')) G.Input.virtualHold('run');            // (17-11-2026) correr en la aldea (village.js running)
     }
   }
+  // ---------------- qué se puede hacer ahora (barra de pistas, ui/pad-ui.js) ----------------
+
+  let msc = null, mscTop = null, mscAt = 0;
+  /** → null (no hay barra: sin mando, eligiendo botón o jugando) o { mode: 'walk' | 'list' | 'ui', ... }. */
+  function context() {
+    if (!isActive || grabFn) return null;
+    if (!uiMode()) return G.Village && G.Village.walking && G.Village.walking() ? { mode: 'walk' } : null;
+    if (G.Dropdown && G.Dropdown.open) return { mode: 'list' };
+    const top = topScreen(), f = valid() ? focus : null, sp = spec();
+    const t = performance.now();
+    if (top !== mscTop || t - mscAt > 1000) { mscTop = top; mscAt = t; msc = mainScroller(); }
+    const lbl = k => (sp && sp[k] && target(sp[k]) ? sp[k].label : '');
+    return {
+      mode: 'ui', top: top ? top.id : '', dialog: (innerDialog() || {}).id || '',
+      focus: !f ? '' : f.matches('select') ? 'select' : f.matches('input[type=range]') ? 'range' : f.matches('input, textarea') ? 'text' : 'btn',
+      placing: !!(G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen),
+      tabs: tabRows().length > 0, page: !!(msc && msc.isConnected && scrolls(msc)), x: lbl('x'), y: lbl('y')
+    };
+  }
+
+  /** Cada cuánto se repite al mantener la cruceta, según cuánto lleva mantenida (s). */
+  function repeatGap(t) { return t > 1.6 ? 0.045 : t > 0.8 ? 0.075 : 0.12; }
   function step(dir) { if (!slide(dir)) move(...{ r: [1, 0], l: [-1, 0], d: [0, 1], u: [0, -1] }[dir]); }
 
   /** Vibración (0..1, en ms), si el mando y el ajuste lo permiten. */
@@ -631,7 +856,7 @@ G.Pad = (() => {
 
   return {
     poll, rumble, grab, label, glyph, hint, hintHtml, btnLabel, btnGlyph,
-    ACTS, LIST, resolve, assign, pick, familyOf,
+    ACTS, LIST, resolve, assign, pick, familyOf, context, repeatGap, sigOf,
     /** Los botones de cada acción, ya resueltos ({ acción: [botones] }). */
     map,
     /** Pone el botón b a la acción a y lo guarda. → lo mismo que assign() (sin map). */

@@ -3095,3 +3095,27 @@ G.I18n.add({
   'En la partida, lo que sea de tu build lleva este sello en las cartas, los objetos y la pausa. Sólo es una ayuda: no cambia lo que sale.': "In a run, whatever belongs to your build carries this seal on the cards, items and pause screen. It's only a guide: it doesn't change what shows up.",
   'Buscar ataque': 'Search move', 'Ningún ataque con ese nombre': 'No move with that name'
 });
+
+// (mando-menus, 22-11-2026) Mando en los menús: acciones nuevas (core/gamepad.js) y barra de pistas (ui/pad-ui.js).
+G.I18n.add({
+  "«Ir a…» en la aldea · pausa en la partida": "“Go to…” in the village · pause in a run",
+  "«Ir a…»": "“Go to…”",
+  "Página anterior en las listas largas": "Previous page in long lists",
+  "Página anterior": "Previous page",
+  "Página siguiente en las listas largas": "Next page in long lists",
+  "Página siguiente": "Next page",
+  "Cambiar las cartas · atajo de la pantalla (ordenar, «Máx.»…) · girar el mueble": "Reroll the cards · screen shortcut (sort, “Max”…) · rotate the furniture",
+  "Descartar cartas · atajo de la pantalla (filtros, planear build…) · elegir un mueble de tu choza": "Discard cards · screen shortcut (filters, plan build…) · pick a piece of furniture in your hut",
+  "Moverse": "Move",
+  "Entrar · hablar": "Enter · talk",
+  "Elegir": "Choose",
+  "De 8 en 8": "By 8",
+  "Escribir": "Type",
+  "← → ajustar": "← → adjust",
+  "Pestaña": "Tab",
+  "Página": "Page",
+  "×1 / Máx.": "×1 / Max",
+  "Cambiar cartas": "Reroll",
+  "Descartar": "Discard",
+  "Cambiar de Pokémon": "Change Pokémon"
+});
