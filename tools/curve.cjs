@@ -362,7 +362,9 @@ BOT.pick = function (cards, cardInfo) {
   // Vínculo: la sobrefusión si se puede; si no, el ataque que más pega y más subido está (BotDecide.pickBond).
   function pickBondCard(cards) {
     const ov = cards.findIndex(c => c.dataset.over);
-    if (ov >= 0) { BOT.dec.over++; return ov; }
+    // (1.0, bloque C) «over» en bot= son las sobrefusiones de verdad (pl.over): con 4 ataques casi siempre van directas,
+    // sin esta carta (game.js offerBond), y antes se contaba cada clic.
+    if (ov >= 0) return ov;
     const pl = G.Game.player, byName = {};
     for (const m of pl.moves) byName[G.T(m.name)] = m;
     const ms = cards.map(c => { const m = byName[(c.querySelector('.nm') || {}).textContent || ''] || {}; return { id: m.id, lvl: m.lvl, evolved: m.evolved, dealt: m.dealt, support: m.id ? BOT.isSupport(m) : true }; });
@@ -710,7 +712,7 @@ async function one(dex, upg, tag, speed, cap, want, pref, v1) {
           pw: [+(pl.atkMul || 1).toFixed(2), +(pl.reduction || 0).toFixed(2), Math.round(pl.maxHp)],
           it: (pl.items || []).map(i => i.id + ':' + i.r + (i.evo ? '*' : '')).join(',') || '-',
           v1: { fortune: pl.fortune || 0, curse: pl.curse || 0, vit: pl.vit || null, comp: pl.companion ? { dex: pl.companion.dex, evo: pl.companion.evolved ? 1 : 0, dealt: Math.round(pl.companion.dealt || 0) } : null, coins: pl.coins || 0 },
-          dec: Object.assign({}, BOT.dec), style: BOT.style.name + ':' + BOT.style.risk };
+          dec: Object.assign({}, BOT.dec, { over: pl.over || 0 }), style: BOT.style.name + ':' + BOT.style.risk };
       });
       ttks.push(...s.ttk);
       if (s.t - lastLog >= 60 || s.over) {

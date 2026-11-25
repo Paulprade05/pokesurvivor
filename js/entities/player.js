@@ -313,8 +313,9 @@ G.Player = class Player {
   // OVER_K, hasta OVER_MAX veces. Es de cada
   // jugador: en grupo, cada uno su daño (el invitado manda el golpe ya hecho, 'h'), nada nuevo por la red.
   // (1.0, bloque C, lo decidió el dueño) Con el tope de 4 ataques los vínculos sobrantes van todos aquí: +8 % cada una,
-  // hasta 8, también las 3 primeras (+64 %; antes +15 % ×3 = +45 %). Una partida da hasta 11 vínculos: 3 para fusionar
-  // los 4 y 8 de Sobrefusión. Tope en el presupuesto de poder (data/power-budget.js, OVER).
+  // hasta 8, también las 3 primeras (+64 %; antes +15 % ×3 = +45 %). Cada grieta ganada da un vínculo (rift.js won), y
+  // los 3 primeros fusionan los 4: en 30 min (~5-6 grietas) caben 2-3 (+16-24 %); las 8, sólo en partidas más largas.
+  // Tope en el presupuesto de poder (data/power-budget.js, OVER).
   static get OVER_K() { return 0.08; }
   static get OVER_MAX() { return 8; }
   /** El grupo lleno (los 4 fusionados) o null. */
