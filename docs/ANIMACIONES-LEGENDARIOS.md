@@ -18,7 +18,10 @@ tenga una animación personal; cuando haya dos se verá primero una animación y
    genérica (columna de luz de su tipo + su estilo y su toque de `APPEAR` en `rift.js`, que ya es distinta para cada
    uno).
 
-Hoy tienen animación propia: **Mewtwo (150)**, **Groudon (383)** y **Rayquaza (384)**. Sirven de ejemplo.
+Tienen animación propia **13 de 88** (lista con su estado en el vault, «Animaciones de legendarios»): del bloque H,
+**Mewtwo (150)**, **Groudon (383)** y **Rayquaza (384)**; de la tanda 1 (25-11-2026), **Articuno (144)**, **Zapdos (145)**,
+**Moltres (146)**, **Mew (151)**, **Raikou (243)**, **Entei (244)**, **Suicune (245)**, **Lugia (249)**, **Ho-Oh (250)** y
+**Celebi (251)**. Todas sirven de ejemplo.
 
 ## Cómo añadir la animación de un legendario
 
@@ -57,10 +60,16 @@ Lo que no pongas sale de la genérica. `l` trae: `dex`, `x`, `y` (los pies), `co
   partículas. Pocas líneas sueltas y nada de degradados por fotograma (van por el respaldo lento de `gl2d`).
   Mide con `node tools/perf.cjs --escenas grieta,arena --gl` antes y después: no puede bajar de 60 fps en PC.
 - **Arte nuevo** (si hace falta un dibujo): con pxl y `docs/ESTILO-ARTE.md`, nunca PixelLab.
+- **Calidad baja: sin luces.** Con `G.Settings.fx = 0` (lo que elige el juego en muchos móviles) `glow(...)` no pinta
+  nada. Lo que cuenta la animación tiene que verse también con formas (elipses, rectángulos); la luz, encima, de adorno.
+- **Nunca un radio negativo** en `arc` / `ellipse` (p. ej. `hgt / 2 - 8` cuando `hgt` aún es 0): el lienzo lanza un
+  error, el legendario no se ve y queda un `save()` sin `restore()` que estropea lo siguiente. Usa `Math.max(0, ...)`.
+- **Altura**: en un móvil tumbado la cámara ve unos 200 de mundo por encima de sus pies; nubes, arcoíris y lo que
+  baje del cielo, que se vea a esa altura (puede empezar más arriba, pero lo importante, debajo).
 
 ### Probar
 
-- `node --test tests/jefes.test.cjs`: la prueba «legend-fx (block H)» recorre todas las propias de principio a fin
-  (duraciones válidas, sprite con `a` entre 0 y 1, sin errores) sin tocar nada más.
+- `node --test tests/jefes.test.cjs`: la prueba «legend-fx (block H)» recorre todas las propias de principio a fin, de
+  0,01 en 0,01 (duraciones válidas, sprite con `a` entre 0 y 1, sin radios negativos ni números raros, sin errores).
 - En el juego (`dev.html?dev`): en una partida, `G.Rift.debugArena('water', 2, 382)` abre una grieta de agua con
   ese legendario el primero. `G.DB.save.lseen = {}` para volver a verlo como nuevo.

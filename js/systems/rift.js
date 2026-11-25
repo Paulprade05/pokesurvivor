@@ -951,7 +951,13 @@ G.Rift = (() => {
   /** La grieta, para ordenarla por Y con el resto de la escena. */
   const introDrawable = { y: 0, draw: ctx => drawIntro(ctx) };
   function drawable() {
-    if (intro && arena && !(intro.done && performance.now() / 1000 - intro.doneAt > 3)) { introDrawable.y = Math.max(...intro.list.map(l => l.y)); return introDrawable; }
+    if (intro && arena && !(intro.done && performance.now() / 1000 - intro.doneAt > 3)) {
+      // (Animaciones de legendarios, 25-11-2026) También su x: el dibujo con perspectiva (game.js, place) la usa para
+      //  ponerlo en la pantalla; sin ella daba NaN, setTransform no hacía nada y la llegada salía con la escala y el sitio
+      //  de lo que se hubiera dibujado antes (a veces, ni se veía).
+      const l = intro.list.reduce((a, b) => (b.y > a.y ? b : a));
+      introDrawable.y = l.y; introDrawable.x = l.x; return introDrawable;
+    }
     if (!rift) return null;
     return {
       y: rift.y,

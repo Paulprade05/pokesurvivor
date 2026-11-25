@@ -6,6 +6,13 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-25', title: ['Llegadas propias de los legendarios de Kanto y Johto', 'Own entrances for the Kanto and Johto legendaries'], new: [
+    ['Diez legendarios más tienen su propia llegada a la grieta: Articuno baja planeando entre una ventisca y hiela el suelo; Zapdos sale de un rayo enorme tras tres de aviso; Moltres cae como una bola de fuego que se abre en alas de llama; Mew sale de una burbuja rosa que rebota; Raikou cruza la arena como una centella; Entei rompe un géiser de fuego; Suicune llega deslizándose por agua clara bajo una aurora; Lugia baja de una tormenta sobre un remolino; Ho-Oh baja por un arcoíris entre plumas doradas; y Celebi sale de una luz verde mientras brota la hierba. Cada uno con su título en la tarjeta.',
+     'Ten more legendaries have their own rift entrance: Articuno glides down through a blizzard and freezes the ground; Zapdos comes out of a huge lightning bolt after three warning strikes; Moltres falls as a fireball that opens into wings of flame; Mew pops out of a bouncing pink bubble; Raikou dashes across the arena like a lightning streak; Entei breaks out of a fire geyser; Suicune glides in over clear water under an aurora; Lugia descends from a storm over a whirlpool; Ho-Oh comes down through a rainbow among golden feathers; and Celebi appears from a green light while grass sprouts. Each one with its own title on the card.']],
+  fix: [
+    ['Con los gráficos en perspectiva, la llegada de un legendario a veces salía en otro sitio o no se veía.',
+     'With perspective graphics, a legendary’s entrance sometimes showed up in the wrong place or not at all.']] },
+
   { d: '2026-11-24', title: ["Llegadas de legendario y una aldea con vida", "Legendary entrances and a living village"], new: [
     ["Al entrar en una grieta, primero te absorbe: la pantalla se oscurece, todo gira hacia ella y te traga antes del túnel.",
      "When you enter a rift, it first pulls you in: the screen darkens, everything swirls towards it and swallows you before the tunnel."],

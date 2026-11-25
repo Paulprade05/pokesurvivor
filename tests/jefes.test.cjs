@@ -474,7 +474,14 @@ test('rift (block H): an "lk" that arrives while the guest is still in the tunne
 
 test('legend-fx (block H): own animations by dex, the generic one for the rest, and every one draws without errors', () => {
   const calls = [];
-  const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' && /^[a-z]/.test(k) && !['globalAlpha', 'fillStyle', 'strokeStyle', 'lineWidth', 'lineCap', 'font'].includes(k) ? (...a) => calls.push(k) : undefined), set: (o, k, v) => { o[k] = v; return true; } });
+  // (Animaciones de legendarios) Como el lienzo de verdad: un radio negativo en arc/ellipse lanza un error y corta el dibujo
+  //  (el legendario no se ve); y nada de números que no sean finitos.
+  const check = (k, a) => {
+    assert.ok(a.every(v => typeof v !== 'number' || Number.isFinite(v)), k + ' con un número no finito: ' + a.join(', '));
+    if (k === 'arc') assert.ok(a[2] >= 0, 'arc con radio negativo: ' + a[2]);
+    if (k === 'ellipse') assert.ok(a[2] >= 0 && a[3] >= 0, 'ellipse con radio negativo: ' + a[2] + ', ' + a[3]);
+  };
+  const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' && /^[a-z]/.test(k) && !['globalAlpha', 'fillStyle', 'strokeStyle', 'lineWidth', 'lineCap', 'font'].includes(k) ? (...a) => { check(k, a); calls.push(k); } : undefined), set: (o, k, v) => { o[k] = v; return true; } });
   const G = { U: { hash: (a, b, c) => ((Math.sin(a * 12.9898 + b * 78.233 + (c || 0) * 37.719) * 43758.5453) % 1 + 1) % 1 },
     FX: { glowAt() {}, ring() {}, burst() {}, px() {} }, Camera: { kick() {} }, Settings: { get: () => false }, T: s => s,
     BossFX: { appear() {}, accent() {}, appearSprite: () => ({ a: 1, rise: 0, lift: 0 }) } };
@@ -485,7 +492,7 @@ test('legend-fx (block H): own animations by dex, the generic one for the rest, 
     const d = L.def(dex), l = { dex, x: 0, y: 0, col: '#ff6a1f', col2: '#ffd25e', seed: dex * 7, sc: 1.5, st: 'erupt', acc: 'embers', short: false };
     assert.equal(d.own, dex !== 999);
     assert.ok(d.dur >= 1.2 && d.dur <= 3 && d.short >= 0.5 && d.short < d.dur && d.cue > 0 && d.cue < 1, 'duraciones de ' + dex);
-    for (let k = 0; k <= 1.0001; k += 0.05) {
+    for (let k = 0; k <= 1.0001; k += 0.01) {       // (fino: un radio negativo puede durar pocos fotogramas)
       d.back(ctx, l, k, k * 2); d.front(ctx, l, k, k * 2);
       const s = d.sprite(l, k);
       assert.ok(s && s.a >= 0 && s.a <= 1, 'sprite de ' + dex);
