@@ -447,6 +447,21 @@ Reglas:
 - Tableta y ventana estrecha: la mesa arriba y el resto debajo. Móvil de pie: una columna y la pasiva debajo de su ataque. Móvil tumbado: dos columnas más bajas.
 - Sin sonido: el volumen está en Ajustes (botón de la propia pausa).
 
+- (1.0, bloque B) Desde el 25-11-2026 va en la plantilla «Menú» (14c): las tres partes son páginas (Ataques · Pasivas y objetos · Estadísticas) y los botones, la columna de la izquierda.
+
+## 14c. Plantillas a pantalla completa (1.0, bloque B, 25-11-2026)
+
+Pedido del dueño: «que los menús ocupen toda la pantalla» y «que la navegación con el mando sea clara, como en una consola». Código: `js/ui/nav.js` (orden), `gamepad.js` (lo usa si la pantalla tiene zona), CSS «Plantillas a pantalla completa» en `style.css`. Maquetas aprobadas: carpeta de notas `b-ui-maquetas`.
+- **Base**: `<section class="scr fs-scr">` + `<div class="box fs t-…">`. Opaca y entera (no se ve la partida), con el marco de corteza grande (en el móvil tumbado, sin marco).
+- **Una sola zona con cursor** (`[data-nav]`), recorrida en orden fijo, nunca por cercanía en la pantalla: lista ↑ ↓ con vuelta; una fila ← → con vuelta; rejilla que se para en el borde y recuerda la columna. Filas con `[data-nav-row]`, columnas con `data-nav-cols`, fuera del orden con `[data-nav-skip]`.
+- **Lo demás, con botones fijos**: páginas o pestañas con LB / RB (`[role=tab]`, `.fs-page`), A / B / X / Y para lo de la pantalla, LT / RT desplazan lo que se lee.
+- **Barra de abajo** `.fs-bar`: qué hace cada botón del mando aquí; sólo con mando (`body.pad`). En estas pantallas no sale la barra general (`pad-ui.js`).
+- **1 Menú** (`.t-menu`: pausa, resumen): cabecera (`.fs-head`, título y píldoras `.fs-pill`); a la izquierda `.fs-col` (tarjeta `.fs-who` y botones grandes `.fs-mbtn`, `.pri` el principal, `.danger` el de salir, separado); a la derecha `.fs-read` con páginas `.fs-page` y `.fs-scroll` (cada página es un `.fs-pg[data-pg]`; `setPage` en `run-ui.js`).
+- **4 Elección** (`.t-pick`: nivel, objeto, vínculo): las cartas en fila y grandes, sus botones debajo.
+- **2 Catálogo y 3 Lista**: maquetadas (Pokédex, Mejoras), se pasan en el bloque J.
+- **Cooperativo** en la pausa: aviso `.fs-warn`, borde rojo (`#scr-pause.coop`) y destello al recibir un golpe (`.hit`), la vida al día cada 200 ms.
+- Responsive: escritorio dos columnas; móvil tumbado más bajo (botones de 40 px); ventana estrecha de pie, una columna con los botones arriba. El móvil de pie gira y usa la de tumbado.
+
 ## 15. Piezas ya hechas (para copiar)
 
 - **Pantalla de carga** (`#boot`, `#tap-start`): logotipo `.wordmark` + Poké Ball que gira (`.boot-ld::before`).

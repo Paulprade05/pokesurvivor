@@ -72,6 +72,9 @@ G.PadUI = (() => {
     }
     if (c.mode === 'list') return item(stick, 'Mover') + item(g('ok'), 'Elegir') + item(g('back'), 'Cerrar') + item(pair('pageUp', 'pageDown'), 'De 8 en 8');
     if (c.placing) return '';      // (decorando la choza, la pista va en su ventana)
+    // (1.0) Las pantallas de las plantillas (ui/nav.js) llevan su propia barra abajo, con los botones del mando.
+    const top = c.top && typeof document !== 'undefined' && document.getElementById && document.getElementById(c.top);
+    if (top && top.classList.contains('fs-scr')) return '';
     const ok = c.focus === 'select' ? 'Abrir' : c.focus === 'text' ? 'Escribir' : c.focus === 'range' ? '' : 'Aceptar';
     let h = c.focus === 'range' ? item(stick, '← → ajustar') : item(stick, 'Mover');
     if (ok) h += item(g('ok'), ok);

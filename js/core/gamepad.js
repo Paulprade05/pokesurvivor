@@ -29,6 +29,8 @@
  *                   stick derecho               desplazar las listas
  *   Al volver a una pantalla (o a «Ir a…») la selección sigue en lo último que elegiste. Dónde empieza cada pantalla y sus
  *   atajos X / Y, en ui/pad-ui.js, que también pinta la barra de pistas.
+ *   (1.0, bloque B) En las pantallas de las plantillas (ui/nav.js: pausa, cartas, fin de partida) no se busca el vecino
+ *   más cercano: el cursor sólo va por su zona [data-nav] y en un orden fijo (G.Nav.step).
  * Dos acciones que se usan a la vez (las de la partida, o las de los menús) no comparten botón: al elegir uno ocupado se
  * intercambian. Aceptar, Atrás y Pausa nunca se quedan sin botón.
  *
@@ -51,7 +53,7 @@ G.Pad = (() => {
   let vec = [0, 0], aimVec = [0, 0], aimAt = 0;
   let focus = null, focusScope = null, showing = false, lastPos = null;
   let navDir = null, navT = 0, navHeld = 0, autoT = 0, fresh = false;
-  let backTo = null, wantQuick = 0, walkT = 0, memWait = 0, tabPanel = null;   // volver a «Ir a…» al cerrar con B lo que se abrió desde ahí
+  let backTo = null, wantQuick = 0, walkT = 0, memWait = 0, tabPanel = null, wantCol = null;   // volver a «Ir a…» al cerrar con B lo que se abrió desde ahí
   // Por índice de mando: qué tenía pulsado, cuándo se usó, su eje "hat" y cuánto lleva cada eje en el centro.
   const sigs = [], used = [], hats = [], still = [];
   const prevs = [];   // botones del fotograma anterior, de cada mando (para saber qué se acaba de pulsar)
@@ -310,6 +312,8 @@ G.Pad = (() => {
 
   /** Lo que se puede pulsar ahora: botones, enlaces y lo que tiene cursor de mano. */
   function candidates() {
+    const z = navZone();
+    if (z) { const rs = G.Nav.rows(z); if (rs.length) return rs.flat(); }
     const out = [];
     for (const sc of scopes()) {
       if (sc.id === 'tap-start') { out.push(sc); continue; }
@@ -360,6 +364,7 @@ G.Pad = (() => {
   }
   function setFocus(el, auto) {
     if (focus) focus.classList.remove('pad-focus');
+    if (auto) wantCol = null;
     focus = el;
     focusScope = topScreen();
     if (!el) return;
@@ -386,6 +391,12 @@ G.Pad = (() => {
     if (!top) return null;
     const d = [...top.querySelectorAll('[role="dialog"]:not(.hidden)')].filter(e => e.getClientRects().length);
     return d[d.length - 1] || null;
+  }
+  /** La zona con orden fijo de la pantalla de arriba (o de su ventanita), si es de las plantillas (ui/nav.js). */
+  function navZone() {
+    if (!G.Nav) return null;
+    const t = innerDialog() || topScreen();
+    return t ? G.Nav.zone(t) : null;
   }
   const TAB = '[role="tab"], .vh-tab, .tabs > .tab';
   const isTab = el => el.matches(TAB);
@@ -423,6 +434,8 @@ G.Pad = (() => {
     // (mando-menus) Con una ventanita abierta («Ir a…»), la selección va dentro de ella.
     const dlg = innerDialog();
     if (dlg && !dlg.contains(focus)) return false;
+    const z = navZone();
+    if (z) return G.Nav.rows(z).some(r => r.includes(focus));
     for (const sc of scopes()) {
       if (sc.id === 'tap-start') return focus === sc;
       if (focus === sc || !sc.contains(focus)) continue;
@@ -467,6 +480,18 @@ G.Pad = (() => {
     let list = candidates();
     if (!list.length) { hideFocus(); return; }
     if (!valid()) { setFocus(firstOf(list), true); return; }
+    // (1.0) Plantillas: orden fijo dentro de la zona, sin mirar dónde cae cada cosa en la pantalla.
+    const z = navZone();
+    if (z) {
+      const rs = G.Nav.rows(z), at = G.Nav.locate(rs, focus);
+      if (!at) return;
+      const dir = dx > 0 ? 'r' : dx < 0 ? 'l' : dy > 0 ? 'd' : 'u';
+      if (dy && wantCol === null) wantCol = at[1];
+      const [r, c] = G.Nav.step(rs.map(x => x.length), at[0], at[1], dir, wantCol);
+      if (dx) wantCol = null;
+      if (rs[r][c] !== focus) setFocus(rs[r][c]);
+      return;
+    }
     // Si no hay nada más por ese lado pero la lista sigue (lo de debajo, recortado, no cuenta), se desliza y se mira otra vez.
     for (let tries = 0; tries < 4; tries++) {
       const others = list.filter(el => el !== focus);

@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-25', title: ["Pausa y cartas a pantalla completa", "Full-screen pause and cards"], chg: [
+    ["La pausa, las cartas de nivel, de objeto y de vínculo y el resumen final ocupan toda la pantalla: ya no se ve la partida detrás.",
+     "The pause screen, the level-up, item and bond cards and the end-of-run summary now fill the whole screen: the game no longer shows behind them."],
+    ["Pausa más clara: a la izquierda tu Pokémon con su vida y los botones (Continuar, Planear build, Compendio, Ajustes, Abandonar); a la derecha, en tres páginas, tus ataques, tus pasivas y objetos y tus estadísticas. Arriba, el tiempo, el nivel, los derrotados y las monedas.",
+     "A clearer pause screen: on the left, your Pokémon with its HP and the buttons (Continue, Plan build, Compendium, Settings, Quit); on the right, on three pages, your moves, your passives and items and your stats. At the top, the time, level, defeated enemies and coins."],
+    ["Resumen final igual: las monedas y «Volver al menú» a la izquierda; el resumen, los movimientos y los shinies, en páginas.",
+     "The end-of-run summary works the same way: coins and “Back to menu” on the left; the summary, moves and shinies on pages."],
+    ["Con mando, en estas pantallas el cursor va siempre en el mismo orden: ↑ ↓ por los botones (desde el último vuelve al primero), ← → por las cartas, LB / RB (L1 / R1) cambian de página. Abajo sale qué hace cada botón.",
+     "With a controller, the cursor on these screens always moves in the same order: ↑ ↓ through the buttons (from the last one back to the first), ← → through the cards, LB / RB (L1 / R1) switch pages. The bottom shows what each button does."],
+    ["En cooperativo la pausa no para la partida: ahora lo avisa, enseña tu vida al momento y, si te golpean, el borde se pone rojo (y el mando vibra).",
+     "In co-op the pause doesn't stop the game: it now says so, shows your HP live and, if you get hit, the border flashes red (and the controller rumbles)."]] },
+
   { d: '2026-11-22', title: ["Menús pensados para el mando", "Menus built for controllers"], new: [
     ["Atajos con mando en todos los menús: LB / RB (L1 / R1) cambian de pestaña (tienda, Pokédex y su ficha, regiones del gacha, Compendio, Misiones y Logros, Ajustes, planificador de builds…); LT / RT (L2 / R2) pasan página en las listas largas; Back (View) abre «Ir a…» en la aldea; X e Y hacen lo más útil de cada pantalla (Máx. y Planear build en Mejoras, Filtros y Orden en la Pokédex, Tipo y Familia en el Compendio, Tirar ×10 en el gacha, Compendio y Planear build en la pausa…).",
      "Controller shortcuts in every menu: LB / RB (L1 / R1) switch tabs (shop, Pokédex and its page, gacha regions, Compendium, Missions and Achievements, Settings, build planner…); LT / RT (L2 / R2) flip pages in long lists; Back (View) opens “Go to…” in the village; X and Y do the handiest thing on each screen (Max and Plan build in Upgrades, Filters and Sort in the Pokédex, Type and Family in the Compendium, Pull ×10 in the gacha, Compendium and Plan build on the pause screen…)."],

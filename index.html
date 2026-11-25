@@ -10,6 +10,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
 <title>PokéSurvivor – Juego Pokémon gratis online estilo Survivor.io</title>
 <meta name="description" content="Sobrevive a hordas de Pokémon con tu compañero en este fan game gratis para navegador y móvil: 974 Pokémon, shinies, legendarios y cooperativo con amigos. Sin descargas ni anuncios.">
+
 <link rel="canonical" href="https://pokesurvivor.com/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#0a1430">
@@ -30,6 +31,7 @@
 <meta name="twitter:description" content="Fan game gratis para navegador y móvil, con cooperativo hasta 4. Sin descargas ni anuncios.">
 <meta name="twitter:image" content="https://pokesurvivor.com/assets/og-image.jpg">
 <meta name="ps-pages" content="1">
+
 <link rel="manifest" href="manifest.webmanifest">
 <!-- Google sólo enseña en los resultados iconos de 48 px o múltiplos -->
 <link rel="icon" href="favicon.ico" sizes="any">
@@ -93,6 +95,7 @@
 <link rel="preload" href="assets/fonts/Grenze-700.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="assets/fonts/AlegreyaSans-400.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="assets/fonts/AlegreyaSans-700.ttf" as="font" type="font/ttf" crossorigin>
+
 <!-- Datos estructurados para Google (tipo de página: videojuego gratuito) -->
 <script type="application/ld+json">
 {
@@ -126,7 +129,8 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/style.css?v=3ea40eae17">
+
+<link rel="stylesheet" href="css/style.css?v=d675dda380">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -493,7 +497,8 @@
       <h1>PokéSurvivor</h1>
       <p>PokéSurvivor necesita JavaScript para funcionar. Actívalo para jugar.</p>
       <p>Fan game gratuito de supervivencia con 974 Pokémon de las 9 regiones: elige tu compañero, sobrevive a las hordas, evoluciona tus ataques, enfréntate a legendarios y juega en cooperativo con hasta 4 amigos.</p>
-      <p><a href="guia/">Guía del juego</a> · <a href="pokedex/">Pokédex: todos los Pokémon jugables</a></p>    </div>
+      <p><a href="guia/">Guía del juego</a> · <a href="pokedex/">Pokédex: todos los Pokémon jugables</a></p>
+    </div>
   </div>
 </noscript>
 
@@ -914,95 +919,144 @@
   </div>
 </div>
 
-<!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ====== -->
-<!-- Subir de nivel, vínculo y objeto: las mismas cartas (.pick-card, las pinta run-ui.js). -->
-<section id="scr-levelup" class="scr dim hidden">
-  <div class="box pick-box">
+<!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ======
+     (1.0, bloque B) Plantillas a pantalla completa (ui/nav.js, «Plantillas a pantalla completa» de style.css): no se ve
+     la partida; una sola zona con cursor ([data-nav]) en orden fijo y, con mando, la barra de abajo con sus botones. -->
+<!-- Subir de nivel, vínculo y objeto: plantilla «Elección». Las cartas (.pick-card, las pinta run-ui.js) en fila
+     (← →) y, debajo, sus botones (↓). -->
+<section id="scr-levelup" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="up"></span><h2>¡Nivel <span id="lvl-num">2</span>!</h2></div>
-      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span><span class="pad-hint">&nbsp;· <span data-pad-act="ok"></span></span></p>
+      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></p>
     </header>
-    <div id="cards" class="cards pick-cards"></div>
-    <footer class="pick-foot">
+    <div id="cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="pick-foot" data-nav-row>
       <button id="lvl-reroll" class="btn ghost ic hidden" data-sfx="none"><span class="rr-ico" aria-hidden="true"></span><span>Cambiar opciones (<span id="lvl-rr-n">1</span>)</span><span class="kbd-hint"><kbd>R</kbd></span><span class="pad-hint" data-pad-act="reroll"></span></button>
       <button id="lvl-discard" class="btn ghost ic hidden" data-sfx="none" aria-pressed="false"><span class="dc-ico" aria-hidden="true"></span><span>Descartar (<span id="lvl-dc-n">2</span>)</span><span class="kbd-hint"><kbd>X</kbd></span><span class="pad-hint" data-pad-act="discard"></span></button>
       <label id="lvl-always" class="lvl-always hidden"><input type="checkbox" id="lvl-always-cb"><span>Elegir siempre esta opción</span></label>
       <p id="lvl-wait" class="pick-wait hidden"></p>
     </footer>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
+    </footer>
   </div>
 </section>
 
-<section id="scr-bond" class="scr dim hidden">
-  <div class="box pick-box">
+<section id="scr-bond" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bond"></span><h2 class="bond-title">¡Vínculo!</h2></div>
       <p class="sub bond-hint">Los movimientos unidos se lanzan a la vez y ocupan un solo hueco</p>
       <p id="bond-sub" class="bond-step"></p>
     </header>
-    <div id="bond-cards" class="cards pick-cards"></div>
-    <footer class="pick-foot">
-      <button id="bond-back" class="btn ghost ic hidden" data-ico="back" data-ico-size="20"><span>Atrás</span></button>
+    <div id="bond-cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="pick-foot" data-nav-row>
+      <button id="bond-back" class="btn ghost ic hidden" data-ico="back" data-ico-size="20"><span>Atrás</span><span class="pad-hint" data-pad-act="back"></span></button>
+    </footer>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
     </footer>
   </div>
 </section>
 
-<section id="scr-item" class="scr dim hidden">
-  <div class="box pick-box">
+<section id="scr-item" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bag"></span><h2>¡Un objeto!</h2></div>
-      <p class="sub"><span id="item-sub-t">Sólo puedes llevar uno</span><span class="kbd-hint"> · <span id="item-keys"><kbd>1</kbd> <kbd>2</kbd></span></span><span class="pad-hint">&nbsp;· <span data-pad-act="ok"></span></span></p>
+      <p class="sub"><span id="item-sub-t">Sólo puedes llevar uno</span><span class="kbd-hint"> · <span id="item-keys"><kbd>1</kbd> <kbd>2</kbd></span></span></p>
     </header>
-    <div id="item-cards" class="cards pick-cards"></div>
+    <div id="item-cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
+    </footer>
   </div>
 </section>
 
-<!-- Pausa: hoja. Escritorio y tumbado: los botones en la cabecera; móvil de pie: abajo (style.css). -->
-<section id="scr-pause" class="scr dim hidden">
-  <div class="box sheet-box wide pause-box">
-    <header class="sheet-head pause-head">
-      <h2>Pausa</h2>
-      <div class="sheet-acts pause-acts">
-        <button id="btn-resume" class="btn gold ic" data-ico="play" data-ico-size="20"><span>Continuar</span></button>
-        <button id="btn-pause-cmp" class="btn ghost ic" data-ico="book" data-ico-size="20"><span>Compendio</span></button>
-        <button id="btn-pause-settings" class="btn ghost ic" data-ico="gear" data-ico-size="20"><span>Ajustes</span></button>
-        <button id="btn-quit" class="btn danger ic" data-ico="logout" data-ico-size="20"><span class="quit-t">Abandonar run</span></button>
-      </div>
-      <div class="sheet-row pause-hint">
-        <p class="kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
-        <p class="pad-hint" id="pause-pad-hint"></p>
-        <p class="touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
-        <p id="pause-coop" class="pause-coop hidden">Partida en grupo: el juego sigue mientras estás aquí.</p>
-      </div>
+<!-- Pausa: plantilla «Menú». A la izquierda tu Pokémon y los botones (la zona con cursor: ↑ ↓, desde abajo vuelve
+     arriba); a la derecha, para leer, tres páginas con LB / RB (run-ui.js pauseSummary). En grupo la partida sigue:
+     aviso, borde rojo si te dan y tu vida a la vista. -->
+<section id="scr-pause" class="scr dim fs-scr hidden">
+  <div class="box fs t-menu">
+    <header class="fs-head">
+      <h2 class="fs-title">Pausa</h2>
+      <div id="pause-info" class="fs-info"></div>
     </header>
-    <div class="sheet-body pause-body">
-      <!-- Mesa de combinaciones (13-11-2026, run-ui.js pauseSummary): ataques y evoluciones a la izquierda;
-           tu Pokémon, pasivas, objeto y Z a la derecha. El sonido, en Ajustes. -->
-      <div class="pause-cols pz-grid">
-        <div id="pause-sum" class="pause-sum"></div>
+    <div class="fs-body">
+      <div class="fs-col">
+        <div id="pause-who" class="fs-who"></div>
+        <nav class="fs-menu" data-nav data-nav-cols="1" aria-label="Pausa">
+          <button id="btn-resume" class="fs-mbtn pri" data-ico="play" data-ico-size="22"><span>Continuar</span></button>
+          <button id="pause-build" class="fs-mbtn"><span class="fs-mi" data-item-ico="build"></span><span id="pause-build-t">Planear build</span></button>
+          <button id="btn-pause-cmp" class="fs-mbtn" data-ico="book" data-ico-size="22"><span>Compendio</span></button>
+          <button id="btn-pause-settings" class="fs-mbtn" data-ico="gear" data-ico-size="22"><span>Ajustes</span></button>
+          <button id="btn-quit" class="fs-mbtn danger" data-ico="logout" data-ico-size="22"><span class="quit-t">Abandonar run</span></button>
+        </nav>
       </div>
+      <section class="fs-panel fs-read">
+        <p id="pause-coop" class="fs-warn hidden"><b>Cooperativo: la partida sigue.</b> <span>Tu Pokémon se queda quieto, pero te pueden golpear: si te dan, el borde se pone rojo y el mando vibra.</span></p>
+        <div class="fs-pages" role="tablist" aria-label="Pausa">
+          <span class="pad-hint" data-pad-act="tabPrev"></span>
+          <button class="fs-page on" type="button" role="tab" aria-selected="true" data-page="atk">Ataques</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="pas">Pasivas y objetos</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="stats">Estadísticas</button>
+          <span class="pad-hint" data-pad-act="tabNext"></span>
+        </div>
+        <div id="pause-sum" class="fs-scroll pause-sum" data-page="atk"></div>
+        <div class="pause-hint">
+          <p class="kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
+          <p class="pad-hint" id="pause-pad-hint"></p>
+          <p class="touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
+        </div>
+      </section>
     </div>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Aceptar</span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="back"></span>Continuar</span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="discard"></span>Compendio</span>
+      <span class="fs-act" id="pause-y-hint"><span class="pad-hint" data-pad-act="reroll"></span>Planear build</span>
+      <span class="fs-sp"></span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="tabPrev"></span><span class="pad-hint" data-pad-act="tabNext"></span>Páginas</span>
+    </footer>
   </div>
 </section>
 
-<!-- Resumen final: hoja con «Volver al menú» siempre abajo. -->
-<section id="scr-over" class="scr dim hidden">
-  <div class="box sheet-box over-box">
-    <div class="sheet-body over-body">
-      <header class="over-hero">
-        <span id="over-ico" class="ico-tile l round over-ico"></span>
-        <p class="eyebrow">Resumen de la partida</p>
-        <h2 id="over-title">Has caído…</h2>
-        <p id="over-record" class="over-record hidden">¡Nuevo récord de tiempo!</p>
-      </header>
-      <div id="over-stats" class="over-stats"></div>
+<!-- Resumen final: plantilla «Menú». Las monedas y «Volver al menú» a la izquierda; a la derecha, para leer, el
+     resumen, los movimientos y los shinies (LB / RB). -->
+<section id="scr-over" class="scr dim fs-scr hidden">
+  <div class="box fs t-menu over-box">
+    <header class="fs-head over-hero">
+      <span id="over-ico" class="ico-tile l round over-ico"></span>
+      <div class="over-ttl"><p class="eyebrow">Resumen de la partida</p><h2 id="over-title">Has caído…</h2></div>
+      <p id="over-record" class="over-record hidden">¡Nuevo récord de tiempo!</p>
+    </header>
+    <div class="fs-body">
+      <div class="fs-col">
+        <div id="over-coins"></div>
+        <nav class="fs-menu" data-nav data-nav-cols="1" aria-label="Resumen de la partida">
+          <button id="btn-again" class="fs-mbtn pri" data-ico="back" data-ico-size="22"><span>Volver al menú</span></button>
+        </nav>
+      </div>
+      <section class="fs-panel fs-read">
+        <div class="fs-pages" role="tablist" aria-label="Resumen de la partida">
+          <span class="pad-hint" data-pad-act="tabPrev"></span>
+          <button class="fs-page on" type="button" role="tab" aria-selected="true" data-page="sum">Resumen</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="moves">Movimientos</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="caught" id="over-pg-caught">Shinies</button>
+          <span class="pad-hint" data-pad-act="tabNext"></span>
+        </div>
+        <div id="over-stats" class="fs-scroll over-stats" data-page="sum"></div>
+      </section>
     </div>
-    <footer class="sheet-foot over-foot">
-      <button id="btn-again" class="btn gold big">Volver al menú</button>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Volver al menú</span>
+      <span class="fs-sp"></span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="tabPrev"></span><span class="pad-hint" data-pad-act="tabNext"></span>Páginas</span>
     </footer>
   </div>
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=9b0f9cefae"></script>
+<script defer src="js/app.min.js?v=57775b7fbf"></script>
 </body>
 </html>
