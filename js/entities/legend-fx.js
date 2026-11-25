@@ -2088,6 +2088,585 @@ G.LegendFX = (() => {
     }
   });
 
+  // ================= tanda 4 (25-11-2026): quinta generación =================
+
+  /** Nube en la que van montados (cinco bolas; dark: más oscura por debajo). */
+  function cloud(ctx, x, y, s, col, dark) {
+    ctx.fillStyle = dark;
+    ctx.beginPath(); ctx.ellipse(x, y + 4 * s, 30 * s, 9 * s, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = col;
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(x + (i - 2) * 12 * s, y - (i % 2 ? 4 : 0) * s, 13 * s, 9 * s, 0, 0, TAU); ctx.fill(); }
+  }
+  /** Hoja de luz (espada): rombo largo de punta fina, con el filo claro. */
+  function blade(ctx, x, y, len, w, ang, col, edge) {
+    const c = Math.cos(ang), s = Math.sin(ang), nx = -s, ny = c;
+    ctx.fillStyle = col; ctx.beginPath();
+    ctx.moveTo(x, y); ctx.lineTo(x + c * len * 0.3 + nx * w, y + s * len * 0.3 + ny * w); ctx.lineTo(x + c * len, y + s * len); ctx.lineTo(x + c * len * 0.3 - nx * w, y + s * len * 0.3 - ny * w);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = edge; ctx.beginPath();
+    ctx.moveTo(x + c * len * 0.1, y + s * len * 0.1); ctx.lineTo(x + c * len * 0.3 + nx * w * 0.3, y + s * len * 0.3 + ny * w * 0.3); ctx.lineTo(x + c * len * 0.95, y + s * len * 0.95);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* ---------- Victini (494): dos llamas suben en V, estalla una lluvia de chispas de colores y sale de un salto ---------- */
+  add(494, {
+    title: 'Estrella de la victoria', dur: 1.9, short: 0.8, cue: 0.62,
+    sprite(l, k) { const h = cl((k - 0.5) / 0.3); return { a: cl((k - 0.5) / 0.06), rise: 0, lift: 34 * Math.sin(Math.PI * h), flash: k > 0.62 && k < 0.68 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // La V: dos llamas que suben en diagonal desde sus pies.
+      const v = ease(cl((k - 0.08) / 0.3)) * (1 - cl((k - 0.66) / 0.14));
+      if (v > 0) {
+        for (const d of [-1, 1]) {
+          for (let i = 0; i < 9; i++) {
+            const t = i / 8 * v, x = l.x + d * 70 * t, y = l.y - 120 * t, r = (9 - i * 0.6) * (0.8 + 0.2 * Math.sin(now * 14 + i));
+            glow(ctx, x, y, r * 2.2, r * 2.2, '#ff8a2a', 0.5 * v);
+            ctx.globalAlpha = v; ctx.fillStyle = i % 2 ? '#ffb040' : '#ff6a1a'; ctx.beginPath(); ctx.arc(x, y, Math.max(1, r), 0, TAU); ctx.fill();
+            ctx.fillStyle = '#ffe890'; ctx.beginPath(); ctx.arc(x, y, Math.max(0.5, r * 0.4), 0, TAU); ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Chispas de colores que caen desde arriba de la V.
+      const c = cl((k - 0.4) / 0.5);
+      if (c > 0 && c < 1) {
+        const cols = ['#ff6a1a', '#ffd840', '#ffffff', '#ff4a6a'];
+        for (let i = 0; i < 22; i++) {
+          const t = cl(c * 1.4 - H(l.seed, i, 211) * 0.4), x = l.x + (H(l.seed, i, 212) - 0.5) * 220 * t, y = l.y - 120 - 60 * Math.sin(t * Math.PI * 0.6) + 150 * t * t;
+          if (t <= 0 || t >= 1) continue;
+          ctx.globalAlpha = 1 - t; ctx.fillStyle = cols[i % 4];
+          ctx.fillRect(Math.round(x), Math.round(y), 3, i % 2 ? 3 : 2);
+        }
+      }
+      if (k > 0.62) glow(ctx, l.x, l.y - 30, 40, 44, '#ffb040', 0.3 * (1 - cl((k - 0.88) / 0.12) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 30, '#ffd840', 22, 220);
+      G.FX.ring(l.x, l.y, 8, 120, '#ff8a2a', 0.45, 5);
+      shake(l, 0.5);
+    }
+  });
+
+  /* ---------- Cobalion (638): una espada de luz de acero cae del cielo, se clava y de ella sale él ---------- */
+  add(638, {
+    title: 'Espada de acero', dur: 2.1, short: 0.85, cue: 0.5,
+    sprite(l, k) { return { a: cl((k - 0.56) / 0.18), rise: 0, lift: 0, flash: k > 0.5 && k < 0.56, scan: k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = cl((k - 0.48) / 0.04) * (1 - cl((k - 0.86) / 0.14));
+      if (g > 0) {
+        ctx.strokeStyle = '#2a3040'; ctx.lineWidth = 2; ctx.globalAlpha = 0.8 * g; ctx.beginPath();
+        for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + H(l.seed, i, 221); jag(ctx, l.x, l.y, l.x + Math.cos(an) * 70, l.y + Math.sin(an) * 26, 4, 4, l.seed + i); }
+        ctx.stroke();
+        glow(ctx, l.x, l.y, 80, 28, '#7ab8e8', 0.4 * g);
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // La espada: baja de punta, se clava al llegar y se deshace en luz mientras él aparece.
+      const f = cl((k - 0.12) / 0.38), out = cl((k - 0.58) / 0.18);
+      if (f > 0 && out < 1) {
+        const tip = l.y - 300 + 300 * f * f, len = 150;
+        glow(ctx, l.x, tip - len / 2, 22, len / 2 + 10, '#9ad0ff', 0.6 * (1 - out));
+        ctx.globalAlpha = 1 - out;
+        blade(ctx, l.x, tip, len, 14, -Math.PI / 2, '#8aa8c8', '#eaf4ff');
+        ctx.fillStyle = '#3a4a6a'; ctx.fillRect(Math.round(l.x - 20), Math.round(tip - len - 5), 40, 7);
+        ctx.fillStyle = '#5a6a8a'; ctx.fillRect(Math.round(l.x - 3), Math.round(tip - len - 20), 6, 16);
+      }
+      if (k > 0.5) glow(ctx, l.x, l.y - 40, 50, 56, '#7ab8e8', 0.28 * (1 - cl((k - 0.88) / 0.12) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 6, '#eaf4ff', 24, 240);
+      G.FX.ring(l.x, l.y, 10, 150, '#7ab8e8', 0.5, 5);
+      shake(l, 1.0);
+    }
+  });
+
+  /* ---------- Terrakion (639): un muro de rocas se levanta; llega a la carga levantando polvo y lo revienta ---------- */
+  add(639, {
+    title: 'Espada de roca', dur: 2.0, short: 0.8, cue: 0.64,
+    sprite(l, k) { const e = cl((k - 0.36) / 0.28); return { a: cl((k - 0.36) / 0.06), rise: 0, lift: 0, ox: -240 * (1 - e), flash: k > 0.64 && k < 0.7 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.36 && k < 0.64 && Math.random() < dt * 40) { const e = cl((k - 0.36) / 0.28); G.FX.px(l.x - 240 * (1 - e) - 10, l.y - 2, '#b89a70', { vx: -40 - Math.random() * 40, vy: -20 - Math.random() * 30, life: 0.5, drag: 0.9 }); }
+    },
+    back(ctx, l, k, now) { ctx.save(); dropShadow(ctx, l, cl((k - 0.36) / 0.1) * (1 - cl((k - 0.64) / 0.1)), -240 * (1 - cl((k - 0.36) / 0.28)), 0.3); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El muro: rocas que salen del suelo delante de él (a su izquierda, por donde llega).
+      for (let i = 0; i < 9; i++) {
+        const row = i < 4 ? 0 : i < 7 ? 1 : 2, col = row === 0 ? i : row === 1 ? i - 4 : i - 7, n = row === 0 ? 4 : row === 1 ? 3 : 2;
+        const bx = l.x - 34, by = l.y + (col - (n - 1) / 2) * 0, x = bx + (col - (n - 1) / 2) * 6, y0 = l.y + 10 - (col - (n - 1) / 2) * 26, s = 15 + 4 * H(l.seed, i, 231);
+        const up = ease(cl((k - 0.06 - i * 0.02) / 0.14)), b = cl((k - 0.64) / 0.28);
+        if (up <= 0 || b >= 1) continue;
+        const yy = y0 - row * 22 * up, xx = x - 4 * row;
+        if (b > 0) {
+          const d = 40 + 160 * ease(b) * (0.6 + 0.4 * H(l.seed, i, 232));
+          ctx.globalAlpha = 1 - b; rock(ctx, xx + d, yy - 70 * Math.sin(b * Math.PI) * H(l.seed, i, 233) + 40 * b, s * (1 - 0.4 * b));
+        } else { ctx.globalAlpha = 1; rock(ctx, xx, yy + (1 - up) * 20, s * up); }
+      }
+      if (k > 0.64) glow(ctx, l.x, l.y - 30, 46, 50, '#d8a050', 0.25 * (1 - cl((k - 0.88) / 0.12) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x - 30, l.y - 20, '#a08868', 30, 260);
+      G.FX.ring(l.x, l.y, 10, 150, '#d8a050', 0.5, 5);
+      shake(l, 1.2);
+    }
+  });
+
+  /* ---------- Virizion (640): un corro de hojas como espadas gira; salta desde lo alto por en medio y las hojas se van ---------- */
+  add(640, {
+    title: 'Espada de hierba', dur: 2.0, short: 0.8, cue: 0.68,
+    sprite(l, k) { const e = cl((k - 0.4) / 0.28); return { a: cl((k - 0.4) / 0.06), rise: 0, lift: 140 * (1 - e) + 50 * Math.sin(Math.PI * e), ox: 120 * (1 - ease(e)), flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = cl((k - 0.06) / 0.2) * (1 - cl((k - 0.86) / 0.14));
+      if (g > 0) { ctx.globalAlpha = 0.45 * g; ctx.fillStyle = '#4a9a3a'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 80 * g, 28 * g, 0, 0, TAU); ctx.fill(); }
+      dropShadow(ctx, l, cl((k - 0.4) / 0.28), 120 * (1 - ease(cl((k - 0.4) / 0.28))), 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const on = cl((k - 0.08) / 0.14), sc = cl((k - 0.68) / 0.3);
+      if (on > 0 && sc < 1) {
+        for (let i = 0; i < 8; i++) {
+          const an = i / 8 * TAU + now * 2.4 + sc * 3, d = (70 + 120 * ease(sc)) * on, x = l.x + Math.cos(an) * d, y = l.y - 30 + Math.sin(an) * d * 0.38;
+          glow(ctx, x, y, 16, 12, '#8ae06a', 0.5 * (1 - sc));
+          ctx.globalAlpha = 1 - sc; blade(ctx, x - Math.cos(an + 1.6) * 14, y - Math.sin(an + 1.6) * 6, 30, 5, an + 1.6, '#4ab83a', '#c8f0a0');
+        }
+      }
+      if (k > 0.68) glow(ctx, l.x, l.y - 34, 44, 48, '#8ae06a', 0.28 * (1 - cl((k - 0.88) / 0.12) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#8ae06a', 24, 220);
+      G.FX.ring(l.x, l.y, 10, 140, '#c8f0a0', 0.5, 5);
+      shake(l, 0.7);
+    }
+  });
+
+  /* ---------- Tornadus (641): se forma un tornado, las hojas giran en él y baja de lo alto mientras se deshace ---------- */
+  add(641, {
+    title: 'Señor del viento', dur: 2.2, short: 0.9, cue: 0.74,
+    sprite(l, k) { const e = cl((k - 0.5) / 0.24); return { a: cl((k - 0.48) / 0.08), rise: 0, lift: 150 * (1 - ease(e)), flash: k > 0.74 && k < 0.8 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.15 && k < 0.7 && Math.random() < dt * 26) G.FX.px(l.x + (Math.random() - 0.5) * 100, l.y - Math.random() * 10, '#d8e8c8', { vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, life: 0.5, drag: 0.9 });
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const f = ease(cl((k - 0.08) / 0.26)) * (1 - ease(cl((k - 0.7) / 0.2)));
+      if (f > 0) {
+        // El embudo: anillos que se ensanchan hacia arriba y giran.
+        for (let i = 0; i < 9; i++) {
+          const t = i / 8, y = l.y - 170 * t * f, rx = (16 + 70 * t * t) * f, wob = Math.sin(now * 6 + i * 0.9) * 10 * t;
+          ctx.globalAlpha = 0.5 + 0.3 * f; ctx.fillStyle = i % 2 ? '#8a9aaa' : '#6a7a8c';
+          ctx.beginPath(); ctx.ellipse(l.x + wob, y, rx, rx * 0.28 + 2, 0, 0, TAU); ctx.fill();
+        }
+        glow(ctx, l.x, l.y - 80, 80 * f, 100 * f, '#c8f0e0', 0.3 * f);
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const f = cl((k - 0.14) / 0.14) * (1 - cl((k - 0.7) / 0.2));
+      if (f > 0) {
+        for (let i = 0; i < 12; i++) {
+          const t = H(l.seed, i, 241), an = now * (5 + t * 3) + i, y = l.y - 160 * t, rx = 16 + 70 * t * t;
+          if (Math.sin(an) < 0) continue;            // (sólo las de delante; las de detrás las tapa el embudo)
+          ctx.globalAlpha = f; ctx.fillStyle = i % 3 ? '#6ab84a' : '#c8a060';
+          ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * rx, y + Math.sin(an) * rx * 0.28, 4, 2, an, 0, TAU); ctx.fill();
+        }
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 50, 56, '#8ad8a0', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#d8e8c8', 24, 240);
+      G.FX.ring(l.x, l.y, 10, 170, '#8ad8a0', 0.5, 5);
+      shake(l, 0.9);
+    }
+  });
+
+  /* ---------- Thundurus (642): un corro de rayos cae uno tras otro alrededor y él baja montado en su nube ---------- */
+  add(642, {
+    title: 'Nube de tormenta', dur: 2.2, short: 0.9, cue: 0.74,
+    sprite(l, k) { const e = cl((k - 0.36) / 0.38); return { a: cl((k - 0.36) / 0.06), rise: 0, lift: 160 * (1 - ease(e)), flash: k > 0.74 && k < 0.8 }; },
+    tick(l, k) {
+      for (let i = 0; i < 6; i++) {
+        const t = 0.14 + i * 0.07, bit = 1 << i;
+        if (k > t && !((l.bolts || 0) & bit)) { l.bolts = (l.bolts || 0) | bit; const an = i / 6 * TAU; if (G.FX) G.FX.burst(l.x + Math.cos(an) * 110, l.y + Math.sin(an) * 40, '#fff27a', 8, 140); shake(l, 0.3); }
+      }
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Marcas en el suelo donde ha caído cada rayo.
+      for (let i = 0; i < 6; i++) {
+        const t = 0.14 + i * 0.07, m = cl((k - t) / 0.02) * (1 - cl((k - 0.86) / 0.14));
+        if (m <= 0) continue;
+        const an = i / 6 * TAU, x = l.x + Math.cos(an) * 110, y = l.y + Math.sin(an) * 40;
+        ctx.globalAlpha = 0.6 * m; ctx.fillStyle = '#2a2a3a'; ctx.beginPath(); ctx.ellipse(x, y, 14, 5, 0, 0, TAU); ctx.fill();
+        glow(ctx, x, y, 22, 9, '#fff27a', 0.5 * m * (0.6 + 0.4 * Math.sin(now * 20 + i)));
+      }
+      dropShadow(ctx, l, cl((k - 0.36) / 0.38), 0, 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Cada rayo: un instante, del cielo a su marca.
+      for (let i = 0; i < 6; i++) {
+        const t = 0.14 + i * 0.07, b = cl((k - t) / 0.04);
+        if (b <= 0 || b >= 1) continue;
+        const an = i / 6 * TAU, x = l.x + Math.cos(an) * 110, y = l.y + Math.sin(an) * 40;
+        glow(ctx, x, y - 90, 26, 110, '#fff27a', 0.7 * (1 - b));
+        ctx.globalAlpha = 1 - b; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); jag(ctx, x + 10, y - 200, x, y, 6, 10, l.seed + i); ctx.stroke();
+        ctx.strokeStyle = '#fff27a'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      // Su nube, debajo de él mientras baja.
+      const e = cl((k - 0.36) / 0.38), cv = cl((k - 0.36) / 0.06) * (1 - cl((k - 0.74) / 0.16));
+      if (cv > 0) { ctx.globalAlpha = 0.9 * cv; cloud(ctx, l.x, l.y - 160 * (1 - ease(e)) + 4, 1.1, '#7a8aa8', '#4a5478'); }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 50, 56, '#fff27a', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#fff27a', 24, 240);
+      G.FX.ring(l.x, l.y, 10, 170, '#8a9ad8', 0.5, 5);
+      shake(l, 1.0);
+    }
+  });
+
+  /* ---------- Reshiram (643): un aro de llamas blancas gira cada vez más deprisa y una ola de fuego blanco lo descubre ---------- */
+  add(643, {
+    title: 'Llama de la verdad', dur: 2.3, short: 0.9, cue: 0.66,
+    sprite(l, k) { return { a: k > 0.6 ? 1 : 0, rise: 0, lift: 0, flash: k > 0.66 && k < 0.72 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = cl((k - 0.6) / 0.08) * (1 - cl((k - 0.86) / 0.14));
+      if (g > 0) { glow(ctx, l.x, l.y, 110, 40, '#bfe6ff', 0.5 * g); ctx.globalAlpha = 0.5 * g; ctx.fillStyle = '#e8f6ff'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 80, 28, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El aro: llamas blancas que giran en el aire y se aceleran.
+      const r = cl((k - 0.06) / 0.14) * (1 - cl((k - 0.58) / 0.06)), sp = 2 + 12 * cl((k - 0.1) / 0.45);
+      if (r > 0) {
+        const cy = l.y - 70;
+        glow(ctx, l.x, cy, 70, 40, '#bfe6ff', 0.6 * r);
+        for (let i = 0; i < 12; i++) {
+          const an = i / 12 * TAU + k * sp * 3, x = l.x + Math.cos(an) * 56, y = cy + Math.sin(an) * 20, fr = 7 + 2 * Math.sin(now * 12 + i);
+          ctx.globalAlpha = r; ctx.fillStyle = '#9ad0ff'; ctx.beginPath(); ctx.ellipse(x, y - fr * 0.4, fr * 0.7, fr, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(x, y - fr * 0.2, fr * 0.4, fr * 0.6, 0, 0, TAU); ctx.fill();
+        }
+      }
+      // La ola: una pared de fuego blanco que cruza de izquierda a derecha justo cuando aparece.
+      const w = cl((k - 0.54) / 0.24);
+      if (w > 0 && w < 1) {
+        const x0 = l.x - 220 + 440 * ease(w);
+        glow(ctx, x0, l.y - 40, 40, 80, '#ffffff', 0.7 * (1 - w));
+        for (let i = 0; i < 10; i++) {
+          const y = l.y + 30 - i * 12, h = 14 + 6 * Math.sin(now * 16 + i);
+          ctx.globalAlpha = (1 - w) * (1 - i / 12); ctx.fillStyle = i % 2 ? '#bfe6ff' : '#ffffff';
+          ctx.beginPath(); ctx.ellipse(x0 + Math.sin(i * 1.7 + now * 8) * 6, y, 12, h * 0.6, 0, 0, TAU); ctx.fill();
+        }
+      }
+      if (k > 0.66) glow(ctx, l.x, l.y - 40, 54, 60, '#bfe6ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 40, '#ffffff', 26, 250);
+      G.FX.ring(l.x, l.y, 10, 170, '#9ad0ff', 0.55, 6);
+      shake(l, 1.1);
+    }
+  });
+
+  /* ---------- Zekrom (644): un aro de rayos azules gira en el aire, echa chispas al suelo y él cae de golpe por un rayo ---------- */
+  add(644, {
+    title: 'Rayo del ideal', dur: 2.3, short: 0.9, cue: 0.7,
+    sprite(l, k) { const e = cl((k - 0.56) / 0.14); return { a: cl((k - 0.56) / 0.04), rise: 0, lift: 240 * (1 - e * e), flash: k > 0.7 && k < 0.76 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = cl((k - 0.7) / 0.03) * (1 - cl((k - 0.86) / 0.14));
+      if (g > 0) {
+        ctx.strokeStyle = '#4ab0ff'; ctx.lineWidth = 2; ctx.globalAlpha = g; ctx.beginPath();
+        for (let i = 0; i < 7; i++) { const an = i / 7 * TAU + H(l.seed, i, 251); jag(ctx, l.x, l.y, l.x + Math.cos(an) * 90, l.y + Math.sin(an) * 32, 5, 6, l.seed + i); }
+        ctx.stroke();
+        glow(ctx, l.x, l.y, 100, 36, '#4ab0ff', 0.5 * g);
+      }
+      dropShadow(ctx, l, cl((k - 0.56) / 0.14), 0, 0.35);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const r = cl((k - 0.06) / 0.14) * (1 - cl((k - 0.56) / 0.06)), cy = l.y - 120;
+      if (r > 0) {
+        glow(ctx, l.x, cy, 70, 34, '#4ab0ff', 0.6 * r);
+        ctx.globalAlpha = r; ctx.strokeStyle = '#2a6ad8'; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(l.x, cy, 54, 18, 0, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = '#bfe6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(l.x, cy, 54, 18, 0, 0, TAU); ctx.stroke();
+        // Chispas que bajan del aro al suelo, cada vez más seguidas.
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#bfe6ff';
+        for (let i = 0; i < 4; i++) {
+          const ph = Math.floor(now * (6 + 10 * k) + i * 7), an = H(l.seed, ph, 252) * TAU, gx = l.x + (H(l.seed, ph, 253) - 0.5) * 200, gy = l.y + (H(l.seed, ph, 254) - 0.5) * 60;
+          if (H(l.seed, ph, 255) > 0.4 + k) continue;
+          ctx.globalAlpha = 0.9 * r; ctx.beginPath(); jag(ctx, l.x + Math.cos(an) * 54, cy + Math.sin(an) * 18, gx, gy, 5, 8, ph); ctx.stroke();
+        }
+      }
+      // El rayo por el que cae.
+      const b = cl((k - 0.56) / 0.18);
+      if (b > 0 && b < 1) {
+        glow(ctx, l.x, l.y - 120, 30, 140, '#4ab0ff', 0.8 * (1 - b));
+        ctx.globalAlpha = 0.8 * (1 - b); ctx.fillStyle = '#bfe6ff'; ctx.fillRect(Math.round(l.x - 5), Math.round(l.y - 260), 10, 260);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(l.x - 2), Math.round(l.y - 260), 4, 260);
+      }
+      if (k > 0.7) glow(ctx, l.x, l.y - 40, 54, 60, '#4ab0ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 10, '#bfe6ff', 26, 260);
+      G.FX.ring(l.x, l.y, 10, 180, '#4ab0ff', 0.55, 6);
+      shake(l, 1.4);
+    }
+  });
+
+  /* ---------- Landorus (645): la tierra se abomba, brotan espigas en corro y baja montado en su nube ---------- */
+  add(645, {
+    title: 'Señor de la tierra fértil', dur: 2.2, short: 0.9, cue: 0.74,
+    sprite(l, k) { const e = cl((k - 0.34) / 0.4); return { a: cl((k - 0.34) / 0.06), rise: 0, lift: 160 * (1 - ease(e)), flash: k > 0.74 && k < 0.8 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const m = ease(cl((k - 0.06) / 0.24)) * (1 - cl((k - 0.88) / 0.12) * 0.7);
+      if (m > 0) {
+        ctx.globalAlpha = 0.9; ctx.fillStyle = '#7a5a34'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 90 * m, 32 * m, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#9a7444'; ctx.beginPath(); ctx.ellipse(l.x, l.y - 3 * m, 70 * m, 22 * m, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#b8905a'; ctx.beginPath(); ctx.ellipse(l.x - 10 * m, l.y - 6 * m, 34 * m, 9 * m, 0, 0, TAU); ctx.fill();
+      }
+      dropShadow(ctx, l, cl((k - 0.34) / 0.4), 0, 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Espigas que crecen en corro y se mecen.
+      for (let i = 0; i < 14; i++) {
+        const an = i / 14 * TAU, gr = ease(cl((k - 0.16 - i * 0.012) / 0.2)) * (1 - cl((k - 0.9) / 0.1));
+        if (gr <= 0) continue;
+        const x = l.x + Math.cos(an) * 96, y = l.y + Math.sin(an) * 34, h = (26 + 10 * H(l.seed, i, 261)) * gr, sw = Math.sin(now * 3 + i) * 3 * gr;
+        ctx.globalAlpha = 1; ctx.fillStyle = '#6a7a2a'; ctx.fillRect(Math.round(x - 1), Math.round(y - h), 2, Math.round(h));
+        ctx.fillStyle = '#8a6a1a'; ctx.beginPath(); ctx.ellipse(x + sw, y - h, 4.5, 9 * gr + 2, sw * 0.08, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f0c850'; ctx.beginPath(); ctx.ellipse(x + sw - 0.5, y - h - 0.5, 3, 7 * gr + 1, sw * 0.08, 0, TAU); ctx.fill();
+      }
+      const e = cl((k - 0.34) / 0.4), cv = cl((k - 0.34) / 0.06) * (1 - cl((k - 0.74) / 0.16));
+      if (cv > 0) { ctx.globalAlpha = 0.9 * cv; cloud(ctx, l.x, l.y - 160 * (1 - ease(e)) + 4, 1.1, '#e8a860', '#b87838'); }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 50, 56, '#e8c050', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 10, '#b8905a', 26, 220);
+      G.FX.burst(l.x, l.y - 20, '#e8c050', 10, 180);
+      G.FX.ring(l.x, l.y, 10, 160, '#e8a860', 0.5, 5);
+      shake(l, 1.0);
+    }
+  });
+
+  /* ---------- Kyurem (646): el suelo se hiela desde el centro, salen púas de hielo en corro y él aparece de la niebla ---------- */
+  add(646, {
+    title: 'Frío del vacío', dur: 2.3, short: 0.9, cue: 0.74,
+    sprite(l, k) { return { a: cl((k - 0.5) / 0.24), rise: 0, lift: 0, flash: k > 0.74 && k < 0.8, scan: k < 0.74 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.3 && k < 0.8 && Math.random() < dt * 20) G.FX.px(l.x + (Math.random() - 0.5) * 160, l.y - Math.random() * 30, '#e6f6ff', { vx: (Math.random() - 0.5) * 20, vy: -10 - Math.random() * 10, life: 1, drag: 0.96 });
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const f = ease(cl((k - 0.06) / 0.34)) * (1 - cl((k - 0.88) / 0.12) * 0.6);
+      if (f > 0) {
+        ctx.globalAlpha = 0.6; ctx.fillStyle = '#a8d8f0'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 130 * f, 46 * f, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.5; ctx.fillStyle = '#e6f6ff'; ctx.beginPath(); ctx.ellipse(l.x - 20 * f, l.y - 6 * f, 60 * f, 14 * f, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8 * f; ctx.beginPath();
+        for (let i = 0; i < 8; i++) { const an = i / 8 * TAU + H(l.seed, i, 271) * 0.4; jag(ctx, l.x, l.y, l.x + Math.cos(an) * 120 * f, l.y + Math.sin(an) * 42 * f, 4, 4, l.seed + i); }
+        ctx.stroke();
+      }
+      // Niebla fría donde aparece.
+      const m = cl((k - 0.3) / 0.2) * (1 - cl((k - 0.76) / 0.16));
+      if (m > 0) { glow(ctx, l.x, l.y - 40, 70, 60, '#d8f0ff', 0.6 * m); ctx.globalAlpha = 0.35 * m; ctx.fillStyle = '#e6f6ff'; ctx.beginPath(); ctx.ellipse(l.x, l.y - 30, 56, 40, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Púas de hielo en corro, de dentro afuera.
+      for (let i = 0; i < 12; i++) {
+        const an = i / 12 * TAU + 0.13, up = ease(cl((k - 0.2 - (i % 3) * 0.04) / 0.14)), b = cl((k - 0.76) / 0.2);
+        if (up <= 0 || b >= 1) continue;
+        const d = 90 + (i % 2) * 22, x = l.x + Math.cos(an) * d, y = l.y + Math.sin(an) * d * 0.36, h = (26 + 16 * H(l.seed, i, 272)) * up;
+        ctx.globalAlpha = 0.9 * (1 - b); ctx.fillStyle = '#7ac8f0'; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 1, y - h); ctx.lineTo(x + 6, y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(x - 2, y); ctx.lineTo(x + 1, y - h); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 56, 60, '#9ad8ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 30, '#e6f6ff', 28, 240);
+      G.FX.ring(l.x, l.y, 10, 170, '#7ac8f0', 0.55, 6);
+      shake(l, 1.1);
+    }
+  });
+
+  /* ---------- Keldeo (647): llega al galope por encima de un agua que salpica a cada paso y su cuerno de agua brilla ---------- */
+  add(647, {
+    title: 'Espada de la resolución', dur: 2.0, short: 0.8, cue: 0.66,
+    sprite(l, k) { const e = cl((k - 0.2) / 0.46); return { a: cl((k - 0.2) / 0.06), rise: 0, lift: 8 * Math.abs(Math.sin(e * Math.PI * 6)) * (1 - e), ox: 230 * (1 - ease(e)), flash: k > 0.66 && k < 0.72 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Una franja de agua por donde corre.
+      const w = cl((k - 0.04) / 0.16) * (1 - cl((k - 0.86) / 0.14));
+      if (w > 0) {
+        ctx.globalAlpha = 0.55 * w; ctx.fillStyle = '#3a8ad0'; ctx.beginPath(); ctx.ellipse(l.x + 115, l.y, 150 * w, 18, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#9ad8ff'; ctx.globalAlpha = 0.5 * w;
+        for (let i = 0; i < 6; i++) ctx.fillRect(Math.round(l.x + 115 + (H(l.seed, i, 281) - 0.5) * 240), Math.round(l.y + (H(l.seed, i, 282) - 0.5) * 20), 8, 1);
+      }
+      // Salpicadura de cada paso: un aro que se abre donde ha pisado.
+      for (let i = 0; i < 6; i++) {
+        const t = 0.2 + (i + 1) / 6 * 0.46 * 0.95, s = cl((k - t) / 0.12);
+        if (s <= 0 || s >= 1) continue;
+        const e = cl((t - 0.2) / 0.46), x = l.x + 230 * (1 - ease(e));
+        ctx.globalAlpha = 0.8 * (1 - s); ctx.strokeStyle = '#d8f4ff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, l.y, 6 + 24 * s, 2 + 8 * s, 0, 0, TAU); ctx.stroke();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const e = cl((k - 0.2) / 0.46);
+      if (e > 0 && e < 1) {
+        const x = l.x + 230 * (1 - ease(e));
+        for (let i = 0; i < 6; i++) {
+          const t = (now * 3 + i / 6) % 1;
+          ctx.globalAlpha = 1 - t; ctx.fillStyle = '#9ad8ff'; ctx.fillRect(Math.round(x + 10 + t * 30), Math.round(l.y - 4 - 20 * Math.sin(t * Math.PI) - i), 2, 2);
+        }
+      }
+      // El cuerno de agua: una hoja de luz azul sobre su cabeza al llegar.
+      const h = cl((k - 0.62) / 0.08) * (1 - cl((k - 0.9) / 0.1));
+      if (h > 0) {
+        const hy = l.y - (G.Sprites && G.Sprites.bodyHeight ? G.Sprites.bodyHeight(l.dex, l.sc) : 60) - 6;
+        glow(ctx, l.x, hy - 16, 18, 26, '#9ad8ff', 0.7 * h);
+        ctx.globalAlpha = h; blade(ctx, l.x, hy, 34 * h + 1, 4, -Math.PI / 2 - 0.3, '#6ac8ff', '#ffffff');
+      }
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 10, '#9ad8ff', 22, 220);
+      G.FX.ring(l.x, l.y, 10, 130, '#6ac8ff', 0.5, 5);
+      shake(l, 0.6);
+    }
+  });
+
+  /* ---------- Meloetta (648): unas líneas de pentagrama ondean en el aire, las notas giran y ella baja dando vueltas ---------- */
+  add(648, {
+    title: 'Canción del alba', dur: 2.2, short: 0.9, cue: 0.74,
+    sprite(l, k) { const e = cl((k - 0.4) / 0.34); return { a: cl((k - 0.4) / 0.08), rise: 0, lift: 110 * (1 - ease(e)), ox: Math.sin(e * TAU * 1.5) * 20 * (1 - e), flash: k > 0.74 && k < 0.8 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // El pentagrama: cinco líneas que se dibujan de izquierda a derecha y ondean.
+      const d = ease(cl((k - 0.04) / 0.26)), out = cl((k - 0.78) / 0.16);
+      if (d > 0 && out < 1) {
+        for (let j = 0; j < 5; j++) {
+          for (let i = 0; i < 24; i++) {
+            const t = i / 23; if (t > d) break;
+            const x = l.x - 150 + 300 * t, y = l.y - 120 + j * 7 + Math.sin(now * 2.5 + t * 6) * 12;
+            ctx.globalAlpha = 0.85 * (1 - out) * (1 - Math.abs(t - 0.5) * 0.8);
+            ctx.fillStyle = '#1a4a3a'; ctx.fillRect(Math.round(x), Math.round(y) + 1, 13, 1);
+            ctx.fillStyle = '#e8fff4'; ctx.fillRect(Math.round(x), Math.round(y), 13, 1);
+          }
+        }
+        glow(ctx, l.x, l.y - 106, 160, 30, '#7ad8b0', 0.25 * d * (1 - out));
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Notas que salen del pentagrama y bajan en corro hacia ella.
+      const n = cl((k - 0.16) / 0.1) * (1 - cl((k - 0.8) / 0.14));
+      if (n > 0) {
+        for (let i = 0; i < 8; i++) {
+          const an = i / 8 * TAU + now * 1.6, r = 50 + 30 * Math.sin(now + i), x = l.x + Math.cos(an) * r, y = l.y - 70 + Math.sin(an) * r * 0.4 + Math.sin(now * 3 + i) * 6;
+          glow(ctx, x, y, 12, 12, '#7ad8b0', 0.5 * n);
+          ctx.globalAlpha = n; ctx.fillStyle = i % 2 ? '#ffffff' : '#7ad8b0';
+          ctx.beginPath(); ctx.ellipse(x, y, 4, 3, -0.4, 0, TAU); ctx.fill();
+          ctx.fillRect(Math.round(x + 3), Math.round(y - 12), 1, 12);
+          if (i % 3 === 0) ctx.fillRect(Math.round(x + 3), Math.round(y - 12), 5, 2);
+        }
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 34, 44, 48, '#7ad8b0', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 30, '#7ad8b0', 22, 200);
+      G.FX.ring(l.x, l.y, 10, 140, '#ffffff', 0.5, 4);
+      shake(l, 0.4);
+    }
+  });
+
+  /* ---------- Genesect (649): una mira roja barre la arena y se fija; baja del cielo como un reactor y aterriza ---------- */
+  add(649, {
+    title: 'Insecto de otra era', dur: 2.2, short: 0.9, cue: 0.74,
+    sprite(l, k) { const e = cl((k - 0.5) / 0.24); return { a: cl((k - 0.5) / 0.04), rise: 0, lift: 260 * (1 - ease(e)), ox: -80 * (1 - ease(e)), flash: k > 0.74 && k < 0.8 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // La mira: un aro rojo que va de un sitio a otro y se fija en el suyo, encogiéndose.
+      const on = cl((k - 0.06) / 0.08) * (1 - cl((k - 0.76) / 0.08));
+      if (on > 0) {
+        const s = cl((k - 0.06) / 0.34), hop = Math.min(3, Math.floor(s * 4)), q = s * 4 - hop;
+        const P = i => (i >= 3 ? [l.x, l.y] : [l.x + (H(l.seed, i, 291) - 0.5) * 220, l.y + (H(l.seed, i, 292) - 0.5) * 70]);
+        const a = P(hop - 1 < 0 ? 0 : hop - 1), b = P(hop), mv = hop === 0 ? 1 : ease(cl(q * 2));
+        const x = a[0] + (b[0] - a[0]) * mv, y = a[1] + (b[1] - a[1]) * mv, lock = cl((k - 0.4) / 0.3), r = 46 - 22 * lock;
+        ctx.globalAlpha = on; ctx.strokeStyle = '#ff3a3a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.38, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#ff3a3a';
+        ctx.fillRect(Math.round(x - r - 8), Math.round(y), 12, 2); ctx.fillRect(Math.round(x + r - 4), Math.round(y), 12, 2);
+        ctx.fillRect(Math.round(x), Math.round(y - r * 0.38 - 6), 2, 9); ctx.fillRect(Math.round(x), Math.round(y + r * 0.38 - 3), 2, 9);
+        glow(ctx, x, y, r, r * 0.5, '#ff3a3a', 0.3 * on * (0.6 + 0.4 * Math.sin(now * 10)));
+      }
+      dropShadow(ctx, l, cl((k - 0.5) / 0.24), -80 * (1 - ease(cl((k - 0.5) / 0.24))), 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Estela de reactor morada mientras baja.
+      const e = cl((k - 0.5) / 0.24);
+      if (e > 0 && e < 1) {
+        const x = l.x - 80 * (1 - ease(e)), y = l.y - 260 * (1 - ease(e));
+        for (let i = 1; i <= 8; i++) {
+          const q = cl(e - i * 0.03), px = l.x - 80 * (1 - ease(q)), py = l.y - 260 * (1 - ease(q)) - 10;
+          ctx.globalAlpha = (1 - i / 9) * 0.8; ctx.fillStyle = i < 3 ? '#ffffff' : '#b06aff';
+          ctx.beginPath(); ctx.ellipse(px, py, 6 - i * 0.4, 4, 0, 0, TAU); ctx.fill();
+        }
+        glow(ctx, x, y - 10, 30, 24, '#b06aff', 0.6);
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 50, 56, '#b06aff', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 10, '#c8c8d8', 24, 240);
+      G.FX.burst(l.x, l.y - 20, '#b06aff', 10, 180);
+      G.FX.ring(l.x, l.y, 10, 160, '#ff3a3a', 0.5, 5);
+      shake(l, 1.1);
+    }
+  });
+
   return {
     add, def, GENERIC,
     /** dex que ya tienen animación propia. */
