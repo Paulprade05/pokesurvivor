@@ -793,8 +793,8 @@
 </section>
 
 <!-- ====== Tienda Kecleon (20-10-2026, del PR #236 de TheAdro7; hoja desde el 22-10-2026) ====== -->
-<section id="scr-shop" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall shop-box">
+<section id="scr-shop" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-cat shop-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Tienda Kecleon</h2>
@@ -817,22 +817,24 @@
         <div id="shop-body"></div>
       </div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Mochila (desde el menú principal, sin entrar en la tienda). shop-ui.js: openBag ====== -->
-<section id="scr-bag" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide bag-box">
+<section id="scr-bag" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list bag-box" data-nav>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Mochila</h2>
       <div class="sheet-acts"><button class="icon-btn bag-shop" type="button" data-go-shop aria-label="Tienda Kecleon" title="Tienda Kecleon"></button></div>
     </header>
-    <div class="sheet-body" id="bag-body"></div>
+    <div class="sheet-body" id="bag-body" data-nav-row data-nav-cols="1"></div>
     <!-- Donde se usa lo de la Mochila: la ficha de cada Pokémon. -->
-    <footer class="sheet-foot" id="bag-foot">
+    <footer class="sheet-foot" id="bag-foot" data-nav-row>
       <button class="btn gold ic" type="button" data-go-dex></button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -867,8 +869,8 @@
 
 <!-- ====== Gacha (hoja: regiones arriba, el cartel y las probabilidades en el cuerpo
      y los botones de tirar en el pie, a mano del pulgar; gacha-ui.js lo rellena) ====== -->
-<section id="scr-gacha" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide gacha-sheet">
+<section id="scr-gacha" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-menu gacha-sheet" data-nav>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Gacha</h2>
@@ -901,15 +903,16 @@
           </div>
         </div>
         <div class="panel gacha-wallet" id="gacha-tickets"></div>
-        <div class="panel gacha-rates" id="gacha-rates"></div>
+        <div class="panel gacha-rates" id="gacha-rates" data-nav-row></div>
       </div>
     </div>
-    <footer class="sheet-foot gacha-foot">
+    <footer class="sheet-foot gacha-foot" data-nav-row>
       <button id="pull-1" class="btn pull-btn" type="button" data-sfx="none"><span class="pb-t">Tirar ×1</span><span class="pb-cost" id="cost-1"></span></button>
       <button id="pull-10" class="btn gold pull-btn" type="button" data-sfx="none"><span class="pb-t">Tirar ×10</span><span class="pb-cost" id="cost-10"></span></button>
       <button id="pull-10b" class="btn pull-btn rainbow" type="button" data-sfx="none"><span class="pb-t">Tirar ×10</span><span class="pb-cost" id="cost-10b"></span></button>
       <button id="pull-all" class="btn ghost pull-btn pull-all hidden" type="button" data-sfx="none"><span class="pb-t">Tirar todos</span><span class="pb-cost" id="cost-all"></span></button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -918,7 +921,7 @@
 <div id="pull-fx" class="scr dim hidden" role="dialog" aria-modal="true" aria-label="Gacha">
   <div class="pfx-spin">
     <div class="pfx-machine"><canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas></div>
-    <div class="pfx-ctl hidden" id="pull-ctl">
+    <div class="pfx-ctl hidden" id="pull-ctl" data-nav>
       <button class="chip" id="pull-fast" type="button"><span>Rápido</span></button>
       <button class="btn small ghost" id="pull-skip" type="button">Saltar</button>
     </div>
@@ -926,10 +929,11 @@
   <p class="pfx-sum hidden" id="pull-sum"></p>
   <div class="pfx-grid" id="pull-results"></div>
   <!-- «Otra vez»: la misma tirada otra vez, si te llega (gacha-ui.js). -->
-  <div class="pfx-foot">
+  <div class="pfx-foot" data-nav>
     <button id="pull-again" class="btn pull-btn pull-again hidden" type="button" data-sfx="none"><span class="pb-t" id="pull-again-t"></span><span class="pb-cost" id="cost-again"></span></button>
     <button id="pull-close" class="btn gold big hidden" type="button">Continuar</button>
   </div>
+  <footer class="fs-bar" data-auto aria-hidden="true"></footer>
 </div>
 
 <!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ======

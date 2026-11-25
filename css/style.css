@@ -3723,10 +3723,11 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   #scr-gacha > .box.gacha-sheet {
     display: grid; gap: 0;
     grid-template-columns: minmax(0, 1fr) clamp(256px, 40%, 360px);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: "head head" "hero info" "hero foot";
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "head head" "hero info" "hero foot" "bar bar";
   }
   #scr-gacha .gacha-sheet > .sheet-head { grid-area: head; }
+  #scr-gacha .gacha-sheet > .fs-bar { grid-area: bar; }   /* (1.0, bloque J: la barra del mando, a todo lo ancho) */
   #scr-gacha .gacha-body { display: contents; }
   #scr-gacha .gacha-hero { grid-area: hero; flex-direction: column; align-items: stretch; min-height: 0;
     margin: 8px 0 max(8px, var(--sa-b)) max(10px, var(--sa-l)); border-radius: 16px; }

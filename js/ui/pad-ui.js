@@ -43,6 +43,9 @@ G.PadUI = (() => {
       x: { sel: '#pull-10', label: 'Tirar ×10' }
     },
     'scr-shop': { first: '.shop-pane .shop-buy:not([disabled]); .shop-pane' },
+    'scr-bag': { first: '#bag-foot [data-go-dex]', x: { sel: '#scr-bag .sheet-head [data-go-shop]', label: 'Tienda Kecleon' } },
+    // La tirada: B salta la animación y luego cierra.
+    'pull-fx': { first: '#pull-close; #pull-again; #pull-skip', back: 'Continuar' },
     'scr-build': { first: '#bld-grid; #bld-plan', y: { sel: '#bld-clear', label: 'Vaciar' } },
     'scr-starters': { first: '#starter-grid .on; #starter-grid', y: { sel: '#starter-ok', label: 'Elegir' } },
     'scr-levelup': {
