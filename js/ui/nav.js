@@ -17,6 +17,8 @@
  *   [data-nav-row]                          (dentro de la zona, opcional) cada fila; si no hay, la zona entera es una.
  *                                           (bloque J) Puede ser el propio botón: una fila de uno.
  *   data-nav-cols="N"                       columnas fijas de la fila o la zona; sin él, las que se vean en su primera línea.
+ *   data-nav-auto                           (bloque J; en la zona o en una fila) las filas son las líneas en que se ve lo de
+ *                                           dentro, en orden de lectura (listas que cambian: misiones, ranking, amigos...).
  *   [data-nav-skip]                         no entra en el orden.
  *   .fs-bar                                 la barra de abajo: qué hace cada botón del mando ahí (sólo con mando).
  */
@@ -89,6 +91,22 @@ G.Nav = (() => {
     return t && !/^(checkbox|radio)$/.test(t.type) ? null : el;
   }
 
+  /**
+   * (1.0, bloque J) data-nav-auto: en líneas, como se leen (de arriba abajo y de izquierda a derecha). Una cosa va en la
+   * línea de la primera si su centro cae a su altura.
+   */
+  function lines(its) {
+    const at = its.map(el => [el, el.getBoundingClientRect()]).sort((a, b) => (a[1].top - b[1].top) || (a[1].left - b[1].left));
+    const out = [];
+    let line = null, top = 0, bot = 0;
+    for (const [el, r] of at) {
+      const cy = (r.top + r.bottom) / 2;
+      if (line && cy >= top && cy <= bot) { line.push([el, r.left]); continue; }
+      line = [[el, r.left]]; top = r.top; bot = r.bottom; out.push(line);
+    }
+    return out.map(l => l.sort((a, b) => a[1] - b[1]).map(x => x[0]));
+  }
+
   /** Lo elegible de la zona, en filas: [[el, el, el], [el, el]]. */
   function rows(z) {
     if (!z) return [];
@@ -99,6 +117,7 @@ G.Nav = (() => {
       const its = g.matches && g.matches(ITEM) ? (usable(g) ? [g] : [])
         : [...g.querySelectorAll(ITEM)].filter(el => !(el.parentElement && g.contains(el.parentElement.closest(ITEM)))).map(pickable).filter(el => el && usable(el));
       if (!its.length) continue;
+      if (g.hasAttribute && g.hasAttribute('data-nav-auto')) { out.push(...lines(its)); continue; }
       const cols = +g.dataset.navCols || autoCols(its);
       for (let i = 0; i < its.length; i += cols) out.push(its.slice(i, i + cols));
     }
@@ -111,5 +130,5 @@ G.Nav = (() => {
     return null;
   }
 
-  return { step, zone, rows, locate, ITEM };
+  return { step, zone, rows, locate, lines, ITEM };
 })();

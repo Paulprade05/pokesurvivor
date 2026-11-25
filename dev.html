@@ -316,20 +316,21 @@
 <div id="credits-line" class="credits-line hidden">Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK · <a href="#" class="legal-link" data-legal>Aviso legal</a></div>
 
 <!-- ====== Novedades: hoja con una tarjeta por fecha (news-ui.js) ====== -->
-<section id="scr-news" class="scr dim hidden" role="dialog" aria-labelledby="news-title">
-  <div class="box sheet-box news-sheet">
+<section id="scr-news" class="scr dim fs-scr hidden" role="dialog" aria-labelledby="news-title">
+  <div class="box fs sheet-box t-list news-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" id="news-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" id="news-ico" aria-hidden="true"></span>
       <h2 id="news-title">Novedades</h2>
     </header>
     <div id="news-body" class="sheet-body news-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Historial de partidas: las que guarda core/registro.js en este aparato (runs-ui.js) ====== -->
-<section id="scr-runs" class="scr dim modal hidden" role="dialog" aria-labelledby="runs-title">
-  <div class="box sheet-box runs-sheet">
+<section id="scr-runs" class="scr dim fs-scr modal hidden" role="dialog" aria-labelledby="runs-title">
+  <div class="box fs sheet-box t-list runs-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" id="runs-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" id="runs-ico" aria-hidden="true"></span>
@@ -340,6 +341,7 @@
       </div>
     </header>
     <div id="runs-body" class="sheet-body runs-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -541,8 +543,8 @@
 <!-- ====== Amigos (hoja): tu apodo con «Copiar», añadir amigo y las listas ======
      social-ui.js (FriendsUI) rellena #fr-me (tu tarjeta) y #fr-list (solicitudes,
      amigos y enviadas). Con pantalla ancha o tumbada, en dos columnas. -->
-<section id="scr-friends" class="scr dim under-bar hidden">
-  <div class="box sheet-box">
+<section id="scr-friends" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Amigos</h2>
@@ -564,6 +566,7 @@
       </div>
       <div id="fr-list" class="fr-lists"></div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -571,8 +574,8 @@
      Arriba, los jugadores en tarjetas (sprite, apodo y estado); debajo, invitar
      (sólo el anfitrión); abajo fijo, «Empezar partida» o «¡Estoy listo!», que
      social-ui.js añade detrás de #lobby-start. -->
-<section id="scr-lobby" class="scr dim under-bar hidden">
-  <div class="box sheet-box">
+<section id="scr-lobby" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head">
       <button id="lobby-menu" class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Sala</h2>
@@ -592,6 +595,7 @@
       <p class="note" id="lobby-note"></p>
       <button id="lobby-start" class="btn gold" type="button">Empezar partida</button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -599,8 +603,8 @@
      Cabecera: Solo / Grupo, Todos / Amigos y el periodo en una barra; el filtro por
      Pokémon se abre con la lupa (en escritorio, siempre a la vista). Abajo fijo,
      tu puesto (#rk-me). ranking-ui.js rellena todo. -->
-<section id="scr-rank" class="scr dim under-bar hidden">
-  <div class="box sheet-box tall">
+<section id="scr-rank" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head rk-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow rk-title">
@@ -630,12 +634,13 @@
       <span id="rk-me-ico" class="ico-tile s round t-gold" aria-hidden="true"></span>
       <div id="rk-me" class="rk-you"></div>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Moderación del ranking (hoja; sólo la cuenta de admin, ver js/ui/mod-ui.js) ====== -->
-<section id="scr-mod" class="scr dim under-bar hidden">
-  <div class="box sheet-box tall">
+<section id="scr-mod" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head">
       <button id="mod-back" class="icon-btn" type="button" data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Moderación</h2>
@@ -652,12 +657,13 @@
     <footer class="sheet-foot mod-foot">
       <button class="btn small danger" id="mod-purge" type="button">Quitar marcas de más de 1 hora</button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Misiones, logros y perfil (hoja: cabecera con pestañas y cuerpo que se desplaza; goals-ui.js lo rellena) ====== -->
-<section id="scr-goals" class="scr dim under-bar hidden">
-  <div class="box sheet-box tall goals-sheet">
+<section id="scr-goals" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list goals-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Misiones</h2>
@@ -670,6 +676,7 @@
       </div>
     </header>
     <div id="goals-body" class="sheet-body goals-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -678,8 +685,8 @@
      llevar cada Pokémon. Pestañas en la cabecera; debajo, la lista con su buscador y filtros a la
      izquierda y la ficha a la derecha (en una ventana estrecha de pie, la ficha tapa la lista:
      #scr-compendium.detail-open). Todo sale en vivo de los datos del juego. -->
-<section id="scr-compendium" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall cmp-box">
+<section id="scr-compendium" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-cat cmp-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Compendio</h2>
@@ -693,12 +700,14 @@
       </div>
     </header>
     <div class="cmp-main">
-      <div class="cmp-list">
-        <div class="cmp-tools" id="cmp-tools"></div>
-        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio"></div>
+      <div class="cmp-list" data-nav>
+        <div class="cmp-tools" id="cmp-tools" data-nav-row data-nav-auto></div>
+        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio" data-nav-row data-nav-cols="1"></div>
       </div>
-      <article class="cmp-detail" id="cmp-detail"></article>
+      <!-- (Con la ficha tapando la lista, en el móvil, la zona del mando es la ficha.) -->
+      <article class="cmp-detail" id="cmp-detail" data-nav data-nav-auto></article>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -731,8 +740,8 @@
 </section>
 
 <!-- ====== Perfil público de un jugador (ventana que tapa la barra) ====== -->
-<section id="scr-profile" class="scr dim modal hidden">
-  <div class="box sheet-box profile-sheet">
+<section id="scr-profile" class="scr dim fs-scr modal hidden">
+  <div class="box fs sheet-box t-list profile-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <h2>Perfil</h2>
       <div class="sheet-acts">
@@ -740,6 +749,7 @@
       </div>
     </header>
     <div id="prof-body" class="sheet-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
