@@ -1003,6 +1003,12 @@ G.DB = (() => {
     clearTimeout(retryT);
     retryT = setTimeout(() => { if (pending) pushNow(); }, ms);
   }
+  // (1.0, jugar sin conexión) Al volver la conexión, lo pendiente se sube enseguida: sin esperar al reintento, que tras
+  // un rato sin red puede ir por 10 min. (Respeta lo de siempre: como mucho una subida cada MIN_GAP.)
+  addEventListener('online', () => {
+    fails = 0;
+    if (mode === 'cloud' && !guest && pending) { clearTimeout(retryT); retryT = setTimeout(() => { if (pending) pushNow(); }, 3000); }
+  });
 
   /**
    * Sube YA lo pendiente, sin esperar los 65 s entre subidas: al cerrar sesión y

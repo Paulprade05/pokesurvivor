@@ -186,10 +186,14 @@ G.Pad = (() => {
 
   // ---------------- con qué se juega: mando, o teclado / ratón / táctil ----------------
 
-  let otherAt = 0, isActive = false;
+  let otherAt = -1, isActive = false;
   const fns = new Set();
+  // (1.0, escritorio) La app de Windows sabe si al abrirla ya había un mando conectado (el navegador no lo enseña hasta
+  //  que se pulsa un botón): entonces se empieza en modo mando, con la selección a la vista y sin cursor. El ratón, el
+  //  teclado o la pantalla lo quitan como siempre. En la web, nada cambia.
+  let boot = typeof window !== 'undefined' && window.pokeEscritorio && window.pokeEscritorio.mandoAlAbrir ? 0 : -2;
   /** ¿Lo último que se ha tocado es el mando? */
-  const padNow = () => act >= 0 && (used[act] || -1) > otherAt;
+  const padNow = () => (act >= 0 ? used[act] || boot : boot) > otherAt;
   for (const ev of ['keydown', 'mousemove', 'pointerdown', 'wheel']) {
     addEventListener(ev, e => {
       if (!e.isTrusted || (ev === 'mousemove' && !(e.movementX || e.movementY))) return;
@@ -250,7 +254,7 @@ G.Pad = (() => {
     forget(e.gamepad.index);
     if (enabled() && G.UI && G.UI.toast) G.UI.toast('Mando conectado', 2200);
   });
-  addEventListener('gamepaddisconnected', e => { forget(e.gamepad.index); if (!pad()) { hideFocus(); act = -1; sync(); } });
+  addEventListener('gamepaddisconnected', e => { forget(e.gamepad.index); if (!pad()) { hideFocus(); act = -1; boot = -2; sync(); } });
 
   // ---------------- mandos sin distribución "standard" ----------------
 
@@ -730,7 +734,13 @@ G.Pad = (() => {
   /** Lo llama el bucle del juego antes de mirar las teclas. */
   function poll(dt) {
     const p = enabled() ? pad() : null;
-    if (!p) { vec = [0, 0]; aimVec = [0, 0]; prevs.length = 0; if (isActive) sync(); return; }
+    if (!p) {
+      vec = [0, 0]; aimVec = [0, 0]; prevs.length = 0;
+      if (isActive || boot === 0) sync();
+      // (1.0) Abierta la app con el mando ya conectado: la selección se ve antes de pulsar nada.
+      if (isActive && boot === 0 && !grabFn && uiMode()) autoFocus(dt);
+      return;
+    }
     const now = p.buttons.map(pressed);
     const was = prevs[p.index] || [];
     const hit = i => now[i] && !was[i];

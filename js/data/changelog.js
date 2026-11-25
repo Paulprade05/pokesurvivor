@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-24', title: ["La app de Windows, más de PC", "A more PC-like Windows app"], new: [
+    ["Actualizar con un clic en la app de Windows: cuando sale una versión nueva, el juego te lo dice y, si quieres, la descarga, comprueba que es la oficial, se instala sola y vuelve a abrirse. Tu partida se queda.",
+     "One-click updates in the Windows app: when a new version comes out, the game tells you and, if you want, downloads it, checks it's the official one, installs it by itself and opens again. Your save stays."],
+    ["App de Windows con mando primero: si al abrirla ya hay un mando conectado, empieza en modo mando, con la selección a la vista y sin el cursor del ratón (vuelve al mover el ratón). «Salir del juego» en «Ir a…» cierra la app guardando tu partida.",
+     "Controller-first Windows app: if a controller is already connected when you open it, it starts in controller mode, with the selection showing and no mouse cursor (it comes back when you move the mouse). “Quit game” in “Go to…” closes the app and keeps your save."]],
+  chg: [
+    ["La app de Windows se abre y se juega sin internet, como invitado o con tu última sesión. Lo que se juegue sin conexión se sube a la nube en cuanto vuelve.",
+     "The Windows app opens and plays without internet, as a guest or with your last session. Whatever you play offline is uploaded to the cloud as soon as you're back online."]] },
+
   { d: '2026-11-22', title: ["Menús pensados para el mando", "Menus built for controllers"], new: [
     ["Atajos con mando en todos los menús: LB / RB (L1 / R1) cambian de pestaña (tienda, Pokédex y su ficha, regiones del gacha, Compendio, Misiones y Logros, Ajustes, planificador de builds…); LT / RT (L2 / R2) pasan página en las listas largas; Back (View) abre «Ir a…» en la aldea; X e Y hacen lo más útil de cada pantalla (Máx. y Planear build en Mejoras, Filtros y Orden en la Pokédex, Tipo y Familia en el Compendio, Tirar ×10 en el gacha, Compendio y Planear build en la pausa…).",
      "Controller shortcuts in every menu: LB / RB (L1 / R1) switch tabs (shop, Pokédex and its page, gacha regions, Compendium, Missions and Achievements, Settings, build planner…); LT / RT (L2 / R2) flip pages in long lists; Back (View) opens “Go to…” in the village; X and Y do the handiest thing on each screen (Max and Plan build in Upgrades, Filters and Sort in the Pokédex, Type and Family in the Compendium, Pull ×10 in the gacha, Compendium and Plan build on the pause screen…)."],

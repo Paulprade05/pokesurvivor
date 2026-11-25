@@ -3119,3 +3119,22 @@ G.I18n.add({
   "Descartar": "Discard",
   "Cambiar de Pokémon": "Change Pokémon"
 });
+
+// (1.0 · bloque I, 24-11-2026) App de Windows: salir del juego y actualizar con un clic (world/village.js, desktop-rust/src/puente.js).
+G.I18n.add({
+  "Salir del juego": "Quit game",
+  "Cierra PokéSurvivor; tu partida se guarda": "Closes PokéSurvivor; your save is kept",
+  "¿Salir de PokéSurvivor? Tu partida se guarda.": "Quit PokéSurvivor? Your save is kept.",
+  "Seguir jugando": "Keep playing",
+  "Hay una versión nueva de PokéSurvivor para PC: la {x} (tienes la {x}). Se descarga ({x} MB), se instala sola y el juego vuelve a abrirse. Tu partida se queda.":
+    "A new PokéSurvivor PC version is out: {x} (you have {x}). It downloads ({x} MB), installs by itself and the game opens again. Your save stays.",
+  "Hay una versión nueva de PokéSurvivor para PC ({x}). Descárgala de la página del juego e instálala encima: tu partida se queda.":
+    "A new PokéSurvivor PC version is out ({x}). Download it from the game page and install it over this one: your save stays.",
+  "No se pudo actualizar ({x}). Puedes bajar el instalador de la página del juego.": "The update failed ({x}). You can get the installer from the game page.",
+  "Actualizar ahora": "Update now",
+  "Más tarde": "Later",
+  "Abrir la descarga": "Open the download",
+  "Preparando la descarga…": "Getting the download ready…",
+  "Descargando la actualización…": "Downloading the update…",
+  "Guardando tu partida e instalando… El juego se cierra y vuelve a abrirse.": "Saving your game and installing… The game closes and opens again."
+});
