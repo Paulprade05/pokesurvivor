@@ -73,7 +73,9 @@ G.PadUI = (() => {
     'scr-login': { first: '#btn-guest; #btn-auth' },
     'scr-test': { ok: 'Responder', noBack: true },
     'scr-result': { first: '#res-ok', noBack: true },
-    'scr-evo': { noBack: true, ok: 'Elegir' }
+    'scr-evo': { noBack: true, ok: 'Elegir' },
+    // (1.0, bloque E) Tienda, templo, Smeargle, máquina: A compra / elige, B se va.
+    'scr-encounter': { first: '#enc-cards .pick-card:not(.enc-off); #enc-cards; #enc-leave', ok: 'Elegir', back: 'Irse' }
   };
 
   /** Cuántos hay (para los «when» de los atajos). */

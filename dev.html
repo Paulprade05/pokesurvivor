@@ -1002,6 +1002,25 @@
   </div>
 </section>
 
+<!-- (1.0, bloque E) Encuentros del mapa: Kecleon, templo, Smeargle y Porygon (ui/encounter-ui.js). Plantilla «Elección»:
+     las cartas en fila (← →) y abajo «Irse» (B también). -->
+<section id="scr-encounter" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
+    <header class="pick-head">
+      <div class="pick-title"><span id="enc-ico" class="ico-tile pick-ico"></span><h2 id="enc-title">Kecleon</h2></div>
+      <p class="sub"><span id="enc-sub" class="enc-sub"></span><span class="kbd-hint"> · <span id="enc-keys"></span> · <kbd>Esc</kbd></span></p>
+    </header>
+    <div id="enc-cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="pick-foot" data-nav-row>
+      <button id="enc-leave" class="btn ghost ic" data-close data-back data-ico="back" data-ico-size="20"><span id="enc-leave-t">Irse</span><span class="pad-hint" data-pad-act="back"></span></button>
+    </footer>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="back"></span>Irse</span>
+    </footer>
+  </div>
+</section>
+
 <!-- Pausa: plantilla «Menú». A la izquierda tu Pokémon y los botones (la zona con cursor: ↑ ↓, desde abajo vuelve
      arriba); a la derecha, para leer, tres páginas con LB / RB (run-ui.js pauseSummary). En grupo la partida sigue:
      aviso, borde rojo si te dan y tu vida a la vista. -->
@@ -1163,6 +1182,7 @@
 <script defer src="js/systems/build.js"></script>
 <script defer src="js/systems/gacha.js"></script>
 <script defer src="js/systems/interact.js"></script>
+<script defer src="js/systems/encounters.js"></script>
 <script defer src="js/systems/rift.js"></script>
 <script defer src="js/systems/judgment.js"></script>
 <script defer src="js/systems/tickets.js"></script>
@@ -1194,6 +1214,7 @@
 <script defer src="js/ui/shop-ui.js"></script>
 <script defer src="js/ui/home-ui.js"></script>
 <script defer src="js/ui/run-ui.js"></script>
+<script defer src="js/ui/encounter-ui.js"></script>
 <script defer src="js/ui/build-ui.js"></script>
 <script defer src="js/ui/evo-ui.js"></script>
 <script defer src="js/ui/social-ui.js"></script>

@@ -178,7 +178,9 @@ G.Player = class Player {
    */
   atkFor(m) {
     const cat = m && m.cat, b = cat === 'physical' ? this.buffs.patk : cat === 'special' ? this.buffs.satk : null;
-    return this.atk * G.Stats.fit(this.mon, cat) * (b ? 1 + b.n * b.amount : 1) * (m && this.monoType(m.type) ? Player.MONO_K : 1) * this.moveK(m);
+    // (1.0, bloque E) Y la Proteína o el Calcio del templo (systems/encounters.js, G.Vitamins), de su lado.
+    return this.atk * G.Stats.fit(this.mon, cat) * (b ? 1 + b.n * b.amount : 1) * (m && this.monoType(m.type) ? Player.MONO_K : 1) * this.moveK(m)
+      * (this.vit && G.Vitamins ? G.Vitamins.atkK(this, cat) : 1);
   }
   /**
    * Revisión de los ataques (2.0, 31-10-2026, lo pidió el dueño tras jugar el bloque 2: «se sigue matando igual de
@@ -204,7 +206,8 @@ G.Player = class Player {
     // (Habilidades: "steady" no se frena; speed() multiplica, ver data/ability-fx.js.)
     // (Hierba Blanca, this.itSteady: como «steady».)
     const ab = this.abil || {}, steady = ab.steady || this.itSteady, stuck = this.slowT > 0 && !steady;
-    const s = this.baseSpd * this.spdMul * (1 + this.buffs.spd.n * this.buffs.spd.amount) * (stuck ? 0.5 : 1) * (ab.speed ? ab.speed(this) : 1);
+    const s = this.baseSpd * this.spdMul * (1 + this.buffs.spd.n * this.buffs.spd.amount) * (stuck ? 0.5 : 1) * (ab.speed ? ab.speed(this) : 1)
+      * (this.vit && G.Vitamins ? G.Vitamins.spdK(this) : 1);     // (Carburante, 1.0 bloque E)
     const w = G.Weather.speedFor(this.mon.types);
     const slow = this.inLiquid && !steady ?G.World.liquidEffect(this.mon.types).slow || 1 : 1;
     return G.Judgment && G.Judgment.active ? G.Judgment.capSpd(s * slow * w) : s * slow * w;
@@ -430,6 +433,7 @@ G.Player = class Player {
     if (!pure && (type || cat) && G.Combat.wardBlock(this)) return;
     // (Y los que empiezan como preevolución, algo menos al principio: G.Enemies.youngK, 29-10-2026.)
     if (!pure) amount *= G.Stats.taken(this.mon, cat) * G.Enemies.youngK(this, G.Game.st ? G.Game.st.time : 0);
+    if (!pure && this.vit && G.Vitamins) amount *= G.Vitamins.inK(this, cat);     // (Hierro / Zinc, 1.0 bloque E)
     if (!pure && G.Mega && G.Mega.active(this)) amount *= G.Mega.IN_K;
     let eff = null;
     if (type) {

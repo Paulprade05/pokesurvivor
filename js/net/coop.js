@@ -405,6 +405,7 @@ G.Coop = (() => {
         case 'hs': holdOn(from); break;
         case 'he': holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
+        case 'enc': if (G.Encounters && ev[1] === 'c') G.Encounters.onNet(ev, from); break;   // (1.0, bloque E) un invitado activa el reto
         case 'bye': mateGone(from); break;
       }
     }
@@ -510,6 +511,8 @@ G.Coop = (() => {
       case 'jd': case 'jk': G.Judgment.onEvent(ev); break;
       case 'wx': G.Weather.onEvent(ev); break;
       case 'ev': G.Events.onNet(ev); break;
+      // (1.0, bloque E) Encuentros del mapa: dónde los pone el anfitrión y el santuario de reto. Una versión anterior lo ignora.
+      case 'enc': if (G.Encounters) G.Encounters.onNet(ev); break;
       case 'hz': G.Hazards.add(ev[1], true); break;
       // (20-11-2026) Su dueño murió o se le inmovilizó antes de que cayeran: sus avisos se borran (hazards.js cut).
       case 'hzx': if (typeof ev[1] === 'number' && G.Hazards.cut) G.Hazards.cut(ev[1]); break;

@@ -1766,6 +1766,9 @@
     if (m.evolved && evoMods(s)) applyMods(s, evoMods(s));
     applyPassives(s, P);
     if (m.ra) rarityArea(s, m.ra);
+    // (1.0, bloque E) Más PP del templo: +1 por toma, SIN el tope EXTRA_MAX (dueño, 24-11-2026); su tope es el de la vitamina.
+    const pr = m.pp > 0 && PASSIVE_RULES[s.kind];
+    if (pr && pr.n && typeof s.count === 'number') s.count += pr.n * m.pp;
     for (const k of BAKE) if (s[k] !== undefined) m[k] = s[k];
     m.pk = s.pk;
     return m;

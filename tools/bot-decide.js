@@ -182,7 +182,22 @@
     return out;
   }
 
-  const api = { STYLES, W, SPECIAL, RAR_BONUS, style, itemValue, pickItem, pickBond, forget, cardRarity, temple, vitamin, curse, egg, shop };
+  /**
+   * (1.0, bloque E) Porygon: sube la rareza de un objeto. offers: [{ id, r, price, gain }] (gain: cuánto mejora ese
+   * objeto, ≥ 0); ctx: { coins, style }. Gasta como en la tienda (una parte de lo que lleva); devuelve el índice (−1: nada).
+   */
+  function machine(offers, ctx) {
+    const budget = Math.floor(ctx.coins * (0.25 + 0.5 * ctx.style.risk));
+    let best = -1, bv = 0;
+    offers.forEach((o, i) => {
+      if (!(o.price > 0) || o.price > budget || !(o.gain > 0)) return;
+      const v = o.gain / o.price;
+      if (v > bv) { bv = v; best = i; }
+    });
+    return best;
+  }
+
+  const api = { STYLES, W, SPECIAL, RAR_BONUS, style, itemValue, pickItem, pickBond, forget, cardRarity, temple, vitamin, curse, egg, shop, machine };
   root.BotDecide = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

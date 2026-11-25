@@ -3135,3 +3135,28 @@ G.I18n.add({
   "Poner / quitar": "Add / remove",
   "Atajos": "Shortcuts"
 });
+
+// (1.0, bloque E) Encuentros del mapa: Kecleon, templo de vitaminas, Smeargle, santuario de reto y Porygon.
+G.I18n.add({
+  'Hablar': 'Talk', 'Retar': 'Challenge', 'Irse': 'Leave', 'Ninguna': 'None', 'No olvidar nada': 'Forget nothing',
+  'Kecleon, tendero ambulante': 'Kecleon, travelling merchant', 'Templo de vitaminas': 'Vitamin temple',
+  'Santuario de reto': 'Challenge shrine', 'Santuario maldito': 'Cursed shrine',
+  'Más PS': 'HP Up', 'Proteína': 'Protein', 'Calcio': 'Calcium', 'Hierro': 'Iron', 'Carburante': 'Carbos', 'Más PP': 'PP Up',
+  'Te llevarías a la cuenta': 'You would take to your account', 'Curarte': 'Heal', 'Recuperas la mitad de tu vida': 'You recover half of your HP',
+  'Te lo da al irte': 'You get it when you leave', 'Llevas': 'You have', 'Llevas {x} %': 'You have {x} %', 'quedan {x}': '{x} left',
+  'Vendido': 'Sold', 'Al máximo': 'Maxed out', 'Ya es legendario': 'Already legendary', 'Ya la tienes al tope': 'Already at its cap',
+  'Elige una vitamina: cada una tiene su tope': 'Pick a vitamin: each one has its cap',
+  'Olvida un ataque suelto: deja sitio para aprender otro': 'Forget a loose attack: make room to learn another',
+  'Olvidarlo: puede volver a salir en las cartas': 'Forget it: it can show up again in the cards',
+  'No tienes ataques sueltos que olvidar': 'You have no loose attacks to forget', 'Nada que hacer aquí ahora': 'Nothing to do here right now',
+  '+{x} % de suerte: más rareza en cartas y objetos': '+{x} % luck: higher rarity on cards and items',
+  '+1 de cantidad a {x}': '+1 amount to {x}', '+1 de cantidad a un ataque': '+1 amount to an attack',
+  '+{x} % de vida máxima': '+{x} % max HP', '+{x} % de daño de tus ataques físicos': '+{x} % damage on your physical attacks',
+  '+{x} % de daño de tus ataques especiales': '+{x} % damage on your special attacks',
+  '−{x} % de daño de los golpes físicos': '−{x} % damage from physical hits', '−{x} % de daño de los golpes especiales': '−{x} % damage from special hits',
+  '+{x} % de velocidad': '+{x} % speed',
+  'Has olvidado {x}': 'You forgot {x}', 'Ya tienes todas las vitaminas al tope · +{x} % de suerte': 'All your vitamins are at their cap · +{x} % luck',
+  '¡Reto! Aguanta {x} s en el círculo': 'Challenge! Hold out {x} s in the circle', '¡Reto superado! +{x} % de suerte': 'Challenge cleared! +{x} % luck',
+  'Reto superado, pero estabas fuera del círculo': 'Challenge cleared, but you were outside the circle', 'Reto fallido': 'Challenge failed',
+  'Gastado en la partida': 'Spent in the run'
+});

@@ -415,7 +415,7 @@ G.HUD = (() => {
   function infoLine(ctx, w, y, k, tall, touch, sa, cardR, pl) {
     const fs = (cmp ? 12 : 13) * k, ic = (cmp ? 14 : 15) * k, gap = 3 * k, sep = (cmp ? 10 : 14) * k;
     ctx.font = F(600, fs);
-    const ks = String(pl.kills), cs = String(pl.coins + (pl.bonusCoins || 0));   // (+ las de todo al máximo)
+    const ks = String(pl.kills), cs = String(Math.max(0, pl.coins + (pl.bonusCoins || 0) - (pl.spent || 0)));   // (+ las de todo al máximo; − lo gastado en Kecleon y Porygon)
     // (1.0, bloque D) La suerte, detrás de las monedas, sólo si llevas (systems/fortune.js).
     const fp = G.Fortune ? G.Fortune.pct(pl) : 0, fs2 = fp ? fp + ' %' : '';
     const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width, fw = fp ? sep + ic + gap + ctx.measureText(fs2).width : 0;
@@ -1333,7 +1333,8 @@ G.HUD = (() => {
     const big = c.type === 'bigchest', f = big ? G.U.clamp(c.open / G.Interact.CHEST_TIME, 0, 1) : 0;
     if (!touch) {
       const p = G.Camera.toScreen(c.x, c.y - 72), key = String(G.Input.keyLabel('open'));
-      const txt = big ? 'Mantén para abrir' : 'Abrir';
+      // (1.0, bloque E) Los encuentros dicen qué se hace con ellos: «Hablar» (Kecleon, Smeargle, Porygon) o «Activar» (reto).
+      const act = c.enc && G.Encounters.TYPES[c.type].act, txt = act ? G.T(act) : big ? 'Mantén para abrir' : 'Abrir';
       ctx.font = F(600, 13);
       const tw = ctx.measureText(txt).width;
       ctx.font = N(900, 12);
@@ -1360,7 +1361,7 @@ G.HUD = (() => {
       ctx.beginPath(); ctx.arc(cx, cy, s / 2, -Math.PI / 2, -Math.PI / 2 + f * 6.2832);
       ctx.lineWidth = 5; ctx.strokeStyle = C.yellow; ctx.stroke();
     }
-    const img = G.Tileset && G.Tileset.pxImg(c.type);
+    const img = !c.enc && G.Tileset && G.Tileset.pxImg(c.type);
     if (img) {
       const ih = s * 0.42, iw = ih * img.width / img.height;
       ctx.save();
@@ -1370,7 +1371,7 @@ G.HUD = (() => {
     }
     ctx.font = F(700, 11);
     ctx.textAlign = 'center';
-    outlined(ctx, big ? 'Mantén' : 'Abrir', cx, cy + s * 0.32, C.yellow, 3, s - 8);
+    outlined(ctx, c.enc && G.Encounters.TYPES[c.type].act ? G.T(G.Encounters.TYPES[c.type].act) : big ? 'Mantén' : 'Abrir', cx, cy + s * 0.32, C.yellow, 3, s - 8);
     G.Touch.addButton(cx - s / 2, cy - s / 2, s, s, () => { if (G.Game.state === 'playing') G.Input.virtualAct('open'); }, 6, 'open');
   }
 

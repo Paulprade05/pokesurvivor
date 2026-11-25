@@ -103,3 +103,12 @@ test('tienda: cura si va mal, no gasta más de su parte y compra lo que le sirve
   const sp = risk => D.shop(offers, Object.assign({}, base, { coins: 3000, style: { name: 'mix', risk } })).reduce((t, i) => t + offers[i].price, 0);
   assert.ok(sp(0.1) < sp(0.9));
 });
+
+test('máquina de Porygon (bloque E): el objeto que más gana por moneda, sin pasarse de su parte', () => {
+  const st = { name: 'mix', risk: 0.5 };
+  const offers = [{ id: 'a', r: 0, price: 400, gain: 10 }, { id: 'b', r: 1, price: 800, gain: 30 }, { id: 'c', r: 3, price: 0, gain: 0 }];
+  assert.equal(D.machine(offers, { coins: 2000, style: st }), 1, '30/800 > 10/400');
+  assert.equal(D.machine(offers, { coins: 1000, style: st }), 0, 'sólo le llega para el barato (parte: 750)');
+  assert.equal(D.machine(offers, { coins: 300, style: st }), -1);
+  assert.equal(D.machine([{ id: 'a', r: 0, price: 400, gain: 0 }], { coins: 5000, style: st }), -1, 'si no gana nada, no paga');
+});

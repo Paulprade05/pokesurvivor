@@ -32,6 +32,8 @@ G.Icons = (() => {
     bomb: 'flame-orb', medal1: 'gold-bottle-cap', medal2: 'bottle-cap', medal3: 'gold-bottle-cap', medalOff: 'bottle-cap',
     // Tienda Kecleon
     mint: 'timid-mint', capsule: 'ability-capsule', capsuleh: 'ability-patch', tm: 'tm-normal',
+    // Vitaminas del templo y de Kecleon en la partida (1.0, bloque E): el icono es su id (systems/encounters.js)
+    protein: 'protein', calcium: 'calcium', iron: 'iron', zinc: 'zinc', carbos: 'carbos', ppup: 'pp-up', heal: 'super-potion',
     // Clima
     wsun: 'heat-rock', wrain: 'damp-rock', wsand: 'smooth-rock', wsnow: 'icy-rock', wfog: 'smoke-ball',
     // Poké Balls (rarezas y gacha)

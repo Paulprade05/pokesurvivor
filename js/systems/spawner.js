@@ -477,6 +477,25 @@ G.Spawner = (() => {
   }
 
   /**
+   * (1.0, bloque E) Santuario de reto (systems/encounters.js): n enemigos de élite del elenco de ahora alrededor de
+   * (x, y), a 220-320 px, con la élite de siempre (vida ×1,6, daño ×1,25, experiencia ×1,6).
+   */
+  function challenge(x, y, n, t = G.Game.st.time) {
+    players = G.Game.everyone();
+    const out = [];
+    for (let i = 0; i < n && G.EnemyMgr.count < capAt(t) + OVER; i++) {
+      const def = plainPick(t), a = i / n * 6.2832 + G.U.rand(-0.3, 0.3), d = G.U.rand(220, 320);
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 0.8;
+      if (!isFlyer(def) && !G.World.isFree(px, py, 14)) continue;
+      const e = make(def, px, py, t, { noChamp: true });
+      if (!e.elite) { e.elite = true; e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
+      G.FX.ring(px, py, 4, 36, '#ff6b6b', 0.4, 3);
+      out.push(e);
+    }
+    return out;
+  }
+
+  /**
    * Un rezagado vuelve a salir por delante del jugador (hacia donde corre),
    * fuera de la vista. Devuelve false si no hay sitio (entonces se quita).
    */
@@ -547,7 +566,7 @@ G.Spawner = (() => {
     else if (queue.length) next();
   }
 
-  return { reset, update, ahead, burst, minions, tickBanner, banner, say, rate, capAt, SHINY_RATE, CAP,
+  return { reset, update, ahead, burst, minions, challenge, tickBanner, banner, say, rate, capAt, SHINY_RATE, CAP,
            debugForceShiny(n = 1) { forceShiny = n; },
            /** Para pruebas: una oleada ya ('surge' | 'ring' | 'stampede' | 'swarm'). */
            debugWave(kind) { players = G.Game.everyone(); wave(kind || pickWave(G.Game.st.time), G.Game.st.time); },

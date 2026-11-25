@@ -947,5 +947,7 @@ G.RunUI = (() => {
     $('btn-pause-cmp').onclick = () => G.CompendiumUI.openInPause();
   }
 
-  return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME };
+  return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME,
+           // (1.0, bloque E) Piezas de las cartas para las pantallas de los encuentros (ui/encounter-ui.js).
+           parts: { cardEl, headIcons, guard, guarded, fitCards, badge, lvBadge, rarBadge, itemLines, itemEvo, itemProg, moveChips } };
 })();

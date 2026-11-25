@@ -50,7 +50,8 @@
  *       'challenge', 'egg' (Chansey), 'smeargle' o 'machine', y used/done = true cuando ya no sirven. Templo: p.r (radio)
  *       y p.charge (0-1). El bot va hacia ellos y los abre con la acción 'open', como los cofres.
  *     - Lo que se elige, en #scr-encounter: cartas .pick-card con data-kind = item | heal | vitamin | egg | luck | curse |
- *       forget | leave, y data-id, data-r (rareza 0-3) y data-price si toca. Sin carta «leave», [data-close].
+ *       forget | rarity (Porygon) | leave, y data-id, data-r (rareza 0-3) y data-price si toca; .enc-off = no se
+ *       puede (no llega el dinero, vendida). Sin carta «leave», [data-close]. El dinero: G.Encounters.purse(pl).
  *     - Cartas de nivel con rareza: data-r en la .pick-card (bloque D).
  *     - En el jugador: pl.coins, pl.fortune (suerte), pl.curse (nivel de maldición), pl.vit ({ id: lo sumado }) y
  *       pl.companion ({ dex, evolved, dead, dealt }). Topes en G.PowerBudget (FORTUNE.MAX, VIT, ...); maldición: G.Curse.MAX.
@@ -164,7 +165,7 @@ window.home = async () => {
   if (document.querySelector('.scr:not(.hidden):not(#scr-menu)')) { G.Flow.goMenu(); await sleep(300); }
 };
 window.BOT = { on: false, log: [], wander: Math.random() * 6.28, wt: 0, seen: {}, spin: Math.random() < 0.5 ? 1 : -1, target: null,
-  style: BotDecide.style(Math.random), dec: { keep: 0, swap: 0, bond: 0, over: 0, buy: 0, spent: 0, vit: 0, temple: 0, curseY: 0, curseN: 0, eggY: 0, eggN: 0, forget: 0, rar: [0, 0, 0, 0] } };
+  style: BotDecide.style(Math.random), dec: { keep: 0, swap: 0, bond: 0, over: 0, buy: 0, spent: 0, vit: 0, temple: 0, curseY: 0, curseN: 0, eggY: 0, eggN: 0, forget: 0, mach: 0, rar: [0, 0, 0, 0] } };
 BOT.dmin = () => (G.Game.st ? (G.Game.st.time || 0) : 0) / 60;
 BOT.hpFrac = () => { const pl = G.Game.player; return window.V ? V.hp / pl.maxHp : pl.hp / pl.maxHp; };
 BOT.isSupport = m => G.Moves.nonAttacking(m.kind || (m.def && m.def.kind));
@@ -374,10 +375,11 @@ BOT.pick = function (cards, cardInfo) {
   // (1.0) Pantalla de encuentro (bloques E-G, contrato arriba): tienda, vitamina, maldición, huevo, olvidar.
   function encounter() {
     const pl = G.Game.player, box = document.getElementById('scr-encounter');
-    const C = [...box.querySelectorAll('.pick-card')].map(c => ({ el: c, kind: c.dataset.kind || '', id: c.dataset.id || '', r: +(c.dataset.r || 0), price: +(c.dataset.price || 0) }));
+    const C = [...box.querySelectorAll('.pick-card:not(.enc-off)')].map(c => ({ el: c, kind: c.dataset.kind || '', id: c.dataset.id || '', r: +(c.dataset.r || 0), price: +(c.dataset.price || 0) }));
     const leave = () => { const l = C.find(c => c.kind === 'leave'), b = l ? l.el : box.querySelector('[data-close]'); if (b) b.click(); };
     const kinds = new Set(C.map(c => c.kind)), only = k => kinds.has(k) && !kinds.has('item') && !kinds.has('heal');
     const PB = G.PowerBudget || {}, min = BOT.dmin(), hp = BOT.hpFrac();
+    const coins = G.Encounters && G.Encounters.purse ? G.Encounters.purse(pl) : pl.coins || 0;
     const atks = pl.moves.filter(m => !BOT.isSupport(m)), phys = atks.length ? atks.filter(m => m.cat === 'physical').length / atks.length : 0.5;
     const vitOk = c => BotDecide.vitamin([c], pl.vit || {}, PB.VIT || {}, phys, BOT.style) === 0;
     const curseOk = () => BotDecide.curse({ hpFrac: hp, minute: min, upg: BOT.upg, recentFalls: window.V ? V.deaths.filter(d => d > min * 60 - 120).length : 0,
@@ -403,8 +405,15 @@ BOT.pick = function (cards, cardInfo) {
       if (i >= 0) { BOT.dec.forget++; f[i].el.click(); } else leave();
       return;
     }
+    if (kinds.has('rarity')) {                 // Porygon: sube la rareza del objeto que más gana por moneda
+      const f = C.filter(c => c.kind === 'rarity'), V = (id, r, evo) => BotDecide.itemValue(id, r, !!evo, G.Items.vals(id, r, !!evo), BOT.style, min);
+      const i = BotDecide.machine(f.map(c => { const it = pl.items.find(x => x.id === c.id && x.r === c.r) || {};
+        return { id: c.id, r: c.r, price: c.price, gain: V(c.id, c.r + 1, it.evo) - V(c.id, c.r, it.evo) }; }), { coins, style: BOT.style });
+      if (i >= 0) { BOT.dec.mach++; BOT.dec.spent += f[i].price; BOT.log.push(Math.round(min * 60) + 's máquina ' + f[i].id + ':' + f[i].r + ' por ' + f[i].price); f[i].el.click(); } else leave();
+      return;
+    }
     // Tienda: una compra por vuelta (la pantalla se vuelve a pintar tras cada una); sin nada que comprar, se va.
-    const buy = BotDecide.shop(C.map(c => ({ kind: c.kind, id: c.id, r: c.r, price: c.price })), { coins: pl.coins || 0, hpFrac: hp, minute: min, style: BOT.style,
+    const buy = BotDecide.shop(C.map(c => ({ kind: c.kind, id: c.id, r: c.r, price: c.price })), { coins, hpFrac: hp, minute: min, style: BOT.style,
       itemGain, vitOk, eggOk, curseOk, luck: pl.fortune || 0, luckCap: (PB.FORTUNE || {}).MAX || 1 });
     if (!buy.length) { leave(); return; }
     const c = C[buy[0]]; BOT.dec.buy++; BOT.dec.spent += c.price;
