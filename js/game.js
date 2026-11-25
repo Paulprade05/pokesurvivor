@@ -994,7 +994,17 @@ G.Game = (() => {
   function offerItem(k) {
     const o = pl && G.Items.parse(k);
     if (!o) return;
-    k = G.Items.key(o.id, o.r);
+    // (1.0, bloque D) Tu suerte puede subirle la rareza al cogerlo (también en grupo: el cofre lo abre el anfitrión,
+    // pero cuenta la de quien lo coge). Los de jefes y cofres grandes ya salen con la tabla de arriba (fixed).
+    if (!o.fixed && G.Fortune) {
+      const r = G.Rarity.lift(o.r, G.Fortune.of(pl));
+      if (r > o.r) {
+        G.Spawner.say(G.I18n.f('¡Suerte! Sube a {x}', G.T(G.Rarity.name(r))), 2.4, true);
+        G.FX.burst(pl.x, pl.y - pl.bodyH * 0.6, G.Rarity.color(r), 16, 140);
+        o.r = r;
+      }
+    }
+    k = G.Items.key(o.id, o.r, true);
     if (state === 'levelup' || G.UI.isOpen('scr-levelup') || G.EvoUI.isOpen()) { laterItems.push(k); return; }
     const same = pl.items.findIndex(i => i.id === o.id);
     if (same >= 0 && pl.items[same].r >= o.r) { G.Spawner.say('Ya llevas ' + G.Items.nameOf(pl.items[same]), 2, true); return; }

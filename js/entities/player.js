@@ -38,6 +38,7 @@ G.Player = class Player {
     this.maxMoves = 4;         // ataques distintos como mucho (1.0, bloque C: fusionar ya no libera huecos; ver canLearn)
     this.bonds = 0;            // vínculos por usar (premio de los legendarios)
     this.over = 0;             // sobrefusiones: vínculos de sobra con los 4 ataques ya fusionados (ver overFuse)
+    this.fortune = 0;          // suerte, 0-1: mueve todas las rarezas (1.0, bloque D: systems/fortune.js; no es Puntería)
 
     // patk / satk: Danza Espada y Danza Dragón (físico) y Maquinación (especial).
     this.buffs = {
@@ -190,7 +191,8 @@ G.Player = class Player {
    */
   moveK(m) {
     if (!m || m.z) return 1;
-    return (m.evolved ? Player.EVO_K : Player.MOVE_K) * this.overK(m);
+    // (1.0, bloque D) Y el extra de las cartas de mejora con rareza (m.rx, systems/fortune.js).
+    return (m.evolved ? Player.EVO_K : Player.MOVE_K) * this.overK(m) * (m.rx ? 1 + m.rx : 1);
   }
   static get EVO_K() { return 0.74; }
   static get MOVE_K() { return 1.08; }

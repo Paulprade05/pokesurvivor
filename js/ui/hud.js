@@ -416,14 +416,16 @@ G.HUD = (() => {
     const fs = (cmp ? 12 : 13) * k, ic = (cmp ? 14 : 15) * k, gap = 3 * k, sep = (cmp ? 10 : 14) * k;
     ctx.font = F(600, fs);
     const ks = String(pl.kills), cs = String(pl.coins + (pl.bonusCoins || 0));   // (+ las de todo al máximo)
-    const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width;
+    // (1.0, bloque D) La suerte, detrás de las monedas, sólo si llevas (systems/fortune.js).
+    const fp = G.Fortune ? G.Fortune.pct(pl) : 0, fs2 = fp ? fp + ' %' : '';
+    const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width, fw = fp ? sep + ic + gap + ctx.measureText(fs2).width : 0;
     let bio = '', bw = 0;
     if (!cmp) {
       bio = G.World.biomeName().toUpperCase();
       ctx.font = N(800, 11 * k);
       bw = ctx.measureText(bio).width + sep;
     }
-    const tw = bw + ic + gap + kw + sep + ic + gap + cw;
+    const tw = bw + ic + gap + kw + sep + ic + gap + cw + fw;
     let x = w / 2 - tw / 2;
     if (!tall) {
       const right = w - 12 - sa.right - (touch ? 44 : 0);
@@ -437,6 +439,11 @@ G.HUD = (() => {
     outlined(ctx, ks, x, y, C.ink, 3); x += kw + sep;
     G.Icons.draw(ctx, 'coin', x, iy, ic); x += ic + gap;
     outlined(ctx, cs, x, y, '#FFE58A', 3);
+    if (fp) {
+      x += cw + sep;
+      G.Icons.draw(ctx, 'luck', x, iy, ic); x += ic + gap;
+      outlined(ctx, fs2, x, y, '#9BF0A0', 3);
+    }
   }
 
   /*

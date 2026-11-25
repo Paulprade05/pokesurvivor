@@ -186,6 +186,10 @@ G.I18n.add({
     "PokéSurvivor has no official cryptocurrency, token or NFT, and its author has not created any. Any token using the game's name was created by third parties: we take no responsibility for any purchase, sale or investment you make with them, and nothing here is investment advice.",
   '¡Vínculo!': 'Bond!', 'Vínculo': 'Bond', 'Atrás': 'Back',
   'Los movimientos unidos se lanzan a la vez. Sigues teniendo como mucho 4 ataques': 'Bonded moves fire at the same time. You still have 4 moves at most',
+  // (1.0, bloque D) Suerte y rareza en las mejoras de ataque (systems/fortune.js)
+  'Suerte': 'Luck', '¡Suerte! Sube a {x}': 'Lucky! Upgraded to {x}', 'Extra de rareza': 'Rarity bonus',
+  '+{x} % de daño y +{x} % de área': '+{x}% damage and +{x}% area', '+{x} % de daño': '+{x}% damage', '+{x} % de área': '+{x}% area',
+  'Ya tiene todo el extra de rareza': 'Already has the full rarity bonus',
   'Elige qué movimiento se une a {x}': 'Choose which move joins {x}',
   '¿Con cuál unes {x}?': 'Which move do you bond {x} with?',
   'Elige el primer movimiento que vas a unir': 'Choose the first move to bond',

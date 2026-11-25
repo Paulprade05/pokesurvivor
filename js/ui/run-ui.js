@@ -163,6 +163,7 @@ G.RunUI = (() => {
     el.className = 'card pick-card' + (o.cls ? ' ' + o.cls : '') + (o.build ? ' in-build' : '');
     el.style.setProperty('--i', i);
     if (o.tileC) el.style.setProperty('--pc', o.tileC);
+    if (o.rc) el.style.setProperty('--rc', o.rc);
     el.innerHTML = `<span class="key">${i + 1}</span>
       <span class="pc-art"><span class="ico-tile pc-ico${o.tile ? ' ' + o.tile : ''}"${o.tileC ? ` style="--tile-c:${o.tileC}"` : ''}>${G.Icons.html(o.icon, 60)}</span>${o.build ? buildMark() : ''}${o.badge || ''}</span>
       <span class="pc-txt">${o.eyebrow ? `<span class="pc-eyebrow">${o.eyebrow}</span>` : ''}<span class="nm">${o.title}</span>`
@@ -277,7 +278,13 @@ G.RunUI = (() => {
     if (c.type === 'new') return { cls: 'is-new' + (c.evoTo ? ' unlocks' : ''), icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips: chips + zChip(m), desc: c.desc, evo,
                                    eyebrow: c.evoTo && G.DEX_BY[c.evoTo] ? `<span class="pc-slot evo-mon">${G.I18n.f('¡Evoluciona a {x}!', G.T(G.DEX_BY[c.evoTo].name))}</span>`
                                      : pl ? slotNote('atk', pl.moves.length, pl.maxMoves) : '' };
-    if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc, evo };
+    // (1.0, bloque D) Con rareza: su chapa arriba, el borde con su brillo y el extra que da, del color de la rareza.
+    if (c.type === 'up') {
+      const r = c.r | 0, rc = r ? G.Rarity.color(r) : '';
+      return { cls: 'is-up' + (r ? ' rar-on' : ''), rc, icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips,
+               eyebrow: r ? rarBadge(r) : '',
+               desc: c.desc + (c.rx ? `<span class="pc-rar">${G.Icons.html('luck', 20)}<span>${c.rx}</span></span>` : ''), evo };
+    }
     // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
     // desbloquea ya una evolución (el ataque está al máximo), dorada. Una pasiva que
     // ya llevas sube de nivel («Nv. 2 → 3»); una nueva dice qué hueco de pasiva ocupa.
@@ -309,6 +316,7 @@ G.RunUI = (() => {
     list.forEach((c, i) => {
       const el = cardEl(Object.assign(levelCard(c), { build: G.Build.card(p, c) }), i, () => pick(i));
       if (!G.LevelUp.canDiscard(p, c)) el.classList.add('no-discard');
+      if (c.r != null) el.dataset.r = c.r;          // (rareza 0-3: la lee el bot, tools/curve.cjs)
       box.appendChild(el);
     });
     const dc = G.LevelUp.discardsLeft(p);
@@ -696,7 +704,7 @@ G.RunUI = (() => {
     const pct = hits && total ? Math.round(dealt / total * 100) : 0;
     const bond = g.length > 1 ? `<i class="pz-bond" title="${g.map(x => G.T(x.name)).join(' + ')}">+${g.length - 1}</i>` : '';
     const names = `<b>${G.T(m.name)}</b>` + (g.length > 1 ? g.slice(1).map(x => `<span class="pz-also">+ ${G.T(x.name)}</span>`).join('') : '');
-    const tags = (m.evolved ? `<span class="pz-tag evo">${G.T('Evolucionado')}</span>` : '') + (g.length > 1 ? `<span class="pz-tag bond">${G.T('Vínculo')}</span>` : '');
+    const tags = (m.evolved ? `<span class="pz-tag evo">${G.T('Evolucionado')}</span>` : '') + (g.length > 1 ? `<span class="pz-tag bond">${G.T('Vínculo')}</span>` : '') + pzRar(m);
     const dmg = hits
       ? `<b>${pzN(dealt)}</b><small>${pct} % · ${pzN(dealt / secs)}/s</small><i class="pz-bar"><i style="width:${pct}%;background:${c}"></i></i>`
       : `<b>—</b><small>${G.T('no hace daño')}</small>`;
@@ -711,6 +719,14 @@ G.RunUI = (() => {
         <div class="pz-lv"><span><span>Nv.</span> ${m.lvl}/${max}</span>${pzPips(m.lvl, max, c)}</div>
         <div class="pz-dmg">${dmg}</div></div>
       ${need}</div>`;
+  }
+  /** (1.0, bloque D) El extra de rareza que lleva el ataque (de sus cartas de mejora), del color de la más alta que cogió. */
+  function pzRar(m) {
+    const CR = G.CardRarity, b = CR ? CR.best(m) : -1;
+    if (b < 1) return '';
+    const p = v => Math.round(v * 100), d = p(m.rx || 0), a = p(m.ra || 0);
+    const txt = d && a ? G.I18n.f('+{x} % de daño y +{x} % de área', d, a) : d ? G.I18n.f('+{x} % de daño', d) : G.I18n.f('+{x} % de área', a);
+    return `<span class="pz-tag rar" style="--rc:${G.Rarity.color(b)}" title="${G.T('Extra de rareza')}">${txt}</span>`;
   }
   /** Tus pasivas: su nivel y qué ataques tuyos evolucionan con ella (los que la usan, en verde). */
   function pzPassives(pl, used) {
@@ -742,6 +758,8 @@ G.RunUI = (() => {
       ['assaultvest', 'Def. Esp.', n(mon.sd), guard(esp)],
       ['boot', 'Velocidad', n(pl.spd)],
       ['scope-lens', 'Crítico', pct(pl.critChance || 0)],
+      // (1.0, bloque D) Suerte: sube la rareza de las cartas de mejora y de los objetos que coges (systems/fortune.js).
+      ['luck', 'Suerte', (G.Fortune ? G.Fortune.pct(pl) : 0) + ' %'],
       ['shield', 'Reducción de daño', pct(pl.reduction)],
       ['clock', 'Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
       ['sprout', 'Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],

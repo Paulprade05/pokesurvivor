@@ -6340,6 +6340,14 @@ html:not(.no-anim) #scr-menu .logo .t1 { animation: logo-float 4.6s ease-in-out 
 .rar-badge { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 999px; font: 800 11px/1.5 var(--font-ui, inherit); letter-spacing: .02em;
   color: #10160f; background: var(--rc); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); white-space: nowrap; vertical-align: middle; }
 .rar-badge.evo { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 10px var(--rc); }
+/* (1.0, bloque D) Carta de mejora de ataque con rareza (systems/fortune.js): brillo y franja de su color, su chapa arriba
+   y el extra que da debajo del texto. En la pausa, el extra que lleva cada ataque (.pz-tag.rar). */
+.card.pick-card.rar-on { box-shadow: var(--sh-2), inset 0 0 0 2px color-mix(in srgb, var(--rc) 75%, transparent), 0 0 18px -4px var(--rc); }
+.card.pick-card.rar-on::after { content: ''; position: absolute; inset: 0 0 auto; height: 5px; background: var(--rc); opacity: .85; pointer-events: none; }
+.pick-card .pc-eyebrow .rar-badge { margin-top: 0; letter-spacing: .02em; text-transform: none; }
+.pick-card .pc-rar { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; font: 800 13px/1.25 var(--font); color: var(--rc); }
+.pick-card .pc-rar img, .pick-card .pc-rar svg { width: 20px; height: 20px; flex: none; }
+.pz-tag.rar { background: color-mix(in srgb, var(--rc) 22%, #10160f); color: var(--rc); }
 .pick-card.is-next, .pick-card.is-cur { border-color: color-mix(in srgb, var(--pc) 70%, transparent); }
 .it-ln { display: block; }
 .it-prog { display: block; margin-top: 3px; color: #ffd86b; font-weight: 700; }

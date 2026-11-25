@@ -1,7 +1,7 @@
 /* ============ levelup.js — las tres cartas de subida de nivel ============
  * Tipos de carta:
  *   new   aprender un movimiento nuevo (sólo con menos de 4 ataques distintos; fusionar no libera huecos: 1.0, bloque C)
- *   up    mejorar un movimiento que ya tienes
+ *   up    mejorar un movimiento que ya tienes (con rareza: r 0-3 y su extra, 1.0 bloque D, systems/fortune.js)
  *   stat  mejora permanente de la run (pasiva: como mucho 4 distintas, ver MAX_PASSIVES)
  */
 G.LevelUp = (() => {
@@ -303,15 +303,18 @@ G.LevelUp = (() => {
     }
 
     // --- mejoras de movimientos que ya tienes ---
+    // (1.0, bloque D) Cada una sale con rareza (la tabla única con tu suerte, systems/fortune.js): sube el nivel de
+    // siempre (uno, nunca dos) y su extra (r, rx: lo que da) se queda en el ataque.
     for (const m of pl.moves) {
       const txt = G.Moves.nextUpText(m);
       if (!txt) continue;
+      const CR = G.CardRarity, r = CR ? CR.roll(pl) : 0, rx = CR && r ? CR.text(m, r) : '';
       out.push({
-        w: 8, type: 'up', key: 'up:' + m.id,
+        w: 8, type: 'up', key: 'up:' + m.id, r,
         icon: 'move:' + m.id, color: G.U.TYPE_COLOR[m.type],
         tag: 'Nv.' + m.lvl + ' > ' + (m.lvl + 1),
-        title: G.T(m.name), desc: txt, evo: evoNeed(m, pl),
-        apply: () => G.Moves.levelUp(m)
+        title: G.T(m.name), desc: txt, rx, evo: evoNeed(m, pl),
+        apply: () => { G.Moves.levelUp(m); if (CR && r) CR.apply(m, r); }
       });
     }
 

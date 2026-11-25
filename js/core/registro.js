@@ -225,6 +225,8 @@ G.Reg = (() => {
     if (!cur || !list) return;
     if (offer && offer.p === undefined) offer.p = null;
     offer = { t: t1(), lvl: lvl || (P ? P.level : 0), o: list.map(cardKey) };
+    // (1.0, bloque D) La rareza de cada carta (0-3), si alguna la tiene: r[i] es la de o[i].
+    if (list.some(c => c && c.r)) offer.r = list.map(c => (c && c.r) | 0);
     cur.cards.push(offer);
   }
   function picked(c) {
@@ -259,6 +261,8 @@ G.Reg = (() => {
       if (r.lv[r.lv.length - 1][1] !== lv) r.lv.push([t, lv]);
       if (m.evolved && r.evo == null) r.evo = t;
       if (s.length > 1 && r.fuse == null) r.fuse = t;
+      // (1.0, bloque D) Cartas de mejora de cada rareza que ha cogido (común, raro, épico, legendario).
+      if (m.rc) r.rc = m.rc.slice();
     }
     const ik = itemKey(pl);
     if (ik !== seen.item) { seen.item = ik; cur.items.push([t, ik]); }

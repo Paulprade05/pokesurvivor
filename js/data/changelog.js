@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-25', title: ["Mejoras de ataque con rareza y suerte", "Move upgrades with rarity and luck"], new: [
+    ["Las cartas para subir de nivel un ataque salen con rareza, con los mismos colores que los objetos: siguen subiendo un nivel, y la rareza añade un extra que se queda en ese ataque. Raro +2 % de daño, Épico +4 % de daño y +3 % de área, Legendario +7 % de daño y +5 % de área (como mucho +15 % de daño y +15 % de área por ataque). En la pausa ves el extra de cada uno.",
+     "Cards that level up a move now come with a rarity, in the same colours as items: they still raise it one level, and the rarity adds a bonus that stays on that move. Rare +2% damage, Epic +4% damage and +3% area, Legendary +7% damage and +5% area (at most +15% damage and +15% area per move). The pause screen shows each move's bonus."],
+    ["Nueva estadística: Suerte. Sube la probabilidad de todas las rarezas a la vez, de las cartas de mejora y de los objetos que coges (al cogerlo, puede subirle la rareza). Al 100 %, todo sale como hoy lo que sueltan los jefes. Se ve en la pausa y, si llevas, junto a tus monedas. Pronto se podrá ganar en la partida.",
+     "New stat: Luck. It raises the odds of every rarity at once, for upgrade cards and for the items you pick up (picking one up can raise its rarity). At 100%, everything drops like boss loot does today. It shows in the pause screen and, if you have some, next to your coins. Soon you will be able to earn it during a run."]],
+  chg: [
+    ["Objetos y cartas usan ahora una sola tabla de rareza (común 55 %, raro 30 %, épico 12 %, legendario 3 %; de jefes y cofres grandes, 30/40/23/7 como antes).",
+     "Items and cards now share a single rarity table (common 55%, rare 30%, epic 12%, legendary 3%; from bosses and big chests, 30/40/23/7 as before)."]] },
+
   { d: '2026-11-25', title: ["Como mucho 4 ataques y más Sobrefusión", "4 moves at most and more Overfusion"], chg: [
     ["Ahora llevas como mucho 4 ataques distintos, estén fusionados o no: fusionar los une para que se lancen a la vez, pero ya no deja sitio para aprender otro. Con 4 ataques ya no salen cartas de ataques nuevos.",
      "You now have 4 different moves at most, fused or not: fusing links them so they fire at the same time, but no longer makes room to learn another. With 4 moves, no more new-move cards show up."],

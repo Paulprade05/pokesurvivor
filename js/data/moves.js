@@ -1765,9 +1765,20 @@
     if (!s) return m;
     if (m.evolved && evoMods(s)) applyMods(s, evoMods(s));
     applyPassives(s, P);
+    if (m.ra) rarityArea(s, m.ra);
     for (const k of BAKE) if (s[k] !== undefined) m[k] = s[k];
     m.pk = s.pk;
     return m;
+  }
+
+  /**
+   * (1.0, bloque D) Área de más de las cartas de mejora con rareza (m.ra, systems/fortune.js): como Amplitud, pero sólo
+   * en ese ataque y aparte de los pasivos (m.pk no cambia: por la red viajan los de siempre, que el anfitrión acepta).
+   */
+  function rarityArea(s, ra) {
+    const r = PASSIVE_RULES[s.kind];
+    if (!r || !(ra > 0)) return;
+    mulKeys(s, r.a, 1 + ra); mulKeys(s, r.ah, 1 + ra / 2);
   }
 
   /** Todos los movimientos de un jugador (tras coger una carta). */
