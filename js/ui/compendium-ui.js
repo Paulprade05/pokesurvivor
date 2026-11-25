@@ -168,6 +168,14 @@ G.CompendiumUI = (() => {
       renderDetail();
       detail(true);
     });
+    // (1.0, bloque J) Con mando, en el ordenador la ficha sigue a la selección de la lista.
+    let fT = 0;
+    $('cmp-rows').addEventListener('nav-focus', e => {
+      const r = e.target.closest && e.target.closest('.cmp-row');
+      if (!r || NARROW.matches || r.dataset.id === SEL[tab]) return;
+      clearTimeout(fT);
+      fT = setTimeout(() => { if (!isOpen() || !r.isConnected) return; SEL[tab] = r.dataset.id; markSel(); renderDetail(); }, 140);
+    });
     $('cmp-detail').addEventListener('click', e => {
       const b = e.target.closest('[data-go]');
       if (b) go(b.dataset.go);

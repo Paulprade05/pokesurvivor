@@ -3119,5 +3119,19 @@ G.I18n.add({
   "×1 / Máx.": "×1 / Max",
   "Cambiar cartas": "Reroll",
   "Descartar": "Discard",
-  "Cambiar de Pokémon": "Change Pokémon"
+  "Cambiar de Pokémon": "Change Pokémon",
+  // 1.0, bloque B: plantillas a pantalla completa (pausa y resumen)
+  "Pasivas y objetos": "Passives and items",
+  "Shinies": "Shinies",
+  "Páginas": "Pages",
+  "Cooperativo: la partida sigue.": "Co-op: the game keeps going.",
+  "Tu Pokémon se queda quieto, pero te pueden golpear: si te dan, el borde se pone rojo y el mando vibra.": "Your Pokémon stands still, but it can still be hit: if it is, the border flashes red and the controller rumbles.",
+  // (1.0, bloque J) Pantallas en plantillas con mando
+  "Apartado": "Section",
+  "Apartados": "Sections",
+  "Elegir mueble": "Pick furniture",
+  "Responder": "Answer",
+  "Ver ficha": "View entry",
+  "Poner / quitar": "Add / remove",
+  "Atajos": "Shortcuts"
 });

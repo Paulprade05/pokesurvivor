@@ -260,8 +260,8 @@ a { color: var(--link); }
 }
 .scr.hidden { display: none; }
 .scr.dim { background: radial-gradient(120% 100% at 50% 0%, rgba(18, 40, 24, .5), rgba(2, 8, 4, .86)); }
-.scr.under-bar,
-#scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod {
+/* (1.0, bloque J) Las plantillas a pantalla completa (.fs-scr) no dejan el hueco: la barra va dentro de su cabecera. */
+:is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr) {
   padding-top: calc(var(--bar-h) + var(--sa-t));
   --sheet-top: 0px;
 }
@@ -376,7 +376,7 @@ html.no-glass .box { background: var(--panel-bg); background-clip: padding-box; 
  *    (pesa más que estas reglas); si es un diálogo corto, que use .mcard. */
 @media (max-width: 599px), (max-height: 520px) {
   .scr:has(> .box:not(.mcard, .lay-panel)) { padding: 0; align-items: stretch; justify-content: flex-start; }
-  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):has(> .box) {
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr):has(> .box) {
     padding-top: calc(var(--bar-h) + var(--sa-t));
     background: var(--surface-solid);
   }
@@ -389,7 +389,7 @@ html.no-glass .box { background: var(--panel-bg); background-clip: padding-box; 
     animation: sheet-up var(--t-med) var(--ease);
   }
   /* Debajo de la barra: la zona segura de arriba ya la salva la barra. */
-  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod) > .box:not(.sheet-box) { padding-top: 14px; }
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr) > .box:not(.sheet-box) { padding-top: 14px; }
   .scr > .box.sheet-box { padding: 0; }
   /* Hoja compacta: cabecera de 48 px (botón de 40 + 4 arriba y abajo), título de 19 px. */
   .sheet-head { min-height: 48px; gap: 6px 10px;
@@ -423,7 +423,7 @@ html.no-glass .box { background: var(--panel-bg); background-clip: padding-box; 
  * a la derecha de esa misma franja; la cabecera les deja su hueco (--tb-w, lo mide
  * ui.js). Perfil, Guardar y «Más» sólo salen en el menú principal. */
 @media (max-height: 520px) {
-  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):has(> .box) {
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr):has(> .box) {
     padding-top: var(--sa-t);
   }
   body:has(.scr.under-bar:not(.hidden)) .topbar { left: auto; }
@@ -1051,7 +1051,7 @@ body:has(:is(.scr.modal, #scr-settings, #scr-news, #scr-legal, #scr-profile, #sc
 .legal-link { color: var(--muted); }
 .legal-link:hover { color: #fff; }
 /* Con una ventana abierta (colección, tienda, gacha...) se metía por encima de la caja. */
-body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
+body:has(.scr.dim:not(.hidden)) .credits-line, body:has(.scr.fs-scr:not(.hidden), #vil-quick:not(.hidden)) .credits-line { display: none; }
 @media (max-width: 899px), (max-height: 520px) { .credits-line { display: none !important; } }
 
 /* ---------- 13. Carga y «Pulsa para empezar» ---------- */
@@ -1362,25 +1362,34 @@ html.rot .rotate { display: none !important; }
 /* (21-11-2026, pedido del dueño: más fácil de leer y de encontrar cada sitio) Por grupos con su color (--g, en village.js
  * GROUPS): título del grupo en su color, raya y medallón del icono a juego. Jugar, arriba; el sitio donde estás, marcado. */
 .vil-quick {
-  position: absolute; top: calc(var(--bar-top) + var(--bar-h) + var(--tap) + 4px); left: max(16px, var(--sa-l));
-  width: min(960px, calc(100vw - max(16px, var(--sa-l)) - max(16px, var(--sa-r)))); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - var(--tap) - 20px);
-  overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 14px; border-radius: var(--rad-l);
-  background: var(--panel-bg); background-clip: padding-box; border: 5px solid transparent; border-image: var(--fr-s); box-shadow: var(--sh-pop); transform-origin: 0 0; animation: vq-in var(--t-med) var(--ease);
+  /* (1.0, bloque J) A pantalla completa, opaca y con el marco grande, como las plantillas (ui/nav.js). */
+  position: fixed; inset: 0; z-index: 4; display: flex; flex-direction: column; gap: 10px;
+  padding: max(20px, var(--sa-t)) max(36px, var(--sa-r)) max(16px, var(--sa-b)) max(36px, var(--sa-l));
+  overflow: hidden; pointer-events: auto; border-radius: 0; box-shadow: none;
+  background: var(--panel-bg); background-color: #040a06; border: var(--fr-lb) solid transparent; border-image: var(--fr-l);
+  animation: vq-in var(--t-med) var(--ease);
 }
-@keyframes vq-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
-.vq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 14px; }
+@keyframes vq-in { from { opacity: 0; } }
+body:has(#vil-quick:not(.hidden)) .topbar { left: auto; }
+body:has(#vil-quick:not(.hidden)) .tb-acts { display: none; }
+.vq-head { flex: none; display: flex; align-items: center; gap: 10px 14px; min-height: 56px; padding: 0 calc(var(--tb-w, 196px) + 12px) 10px 0;
+  background: linear-gradient(90deg, transparent, var(--bark) 8%, var(--bark-hi) 50%, var(--bark) 92%, transparent) bottom / 100% 2px no-repeat; }
 .vq-htxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.vq-title { font: 700 var(--fs-xl)/1.1 var(--font-display); }
+.vil-quick .vq-title { margin: 0; font: 800 calc(var(--fs-3xl) + 2px)/1.05 var(--font-display); }
 .vq-hint { color: var(--muted); font-size: var(--fs-s); line-height: 1.3; }
-.vq-head .vq-item.play { order: 3; flex: 1 1 100%; }
-.vq-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 12px; align-items: start; }
-.vq-glist { display: grid; gap: 7px; }
+/* El cuerpo: Jugar, una fila por grupo (su nombre a la izquierda) y tu compañero; se desliza si no cabe. */
+.vq-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; margin: 0 -8px; padding: 6px 8px; }
+.vq-body > .vq-item.play { flex: none; min-height: 62px; }
+.vq-groups { display: flex; flex-direction: column; gap: 12px; }
+.vq-grp { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 14px; }
+.vq-glist { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .vil-quick .vq-gh {
-  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--g);
+  display: flex; align-items: center; gap: 8px; margin: 0; color: var(--g);
   font: 700 var(--fs-s)/1.2 var(--font-display); letter-spacing: .05em; text-transform: uppercase;
 }
 .vq-gh::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--g); box-shadow: 0 0 8px var(--g); }
 .vq-gh::after { content: ''; flex: 1; height: 2px; border-radius: 1px; background: linear-gradient(90deg, var(--g), transparent); opacity: .45; }
+.vil-quick > .fs-bar { margin-top: 2px; }
 .vq-item {
   position: relative; display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 2px;
   min-height: 58px; padding: 7px 10px 7px 9px; border: 0; border-radius: var(--rad-m);
@@ -1477,6 +1486,8 @@ body:not(.touch) .vil-run { display: none; }
   padding: 10px 12px 12px; border-radius: var(--rad-l); background: var(--surface-float); box-shadow: var(--sh-pop);
   animation: vq-in var(--t-med) var(--ease);
 }
+.vh-zone { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vil-home > .fs-bar { margin-top: 8px; padding-top: 8px; justify-content: center; }
 .vh-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
 .vh-title { flex: 1; font: 600 var(--fs-l)/1.2 var(--font-display); }
 .vh-coins { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-m)/1 var(--font-display); color: var(--c-yellow); }
@@ -1509,19 +1520,22 @@ body:not(.touch) .vil-run { display: none; }
 @media (max-height: 520px) {
   .vil-go { top: calc(var(--bar-top) + var(--bar-h) - 2px); min-height: 40px; }
   /* Móvil apaisado: el desplegable sube hasta la barra (tapa «Ir a…»; se cierra con la X) y Jugar va junto al título. */
-  .vil-quick { top: calc(var(--bar-top) + var(--bar-h) - 2px); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - 6px); padding: 8px 10px 10px; }
-  .vq-head { flex-wrap: nowrap; gap: 10px; margin-bottom: 10px; }
-  .vq-htxt { flex: none; }
+  .vil-quick { gap: 4px; padding: max(4px, var(--sa-t)) max(10px, var(--sa-r)) max(4px, var(--sa-b)) max(10px, var(--sa-l)); }
+  .vq-head { min-height: 40px; gap: 8px; padding-bottom: 4px; }
+  .vil-quick .vq-title { font-size: 21px; }
   .vq-hint { display: none; }
-  .vq-head .vq-item.play { order: 0; flex: 1 1 auto; min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
-  .vq-groups { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 8px; }
+  .vq-body { gap: 6px; padding-top: 4px; }
+  .vq-body > .vq-item.play { min-height: 40px; padding-top: 3px; padding-bottom: 3px; }
+  .vq-groups { gap: 6px; }
+  .vq-grp { grid-template-columns: 96px minmax(0, 1fr); gap: 8px; }
   .vq-glist { gap: 6px; }
-  .vil-quick .vq-gh { margin-bottom: 6px; }
-  .vq-item { grid-template-columns: 32px 1fr; column-gap: 8px; row-gap: 0; min-height: 46px; padding: 5px 8px 5px 8px; }
-  .vq-ico { width: 32px; height: 32px; }
-  .vq-ico > * { width: 24px; height: 24px; }
-  .vq-s { line-height: 1.2; }
-  .vq-foot { margin-top: 10px; padding-top: 8px; }
+  .vil-quick .vq-gh { font-size: 11px; letter-spacing: .02em; }
+  .vq-gh::after { display: none; }
+  .vq-item { grid-template-columns: 28px 1fr; column-gap: 7px; row-gap: 0; min-height: 40px; padding: 3px 7px; }
+  .vq-ico { width: 28px; height: 28px; }
+  .vq-ico > * { width: 22px; height: 22px; }
+  .vq-s { line-height: 1.15; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vq-foot { margin-top: 0; padding-top: 4px; gap: 6px 10px; }
 }
 .menu-left { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .menu-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; width: 100%; justify-self: end; }
@@ -2603,6 +2617,14 @@ body.touch .dx-tab { min-height: var(--tap); }
 .upg-q.on { border-color: var(--c-yellow); background: rgba(var(--hl-rgb), .13); box-shadow: inset 0 0 0 1px var(--c-yellow); }
 /* Las mejoras: una columna estrecha, dos o más con sitio; un título por apartado. */
 .upg-grid { min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); align-content: start; gap: 6px 8px; }
+/* (1.0, bloque J) Con mando: qué hace la mejora seleccionada, debajo del Pokémon (la lista va por pestañas: .upg-tabs). */
+.upg-detail { display: none; }
+/* (Con mando, una columna: la cruceta baja y sube por la lista en el orden en que se ve.) */
+body.pad .upg-grid { grid-template-columns: minmax(0, 1fr); }
+body.pad .upg-detail:not(:empty) { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: rgba(9, 19, 12, .7); box-shadow: var(--bark-edge); }
+.upg-detail b { font: 700 var(--fs-m)/1.2 var(--font-display); color: var(--ink); }
+.upg-detail span { color: var(--amber); font-size: var(--fs-s); }
+.upg-detail p { margin: 0; color: var(--muted); font-size: var(--fs-s); line-height: 1.4; }
 .upg-grid > h3.upg-h { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; margin: 8px 2px 0;
   font: 600 var(--fs-xs)/1.3 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .upg-grid > h3.upg-h:first-child { margin-top: 0; }
@@ -3701,10 +3723,11 @@ button.fav-slot:focus-visible { outline: var(--focus); outline-offset: 2px; }
   #scr-gacha > .box.gacha-sheet {
     display: grid; gap: 0;
     grid-template-columns: minmax(0, 1fr) clamp(256px, 40%, 360px);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: "head head" "hero info" "hero foot";
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "head head" "hero info" "hero foot" "bar bar";
   }
   #scr-gacha .gacha-sheet > .sheet-head { grid-area: head; }
+  #scr-gacha .gacha-sheet > .fs-bar { grid-area: bar; }   /* (1.0, bloque J: la barra del mando, a todo lo ancho) */
   #scr-gacha .gacha-body { display: contents; }
   #scr-gacha .gacha-hero { grid-area: hero; flex-direction: column; align-items: stretch; min-height: 0;
     margin: 8px 0 max(8px, var(--sa-b)) max(10px, var(--sa-l)); border-radius: 16px; }
@@ -4438,6 +4461,10 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
  * Icono en una baldosa grande, título, texto y los botones en columna (el
  * principal arriba). En el móvil tumbado, el icono a la izquierda y los botones en fila. */
 .box.mcard { width: min(420px, 100%); text-align: center; }
+/* (1.0, bloque J) Ventanas rápidas: la barra del mando, centrada debajo de los botones. */
+:is(.box.mcard, .nick-box, .login-box, .test-box, .result, .lay-panel) > .fs-bar { justify-content: center; margin-top: 14px; padding-top: 10px; }
+:is(.box.mcard, .nick-box, .login-box, .test-box, .result, .lay-panel) > .fs-bar > .fs-sp { display: none; }
+.login-box > .fs-bar { grid-column: 1 / -1; }
 :is(#scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) > .box.mcard { padding: 28px 24px 22px; }
 .mcard .mcard-ico { margin: 0 auto 14px; }
 .mcard .mcard-ico .ui-svg, .mcard .mcard-ico svg { color: var(--ink); }
@@ -5207,26 +5234,10 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
 .mv-bar { grid-area: bar; display: block; height: 4px; border-radius: 2px; background: var(--sunk); overflow: hidden; }
 .mv-bar > i { display: block; height: 100%; border-radius: inherit; }
 
-/* ---- Pausa ---- */
-.pause-head h2 { flex: 0 1 auto; }
-.pause-acts { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.pause-acts .btn { white-space: nowrap; }
-.pause-acts .btn .ui-svg { width: 20px; height: 20px; }
-/* (Abandonar lejos de Continuar, que va a la derecha.) */
-#btn-quit { order: 1; }
-#btn-pause-cmp, #btn-pause-settings { order: 2; }
-#btn-resume { order: 3; }
+/* ---- Pausa (la plantilla, en «Plantillas a pantalla completa», al final de este bloque) ---- */
 .pause-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .pause-hint p { margin: 0; color: var(--muted); font-size: var(--fs-s); line-height: 1.45; }
 .pause-hint kbd { font-size: 12px; }
-.pause-hint .pause-coop {
-  padding: 3px 12px; border-radius: var(--rad-pill);
-  background: rgba(var(--hl-rgb), .12); border: 1px solid rgba(var(--hl-rgb), .45); color: var(--c-yellow); font-weight: 700;
-}
-#scr-pause .pause-body { padding-top: 14px; }
-/* Dos columnas si caben (300 px cada una), nunca más de dos. Rejilla de 2 columnas (13-11-2026): con columnas CSS y column-span, Safari montaba «Tus ataques» encima de «Tus estadísticas». */
-.pause-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(300px, calc(50% - 7px))), 1fr)); column-gap: 14px; align-items: start; }
-#pause-sum { display: contents; }
 .ps-card {
   margin: 0 0 14px; padding: 14px;
   border-radius: var(--rad-l); background: rgba(1, 6, 3, .35); border: 0; box-shadow: 0 0 0 1.5px var(--line-2), inset 0 2px 8px rgba(0, 0, 0, .4);
@@ -5263,7 +5274,6 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
  * ataque, su nivel con rombos, su daño y, unida con una flecha, la pasiva que pide); a la
  * derecha tu Pokémon, tus pasivas, el objeto y el Z. De pie (estrecho), una columna. Nada de
  * columnas CSS: en WebKit las tarjetas se montaban unas encima de otras. */
-.pause-cols.pz-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
 .pz-side { display: grid; gap: 12px; min-width: 0; }
 .pz-side > .ps-card, .pz-atk { margin: 0; }
 .pz-card > h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 10px; font-size: var(--fs-l); line-height: 1.2; }
@@ -5345,7 +5355,6 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
 .pz-pt > small { color: var(--muted); font-size: 12px; line-height: 1.25; }
 /* Tableta y ventana estrecha: la mesa arriba y lo demás debajo, en dos columnas. */
 @media (max-width: 980px) and (min-height: 521px) {
-  .pause-cols.pz-grid { grid-template-columns: minmax(0, 1fr); }
   .pz-side { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
 }
 /* Móvil de pie: todo en una columna y filas más bajas; la pasiva que pide, debajo del ataque. */
@@ -5359,7 +5368,6 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
 }
 /* Móvil tumbado: las dos columnas siguen; todo más bajo para que quepan los 4 ataques a la vista. */
 @media (max-height: 520px) {
-  .pause-cols.pz-grid { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 8px; }
   .pz-side { gap: 8px; }
   .pz-card > h3 { margin-bottom: 6px; font-size: var(--fs-m); }
   .pz-legend { display: none; }
@@ -5516,8 +5524,6 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   .mv-tags > .tag-chip { padding-left: 6px; padding-right: 6px; }
   .mv-num b { font-size: 14px; }
   .mv-bar { height: 3px; }
-  #scr-pause .pause-body { padding-top: 8px; }
-  .pause-cols { column-gap: 8px; }
   .ps-card { margin-bottom: 8px; padding: 8px 10px 10px; border-radius: 12px; }
   .box .ps-card h3 { margin-bottom: 6px; font-size: var(--fs-m); }
   .st-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px; }
@@ -5549,39 +5555,10 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   .st-tile > div > span { grid-area: lbl; min-width: 0; }
   .st-tile b { grid-area: val; font-size: 14px; }
 }
-/* Móvil de pie: hoja a pantalla completa; título y pistas arriba, botones abajo (a mano del pulgar). */
-@media (max-width: 599px) and (min-height: 521px) {
-  #scr-pause .pause-head { display: contents; }
-  #scr-pause .pause-head > h2 {
-    order: 0; flex: none; margin: 0; font-size: var(--fs-xl);
-    padding: max(8px, var(--sa-t)) max(12px, var(--sa-r)) 0 max(12px, var(--sa-l));
-  }
-  #scr-pause .pause-hint { order: 1; flex: none; padding: 0 max(12px, var(--sa-r)) 6px max(12px, var(--sa-l)); border-bottom: 1px solid var(--line-1); }
-  #scr-pause .pause-body { order: 2; padding-bottom: 10px; }   /* (la zona segura de abajo la salvan los botones) */
-  /* Los cuatro botones en una fila: Abandonar a la izquierda y Continuar a la derecha, con
-     Compendio y Ajustes (sólo el icono; el nombre sigue ahí para el lector de pantalla) en medio. */
-  #scr-pause .pause-acts {
-    order: 3; flex: none; margin: 0;
-    display: grid; grid-template-columns: auto auto auto minmax(96px, 1fr); grid-template-areas: "quit cmp set go"; gap: 8px;
-    padding: 8px max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l));
-    border-top: 1px solid var(--line-1); background: rgba(3, 10, 5, .45);
-  }
-  #btn-quit { grid-area: quit; }
-  #btn-pause-cmp { grid-area: cmp; }
-  #btn-pause-settings { grid-area: set; }
-  #btn-resume { grid-area: go; }
-  #scr-pause .pause-acts .btn { min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; }
-  #scr-pause :is(#btn-pause-cmp, #btn-pause-settings) { width: var(--tap); padding-left: 0; padding-right: 0; justify-content: center; }
-  :is(#btn-pause-cmp, #btn-pause-settings) > span {
-    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
 @media (max-height: 520px) {
   .pause-hint p { font-size: var(--fs-s); }   /* es una frase: 12 px en el móvil */
-  /* Tumbado no sobra alto: la pista de controles (ya sale al empezar la partida) se
-     quita; el aviso de partida en grupo, no. */
-  #scr-pause .pause-hint :is(.kbd-hint, .touch-hint, .pad-hint) { display: none; }
-  #scr-pause .pause-hint:not(:has(> .pause-coop:not(.hidden))) { display: none; }
-  #scr-pause .pause-body { padding-top: 8px; }
+  /* Tumbado no sobra alto: la pista de controles (ya sale al empezar la partida) se quita. */
+  #scr-pause .pause-hint { display: none; }
   .ps-card { padding: 8px 10px; }
   /* Los ataques (pausa y resumen), en dos columnas: tumbado sobra ancho y falta alto. */
   .mv-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
@@ -5593,26 +5570,21 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
    cifras a la izquierda (.ov-figs) y las monedas a la derecha; debajo, a todo el
    ancho, los movimientos y los shinies. Sin la tarjeta de Guardar (se guarda solo). */
 #scr-over > .over-box {
-  width: min(920px, 100%);
   background: radial-gradient(90% 260px at 50% 0%, rgba(var(--hl-rgb), .16), transparent 70%), var(--panel-bg); background-clip: padding-box;
 }
 #scr-over.is-dead > .over-box { background: radial-gradient(90% 260px at 50% 0%, rgba(238, 59, 59, .2), transparent 70%), var(--panel-bg); background-clip: padding-box; }
-#scr-over .over-body { padding-top: 0; }
-.over-hero { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 24px 8px 18px; text-align: center; }
-.ico-tile.over-ico { --tile: 88px; margin-bottom: 8px; background: radial-gradient(circle at 50% 30%, rgba(var(--hl-rgb), .45), rgba(1, 6, 3, .55) 72%); box-shadow: 0 0 0 3px var(--bark), 0 0 0 5px var(--bark-ink), 0 0 24px rgba(var(--hl-rgb), .35); }
+.ico-tile.over-ico { --tile: 72px; background: radial-gradient(circle at 50% 30%, rgba(var(--hl-rgb), .45), rgba(1, 6, 3, .55) 72%); box-shadow: 0 0 0 3px var(--bark), 0 0 0 5px var(--bark-ink), 0 0 24px rgba(var(--hl-rgb), .35); }
 #scr-over.is-dead .over-ico { background: radial-gradient(circle at 50% 30%, rgba(255, 140, 140, .45), rgba(238, 59, 59, .14) 72%); }
-.over-hero .eyebrow { margin: 0; }
-.box #over-title { margin: 0; font-size: clamp(34px, 7vw, 52px); font-weight: 800; line-height: 1.1;
+.over-ttl .eyebrow { margin: 0; }
+.box #over-title { margin: 0; font-size: clamp(30px, 4.4vw, 46px); font-weight: 800; line-height: 1.1;
   background: linear-gradient(180deg, #f4ffd8 0%, #b9f07a 45%, #4fb36a 72%, #d8ff9a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
   filter: drop-shadow(0 2px 0 #10200b) drop-shadow(0 0 12px rgba(120, 240, 140, .35)) drop-shadow(0 4px 6px rgba(0, 0, 0, .8)); }
 .over-record {
-  margin: 8px 0 0; padding: 4px 14px; border-radius: var(--rad-pill);
+  margin: 0 0 0 auto; padding: 4px 14px; border-radius: var(--rad-pill);
   background: var(--leaf-bg); color: var(--c-on-yellow);
   font: 600 var(--fs-m)/1.3 var(--font-display); box-shadow: 0 4px 16px rgba(var(--hl-rgb), .3);
 }
-.over-stats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
 .over-stats > * { min-width: 0; margin: 0; }
-.ov-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
 .ov-figs { display: grid; gap: 8px; align-content: start; min-width: 0; }
 .ov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .ov-tiles.ov-dmg { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -5630,7 +5602,7 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   border-radius: var(--rad-l); background: rgba(var(--hl-rgb), .1); border: 1px solid rgba(var(--hl-rgb), .45);
 }
 .ov-judge b { display: block; font: 600 18px/1.25 var(--font-display); color: var(--c-yellow); }
-/* Monedas: a la derecha de las cifras, tan alta como ellas (centrada). */
+/* Monedas: en la columna de la izquierda, encima de «Volver al menú». */
 .ov-coins {
   display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; align-content: center; gap: 10px 14px; padding: 14px;
   border-radius: var(--rad-l); background: linear-gradient(135deg, rgba(var(--amber-rgb), .2), rgba(var(--amber-rgb), .04)), var(--card-bg); border: 0; box-shadow: 0 0 0 2px #9a6418, 0 0 0 3.5px var(--bark-ink), 0 0 16px rgba(var(--amber-rgb), .2);
@@ -5650,12 +5622,6 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
 .caught-row > div { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .caught-row small { font: 700 var(--fs-xs)/1.3 var(--font); color: var(--c-cyan); }
 .caught-row small b { font: 600 13px/1.3 var(--font-display); color: var(--ink); }
-.over-foot { justify-content: center; }
-.over-foot > #btn-again { min-width: min(340px, 100%); }
-/* Estrecho (móvil de pie): las monedas debajo de las cifras. */
-@media (max-width: 599px) {
-  .ov-top { grid-template-columns: minmax(0, 1fr); }
-}
 /* Móvil (de pie y tumbado): a pantalla completa y opaco (4b), con el mismo halo
    arriba. Desde el 23-10-2026, mucho más compacto (se veía enorme): el título en
    una línea con su icono, las cifras con el icono al lado del número y la etiqueta
@@ -5664,17 +5630,10 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   /* (A todo el ancho: con el de escritorio, 920, quedaba una franja del mapa a la derecha en 932.) */
   #scr-over > .over-box { width: 100%; background: radial-gradient(90% 200px at 50% 0%, rgba(var(--hl-rgb), .16), transparent 70%), var(--surface-solid); }
   #scr-over.is-dead > .over-box { background: radial-gradient(90% 200px at 50% 0%, rgba(238, 59, 59, .2), transparent 70%), var(--surface-solid); }
-  .over-hero {
-    display: grid; grid-template-columns: auto auto; grid-template-areas: "ico eye" "ico title" "ico rec";
-    justify-content: center; align-items: center; column-gap: 10px; row-gap: 0;
-    padding: max(8px, var(--sa-t)) 4px 8px; text-align: left;
-  }
-  .ico-tile.over-ico { grid-area: ico; --tile: 48px; margin: 0; }
-  .ico-tile.over-ico > img { width: 40px; height: 40px; }
-  .over-hero .eyebrow { grid-area: eye; margin: 0; }
-  .box #over-title { grid-area: title; font-size: 22px; }
-  .over-record { grid-area: rec; justify-self: start; margin: 3px 0 0; padding: 1px 10px; font-size: var(--fs-s); box-shadow: none; }
-  .over-stats, .ov-top { gap: 8px; }
+  .ico-tile.over-ico { --tile: 44px; }
+  .ico-tile.over-ico > img { width: 36px; height: 36px; }
+  .box #over-title { font-size: 22px; }
+  .over-record { padding: 1px 10px; font-size: var(--fs-s); box-shadow: none; }
   .ov-figs { gap: 6px; }
   .ov-tiles { gap: 4px; }
   /* Baldosa: icono y cifra en una línea, la etiqueta debajo. */
@@ -5703,22 +5662,216 @@ body:has(> #scr-over:not(.hidden)) .ach-pop small { font-size: var(--fs-xs); }
   .box .ov-sec h3 { margin-bottom: 6px; font-size: var(--fs-m); }
   .ov-moves > .mv-legend { top: 9px; right: 10px; }
   .caught-row { gap: 6px; }
-  /* 40 px de alto (9 + 20 + 9 + borde), lo que pide el dedo en el móvil (--tap). */
-  .btn.big#btn-again { padding: 9px 22px; font-size: 17px; line-height: 20px; border-radius: var(--rad-m); }
 }
-/* Tumbado: el título, aún más bajo; «Volver al menú» en un pie más bajo (sin su borde de arriba). */
+/* Tumbado: el título, aún más bajo. */
 @media (max-height: 520px) {
-  .over-hero { padding-top: max(6px, var(--sa-t)); padding-bottom: 6px; }
-  .ico-tile.over-ico { --tile: 44px; }
-  .ico-tile.over-ico > img { width: 36px; height: 36px; }
+  .ico-tile.over-ico { --tile: 36px; }
+  .ico-tile.over-ico > img { width: 30px; height: 30px; }
   .box #over-title { font-size: 20px; }
-  #scr-over .over-foot { padding-top: 6px; padding-bottom: max(6px, var(--sa-b)); }
-}
-/* Tumbados estrechos (667×375 y menos): las monedas, algo más estrechas que las cifras. */
-@media (max-height: 520px) and (max-width: 719px) {
-  .ov-top { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
   .ov-coins > .ico-tile.l { --tile: 36px; }
   .ov-coins > .ico-tile.l > img { width: 30px; height: 30px; }
+}
+
+/* ---- Plantillas a pantalla completa (1.0, bloque B, 24-11-2026; ui/nav.js, maquetas en docs/DISENO.md) ----
+ * .scr.fs-scr > .box.fs: la pantalla entera y opaca (no se ve la partida detrás), con el marco de corteza grande.
+ *  - .t-menu (plantilla «Menú»: pausa y resumen): cabecera (.fs-head: título y datos), cuerpo (.fs-body: a la
+ *    izquierda .fs-col con los botones grandes .fs-mbtn, la zona con cursor; a la derecha .fs-read para leer, con
+ *    páginas .fs-page que se pasan con LB / RB, el ratón o el dedo) y la barra .fs-bar.
+ *  - .t-pick (plantilla «Elección»: nivel, objeto y vínculo): cabecera, cartas en fila, sus botones y la barra.
+ *  - .fs-bar: qué hace cada botón del mando aquí. Sólo con mando (body.pad); sin mando no ocupa sitio.
+ *  - Móvil tumbado: todo más bajo; ventana estrecha de pie: una columna, los botones arriba. */
+.scr.fs-scr { padding: 0; align-items: stretch; justify-content: stretch; background: #040a06; }
+.scr.fs-scr > .box.fs {
+  display: flex; flex-direction: column; gap: 14px;
+  width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; overflow: hidden;
+  padding: max(28px, var(--sa-t)) max(42px, var(--sa-r)) max(24px, var(--sa-b)) max(42px, var(--sa-l));
+  border-radius: 0; box-shadow: none; background-origin: border-box; background-clip: border-box;
+}
+.fs-head { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; min-height: 48px; }
+.box .fs-title { margin: 0; font: 800 calc(var(--fs-3xl) + 6px)/1 var(--font-display); }
+.fs-info { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.fs-pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px 0 8px; border-radius: var(--rad-pill);
+  background: rgba(9, 19, 12, .9); box-shadow: var(--bark-edge); font: 700 var(--fs-m)/1 var(--font-display);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.fs-pill > img { width: 20px; height: 20px; }
+.fs-pill > span { color: var(--muted); }
+.fs-pill.gold { color: var(--amber); }
+
+.fs-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 26px; }
+.fs-body > * { min-width: 0; min-height: 0; }
+/* (El relleno deja sitio al contorno de la selección del mando.) */
+.fs-col { display: flex; flex-direction: column; gap: 14px; margin: -8px; padding: 8px; overflow-y: auto; overscroll-behavior: contain; }
+.fs-menu { display: flex; flex-direction: column; gap: 10px; }
+.fs-mbtn {
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 58px; padding: 0 18px;
+  border: 0; border-radius: 14px; background: var(--card-bg); box-shadow: var(--bark-edge); color: var(--ink); cursor: pointer;
+  font: 700 var(--fs-xl)/1.1 var(--font-display); text-align: left;
+  transition: filter var(--t-fast), transform var(--t-fast);
+}
+.fs-mbtn:hover { filter: brightness(1.15); }
+.fs-mbtn:active { transform: translateY(1px); }
+.fs-mbtn:focus-visible { outline: var(--focus); outline-offset: 3px; }
+.fs-mbtn > .ui-svg { flex: none; width: 24px; height: 24px; opacity: .9; }
+.fs-mi { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; }
+.fs-mi > img { width: 26px; height: 26px; }
+.fs-mbtn.pri { background: var(--leaf-bg); color: var(--c-on-yellow); text-shadow: none; }
+.fs-mbtn.danger { margin-top: 10px; color: #ffb0b8; background: linear-gradient(180deg, #3a1714, #1d0b0a); }
+.fs-mbtn.hidden { display: none; }
+
+/* Tu Pokémon y su vida (pausa). */
+.fs-who { flex: none; display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: var(--card-bg); box-shadow: var(--bark-edge); }
+.fs-who:empty { display: none; }
+.fs-face { flex: none; display: grid; place-items: center; width: 76px; height: 76px; border-radius: 14px;
+  background: radial-gradient(circle at 50% 70%, #3c2a14, #120d06 70%); box-shadow: inset 0 0 0 2px var(--bark); }
+.fs-face canvas { width: 64px; height: 64px; image-rendering: pixelated; }
+.fs-who-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fs-who-t > b { font: 700 var(--fs-xl)/1.05 var(--font-display); overflow-wrap: anywhere; }
+.fs-hp { display: block; height: 8px; border-radius: 99px; background: var(--sunk); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .5); }
+.fs-hp > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4fd06a, #b9f07a); transition: width .2s; }
+.fs-who.low .fs-hp > i { background: linear-gradient(90deg, #ff5a6e, #ffb13b); }
+.fs-who-t small { display: flex; justify-content: space-between; gap: 8px; font: 700 13px/1.2 var(--font-display); color: var(--muted); font-variant-numeric: tabular-nums; }
+.fs-who-t small b { color: var(--ink); }
+
+/* Lo que se lee, con sus páginas (sólo se ve la elegida: run-ui.js setPage). */
+.fs-read { display: flex; flex-direction: column; }
+.fs-warn {
+  position: relative; flex: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0 0 12px; padding: 10px 16px 10px 36px;
+  border-radius: 14px; background: linear-gradient(90deg, rgba(200, 54, 46, .35), rgba(200, 54, 46, .12)); box-shadow: inset 0 0 0 2px rgba(255, 90, 110, .7);
+  font-size: var(--fs-m); line-height: 1.35;
+}
+.fs-warn::before { content: ''; position: absolute; left: 14px; top: 16px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--c-red); box-shadow: 0 0 0 4px rgba(255, 90, 110, .25), 0 0 12px var(--c-red); }
+.fs-warn b { font: 800 var(--fs-l)/1.2 var(--font-display); color: #ffd0d5; }
+.fs-warn.hidden { display: none; }
+.fs-pages { flex: none; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid var(--line-1); overflow-x: auto; scrollbar-width: none; }
+.fs-page {
+  flex: none; padding: 8px 16px; border: 0; border-radius: 10px; cursor: pointer;
+  font: 700 var(--fs-m)/1.1 var(--font-display); color: var(--muted); background: rgba(1, 6, 3, .35); box-shadow: inset 0 0 0 1.5px var(--line-1);
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.fs-page:hover { color: var(--ink); }
+.fs-page:focus-visible { outline: var(--focus); outline-offset: 2px; }
+.fs-page.on { background: var(--leaf-bg); color: var(--c-on-yellow); text-shadow: none; box-shadow: 0 0 14px rgba(var(--hl-rgb), .45); }
+.fs-page.hidden { display: none; }
+.fs-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 2px 2px; }
+.fs-scroll > .fs-pg { display: none; }
+:is(.fs-scroll[data-page="atk"] > [data-pg="atk"], .fs-scroll[data-page="stats"] > [data-pg="stats"],
+  .fs-scroll[data-page="sum"] > [data-pg="sum"], .fs-scroll[data-page="moves"] > [data-pg="moves"], .fs-scroll[data-page="caught"] > [data-pg="caught"]) { display: block; }
+.fs-scroll[data-page="pas"] > [data-pg="pas"] { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.fs-read > .pause-hint { flex: none; margin-top: 10px; }
+
+/* En grupo la partida sigue: borde rojo siempre y, si te dan, un destello (run-ui.js coopTick). */
+#scr-pause.coop::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 0 0 0 4px rgba(255, 90, 110, .75); }
+#scr-pause.coop.hit::after { animation: fs-hit .6s ease-out; }
+@keyframes fs-hit { 0% { box-shadow: inset 0 0 0 12px rgba(255, 70, 90, 1), inset 0 0 120px rgba(255, 40, 60, .7); } }
+#scr-pause.coop .fs-who { box-shadow: 0 0 0 2px var(--c-red), 0 0 0 3.5px var(--bark-ink), 0 0 18px rgba(255, 90, 110, .4); }
+
+/* La barra de los botones del mando. */
+.fs-bar { display: none; }
+body.pad .fs-bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-top: 12px; border-top: 2px solid var(--line-1); }
+.fs-act {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px 0 6px; border-radius: var(--rad-pill);
+  background: rgba(1, 6, 3, .35); box-shadow: inset 0 0 0 1.5px var(--line-1); font: 700 var(--fs-m)/1 var(--font-display); white-space: nowrap;
+}
+.fs-act:first-child { background: rgba(var(--hl-rgb), .14); box-shadow: inset 0 0 0 1.5px rgba(var(--hl-rgb), .6); color: var(--c-yellow); }
+.fs-act.hidden { display: none; }
+.fs-act .pbtn { min-width: 26px; height: 26px; font-size: 13px; }
+.fs-act .pbtn:is(.pb-xbox0, .pb-xbox1, .pb-xbox2, .pb-xbox3, .pb-ps0, .pb-ps1, .pb-ps2, .pb-ps3) { width: 26px; }
+.fs-sp { flex: 1; }
+
+/* Elección: las cartas en el centro, grandes; los botones del mando, abajo. */
+.scr.fs-scr > .box.fs.t-pick { justify-content: center; }
+.t-pick > .pick-cards { flex: 0 1 auto; width: min(1180px, 100%); margin-inline: auto; }
+body.pad .t-pick > .fs-bar { position: absolute; left: 42px; right: 42px; bottom: max(22px, var(--sa-b)); justify-content: center; border-top: 0; }
+body.pad .scr.fs-scr > .box.fs.t-pick { padding-bottom: 86px; }
+@media (min-width: 600px) and (min-height: 521px) {
+  .t-pick .card.pick-card { min-height: min(46vh, 400px); justify-content: center; }
+}
+
+/* Resumen: la cabecera con el icono a la izquierda y el récord a la derecha. */
+.fs-head.over-hero { gap: 14px; }
+.over-ttl { display: flex; flex-direction: column; min-width: 0; }
+#over-coins:empty { display: none; }
+
+/* Móvil tumbado: más bajo; sin el marco grande (no cabe). */
+@media (max-height: 520px) {
+  .scr.fs-scr > .box.fs { gap: 6px; padding: max(6px, var(--sa-t)) max(12px, var(--sa-r)) max(6px, var(--sa-b)) max(12px, var(--sa-l)); }
+  .fs-head { min-height: 34px; gap: 6px 10px; }
+  .box .fs-title { font-size: 22px; }
+  .fs-pill { height: 28px; padding: 0 10px 0 6px; gap: 4px; font-size: var(--fs-s); }
+  .fs-pill > img { width: 16px; height: 16px; }
+  .fs-body { grid-template-columns: minmax(190px, 230px) minmax(0, 1fr); gap: 12px; }
+  .fs-col { gap: 6px; margin: -5px; padding: 5px; }
+  .fs-menu { gap: 6px; }
+  .fs-mbtn { min-height: 40px; padding: 0 12px; gap: 10px; border-radius: 11px; font-size: var(--fs-l); }
+  .fs-mbtn > .ui-svg, .fs-mi, .fs-mi > img { width: 20px; height: 20px; }
+  .fs-mbtn.danger { margin-top: 2px; }
+  .fs-who { gap: 8px; padding: 5px 10px; border-radius: 12px; }
+  .fs-face { width: 40px; height: 40px; border-radius: 10px; }
+  .fs-face canvas { width: 36px; height: 36px; }
+  .fs-who-t { gap: 3px; }
+  .fs-who-t > b { font-size: var(--fs-l); }
+  .fs-warn { margin-bottom: 6px; padding: 5px 10px 5px 28px; font-size: 13px; }
+  .fs-warn::before { left: 10px; top: 11px; width: 8px; height: 8px; }
+  .fs-warn b { font-size: var(--fs-m); }
+  .fs-pages { gap: 4px; margin-bottom: 8px; padding-bottom: 6px; }
+  .fs-page { padding: 5px 10px; font-size: var(--fs-s); }
+  body.pad .fs-bar { gap: 4px; padding-top: 6px; }
+  .fs-act { height: 30px; gap: 5px; padding: 0 10px 0 4px; font-size: var(--fs-s); }
+  .fs-act .pbtn { min-width: 22px; height: 22px; font-size: 12px; }
+  .fs-act .pbtn:is(.pb-xbox0, .pb-xbox1, .pb-xbox2, .pb-xbox3, .pb-ps0, .pb-ps1, .pb-ps2, .pb-ps3) { width: 22px; }
+  body.pad .t-pick > .fs-bar { left: 12px; right: 12px; bottom: max(6px, var(--sa-b)); }
+  body.pad .scr.fs-scr > .box.fs.t-pick { padding-bottom: 44px; }
+  .scr.fs-scr > .box.fs.t-pick { justify-content: flex-start; }
+}
+/* Ventana estrecha de pie: una columna; tu Pokémon y los botones arriba, lo que se lee debajo. */
+@media (max-width: 599px) and (min-height: 521px) {
+  .scr.fs-scr > .box.fs { gap: 10px; padding: max(10px, var(--sa-t)) max(12px, var(--sa-r)) max(10px, var(--sa-b)) max(12px, var(--sa-l)); }
+  .box .fs-title { font-size: 26px; }
+  .fs-pill { height: 30px; padding: 0 10px 0 6px; font-size: var(--fs-s); }
+  .fs-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .fs-col { gap: 8px; overflow: visible; }
+  .fs-menu { gap: 8px; }
+  .fs-mbtn { min-height: 44px; font-size: var(--fs-l); }
+  .fs-who { padding: 8px 12px; }
+  .fs-face { width: 48px; height: 48px; }
+  .fs-face canvas { width: 44px; height: 44px; }
+  .scr.fs-scr > .box.fs.t-pick { justify-content: flex-start; }
+}
+
+/* ---- Hojas en plantilla (1.0, bloque J, 25-11-2026): las pantallas de antes (.sheet-box) a pantalla completa ----
+ * <section class="scr fs-scr [under-bar]"><div class="box fs sheet-box t-cat|t-list|t-menu"> cabecera (.sheet-head),
+ * cuerpo (.sheet-body, una zona [data-nav]), pie (.sheet-foot, opcional) y la barra del mando (.fs-bar data-auto: la
+ * rellena pad-ui.js con lo de cada pantalla). La barra de arriba (monedas, tickets) se queda arriba a la derecha, dentro
+ * de la cabecera (como en el móvil tumbado, 4c); sus botones (perfil, Ajustes…) no salen: se llega por «Ir a…». */
+.scr.fs-scr > .box.fs.sheet-box {
+  gap: 0; padding: max(20px, var(--sa-t)) max(36px, var(--sa-r)) max(16px, var(--sa-b)) max(36px, var(--sa-l));
+}
+.box.fs.sheet-box > .sheet-head { min-height: 56px; padding: 0 0 12px; gap: 8px 14px; }
+.box.fs.sheet-box > .sheet-head:has(> .icon-btn:first-child) { padding-left: 0; }
+.box.fs.sheet-box > .sheet-head h2 { font: 800 calc(var(--fs-3xl) + 2px)/1.05 var(--font-display); }
+.box.fs.sheet-box > .sheet-body { padding: 14px 4px 10px; }
+.box.fs.sheet-box > .sheet-foot { padding: 10px 0 2px; background: linear-gradient(90deg, transparent, var(--bark) 8%, var(--bark-hi) 50%, var(--bark) 92%, transparent) top / 100% 2px no-repeat; }
+.box.fs.sheet-box > .fs-bar { margin-top: 8px; }
+body:has(.scr.fs-scr.under-bar:not(.hidden)) .topbar { left: auto; }
+body:has(.scr.fs-scr.under-bar:not(.hidden)) .tb-acts { display: none; }
+.scr.fs-scr.under-bar > .box > .sheet-head { padding-right: calc(var(--tb-w, 196px) + 12px); }
+/* La pantalla de pestañas grandes: la fila de pestañas de la cabecera, con LB / RB a los lados (sólo con mando). */
+.fs-tabs { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fs-tabs > .pad-hint { flex: none; }
+@media (max-height: 520px) {
+  .scr.fs-scr > .box.fs.sheet-box { padding: max(4px, var(--sa-t)) max(10px, var(--sa-r)) max(4px, var(--sa-b)) max(10px, var(--sa-l)); }
+  .box.fs.sheet-box > .sheet-head { min-height: 40px; padding: 0 0 6px; gap: 4px 8px; }
+  .box.fs.sheet-box > .sheet-head h2 { font-size: 21px; }
+  .box.fs.sheet-box > .sheet-body { padding: 8px 2px 6px; }
+  .box.fs.sheet-box > .sheet-foot { padding: 6px 0 0; }
+  .box.fs.sheet-box > .fs-bar { margin-top: 4px; }
+}
+@media (max-width: 599px) and (min-height: 521px) {
+  .scr.fs-scr > .box.fs.sheet-box { padding: max(8px, var(--sa-t)) max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l)); }
+  .box.fs.sheet-box > .sheet-head h2 { font-size: 24px; }
 }
 
 /* ---- Colocar los botones (layout-ui.js): por delante de Ajustes ----
@@ -5988,7 +6141,6 @@ body:has(> .scr:not(.hidden)) .evo-toast.on { opacity: 0; visibility: hidden; tr
 }
 
 /* Carta de rama: como las de nivel; con muchas (Eevee, 8), en rejilla de 4 y más compactas. */
-#scr-evo.scr.dim { background: radial-gradient(120% 90% at 50% 0%, rgba(26, 56, 30, .55), rgba(2, 8, 4, .88)); }
 #scr-evo .pick-ico { background: radial-gradient(circle at 50% 30%, rgba(255, 233, 150, .55), rgba(var(--hl-rgb), .16) 72%); }
 #scr-evo h2 { color: var(--ink); }
 .evo-cards .pc-ico > canvas { display: block; width: 80px; height: 80px; image-rendering: pixelated; }

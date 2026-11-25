@@ -1058,18 +1058,21 @@ G.Village = (() => {
     box.dataset.built = '1';
     const byGo = Object.assign(Object.fromEntries(V().PLACES.map(p => [p.go, p])), EXTRA);
     const here = '<span class="vq-here">' + G.T('Estás aquí') + '</span>';
-    const item = (go, label, cls) => {
+    const item = (go, label, cls, attr = '') => {
       const p = byGo[go];
-      return `<button class="vq-item${cls}" type="button" data-vgo="${go}" title="${G.T(p.name)}"><span class="vq-ico" aria-hidden="true">${G.Icons.html(p.icon, 28)}</span>` +
+      return `<button class="vq-item${cls}" type="button" data-vgo="${go}" title="${G.T(p.name)}"${attr}><span class="vq-ico" aria-hidden="true">${G.Icons.html(p.icon, 28)}</span>` +
         `<span class="vq-t">${G.T(label)}</span><small class="vq-s" data-vsub="${go}">${G.T(p.sub)}</small>${here}</button>`;
     };
-    box.innerHTML = '<header class="vq-head"><div class="vq-htxt"><span class="vq-title">' + G.T('Ir a') + '</span>' +
-      '<small class="vq-hint">' + G.T('Elige un sitio y apareces allí') + '</small></div>' + item('play', 'Jugar', ' play') +
-      '<button class="icon-btn" id="vil-quick-close" type="button" aria-label="' + G.T('Cerrar') + '" title="' + G.T('Cerrar') + '">' + G.UI.svg('close') + '</button></header>' +
+    // (1.0, bloque J) A pantalla completa y en orden fijo para el mando (ui/nav.js): Jugar; cada grupo, una fila (← →);
+    // tu compañero, abajo. B (o la flecha de arriba) cierra. La barra de abajo la pone pad-ui.js.
+    box.innerHTML = '<header class="vq-head"><button class="icon-btn" id="vil-quick-close" type="button" aria-label="' + G.T('Cerrar') + '" title="' + G.T('Cerrar') + '">' + G.UI.svg('back') + '</button>' +
+      '<div class="vq-htxt"><h2 class="vq-title">' + G.T('Ir a') + '</h2><small class="vq-hint">' + G.T('Elige un sitio y apareces allí') + '</small></div></header>' +
+      '<div class="vq-body" data-nav>' + item('play', 'Jugar', ' play', ' data-nav-row') +
       '<div class="vq-groups">' + GROUPS.map((g, i) =>
-        `<section class="vq-grp" style="--g:${g.color}" aria-labelledby="vq-g${i}"><h3 class="vq-gh" id="vq-g${i}">${G.T(g.name)}</h3>` +
+        `<section class="vq-grp" style="--g:${g.color}" aria-labelledby="vq-g${i}" data-nav-row data-nav-cols="9"><h3 class="vq-gh" id="vq-g${i}">${G.T(g.name)}</h3>` +
         `<div class="vq-glist">${g.items.map(([go, label]) => item(go, label, '')).join('')}</div></section>`).join('') + '</div>' +
-      '<div class="vq-foot"><button class="vq-partner" id="vq-partner" type="button"></button><div class="vq-stats" id="vq-stats"></div></div>';
+      '<div class="vq-foot"><button class="vq-partner" id="vq-partner" type="button" data-nav-row></button><div class="vq-stats" id="vq-stats"></div></div></div>' +
+      '<footer class="fs-bar" data-auto aria-hidden="true"></footer>';
     box.querySelectorAll('[data-vgo]').forEach(b => { b.onclick = () => { setQuick(false); go(b.dataset.vgo); }; });
     $('vil-quick-close').onclick = () => { G.Audio.sfx('click'); setQuick(false); };
     $('vq-partner').onclick = () => { setQuick(false); go('partner'); };
@@ -1126,25 +1129,21 @@ G.Village = (() => {
     }
     box.querySelectorAll('[data-vgo]').forEach(b => b.classList.toggle('here', b.dataset.vgo === at));
   }
-  /** Teclado con el desplegable abierto: flechas (al más cercano por ese lado), Tab y Mayús+Tab, Intro o espacio.
-   *  → true si la tecla era suya. */
+  /** Teclado con «Ir a…» abierto: flechas (en el mismo orden fijo que el mando, ui/nav.js), Tab y Mayús+Tab, Intro o
+   *  espacio. → true si la tecla era suya. */
   function quickKey(e) {
     const box = $('vil-quick'), k = e.key;
-    const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k];
+    const dir = { ArrowLeft: 'l', ArrowRight: 'r', ArrowUp: 'u', ArrowDown: 'd' }[k];
     if (!dir && k !== 'Tab' && k !== 'Enter' && k !== ' ') return false;
-    const btns = [...box.querySelectorAll('button')].filter(b => b.getClientRects().length);
-    const cur = btns.indexOf(document.activeElement);
-    if (k === 'Enter' || k === ' ') { if (cur < 0) return false; btns[cur].click(); return true; }
+    const rs = G.Nav.rows(G.Nav.zone(box)), all = rs.flat();
+    const cur = all.indexOf(document.activeElement);
+    if (k === 'Enter' || k === ' ') { if (cur < 0) return false; all[cur].click(); return true; }
     let to = null;
     if (cur < 0) to = box.querySelector('.vq-item.here') || box.querySelector('.vq-item.play');
-    else if (k === 'Tab') to = btns[(cur + (e.shiftKey ? -1 : 1) + btns.length) % btns.length];
+    else if (k === 'Tab') to = all[(cur + (e.shiftKey ? -1 : 1) + all.length) % all.length];
     else {
-      const c = r => [r.left + r.width / 2, r.top + r.height / 2], [x0, y0] = c(btns[cur].getBoundingClientRect());
-      let bd = Infinity;
-      for (const b of btns) {
-        const [x, y] = c(b.getBoundingClientRect()), along = (x - x0) * dir[0] + (y - y0) * dir[1], side = Math.abs((x - x0) * dir[1] + (y - y0) * dir[0]);
-        if (along > 4 && along + side * 2 < bd) { bd = along + side * 2; to = b; }
-      }
+      const at = G.Nav.locate(rs, all[cur]), [r, c] = G.Nav.step(rs.map(x => x.length), at[0], at[1], dir);
+      to = rs[r][c];
     }
     if (to) { to.focus(); try { to.scrollIntoView({ block: 'nearest' }); } catch (er) { /* nada */ } }
     return true;

@@ -145,15 +145,17 @@ G.UI = (() => {
   function ask(text, o = {}) {
     return new Promise(done => {
       const el = document.createElement('section');
+      el.id = 'scr-ask';
       el.className = 'scr dim modal ask-scr';
       el.setAttribute('role', 'alertdialog');
       el.setAttribute('aria-modal', 'true');
-      el.innerHTML = `<div class="box mcard">
+      // (1.0, bloque J) Ventana rápida: una lista con orden fijo para el mando (ui/nav.js) y su barra.
+      el.innerHTML = `<div class="box mcard" data-nav data-nav-cols="1">
         <p class="mcard-txt"></p>
         <div class="mcard-acts">
           <button class="btn ${o.danger ? 'danger' : 'gold'} big block" type="button" data-a="yes"></button>
           <button class="btn ghost block" type="button" data-a="no" data-back></button>
-        </div></div>`;
+        </div><footer class="fs-bar" data-auto aria-hidden="true"></footer></div>`;
       el.querySelector('.mcard-txt').textContent = G.T(text);
       el.querySelector('[data-a=yes]').textContent = G.T(o.yes || 'Aceptar');
       el.querySelector('[data-a=no]').textContent = G.T(o.no || 'Cancelar');
@@ -276,7 +278,7 @@ G.UI = (() => {
       el.className = 'scr dim';
       el.setAttribute('role', 'alertdialog');
       el.setAttribute('aria-labelledby', 'delacc-title');
-      el.innerHTML = `<div class="box mcard">
+      el.innerHTML = `<div class="box mcard" data-nav data-nav-cols="1">
         <span class="ico-tile l round t-red mcard-ico" aria-hidden="true">${G.Icons.html('ban', 60)}</span>
         <h2 id="delacc-title">Borrar cuenta</h2>
         <p class="mcard-txt">${pw ? 'Se borrarán tu cuenta y toda tu partida, para siempre. Para confirmarlo, escribe tu contraseña.'
@@ -285,7 +287,7 @@ G.UI = (() => {
         <div class="mcard-acts">
           <button class="btn danger big block" type="button" data-a="yes">Borrar para siempre</button>
           <button class="btn ghost block" type="button" data-a="no" data-back>Cancelar</button>
-        </div></div>`;
+        </div><footer class="fs-bar" data-auto aria-hidden="true"></footer></div>`;
       document.body.appendChild(el);
       const inp = el.querySelector('input');
       const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); end(null); } };
@@ -374,11 +376,11 @@ G.UI = (() => {
       tabEl.className = 'scr dim';
       tabEl.setAttribute('role', 'alertdialog');
       tabEl.setAttribute('aria-labelledby', 'othertab-title');
-      tabEl.innerHTML = `<div class="box mcard">
+      tabEl.innerHTML = `<div class="box mcard" data-nav data-nav-cols="1">
         <img class="mcard-app" src="assets/icons/icon-192.png" width="64" height="64" alt="">
         <h2 id="othertab-title">El juego está abierto en otra pestaña</h2>
         <p class="mcard-txt">Sólo se puede jugar en una pestaña a la vez, para no mezclar tu partida. No se pierde nada.</p>
-        <div class="mcard-acts"><button class="btn gold big block" type="button">Jugar aquí</button></div></div>`;
+        <div class="mcard-acts"><button class="btn gold big block" type="button">Jugar aquí</button></div><footer class="fs-bar" data-auto aria-hidden="true"></footer></div>`;
       tabEl.querySelector('button').onclick = () => G.DB.takeOver();
       document.body.appendChild(tabEl);
     }

@@ -126,7 +126,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/style.css?v=c65ec70612">
+<link rel="stylesheet" href="css/style.css?v=942097f0f4">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -136,7 +136,7 @@
 
 <!-- ====== Inicio: login / registro / invitado ====== -->
 <section id="scr-login" class="scr hidden">
-  <div class="box login-box">
+  <div class="box login-box" data-nav data-nav-cols="1">
     <!-- Grupos sólo para colocarlos en dos columnas en el móvil en horizontal (style.css) -->
     <div class="login-head">
       <div class="logo">
@@ -173,6 +173,7 @@
       <p class="note center" id="login-mode"></p>
       <p class="note center"><a href="en/guide/">Guía</a> · <a href="en/pokedex/">Pokédex</a> · <a href="#" class="legal-link" data-legal>Aviso legal y privacidad</a></p>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -182,7 +183,8 @@
     <div class="progress"><i id="test-bar"></i></div>
     <p class="sub" id="test-count"></p>
     <p class="q" id="test-q"></p>
-    <div class="answers" id="test-a"></div>
+    <div class="answers" id="test-a" data-nav data-nav-cols="1"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -194,16 +196,17 @@
     <p id="res-text"></p>
     <canvas id="res-stage" class="stage" width="240" height="180"></canvas>
     <h3>Tu compañero: <span class="gold" id="res-name"></span></h3>
-    <div class="res-acts">
+    <div class="res-acts" data-nav>
       <button id="res-ok" class="btn gold big">¡Vamos juntos!</button>
       <button id="res-other" class="btn ghost">Elegir otro</button>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Elegir compañero (hoja: cabecera, rejilla que se desplaza y pie con «Elegir») ====== -->
-<section id="scr-starters" class="scr dim hidden">
-  <div class="box sheet-box wide">
+<section id="scr-starters" class="scr dim fs-scr hidden">
+  <div class="box fs sheet-box t-cat">
     <header class="sheet-head">
       <button id="starter-back" class="icon-btn" type="button" data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
@@ -212,12 +215,13 @@
       </div>
     </header>
     <div class="sheet-body">
-      <div class="grid" id="starter-grid"></div>
+      <div class="grid" id="starter-grid" data-nav></div>
     </div>
     <footer class="sheet-foot">
       <span id="starter-info" class="grow starter-info"></span>
       <button id="starter-ok" class="btn gold" disabled>Elegir</button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -241,9 +245,9 @@
       </div>
     </div>
   </div>
-  <div class="menu-right">
-    <button class="menu-item play" data-go="play"><span class="mi-t">Jugar</span><small>Entra en la mazmorra</small></button>
-    <div class="menu-list">
+  <div class="menu-right" data-nav>
+    <button class="menu-item play" data-go="play" data-nav-row><span class="mi-t">Jugar</span><small>Entra en la mazmorra</small></button>
+    <div class="menu-list" data-nav-row>
       <button class="menu-item tile" data-go="dex"><span class="mi-t">Pokédex</span><small id="menu-dex-count">Tus Pokémon</small></button>
       <button class="menu-item tile" data-go="upgrades"><span class="mi-t">Mejoras</span><small>Haz más fuerte cada run</small></button>
       <button class="menu-item tile" data-go="shop"><span class="mi-t">Tienda Kecleon</span><small>Mentas, Cápsulas y MT</small></button>
@@ -307,20 +311,21 @@
 <div id="credits-line" class="credits-line hidden">Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK · <a href="#" class="legal-link" data-legal>Aviso legal</a></div>
 
 <!-- ====== Novedades: hoja con una tarjeta por fecha (news-ui.js) ====== -->
-<section id="scr-news" class="scr dim hidden" role="dialog" aria-labelledby="news-title">
-  <div class="box sheet-box news-sheet">
+<section id="scr-news" class="scr dim fs-scr hidden" role="dialog" aria-labelledby="news-title">
+  <div class="box fs sheet-box t-list news-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" id="news-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" id="news-ico" aria-hidden="true"></span>
       <h2 id="news-title">Novedades</h2>
     </header>
     <div id="news-body" class="sheet-body news-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Historial de partidas: las que guarda core/registro.js en este aparato (runs-ui.js) ====== -->
-<section id="scr-runs" class="scr dim modal hidden" role="dialog" aria-labelledby="runs-title">
-  <div class="box sheet-box runs-sheet">
+<section id="scr-runs" class="scr dim fs-scr modal hidden" role="dialog" aria-labelledby="runs-title">
+  <div class="box fs sheet-box t-list runs-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" id="runs-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" id="runs-ico" aria-hidden="true"></span>
@@ -331,12 +336,13 @@
       </div>
     </header>
     <div id="runs-body" class="sheet-body runs-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery): ventana pequeña ====== -->
 <section id="scr-recover" class="scr dim hidden" role="dialog" aria-labelledby="rec-title">
-  <div class="box mcard">
+  <div class="box mcard" data-nav data-nav-cols="1">
     <span class="ico-tile l round t-blue mcard-ico" id="rec-ico" aria-hidden="true"></span>
     <h2 id="rec-title">¿Te da miedo perder tu cuenta?</h2>
     <p class="mcard-txt">Vincula tu Gmail: si un día olvidas la contraseña, pulsas <b>Entrar con Google</b> y es tu misma cuenta, con todo lo tuyo.</p>
@@ -346,12 +352,13 @@
       <button class="btn ghost block" id="rec-later" type="button" data-back>Ahora no</button>
     </div>
     <p class="note center mcard-foot"><a href="#" id="rec-never">No volver a preguntar</a></p>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Avisos de una actualización (una vez por navegador, ver LoginUI.updateNotices) ====== -->
 <section id="scr-savenote" class="scr dim hidden" role="dialog" aria-labelledby="savenote-title">
-  <div class="box mcard" translate="no">
+  <div class="box mcard" translate="no" data-nav data-nav-cols="1">
     <span class="ico-tile l round t-gold mcard-ico" id="savenote-ico" aria-hidden="true"></span>
     <h2 id="savenote-title"></h2>
     <div id="savenote-body" class="mcard-txt"></div>
@@ -359,13 +366,14 @@
       <!-- data-back: el botón B del mando también pulsa «Entendido» (como Esc). -->
       <button class="btn gold big block" id="savenote-ok" type="button" data-back></button>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Ajustes: hoja con las pestañas a la izquierda (en el móvil de pie, arriba y
      deslizables) y el contenido de cada una a la derecha (settings-ui.js) ====== -->
-<section id="scr-settings" class="scr dim hidden" role="dialog" aria-labelledby="set-title">
-  <div class="box sheet-box set-sheet">
+<section id="scr-settings" class="scr dim fs-scr hidden" role="dialog" aria-labelledby="set-title">
+  <div class="box fs sheet-box t-cat set-sheet">
     <header class="sheet-head">
       <button class="icon-btn" id="set-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" data-ico="gear" aria-hidden="true"></span>
@@ -380,15 +388,16 @@
         <button class="set-tab" type="button" role="tab" data-t="acc" data-tico="crown"><span class="ico-tile s"></span><span class="set-tab-t">Cuenta</span></button>
         <button class="set-tab" type="button" role="tab" data-t="about" data-tico="ball"><span class="ico-tile s"></span><span class="set-tab-t">Acerca de</span></button>
       </nav>
-      <div id="set-body" class="set-body" role="tabpanel" aria-labelledby="set-title"></div>
+      <div id="set-body" class="set-body" role="tabpanel" aria-labelledby="set-title" data-nav data-nav-auto></div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Aviso legal y privacidad: hoja con un apartado por tarjeta; el de borrar
      la cuenta, al final y en rojo (ui.js, openLegal) ====== -->
-<section id="scr-legal" class="scr dim hidden" role="dialog" aria-labelledby="legal-title">
-  <div class="box sheet-box legal-sheet">
+<section id="scr-legal" class="scr dim fs-scr hidden" role="dialog" aria-labelledby="legal-title">
+  <div class="box fs sheet-box t-list legal-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" id="legal-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" id="legal-ico" aria-hidden="true"></span>
@@ -451,6 +460,7 @@
         <p id="legal-del-msg" class="note"></p>
       </section>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 <!-- Pantalla de carga: título, frase y la Poké Ball que gira (.boot-ld::before).
@@ -500,7 +510,7 @@
 <!-- ====== Apodo (para amigos y ranking): tarjeta centrada con las normas a la vista ======
      social-ui.js (NickUI) pone el icono, el contador y marca cada norma mientras escribes. -->
 <section id="scr-nick" class="scr dim modal hidden">
-  <div class="box nick-box">
+  <div class="box nick-box" data-nav data-nav-cols="1">
     <div class="nick-head">
       <span class="ico-tile l round t-blue" id="nick-ico" aria-hidden="true"></span>
       <h2>Elige tu apodo</h2>
@@ -522,14 +532,15 @@
       <button id="nick-ok" class="btn gold big block" type="submit">Guardar apodo</button>
     </form>
     <button id="nick-later" class="btn ghost block nick-later" type="button" data-back>Ahora no</button>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Amigos (hoja): tu apodo con «Copiar», añadir amigo y las listas ======
      social-ui.js (FriendsUI) rellena #fr-me (tu tarjeta) y #fr-list (solicitudes,
      amigos y enviadas). Con pantalla ancha o tumbada, en dos columnas. -->
-<section id="scr-friends" class="scr dim under-bar hidden">
-  <div class="box sheet-box">
+<section id="scr-friends" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Amigos</h2>
@@ -551,6 +562,7 @@
       </div>
       <div id="fr-list" class="fr-lists"></div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -558,8 +570,8 @@
      Arriba, los jugadores en tarjetas (sprite, apodo y estado); debajo, invitar
      (sólo el anfitrión); abajo fijo, «Empezar partida» o «¡Estoy listo!», que
      social-ui.js añade detrás de #lobby-start. -->
-<section id="scr-lobby" class="scr dim under-bar hidden">
-  <div class="box sheet-box">
+<section id="scr-lobby" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head">
       <button id="lobby-menu" class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Sala</h2>
@@ -579,6 +591,7 @@
       <p class="note" id="lobby-note"></p>
       <button id="lobby-start" class="btn gold" type="button">Empezar partida</button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -586,8 +599,8 @@
      Cabecera: Solo / Grupo, Todos / Amigos y el periodo en una barra; el filtro por
      Pokémon se abre con la lupa (en escritorio, siempre a la vista). Abajo fijo,
      tu puesto (#rk-me). ranking-ui.js rellena todo. -->
-<section id="scr-rank" class="scr dim under-bar hidden">
-  <div class="box sheet-box tall">
+<section id="scr-rank" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head rk-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow rk-title">
@@ -617,12 +630,13 @@
       <span id="rk-me-ico" class="ico-tile s round t-gold" aria-hidden="true"></span>
       <div id="rk-me" class="rk-you"></div>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Moderación del ranking (hoja; sólo la cuenta de admin, ver js/ui/mod-ui.js) ====== -->
-<section id="scr-mod" class="scr dim under-bar hidden">
-  <div class="box sheet-box tall">
+<section id="scr-mod" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list" data-nav data-nav-auto>
     <header class="sheet-head">
       <button id="mod-back" class="icon-btn" type="button" data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Moderación</h2>
@@ -639,12 +653,13 @@
     <footer class="sheet-foot mod-foot">
       <button class="btn small danger" id="mod-purge" type="button">Quitar marcas de más de 1 hora</button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Misiones, logros y perfil (hoja: cabecera con pestañas y cuerpo que se desplaza; goals-ui.js lo rellena) ====== -->
-<section id="scr-goals" class="scr dim under-bar hidden">
-  <div class="box sheet-box tall goals-sheet">
+<section id="scr-goals" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list goals-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Misiones</h2>
@@ -657,6 +672,7 @@
       </div>
     </header>
     <div id="goals-body" class="sheet-body goals-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -665,8 +681,8 @@
      llevar cada Pokémon. Pestañas en la cabecera; debajo, la lista con su buscador y filtros a la
      izquierda y la ficha a la derecha (en una ventana estrecha de pie, la ficha tapa la lista:
      #scr-compendium.detail-open). Todo sale en vivo de los datos del juego. -->
-<section id="scr-compendium" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall cmp-box">
+<section id="scr-compendium" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-cat cmp-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Compendio</h2>
@@ -680,19 +696,21 @@
       </div>
     </header>
     <div class="cmp-main">
-      <div class="cmp-list">
-        <div class="cmp-tools" id="cmp-tools"></div>
-        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio"></div>
+      <div class="cmp-list" data-nav>
+        <div class="cmp-tools" id="cmp-tools" data-nav-row data-nav-auto></div>
+        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio" data-nav-row data-nav-cols="1"></div>
       </div>
-      <article class="cmp-detail" id="cmp-detail"></article>
+      <!-- (Con la ficha tapando la lista, en el móvil, la zona del mando es la ficha.) -->
+      <article class="cmp-detail" id="cmp-detail" data-nav data-nav-auto></article>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Planear la build de un Pokémon (21-11-2026, js/ui/build-ui.js): encima de la Pokédex, Mejoras o la pausa.
      «Tu plan» a la izquierda (arriba en el móvil de pie) y lo que puede llevar en pestañas a la derecha. ====== -->
-<section id="scr-build" class="scr dim modal hidden" role="dialog" aria-modal="true" aria-labelledby="bld-title">
-  <div class="box sheet-box wide tall bld-box">
+<section id="scr-build" class="scr dim modal fs-scr hidden" role="dialog" aria-modal="true" aria-labelledby="bld-title">
+  <div class="box fs sheet-box t-cat bld-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
@@ -701,7 +719,7 @@
       </div>
       <button id="bld-clear" class="btn small ghost ic" type="button" data-ico="close" data-ico-size="18"><span>Vaciar</span></button>
     </header>
-    <div class="sheet-body bld-body">
+    <div class="sheet-body bld-body" data-nav>
       <aside class="bld-plan" id="bld-plan" aria-label="Tu plan"></aside>
       <div class="bld-pick">
         <div class="tabs bld-tabs" role="tablist" aria-label="Qué planear">
@@ -709,16 +727,17 @@
           <button class="tab" type="button" role="tab" data-k="p" aria-selected="false" aria-controls="bld-grid">Pasivas</button>
           <button class="tab" type="button" role="tab" data-k="i" aria-selected="false" aria-controls="bld-grid">Objetos</button>
         </div>
-        <div class="bld-tools" id="bld-tools"></div>
-        <div class="bld-grid" id="bld-grid"></div>
+        <div class="bld-tools" id="bld-tools" data-nav-row></div>
+        <div class="bld-grid" id="bld-grid" data-nav-row data-pad-ok="Poner / quitar"></div>
       </div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Perfil público de un jugador (ventana que tapa la barra) ====== -->
-<section id="scr-profile" class="scr dim modal hidden">
-  <div class="box sheet-box profile-sheet">
+<section id="scr-profile" class="scr dim fs-scr modal hidden">
+  <div class="box fs sheet-box t-list profile-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <h2>Perfil</h2>
       <div class="sheet-acts">
@@ -726,6 +745,7 @@
       </div>
     </header>
     <div id="prof-body" class="sheet-body"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -750,8 +770,8 @@
      sola fila: buscador, región (en el móvil; en el ordenador, pestañas), tipo, orden
      y «Filtros» (tengo / me faltan, shiny, favoritos y rarezas, en un panel que se
      abre debajo). Lo de dentro lo pinta menu.js (openDex, dexCell, showDetail). -->
-<section id="scr-dex" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall dex-box">
+<section id="scr-dex" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-cat dex-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Pokédex</h2>
@@ -759,8 +779,8 @@
       <div class="sheet-row"><div class="gen-tabs" id="dex-gens" role="tablist" aria-label="Región"></div></div>
     </header>
     <div class="dex-main">
-      <div class="dex-list" id="dex-list">
-        <div class="dx-tools" id="dex-tools">
+      <div class="dex-list" id="dex-list" data-nav>
+        <div class="dx-tools" id="dex-tools" data-nav-row>
           <label class="dx-q" data-ico="search" data-ico-size="18">
             <input id="dex-q" class="field" type="search" placeholder="Buscar por nombre o número" aria-label="Buscar por nombre o número" autocomplete="off" spellcheck="false">
           </label>
@@ -770,16 +790,17 @@
           <button class="chip dx-more" id="dex-more" type="button" aria-expanded="false" aria-controls="dex-panel"></button>
         </div>
         <div class="dx-panel hidden" id="dex-panel"></div>
-        <div class="dx-grid" id="dex-grid"></div>
+        <div class="dx-grid" id="dex-grid" data-nav-row data-pad-ok="Ver ficha"></div>
       </div>
-      <aside class="dex-detail" id="dex-detail"></aside>
+      <aside class="dex-detail" id="dex-detail" data-nav data-nav-skip></aside>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Tienda Kecleon (20-10-2026, del PR #236 de TheAdro7; hoja desde el 22-10-2026) ====== -->
-<section id="scr-shop" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall shop-box">
+<section id="scr-shop" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-cat shop-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Tienda Kecleon</h2>
@@ -802,55 +823,60 @@
         <div id="shop-body"></div>
       </div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Mochila (desde el menú principal, sin entrar en la tienda). shop-ui.js: openBag ====== -->
-<section id="scr-bag" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide bag-box">
+<section id="scr-bag" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list bag-box" data-nav>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Mochila</h2>
       <div class="sheet-acts"><button class="icon-btn bag-shop" type="button" data-go-shop aria-label="Tienda Kecleon" title="Tienda Kecleon"></button></div>
     </header>
-    <div class="sheet-body" id="bag-body"></div>
+    <div class="sheet-body" id="bag-body" data-nav-row data-nav-cols="1"></div>
     <!-- Donde se usa lo de la Mochila: la ficha de cada Pokémon. -->
-    <footer class="sheet-foot" id="bag-foot">
+    <footer class="sheet-foot" id="bag-foot" data-nav-row>
       <button class="btn gold ic" type="button" data-go-dex></button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Mejoras (hoja). menu.js: openUpgrades / renderUpgrades ======
      Escritorio: el Pokémon a la izquierda (fijo) y las mejoras en tarjetas a la
      derecha. Móvil: el Pokémon arriba y las tarjetas debajo, en una columna. -->
-<section id="scr-upgrades" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall upg-box">
+<section id="scr-upgrades" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list upg-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
         <h2>Mejoras</h2>
         <p class="sub">Cada Pokémon tiene sus propias mejoras: sólo cuentan cuando juegas con él.</p>
       </div>
+      <div class="sheet-row"><div class="gen-tabs upg-tabs" id="upg-tabs" role="tablist" aria-label="Apartados"></div></div>
     </header>
-    <div class="sheet-body upg-body">
+    <div class="sheet-body upg-body" data-nav>
       <div class="upg-mon">
         <div class="upg-stage" id="upg-stage-box"><canvas id="upg-stage"></canvas></div>
         <div class="upg-who">
           <span class="eyebrow" id="upg-mon-lbl">Pokémon</span>
           <select id="upg-mon" class="field" aria-labelledby="upg-mon-lbl"></select>
           <div class="upg-sum" id="upg-sum"></div>
+          <div class="upg-detail" id="upg-detail" aria-live="polite"></div>
         </div>
       </div>
       <div class="upg-grid" id="upg-list"></div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Gacha (hoja: regiones arriba, el cartel y las probabilidades en el cuerpo
      y los botones de tirar en el pie, a mano del pulgar; gacha-ui.js lo rellena) ====== -->
-<section id="scr-gacha" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide gacha-sheet">
+<section id="scr-gacha" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-menu gacha-sheet" data-nav>
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Gacha</h2>
@@ -883,15 +909,16 @@
           </div>
         </div>
         <div class="panel gacha-wallet" id="gacha-tickets"></div>
-        <div class="panel gacha-rates" id="gacha-rates"></div>
+        <div class="panel gacha-rates" id="gacha-rates" data-nav-row></div>
       </div>
     </div>
-    <footer class="sheet-foot gacha-foot">
+    <footer class="sheet-foot gacha-foot" data-nav-row>
       <button id="pull-1" class="btn pull-btn" type="button" data-sfx="none"><span class="pb-t">Tirar ×1</span><span class="pb-cost" id="cost-1"></span></button>
       <button id="pull-10" class="btn gold pull-btn" type="button" data-sfx="none"><span class="pb-t">Tirar ×10</span><span class="pb-cost" id="cost-10"></span></button>
       <button id="pull-10b" class="btn pull-btn rainbow" type="button" data-sfx="none"><span class="pb-t">Tirar ×10</span><span class="pb-cost" id="cost-10b"></span></button>
       <button id="pull-all" class="btn ghost pull-btn pull-all hidden" type="button" data-sfx="none"><span class="pb-t">Tirar todos</span><span class="pb-cost" id="cost-all"></span></button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -900,7 +927,7 @@
 <div id="pull-fx" class="scr dim hidden" role="dialog" aria-modal="true" aria-label="Gacha">
   <div class="pfx-spin">
     <div class="pfx-machine"><canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas></div>
-    <div class="pfx-ctl hidden" id="pull-ctl">
+    <div class="pfx-ctl hidden" id="pull-ctl" data-nav>
       <button class="chip" id="pull-fast" type="button"><span>Rápido</span></button>
       <button class="btn small ghost" id="pull-skip" type="button">Saltar</button>
     </div>
@@ -908,101 +935,151 @@
   <p class="pfx-sum hidden" id="pull-sum"></p>
   <div class="pfx-grid" id="pull-results"></div>
   <!-- «Otra vez»: la misma tirada otra vez, si te llega (gacha-ui.js). -->
-  <div class="pfx-foot">
+  <div class="pfx-foot" data-nav>
     <button id="pull-again" class="btn pull-btn pull-again hidden" type="button" data-sfx="none"><span class="pb-t" id="pull-again-t"></span><span class="pb-cost" id="cost-again"></span></button>
     <button id="pull-close" class="btn gold big hidden" type="button">Continuar</button>
   </div>
+  <footer class="fs-bar" data-auto aria-hidden="true"></footer>
 </div>
 
-<!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ====== -->
-<!-- Subir de nivel, vínculo y objeto: las mismas cartas (.pick-card, las pinta run-ui.js). -->
-<section id="scr-levelup" class="scr dim hidden">
-  <div class="box pick-box">
+<!-- ====== Durante la run (run-ui.js; estilos en «pantallas: partida» de style.css) ======
+     (1.0, bloque B) Plantillas a pantalla completa (ui/nav.js, «Plantillas a pantalla completa» de style.css): no se ve
+     la partida; una sola zona con cursor ([data-nav]) en orden fijo y, con mando, la barra de abajo con sus botones. -->
+<!-- Subir de nivel, vínculo y objeto: plantilla «Elección». Las cartas (.pick-card, las pinta run-ui.js) en fila
+     (← →) y, debajo, sus botones (↓). -->
+<section id="scr-levelup" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="up"></span><h2>¡Nivel <span id="lvl-num">2</span>!</h2></div>
-      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span><span class="pad-hint">&nbsp;· <span data-pad-act="ok"></span></span></p>
+      <p class="sub">Elige una recompensa<span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></p>
     </header>
-    <div id="cards" class="cards pick-cards"></div>
-    <footer class="pick-foot">
+    <div id="cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="pick-foot" data-nav-row>
       <button id="lvl-reroll" class="btn ghost ic hidden" data-sfx="none"><span class="rr-ico" aria-hidden="true"></span><span>Cambiar opciones (<span id="lvl-rr-n">1</span>)</span><span class="kbd-hint"><kbd>R</kbd></span><span class="pad-hint" data-pad-act="reroll"></span></button>
       <button id="lvl-discard" class="btn ghost ic hidden" data-sfx="none" aria-pressed="false"><span class="dc-ico" aria-hidden="true"></span><span>Descartar (<span id="lvl-dc-n">2</span>)</span><span class="kbd-hint"><kbd>X</kbd></span><span class="pad-hint" data-pad-act="discard"></span></button>
       <label id="lvl-always" class="lvl-always hidden"><input type="checkbox" id="lvl-always-cb"><span>Elegir siempre esta opción</span></label>
       <p id="lvl-wait" class="pick-wait hidden"></p>
     </footer>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
+    </footer>
   </div>
 </section>
 
-<section id="scr-bond" class="scr dim hidden">
-  <div class="box pick-box">
+<section id="scr-bond" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bond"></span><h2 class="bond-title">¡Vínculo!</h2></div>
       <p class="sub bond-hint">Los movimientos unidos se lanzan a la vez. Sigues teniendo como mucho 4 ataques</p>
       <p id="bond-sub" class="bond-step"></p>
     </header>
-    <div id="bond-cards" class="cards pick-cards"></div>
-    <footer class="pick-foot">
-      <button id="bond-back" class="btn ghost ic hidden" data-ico="back" data-ico-size="20"><span>Atrás</span></button>
+    <div id="bond-cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="pick-foot" data-nav-row>
+      <button id="bond-back" class="btn ghost ic hidden" data-ico="back" data-ico-size="20"><span>Atrás</span><span class="pad-hint" data-pad-act="back"></span></button>
+    </footer>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
     </footer>
   </div>
 </section>
 
-<section id="scr-item" class="scr dim hidden">
-  <div class="box pick-box">
+<section id="scr-item" class="scr dim fs-scr hidden">
+  <div class="box fs t-pick pick-box" data-nav>
     <header class="pick-head">
       <div class="pick-title"><span class="ico-tile pick-ico" data-item-ico="bag"></span><h2>¡Un objeto!</h2></div>
-      <p class="sub"><span id="item-sub-t">Sólo puedes llevar uno</span><span class="kbd-hint"> · <span id="item-keys"><kbd>1</kbd> <kbd>2</kbd></span></span><span class="pad-hint">&nbsp;· <span data-pad-act="ok"></span></span></p>
+      <p class="sub"><span id="item-sub-t">Sólo puedes llevar uno</span><span class="kbd-hint"> · <span id="item-keys"><kbd>1</kbd> <kbd>2</kbd></span></span></p>
     </header>
-    <div id="item-cards" class="cards pick-cards"></div>
+    <div id="item-cards" class="cards pick-cards" data-nav-row></div>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Elegir</span>
+    </footer>
   </div>
 </section>
 
-<!-- Pausa: hoja. Escritorio y tumbado: los botones en la cabecera; móvil de pie: abajo (style.css). -->
-<section id="scr-pause" class="scr dim hidden">
-  <div class="box sheet-box wide pause-box">
-    <header class="sheet-head pause-head">
-      <h2>Pausa</h2>
-      <div class="sheet-acts pause-acts">
-        <button id="btn-resume" class="btn gold ic" data-ico="play" data-ico-size="20"><span>Continuar</span></button>
-        <button id="btn-pause-cmp" class="btn ghost ic" data-ico="book" data-ico-size="20"><span>Compendio</span></button>
-        <button id="btn-pause-settings" class="btn ghost ic" data-ico="gear" data-ico-size="20"><span>Ajustes</span></button>
-        <button id="btn-quit" class="btn danger ic" data-ico="logout" data-ico-size="20"><span class="quit-t">Abandonar run</span></button>
-      </div>
-      <div class="sheet-row pause-hint">
-        <p class="kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
-        <p class="pad-hint" id="pause-pad-hint"></p>
-        <p class="touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
-        <p id="pause-coop" class="pause-coop hidden">Partida en grupo: el juego sigue mientras estás aquí.</p>
-      </div>
+<!-- Pausa: plantilla «Menú». A la izquierda tu Pokémon y los botones (la zona con cursor: ↑ ↓, desde abajo vuelve
+     arriba); a la derecha, para leer, tres páginas con LB / RB (run-ui.js pauseSummary). En grupo la partida sigue:
+     aviso, borde rojo si te dan y tu vida a la vista. -->
+<section id="scr-pause" class="scr dim fs-scr hidden">
+  <div class="box fs t-menu">
+    <header class="fs-head">
+      <h2 class="fs-title">Pausa</h2>
+      <div id="pause-info" class="fs-info"></div>
     </header>
-    <div class="sheet-body pause-body">
-      <!-- Mesa de combinaciones (13-11-2026, run-ui.js pauseSummary): ataques y evoluciones a la izquierda;
-           tu Pokémon, pasivas, objeto y Z a la derecha. El sonido, en Ajustes. -->
-      <div class="pause-cols pz-grid">
-        <div id="pause-sum" class="pause-sum"></div>
+    <div class="fs-body">
+      <div class="fs-col">
+        <div id="pause-who" class="fs-who"></div>
+        <nav class="fs-menu" data-nav data-nav-cols="1" aria-label="Pausa">
+          <button id="btn-resume" class="fs-mbtn pri" data-ico="play" data-ico-size="22"><span>Continuar</span></button>
+          <button id="pause-build" class="fs-mbtn"><span class="fs-mi" data-item-ico="build"></span><span id="pause-build-t">Planear build</span></button>
+          <button id="btn-pause-cmp" class="fs-mbtn" data-ico="book" data-ico-size="22"><span>Compendio</span></button>
+          <button id="btn-pause-settings" class="fs-mbtn" data-ico="gear" data-ico-size="22"><span>Ajustes</span></button>
+          <button id="btn-quit" class="fs-mbtn danger" data-ico="logout" data-ico-size="22"><span class="quit-t">Abandonar run</span></button>
+        </nav>
       </div>
+      <section class="fs-panel fs-read">
+        <p id="pause-coop" class="fs-warn hidden"><b>Cooperativo: la partida sigue.</b> <span>Tu Pokémon se queda quieto, pero te pueden golpear: si te dan, el borde se pone rojo y el mando vibra.</span></p>
+        <div class="fs-pages" role="tablist" aria-label="Pausa">
+          <span class="pad-hint" data-pad-act="tabPrev"></span>
+          <button class="fs-page on" type="button" role="tab" aria-selected="true" data-page="atk">Ataques</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="pas">Pasivas y objetos</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="stats">Estadísticas</button>
+          <span class="pad-hint" data-pad-act="tabNext"></span>
+        </div>
+        <div id="pause-sum" class="fs-scroll pause-sum" data-page="atk"></div>
+        <div class="pause-hint">
+          <p class="kbd-hint"><kbd>WASD</kbd> moverse · <kbd>1</kbd>–<kbd>4</kbd> movimiento · <kbd>Q</kbd>/<kbd>E</kbd> ciclar · <kbd>Esc</kbd> pausa</p>
+          <p class="pad-hint" id="pause-pad-hint"></p>
+          <p class="touch-hint">Arrastra el dedo para moverte · toca un ataque para cambiarlo</p>
+        </div>
+      </section>
     </div>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Aceptar</span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="back"></span>Continuar</span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="discard"></span>Compendio</span>
+      <span class="fs-act" id="pause-y-hint"><span class="pad-hint" data-pad-act="reroll"></span>Planear build</span>
+      <span class="fs-sp"></span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="tabPrev"></span><span class="pad-hint" data-pad-act="tabNext"></span>Páginas</span>
+    </footer>
   </div>
 </section>
 
-<!-- Resumen final: hoja con «Volver al menú» siempre abajo. -->
-<section id="scr-over" class="scr dim hidden">
-  <div class="box sheet-box over-box">
-    <div class="sheet-body over-body">
-      <header class="over-hero">
-        <span id="over-ico" class="ico-tile l round over-ico"></span>
-        <p class="eyebrow">Resumen de la partida</p>
-        <h2 id="over-title">Has caído…</h2>
-        <p id="over-record" class="over-record hidden">¡Nuevo récord de tiempo!</p>
-      </header>
-      <div id="over-stats" class="over-stats"></div>
+<!-- Resumen final: plantilla «Menú». Las monedas y «Volver al menú» a la izquierda; a la derecha, para leer, el
+     resumen, los movimientos y los shinies (LB / RB). -->
+<section id="scr-over" class="scr dim fs-scr hidden">
+  <div class="box fs t-menu over-box">
+    <header class="fs-head over-hero">
+      <span id="over-ico" class="ico-tile l round over-ico"></span>
+      <div class="over-ttl"><p class="eyebrow">Resumen de la partida</p><h2 id="over-title">Has caído…</h2></div>
+      <p id="over-record" class="over-record hidden">¡Nuevo récord de tiempo!</p>
+    </header>
+    <div class="fs-body">
+      <div class="fs-col">
+        <div id="over-coins"></div>
+        <nav class="fs-menu" data-nav data-nav-cols="1" aria-label="Resumen de la partida">
+          <button id="btn-again" class="fs-mbtn pri" data-ico="back" data-ico-size="22"><span>Volver al menú</span></button>
+        </nav>
+      </div>
+      <section class="fs-panel fs-read">
+        <div class="fs-pages" role="tablist" aria-label="Resumen de la partida">
+          <span class="pad-hint" data-pad-act="tabPrev"></span>
+          <button class="fs-page on" type="button" role="tab" aria-selected="true" data-page="sum">Resumen</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="moves">Movimientos</button>
+          <button class="fs-page" type="button" role="tab" aria-selected="false" data-page="caught" id="over-pg-caught">Shinies</button>
+          <span class="pad-hint" data-pad-act="tabNext"></span>
+        </div>
+        <div id="over-stats" class="fs-scroll over-stats" data-page="sum"></div>
+      </section>
     </div>
-    <footer class="sheet-foot over-foot">
-      <button id="btn-again" class="btn gold big">Volver al menú</button>
+    <footer class="fs-bar" aria-hidden="true">
+      <span class="fs-act"><span class="pad-hint" data-pad-act="ok"></span>Volver al menú</span>
+      <span class="fs-sp"></span>
+      <span class="fs-act"><span class="pad-hint" data-pad-act="tabPrev"></span><span class="pad-hint" data-pad-act="tabNext"></span>Páginas</span>
     </footer>
   </div>
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=9b2c8b9a0f"></script>
+<script defer src="js/app.min.js?v=b9d04bdb36"></script>
 </body>
 </html>

@@ -140,10 +140,10 @@ G.BuildUI = (() => {
     const atk = [];
     for (let i = 0; i < M.m; i++) {
       const id = b.m[i];
-      if (!id) { atk.push(`<div class="bld-mrow">${free('m')}</div>`); continue; }
+      if (!id) { atk.push(`<div class="bld-mrow" data-nav-row>${free('m')}</div>`); continue; }
       const d = G.Moves.BY_ID[id], f = G.Build.has(b, 'f', id);
       const fuseFull = !f && b.f.length >= M.f;
-      atk.push(`<div class="bld-mrow${f ? ' fused' : ''}">`
+      atk.push(`<div class="bld-mrow${f ? ' fused' : ''}" data-nav-row>`
         + slot('m:' + id, i, `<span class="ico-tile s tint" style="--tile-c:${typeCol(d.type)}">${G.Icons.html('move:' + id, 30)}</span>`
           + `<span class="bld-st"><b>${G.T(d.name)}</b>${needHtml(id, b)}</span><span class="bld-x" aria-hidden="true">${G.UI.svg('close', 14)}</span>`, 'mv', G.I18n.f('Quitar {x}', G.T(d.name)))
         + `<button class="bld-fuse${f ? ' on' : ''}" type="button" data-fuse="${id}" aria-pressed="${f}"${fuseFull ? ' disabled' : ''} title="${esc(G.T(f ? 'No fusionar' : 'Fusionar en un vínculo'))}">`
@@ -166,7 +166,8 @@ G.BuildUI = (() => {
       itT.push(slot('i:' + id, i, `<span class="ico-tile s">${G.Icons.html(id, 30)}</span><span class="bld-st"><b>${G.T(it.name)}</b></span>`
         + `<span class="bld-x" aria-hidden="true">${G.UI.svg('close', 14)}</span>`, 'it', G.I18n.f('Quitar {x}', G.T(it.name))));
     }
-    const sec = (lbl, n, max, tiles, cls) => `<section class="bld-sec ${cls}"><h3><span>${lbl}</span> <small>${n}/${max}</small></h3><div class="bld-slots">${tiles.join('')}</div></section>`;
+    // (1.0, bloque J) Orden del mando (ui/nav.js): cada ataque del plan, una fila (con su fusión); pasivas y objetos, otra.
+    const sec = (lbl, n, max, tiles, cls) => `<section class="bld-sec ${cls}"><h3><span>${lbl}</span> <small>${n}/${max}</small></h3><div class="bld-slots"${cls === 'bs-m' ? '' : ' data-nav-row'}>${tiles.join('')}</div></section>`;
     const fuseNote = b.f.length === 1 ? `<p class="bld-note">${G.T('Marca al menos dos ataques para fusionarlos.')}</p>` : '';
     $('bld-plan').innerHTML = `<p class="bld-how">${G.Icons.html('build', 30)}<span>${G.T('En la partida, lo que sea de tu build lleva este sello en las cartas, los objetos y la pausa. Sólo es una ayuda: no cambia lo que sale.')}</span></p>`
       + sec(G.T('Ataques'), b.m.length, M.m, atk, 'bs-m') + fuseNote
