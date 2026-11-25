@@ -458,7 +458,17 @@ Pedido del dueño: «que los menús ocupen toda la pantalla» y «que la navegac
 - **Barra de abajo** `.fs-bar`: qué hace cada botón del mando aquí; sólo con mando (`body.pad`). En estas pantallas no sale la barra general (`pad-ui.js`).
 - **1 Menú** (`.t-menu`: pausa, resumen): cabecera (`.fs-head`, título y píldoras `.fs-pill`); a la izquierda `.fs-col` (tarjeta `.fs-who` y botones grandes `.fs-mbtn`, `.pri` el principal, `.danger` el de salir, separado); a la derecha `.fs-read` con páginas `.fs-page` y `.fs-scroll` (cada página es un `.fs-pg[data-pg]`; `setPage` en `run-ui.js`).
 - **4 Elección** (`.t-pick`: nivel, objeto, vínculo): las cartas en fila y grandes, sus botones debajo.
-- **2 Catálogo y 3 Lista**: maquetadas (Pokédex, Mejoras), se pasan en el bloque J.
+- **2 Catálogo** (`.t-cat`: Pokédex, tienda, Planear build) y **3 Lista** (`.t-list`: Mejoras, mochila, misiones, perfil, novedades, partidas, ranking, amigos, sala, compendio, ajustes, aviso legal): pasadas en el bloque J (25-11-2026).
+
+**Bloque J (1.0, 25-11-2026): todas las pantallas a las plantillas.**
+- Conversión de una hoja `.sheet-box` a plantilla: `scr` + `fs-scr`, `box fs sheet-box t-list|t-cat`, zona `data-nav` y `<footer class="fs-bar" data-auto aria-hidden="true">` al final del panel. Las ventanas cortas (`.mcard`: confirmar, avisos) siguen de tarjeta.
+- **`data-nav-auto`** (en la zona o en una fila): las filas son las líneas en que se ve lo de dentro, en orden de lectura (`G.Nav.lines`). Para listas que cambian (misiones, ranking, amigos, ajustes) sin marcar fila a fila.
+- Una fila puede ser **el propio botón** (`<button data-nav-row>`). Una **etiqueta** que envuelve un desplegable o un campo cuenta como ese desplegable o campo; la de un campo que está en otro sitio, nada.
+- **Fuera de las plantillas** (barra de arriba, botones de la aldea, «Pulsa para empezar») el orden también es fijo: el de lectura. Ya no existe la búsqueda «del vecino más cercano» en `gamepad.js` (quitados `pick` y `scrollerFor`). Al redibujarse una pantalla, la selección vuelve a la misma fila y columna; LT / RT dejan la selección en lo primero que se ve de la página.
+- **La especificación** de cada pantalla va en `G.PadUI.SPEC[id]` (`pad-ui.js`): `first` (dónde empieza), `x` / `y` / `lb` / `rb` / `lt` / `rt` (`{sel | fn, when, label}`), `tabs`, `back`. `data-pad-ok="…"` cambia el nombre de A. `when` vale también para los atajos por selector.
+- **Ficha que sigue al cursor**: el evento `nav-focus` (lo lanza `gamepad.js` al mover) lo escuchan la Pokédex, el Compendio y Mejoras para enseñar la ficha de lo seleccionado (en el ordenador; en el móvil la ficha tapa la lista y se abre con A).
+- **Pokédex**: rejilla (zona) + ficha; A entra en la ficha (`detailMode`, que salta la rejilla con `data-nav-skip`) y B sale; LB / RB región, X filtros, Y orden. **Mejoras**: pestañas por apartado (LB / RB), una columna de mejoras con su detalle, X ×1 / Máx., Y planear build, LT / RT cambian de Pokémon.
+- `G.Pad.refocus()`: vuelve a poner la selección en el `first` de la pantalla (tras cambiar de pestaña o de modo).
 - **Cooperativo** en la pausa: aviso `.fs-warn`, borde rojo (`#scr-pause.coop`) y destello al recibir un golpe (`.hit`), la vida al día cada 200 ms.
 - Responsive: escritorio dos columnas; móvil tumbado más bajo (botones de 40 px); ventana estrecha de pie, una columna con los botones arriba. El móvil de pie gira y usa la de tumbado.
 

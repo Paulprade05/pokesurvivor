@@ -6,6 +6,16 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-25', title: ["Todos los menús, pensados para mando", "Every menu, built for a controller"], chg: [
+    ["Pokédex, Mejoras, Planear build, Gacha, Tienda, Mochila, Misiones, Perfil, Novedades, Partidas, Ranking, Amigos, Sala de cooperativo, Compendio, Ajustes y Aviso legal ocupan ahora toda la pantalla, como en una consola.",
+     "Pokédex, Upgrades, Plan build, Gacha, Shop, Bag, Missions, Profile, News, Runs, Leaderboard, Friends, Co-op lobby, Compendium, Settings and Legal notice now fill the whole screen, like on a console."],
+    ["Con mando, en cada pantalla el cursor va por una sola zona y siempre en el mismo orden (de arriba abajo y de izquierda a derecha); ya no salta a lo que «cae más cerca». LB / RB (L1 / R1) cambian de pestaña o de región, LT / RT (L2 / R2) de página, B siempre vuelve atrás y abajo sale qué hace cada botón.",
+     "With a controller, the cursor on each screen moves through a single area and always in the same order (top to bottom, left to right); it no longer jumps to whatever is “closest”. LB / RB (L1 / R1) switch tab or region, LT / RT (L2 / R2) switch page, B always goes back and the bottom shows what each button does."],
+    ["Pokédex con mando: A abre la ficha del Pokémon y la recorres con la cruceta; X abre los filtros e Y el orden. En el ordenador, la ficha sigue al cursor (también en el Compendio).",
+     "Pokédex with a controller: A opens the Pokémon's page and you browse it with the D-pad; X opens the filters and Y the sort order. On a computer, the page follows the cursor (in the Compendium too)."],
+    ["Mejoras por apartados (LB / RB) con el detalle de la elegida, X para ×1 / Máx., Y para planear la build y LT / RT para cambiar de Pokémon.",
+     "Upgrades split into sections (LB / RB) with the details of the selected one, X for ×1 / Max, Y to plan the build and LT / RT to switch Pokémon."]] },
+
   { d: '2026-11-25', title: ["Pausa y cartas a pantalla completa", "Full-screen pause and cards"], chg: [
     ["La pausa, las cartas de nivel, de objeto y de vínculo y el resumen final ocupan toda la pantalla: ya no se ve la partida detrás.",
      "The pause screen, the level-up, item and bond cards and the end-of-run summary now fill the whole screen: the game no longer shows behind them."],
