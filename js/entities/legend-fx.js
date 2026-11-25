@@ -1349,6 +1349,745 @@ G.LegendFX = (() => {
     }
   });
 
+  // ================= tanda 3 (25-11-2026): cuarta generación =================
+
+  /** Lago quieto del trío de los lagos: crece, brilla con reflejos y ondas de su color y se seca al final. Da cuánto hay. */
+  function lake(ctx, l, k, now, col) {
+    const f = ease(cl((k - 0.04) / 0.26)) * (1 - ease(cl((k - 0.86) / 0.14)));
+    if (f <= 0) return 0;
+    const rx = 78 * f, ry = 26 * f;
+    ctx.globalAlpha = 0.85; ctx.fillStyle = '#1d4f7a'; ctx.beginPath(); ctx.ellipse(l.x, l.y, rx, ry, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.7; ctx.fillStyle = '#3d86b8'; ctx.beginPath(); ctx.ellipse(l.x, l.y - 2, rx * 0.82, ry * 0.7, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#d8f0ff';
+    for (let i = 0; i < 6; i++) {
+      const ph = (now * 0.6 + H(l.seed, i, 131)) % 1;
+      ctx.globalAlpha = 0.6 * Math.sin(ph * Math.PI) * f;
+      ctx.fillRect(Math.round(l.x + (H(l.seed, i, 132) - 0.5) * rx * 1.3), Math.round(l.y + (H(l.seed, i, 133) - 0.5) * ry * 1.1), 6 + Math.round(H(l.seed, i, 134) * 8), 1);
+    }
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const ph = (now * 0.8 + i / 3) % 1;
+      ctx.globalAlpha = 0.6 * (1 - ph) * f; ctx.beginPath(); ctx.ellipse(l.x, l.y, 8 + rx * 0.8 * ph, 3 + ry * 0.8 * ph, 0, 0, TAU); ctx.stroke();
+    }
+    glow(ctx, l.x, l.y, rx * 1.1, ry * 1.4, col, 0.35 * f);
+    return f;
+  }
+  /** Los tres del lago: suben del agua y quedan flotando un poco (a 0 al acabar, donde sale el de verdad). */
+  const lakeSprite = (k, r0, r1) => ({ a: k > r0 - 0.02 ? 1 : 0, rise: 1 - ease(cl((k - r0) / (r1 - r0))), lift: 16 * Math.sin(Math.PI * cl((k - r1) / (1 - r1))), flash: k > 0.76 && k < 0.82 });
+  function lakeCue(l, col) {
+    if (!G.FX) return;
+    G.FX.burst(l.x, l.y, '#d8f0ff', 24, 200);
+    G.FX.ring(l.x, l.y, 10, 130, col, 0.5, 5);
+    shake(l, 0.5);
+  }
+
+  /* ---------- Uxie (480): un lago quieto; letras de luz giran a su alrededor y se recogen en él al salir ---------- */
+  add(480, {
+    title: 'Ser del saber', dur: 2.1, short: 0.85, cue: 0.76,
+    sprite(l, k) { return lakeSprite(k, 0.46, 0.72); },
+    back(ctx, l, k, now) { ctx.save(); lake(ctx, l, k, now, '#ffd84a'); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Ocho signos de luz que se encienden uno a uno y giran en corro; al llegar se recogen en él.
+      const back = ease(cl((k - 0.62) / 0.14));
+      for (let i = 0; i < 8; i++) {
+        const on = cl((k - 0.2 - i * 0.03) / 0.06) * (1 - cl((k - 0.78) / 0.06));
+        if (on <= 0) continue;
+        const an = i / 8 * TAU + now * 0.9, d = 64 * (1 - back) + 6;
+        const x = l.x + Math.cos(an) * d, y = l.y - 46 + Math.sin(an) * d * 0.4;
+        glow(ctx, x, y, 12, 12, '#ffd84a', 0.6 * on);
+        ctx.globalAlpha = on; ctx.fillStyle = '#ffe680';
+        // Cada signo, un dibujo distinto de dos o tres trazos.
+        const p = Math.floor(H(l.seed, i, 135) * 4), X = Math.round(x), Y = Math.round(y);
+        ctx.fillRect(X - 3, Y - 4, 2, 8);
+        if (p === 0) ctx.fillRect(X - 3, Y - 4, 7, 2);
+        else if (p === 1) { ctx.fillRect(X - 3, Y, 7, 2); ctx.fillRect(X + 2, Y - 4, 2, 8); }
+        else if (p === 2) ctx.fillRect(X - 3, Y + 2, 7, 2);
+        else { ctx.fillRect(X + 1, Y - 4, 2, 4); ctx.fillRect(X - 3, Y + 2, 7, 2); }
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 40, 46, '#ffd84a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { lakeCue(l, '#ffd84a'); }
+  });
+
+  /* ---------- Mesprit (481): un lago quieto; chispas rosas suben del agua en parejas que se enlazan y laten al salir ---------- */
+  add(481, {
+    title: 'Ser de la emoción', dur: 2.1, short: 0.85, cue: 0.76,
+    sprite(l, k) { return lakeSprite(k, 0.46, 0.72); },
+    back(ctx, l, k, now) { ctx.save(); lake(ctx, l, k, now, '#ff7ab8'); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const on = cl((k - 0.18) / 0.1) * (1 - cl((k - 0.86) / 0.12));
+      if (on > 0) {
+        for (let i = 0; i < 5; i++) {
+          const ph = (now * 0.5 + H(l.seed, i, 136)) % 1, bx = l.x + (H(l.seed, i, 137) - 0.5) * 110, by = l.y - ph * 130;
+          for (let j = 0; j < 2; j++) {
+            const x = bx + Math.sin(now * 4 + j * Math.PI + i) * 8;
+            ctx.globalAlpha = on * Math.sin(ph * Math.PI); ctx.fillStyle = j ? '#ffffff' : '#ff7ab8';
+            ctx.beginPath(); ctx.arc(x, by, j ? 2 : 3, 0, TAU); ctx.fill();
+          }
+          glow(ctx, bx, by, 10, 10, '#ff7ab8', 0.5 * on * Math.sin(ph * Math.PI));
+        }
+      }
+      // Al salir: tres latidos de luz rosa.
+      const b = cl((k - 0.72) / 0.28);
+      if (b > 0 && b < 1) {
+        ctx.strokeStyle = '#ff9ac8'; ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          const r = cl(b * 1.6 - i * 0.3);
+          if (r <= 0 || r >= 1) continue;
+          ctx.globalAlpha = 0.8 * (1 - r); ctx.beginPath(); ctx.ellipse(l.x, l.y - 36, 14 + 70 * r, 10 + 44 * r, 0, 0, TAU); ctx.stroke();
+        }
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 40, 46, '#ff7ab8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { lakeCue(l, '#ff7ab8'); }
+  });
+
+  /* ---------- Azelf (482): un lago quieto; tres estelas azules lo cruzan rápido y él sale del agua de un salto ---------- */
+  add(482, {
+    title: 'Ser de la voluntad', dur: 2.0, short: 0.8, cue: 0.72,
+    sprite(l, k) { return lakeSprite(k, 0.6, 0.7); },
+    back(ctx, l, k, now) { ctx.save(); lake(ctx, l, k, now, '#4aa8ff'); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Tres pasadas en distintas direcciones, cada una una raya con la punta blanca.
+      for (let i = 0; i < 3; i++) {
+        const t0 = 0.24 + i * 0.1, f = cl((k - t0) / 0.09);
+        if (f <= 0 || f >= 1) continue;
+        const an = i * 2.1 + H(l.seed, i, 138) * 0.5, dx = Math.cos(an), dy = Math.sin(an) * 0.35;
+        const hx = l.x + dx * (-130 + 260 * f), hy = l.y - 30 + dy * (-130 + 260 * f);
+        for (let j = 0; j < 6; j++) {
+          ctx.globalAlpha = (1 - j / 6) * 0.9; ctx.fillStyle = j ? '#4aa8ff' : '#ffffff';
+          ctx.beginPath(); ctx.ellipse(hx - dx * j * 12, hy - dy * j * 12, 6 - j * 0.6, 3, an, 0, TAU); ctx.fill();
+        }
+        glow(ctx, hx, hy, 22, 14, '#4aa8ff', 0.6);
+      }
+      // Remolino rápido en el agua justo antes de saltar.
+      const sw = cl((k - 0.5) / 0.08) * (1 - cl((k - 0.7) / 0.06));
+      if (sw > 0) {
+        ctx.fillStyle = '#d8f0ff';
+        for (let i = 0; i < 10; i++) {
+          const an = i / 10 * TAU + now * 9, d = 14 + 30 * (1 - sw * 0.5);
+          ctx.globalAlpha = 0.8 * sw; ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * d, l.y + Math.sin(an) * d * 0.35, 4, 1.5, an + 1.6, 0, TAU); ctx.fill();
+        }
+      }
+      if (k > 0.72) glow(ctx, l.x, l.y - 40, 40, 46, '#4aa8ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { lakeCue(l, '#4aa8ff'); if (G.FX) G.FX.burst(l.x, l.y - 30, '#4aa8ff', 14, 260); }
+  });
+
+  /* ---------- Dialga (483): un diamante late cada vez más despacio, el tiempo se para (ondas y piedras quietas) y vuelve ---------- */
+  // «Tiempo» que pasa en la animación: normal, se frena hasta pararse, quieto y, al llegar él, corre deprisa.
+  const dialT = k => (k < 0.3 ? k : k < 0.55 ? 0.3 + (k - 0.3) - (k - 0.3) * (k - 0.3) / 0.5 : k < 0.74 ? 0.425 : 0.425 + 3 * (k - 0.74));
+  add(483, {
+    title: 'Señor del tiempo', dur: 2.4, short: 0.95, cue: 0.74,
+    sprite(l, k) { return { a: cl((k - 0.6) / 0.14), rise: 0, lift: 0, flash: k > 0.74 && k < 0.8, scan: k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const T = dialT(k), frz = cl((k - 0.45) / 0.1) * (1 - cl((k - 0.74) / 0.06));
+      // Mientras está parado, el suelo se apaga en un azul gris.
+      if (frz > 0) { ctx.globalAlpha = 0.3 * frz; ctx.fillStyle = '#2a3a5a'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 150, 56, 0, 0, TAU); ctx.fill(); }
+      // Ondas que salen y se quedan quietas.
+      ctx.strokeStyle = '#7ac8ff'; ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        const r = cl((T - 0.05 - i * 0.1) / 0.3);
+        if (r <= 0 || r >= 1) continue;
+        ctx.globalAlpha = 0.7 * (1 - r * 0.7) * (1 - cl((k - 0.9) / 0.1)); ctx.beginPath(); ctx.ellipse(l.x, l.y, 20 + 130 * r, 8 + 48 * r, 0, 0, TAU); ctx.stroke();
+      }
+      dropShadow(ctx, l, cl((k - 0.5) / 0.24), 0, 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const T = dialT(k), frz = cl((k - 0.45) / 0.1) * (1 - cl((k - 0.74) / 0.06));
+      // Piedras que saltan del suelo, se paran en el aire y caen cuando el tiempo vuelve.
+      for (let i = 0; i < 8; i++) {
+        const t = T - 0.12 - H(l.seed, i, 141) * 0.08;
+        if (t <= 0) continue;
+        const h = 667 * t - 1111 * t * t;         // (sube y baja; parado cuando T no avanza)
+        if (h < 0 && t > 0.2) continue;
+        const x = l.x + (H(l.seed, i, 142) - 0.5) * 200 + (H(l.seed, i, 143) - 0.5) * 60 * t, y = l.y + (H(l.seed, i, 144) - 0.5) * 50 - Math.max(0, h);
+        glow(ctx, x, y, 12, 10, '#7ac8ff', 0.5 * frz);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#4a5068'; ctx.fillRect(Math.round(x - 6), Math.round(y - 5), 12, 10);
+        ctx.fillStyle = '#8a92b0'; ctx.fillRect(Math.round(x - 6), Math.round(y - 5), 12, 4);
+        ctx.fillStyle = '#c8d4ee'; ctx.fillRect(Math.round(x - 5), Math.round(y - 5), 5, 2);
+      }
+      // El diamante: late, cada vez más despacio; parado, brilla quieto; al llegar se rompe en luz.
+      const on = cl((k - 0.04) / 0.12) * (1 - cl((k - 0.74) / 0.04));
+      if (on > 0) {
+        const pu = 0.75 + 0.25 * Math.cos(T * 60), s = (9 + 3 * pu) * on, x = l.x, y = l.y - 64;
+        glow(ctx, x, y, 30 * pu, 30 * pu, '#5ab0ff', 0.7 * on);
+        ctx.globalAlpha = on; ctx.fillStyle = '#5ab0ff';
+        ctx.beginPath(); ctx.moveTo(x, y - s * 1.4); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s * 1.4); ctx.lineTo(x - s, y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e6f4ff'; ctx.beginPath(); ctx.moveTo(x, y - s * 0.9); ctx.lineTo(x + s * 0.4, y); ctx.lineTo(x, y + s * 0.3); ctx.lineTo(x - s * 0.4, y); ctx.closePath(); ctx.fill();
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 56, 60, '#5ab0ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 60, '#c8e4ff', 26, 240);
+      G.FX.ring(l.x, l.y, 10, 170, '#5ab0ff', 0.55, 6);
+      shake(l, 1.2);
+    }
+  });
+
+  /* ---------- Palkia (484): el aire se rasga en una grieta con estrellas; baja por ella y la grieta se cierra ---------- */
+  add(484, {
+    title: 'Señor del espacio', dur: 2.3, short: 0.9, cue: 0.75,
+    sprite(l, k) { const e = cl((k - 0.45) / 0.3); return { a: cl((k - 0.45) / 0.1), rise: 0, lift: 80 * (1 - ease(e)), flash: k > 0.75 && k < 0.81 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.15 && k < 0.72 && Math.random() < dt * 20) {
+        const an = Math.random() * TAU, d = 90 + Math.random() * 40;
+        G.FX.px(l.x + Math.cos(an) * d, l.y - 80 + Math.sin(an) * d * 0.6, '#ffb0e0', { vx: -Math.cos(an) * 120, vy: -Math.sin(an) * 70, life: 0.6, drag: 0.95 });
+      }
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // El suelo se dobla: elipses que se estiran y encogen.
+      const w = cl((k - 0.1) / 0.2) * (1 - cl((k - 0.85) / 0.15));
+      if (w > 0) {
+        ctx.strokeStyle = '#d888c8'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          const r = 30 + i * 28, wv = 1 + 0.18 * Math.sin(now * 3 + i * 1.3);
+          ctx.globalAlpha = 0.5 * w * (1 - i * 0.18); ctx.beginPath(); ctx.ellipse(l.x, l.y, r * wv, r * 0.38 / wv, 0, 0, TAU); ctx.stroke();
+        }
+      }
+      // La grieta en el aire: se abre de arriba abajo, se ensancha y se cierra al llegar.
+      const op = ease(cl((k - 0.1) / 0.22)) * (1 - ease(cl((k - 0.78) / 0.14)));
+      if (op > 0) {
+        const wd = ease(cl((k - 0.28) / 0.2)), cx = l.x, cy = l.y - 90, hh = 100 * op, ww = 3 + 34 * wd * op;
+        glow(ctx, cx, cy, ww + 30, hh + 20, '#ff7ad0', 0.55 * op);
+        ctx.globalAlpha = 0.9; ctx.fillStyle = '#ff9ad8'; ctx.beginPath(); ctx.ellipse(cx, cy, ww + 3, hh + 3, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1; ctx.fillStyle = '#160a2e'; ctx.beginPath(); ctx.ellipse(cx, cy, ww, hh, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 12; i++) {
+          const v = H(l.seed, i, 145) * 2 - 1, y = cy + v * hh * 0.9, half = ww * Math.sqrt(Math.max(0, 1 - v * v)) * 0.85;
+          ctx.globalAlpha = 0.5 + 0.5 * Math.sin(now * 5 + i); star4(ctx, cx + (H(l.seed, i, 146) * 2 - 1) * half, y, i % 4 ? 1 : 2);
+        }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      if (k > 0.75) glow(ctx, l.x, l.y - 40, 56, 60, '#ff9ad8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 40, '#ffffff', 22, 240);
+      G.FX.ring(l.x, l.y, 10, 170, '#ff9ad8', 0.55, 6);
+      shake(l, 1.1);
+    }
+  });
+
+  /* ---------- Heatran (485): un corro de púas de acero sale del suelo, se llena de magma y él trepa de dentro ---------- */
+  add(485, {
+    title: 'Corazón del volcán', dur: 2.3, short: 0.9, cue: 0.76,
+    sprite(l, k) { return { a: k > 0.44 ? 1 : 0, rise: 1 - ease(cl((k - 0.46) / 0.3)), lift: 0, flash: k > 0.76 && k < 0.82 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.3 && k < 0.8 && Math.random() < dt * 22) G.FX.px(l.x + (Math.random() - 0.5) * 80, l.y - Math.random() * 8, Math.random() < 0.5 ? '#ffb040' : '#ff6a1a', { vx: (Math.random() - 0.5) * 50, vy: -60 - Math.random() * 60, life: 0.6, drag: 0.92 });
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const m = ease(cl((k - 0.22) / 0.22)), cool = cl((k - 0.82) / 0.18);
+      // El magma de dentro.
+      if (m > 0) {
+        glow(ctx, l.x, l.y, 90 * m, 34 * m, '#ff7a1a', 0.6 * m * (1 - cool * 0.7));
+        ctx.globalAlpha = 0.95 * (1 - cool * 0.6); ctx.fillStyle = cool > 0.5 ? '#7a2a10' : '#d8501a'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 66 * m, 24 * m, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffb040'; ctx.beginPath(); ctx.ellipse(l.x, l.y - 1, 44 * m, 14 * m, 0, 0, TAU); ctx.fill();
+        // Burbujas que crecen y revientan.
+        ctx.fillStyle = '#ffe08a';
+        for (let i = 0; i < 6; i++) {
+          const ph = (now * 1.3 + H(l.seed, i, 151)) % 1;
+          ctx.globalAlpha = (1 - ph) * (1 - cool); ctx.beginPath();
+          ctx.arc(l.x + (H(l.seed, i, 152) - 0.5) * 90 * m, l.y + (H(l.seed, i, 153) - 0.5) * 28 * m, 1 + 4 * ph, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Las púas: salen del suelo una a una en corro; la punta se pone al rojo; al final se hunden.
+      for (let i = 0; i < 10; i++) {
+        const up = ease(cl((k - 0.06 - i * 0.015) / 0.12)) * (1 - ease(cl((k - 0.86) / 0.12)));
+        if (up <= 0) continue;
+        const an = i / 10 * TAU, x = l.x + Math.cos(an) * 80, y = l.y + Math.sin(an) * 30, h = (32 + 14 * H(l.seed, i, 154)) * up;
+        if (Math.sin(an) < -0.2 && k > 0.4) ctx.globalAlpha = 0.75; else ctx.globalAlpha = 1;
+        ctx.fillStyle = '#5a5a68'; ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 9, y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#9a9aac'; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 3, y); ctx.closePath(); ctx.fill();
+        const hot = cl((k - 0.3) / 0.2) * (1 - cl((k - 0.86) / 0.1));
+        if (hot > 0) { ctx.globalAlpha = hot; ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.moveTo(x - 3.5, y - h * 0.65); ctx.lineTo(x, y - h); ctx.lineTo(x + 3.5, y - h * 0.65); ctx.closePath(); ctx.fill(); }
+      }
+      // Gotas de magma que salpican mientras trepa.
+      const sp = cl((k - 0.48) / 0.3);
+      if (sp > 0 && sp < 1) {
+        for (let i = 0; i < 8; i++) {
+          const t = (sp * 2 + H(l.seed, i, 155)) % 1, dir = H(l.seed, i, 156) < 0.5 ? -1 : 1, v = 40 + 50 * H(l.seed, i, 157);
+          ctx.globalAlpha = 1 - t; ctx.fillStyle = i % 2 ? '#ffb040' : '#ff6a1a';
+          ctx.fillRect(Math.round(l.x + dir * v * t), Math.round(l.y - 20 - 90 * t + 120 * t * t), 3, 3);
+        }
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 54, 58, '#ff8a2a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#ff7a1a', 26, 240);
+      G.FX.burst(l.x, l.y - 30, '#c8c8d8', 12, 200);
+      G.FX.ring(l.x, l.y, 10, 160, '#ffb040', 0.55, 6);
+      shake(l, 1.2);
+    }
+  });
+
+  /* ---------- Regigigas (486): tres luces (roca, hielo y acero) llegan y se funden; despierta despacio y pisa dos veces ---------- */
+  BRAILLE[486] = [[-3, 0], [-2, -1], [-1, -1], [0, -1], [1, -1], [2, -1], [3, 0], [-2, 1], [2, 1]];
+  const GIGAS = ['#ff9a3a', '#7ad8ff', '#c8d0dc'];
+  add(486, {
+    title: 'Rey de los colosos', dur: 2.6, short: 1.0, cue: 0.8,
+    sprite(l, k) { return { a: cl((k - 0.48) / 0.08), rise: 0, lift: 0, flash: (k > 0.48 && k < 0.52) || (k > 0.8 && k < 0.85), dark: k < 0.8 ? 1 : 0 }; },
+    tick(l, k) {
+      if (k > 0.87 && !l.g2) { l.g2 = 1; if (G.FX) G.FX.ring(l.x, l.y, 10, 200, '#ffe08a', 0.4, 6); shake(l, 1.3); }
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      braille(ctx, l, k, '#ffe08a', now);
+      dropShadow(ctx, l, cl((k - 0.4) / 0.2), 0, 0.4);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Las tres luces: llegan en espiral desde tres lados y se juntan en él.
+      for (let i = 0; i < 3; i++) {
+        const f = cl((k - 0.08 - i * 0.05) / 0.36);
+        if (f <= 0 || k > 0.5) continue;
+        const e = ease(f), an = Math.PI / 2 + i * TAU / 3 + e * 4, d = 200 * (1 - e) + 4;
+        const x = l.x + Math.cos(an) * d, y = l.y - 44 + Math.sin(an) * d * 0.4;
+        glow(ctx, x, y, 22, 22, GIGAS[i], 0.8);
+        ctx.globalAlpha = 1; ctx.fillStyle = GIGAS[i]; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x - 1, y - 1, 2.5, 0, TAU); ctx.fill();
+      }
+      // Despierta: una fila de luces en su pecho se enciende una a una, despacio.
+      const wake = cl((k - 0.52) / 0.06) * (1 - cl((k - 0.86) / 0.1));
+      if (wake > 0) {
+        for (let i = 0; i < 7; i++) {
+          const on = cl((k - 0.55 - i * 0.03) / 0.04) * wake, x = l.x + (i - 3) * 7, y = l.y - 44 + Math.abs(i - 3) * 2;
+          if (on <= 0) continue;
+          glow(ctx, x, y, 8, 8, '#ffe08a', 0.8 * on);
+          ctx.globalAlpha = on; ctx.fillStyle = i === 3 ? '#ff6a4a' : '#ffe08a'; ctx.fillRect(Math.round(x - 2), Math.round(y - 2), 4, 4);
+        }
+      }
+      if (k > 0.8) glow(ctx, l.x, l.y - 40, 60, 64, '#ffe08a', 0.28 * (1 - cl((k - 0.92) / 0.08) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y, '#c8c0a8', 26, 220);
+      G.FX.ring(l.x, l.y, 10, 170, '#ffe08a', 0.55, 6);
+      shake(l, 1.3);
+    }
+  });
+
+  /* ---------- Giratina (487): se abre en el suelo un pozo oscuro, todo cae hacia arriba y él sale de dentro ---------- */
+  add(487, {
+    title: 'Sombra del mundo inverso', dur: 2.4, short: 0.95, cue: 0.78,
+    sprite(l, k) { return { a: k > 0.38 ? 1 : 0, rise: 1 - ease(cl((k - 0.4) / 0.36)), lift: 0, flash: k > 0.78 && k < 0.84 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const p = ease(cl((k - 0.06) / 0.26)) * (1 - ease(cl((k - 0.8) / 0.18)));
+      if (p > 0) {
+        glow(ctx, l.x, l.y, 100 * p, 36 * p, '#c0303a', 0.5 * p);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#e0b040'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 86 * p + 4, 30 * p + 2, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#a02030'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 86 * p + 2, 30 * p + 1, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#0a0610'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 86 * p, 30 * p, 0, 0, TAU); ctx.fill();
+        // Remolino dentro del pozo.
+        ctx.fillStyle = '#3a1a4a';
+        for (let i = 0; i < 8; i++) {
+          const an = i / 8 * TAU - now * 1.6, d = (20 + 50 * ((i % 3) / 2)) * p;
+          ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * d, l.y + Math.sin(an) * d * 0.35, 9 * p + 1, 2.5, an + 1.6, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const p = cl((k - 0.12) / 0.16) * (1 - cl((k - 0.82) / 0.16));
+      if (p > 0) {
+        // Brazos de sombra que suben del borde y se mecen.
+        for (let i = 0; i < 6; i++) {
+          const an = i / 6 * TAU + 0.3, x = l.x + Math.cos(an) * 70, y = l.y + Math.sin(an) * 24, h = (40 + 50 * H(l.seed, i, 161)) * p;
+          const sw = Math.sin(now * 2.5 + i) * 8;
+          ctx.globalAlpha = 0.75 * p; ctx.fillStyle = '#24102e';
+          ctx.beginPath(); ctx.ellipse(x + sw * 0.5, y - h / 2, 6, h / 2, sw * 0.02, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#c0303a'; ctx.beginPath(); ctx.arc(x + sw, y - h, 2.5, 0, TAU); ctx.fill();
+        }
+        // Lo de alrededor «cae» hacia arriba.
+        for (let i = 0; i < 14; i++) {
+          const ph = (now * 0.7 + H(l.seed, i, 162)) % 1, x = l.x + (H(l.seed, i, 163) - 0.5) * 220, y = l.y + 20 - ph * ph * 220;
+          ctx.globalAlpha = p * (1 - ph); ctx.fillStyle = i % 3 ? '#5a3a6a' : '#e0b040';
+          ctx.fillRect(Math.round(x), Math.round(y), i % 3 ? 3 : 2, i % 3 ? 3 : 2);
+        }
+      }
+      if (k > 0.78) glow(ctx, l.x, l.y - 40, 60, 64, '#c0303a', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 30, '#3a1a4a', 26, 240);
+      G.FX.burst(l.x, l.y - 30, '#e0b040', 10, 200);
+      G.FX.ring(l.x, l.y, 10, 170, '#c0303a', 0.55, 6);
+      shake(l, 1.2);
+    }
+  });
+
+  /* ---------- Cresselia (488): sale una luna creciente; baja de ella en curva dejando una cinta de luz rosa ---------- */
+  const cresP = k => { const e = ease(cl((k - 0.24) / 0.5)); return { e, ox: (70 + 30 * Math.sin(e * TAU)) * (1 - e), lift: 170 * (1 - e) }; };
+  add(488, {
+    title: 'Luz de la luna creciente', dur: 2.3, short: 0.9, cue: 0.76,
+    sprite(l, k) { const p = cresP(k); return { a: cl((k - 0.24) / 0.12), rise: 0, lift: p.lift, ox: p.ox, flash: k > 0.76 && k < 0.82 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // La luna: una media luna en el cielo que se enciende y se apaga al final.
+      const m = cl((k - 0.02) / 0.18) * (1 - cl((k - 0.84) / 0.14));
+      if (m > 0) {
+        const cx = l.x + 70, cy = l.y - 180, r = 28;
+        glow(ctx, cx, cy, 60, 60, '#ffe6b0', 0.6 * m);
+        ctx.globalAlpha = m; ctx.fillStyle = '#fff2c8'; ctx.beginPath();
+        for (let i = 0; i <= 16; i++) { const t = -Math.PI / 2 + i / 16 * Math.PI; ctx.lineTo(cx + Math.cos(t) * r, cy + Math.sin(t) * r); }
+        for (let i = 16; i >= 0; i--) { const t = -Math.PI / 2 + i / 16 * Math.PI; ctx.lineTo(cx + Math.cos(t) * r * 0.3, cy + Math.sin(t) * r * 0.9); }
+        ctx.closePath(); ctx.fill();
+      }
+      // Polvo de luna que cae.
+      const d = cl((k - 0.1) / 0.15) * (1 - cl((k - 0.86) / 0.14));
+      if (d > 0) {
+        for (let i = 0; i < 12; i++) {
+          const ph = (now * 0.35 + H(l.seed, i, 171)) % 1;
+          ctx.globalAlpha = d * Math.sin(ph * Math.PI); ctx.fillStyle = i % 2 ? '#ffb0e0' : '#fff2c8';
+          star4(ctx, l.x + (H(l.seed, i, 172) - 0.5) * 240, l.y - 200 + ph * 220, i % 3 ? 1 : 2);
+        }
+      }
+      // Al llegar, una media luna de luz en el suelo.
+      const g = cl((k - 0.7) / 0.1) * (1 - cl((k - 0.9) / 0.1));
+      if (g > 0) {
+        glow(ctx, l.x, l.y, 70, 24, '#ffb0e0', 0.5 * g);
+        ctx.globalAlpha = 0.6 * g; ctx.fillStyle = '#ffb0e0'; ctx.beginPath();
+        for (let i = 0; i <= 16; i++) { const t = i / 16 * Math.PI; ctx.lineTo(l.x + Math.cos(t) * 60, l.y + Math.sin(t) * 22); }
+        for (let i = 16; i >= 0; i--) { const t = i / 16 * Math.PI; ctx.lineTo(l.x + Math.cos(t) * 60, l.y + Math.sin(t) * 10); }
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // La cinta: por donde ha pasado, puntos rosas que se apagan.
+      const p = cresP(k);
+      if (p.e > 0 && k < 0.92) {
+        for (let j = 1; j <= 10; j++) {
+          const q = cresP(k - j * 0.018), a = (1 - j / 11) * (1 - cl((k - 0.8) / 0.12));
+          if (q.e <= 0 || a <= 0) continue;
+          ctx.globalAlpha = 0.8 * a; ctx.fillStyle = j % 2 ? '#ff9ae0' : '#fff2c8';
+          ctx.beginPath(); ctx.ellipse(l.x + q.ox, l.y - q.lift - 40, 7 - j * 0.5, 3, 0, 0, TAU); ctx.fill();
+        }
+        glow(ctx, l.x + p.ox, l.y - p.lift - 40, 40, 30, '#ff9ae0', 0.4 * (1 - cl((k - 0.8) / 0.12)));
+      }
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 30, '#ffb0e0', 22, 200);
+      G.FX.ring(l.x, l.y, 10, 150, '#fff2c8', 0.5, 5);
+      shake(l, 0.6);
+    }
+  });
+
+  /* ---------- Phione (489): cae una gota grande, salpica en corona, se hace un charco y sale de él entre burbujas ---------- */
+  add(489, {
+    title: 'Gota del mar', dur: 1.9, short: 0.8, cue: 0.7,
+    sprite(l, k) { return { a: k > 0.48 ? 1 : 0, rise: 1 - ease(cl((k - 0.5) / 0.2)), lift: 0, flash: k > 0.7 && k < 0.76 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const p = ease(cl((k - 0.3) / 0.18)) * (1 - ease(cl((k - 0.86) / 0.14)));
+      if (p > 0) {
+        glow(ctx, l.x, l.y, 60 * p, 22 * p, '#6ac8ff', 0.4 * p);
+        ctx.globalAlpha = 0.85; ctx.fillStyle = '#3a8ad0'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 48 * p, 17 * p, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#8ad8ff'; ctx.beginPath(); ctx.ellipse(l.x - 6 * p, l.y - 3 * p, 26 * p, 7 * p, 0, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // La gota que cae.
+      const f = cl((k - 0.04) / 0.26);
+      if (f > 0 && f < 1) {
+        const y = l.y - 220 + 220 * f * f;
+        glow(ctx, l.x, y, 18, 22, '#6ac8ff', 0.5);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#6ac8ff';
+        ctx.beginPath(); ctx.arc(l.x, y, 7, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(l.x - 6, y - 3); ctx.lineTo(l.x, y - 17); ctx.lineTo(l.x + 6, y - 3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(l.x - 3), Math.round(y - 3), 2, 3);
+      }
+      // La corona de la salpicadura.
+      const s = cl((k - 0.3) / 0.2);
+      if (s > 0 && s < 1) {
+        for (let i = 0; i < 10; i++) {
+          const an = i / 10 * TAU, d = 10 + 40 * s, x = l.x + Math.cos(an) * d, y = l.y + Math.sin(an) * d * 0.35 - 50 * s + 60 * s * s;
+          ctx.globalAlpha = 1 - s; ctx.fillStyle = i % 2 ? '#8ad8ff' : '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fill();
+        }
+      }
+      // Burbujas que suben del charco.
+      const b = cl((k - 0.36) / 0.1) * (1 - cl((k - 0.84) / 0.14));
+      if (b > 0) {
+        ctx.strokeStyle = '#d8f4ff'; ctx.lineWidth = 1;
+        for (let i = 0; i < 8; i++) {
+          const ph = (now * 0.9 + H(l.seed, i, 181)) % 1;
+          ctx.globalAlpha = b * (1 - ph); ctx.beginPath();
+          ctx.arc(l.x + (H(l.seed, i, 182) - 0.5) * 70 + Math.sin(now * 4 + i) * 3, l.y - ph * 80, 2 + 3 * H(l.seed, i, 183), 0, TAU); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 10, '#8ad8ff', 16, 160);
+      G.FX.ring(l.x, l.y, 8, 110, '#6ac8ff', 0.45, 4);
+      shake(l, 0.4);
+    }
+  });
+
+  /* ---------- Manaphy (490): baja un huevo azul con el corazón rojo, late, se agrieta y se abre ---------- */
+  add(490, {
+    title: 'Príncipe del mar', dur: 2.2, short: 0.9, cue: 0.72,
+    sprite(l, k) { return { a: k > 0.72 ? 1 : 0, rise: 0, lift: 40 * (1 - ease(cl((k - 0.72) / 0.22))), flash: k > 0.72 && k < 0.78 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = cl((k - 0.1) / 0.2) * (1 - cl((k - 0.88) / 0.12));
+      if (g > 0) { glow(ctx, l.x, l.y, 80, 28, '#4ab0ff', 0.45 * g); ctx.globalAlpha = 0.35 * g; ctx.fillStyle = '#2a80c8'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 60, 20, 0, 0, TAU); ctx.fill(); }
+      dropShadow(ctx, l, cl((k - 0.2) / 0.3) * (1 - cl((k - 0.75) / 0.1)), 0, 0.25);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El huevo: baja meciéndose y se queda flotando; late cada vez más deprisa.
+      const d = ease(cl((k - 0.04) / 0.36)), y = l.y - 150 + 110 * d + Math.sin(now * 2) * 3 * d, x = l.x + Math.sin(k * 14) * 10 * (1 - d);
+      if (k < 0.72) {
+        const wob = k > 0.45 ? Math.sin(now * 30) * 0.12 * cl((k - 0.45) / 0.2) : 0, pu = 0.5 + 0.5 * Math.sin(k * (30 + 60 * k));
+        glow(ctx, x, y, 26, 30, '#6ac8ff', 0.6);
+        ctx.globalAlpha = 0.9; ctx.fillStyle = '#4aa0e8'; ctx.beginPath(); ctx.ellipse(x, y, 15, 18, wob, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.ellipse(x - 4, y - 6, 6, 7, wob, 0, TAU); ctx.fill();
+        glow(ctx, x, y + 2, 12, 12, '#ff3a3a', 0.5 + 0.4 * pu);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#e8303a'; ctx.beginPath(); ctx.arc(x, y + 2, 4 + 1.5 * pu, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffe060';
+        for (let i = 0; i < 4; i++) { const an = i / 4 * TAU + 0.8; ctx.fillRect(Math.round(x + Math.cos(an) * 10), Math.round(y + Math.sin(an) * 12), 2, 2); }
+        const cr = cl((k - 0.55) / 0.15);
+        if (cr > 0) {
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2; ctx.globalAlpha = cr; ctx.beginPath();
+          jag(ctx, x - 12, y - 4, x + 12 * cr - 6, y - 8 + 8 * cr, 4, 3, l.seed); ctx.stroke();
+        }
+      } else {
+        // Se abre: los trozos salen a los lados.
+        const b = cl((k - 0.72) / 0.22);
+        if (b < 1) {
+          for (let i = 0; i < 4; i++) {
+            const an = -Math.PI / 4 - i * Math.PI / 6 * (i % 2 ? -1 : 1) + (i > 1 ? Math.PI : 0), dd = 10 + 60 * ease(b);
+            ctx.globalAlpha = 1 - b; ctx.fillStyle = '#4aa0e8';
+            ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * dd, l.y - 40 + Math.sin(an) * dd + 50 * b * b, 8, 5, an, 0, TAU); ctx.fill();
+          }
+        }
+        // Burbujas en corro.
+        const bb = cl((k - 0.72) / 0.28);
+        if (bb < 1) {
+          ctx.strokeStyle = '#d8f4ff'; ctx.lineWidth = 1;
+          for (let i = 0; i < 10; i++) {
+            const an = i / 10 * TAU, dd = 20 + 50 * ease(bb);
+            ctx.globalAlpha = 1 - bb; ctx.beginPath(); ctx.arc(l.x + Math.cos(an) * dd, l.y - 30 + Math.sin(an) * dd * 0.5 - 20 * bb, 3, 0, TAU); ctx.stroke();
+          }
+        }
+        glow(ctx, l.x, l.y - 36, 44, 48, '#6ac8ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      }
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 40, '#9ad8ff', 22, 200);
+      G.FX.ring(l.x, l.y, 10, 130, '#4ab0ff', 0.5, 5);
+      shake(l, 0.5);
+    }
+  });
+
+  /* ---------- Darkrai (491): la oscuridad se extiende, una sombra con ojos asoma aquí y allá y sale del humo negro ---------- */
+  const SHADOW = [0.2, 0.32, 0.44];
+  add(491, {
+    title: 'Señor de las pesadillas', dur: 2.3, short: 0.9, cue: 0.76,
+    sprite(l, k) { return { a: cl((k - 0.62) / 0.14), rise: 0, lift: 0, flash: k > 0.76 && k < 0.8 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const f = ease(cl((k - 0.04) / 0.3)) * (1 - ease(cl((k - 0.84) / 0.16)));
+      if (f > 0) {
+        glow(ctx, l.x, l.y, 150 * f, 56 * f, '#3a1a5a', 0.5 * f);
+        ctx.globalAlpha = 0.6 * f; ctx.fillStyle = '#0e0818'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 140 * f, 52 * f, 0, 0, TAU); ctx.fill();
+        // Borde que se mueve como niebla.
+        for (let i = 0; i < 10; i++) {
+          const an = i / 10 * TAU + Math.sin(now + i) * 0.1, w = 1 + 0.15 * Math.sin(now * 2 + i * 2);
+          ctx.globalAlpha = 0.5 * f; ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * 140 * f * w, l.y + Math.sin(an) * 52 * f, 22 * f, 9 * f, 0, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Sombras que asoman un momento: una figura oscura con un ojo azul.
+      for (let i = 0; i < 3; i++) {
+        const m = cl((k - SHADOW[i]) / 0.03) * (1 - cl((k - SHADOW[i] - 0.08) / 0.03));
+        if (m <= 0) continue;
+        const x = l.x + (i === 1 ? 1 : -1) * (70 + 50 * H(l.seed, i, 191)), y = l.y - 4 + (H(l.seed, i, 192) - 0.5) * 30;
+        ctx.globalAlpha = 0.85 * m; ctx.fillStyle = '#120a1c';
+        ctx.beginPath(); ctx.ellipse(x, y - 30, 14, 30, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x, y - 62, 10, 8, 0, 0, TAU); ctx.fill();
+        glow(ctx, x + 3, y - 62, 8, 6, '#5ae0ff', m);
+        ctx.globalAlpha = m; ctx.fillStyle = '#5ae0ff'; ctx.fillRect(Math.round(x + 1), Math.round(y - 63), 4, 2);
+      }
+      // Humo negro que se arremolina hacia el centro y se deshace al salir.
+      const s = cl((k - 0.48) / 0.08) * (1 - cl((k - 0.78) / 0.12));
+      if (s > 0) {
+        for (let i = 0; i < 12; i++) {
+          const an = i / 12 * TAU + now * 2.2, d = 16 + 60 * (1 - ease(cl((k - 0.48) / 0.3))) + 10 * (i % 2);
+          ctx.globalAlpha = 0.75 * s; ctx.fillStyle = i % 3 ? '#1a1024' : '#3a1a5a';
+          ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * d, l.y - 40 + Math.sin(an) * d * 0.7, 12, 9, 0, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 40, '#1a1024', 26, 220);
+      G.FX.burst(l.x, l.y - 50, '#5ae0ff', 8, 160);
+      G.FX.ring(l.x, l.y, 10, 160, '#6a3aa0', 0.55, 6);
+      shake(l, 0.9);
+    }
+  });
+
+  /* ---------- Shaymin (492): brotan flores en corro, crece un capullo que se abre y él está dentro; el viento se lleva los pétalos ---------- */
+  add(492, {
+    title: 'Flor de la gratitud', dur: 2.0, short: 0.8, cue: 0.66,
+    sprite(l, k) { return { a: cl((k - 0.52) / 0.08), rise: 0, lift: 0, flash: k > 0.66 && k < 0.72 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = ease(cl((k - 0.04) / 0.2)) * (1 - cl((k - 0.88) / 0.12) * 0.6);
+      if (g > 0) { ctx.globalAlpha = 0.55 * g; ctx.fillStyle = '#5aa83a'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 100 * g, 36 * g, 0, 0, TAU); ctx.fill(); }
+      // Flores que brotan del centro hacia fuera.
+      for (let i = 0; i < 14; i++) {
+        const an = H(l.seed, i, 201) * TAU, d = 30 + 70 * H(l.seed, i, 202), on = ease(cl((k - 0.08 - d / 100 * 0.3) / 0.08)) * (1 - cl((k - 0.9) / 0.1));
+        if (on <= 0) continue;
+        const x = l.x + Math.cos(an) * d, y = l.y + Math.sin(an) * d * 0.36, s = 3 * on;
+        ctx.globalAlpha = 1; ctx.fillStyle = i % 3 ? '#ff9ac8' : '#ffffff';
+        for (let j = 0; j < 5; j++) { const b = j / 5 * TAU; ctx.beginPath(); ctx.arc(x + Math.cos(b) * s, y + Math.sin(b) * s * 0.7, s * 0.8, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = '#ffe060'; ctx.fillRect(Math.round(x - 1), Math.round(y - 1), 2, 2);
+      }
+      // El capullo abierto: cinco pétalos grandes alrededor de él.
+      const o = ease(cl((k - 0.48) / 0.14)) * (1 - cl((k - 0.66) / 0.04));
+      if (o > 0) {
+        for (let i = 0; i < 5; i++) {
+          const an = -Math.PI / 2 + i / 5 * TAU, d = 8 + 22 * o;
+          ctx.globalAlpha = 1; ctx.fillStyle = i % 2 ? '#ff9ac8' : '#ffb8d8';
+          ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * d, l.y - 20 + Math.sin(an) * d * 0.7, 9 + 5 * o, 15, an + Math.PI / 2, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El capullo cerrado crece del suelo.
+      const c = ease(cl((k - 0.16) / 0.26)), op = cl((k - 0.48) / 0.08);
+      if (c > 0 && op < 1) {
+        const y = l.y - 4 - 18 * c;
+        ctx.globalAlpha = 1 - op; ctx.fillStyle = '#3a8a2a'; ctx.fillRect(Math.round(l.x - 1), Math.round(y), 3, Math.round(l.y - y));
+        ctx.fillStyle = '#5ab83a'; ctx.beginPath(); ctx.ellipse(l.x, y, 6 + 8 * c, 10 + 12 * c, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ff9ac8'; ctx.beginPath(); ctx.ellipse(l.x, y - 6 - 8 * c, 3 + 4 * c, 4 + 5 * c, 0, 0, TAU); ctx.fill();
+        glow(ctx, l.x, y, 24, 28, '#ff9ac8', 0.4 * c * (1 - op));
+      }
+      // El viento se lleva los pétalos y semillas hacia un lado.
+      const w = cl((k - 0.66) / 0.32);
+      if (w > 0 && w < 1) {
+        for (let i = 0; i < 12; i++) {
+          const t = cl(w * 1.3 - H(l.seed, i, 203) * 0.3), x = l.x + (H(l.seed, i, 204) - 0.5) * 50 + 200 * t, y = l.y - 20 - H(l.seed, i, 205) * 40 - 60 * t + Math.sin(t * 12 + i) * 8;
+          ctx.globalAlpha = 1 - t; ctx.fillStyle = i % 3 ? '#ff9ac8' : '#ffffff';
+          ctx.beginPath(); ctx.ellipse(x, y, 4, 2, t * 8 + i, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#ff9ac8', 22, 200);
+      G.FX.ring(l.x, l.y, 10, 130, '#8ae06a', 0.5, 5);
+      shake(l, 0.4);
+    }
+  });
+
+  /* ---------- Arceus (493): un aro de oro en el cielo suelta luces de todos los tipos en corro y él baja por un haz ---------- */
+  const ARC_COLS = ['#a8a878', '#f08030', '#6890f0', '#f8d030', '#78c850', '#98d8d8', '#c03028', '#a040a0', '#e0c068',
+    '#a890f0', '#f85888', '#a8b820', '#b8a038', '#705898', '#7038f8', '#705848', '#b8b8d0', '#ee99ac'];
+  add(493, {
+    title: 'El que dio forma al mundo', dur: 2.6, short: 1.0, cue: 0.78,
+    sprite(l, k) { const e = cl((k - 0.5) / 0.28); return { a: cl((k - 0.5) / 0.1), rise: 0, lift: 150 * (1 - ease(e)), flash: k > 0.78 && k < 0.84 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Las luces de los tipos, en corro en el suelo (llegan desde el aro).
+      const fl = cl((k - 0.78) / 0.04) * (1 - cl((k - 0.82) / 0.14));
+      for (let i = 0; i < 18; i++) {
+        const t0 = 0.16 + i * 0.018, f = cl((k - t0) / 0.14), out = cl((k - 0.86) / 0.12);
+        if (f < 1 || out >= 1) continue;
+        const an = i / 18 * TAU, r = 1 + 0.35 * ease(cl((k - 0.78) / 0.14)), x = l.x + Math.cos(an) * 90 * r, y = l.y + Math.sin(an) * 32 * r;
+        glow(ctx, x, y, 12 + 10 * fl, 8 + 6 * fl, ARC_COLS[i], 0.7 * (1 - out));
+        ctx.globalAlpha = 1 - out; ctx.fillStyle = ARC_COLS[i]; ctx.beginPath(); ctx.ellipse(x, y, 5, 3, 0, 0, TAU); ctx.fill();
+      }
+      // Corro de oro en el suelo, después.
+      const g = cl((k - 0.76) / 0.08) * (1 - cl((k - 0.88) / 0.12));
+      if (g > 0) { ctx.globalAlpha = 0.8 * g; ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(l.x, l.y, 70, 25, 0, 0, TAU); ctx.stroke(); }
+      dropShadow(ctx, l, cl((k - 0.5) / 0.28), 0, 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El aro de oro en lo alto.
+      const ar = cl((k - 0.04) / 0.14) * (1 - cl((k - 0.82) / 0.14)), ay = l.y - 180;
+      if (ar > 0) {
+        glow(ctx, l.x, ay, 80, 30, '#ffd860', 0.6 * ar);
+        ctx.globalAlpha = ar; ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(l.x, ay, 60, 16, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#fff2b0';
+        for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + now * 1.2; ctx.fillRect(Math.round(l.x + Math.cos(an) * 60 - 1), Math.round(ay + Math.sin(an) * 16 - 1), 3, 3); }
+      }
+      // Las luces caen en arco desde el aro hasta su sitio en el corro.
+      for (let i = 0; i < 18; i++) {
+        const t0 = 0.16 + i * 0.018, f = cl((k - t0) / 0.14);
+        if (f <= 0 || f >= 1) continue;
+        const an = i / 18 * TAU, e = ease(f), sx = l.x + Math.cos(an) * 60, sy = ay + Math.sin(an) * 16, ex = l.x + Math.cos(an) * 90, ey = l.y + Math.sin(an) * 32;
+        const x = sx + (ex - sx) * e, y = sy + (ey - sy) * e - Math.sin(e * Math.PI) * 40;
+        glow(ctx, x, y, 12, 12, ARC_COLS[i], 0.7);
+        ctx.globalAlpha = 1; ctx.fillStyle = ARC_COLS[i]; ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
+      }
+      // El haz de oro por el que baja.
+      const bm = cl((k - 0.46) / 0.08) * (1 - cl((k - 0.8) / 0.1));
+      if (bm > 0) {
+        glow(ctx, l.x, l.y - 90, 40, 100, '#ffd860', 0.5 * bm);
+        ctx.globalAlpha = 0.25 * bm; ctx.fillStyle = '#ffe890'; ctx.fillRect(Math.round(l.x - 18), Math.round(ay), 36, Math.round(l.y - ay));
+        ctx.globalAlpha = 0.4 * bm; ctx.fillStyle = '#fff6d0'; ctx.fillRect(Math.round(l.x - 6), Math.round(ay), 12, Math.round(l.y - ay));
+      }
+      if (k > 0.78) glow(ctx, l.x, l.y - 40, 60, 64, '#ffd860', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 30, '#ffd860', 28, 260);
+      G.FX.ring(l.x, l.y, 10, 190, '#ffd860', 0.6, 6);
+      shake(l, 1.3);
+    }
+  });
+
   return {
     add, def, GENERIC,
     /** dex que ya tienen animación propia. */
