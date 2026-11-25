@@ -377,8 +377,8 @@
 
 <!-- ====== Ajustes: hoja con las pestañas a la izquierda (en el móvil de pie, arriba y
      deslizables) y el contenido de cada una a la derecha (settings-ui.js) ====== -->
-<section id="scr-settings" class="scr dim hidden" role="dialog" aria-labelledby="set-title">
-  <div class="box sheet-box set-sheet">
+<section id="scr-settings" class="scr dim fs-scr hidden" role="dialog" aria-labelledby="set-title">
+  <div class="box fs sheet-box t-cat set-sheet">
     <header class="sheet-head">
       <button class="icon-btn" id="set-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" data-ico="gear" aria-hidden="true"></span>
@@ -393,15 +393,16 @@
         <button class="set-tab" type="button" role="tab" data-t="acc" data-tico="crown"><span class="ico-tile s"></span><span class="set-tab-t">Cuenta</span></button>
         <button class="set-tab" type="button" role="tab" data-t="about" data-tico="ball"><span class="ico-tile s"></span><span class="set-tab-t">Acerca de</span></button>
       </nav>
-      <div id="set-body" class="set-body" role="tabpanel" aria-labelledby="set-title"></div>
+      <div id="set-body" class="set-body" role="tabpanel" aria-labelledby="set-title" data-nav data-nav-auto></div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Aviso legal y privacidad: hoja con un apartado por tarjeta; el de borrar
      la cuenta, al final y en rojo (ui.js, openLegal) ====== -->
-<section id="scr-legal" class="scr dim hidden" role="dialog" aria-labelledby="legal-title">
-  <div class="box sheet-box legal-sheet">
+<section id="scr-legal" class="scr dim fs-scr hidden" role="dialog" aria-labelledby="legal-title">
+  <div class="box fs sheet-box t-list legal-sheet" data-nav data-nav-auto>
     <header class="sheet-head">
       <button class="icon-btn" id="legal-close" type="button" data-ico="close" aria-label="Cerrar" title="Cerrar"></button>
       <span class="ico-tile s" id="legal-ico" aria-hidden="true"></span>
@@ -464,6 +465,7 @@
         <p id="legal-del-msg" class="note"></p>
       </section>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 <!-- Pantalla de carga: título, frase y la Poké Ball que gira (.boot-ld::before).

@@ -24,6 +24,9 @@ function el(tag, attrs = {}, kids = [], box = { x: 0, y: 0, w: 100, h: 40 }) {
   n.closest = sel => { for (let e = n; e; e = e.parentElement) if (e.matches(sel)) return e; return null; };
   n.contains = o => { for (let e = o; e; e = e.parentElement) if (e === n) return true; return false; };
   n.querySelectorAll = sel => { const out = []; const walk = e => { for (const k of e.children) { if (k.matches(sel)) out.push(k); walk(k); } }; walk(n); return out; };
+  n.hasAttribute = a => a in attrs;
+  n.tagName = tag.toUpperCase();
+  n.querySelector = sel => n.querySelectorAll(sel)[0] || null;
   n.getClientRects = () => (n.closest('.gone') ? [] : [1]);
   n.getBoundingClientRect = () => ({ left: box.x, top: box.y, width: box.w, height: box.h, right: box.x + box.w, bottom: box.y + box.h });
   for (const k of kids) { k.parentElement = n; n.children.push(k); }
@@ -143,11 +146,43 @@ test('en las plantillas no sale la barra de pistas general (llevan la suya)', ()
   assert.notEqual(mk(false), '');
 });
 
-test('gamepad.js usa el orden fijo si la pantalla tiene zona (G.Nav), y el de antes si no', () => {
+test('gamepad.js: siempre orden fijo (zona de la plantilla o, fuera, el de lectura); sin «el más cercano»', () => {
   const js = source('js/core/gamepad.js');
   assert.match(js, /function navZone\(\)/);
   assert.match(js, /G\.Nav\.step\(/);
   assert.match(js, /if \(z\) \{ const rs = G\.Nav\.rows\(z\); if \(rs\.length\) return rs\.flat\(\); \}/);
+  assert.match(js, /return rs\.length \? rs : G\.Nav\.lines\(list \|\| candidates\(\)\);/);
+  // (bloque J) Fuera la navegación por posición.
+  assert.doesNotMatch(js, /function pick\(|function scrollerFor\(|const center = /);
+});
+
+test('(bloque J) data-nav-auto: las filas son las líneas como se leen', () => {
+  const N = bootNav();
+  // Desordenado en el HTML: dos arriba (en orden inverso), uno abajo algo más alto que su vecino.
+  const z = el('div', { 'data-nav': '', 'data-nav-auto': '' }, [b('c', 0, 60), b('b', 120, 0), b('a', 0, 4), b('d', 120, 50)]);
+  assert.deepEqual(ids(N.rows(z)), [['a', 'b'], ['c', 'd']]);
+  assert.deepEqual(ids(N.lines([b('y', 200, 0), b('x', 0, 100)])), [['y'], ['x']]);
+});
+
+test('(bloque J) una fila puede ser el propio botón y una etiqueta cuenta como su desplegable', () => {
+  const N = bootNav();
+  const sel = el('select', { id: 's' });
+  const z = el('div', { 'data-nav': '' }, [b('jugar', 0, 0, { 'data-nav-row': '' }), el('div', { 'data-nav-row': '' }, [el('label', { id: 'l' }, [sel]), b('ok', 120, 0)])]);
+  assert.deepEqual(ids(N.rows(z)), [['jugar'], ['s', 'ok']]);
+});
+
+test('(bloque J) todas las pantallas a pantalla completa: zona con cursor y barra', () => {
+  const html = source('dev.html');
+  const ids = ['scr-dex', 'scr-upgrades', 'scr-build', 'scr-gacha', 'scr-bag', 'scr-goals', 'scr-profile', 'scr-news',
+    'scr-runs', 'scr-rank', 'scr-mod', 'scr-friends', 'scr-lobby', 'scr-compendium', 'scr-settings', 'scr-legal'];
+  for (const id of ids) {
+    const i = html.indexOf('<section id="' + id + '"');
+    assert.ok(i >= 0, id);
+    const sec = html.slice(i, i + html.slice(i).search(/\n<\/section>/));
+    assert.match(sec.slice(0, sec.indexOf('>')), /\bfs-scr\b/, id + ': fs-scr');
+    assert.match(sec, /data-nav[\s>]/, id + ': zona');
+    assert.match(sec, /class="fs-bar"/, id + ': barra');
+  }
 });
 
 test('pausa y resumen: páginas con LB / RB y la pausa en grupo avisa y enseña la vida', () => {
