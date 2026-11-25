@@ -6,6 +6,22 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-25', title: ["Encuentros en el mapa", "Encounters on the map"], new: [
+    ["Explorando el mapa te encuentras, cada 5 minutos, uno o dos encuentros que te esperan quietos (sin avisos ni flechas: hay que buscarlos). Al acercarte sale su botón, como el de los cofres.",
+     "While exploring the map you find one or two encounters every 5 minutes, waiting in place (no alerts or arrows: you have to look for them). Get close and their button shows up, like a chest's."],
+    ["Kecleon, tendero ambulante: vende un objeto con rareza, curarte, una vitamina y suerte. Pagas con las monedas que te llevarías a la cuenta al acabar (en cooperativo, cada uno con las suyas).",
+     "Kecleon, travelling merchant: sells an item with a rarity, healing, a vitamin and luck. You pay with the coins you would take to your account at the end of the run (in co-op, each player with their own)."],
+    ["Templo de vitaminas: quédate dentro de su círculo hasta llenarlo y elige una vitamina con rareza (Más PS, Proteína, Calcio, Hierro, Zinc, Carburante o Más PP). Cada una tiene su tope. Más PP da +1 de cantidad a tu mejor ataque, aunque ya tenga el máximo de Réplica.",
+     "Vitamin temple: stay inside its circle until it fills up and pick a vitamin with a rarity (HP Up, Protein, Calcium, Iron, Zinc, Carbos or PP Up). Each one has its cap. PP Up gives +1 amount to your best attack, even if it already has the most Duplicate allows."],
+    ["Smeargle te deja olvidar un ataque suelto (no fusionado) para hacer sitio; el olvidado puede volver a salir en las cartas.",
+     "Smeargle lets you forget a loose (unfused) attack to make room; the forgotten one can show up again in the cards."],
+    ["Santuario de reto: actívalo y aguanta 30 s en su círculo contra Pokémon de élite. Si lo superas, objeto épico o legendario y +15 % de suerte.",
+     "Challenge shrine: activate it and hold out for 30 s in its circle against elite Pokémon. Clear it for an epic or legendary item and +15% luck."],
+    ["Porygon sube un escalón la rareza de uno de tus objetos (conserva su evolución).",
+     "Porygon raises one of your items by one rarity tier (it keeps its evolution)."],
+    ["Suerte de los encuentros: el templo da +5 %, Kecleon la vende (+10 %, dos por tienda) y el reto da +15 %.",
+     "Luck from encounters: the temple gives +5%, Kecleon sells it (+10%, two per shop) and the challenge gives +15%."]] },
+
   { d: '2026-11-25', title: ["Mejoras de ataque con rareza y suerte", "Move upgrades with rarity and luck"], new: [
     ["Las cartas para subir de nivel un ataque salen con rareza, con los mismos colores que los objetos: siguen subiendo un nivel, y la rareza añade un extra que se queda en ese ataque. Raro +2 % de daño, Épico +4 % de daño y +3 % de área, Legendario +7 % de daño y +5 % de área (como mucho +15 % de daño y +15 % de área por ataque). En la pausa ves el extra de cada uno.",
      "Cards that level up a move now come with a rarity, in the same colours as items: they still raise it one level, and the rarity adds a bonus that stays on that move. Rare +2% damage, Epic +4% damage and +3% area, Legendary +7% damage and +5% area (at most +15% damage and +15% area per move). The pause screen shows each move's bonus."],

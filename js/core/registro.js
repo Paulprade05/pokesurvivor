@@ -122,8 +122,9 @@ G.Reg = (() => {
   // ---------------- lo nuevo de la 1.0 (bloque A) ----------------
   /**
    * r.v1 de una partida:
-   *   buy   [[t, qué, id, rareza, precio]]  compras a Kecleon (qué: item | heal | vitamin | egg | luck | curse)
-   *   spent monedas gastadas en la tienda (de las que te llevarías a tu cuenta)
+   *   buy   [[t, qué, id, rareza, precio]]  compras a Kecleon (qué: item | heal | vitamin | egg | luck | curse) y a
+   *         Porygon (qué: rarity; rareza: la que queda)
+   *   spent monedas gastadas en la tienda y la máquina (de las que te llevarías a tu cuenta)
    *   vit   { id: lo sumado }  y  vitT [[t, id, rareza]]  vitaminas (templo o tienda)
    *   curse [[t, nivel, 1 aceptada | 0 rechazada]]  santuarios malditos y tienda
    *   comp  { dex, t (eclosión), evo [[t, dex]], downs, dealt } compañero del huevo (null si no llevas)
