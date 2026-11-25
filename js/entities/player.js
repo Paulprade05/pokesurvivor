@@ -35,7 +35,7 @@ G.Player = class Player {
     this.moves = [];           // todos los movimientos aprendidos
     this.slots = [];           // huecos: cada uno, una lista de movimientos que se lanzan a la vez
     this.active = 0;           // hueco activo
-    this.maxMoves = 4;         // huecos
+    this.maxMoves = 4;         // ataques distintos como mucho (1.0, bloque C: fusionar ya no libera huecos; ver canLearn)
     this.bonds = 0;            // vínculos por usar (premio de los legendarios)
     this.over = 0;             // sobrefusiones: vínculos de sobra con los 4 ataques ya fusionados (ver overFuse)
 
@@ -211,8 +211,15 @@ G.Player = class Player {
   get regen() { return this.regenFlat + this.maxHp * (this.regenK + ((this._itS && this._itS.regen) || 0)) +this.buffs.regen.n * this.buffs.regen.amount; }
 
   // ---------------- movimientos ----------------
+  // (1.0, bloque C, lo decidió el dueño: «nunca se podrá tener más de 4 ataques distintos, así cuando tengas los 4
+  //  fusionados no saldrán más ataques».) Cuentan los ataques, no los huecos: un vínculo junta ataques en un hueco pero
+  //  no deja sitio para aprender otro. Antes se llegaba a 7 o más (un grupo de 4 y 3 sueltos).
+  /** ¿Puede aprender otro ataque? (menos de maxMoves ataques distintos, fusionados o no) */
+  canLearn() { return this.moves.length < this.maxMoves; }
+  /** Huecos que aún pueden llenarse con ataques nuevos (los que se ven vacíos en el HUD y la pausa). */
+  freeSlots() { return Math.max(0, this.maxMoves - this.moves.length); }
   addMove(id) {
-    if (this.slots.length >= this.maxMoves || this.hasMove(id)) return false;
+    if (!this.canLearn() || this.hasMove(id)) return false;
     const m = G.Moves.instance(id, 1);
     // Con los pasivos que ya lleva (los de las mejoras permanentes, desde el principio): antes
     // sólo llegaban con la siguiente carta (rebakeAll), y al empezar la partida no había ninguno.
@@ -303,10 +310,13 @@ G.Player = class Player {
   // Sobrefusión (07-11-2026, lo eligió el dueño: con los 4 ataques fusionados la grieta ya no valía la pena, porque el
   // vínculo sólo unía ataques recién aprendidos en un 2.º grupo). Con un grupo lleno (BOND_MAX), el vínculo puede ir, con
   // una carta más en la pantalla del vínculo (game.js offerBond, run-ui.js renderBond), a subir el daño de sus ataques
-  // OVER_K, hasta OVER_MAX veces (+45 %). Es de cada
+  // OVER_K, hasta OVER_MAX veces. Es de cada
   // jugador: en grupo, cada uno su daño (el invitado manda el golpe ya hecho, 'h'), nada nuevo por la red.
-  static get OVER_K() { return 0.15; }
-  static get OVER_MAX() { return 3; }
+  // (1.0, bloque C, lo decidió el dueño) Con el tope de 4 ataques los vínculos sobrantes van todos aquí: +8 % cada una,
+  // hasta 8, también las 3 primeras (+64 %; antes +15 % ×3 = +45 %). Una partida da hasta 11 vínculos: 3 para fusionar
+  // los 4 y 8 de Sobrefusión. Tope en el presupuesto de poder (data/power-budget.js, OVER).
+  static get OVER_K() { return 0.08; }
+  static get OVER_MAX() { return 8; }
   /** El grupo lleno (los 4 fusionados) o null. */
   fullGroup() { return this.slots.find(s => s.length >= Player.BOND_MAX) || null; }
   /** ¿Puede gastar un vínculo en una sobrefusión? */

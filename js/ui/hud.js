@@ -702,7 +702,8 @@ G.HUD = (() => {
     // 44 px (antes 54; se siguen acertando con el dedo) y más juntos.
     const kb = touch ? 1 : k, W = w / kb, H = h / kb;
     const S = D.S, GAP = D.GAP, IG = D.IG;
-    const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.maxMoves);
+    // (1.0, bloque C) Los vacíos, sólo los que aún pueden llenarse: fusionar no deja sitio para otro ataque.
+    const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.slots.length + (pl.freeSlots ? pl.freeSlots() : pl.maxMoves - pl.slots.length));
     // Movimiento Z (24-10-2026): su botón, del tamaño de un hueco, a la derecha de los huecos
     // (separado como el objeto a la izquierda). Sólo con el Cristal Z de un tipo de tu compañero.
     const z = G.Combat.zOf(pl), mg = G.Mega ? G.Mega.of(pl) : null, ZW = z || mg ? IG + S : 0;     // (mega: el mismo hueco)

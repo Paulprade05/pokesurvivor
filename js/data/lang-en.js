@@ -185,12 +185,10 @@ G.I18n.add({
   'PokéSurvivor no tiene ninguna criptomoneda, token ni NFT oficial, y su autor no ha creado ninguno. Cualquier token que use el nombre del juego lo han creado terceros: no nos hacemos cargo de ninguna compra, venta o inversión que hagas con ellos, y nada de lo que hay aquí es una recomendación de inversión.':
     "PokéSurvivor has no official cryptocurrency, token or NFT, and its author has not created any. Any token using the game's name was created by third parties: we take no responsibility for any purchase, sale or investment you make with them, and nothing here is investment advice.",
   '¡Vínculo!': 'Bond!', 'Vínculo': 'Bond', 'Atrás': 'Back',
-  'Los movimientos unidos se lanzan a la vez y ocupan un solo hueco': 'Bonded moves fire at the same time and take a single slot',
+  'Los movimientos unidos se lanzan a la vez. Sigues teniendo como mucho 4 ataques': 'Bonded moves fire at the same time. You still have 4 moves at most',
   'Elige qué movimiento se une a {x}': 'Choose which move joins {x}',
   '¿Con cuál unes {x}?': 'Which move do you bond {x} with?',
   'Elige el primer movimiento que vas a unir': 'Choose the first move to bond',
-  'Se lanzará a la vez que {x}. Queda un hueco libre.': 'It will fire at the same time as {x}. A slot is freed.',
-  // (la frase larga antes: la corta también encajaría con ella)
   'Se lanzará a la vez que {x}.': 'It will fire at the same time as {x}.',
   '¡Vínculo! {x} movimientos a la vez': 'Bond! {x} moves at once',
   'Guardas el vínculo: aprende otro movimiento para usarlo': 'Bond saved: learn another move to use it',

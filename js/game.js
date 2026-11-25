@@ -904,7 +904,7 @@ G.Game = (() => {
    * de nivel en grupo, pausa), vuelve a salir al cerrarla.
    * @param quiet  no avisar si todavía no se puede
    */
-  /** Sobrefusión: gasta un vínculo en +15 % de daño al grupo de 4 (Player.overFuse), con su aviso. */
+  /** Sobrefusión: gasta un vínculo en +8 % de daño al grupo de 4 (Player.OVER_K, hasta OVER_MAX; 1.0, bloque C), con su aviso. */
   function overFuse() {
     if (!pl.canOverFuse() || !pl.overFuse()) return false;
     G.Reg.ev('sobrefusion', pl.over);
@@ -928,6 +928,7 @@ G.Game = (() => {
     }
     // (07-11-2026, lo eligió el dueño) Con un grupo de 4 ya hecho, la pantalla del vínculo trae también la carta de
     // sobrefusión (+15 % a ese grupo, hasta 3 veces): el 2.º grupo, de ataques recién aprendidos, no compensaba la grieta.
+    // (1.0, bloque C) Con el tope de 4 ataques ya no hay 2.º grupo: +8 % hasta 8 veces (Player.OVER_K, OVER_MAX).
     opt.over = pl.canOverFuse() ? { group: pl.fullGroup(), n: pl.over, k: G.Player.OVER_K } : null;
     // Se para el juego; en grupo, para todos hasta que cada uno elige (G.Coop.holdStart).
     state = 'choice';

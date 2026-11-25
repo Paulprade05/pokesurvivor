@@ -6,6 +6,12 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-25', title: ["Como mucho 4 ataques y más Sobrefusión", "4 moves at most and more Overfusion"], chg: [
+    ["Ahora llevas como mucho 4 ataques distintos, estén fusionados o no: fusionar los une para que se lancen a la vez, pero ya no deja sitio para aprender otro. Con 4 ataques ya no salen cartas de ataques nuevos.",
+     "You now have 4 different moves at most, fused or not: fusing links them so they fire at the same time, but no longer makes room to learn another. With 4 moves, no more new-move cards show up."],
+    ["Sobrefusión: los vínculos que sobran al tener los 4 fusionados suben su daño un +8 % cada uno, hasta 8 veces (+64 % en total; antes, +15 % hasta 3 veces). Ganar grietas vale la pena hasta el final.",
+     "Overfusion: the bonds left over once your 4 moves are fused raise their damage by +8% each, up to 8 times (+64% in total; it was +15% up to 3 times). Winning rifts pays off until the end."]] },
+
   { d: '2026-11-22', title: ["Menús pensados para el mando", "Menus built for controllers"], new: [
     ["Atajos con mando en todos los menús: LB / RB (L1 / R1) cambian de pestaña (tienda, Pokédex y su ficha, regiones del gacha, Compendio, Misiones y Logros, Ajustes, planificador de builds…); LT / RT (L2 / R2) pasan página en las listas largas; Back (View) abre «Ir a…» en la aldea; X e Y hacen lo más útil de cada pantalla (Máx. y Planear build en Mejoras, Filtros y Orden en la Pokédex, Tipo y Familia en el Compendio, Tirar ×10 en el gacha, Compendio y Planear build en la pausa…).",
      "Controller shortcuts in every menu: LB / RB (L1 / R1) switch tabs (shop, Pokédex and its page, gacha regions, Compendium, Missions and Achievements, Settings, build planner…); LT / RT (L2 / R2) flip pages in long lists; Back (View) opens “Go to…” in the village; X and Y do the handiest thing on each screen (Max and Plan build in Upgrades, Filters and Sort in the Pokédex, Type and Family in the Compendium, Pull ×10 in the gacha, Compendium and Plan build on the pause screen…)."],

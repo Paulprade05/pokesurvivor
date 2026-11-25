@@ -92,11 +92,14 @@ G.RunUI = (() => {
    * vacíos, «Libre». Lo enseñan la pausa (arriba del todo) y, en pequeño y sin niveles
    * (mini), la cabecera de las cartas de nivel.
    */
+  /** Huecos de ataque vacíos que aún pueden llenarse (1.0, bloque C: fusionar no libera ninguno). */
+  const freeAtk = pl => Math.max(0, pl.maxMoves - pl.moves.length);
   function slotsHtml(pl, mini = false) {
     const SZ = mini ? 20 : 30;
     const free = mini ? '<span class="sl sl-free"></span>' : '<span class="sl sl-free"><span>Libre</span></span>';
     const atk = [], pas = [];
-    for (let i = 0; i < Math.max(pl.maxMoves, pl.slots.length); i++) {
+    // (1.0, bloque C) Libres, sólo los que aún pueden llenarse: con 4 ataques (fusionados o no) no queda ninguno.
+    for (let i = 0; i < pl.slots.length + freeAtk(pl); i++) {
       const g = pl.slots[i];
       if (!g || !g[0]) { atk.push(free); continue; }
       const m = g[0];
@@ -115,7 +118,7 @@ G.RunUI = (() => {
     }
     const group = (lbl, used, max, tiles, cls) => `<div class="sl-group ${cls}${used >= max ? ' full' : ''}">`
       + `<span class="sl-lbl"><b>${lbl}</b><span class="sl-n">${used}/${max}</span></span><span class="sl-row">${tiles.join('')}</span></div>`;
-    return group('Ataques', pl.slots.length, pl.maxMoves, atk, 'sl-atk') + group('Pasivas', mine.length, MAX, pas, 'sl-pas');
+    return group('Ataques', pl.moves.length, pl.maxMoves, atk, 'sl-atk') + group('Pasivas', mine.length, MAX, pas, 'sl-pas');
   }
 
   /** Carta nueva (ataque o pasiva): qué hueco ocupa, «Hueco de ataque 3/4», o si es el último. */
@@ -273,7 +276,7 @@ G.RunUI = (() => {
     // (El que hace evolucionar a tu Pokémon —Tangela con Poder Pasado—, dorado y lo dice arriba.)
     if (c.type === 'new') return { cls: 'is-new' + (c.evoTo ? ' unlocks' : ''), icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips: chips + zChip(m), desc: c.desc, evo,
                                    eyebrow: c.evoTo && G.DEX_BY[c.evoTo] ? `<span class="pc-slot evo-mon">${G.I18n.f('¡Evoluciona a {x}!', G.T(G.DEX_BY[c.evoTo].name))}</span>`
-                                     : pl ? slotNote('atk', pl.slots.length, pl.maxMoves) : '' };
+                                     : pl ? slotNote('atk', pl.moves.length, pl.maxMoves) : '' };
     if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc, evo };
     // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
     // desbloquea ya una evolución (el ataque está al máximo), dorada. Una pasiva que
@@ -500,7 +503,7 @@ G.RunUI = (() => {
     box.innerHTML = '';
     bond.list.forEach((m, i) => {
       const desc = opt.mode === 'add' ? 'Se lanzará a la vez que ' + names(opt.group) + '.'
-        : step2 ? 'Se lanzará a la vez que ' + G.T(first.name) + '. Queda un hueco libre.'
+        : step2 ? 'Se lanzará a la vez que ' + G.T(first.name) + '.'
         : m.desc || '';
       box.appendChild(cardEl({ cls: opt.mode === 'add' || step2 ? 'bond' : '', icon: 'move:' + m.id, tile: 'tint', tileC: typeCol(m),
         badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name), chips: moveChips(m, false), desc, build: G.Build.fuse(G.Game.player, m.id),
@@ -784,7 +787,7 @@ G.RunUI = (() => {
     if (!pl) return '';
     const t = G.Game.st.time, total = pl.moves.reduce((a, m) => a + (m.cat ? m.dealt || 0 : 0), 0);
     const rows = pl.slots.filter(g => g && g[0]).map(g => pzRow(g, pl, total, t));
-    for (let i = rows.length; i < pl.maxMoves; i++) rows.push(`<div class="pz-row empty"><span class="pz-med empty"></span><span class="pz-free">${G.T('Hueco de ataque libre')}</span></div>`);
+    for (let i = 0, free = freeAtk(pl); i < free; i++) rows.push(`<div class="pz-row empty"><span class="pz-med empty"></span><span class="pz-free">${G.T('Hueco de ataque libre')}</span></div>`);
     const used = new Set(pl.moves.map(m => { const e = G.LevelUp.evoNeed(m, pl); return e && e.needs; }).filter(Boolean));
     // Su habilidad (17-11-2026): qué hace, para verla también en partida (las de legendario, en dorado).
     const fx = pl.abil, abName = pl.abilId && G.Mons.abilityName(pl.abilId);
@@ -795,7 +798,7 @@ G.RunUI = (() => {
     const item = pl.items && pl.items.length ? `<section class="ps-card pz-card ps-gear"><h3><span>${slots > 1 ? 'Objetos' : 'Objeto'}</span> <small>${pl.items.length}/${slots}</small></h3>
         ${pl.items.map(i => `<div class="ps-item"><span class="ico-tile tint${i.evo ? ' it-evo-ico' : ''}" style="--tile-c:${G.Items.color(i.r)}">${G.Icons.html(i.id, 30)}</span>`
           + `<div><b>${G.Items.nameOf(i)}</b> ${rarBadge(i.r, i.evo)}<small>${itemLines(i.id, i.r, i.evo)}${itemProg(i)}</small></div></div>`).join('')}</section>` : '';
-    return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.slots.length}/${pl.maxMoves}</small>
+    return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.moves.length}/${pl.maxMoves}</small>
         <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section>
       <div class="pz-side">${pzBuild(pl)}${pzPassives(pl, used)}${pzStats(pl)}${abil}${item}${zCard(pl)}</div>`;
   }
