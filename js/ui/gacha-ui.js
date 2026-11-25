@@ -146,14 +146,14 @@ G.GachaUI = (() => {
       el.className = 'scr dim modal';
       el.setAttribute('role', 'alertdialog');
       el.setAttribute('aria-labelledby', 'pullall-title');
-      el.innerHTML = `<div class="box mcard">
+      el.innerHTML = `<div class="box mcard" data-nav data-nav-cols="1">
         <span class="ico-tile l round t-purple mcard-ico" aria-hidden="true">${G.Icons.html('ball4', 60)}</span>
         <h2 id="pullall-title">Tirar todos</h2>
         <p class="mcard-txt"></p>
         <div class="mcard-acts">
           <button class="btn gold big block" type="button" data-a="yes">Tirar todos</button>
           <button class="btn ghost block" type="button" data-a="no" data-back>Cancelar</button>
-        </div></div>`;
+        </div><footer class="fs-bar" data-auto aria-hidden="true"></footer></div>`;
       el.querySelector('.mcard-txt').textContent = text;
       document.body.appendChild(el);
       const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); end(false); } };

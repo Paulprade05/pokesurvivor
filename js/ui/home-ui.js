@@ -71,7 +71,7 @@ G.HomeUI = (() => {
       const b = H.item('pet', 'bed');
       foot = `<p class="vh-desc">${esc(G.T(b.desc))}</p><button class="btn gold big block" type="button" data-act="buy-bed"${(s.coins || 0) < b.price ? ' disabled' : ''}>${G.Icons.html('coin', 18)} ${esc(G.T('Comprar'))} · ${fmt(b.price)}</button>`;
     } else foot = `<p class="vh-desc">${esc(G.T(cat === 'pet' ? 'Elige qué Pokémon descansa en tu puerta. Cambiarlo es gratis.' : 'Toca una pieza para probarla en tu choza.'))}</p>`;
-    box.innerHTML = head('Tu choza') + `<nav class="vh-tabs">${tabs}</nav><div class="vh-list${cat === 'pet' && H.owns('pet', 'bed') ? ' vh-pets' : ''}">${list}</div><div class="vh-foot">${foot}</div>`;
+    box.innerHTML = head('Tu choza') + `<nav class="vh-tabs">${tabs}</nav>` + zone(`<div class="vh-list${cat === 'pet' && H.owns('pet', 'bed') ? ' vh-pets' : ''}" data-nav-row data-nav-cols="2">${list}</div><div class="vh-foot" data-nav-row>${foot}</div>`);
     box.querySelectorAll('[data-cat]').forEach(b => { b.onclick = () => { G.Audio.sfx('click'); cat = b.dataset.cat; sel = null; petMore = false; preview(); render(); }; });
     box.querySelectorAll('[data-item]').forEach(b => { b.onclick = () => { G.Audio.sfx('click'); sel = b.dataset.item; preview(); render(); }; });
     box.querySelectorAll('[data-pet]').forEach(b => { b.onclick = () => pickPet(+b.dataset.pet); });
@@ -83,6 +83,9 @@ G.HomeUI = (() => {
     act('buy-bed', () => buy('pet', 'bed'));
     act('more', () => { petMore = true; render(); });
   }
+  /** (1.0, bloque J) Lo que recorre el mando, en orden fijo (ui/nav.js): las piezas de dos en dos y los botones de abajo.
+   *  Las pestañas, con LB / RB. Se queda como panel al lado (hay que ver la choza), con la barra del mando abajo. */
+  const zone = h => `<div class="vh-zone" data-nav>${h}</div><footer class="fs-bar" data-auto aria-hidden="true"></footer>`;
   function head(title) {
     const s = G.DB.save;
     return `<header class="vh-head"><span class="vh-title">${esc(G.T(title))}</span>` +
@@ -209,7 +212,7 @@ G.HomeUI = (() => {
       if (!own.length) list = `<p class="vh-desc">${esc(G.T('Consigue más Pokémon en el Gacha para invitarlos.'))}</p>`;
       foot = `<p class="vh-desc">${esc(G.T('Toca un Pokémon para que viva en tu choza (o para que se vaya). Pasean dentro y por el barrio.'))} (${room.guests.length}/${H.MAX_GUESTS})</p>`;
     }
-    box.innerHTML = head('Dentro de tu choza') + `<nav class="vh-tabs">${tabs}</nav><div class="vh-list${cls}">${list}</div><div class="vh-foot">${foot}</div>`;
+    box.innerHTML = head('Dentro de tu choza') + `<nav class="vh-tabs">${tabs}</nav>` + zone(`<div class="vh-list${cls}" data-nav-row data-nav-cols="2">${list}</div><div class="vh-foot" data-nav-row>${foot}</div>`);
     headActs(box);
     box.querySelectorAll('[data-icat]').forEach(b => { b.onclick = () => {
       G.Audio.sfx('click');

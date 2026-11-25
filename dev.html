@@ -141,7 +141,7 @@
 
 <!-- ====== Inicio: login / registro / invitado ====== -->
 <section id="scr-login" class="scr hidden">
-  <div class="box login-box">
+  <div class="box login-box" data-nav data-nav-cols="1">
     <!-- Grupos sólo para colocarlos en dos columnas en el móvil en horizontal (style.css) -->
     <div class="login-head">
       <div class="logo">
@@ -178,6 +178,7 @@
       <p class="note center" id="login-mode"></p>
       <p class="note center"><!-- seo:begin --><a href="guia/">Guía</a> · <a href="pokedex/">Pokédex</a> · <!-- seo:end --><a href="#" class="legal-link" data-legal>Aviso legal y privacidad</a></p>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -187,7 +188,8 @@
     <div class="progress"><i id="test-bar"></i></div>
     <p class="sub" id="test-count"></p>
     <p class="q" id="test-q"></p>
-    <div class="answers" id="test-a"></div>
+    <div class="answers" id="test-a" data-nav data-nav-cols="1"></div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -199,16 +201,17 @@
     <p id="res-text"></p>
     <canvas id="res-stage" class="stage" width="240" height="180"></canvas>
     <h3>Tu compañero: <span class="gold" id="res-name"></span></h3>
-    <div class="res-acts">
+    <div class="res-acts" data-nav>
       <button id="res-ok" class="btn gold big">¡Vamos juntos!</button>
       <button id="res-other" class="btn ghost">Elegir otro</button>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Elegir compañero (hoja: cabecera, rejilla que se desplaza y pie con «Elegir») ====== -->
-<section id="scr-starters" class="scr dim hidden">
-  <div class="box sheet-box wide">
+<section id="scr-starters" class="scr dim fs-scr hidden">
+  <div class="box fs sheet-box t-cat">
     <header class="sheet-head">
       <button id="starter-back" class="icon-btn" type="button" data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
@@ -217,12 +220,13 @@
       </div>
     </header>
     <div class="sheet-body">
-      <div class="grid" id="starter-grid"></div>
+      <div class="grid" id="starter-grid" data-nav></div>
     </div>
     <footer class="sheet-foot">
       <span id="starter-info" class="grow starter-info"></span>
       <button id="starter-ok" class="btn gold" disabled>Elegir</button>
     </footer>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -246,9 +250,9 @@
       </div>
     </div>
   </div>
-  <div class="menu-right">
-    <button class="menu-item play" data-go="play"><span class="mi-t">Jugar</span><small>Entra en la mazmorra</small></button>
-    <div class="menu-list">
+  <div class="menu-right" data-nav>
+    <button class="menu-item play" data-go="play" data-nav-row><span class="mi-t">Jugar</span><small>Entra en la mazmorra</small></button>
+    <div class="menu-list" data-nav-row>
       <button class="menu-item tile" data-go="dex"><span class="mi-t">Pokédex</span><small id="menu-dex-count">Tus Pokémon</small></button>
       <button class="menu-item tile" data-go="upgrades"><span class="mi-t">Mejoras</span><small>Haz más fuerte cada run</small></button>
       <button class="menu-item tile" data-go="shop"><span class="mi-t">Tienda Kecleon</span><small>Mentas, Cápsulas y MT</small></button>
@@ -341,7 +345,7 @@
 
 <!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery): ventana pequeña ====== -->
 <section id="scr-recover" class="scr dim hidden" role="dialog" aria-labelledby="rec-title">
-  <div class="box mcard">
+  <div class="box mcard" data-nav data-nav-cols="1">
     <span class="ico-tile l round t-blue mcard-ico" id="rec-ico" aria-hidden="true"></span>
     <h2 id="rec-title">¿Te da miedo perder tu cuenta?</h2>
     <p class="mcard-txt">Vincula tu Gmail: si un día olvidas la contraseña, pulsas <b>Entrar con Google</b> y es tu misma cuenta, con todo lo tuyo.</p>
@@ -351,12 +355,13 @@
       <button class="btn ghost block" id="rec-later" type="button" data-back>Ahora no</button>
     </div>
     <p class="note center mcard-foot"><a href="#" id="rec-never">No volver a preguntar</a></p>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
 <!-- ====== Avisos de una actualización (una vez por navegador, ver LoginUI.updateNotices) ====== -->
 <section id="scr-savenote" class="scr dim hidden" role="dialog" aria-labelledby="savenote-title">
-  <div class="box mcard" translate="no">
+  <div class="box mcard" translate="no" data-nav data-nav-cols="1">
     <span class="ico-tile l round t-gold mcard-ico" id="savenote-ico" aria-hidden="true"></span>
     <h2 id="savenote-title"></h2>
     <div id="savenote-body" class="mcard-txt"></div>
@@ -364,6 +369,7 @@
       <!-- data-back: el botón B del mando también pulsa «Entendido» (como Esc). -->
       <button class="btn gold big block" id="savenote-ok" type="button" data-back></button>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -506,7 +512,7 @@
 <!-- ====== Apodo (para amigos y ranking): tarjeta centrada con las normas a la vista ======
      social-ui.js (NickUI) pone el icono, el contador y marca cada norma mientras escribes. -->
 <section id="scr-nick" class="scr dim modal hidden">
-  <div class="box nick-box">
+  <div class="box nick-box" data-nav data-nav-cols="1">
     <div class="nick-head">
       <span class="ico-tile l round t-blue" id="nick-ico" aria-hidden="true"></span>
       <h2>Elige tu apodo</h2>
@@ -528,6 +534,7 @@
       <button id="nick-ok" class="btn gold big block" type="submit">Guardar apodo</button>
     </form>
     <button id="nick-later" class="btn ghost block nick-later" type="button" data-back>Ahora no</button>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 

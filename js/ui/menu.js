@@ -561,7 +561,7 @@ G.MenuUI = (() => {
     const usingThis = isPartner && (!hasSh || !!s.partnerShiny === viewShiny);
     const i = gridList.findIndex(x => x.dex === dex);
     const prev = i > 0 ? gridList[i - 1] : null, next = i >= 0 && i < gridList.length - 1 ? gridList[i + 1] : null;
-    const nav = (m, cls, label, ico) => (m ? `<button class="icon-btn dx-nav ${cls}" type="button" data-nav="${m.dex}" aria-label="${label}" title="${label}">${G.UI.svg(ico, 18)}</button>` : '');
+    const nav = (m, cls, label, ico) => (m ? `<button class="icon-btn dx-nav ${cls}" type="button" data-dx-go="${m.dex}" aria-label="${label}" title="${label}">${G.UI.svg(ico, 18)}</button>` : '');
 
     const hero = `<div class="dx-hero">
         <div class="dx-stage${own && viewShiny ? ' shiny' : ''}" id="dex-stage">
@@ -625,8 +625,8 @@ G.MenuUI = (() => {
     box.querySelectorAll('.dx-seg button').forEach(b => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
-    box.querySelectorAll('[data-nav]').forEach(b => {
-      b.onclick = () => { G.Audio.sfx('select'); select(+b.dataset.nav, false); };
+    box.querySelectorAll('[data-dx-go]').forEach(b => {
+      b.onclick = () => { G.Audio.sfx('select'); select(+b.dataset.dxGo, false); };
     });
     box.querySelectorAll('[data-tab]').forEach(b => {
       b.onclick = () => {

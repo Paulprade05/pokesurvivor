@@ -60,6 +60,7 @@ G.InstallUI = (() => {
     if (!menu) return;
     card = document.createElement('div');
     card.className = 'install-card';
+    card.setAttribute('data-nav-row', '');        // (1.0) una fila más del menú clásico, para el mando
     card.innerHTML = '<img src="assets/icons/icon-96.png" width="32" height="32" alt="">'
       + '<div class="grow"><b>Instálalo como app</b><small></small></div>'
       + '<button class="btn small install-go" type="button"></button>'
@@ -116,16 +117,17 @@ G.InstallUI = (() => {
       const x = G.UI && G.UI.svg ? G.UI.svg('close') : '×';
       sheet = document.createElement('section');
       sheet.id = 'scr-install';
-      sheet.className = 'scr dim hidden';
+      sheet.className = 'scr dim fs-scr hidden';     // (1.0, bloque J) plantilla a pantalla completa (ui/nav.js)
       sheet.setAttribute('role', 'dialog');
       sheet.setAttribute('aria-labelledby', 'install-title');
-      sheet.innerHTML = '<div class="box sheet-box narrow install-box">'
+      sheet.innerHTML = '<div class="box fs sheet-box t-list install-box">'
         + '<header class="sheet-head">'
         + `<button class="icon-btn" id="install-close" type="button" aria-label="Cerrar" title="Cerrar">${x}</button>`
         + '<img class="install-app" src="assets/icons/icon-96.png" width="48" height="48" alt="">'
         + '<div class="grow"><h2 id="install-title">Instalar como app</h2>'
         + '<p class="sub">Pantalla completa, sin las barras del navegador y con su icono en la pantalla de inicio.</p></div>'
-        + '</header><div class="sheet-body install-body"></div></div>';
+        + '</header><div class="sheet-body install-body" data-nav data-nav-cols="1"></div>'
+        + '<footer class="fs-bar" data-auto aria-hidden="true"></footer></div>';
       sheet.querySelector('#install-close').onclick = close;
       // Tocar fuera de la caja también cierra.
       sheet.addEventListener('click', e => { if (e.target === sheet) close(); });

@@ -260,8 +260,8 @@ a { color: var(--link); }
 }
 .scr.hidden { display: none; }
 .scr.dim { background: radial-gradient(120% 100% at 50% 0%, rgba(18, 40, 24, .5), rgba(2, 8, 4, .86)); }
-.scr.under-bar,
-#scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod {
+/* (1.0, bloque J) Las plantillas a pantalla completa (.fs-scr) no dejan el hueco: la barra va dentro de su cabecera. */
+:is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr) {
   padding-top: calc(var(--bar-h) + var(--sa-t));
   --sheet-top: 0px;
 }
@@ -376,7 +376,7 @@ html.no-glass .box { background: var(--panel-bg); background-clip: padding-box; 
  *    (pesa más que estas reglas); si es un diálogo corto, que use .mcard. */
 @media (max-width: 599px), (max-height: 520px) {
   .scr:has(> .box:not(.mcard, .lay-panel)) { padding: 0; align-items: stretch; justify-content: flex-start; }
-  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):has(> .box) {
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr):has(> .box) {
     padding-top: calc(var(--bar-h) + var(--sa-t));
     background: var(--surface-solid);
   }
@@ -389,7 +389,7 @@ html.no-glass .box { background: var(--panel-bg); background-clip: padding-box; 
     animation: sheet-up var(--t-med) var(--ease);
   }
   /* Debajo de la barra: la zona segura de arriba ya la salva la barra. */
-  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod) > .box:not(.sheet-box) { padding-top: 14px; }
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr) > .box:not(.sheet-box) { padding-top: 14px; }
   .scr > .box.sheet-box { padding: 0; }
   /* Hoja compacta: cabecera de 48 px (botón de 40 + 4 arriba y abajo), título de 19 px. */
   .sheet-head { min-height: 48px; gap: 6px 10px;
@@ -423,7 +423,7 @@ html.no-glass .box { background: var(--panel-bg); background-clip: padding-box; 
  * a la derecha de esa misma franja; la cabecera les deja su hueco (--tb-w, lo mide
  * ui.js). Perfil, Guardar y «Más» sólo salen en el menú principal. */
 @media (max-height: 520px) {
-  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):has(> .box) {
+  :is(.scr.under-bar, #scr-goals, #scr-dex, #scr-upgrades, #scr-shop, #scr-bag, #scr-gacha, #scr-friends, #scr-rank, #scr-lobby, #scr-mod):not(.fs-scr):has(> .box) {
     padding-top: var(--sa-t);
   }
   body:has(.scr.under-bar:not(.hidden)) .topbar { left: auto; }
@@ -1051,7 +1051,7 @@ body:has(:is(.scr.modal, #scr-settings, #scr-news, #scr-legal, #scr-profile, #sc
 .legal-link { color: var(--muted); }
 .legal-link:hover { color: #fff; }
 /* Con una ventana abierta (colección, tienda, gacha...) se metía por encima de la caja. */
-body:has(.scr.dim:not(.hidden)) .credits-line { display: none; }
+body:has(.scr.dim:not(.hidden)) .credits-line, body:has(.scr.fs-scr:not(.hidden), #vil-quick:not(.hidden)) .credits-line { display: none; }
 @media (max-width: 899px), (max-height: 520px) { .credits-line { display: none !important; } }
 
 /* ---------- 13. Carga y «Pulsa para empezar» ---------- */
@@ -1362,25 +1362,34 @@ html.rot .rotate { display: none !important; }
 /* (21-11-2026, pedido del dueño: más fácil de leer y de encontrar cada sitio) Por grupos con su color (--g, en village.js
  * GROUPS): título del grupo en su color, raya y medallón del icono a juego. Jugar, arriba; el sitio donde estás, marcado. */
 .vil-quick {
-  position: absolute; top: calc(var(--bar-top) + var(--bar-h) + var(--tap) + 4px); left: max(16px, var(--sa-l));
-  width: min(960px, calc(100vw - max(16px, var(--sa-l)) - max(16px, var(--sa-r)))); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - var(--tap) - 20px);
-  overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 14px; border-radius: var(--rad-l);
-  background: var(--panel-bg); background-clip: padding-box; border: 5px solid transparent; border-image: var(--fr-s); box-shadow: var(--sh-pop); transform-origin: 0 0; animation: vq-in var(--t-med) var(--ease);
+  /* (1.0, bloque J) A pantalla completa, opaca y con el marco grande, como las plantillas (ui/nav.js). */
+  position: fixed; inset: 0; z-index: 4; display: flex; flex-direction: column; gap: 10px;
+  padding: max(20px, var(--sa-t)) max(36px, var(--sa-r)) max(16px, var(--sa-b)) max(36px, var(--sa-l));
+  overflow: hidden; pointer-events: auto; border-radius: 0; box-shadow: none;
+  background: var(--panel-bg); background-color: #040a06; border: var(--fr-lb) solid transparent; border-image: var(--fr-l);
+  animation: vq-in var(--t-med) var(--ease);
 }
-@keyframes vq-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
-.vq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 14px; }
+@keyframes vq-in { from { opacity: 0; } }
+body:has(#vil-quick:not(.hidden)) .topbar { left: auto; }
+body:has(#vil-quick:not(.hidden)) .tb-acts { display: none; }
+.vq-head { flex: none; display: flex; align-items: center; gap: 10px 14px; min-height: 56px; padding: 0 calc(var(--tb-w, 196px) + 12px) 10px 0;
+  background: linear-gradient(90deg, transparent, var(--bark) 8%, var(--bark-hi) 50%, var(--bark) 92%, transparent) bottom / 100% 2px no-repeat; }
 .vq-htxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.vq-title { font: 700 var(--fs-xl)/1.1 var(--font-display); }
+.vil-quick .vq-title { margin: 0; font: 800 calc(var(--fs-3xl) + 2px)/1.05 var(--font-display); }
 .vq-hint { color: var(--muted); font-size: var(--fs-s); line-height: 1.3; }
-.vq-head .vq-item.play { order: 3; flex: 1 1 100%; }
-.vq-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 12px; align-items: start; }
-.vq-glist { display: grid; gap: 7px; }
+/* El cuerpo: Jugar, una fila por grupo (su nombre a la izquierda) y tu compañero; se desliza si no cabe. */
+.vq-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; margin: 0 -8px; padding: 6px 8px; }
+.vq-body > .vq-item.play { flex: none; min-height: 62px; }
+.vq-groups { display: flex; flex-direction: column; gap: 12px; }
+.vq-grp { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 14px; }
+.vq-glist { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .vil-quick .vq-gh {
-  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--g);
+  display: flex; align-items: center; gap: 8px; margin: 0; color: var(--g);
   font: 700 var(--fs-s)/1.2 var(--font-display); letter-spacing: .05em; text-transform: uppercase;
 }
 .vq-gh::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--g); box-shadow: 0 0 8px var(--g); }
 .vq-gh::after { content: ''; flex: 1; height: 2px; border-radius: 1px; background: linear-gradient(90deg, var(--g), transparent); opacity: .45; }
+.vil-quick > .fs-bar { margin-top: 2px; }
 .vq-item {
   position: relative; display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 2px;
   min-height: 58px; padding: 7px 10px 7px 9px; border: 0; border-radius: var(--rad-m);
@@ -1477,6 +1486,8 @@ body:not(.touch) .vil-run { display: none; }
   padding: 10px 12px 12px; border-radius: var(--rad-l); background: var(--surface-float); box-shadow: var(--sh-pop);
   animation: vq-in var(--t-med) var(--ease);
 }
+.vh-zone { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vil-home > .fs-bar { margin-top: 8px; padding-top: 8px; justify-content: center; }
 .vh-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
 .vh-title { flex: 1; font: 600 var(--fs-l)/1.2 var(--font-display); }
 .vh-coins { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-m)/1 var(--font-display); color: var(--c-yellow); }
@@ -1509,19 +1520,22 @@ body:not(.touch) .vil-run { display: none; }
 @media (max-height: 520px) {
   .vil-go { top: calc(var(--bar-top) + var(--bar-h) - 2px); min-height: 40px; }
   /* Móvil apaisado: el desplegable sube hasta la barra (tapa «Ir a…»; se cierra con la X) y Jugar va junto al título. */
-  .vil-quick { top: calc(var(--bar-top) + var(--bar-h) - 2px); max-height: calc(100dvh - var(--bar-top) - var(--bar-h) - 6px); padding: 8px 10px 10px; }
-  .vq-head { flex-wrap: nowrap; gap: 10px; margin-bottom: 10px; }
-  .vq-htxt { flex: none; }
+  .vil-quick { gap: 4px; padding: max(4px, var(--sa-t)) max(10px, var(--sa-r)) max(4px, var(--sa-b)) max(10px, var(--sa-l)); }
+  .vq-head { min-height: 40px; gap: 8px; padding-bottom: 4px; }
+  .vil-quick .vq-title { font-size: 21px; }
   .vq-hint { display: none; }
-  .vq-head .vq-item.play { order: 0; flex: 1 1 auto; min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
-  .vq-groups { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 8px; }
+  .vq-body { gap: 6px; padding-top: 4px; }
+  .vq-body > .vq-item.play { min-height: 40px; padding-top: 3px; padding-bottom: 3px; }
+  .vq-groups { gap: 6px; }
+  .vq-grp { grid-template-columns: 96px minmax(0, 1fr); gap: 8px; }
   .vq-glist { gap: 6px; }
-  .vil-quick .vq-gh { margin-bottom: 6px; }
-  .vq-item { grid-template-columns: 32px 1fr; column-gap: 8px; row-gap: 0; min-height: 46px; padding: 5px 8px 5px 8px; }
-  .vq-ico { width: 32px; height: 32px; }
-  .vq-ico > * { width: 24px; height: 24px; }
-  .vq-s { line-height: 1.2; }
-  .vq-foot { margin-top: 10px; padding-top: 8px; }
+  .vil-quick .vq-gh { font-size: 11px; letter-spacing: .02em; }
+  .vq-gh::after { display: none; }
+  .vq-item { grid-template-columns: 28px 1fr; column-gap: 7px; row-gap: 0; min-height: 40px; padding: 3px 7px; }
+  .vq-ico { width: 28px; height: 28px; }
+  .vq-ico > * { width: 22px; height: 22px; }
+  .vq-s { line-height: 1.15; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vq-foot { margin-top: 0; padding-top: 4px; gap: 6px 10px; }
 }
 .menu-left { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .menu-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; width: 100%; justify-self: end; }
@@ -4438,6 +4452,10 @@ button.fr-who:focus-visible { outline: var(--focus); outline-offset: 2px; }
  * Icono en una baldosa grande, título, texto y los botones en columna (el
  * principal arriba). En el móvil tumbado, el icono a la izquierda y los botones en fila. */
 .box.mcard { width: min(420px, 100%); text-align: center; }
+/* (1.0, bloque J) Ventanas rápidas: la barra del mando, centrada debajo de los botones. */
+:is(.box.mcard, .nick-box, .login-box, .test-box, .result, .lay-panel) > .fs-bar { justify-content: center; margin-top: 14px; padding-top: 10px; }
+:is(.box.mcard, .nick-box, .login-box, .test-box, .result, .lay-panel) > .fs-bar > .fs-sp { display: none; }
+.login-box > .fs-bar { grid-column: 1 / -1; }
 :is(#scr-recover, #scr-savenote, #scr-delacc, #scr-othertab) > .box.mcard { padding: 28px 24px 22px; }
 .mcard .mcard-ico { margin: 0 auto 14px; }
 .mcard .mcard-ico .ui-svg, .mcard .mcard-ico svg { color: var(--ink); }
@@ -5814,6 +5832,39 @@ body.pad .scr.fs-scr > .box.fs.t-pick { padding-bottom: 86px; }
   .scr.fs-scr > .box.fs.t-pick { justify-content: flex-start; }
 }
 
+/* ---- Hojas en plantilla (1.0, bloque J, 25-11-2026): las pantallas de antes (.sheet-box) a pantalla completa ----
+ * <section class="scr fs-scr [under-bar]"><div class="box fs sheet-box t-cat|t-list|t-menu"> cabecera (.sheet-head),
+ * cuerpo (.sheet-body, una zona [data-nav]), pie (.sheet-foot, opcional) y la barra del mando (.fs-bar data-auto: la
+ * rellena pad-ui.js con lo de cada pantalla). La barra de arriba (monedas, tickets) se queda arriba a la derecha, dentro
+ * de la cabecera (como en el móvil tumbado, 4c); sus botones (perfil, Ajustes…) no salen: se llega por «Ir a…». */
+.scr.fs-scr > .box.fs.sheet-box {
+  gap: 0; padding: max(20px, var(--sa-t)) max(36px, var(--sa-r)) max(16px, var(--sa-b)) max(36px, var(--sa-l));
+}
+.box.fs.sheet-box > .sheet-head { min-height: 56px; padding: 0 0 12px; gap: 8px 14px; }
+.box.fs.sheet-box > .sheet-head:has(> .icon-btn:first-child) { padding-left: 0; }
+.box.fs.sheet-box > .sheet-head h2 { font: 800 calc(var(--fs-3xl) + 2px)/1.05 var(--font-display); }
+.box.fs.sheet-box > .sheet-body { padding: 14px 4px 10px; }
+.box.fs.sheet-box > .sheet-foot { padding: 10px 0 2px; background: linear-gradient(90deg, transparent, var(--bark) 8%, var(--bark-hi) 50%, var(--bark) 92%, transparent) top / 100% 2px no-repeat; }
+.box.fs.sheet-box > .fs-bar { margin-top: 8px; }
+body:has(.scr.fs-scr.under-bar:not(.hidden)) .topbar { left: auto; }
+body:has(.scr.fs-scr.under-bar:not(.hidden)) .tb-acts { display: none; }
+.scr.fs-scr.under-bar > .box > .sheet-head { padding-right: calc(var(--tb-w, 196px) + 12px); }
+/* La pantalla de pestañas grandes: la fila de pestañas de la cabecera, con LB / RB a los lados (sólo con mando). */
+.fs-tabs { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fs-tabs > .pad-hint { flex: none; }
+@media (max-height: 520px) {
+  .scr.fs-scr > .box.fs.sheet-box { padding: max(4px, var(--sa-t)) max(10px, var(--sa-r)) max(4px, var(--sa-b)) max(10px, var(--sa-l)); }
+  .box.fs.sheet-box > .sheet-head { min-height: 40px; padding: 0 0 6px; gap: 4px 8px; }
+  .box.fs.sheet-box > .sheet-head h2 { font-size: 21px; }
+  .box.fs.sheet-box > .sheet-body { padding: 8px 2px 6px; }
+  .box.fs.sheet-box > .sheet-foot { padding: 6px 0 0; }
+  .box.fs.sheet-box > .fs-bar { margin-top: 4px; }
+}
+@media (max-width: 599px) and (min-height: 521px) {
+  .scr.fs-scr > .box.fs.sheet-box { padding: max(8px, var(--sa-t)) max(12px, var(--sa-r)) max(8px, var(--sa-b)) max(12px, var(--sa-l)); }
+  .box.fs.sheet-box > .sheet-head h2 { font-size: 24px; }
+}
+
 /* ---- Colocar los botones (layout-ui.js): por delante de Ajustes ----
    Las medidas de lo que se arrastra copian las del HUD (hud.js): huecos de
    54 px con radio 14, separados 9 (18 hasta el del objeto), y la pausa redonda de 40;
@@ -6081,7 +6132,6 @@ body:has(> .scr:not(.hidden)) .evo-toast.on { opacity: 0; visibility: hidden; tr
 }
 
 /* Carta de rama: como las de nivel; con muchas (Eevee, 8), en rejilla de 4 y más compactas. */
-#scr-evo.scr.dim { background: radial-gradient(120% 90% at 50% 0%, rgba(26, 56, 30, .55), rgba(2, 8, 4, .88)); }
 #scr-evo .pick-ico { background: radial-gradient(circle at 50% 30%, rgba(255, 233, 150, .55), rgba(var(--hl-rgb), .16) 72%); }
 #scr-evo h2 { color: var(--ink); }
 .evo-cards .pc-ico > canvas { display: block; width: 80px; height: 80px; image-rendering: pixelated; }

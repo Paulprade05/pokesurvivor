@@ -55,19 +55,20 @@ G.LayoutUI = (() => {
       <div class="lay-thing lay-pause" data-k="pause"><b></b><b></b></div>
       <div class="lay-thing lay-stick" data-k="stick"><div class="knob"></div><span class="lay-tag">Joystick</span></div>
       <div class="lay-thing lay-open" data-k="open"><img class="pix" src="assets/objects-px/chest.png" alt="" draggable="false"><span class="lay-tag">Abrir cofre</span></div>
-      <div class="box lay-panel" role="dialog" aria-labelledby="lay-title">
+      <div class="box lay-panel" role="dialog" aria-labelledby="lay-title" data-nav>
         <h3 id="lay-title">Colocar los botones</h3>
         <p class="lay-sub">Arrastra los botones a donde quieras</p>
         <p class="lay-turn"><span class="lay-h">Esta colocación es para jugar en horizontal; la de vertical va aparte.</span><span class="lay-v">Esta colocación es para jugar en vertical; la de horizontal va aparte.</span></p>
-        <div class="lay-row"><b>Joystick</b>
+        <div class="lay-row" data-nav-row><b>Joystick</b>
           <div class="seg" id="lay-mode"><button type="button" data-m="float">Flotante</button><button type="button" data-m="fixed">Fijo</button></div>
         </div>
         <small class="lay-help">Flotante: aparece donde pones el dedo. Fijo: siempre en el mismo sitio.</small>
-        <div class="lay-btns">
+        <div class="lay-btns" data-nav-row data-nav-cols="3">
           <button class="btn ghost" type="button" id="lay-cancel" data-back>Cancelar</button>
           <button class="btn ghost ic" type="button" id="lay-reset" data-ico="refresh" data-ico-size="18"><span>Restablecer</span></button>
           <button class="btn gold" type="button" id="lay-save">Guardar</button>
         </div>
+        <footer class="fs-bar" data-auto aria-hidden="true"></footer>
       </div>`;
     document.body.appendChild(el);
     G.UI.icons(el);

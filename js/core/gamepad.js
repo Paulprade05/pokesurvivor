@@ -375,6 +375,8 @@ G.Pad = (() => {
     lastPos = { scr: focusScope, at: center(el) };
     const k = !auto && memKey();
     if (k) mem.set(k, sigOf(el));
+    // (1.0, bloque J) La ficha de al lado sigue a la selección (Pokédex, Mejoras, Compendio...): se avisa a la pantalla.
+    try { el.dispatchEvent(new CustomEvent('nav-focus', { bubbles: true, detail: { auto: !!auto } })); } catch (e) { /* nada */ }
   }
   function hideFocus() {
     if (focus) focus.classList.remove('pad-focus');
@@ -578,18 +580,25 @@ G.Pad = (() => {
     return true;
   }
 
-  /** Atrás: colocando un mueble, lo cancela; si no, el botón de cerrar o volver de la ventana, si lo tiene; si no, Esc. */
+  /**
+   * Atrás: colocando un mueble, lo cancela; si no, el botón de cerrar o volver de la ventanita abierta (o, si ella no
+   * tiene, lo que diga ella: [data-nav-back] recibe 'nav-back'); luego el de la pantalla; si no, Esc.
+   */
   function back() {
     if (G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen) { G.HomeIn.cancelPlace(); G.HomeUI.selected(-1); return; }
     const q = typeof document.getElementById === 'function' && document.getElementById('vil-quick');
-    if (q && innerDialog() === q) backTo = null;      // se cierra «Ir a…» mismo
+    const dlg = innerDialog();
+    if (q && dlg === q) backTo = null;      // se cierra «Ir a…» mismo
     else if (backTo === 'quick') wantQuick = performance.now();
-    const top = topScreen();
-    if (top) {
-      const btns = [...top.querySelectorAll('button, a')].filter(b => b.getBoundingClientRect().width > 0);
-      const close = btns.find(isBack);
-      if (close) { close.click(); return; }
+    const closeIn = root => [...root.querySelectorAll('button, a')].filter(b => b.getBoundingClientRect().width > 0).find(isBack);
+    if (dlg) {
+      const c = closeIn(dlg);
+      if (c) { c.click(); return; }
+      if (dlg.hasAttribute('data-nav-back')) { dlg.dispatchEvent(new CustomEvent('nav-back')); return; }
     }
+    const top = topScreen();
+    const close = top && closeIn(top);
+    if (close) { close.click(); return; }
     G.Input.virtual('escape');
   }
 
@@ -692,10 +701,19 @@ G.Pad = (() => {
     if (best) setFocus(best);
   }
 
-  /** X / Y: el atajo de la pantalla (G.PadUI), si lo tiene y se ve. → true si lo ha hecho. */
+  /** X / Y (y LT / RT): el atajo de la pantalla (G.PadUI), si lo tiene y se ve. → true si lo ha hecho.
+   *  (1.0, bloque J) Un atajo puede ser una función: { fn, when, label } (cambiar de Pokémon en Mejoras...). */
   function shortcut(k) {
     const sp = spec(), a = sp && sp[k];
     if (!a) return false;
+    if (a.fn) {
+      if (a.when && !a.when()) return false;
+      const here = valid() ? { scr: topScreen(), at: center(focus) } : null;
+      a.fn();
+      if (here) lastPos = here;
+      autoT = 0.1;
+      return true;
+    }
     const el = target(a);
     if (!el) return false;
     if (a.key) { G.Input.virtual(a.key); return true; }
@@ -813,10 +831,10 @@ G.Pad = (() => {
       if (on('back')) back();
       // La pausa (Start) también cierra, si ningún botón de los menús lo usa.
       else if (M.pause.some(i => hit(i) && !LIST.some(a => ACTS[a].ctx === 'ui' && M[a].includes(i)))) G.Input.virtual('escape');
-      if (on('tabPrev')) tab(-1);
-      if (on('tabNext')) tab(1);
-      if (on('pageUp')) page(-1);
-      if (on('pageDown')) page(1);
+      if (on('tabPrev') && !shortcut('lb')) tab(-1);
+      if (on('tabNext') && !shortcut('rb')) tab(1);
+      if (on('pageUp') && !shortcut('lt')) page(-1);
+      if (on('pageDown') && !shortcut('rt')) page(1);
       // Y / X: en las cartas, cambiar y descartar; en otras pantallas, su atajo (G.PadUI); colocando un mueble, voltearlo.
       if (on('reroll')) { if (placing) G.HomeIn.flipGhost(); else if (!shortcut('y')) G.Input.virtual('keyr'); }
       if (on('discard') && !placing && !cycleFurniture() && !shortcut('x')) G.Input.virtual('keyx');
@@ -856,12 +874,19 @@ G.Pad = (() => {
     const top = topScreen(), f = valid() ? focus : null, sp = spec();
     const t = performance.now();
     if (top !== mscTop || t - mscAt > 1000) { mscTop = top; mscAt = t; msc = mainScroller(); }
-    const lbl = k => (sp && sp[k] && target(sp[k]) ? sp[k].label : '');
+    const lbl = k => {
+      const a = sp && sp[k];
+      if (!a || !(a.fn ? !a.when || a.when() : target(a))) return '';
+      return typeof a.label === 'function' ? a.label() : a.label;
+    };
+    // (1.0, bloque J) Lo que hace A con lo seleccionado: [data-pad-ok] de la selección (o de lo que la contiene).
+    const okEl = f && f.closest('[data-pad-ok]');
     return {
       mode: 'ui', top: top ? top.id : '', dialog: (innerDialog() || {}).id || '',
       focus: !f ? '' : f.matches('select') ? 'select' : f.matches('input[type=range]') ? 'range' : f.matches('input, textarea') ? 'text' : 'btn',
       placing: !!(G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen),
-      tabs: tabRows().length > 0, page: !!(msc && msc.isConnected && scrolls(msc)), x: lbl('x'), y: lbl('y')
+      tabs: tabRows().length > 0, page: !!(msc && msc.isConnected && scrolls(msc)), x: lbl('x'), y: lbl('y'),
+      ok: okEl ? okEl.dataset.padOk : '', lt: lbl('lt'), rt: lbl('rt'), lb: lbl('lb'), rb: lbl('rb')
     };
   }
 

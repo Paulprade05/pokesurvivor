@@ -52,7 +52,18 @@ G.PadUI = (() => {
     'scr-item': { noBack: true },
     'scr-bond': { noBack: true },
     'scr-lobby': { first: '#lobby-start; #lobby-invite' },
-    'vil-quick': { first: '.vq-item.play' }
+    // (1.0, bloque J) Las demás pantallas, en plantillas (ui/nav.js). ok / back: lo que dice la barra de A y de B;
+    // lb / rb / lt / rt: atajos de los gatillos (si no, LB / RB pestañas y LT / RT página).
+    'vil-quick': { first: '.vq-item.play', back: 'Cerrar' },
+    'vil-home': {
+      first: '.vh-item.on; .vh-list', back: 'Cerrar',
+      x: { fn() {}, when: () => !!(G.HomeUI && G.HomeUI.isOpen && G.HomeUI.mode === 'in'), label: 'Elegir mueble' },
+      y: { sel: '#vil-home [data-act="profile"]', label: 'Tu perfil' }
+    },
+    'scr-login': { first: '#btn-guest; #btn-auth' },
+    'scr-test': { ok: 'Responder', noBack: true },
+    'scr-result': { first: '#res-ok', noBack: true },
+    'scr-evo': { noBack: true, ok: 'Elegir' }
   };
 
   // ---------------- barra de pistas ----------------
@@ -63,31 +74,62 @@ G.PadUI = (() => {
   const pair = (a, b) => { const x = g(a), y = g(b); return x && y ? x + '<i class="pb-or">/</i>' + y : x || y; };
   const stick = `<span class="pbtn pb-sh pb-dpad" translate="no">✥</span>`;
 
-  /** Lo que dice la barra ahora ('' si no hay nada que decir). */
+  /**
+   * Lo que hace cada botón ahora, en orden: [[botón(es) dibujado(s), qué hace, a la derecha?], ...].
+   * Lo comparten la barra general (#pad-bar) y la de las plantillas (.fs-bar[data-auto], 1.0 bloque J).
+   */
+  function items(c) {
+    if (!c) return [];
+    if (c.mode === 'walk') return [[stick, 'Moverse'], [g('open'), 'Entrar · hablar'], [g('run'), 'Correr'], [pair('pause', 'goto'), 'Ir a…']];
+    if (c.mode === 'list') return [[stick, 'Mover'], [g('ok'), 'Elegir'], [g('back'), 'Cerrar'], [pair('pageUp', 'pageDown'), 'De 8 en 8']];
+    if (c.placing) return [];      // (decorando la choza, la pista va en su ventana)
+    const sp = SPEC[c.dialog] || SPEC[c.top];
+    const ok = c.focus === 'select' ? 'Abrir' : c.focus === 'text' ? 'Escribir' : c.focus === 'range' ? '' : c.ok || (sp && sp.ok) || 'Aceptar';
+    const out = [];
+    if (c.focus === 'range') out.push([stick, '← → ajustar']);
+    if (ok) out.push([g('ok'), ok]);
+    if (!(sp && sp.noBack)) out.push([g('back'), (sp && sp.back) || (c.top === 'scr-pause' ? 'Continuar' : 'Atrás')]);
+    if (c.x) out.push([g('discard'), c.x]);
+    if (c.y) out.push([g('reroll'), c.y]);
+    if (c.lb || c.rb) out.push([pair('tabPrev', 'tabNext'), c.lb || c.rb, true]);
+    else if (c.tabs) out.push([pair('tabPrev', 'tabNext'), (sp && sp.tabs) || 'Pestaña', true]);
+    if (c.lt || c.rt) out.push([pair('pageUp', 'pageDown'), c.lt || c.rt, true]);
+    else if (c.page) out.push([pair('pageUp', 'pageDown'), 'Página', true]);
+    return out;
+  }
+  /** La barra de las plantillas que manda ahora (la de la ventanita abierta o la de la pantalla), o null. */
+  function fsBar(c) {
+    if (!c || !c.top || typeof document === 'undefined' || !document.getElementById) return null;
+    for (const id of [c.dialog, c.top]) {
+      const el = id && document.getElementById(id);
+      const b = el && el.querySelector && el.querySelector('.fs-bar');
+      if (b && b.getClientRects().length) return b;
+    }
+    return null;
+  }
+  /** Lo que dice la barra general ahora ('' si no hay nada que decir). */
   function html() {
     const c = G.Pad.context();
     if (!c) return '';
-    if (c.mode === 'walk') {
-      return item(stick, 'Moverse') + item(g('open'), 'Entrar · hablar') + item(g('run'), 'Correr') + item(pair('pause', 'goto'), 'Ir a…');
-    }
-    if (c.mode === 'list') return item(stick, 'Mover') + item(g('ok'), 'Elegir') + item(g('back'), 'Cerrar') + item(pair('pageUp', 'pageDown'), 'De 8 en 8');
-    if (c.placing) return '';      // (decorando la choza, la pista va en su ventana)
     // (1.0) Las pantallas de las plantillas (ui/nav.js) llevan su propia barra abajo, con los botones del mando.
     const top = c.top && typeof document !== 'undefined' && document.getElementById && document.getElementById(c.top);
-    if (top && top.classList.contains('fs-scr')) return '';
-    const ok = c.focus === 'select' ? 'Abrir' : c.focus === 'text' ? 'Escribir' : c.focus === 'range' ? '' : 'Aceptar';
-    let h = c.focus === 'range' ? item(stick, '← → ajustar') : item(stick, 'Mover');
-    if (ok) h += item(g('ok'), ok);
-    const sp = SPEC[c.dialog] || SPEC[c.top];
-    if (!(sp && sp.noBack)) h += item(g('back'), c.top === 'scr-pause' ? 'Continuar' : 'Atrás');
-    if (c.tabs) h += item(pair('tabPrev', 'tabNext'), 'Pestaña');
-    if (c.page) h += item(pair('pageUp', 'pageDown'), 'Página');
-    if (c.x) h += item(g('discard'), c.x);
-    if (c.y) h += item(g('reroll'), c.y);
-    return h;
+    if (c.mode === 'ui' && ((top && top.classList.contains('fs-scr')) || fsBar(c))) return '';
+    return items(c).map(([gl, l]) => item(gl, l)).join('');
   }
+  /** La barra de una plantilla con data-auto: los botones a la izquierda y las pestañas y páginas a la derecha. */
+  function fsHtml(c) {
+    const its = items(c), act = ([gl, l]) => (gl ? `<span class="fs-act">${gl}<span>${T(l)}</span></span>` : '');
+    return its.filter(i => !i[2]).map(act).join('') + '<span class="fs-sp"></span>' + its.filter(i => i[2]).map(act).join('');
+  }
+  let lastFs = '', lastFsEl = null;
   function tick() {
     const on = document.body.classList.contains('pad');
+    const c = on ? G.Pad.context() : null;
+    const fb = c && c.mode === 'ui' ? fsBar(c) : null;
+    if (fb && fb.hasAttribute('data-auto')) {
+      const fh = fsHtml(c);
+      if (fh !== lastFs || fb !== lastFsEl) { fb.innerHTML = fh; lastFs = fh; lastFsEl = fb; }
+    }
     const h = on ? html() : '';
     if (h === last) return;
     last = h;
@@ -112,6 +154,6 @@ G.PadUI = (() => {
     spec(id) { return SPEC[id] || null; },
     SPEC,
     /** (Para las pruebas) lo que pondría la barra ahora. */
-    html
+    html, items, fsHtml
   };
 })();

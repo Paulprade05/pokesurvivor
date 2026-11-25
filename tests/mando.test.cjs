@@ -288,7 +288,7 @@ test('los atajos y primeras selecciones de pad-ui apuntan a cosas que existen', 
 test('textos nuevos de los menús con mando: en inglés', () => {
   const en = source('js/data/lang-en.js'), js = source('js/ui/pad-ui.js');
   const has = k => en.includes(JSON.stringify(k) + ':') || en.includes("'" + k.replace(/'/g, "\'") + "':");
-  const keys = new Set([...js.matchAll(/(?:label: |item\((?:stick|g\('\w+'\)|pair\('\w+', '\w+'\)), )'([^']+)'/g)].map(m => m[1]));
+  const keys = new Set([...js.matchAll(/(?:label: |\[(?:stick|g\('\w+'\)|pair\('\w+', '\w+'\)), )'([^']+)'/g)].map(m => m[1]));
   assert.ok(keys.size > 15, 'pocas etiquetas: ' + keys.size);
   for (const k of keys) assert.ok(has(k), 'sin inglés: ' + k);
 });

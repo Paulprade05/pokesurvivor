@@ -15,6 +15,7 @@
  *   [data-nav]                              la zona con cursor (la primera que se vea). Lo de fuera no recibe el cursor:
  *                                           pestañas con LB / RB, acciones con A / B / X / Y y la barra de abajo.
  *   [data-nav-row]                          (dentro de la zona, opcional) cada fila; si no hay, la zona entera es una.
+ *                                           (bloque J) Puede ser el propio botón: una fila de uno.
  *   data-nav-cols="N"                       columnas fijas de la fila o la zona; sin él, las que se vean en su primera línea.
  *   [data-nav-skip]                         no entra en el orden.
  *   .fs-bar                                 la barra de abajo: qué hace cada botón del mando ahí (sólo con mando).
@@ -75,13 +76,28 @@ G.Nav = (() => {
     return Math.max(1, n);
   }
 
+  /**
+   * (1.0, bloque J) Una etiqueta cuenta como lo que manda: la que envuelve un desplegable o un campo, ese desplegable o
+   * campo (A lo abre); la de un campo que está en otro sitio («Nombre» del inicio de sesión), nada (ya cuenta el campo).
+   * Las de casillas (interruptores) se quedan: se pulsan ellas.
+   */
+  function pickable(el) {
+    if (el.tagName !== 'LABEL') return el;
+    const c = el.querySelector('select, textarea, input:not([type=checkbox]):not([type=radio])');
+    if (c) return c;
+    const t = el.htmlFor && typeof document !== 'undefined' ? document.getElementById(el.htmlFor) : null;
+    return t && !/^(checkbox|radio)$/.test(t.type) ? null : el;
+  }
+
   /** Lo elegible de la zona, en filas: [[el, el, el], [el, el]]. */
   function rows(z) {
     if (!z) return [];
     const groups = [...z.querySelectorAll('[data-nav-row]')].filter(shown);
     const out = [];
     for (const g of groups.length ? groups : [z]) {
-      const its = [...g.querySelectorAll(ITEM)].filter(el => usable(el) && !(el.parentElement && g.contains(el.parentElement.closest(ITEM))));
+      // (1.0, bloque J) Una fila puede ser el propio botón (Jugar en «Ir a…»).
+      const its = g.matches && g.matches(ITEM) ? (usable(g) ? [g] : [])
+        : [...g.querySelectorAll(ITEM)].filter(el => !(el.parentElement && g.contains(el.parentElement.closest(ITEM)))).map(pickable).filter(el => el && usable(el));
       if (!its.length) continue;
       const cols = +g.dataset.navCols || autoCols(its);
       for (let i = 0; i < its.length; i += cols) out.push(its.slice(i, i + cols));
