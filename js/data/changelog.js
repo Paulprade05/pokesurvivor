@@ -6,6 +6,19 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-24', title: ["Llegadas de legendario y una aldea con vida", "Legendary entrances and a living village"], new: [
+    ["Al entrar en una grieta, primero te absorbe: la pantalla se oscurece, todo gira hacia ella y te traga antes del túnel.",
+     "When you enter a rift, it first pulls you in: the screen darkens, everything swirls towards it and swallows you before the tunnel."],
+    ["Los legendarios de la grieta llegan uno detrás de otro: la cámara va a cada uno, sale su nombre, su título y sus tipos, y luego vuelve a ti. Mewtwo, Groudon y Rayquaza tienen su propia llegada (una esfera oscura que se rompe, un lago de lava, un descenso en espiral entre rayos); los demás, una columna de luz de su tipo. La primera vez que ves a uno pone «¡Nuevo!»; las siguientes, la llegada es más corta. Se puede saltar con Espacio, Intro, el mando o tocando la pantalla.",
+     "Rift legendaries arrive one after another: the camera goes to each one, shows its name, title and types, and then comes back to you. Mewtwo, Groudon and Rayquaza have their own entrance (a dark sphere that cracks open, a lava pool, a spiral dive through lightning); the rest get a light column of their type. The first time you see one it says “New!”; after that, the entrance is shorter. You can skip it with Space, Enter, the controller or by tapping the screen."],
+    ["La aldea tiene vida: los Pokémon se juntan a charlar, los de día se echan a dormir por la noche, y Gastly y Umbreon salen sólo de noche y Ledyba y Sunkern al amanecer. Luciérnagas de noche, ondas en el estanque, rachas de viento con hojas y, a veces, lluvia (y alguien lo comenta).",
+     "The village is alive: Pokémon get together to chat, day Pokémon go to sleep at night, Gastly and Umbreon only come out at night and Ledyba and Sunkern at dawn. Fireflies at night, ripples in the pond, gusts of wind with leaves and, sometimes, rain (and someone mentions it)."],
+    ["Al volver de una partida, el portal del altar te devuelve con su remolino y el guardián del altar te da la bienvenida.",
+     "When you come back from a run, the altar portal brings you back with its swirl and the altar guardian welcomes you."]],
+  chg: [
+    ["Con «Menos sacudidas y destellos» (o el ajuste del sistema de reducir movimiento) todo esto es más corto y tranquilo: sin temblores ni giros, menos partículas.",
+     "With “Less shaking and flashing” (or the system's reduce-motion setting) all of this is shorter and calmer: no shaking or swirling, fewer particles."]] },
+
   { d: '2026-11-22', title: ["Menús pensados para el mando", "Menus built for controllers"], new: [
     ["Atajos con mando en todos los menús: LB / RB (L1 / R1) cambian de pestaña (tienda, Pokédex y su ficha, regiones del gacha, Compendio, Misiones y Logros, Ajustes, planificador de builds…); LT / RT (L2 / R2) pasan página en las listas largas; Back (View) abre «Ir a…» en la aldea; X e Y hacen lo más útil de cada pantalla (Máx. y Planear build en Mejoras, Filtros y Orden en la Pokédex, Tipo y Familia en el Compendio, Tirar ×10 en el gacha, Compendio y Planear build en la pausa…).",
      "Controller shortcuts in every menu: LB / RB (L1 / R1) switch tabs (shop, Pokédex and its page, gacha regions, Compendium, Missions and Achievements, Settings, build planner…); LT / RT (L2 / R2) flip pages in long lists; Back (View) opens “Go to…” in the village; X and Y do the handiest thing on each screen (Max and Plan build in Upgrades, Filters and Sort in the Pokédex, Type and Family in the Compendium, Pull ×10 in the gacha, Compendium and Plan build on the pause screen…)."],

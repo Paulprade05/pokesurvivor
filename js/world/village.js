@@ -34,6 +34,8 @@ G.Village = (() => {
   let tileWait = 0, lastPartner = '';
   let pet = null, holo = null, homeKey = '', homeOpen = false, homePreview = null, prepP = null;
   let intro = null, flashPending = false, zoom = 1;     // la entrada a la partida (startIntro)
+  let outro = null, back = false;                       // la vuelta de la partida por el portal (bloque H: startOutro)
+  let curL = null, frameDt = 0;                         // la luz de este fotograma (ciclo y lluvia) y su dt
   let guestsOut = [], guestKey = '';                    // tus invitados de la choza, paseando por el barrio (syncGuestsOut)
   let runHold = false, runLatch = false, runShown = null; // sprint: el botón táctil (mantener o tocar para dejarlo puesto)
 
@@ -334,7 +336,9 @@ G.Village = (() => {
       Object.assign(n, { home: [tile(c.at[0]), tile(c.at[1])], wander: c.still ? 0 : tile(c.r || 2), lines: c.lines, cast: c, li: 0, mode: c.still ? 'still' : 'idle', tt: rnd(0.5, 3), fly: !!c.fly, water: !!c.water });
       n.x = n.home[0]; n.y = n.home[1];
       if (c.dir != null) n.anim.dir = c.dir;
-      if (c.still === 'Sleep') G.Sprites.sheet(c.dex, 'Sleep');
+      if (c.still === 'Sleep' || c.nap) G.Sprites.sheet(c.dex, 'Sleep');
+      // (Bloque H) Los de una hora (when): fuera hasta que les toque (npcTick, timed).
+      if (c.when) { n.when = c.when; n.away = true; n.hide = true; }
       // Los quietos (Snorlax dormido...) abultan lo que su dibujo de ahora (tumbado es más ancho que de pie).
       if (c.still) { const m = G.Sprites.animMeta(c.dex, c.still); if (m) n.body = Math.max(n.body, Math.min(40, m.w * 0.3 * 2)); }
       n.foot = V().npcFoot(!!c.still && !c.water, n.body);
@@ -375,7 +379,7 @@ G.Village = (() => {
     // (13-11-2026, «hay veces que me choco con los Pokémon») Tu Pokémon sólo choca con los quietos y grandes (Snorlax
     // dormido...), y con una huella pequeña (VILLAGE.npcFoot); a los demás los apartas con un empujón suave (npcTick).
     if (who && who === pl) for (const n of npcs) {
-      if (!n.foot) continue;
+      if (!n.foot || n.hide) continue;
       const R = r + n.foot, d = Math.hypot(x - n.x, y - n.y);
       if (d < R && d < Math.hypot(from[0] - n.x, from[1] - n.y) - 1e-3) return true;
     }
@@ -533,9 +537,14 @@ G.Village = (() => {
       return true;
     }
     camSize();
+    curL = light(phase()); frameDt = dt;
+    if (G.VillageLife) { const ev = G.VillageLife.tick(dt, view, curL.night); if (ev.rainStart) rainTalk(); }
+    // (Bloque H) Al volver de una partida, primero sales por el portal (en cuanto la aldea se ve sin nada encima).
+    if (back && walk && !intro && !outro) startOutro();
     if (intro) introTick(dt);
+    else if (outro) outroTick(dt);
     else if (walk) { update(dt, walkPrev); G.Village3D.tune && G.Village3D.tune(real); } else idle(dt);
-    runBtn(walk && !intro);
+    runBtn(walk && !intro && !outro);
     if (!active || !pl) return true;                // (la entrada ha acabado: ya ha empezado la partida y la aldea duerme)
     walkPrev = walk;
     // Con una ventana encima, a 20 FPS (casi no se ve y calienta menos).
@@ -597,6 +606,7 @@ G.Village = (() => {
   // ---------------- los Pokémon de la aldea ----------------
   function npcTick(dt) {
     for (const n of npcs) {
+      if (n.when && !timed(n, dt)) continue;
       n.tt -= dt;
       if (n.bubble && (n.bubble.t -= dt) <= 0) n.bubble = null;
       if (n.emote && (n.emote.t -= dt) <= 0) n.emote = null;
@@ -607,6 +617,17 @@ G.Village = (() => {
         n.anim.loop(c.still === 'Sleep' && G.Sprites.ready(n.anim.dex, 'Sleep') ? 'Sleep' : 'Idle');
         // Magikarp salta de vez en cuando; Snorlax, dormido.
         if (n.water && n.tt <= 0) { n.tt = rnd(2.5, 6); n.anim.play('Hop'); }
+      } else if (n.mode === 'nap') {
+        // (Bloque H) Duerme de noche en su sitio; se despierta con el amanecer.
+        if (!(curL && curL.night > 0.95)) { n.mode = 'idle'; n.tt = rnd(0.5, 2); emote(n, '!'); }
+        else if (n.tt <= 0) { n.tt = rnd(5, 9); if (dP < 160) emote(n, 'z'); }
+      } else if (n.mode === 'wait') {
+        // Espera a que llegue el que viene a charlar (mirándolo).
+        const m = n.chatWith;
+        if (!m || m.chatWith !== n || m.mode !== 'walk' || n.tt <= 0) endChat(n);
+        else n.anim.dir = G.Sprites.dirFromAngle(Math.atan2(m.y - n.y, m.x - n.x));
+      } else if (n.mode === 'chat') {
+        chatTick(n, dt);
       } else if (n.mode === 'follow') {
         const i = followers.indexOf(n), p = trail[Math.min(trail.length - 1, 4 + i * 5)] || [pl.x, pl.y];
         const dx = p[0] - n.x, dy = p[1] - n.y, d = Math.hypot(dx, dy);
@@ -621,13 +642,13 @@ G.Village = (() => {
       } else if (n.mode === 'home' || n.mode === 'walk') {
         const [hx, hy] = n.mode === 'home' ? n.home : n.goal;
         const dx = hx - n.x, dy = hy - n.y, d = Math.hypot(dx, dy);
-        if (d < 6 || n.tt < -6) { n.mode = 'idle'; n.tt = rnd(1.4, 4); }
+        if (d < 6 || n.tt < -6) { n.mode = 'idle'; n.tt = rnd(1.4, 4); if (n.chatWith) { if (d < 16) startChat(n); else endChat(n); } }
         else {
           const sp = n.keeper ? 40 : n.mode === 'home' ? 110 : 55;
           const m = move(n, dx / d * sp * dt, dy / d * sp * dt);
           moving = m > 0.15;
           if (moving) n.anim.dir = G.Sprites.dirFromAngle(Math.atan2(dy, dx));
-          else if (n.mode === 'walk') { n.mode = 'idle'; n.tt = rnd(0.8, 2); }
+          else if (n.mode === 'walk') { n.mode = 'idle'; n.tt = rnd(0.8, 2); if (n.chatWith) endChat(n); }
           else if (n.mode === 'home' && n.tt < -3) { n.x = n.home[0]; n.y = n.home[1]; }
         }
       } else if (n.mode === 'idle') {
@@ -638,7 +659,10 @@ G.Village = (() => {
         } else { n.seen = false; if (n.keeper && n.tt <= 0) n.anim.dir = 0; }
         if (n.tt <= 0) {
           n.tt = rnd(1.5, 4.5);
-          if (n.wander > 0 && dP > 70 && Math.random() < 0.7) {
+          // (Bloque H) Los que duermen de noche (nap), a dormir; y a veces dos se juntan a charlar.
+          if (n.cast && n.cast.nap === 'night' && curL && curL.night > 0.95 && dP > 80 && G.Sprites.can(n.anim.dex, 'Sleep')) { n.mode = 'nap'; n.tt = rnd(2, 5); }
+          else if (dP > 90 && Math.random() < 0.22 && proposeChat(n)) { /* va a charlar */ }
+          else if (n.wander > 0 && dP > 70 && Math.random() < 0.7) {
             for (let k = 0; k < 6; k++) {
               const a = Math.random() * 6.2832, r = Math.random() * n.wander;
               const gx = n.home[0] + Math.cos(a) * r, gy = n.home[1] + Math.sin(a) * r;
@@ -654,8 +678,106 @@ G.Village = (() => {
         const push = Math.min(pl.r + n.r - dP, 150 * dt) + 0.5;
         if (move(n, (n.x - pl.x) / dP * push, (n.y - pl.y) / dP * push) < 0.1) move(n, -(n.y - pl.y) / dP * push, (n.x - pl.x) / dP * push);
       }
-      n.anim.loop(n.mode === 'still' ? n.anim.base : moving ? 'Walk' : 'Idle');
+      n.anim.loop(n.mode === 'still' ? n.anim.base : n.mode === 'nap' ? 'Sleep' : moving ? 'Walk' : 'Idle');
       n.anim.update(dt);
+    }
+  }
+
+  // ---------------- vida de la aldea (bloque H de la 1.0, 24-11-2026) ----------------
+  /*
+   * Pedido del dueño: «Pokémon que pasean y hacen cosas» y «Pokémon de día y de noche». Además de pasear, mirarte y seguirte:
+   *   - charlan: dos paseantes cerca y quietos se juntan, se miran y se dicen cosas (VILLAGE.CHAT) o se ríen;
+   *   - duermen: los de día (cast.nap) se echan a dormir en noche cerrada y se despiertan con el amanecer;
+   *   - los de una hora (cast.when): llegan andando cuando les toca (noche cerrada o la bruma del amanecer) y se van al
+   *     cambiar (se desvanecen mientras se alejan); mientras no están, no se ven, no chocan y no se les habla (hide);
+   *   - con la lluvia, alguno lo comenta (rainTalk); al volver tú de una partida, el guardián del altar te saluda (welcome).
+   */
+  const nightNow = () => (curL ? curL.night : 1);
+  const hourOk = when => (when === 'night' ? nightNow() > 0.95 : nightNow() < 0.75);
+  /** Los de una hora: llegan, están o se van. → false si ahora no está (no se hace nada más con él). */
+  function timed(n, dt) {
+    const want = hourOk(n.when);
+    if (n.away) {
+      if (!want) return false;
+      n.away = false; n.hide = false; n.leaving = false;
+      // La primera vez (al abrir la aldea) ya está en su sitio; después, llega andando desde algo lejos.
+      if (!n.seenOnce) { n.seenOnce = true; n.fade = 1; n.mode = 'idle'; n.tt = rnd(0.5, 2); return true; }
+      for (let k = 0; k < 10; k++) {
+        const a = Math.random() * 6.2832, d = tile(3 + Math.random() * 2), x = n.home[0] + Math.cos(a) * d, y = n.home[1] + Math.sin(a) * d;
+        if ((n.fly || !blocked(x, y, n.r, n)) && reachable(x, y)) { n.x = x; n.y = y; break; }
+      }
+      n.mode = 'home'; n.tt = 0; n.fade = 0;
+      return true;
+    }
+    n.seenOnce = true;
+    if (!want && !n.leaving && n.mode !== 'follow') {
+      n.leaving = true;
+      if (n.chatWith) endChat(n);
+      const a = Math.random() * 6.2832, d = tile(4);
+      n.goal = [n.home[0] + Math.cos(a) * d, n.home[1] + Math.sin(a) * d]; n.mode = 'walk'; n.tt = 0;
+      if (Math.hypot(pl.x - n.x, pl.y - n.y) < tile(6)) say(n, G.U.pick(V().BYE), 2.2);
+    }
+    if (n.leaving) {
+      n.fade = Math.max(0, (n.fade == null ? 1 : n.fade) - dt * 0.45);
+      if (n.fade <= 0) { n.away = true; n.hide = true; n.leaving = false; n.mode = 'idle'; n.bubble = null; n.emote = null; n.x = n.home[0]; n.y = n.home[1]; return false; }
+    } else if (n.fade != null && n.fade < 1) n.fade = Math.min(1, n.fade + dt * 1.2);
+    return true;
+  }
+  /** Paseante libre (puede charlar): ni tendero, ni quieto, ni mascota, ni siguiéndote, ni yéndose. */
+  const free = o => !o.hide && !o.leaving && !!o.cast && !o.keeper && !o.isPet && !o.cast.still && o.wander > 0 && !o.chatWith && o.mode === 'idle';
+  function proposeChat(n) {
+    if (!free(n)) return false;
+    const m = npcs.find(o => o !== n && free(o) && Math.hypot(o.x - n.x, o.y - n.y) < tile(5));
+    if (!m) return false;
+    const gx = m.x + (n.x < m.x ? -34 : 34), gy = m.y + 4;
+    if (!n.fly && blocked(gx, gy, n.r, n)) return false;
+    n.goal = [gx, gy]; n.mode = 'walk'; n.tt = 0; n.chatWith = m;
+    m.chatWith = n; m.mode = 'wait'; m.tt = 8;
+    return true;
+  }
+  function startChat(n) {
+    const m = n.chatWith;
+    if (!m || m.chatWith !== n || m.hide || m.mode !== 'wait') { endChat(n); return; }
+    const c = { t: 0.6, turn: 0, a: n, b: m };
+    n.chat = m.chat = c; n.mode = m.mode = 'chat';
+    n.anim.dir = G.Sprites.dirFromAngle(Math.atan2(m.y - n.y, m.x - n.x));
+    m.anim.dir = G.Sprites.dirFromAngle(Math.atan2(n.y - m.y, n.x - m.x));
+  }
+  function chatTick(n, dt) {
+    const c = n.chat;
+    if (!c || c.a.mode !== 'chat' || c.b.mode !== 'chat') { endChat(n); return; }
+    if (n !== c.a) return;                           // (lo lleva el que vino)
+    c.t -= dt;
+    if (c.t > 0) return;
+    if (c.turn >= 4) { endChat(n); return; }
+    const who = c.turn % 2 ? c.b : c.a;
+    c.turn++; c.t = 1.4;
+    if (Math.random() < 0.55) say(who, G.U.pick(V().CHAT), 1.5);
+    else emote(who, G.U.pick(['♪', '!', '♥', '?', '…']));
+    const k = G.Sprites.choose(who.anim.dex, false, ['Nod', 'Hop', 'Pose']);
+    if (k) who.anim.play(k);
+  }
+  /** Acaba la charla (o la espera) de n y de con quien estaba. */
+  function endChat(n) {
+    const c = n.chat, list = c ? [c.a, c.b] : [n, n.chatWith];
+    for (const o of list) {
+      if (!o) continue;
+      if (o.mode === 'chat' || o.mode === 'wait') { o.mode = 'idle'; o.tt = rnd(2, 5); }
+      o.chatWith = null; o.chat = null;
+    }
+  }
+  /** Empieza a llover: alguno cerca lo comenta. */
+  function rainTalk() {
+    if (!pl) return;
+    const near = npcs.filter(n => !n.hide && n.mode !== 'still' && n.mode !== 'nap' && Math.hypot(pl.x - n.x, pl.y - n.y) < tile(8));
+    if (near.length) say(G.U.pick(near), G.U.pick(V().RAIN), 3);
+  }
+  /** Al volver de una partida: el guardián del altar te saluda y los de cerca se alegran. */
+  function welcome() {
+    for (const n of npcs) {
+      if (n.hide) continue;
+      if (n.place && n.place.id === 'play') { n.anim.dir = G.Sprites.dirFromAngle(Math.atan2(pl.y - n.y, pl.x - n.x)); say(n, G.U.pick(V().WELCOME), 3.2); }
+      else if (n.mode !== 'still' && n.mode !== 'nap' && Math.hypot(pl.x - n.x, pl.y - n.y) < tile(6)) emote(n, Math.random() < 0.5 ? '!' : '♥');
     }
   }
 
@@ -669,6 +791,8 @@ G.Village = (() => {
     n.li++;
     G.Audio.sfx('click');
     G.Sprites.warm(n.anim.dex);
+    if (n.mode === 'nap') { say(n, G.U.pick(V().NAP)); emote(n, 'z'); return; }
+    if (n.chatWith) endChat(n);
     if (n.mode === 'still') {
       say(n, line);
       if (n.cast.still === 'Sleep') emote(n, 'z');
@@ -698,6 +822,7 @@ G.Village = (() => {
       if (d < V().ENTER && d < bd) { best = { place: p, goal: 'p:' + p.id }; bd = d; }
     }
     for (const n of npcs) {
+      if (n.hide) continue;
       const d = Math.hypot(pl.x - n.x, pl.y - n.y);
       if (d < 60 && d + (best ? 44 : 14) < bd) { best = { npc: n, goal: 'n:' + npcs.indexOf(n) }; bd = d; }
     }
@@ -767,6 +892,7 @@ G.Village = (() => {
   // ---------------- tocar o hacer clic en la aldea ----------------
   function pointer(e) {
     if (intro) { skipIntro(); return; }
+    if (outro) { skipOutro(); return; }
     if (G.HomeIn && G.HomeIn.on) {
       if (e.target === document.getElementById('game') && active && !quick && !covered() && (!e.button || e.button === 0)) G.HomeIn.pointer(e, !homeOpen);
       return;
@@ -794,6 +920,7 @@ G.Village = (() => {
   function pick(sx, sy) {
     let best = null, bd = 1e9;
     for (const n of npcs) {
+      if (n.hide) continue;
       const hgt = G.Sprites.bodyHeight(n.anim.dex) + 6, s0 = G.Village3D.toScreen(view, n.x, n.y, 0), s1 = G.Village3D.toScreen(view, n.x, n.y, hgt);
       const half = Math.max(14, (n.r + 6) * view.scale);
       if (sx > s0.x - half && sx < s0.x + half && sy < s0.y + 6 && sy > s1.y) { const d = Math.abs(sx - s0.x); if (d < bd) { bd = d; best = { npc: n }; } }
@@ -819,12 +946,13 @@ G.Village = (() => {
     pl.gz = hz(pl.x, pl.y); pl.z = pl.gz + (pl.lift || 0); pl.lit = true;
     G.Village3D.sprite(pl);
     const A = G.Village3D.altar ? G.Village3D.altar() : null;
-    view.onPad = !!intro || !!(A && Math.hypot(pl.x - A.pad[0], pl.y - A.pad[1]) < A.padR + 8);
-    view.boost = intro ? intro.boost : 0;
+    view.onPad = !!intro || !!outro || !!(A && Math.hypot(pl.x - A.pad[0], pl.y - A.pad[1]) < A.padR + 8);
+    view.boost = intro ? intro.boost : outro ? outro.boost : 0;
     if (holo) { holo.z = 16 + Math.sin(t * 1.6) * 4; holo.anim.dir = Math.floor(t * 1.3) % 8; holo.anim.loop('Idle'); holo.anim.update(dt); G.Village3D.sprite(holo); }
     view.player = pl;
     view.mail = mailUnread();
-    const r = G.Village3D.render(view, t, dt, light(phase()));
+    const L = curL || light(phase());
+    const r = G.Village3D.render(view, t, dt, G.VillageLife ? G.VillageLife.light(L) : L);
     if (!r) return;
     lastShot = r;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -841,6 +969,12 @@ G.Village = (() => {
   const FONT = '700 13px Nunito, "Segoe UI", system-ui, sans-serif';
   function overlay(ctx, w, h) {
     ctx.save();
+    // (Bloque H) El ambiente: ondas, hojas, luciérnagas y lluvia; y el remolino del portal al entrar y al volver.
+    if (G.VillageLife) {
+      G.VillageLife.draw(ctx, w, h, view, curL ? curL.night : 1, frameDt);
+      if (intro) G.VillageLife.portal(ctx, view, intro.A.ring, Math.min(0.999, intro.t / (intro.W + intro.E + intro.F)), 1);
+      else if (outro) G.VillageLife.portal(ctx, view, outro.A.ring, Math.min(0.999, outro.t / outro.T), -1);
+    }
     // Nombres de los sitios: el que tienes cerca, el de debajo del ratón y, a lo lejos, nada (sin llenar la pantalla).
     const m = G.Input.mouse(), mouseOn = !(G.Touch && G.Touch.active) && performance.now() - G.Input.mouseMovedAt < 4000;
     hover = mouseOn && walking() ? pick(m.x, m.y) : null;
@@ -849,21 +983,23 @@ G.Village = (() => {
     if (near && near.place) named.add(near.place);
     if (hover && hover.place) named.add(hover.place);
     for (const p of V().PLACES) if (Math.hypot(pl.x - tile(p.x), pl.y - tile(p.y)) < tile(3.4)) named.add(p);
-    if (intro) named.clear(); else altarHint(ctx);
+    if (intro || outro) named.clear(); else altarHint(ctx);
     for (const p of named) {
       const s = G.Village3D.toScreen(view, tile(p.x), tile(p.y), labelZ(p));
       pill(ctx, s.x, s.y, G.T(p.name), p === (near && near.place) || p === (hover && hover.place));
     }
     // Bocadillos y emoticonos de los Pokémon.
     for (const n of npcs) {
+      if (n.hide) continue;
       const top = G.Sprites.bodyHeight(n.anim.dex) + 10;
       if (n.bubble) { const s = G.Village3D.toScreen(view, n.x, n.y, top); bubble(ctx, s.x, s.y, n.bubble.text, w); }
       else if (n.emote) { const s = G.Village3D.toScreen(view, n.x, n.y, top); emo(ctx, s.x, s.y, n.emote.sym, n.emote.t); }
       if (hover && hover.npc === n) { const s = G.Village3D.toScreen(view, n.x, n.y, 0); pill(ctx, s.x, s.y + 18, (G.DEX_BY[n.anim.dex] || {}).name || '', true); }
     }
     // Joystick (táctil), como en la partida.
-    if (G.Touch && G.Touch.active && walking() && !intro) G.Touch.draw(ctx);
+    if (G.Touch && G.Touch.active && walking() && !intro && !outro) G.Touch.draw(ctx);
     if (intro) introFlash(ctx, w, h);
+    else if (outro) outroFlash(ctx, w, h);
     ctx.restore();
   }
   /*
@@ -908,9 +1044,10 @@ G.Village = (() => {
     let d = Math.hypot(pl.x - A.pad[0], pl.y - A.pad[1]);
     // Lejos (desde el desplegable «Ir a…»): aparece junto al altar.
     if (d > tile(4)) { pl.x = A.pad[0]; pl.y = A.pad[1] + 56; d = 56; snapCam(); }
-    const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // (Bloque H) También con «Menos sacudidas y destellos» de los ajustes, no sólo con reducir movimiento del sistema.
+    const c = calm();
     intro = { t: 0, x0: pl.x, y0: pl.y, A, s0: pl.anim.scale, boost: 0, fl: 0, held: true, fired: false,
-      W: calm ? 0 : Math.max(0.18, Math.min(0.6, d / 230)), E: calm ? 0.2 : 0.62, F: calm ? 0.25 : 0.42 };
+      W: c ? 0 : Math.max(0.18, Math.min(0.6, d / 230)), E: c ? 0.2 : 0.62, F: c ? 0.25 : 0.42 };
     G.Audio.sfx('rift');
     // Precarga (sin esperar): las hojas de tu Pokémon de la partida y los suelos del principio.
     try {
@@ -983,6 +1120,86 @@ G.Village = (() => {
   }
   /** game.js (al empezar la partida): ¿viene del destello del portal? (y se olvida) */
   function takeFlash() { const f = flashPending; flashPending = false; return f; }
+
+  // ---------------- la vuelta de la partida (bloque H de la 1.0, 24-11-2026, pedido del dueño) ----------------
+  /*
+   * «Aldea: salida a la partida por el portal y vuelta». Al volver (sleep marca `back`), en cuanto la aldea se ve sin nada
+   * encima: un destello en el portal, tu Pokémon sale de él pequeño y brillante, baja al círculo del altar recuperando su
+   * tamaño (con un remolino de luz que sale del portal: VillageLife.portal), el guardián del altar te saluda y das un paso
+   * fuera del círculo. ~1,5 s; se salta con cualquier tecla, botón o toque. Con «Menos sacudidas y destellos» (o reducir
+   * movimiento del sistema), 0,5 s y sin destello fuerte.
+   */
+  const calm = () => !!(G.Settings && G.Settings.get && G.Settings.get('calm')) ||
+    (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function startOutro() {
+    back = false;
+    const A = G.Village3D.altar && G.Village3D.altar();
+    if (!A || !pl) return;
+    const c = calm();
+    target = null; setQuick(false); near = null; prompt();
+    outro = { t: 0, A, s0: pl.anim.scale, boost: 1, T: c ? 0.5 : 1.5, D: c ? 0.3 : 0.95, held: true, landed: false, c };
+    pl.x = A.pad[0]; pl.y = A.ring[1] + 8; pl.anim.dir = 0;
+    pl.lift = A.ring[2] - 40; pl.anim.scale = outro.s0 * 0.5; pl.fade = 0; pl.flash = 1.4;
+    zoom = 1.2; snapCam();
+    G.Audio.sfx('rift');
+  }
+  function outroTick(dt) {
+    const O = outro, A = O.A;
+    O.t += dt;
+    const any = G.Input.tap('escape') || G.Input.tap('enter') || G.Input.tap('space') || G.Input.tap('keye'), held = !!G.Input.act('open');
+    if (any || (held && !O.held)) skipOutro();
+    if (!outro) return;
+    O.held = held;
+    const k = Math.min(1, O.t / O.D), e = ease(k);
+    if (k < 1) {
+      // Baja del portal al círculo: de pequeño, brillante y arriba a su tamaño.
+      pl.x = A.pad[0]; pl.y = A.ring[1] + 8 + (A.pad[1] - A.ring[1] - 8) * e;
+      pl.lift = (1 - e) * (A.ring[2] - 40);
+      pl.anim.scale = O.s0 * (0.5 + 0.5 * e);
+      pl.flash = (1 - e) * 1.4;
+      pl.fade = Math.min(1, k * 3);
+      pl.anim.dir = 0;
+      pl.anim.loop('Idle');
+    } else {
+      if (!O.landed) { O.landed = true; land(); }
+      // Un paso fuera del círculo, hacia ti.
+      const s = Math.min(1, (O.t - O.D) / Math.max(0.01, O.T - O.D));
+      pl.y = A.pad[1] + 24 * ease(s);
+      pl.anim.loop('Walk');
+    }
+    pl.anim.update(dt);
+    O.boost = 1 - ease(Math.min(1, O.t / O.T));
+    zoom = 1 + 0.2 * O.boost;
+    const [tx, ty] = camTarget();
+    view.cx = G.U.damp(view.cx, tx, 10, dt); view.cy = G.U.damp(view.cy, ty, 10, dt);
+    npcTick(dt);
+    if (O.t >= O.T) endOutro();
+  }
+  function land() {
+    pl.anim.scale = outro.s0; pl.fade = 1; pl.flash = 0; pl.lift = 0;
+    pl.x = outro.A.pad[0]; pl.y = outro.A.pad[1];
+    G.Audio.sfx('land');
+    welcome();
+  }
+  function skipOutro() { if (outro && outro.t > 0.12) endOutro(); }
+  function endOutro() {
+    if (!outro) return;
+    if (!outro.landed) { outro.landed = true; land(); }
+    pl.fade = null; pl.y = outro.A.pad[1] + 24;
+    outro = null; zoom = 1; walkPrev = false;
+    snapCam();
+  }
+  /** Destello al abrirse el portal (los primeros 0,4 s). */
+  function outroFlash(ctx, w, h) {
+    const O = outro, fl = (1 - Math.min(1, O.t / 0.4)) * (O.c ? 0.3 : 0.85);
+    if (fl <= 0) return;
+    const s = G.Village3D.toScreen(view, O.A.ring[0], O.A.ring[1], O.A.ring[2]), R = Math.hypot(w, h);
+    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, R * 0.7);
+    g.addColorStop(0, 'rgba(255,255,255,' + fl + ')');
+    g.addColorStop(0.4, 'rgba(248,236,255,' + fl * 0.7 + ')');
+    g.addColorStop(1, 'rgba(232,190,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
   function rr(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -1184,7 +1401,8 @@ G.Village = (() => {
     if (pl) G.Village3D.unsprite(pl);
     if (holo) G.Village3D.unsprite(holo);
     npcs = []; pl = null; followers = []; lastPartner = ''; pet = null; holo = null; homeKey = '';
-    intro = null; zoom = 1;
+    intro = null; zoom = 1; outro = null; back = true;      // (al volver, la salida por el portal: startOutro)
+    if (G.VillageLife) G.VillageLife.reset();
     G.Village3D.free();
     active = false; quick = false; lastShot = null;
     if (homeOpen && G.HomeUI) G.HomeUI.close(true);
@@ -1196,7 +1414,7 @@ G.Village = (() => {
   return { init, show, frame, sleep, go, walking, wanted, prepare, homePanel, previewHome, syncHome, nearest: () => near, takeFlash,
     enterHome, exitHome, running, paint: { pill, bubble, emo },
     get inside() { return !!(G.HomeIn && G.HomeIn.on); },
-    get intro() { return !!intro; },
+    get intro() { return !!intro; }, get outro() { return !!outro; },
     get homeOpen() { return homeOpen; },
     get active() { return active; }, get mode() { return active ? 'village' : failed ? 'classic' : (three === 'loading' || veilOn) ? 'loading' : 'classic'; },
     get failed() { return failed; }, get quickOpen() { return quick; },

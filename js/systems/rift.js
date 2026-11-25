@@ -21,9 +21,10 @@
  *   'rift' x y ttl · 'riftx' · 'arena' cfg · 'aw' (ganada) · 'al' (perdida)
  *   y del invitado al anfitrión 're' (he entrado en la grieta).
  *
- * Viaje y llegada (26-10-2026). Al entrar, tu Pokémon viaja por el túnel del
- * Mundo Distorsión (TRAVEL s, se salta tocando la pantalla o con Espacio; en grupo
- * lo salta el anfitrión para todos: 'rk'). Al llegar, el legendario tarda INTRO s en
+ * Viaje y llegada (26-10-2026). Al entrar, la grieta te absorbe (SUCK s, bloque H de la 1.0) y tu Pokémon viaja por el
+ * túnel del Mundo Distorsión (TRAVEL s, se salta tocando la pantalla o con Espacio; en grupo
+ * lo salta el anfitrión para todos: 'rk'). Desde el bloque H los legendarios salen UNO DETRÁS DE OTRO, con cámara y
+ * presentación con su nombre (ver startIntro y js/entities/legend-fx.js; se salta: 'lk'). Antes, el legendario tardaba INTRO s en
  * aparecer, cada uno a su manera (APPEAR: Groudon sale de la lava, Kyogre de un
  * remolino, Zapdos entre rayos, Rayquaza cae del cielo, Mewtwo se materializa,
  * Giratina sale de su sombra, Dialga con su reloj, Palkia por una grieta en el
@@ -63,7 +64,8 @@ G.Rift = (() => {
   const SPOTS_IN = [[], [[5.6, 0.6]], [[-5.6, 0.6], [5.6, 0.6]], [[-5.8, 0.6], [5.8, 0.6], [3.4, 4.0]]], PLAYERS_IN = 1;
   const EXIT_GRACE = 2.5, EXIT_R = 140;     // al volver: segundos de gracia y hueco sin enemigos
   // Viaje por el túnel (s), cuándo se llega de verdad a la arena (tapado por el túnel) y lo que tarda el legendario.
-  const TRAVEL = 2.0, T_PORT = 0.45, INTRO = 2.0;
+  // (Bloque H de la 1.0) Antes del túnel, la grieta te absorbe: SUCK s (SUCK_CALM con «Menos sacudidas y destellos»).
+  const TRAVEL = 2.0, T_PORT = 0.45, INTRO = 2.0, SUCK = 0.75, SUCK_CALM = 0.25;
   let travel = null;        // { t, cfg, ported, canSkip, mons: [Animator] }
   let pendingLgi = null;    // 'lgi' llegado antes que startIntro (bloque 3)
   let intro = null;         // { t, list: [{ dex, x, y, st, col, col2, an, sc, seed, at, cue }], done }
@@ -75,7 +77,7 @@ G.Rift = (() => {
   const authority = () => !G.Coop.active || G.Coop.isHost;
   const TS = () => G.World.TS;
 
-  function reset() { rift = null; arena = null; zone = null; asked = false; downT = 0; travel = null; intro = null; pendingLgi = null; sched = plan(); schedI = 0; retryT = 0; }
+  function reset() { rift = null; arena = null; zone = null; asked = false; downT = 0; travel = null; intro = null; pendingLgi = null; pendingLk = false; sched = plan(); schedI = 0; retryT = 0; }
 
   /** Calendario de grietas de una partida: una por marca de RIFT_EVERY s, ±RIFT_JIT s, hasta 2 min antes de la Sentencia. */
   function plan(end = (G.Judgment && G.Judgment.AT || 1800) - 120) {
@@ -221,8 +223,14 @@ G.Rift = (() => {
     const pl = G.Game.player;
     // Lo que ve en el túnel: tu Pokémon y, en grupo, los demás detrás.
     const who = [pl, ...G.Game.everyone().filter(p => p !== pl && !p.dead)].slice(0, 4);
-    travel = { t: 0, cfg, ported: false, canSkip: authority(), prep: prepSteps(G.Tiles && G.Tiles.arenaBiome ? G.Tiles.arenaBiome(cfg.type) : -1),
+    // (Bloque H) Primero la grieta te absorbe (t < 0, drawSuck); el túnel empieza en t = 0, como antes.
+    const suck = calm() ? SUCK_CALM : SUCK, from = rift ? { x: rift.x, y: rift.y } : null;
+    const pull = !!(from && pl && G.U.dist2(pl.x, pl.y, from.x, from.y) < 260 * 260);
+    travel = { t: -suck, suck, from, pull, px: pl ? pl.x : 0, py: pl ? pl.y : 0, cfg, ported: false, canSkip: authority(),
+               prep: prepSteps(G.Tiles && G.Tiles.arenaBiome ? G.Tiles.arenaBiome(cfg.type) : -1),
                mons: who.map(p => { const a = new G.Sprites.Animator(p.form || p.dex, 1, !!p.shiny); a.dir = 0; return a; }) };
+    pendingLk = false;
+    if (G.Camera && G.Camera.kick) G.Camera.kick(0.35);
     G.Sprites.preload(Array.isArray(cfg.dexes) ? cfg.dexes.filter(d => G.DEX_BY[d]).slice(0, 3) : [cfg.dex], 8000);
     // (Rendimiento, 13-11-2026) Y las imágenes del mapa de la arena: así ya están al llegar (a los 0,45 s) y no se pinta dos veces.
     if (G.Tileset && G.Tiles.arenaBiome) G.Tileset.preload([G.Tiles.arenaBiome(cfg.type)]);
@@ -261,13 +269,19 @@ G.Rift = (() => {
     const t0 = travel.t;
     travel.t += dt;
     for (const a of travel.mons) a.loop('Walk', 1.6), a.update(dt);
+    // La absorción: tu Pokémon, arrastrado hasta la grieta (si estaba cerca) y la cámara detrás.
+    if (travel.t < 0 && travel.pull) {
+      const pl = G.Game.player, f = travel.from, e = ease(cl01(1 + travel.t / travel.suck));
+      if (pl) { pl.x = travel.px + (f.x - travel.px) * e; pl.y = travel.py + (f.y - 6 - travel.py) * e; }
+      if (G.Camera && G.Camera.follow) G.Camera.follow(f.x, f.y - 30, dt);
+    }
     if (t0 < T_PORT && travel.t >= T_PORT && !travel.ported) { travel.ported = true; port(travel.cfg, true); }
     if (travel.t >= TRAVEL) endTravel();
   }
 
   /** Salta el viaje (tecla o toque; en grupo, el anfitrión para todos). */
   function skipTravel() {
-    if (!travel || !travel.canSkip || travel.t < 0.3) return;
+    if (!travel || !travel.canSkip || travel.t + travel.suck < 0.3) return;
     if (G.Coop.isHost) G.Coop.broadcast(['rk']);
     doSkip();
   }
@@ -359,6 +373,40 @@ G.Rift = (() => {
   /** [estilo, toque] de un legendario. */
   function appearOf(dex) { const m = G.DEX_BY[dex]; return (APPEAR[dex] || (m && APPEAR_TYPE[m.types[0]]) || 'warp aura').split(' '); }
 
+  /*
+   * (Bloque H de la 1.0, 24-11-2026, pedido del dueño: «que cada uno tenga una animación personal, cuando haya dos se verá
+   * primero una animación y luego otra») Salen UNO DETRÁS DE OTRO: la cámara va a cada uno (PAN), sale con su animación
+   * (G.LegendFX: la propia si la tiene, si no la genérica con su estilo y su toque) y una presentación con su nombre, un
+   * título y sus tipos (drawPresent); luego la cámara vuelve a ti (BACK) y empieza la pelea. Mientras, el juego está parado
+   * como en el viaje (judgment.js cinematic: presenting).
+   *   - Se salta (Espacio, Intro, A del mando o tocar la pantalla; en grupo, el anfitrión para todos: 'lk').
+   *   - La segunda vez que ves a un legendario, más corta (su `short`, PAN_S y HOLD_S). Los vistos se guardan en tu partida
+   *     (G.DB.save.lseen, dex -> fecha; no en `best`). En grupo manda lo del anfitrión: va en 'lgi' (4.º número, 1 = corta),
+   *     así todos ven la misma secuencia y acaban a la vez; un invitado de antes no lo lee.
+   *   - Con «Menos sacudidas y destellos» la cámara salta en vez de moverse, sin temblores (Camera.kick) ni bandas que se deslizan.
+   * Medido (perf.cjs, grieta y arena): ver docs/2.0-ESTADO.md «1.0 · Bloque H».
+   */
+  const PAN = 0.5, PAN_S = 0.3, HOLD = 0.8, HOLD_S = 0.4, BACK = 0.45, CALM_PAN = 0.12;
+  let pendingLk = false;      // 'lk' (saltar) llegado antes que startIntro
+  const calm = () => !!(G.Settings && G.Settings.get && G.Settings.get('calm')) ||
+    (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);   // (o «reducir movimiento» del sistema)
+  const ease = k => k * k * (3 - 2 * k), cl01 = k => (k < 0 ? 0 : k > 1 ? 1 : k);
+  /** ¿Ya habías visto a este legendario? (en tu partida guardada) */
+  function seen(dex) { const s = G.DB && G.DB.save; return !!(s && s.lseen && s.lseen[dex]); }
+  function markSeen(list) {
+    const s = G.DB && G.DB.save;
+    if (!s) return;
+    s.lseen = s.lseen || {};
+    for (const l of list) if (!s.lseen[l.dex]) s.lseen[l.dex] = Date.now();
+  }
+  /** Su animación (legend-fx.js); sin ese archivo (pruebas), la de antes. */
+  function fxOf(dex) {
+    if (G.LegendFX) return G.LegendFX.def(dex);
+    return { dur: INTRO, short: 1, cue: 0.8, sprite: (l, k) => G.BossFX.appearSprite(l.st, k),
+      back: (ctx, l, k, now) => G.BossFX.appear(ctx, l.st, l.x, l.y, k, l.col, l.col2, now, l.seed, true),
+      front: (ctx, l, k, now) => G.BossFX.appear(ctx, l.st, l.x, l.y, k, l.col, l.col2, now, l.seed, false) };
+  }
+
   /** Al llegar: dónde sale cada legendario y su animación (quien manda, también 'lgi' a los demás). */
   function startIntro() {
     const ts = U, k = arena.dexes.length, placed = [];
@@ -374,14 +422,35 @@ G.Rift = (() => {
       if (st === 'erupt' && m.types[0] !== 'fire' && m.types[0] !== 'steel') { col = '#ff6a1f'; col2 = '#ffd25e'; }
       const an = new G.Sprites.Animator(dex, sc, !!(arena.shinies || [])[i]);
       an.dir = 0;
-      return { dex, x: o.x, y: o.y, st, acc, col, col2: st === 'erupt' ? '#ffd25e' : col2 === col ? '#ffffff' : col2, an, sc, seed: dex * 7 + i, at: i * 0.25, cue: false };
+      const hgt = G.Sprites.bodyHeight ? G.Sprites.bodyHeight(dex, sc) : 60;
+      return { dex, x: o.x, y: o.y, st, acc, col, col2: st === 'erupt' ? '#ffd25e' : col2 === col ? '#ffffff' : col2, an, sc, seed: dex * 7 + i,
+               cue: false, short: seen(dex), fx: fxOf(dex), lift: Math.min(60, hgt * 0.45), i, shiny: !!(arena.shinies || [])[i] };
     });
-    intro = { t: 0, list };
+    intro = { t: 0, list, done: false, doneAt: 0 };
+    timeline();
     // (Un 'lgi' que llegó antes que esto: se aplica ahora; antes se perdía.)
     if (pendingLgi) { introAt(pendingLgi); pendingLgi = null; }
     arena.phase = 'intro';
-    if (authority() && G.Coop.isHost) G.Coop.broadcast(['lgi', list.map(l => [l.dex, Math.round(l.x), Math.round(l.y)])]);
+    if (authority() && G.Coop.isHost) G.Coop.broadcast(['lgi', list.map(l => [l.dex, Math.round(l.x), Math.round(l.y), l.short ? 1 : 0])]);
     G.Audio.sfx('rift');
+    G.Touch.reset();
+    if (pendingLk) { pendingLk = false; doSkipPresent(); }
+  }
+
+  /** Cuándo va cada uno: pan0 (la cámara sale hacia él), at (empieza su animación), end (acaba), hold (su nombre sigue). */
+  function timeline() {
+    const c = calm();
+    let t = 0;
+    for (const l of intro.list) {
+      const pan = c ? CALM_PAN : l.short ? PAN_S : PAN;
+      l.D = Math.max(0.3, (l.short ? l.fx.short : l.fx.dur) || INTRO);
+      l.hold = l.short ? HOLD_S : HOLD;
+      l.pan0 = t; l.at = t + pan; l.end = l.at + l.D;
+      t = l.end + l.hold * 0.5;              // (el siguiente sale mientras aún se lee el nombre de éste)
+    }
+    const last = intro.list[intro.list.length - 1];
+    intro.end = last ? last.end + last.hold : 0;
+    intro.total = intro.end + (c ? CALM_PAN : BACK);
   }
 
   /** Como place(), pero también lejos de vosotros (que no os aparezca encima). */
@@ -425,27 +494,77 @@ G.Rift = (() => {
   function introAt(a) {
     if (!Array.isArray(a)) return;
     if (!intro) { pendingLgi = a; return; }
+    let short = false;
     for (const p of a) {
       if (!Array.isArray(p)) continue;
       const l = intro.list.find(q => q.dex === p[0]);
       if (l && Number.isFinite(p[1]) && Number.isFinite(p[2])) { l.x = p[1]; l.y = p[2]; }
+      // (Bloque H) Corta o larga, como la ve el anfitrión (un anfitrión de antes no lo manda: la de cada uno).
+      if (l && (p[3] === 0 || p[3] === 1) && l.short !== !!p[3]) { l.short = !!p[3]; short = true; }
     }
+    if (short && !intro.done) timeline();
   }
 
   function introTick(dt) {
+    if (intro.done) return;
     intro.t += dt;
     for (const l of intro.list) {
-      const k = (intro.t - l.at) / INTRO;
+      const k = (intro.t - l.at) / l.D;
+      if (k < 0) continue;
       l.an.update(dt);
       l.an.loop(k > 0.7 ? 'Idle' : 'Walk');
-      // Golpe al aparecer: temblor y sonido (una vez).
-      if (!l.cue && k >= 0.8) { l.cue = true; G.Camera.kick(0.6); G.FX.ring(l.x, l.y, 8, 120, l.col, 0.5, 5); G.FX.burst(l.x, l.y - 20, l.col2, 18, 200); G.Audio.sfx('land'); }
+      if (l.fx.tick && k < 1) l.fx.tick(l, k, dt);
+      // Golpe al llegar: temblor, luz y sonido (una vez).
+      if (!l.cue && k >= (l.fx.cue || 0.8)) { l.cue = true; cueOf(l); }
     }
-    if (intro.t >= INTRO + (intro.list.length - 1) * 0.25) {
-      if (authority()) spawnLegends(intro.list);
-      arena.phase = 'fight';
-      intro.done = true;
+    camTick(dt);
+    // (Invitado) Si ya están los de verdad (el anfitrión ha acabado un poco antes), se acaba aquí también.
+    const real = !authority() && G.EnemyMgr.bosses && intro.list.every(l => G.EnemyMgr.bosses().some(e => e.dex === l.dex));
+    if (intro.t >= intro.total || real) endIntro();
+  }
+  function cueOf(l) {
+    if (l.fx.onCue) l.fx.onCue(l);
+    else { G.Camera.kick(0.6); G.FX.ring(l.x, l.y, 8, 120, l.col, 0.5, 5); G.FX.burst(l.x, l.y - 20, l.col2, 18, 200); }
+    G.Audio.sfx('land');
+  }
+  function endIntro() {
+    if (!intro || intro.done) return;
+    intro.done = true;
+    intro.doneAt = performance.now() / 1000;
+    markSeen(intro.list);
+    if (authority()) spawnLegends(intro.list);
+    arena.phase = 'fight';
+    const pl = G.Game.player;
+    if (pl) { G.Camera.x = pl.x; G.Camera.y = pl.y; }
+  }
+
+  /** La cámara: de ti al primero, de uno al siguiente y, al final, de vuelta a ti (suave; con calm, casi un corte). */
+  function camTick(dt) {
+    const pl = G.Game.player, cam = G.Camera, t = intro.t, L = intro.list;
+    if (!L.length || !cam) return;
+    const home = pl ? [pl.x, pl.y] : [arena.x, arena.y], at = l => [l.x, l.y - l.lift];
+    let from = home, to = home, k = 1;
+    for (let i = 0; i < L.length && t >= L[i].pan0; i++) {
+      from = i ? at(L[i - 1]) : home; to = at(L[i]);
+      k = (t - L[i].pan0) / Math.max(0.01, L[i].at - L[i].pan0);
     }
+    if (t >= intro.end) { from = at(L[L.length - 1]); to = home; k = (t - intro.end) / Math.max(0.01, intro.total - intro.end); }
+    const e = ease(cl01(k));
+    cam.x = from[0] + (to[0] - from[0]) * e; cam.y = from[1] + (to[1] - from[1]) * e;
+    if (cam.follow) cam.follow(cam.x, cam.y, dt);       // (ya está donde toca: sólo se va el temblor)
+  }
+
+  /** Saltar la llegada (tecla, botón o toque; en grupo, el anfitrión para todos: 'lk'). */
+  function skipPresent() {
+    if (!intro || intro.done || intro.t < 0.3 || !authority()) return;
+    if (G.Coop.isHost) G.Coop.broadcast(['lk']);
+    doSkipPresent();
+  }
+  function doSkipPresent() {
+    if (!intro || intro.done) return;
+    for (const l of intro.list) l.cue = true;          // (sin los golpes que faltaban)
+    intro.t = intro.total;
+    endIntro();
   }
 
   /** Lo que se ve mientras aparecen (ordenado por Y con lo demás). */
@@ -455,10 +574,11 @@ G.Rift = (() => {
     for (const l of intro.list) {
       // (Cuando ya está el de verdad, el suyo; en el invitado puede tardar un poco en llegar. Y si el invitado
       //  llega tarde, porque tenía las cartas abiertas, el de verdad ya está: no se dibuja otro encima.)
-      if (G.EnemyMgr.bosses().some(e => e.dex === l.dex) || (intro.done && intro.t > INTRO + 2.5)) continue;
-      const k = G.U.clamp((intro.t - l.at) / INTRO, 0, 1);
-      G.BossFX.appear(ctx, l.st, l.x, l.y, k, l.col, l.col2, now, l.seed, true);
-      const s = G.BossFX.appearSprite(l.st, k);
+      if (G.EnemyMgr.bosses().some(e => e.dex === l.dex) || (intro.done && now - intro.doneAt > 2.5)) continue;
+      if (intro.t < l.at) continue;                     // (aún no le toca)
+      const k = G.U.clamp((intro.t - l.at) / l.D, 0, 1);
+      l.fx.back(ctx, l, k, now);
+      const s = l.fx.sprite(l, k);
       if (s.a > 0) {
         ctx.save();
         if (s.rise > 0) {
@@ -477,16 +597,128 @@ G.Rift = (() => {
         }
         ctx.restore();
       }
-      G.BossFX.appear(ctx, l.st, l.x, l.y, k, l.col, l.col2, now, l.seed, false);
-      if (G.BossFX.accent) G.BossFX.accent(ctx, l.acc, l.x, l.y, k, l.col, l.col2, now, l.seed);
+      l.fx.front(ctx, l, k, now);
     }
+  }
+
+  // ---------------- presentación: bandas de cine y el nombre de cada uno (en pantalla, encima de todo) ----------------
+
+  const F = (wt, s) => (G.HUD && G.HUD.F ? G.HUD.F(wt, s) : wt + ' ' + s + 'px sans-serif');
+  const N = (wt, s) => (G.HUD && G.HUD.N ? G.HUD.N(wt, s) : wt + ' ' + s + 'px sans-serif');
+  function rrect(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+  function drawPresent(ctx, w, h) {
+    if (!intro || intro.done || !arena) return;
+    G.Touch.clearButtons();             // (el HUD no se dibuja mientras dura)
+    const t = intro.t, c = calm(), sa = G.Touch.safeArea ? G.Touch.safeArea() : { left: 0, right: 0, bottom: 0 };
+    // Bandas negras arriba y abajo: entran al empezar y salen cuando la cámara vuelve a ti.
+    const inK = c ? 1 : ease(cl01(t / 0.35)), outK = t < intro.end ? 0 : c ? 1 : ease(cl01((t - intro.end) / Math.max(0.01, intro.total - intro.end)));
+    const band = Math.round(Math.min(h * 0.1, 64) * inK * (1 - outK));
+    ctx.save();
+    if (band > 0) { ctx.globalAlpha = 0.94; ctx.fillStyle = '#05030c'; ctx.fillRect(0, 0, w, band); ctx.fillRect(0, h - band, w, band); }
+    // La tarjeta del que acaba de salir (una cada vez: la del siguiente sale cuando ésta ya se ha ido).
+    for (const l of intro.list) {
+      const a0 = l.at + l.D * 0.5, a1 = l.end + l.hold;
+      if (t < a0 || t > a1 + 0.25) continue;
+      const fin = cl01((t - a0) / 0.25), a = Math.min(fin, 1 - cl01((t - a1) / 0.25));
+      if (a > 0) drawCard(ctx, w, h, l, a, c ? 0 : 1 - ease(fin), band, sa);
+    }
+    // Saltar (sólo quien manda; en grupo, el anfitrión para todos).
+    if (authority() && t > 0.3 && t < intro.end) {
+      const s = G.T(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar');
+      ctx.font = N(800, 13);
+      const tw = Math.min(ctx.measureText(s).width, w - 60), ph = 24, pw = tw + 22;
+      const x1 = w - 12 - (sa.right || 0), y0 = Math.max(8, band - ph - 6) + (band ? 0 : 4);
+      ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(14,10,34,.82)';
+      rrect(ctx, x1 - pw, y0, pw, ph, ph / 2); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(201,166,255,.75)'; ctx.stroke();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff';
+      ctx.fillText(s, x1 - 11, y0 + ph / 2 + 1, w - 60);
+      G.Touch.addButton(0, 0, w, h, skipPresent, 0);
+    }
+    ctx.restore();
+  }
+  /** Nombre grande, su título, sus tipos y «Nuevo» si es la primera vez que lo ves. Abajo a la izquierda. */
+  function drawCard(ctx, w, h, l, a, slide, band, sa) {
+    const m = G.DEX_BY[l.dex] || { name: '?', types: [] }, n = intro.list.length;
+    const big = Math.round(G.U.clamp(h * 0.085, 26, 58)), small = Math.round(G.U.clamp(h * 0.03, 12, 19));
+    const x0 = Math.round(Math.max(22, w * 0.05) + (sa.left || 0) - slide * 70);
+    const yb = h - band - 12 - Math.min(16, sa.bottom || 0), chipH = small + 10;
+    const yTitle = yb - chipH - 8, yName = yTitle - small - 8, yTop = yName - big - 6;
+    ctx.globalAlpha = a;
+    // Sombra detrás para que se lea sobre cualquier suelo (rectángulos lisos: van por la GPU).
+    ctx.fillStyle = '#05030c';
+    for (let i = 0; i < 6; i++) { ctx.globalAlpha = a * 0.1; ctx.fillRect(0, yTop - 14, Math.round(w * (0.42 + i * 0.06)), yb - yTop + 20); }
+    ctx.globalAlpha = a;
+    // Franja de sus colores.
+    ctx.fillStyle = l.col; ctx.fillRect(x0 - 14, yTop - 4, 5, yb - yTop + 4);
+    ctx.fillStyle = l.col2; ctx.fillRect(x0 - 8, yTop - 4, 2, yb - yTop + 4);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    // Arriba: «Legendario 2/3» (y «¡Nuevo!» la primera vez).
+    ctx.font = N(800, small);
+    const top = G.T('Legendario') + (n > 1 ? '  ' + (l.i + 1) + '/' + n : '');
+    ctx.fillStyle = '#d9c8ff'; ctx.fillText(top.toUpperCase(), x0, yTop + small);
+    if (!l.short) {
+      const tx = x0 + ctx.measureText(top.toUpperCase()).width + 10, s = G.T('¡Nuevo!'), tw = ctx.measureText(s).width;
+      ctx.fillStyle = '#ffcb05'; rrect(ctx, tx, yTop + 1, tw + 12, small + 4, (small + 4) / 2); ctx.fill();
+      ctx.fillStyle = '#2a1d00'; ctx.fillText(s, tx + 6, yTop + small);
+    }
+    // El nombre (con su sombra) y, si es shiny, una estrella.
+    ctx.font = F(700, big);
+    const name = m.name + (l.shiny ? ' ★' : '');
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(name, x0 + 2, yName + 3, w - x0 - 20);
+    ctx.fillStyle = l.shiny ? '#ffe27a' : '#ffffff'; ctx.fillText(name, x0, yName, w - x0 - 20);
+    // Su título.
+    ctx.font = N(700, small + 2);
+    ctx.fillStyle = '#efe4ff'; ctx.fillText(G.LegendFX ? G.LegendFX.title(l.dex) : G.T('Guardián de la grieta'), x0, yTitle, w - x0 - 20);
+    // Sus tipos.
+    ctx.font = N(800, small);
+    let cx = x0;
+    for (const ty of m.types || []) {
+      const s = G.T(G.U.TYPE_NAME[ty] || ty), tw = ctx.measureText(s).width;
+      ctx.fillStyle = G.U.TYPE_COLOR[ty] || '#888888'; rrect(ctx, cx, yb - chipH, tw + 18, chipH, chipH / 2); ctx.fill();
+      ctx.fillStyle = '#10081e'; ctx.fillText(s, cx + 9, yb - chipH / 2 + small * 0.36);
+      cx += tw + 26;
+    }
+    ctx.globalAlpha = 1;
   }
 
   // ---------------- viaje: dibujo (en pantalla, encima de todo) ----------------
 
+  /*
+   * (Bloque H de la 1.0, pedido del dueño: «al entrar a la grieta») Antes del túnel, la grieta te absorbe (SUCK s): todo se
+   * oscurece menos la grieta, un remolino de luz gira hacia ella y tu Pokémon se ve arrastrado dentro; luego se abre el
+   * túnel desde ahí. Con «Menos sacudidas y destellos», más corto y sin remolino.
+   */
+  function drawSuck(ctx, w, h) {
+    const k = cl01(1 + travel.t / travel.suck), f = travel.from, c = calm();
+    const p = f ? G.Camera.toScreen(f.x, f.y - 55) : { x: w / 2, y: h / 2 }, M = Math.hypot(w, h);
+    ctx.save();
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, M * (0.95 - 0.55 * k));
+    g.addColorStop(0, 'rgba(232,210,255,' + (0.5 * k).toFixed(3) + ')');
+    g.addColorStop(0.18, 'rgba(120,60,200,' + (0.3 * k).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(6,2,16,' + (0.92 * k).toFixed(3) + ')');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    if (!c) {
+      // Remolino: rayas de luz que giran y caen hacia la grieta, más rápidas al final.
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 30; i++) {
+        const ph = (G.U.hash(i, 1, 77) + k * (1.2 + k)) % 1, an = G.U.hash(i, 2, 77) * 6.2832 + k * 4 + ph * 2.4, r = (1 - ph) * M * 0.6 + 12;
+        const an2 = an + 0.4 + 0.3 * k, r2 = r * 0.78;
+        ctx.globalAlpha = ph * k * 0.85; ctx.strokeStyle = i % 3 ? '#c9a6ff' : '#7dffb0'; ctx.lineWidth = 1.5 + ph * 2.5;
+        ctx.beginPath(); ctx.moveTo(p.x + Math.cos(an) * r, p.y + Math.sin(an) * r * 0.72); ctx.lineTo(p.x + Math.cos(an2) * r2, p.y + Math.sin(an2) * r2 * 0.72); ctx.stroke();
+      }
+    }
+    // El centro de la grieta, cada vez más brillante.
+    ctx.globalAlpha = k * k; ctx.fillStyle = '#f4ecff';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 6 + 26 * k * k, 0, 6.2832); ctx.fill();
+    ctx.restore();
+    if (travel.canSkip && travel.t + travel.suck > 0.3) G.Touch.addButton(0, 0, w, h, skipTravel, 0);
+  }
+
   function drawTravel(ctx, w, h) {
     if (!travel) return;
     G.Touch.clearButtons();             // (el HUD no se dibuja mientras dura)
+    if (travel.t < 0) { drawSuck(ctx, w, h); return; }
     const pl = G.Game.player, cam = G.Camera;
     const ps = pl ? cam.toScreen(pl.x, pl.y - pl.bodyH * 0.5) : null, cx = ps ? ps.x : w / 2, cy = ps ? ps.y : h / 2;
     const r = G.BossFX.tunnel(ctx, w, h, travel.t, TRAVEL, cx, cy);
@@ -719,7 +951,7 @@ G.Rift = (() => {
   /** La grieta, para ordenarla por Y con el resto de la escena. */
   const introDrawable = { y: 0, draw: ctx => drawIntro(ctx) };
   function drawable() {
-    if (intro && arena && !(intro.done && intro.t > INTRO + 3)) { introDrawable.y = Math.max(...intro.list.map(l => l.y)); return introDrawable; }
+    if (intro && arena && !(intro.done && performance.now() / 1000 - intro.doneAt > 3)) { introDrawable.y = Math.max(...intro.list.map(l => l.y)); return introDrawable; }
     if (!rift) return null;
     return {
       y: rift.y,
@@ -773,6 +1005,8 @@ G.Rift = (() => {
       case 'al': lost(); break;
       case 'rk': doSkip(); break;
       case 'lgi': introAt(ev[1]); break;
+      // (Bloque H) El anfitrión salta la llegada de los legendarios para todos.
+      case 'lk': if (intro && !intro.done) doSkipPresent(); else if (travel) pendingLk = true; break;
     }
   }
 
@@ -780,6 +1014,12 @@ G.Rift = (() => {
     reset, update, drawable, onEvent, leftBehind, enterRequest() { if (!arena && !travel) start(); },
     // Viaje por la grieta: lo lleva la Sentencia (judgment.js), que es quien pone las animaciones del juego.
     travelTick, skipTravel, drawTravel, get traveling() { return !!travel; },
+    /** (Bloque H) La llegada de los legendarios, uno detrás de otro: también para el juego (judgment.js cinematic). */
+    get presenting() { return !!(arena && arena.phase === 'intro' && intro && !intro.done); },
+    presentTick(dt) { if (arena && intro && !intro.done) introTick(dt); }, skipPresent, drawPresent,
+    /** Para las pruebas: la cola de ahora [{ dex, at, end, D, short }], cuándo acaba y lo que dura la absorción. */
+    get introPlan() { return intro ? { total: intro.total, end: intro.end, list: intro.list.map(l => ({ dex: l.dex, pan0: l.pan0, at: l.at, end: l.end, D: l.D, short: l.short, own: !!l.fx.own })) } : null; },
+    SUCK, seen,
     /** Cómo llega cada legendario (para las pruebas y docs/JEFES.md). */
     APPEAR, appearOf,
     /** (Bloque 3, para las pruebas) sitios al azar de k legendarios y el 'lgi' de un invitado. */

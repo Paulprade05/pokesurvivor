@@ -97,7 +97,7 @@ G.VILLAGE = (() => {
     { dex: 54, at: [37.8, 30.6], r: 1.5, emote: '?', lines: ['¿Psy...? (Le duele la cabeza.)', '¡Psyduck! ...¿Psy?', '...'] },
     { dex: 175, at: [14.6, 26.6], r: 2.5, follow: true, emote: '♥', lines: ['¡Toge togepi! ♥', '¡Prrriii!', '¡Togepi!'] },
     { dex: 183, at: [40.6, 28.8], r: 1.5, emote: '♪', lines: ['¡Marill! (Juega junto a la charca.)', '¡Ma-rill!', '¡Riru!'] },
-    { dex: 16, at: [20.2, 13.2], r: 3, emote: '!', lines: ['¡Pidgey! (Picotea las esporas que caen.)', '¡Pi-pidgey!', '¡Gey!'] },
+    { dex: 16, at: [20.2, 13.2], r: 3, nap: 'night', emote: '!', lines: ['¡Pidgey! (Picotea las esporas que caen.)', '¡Pi-pidgey!', '¡Gey!'] },
     { dex: 43, at: [25.4, 27.6], r: 2, emote: '♪', lines: ['¡Oddish! (Baila con las luciérnagas.)', '¡Odd-odd!', '¡Shhh! Estoy tomando la luz de la luna.'] },
     { dex: 12, at: [9.8, 21.2], r: 4, fly: true, emote: '♪', lines: ['¡Free! ¡Butterfree! (Revolotea entre las setas.)', '¡Furi furi!', '¡Free!'] },
     { dex: 143, at: [4.4, 15.2], still: 'Sleep', lowq: true, emote: 'z', lines: ['Zzz... Zzz...', 'Zzz... ¿comida...? Zzz...', '...Ronca tan fuerte que tiemblan las setas.'] },
@@ -110,12 +110,24 @@ G.VILLAGE = (() => {
     { dex: 285, at: [18.6, 29.4], r: 2, neighbor: 'mush', emote: '♪', lines: ['¡Shroo! (Su casa es una seta como él.)', 'Mi casa brilla de noche. ¡Como yo!', 'Si llueve, la seta crece. ¡Casa más grande!'] },
     { dex: 179, at: [24.6, 33], r: 2, neighbor: 'hut', emote: '!', lines: ['¡Mareep! (Su lana chisporrotea.)', 'Le doy luz a la choza con mi lana. ¡Ahorro mucho!', '¡Bzz! Perdona, te he dado un calambre.'] },
     { dex: 194, at: [37.4, 33.4], r: 1.5, neighbor: 'hut', emote: '?', lines: ['¿Wooper? (Te mira sin pestañear.)', 'Vivo al lado de la charca. Me gusta la humedad.', '...¿Eh? ¿Me hablabas?'] },
-    { dex: 216, at: [41, 15.6], r: 2, neighbor: 'hut', emote: '♥', lines: ['¡Teddi! (Lleva miel en la pata.)', 'Mi choza huele a miel. ¿Quieres pasar? ...¡No, es mía!', '¡Teddiursa! ♥'] }
+    { dex: 216, at: [41, 15.6], r: 2, neighbor: 'hut', emote: '♥', lines: ['¡Teddi! (Lleva miel en la pata.)', 'Mi choza huele a miel. ¿Quieres pasar? ...¡No, es mía!', '¡Teddiursa! ♥'] },
+    // (Bloque H de la 1.0, 24-11-2026, pedido del dueño: «Pokémon de día y de noche») when: sólo salen a esa hora del ciclo
+    // (night: noche cerrada; day: la bruma del amanecer). Llegan andando desde un poco lejos y, al cambiar la hora, se van.
+    { dex: 92, at: [13.2, 23.6], r: 3, fly: true, when: 'night', emote: '!', lines: ['¡Gas gas! (Sale cuando todos duermen.)', '¡Jejeje! ¿Te he asustado?', '(Se vuelve casi invisible y aparece a tu lado.)'] },
+    { dex: 197, at: [24.2, 20.4], r: 2.5, when: 'night', emote: '♪', lines: ['(Sus anillos brillan con la luna.)', '¡Umbre! Sólo salgo de noche.', '(Te mira con sus ojos rojos, tranquilo.)'] },
+    { dex: 165, at: [28.4, 24.6], r: 3, fly: true, when: 'day', emote: '♪', lines: ['¡Ledy! (Ha salido a tomar la luz del amanecer.)', '¡Ledyba ba!', 'Cuando vuelve la noche, me voy a dormir.'] },
+    { dex: 191, at: [22.4, 25.6], r: 1.5, when: 'day', emote: '!', lines: ['¡Sun! (Por fin un poco de luz.)', '¡Sunkern! (Se estira hacia el cielo.)', '...¿Ya se va el sol? Qué poco dura.'] }
   ];
 
   /** Frases de cuando te sigue o se va. */
   const FOLLOW = ['¡Voy contigo un rato!', '¡Te acompaño!', '¡Vamos juntos!'];
   const BYE = ['¡Hasta luego!', '¡Me vuelvo a casa!', '¡Adiós!'];
+  /** (Bloque H) Lo que se dicen dos Pokémon de la aldea cuando se paran a charlar, lo que dicen con la lluvia, al volver tú
+   *  de una partida (el guardián del altar) y dormidos. */
+  const CHAT = ['¿Has visto el portal hoy?', '¡Mira cómo brillan las setas!', '¿Jugamos luego?', 'Dicen que han visto un legendario...', '¡Qué buena noche hace!', '(Se ríen los dos.)'];
+  const RAIN = ['¡Llueve! Las setas van a crecer.', '(Se tapa con una hoja.)', '¡Me encanta la lluvia!', 'Mejor me quedo cerca de casa.'];
+  const WELCOME = ['¡Has vuelto! ¿Qué tal la mazmorra?', '¡Bienvenido a casa!', 'El portal te ha traído sano y salvo.'];
+  const NAP = ['Zzz... Zzz...', '(Duerme hasta que amanezca.)'];
 
   /*
    * Decorados 3D (village3d.js). r: lo que abultaba antes (ya no choca con eso: chocan los modelos; se deja de referencia).
@@ -356,6 +368,6 @@ G.VILLAGE = (() => {
     return { step, cw, ch, seen, ok };
   }
 
-  return { W, H, TS, BI, PLACES, PET, CAST, DECOR, PATHS, PATH_W, PLAZA, POND, GRASS, SPAWN, ALTAR, FOLLOW, BYE, build, terrainAt, hash,
+  return { W, H, TS, BI, PLACES, PET, CAST, DECOR, PATHS, PATH_W, PLAZA, POND, GRASS, SPAWN, ALTAR, FOLLOW, BYE, CHAT, RAIN, WELCOME, NAP, build, terrainAt, hash,
     hull, sdist, index, hits, flood, ENTER, DOOR_LANE, DOOR_HALF, doorLane, npcFoot };
 })();
