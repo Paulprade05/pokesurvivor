@@ -702,12 +702,12 @@ G.Pad = (() => {
   }
 
   /** X / Y (y LT / RT): el atajo de la pantalla (G.PadUI), si lo tiene y se ve. → true si lo ha hecho.
-   *  (1.0, bloque J) Un atajo puede ser una función: { fn, when, label } (cambiar de Pokémon en Mejoras...). */
+   *  (1.0, bloque J) Un atajo puede ser una función: { fn, when, label } (cambiar de Pokémon en Mejoras...); when: sólo
+   *  si devuelve true (también con sel). */
   function shortcut(k) {
     const sp = spec(), a = sp && sp[k];
-    if (!a) return false;
+    if (!a || (a.when && !a.when())) return false;
     if (a.fn) {
-      if (a.when && !a.when()) return false;
       const here = valid() ? { scr: topScreen(), at: center(focus) } : null;
       a.fn();
       if (here) lastPos = here;
@@ -876,7 +876,7 @@ G.Pad = (() => {
     if (top !== mscTop || t - mscAt > 1000) { mscTop = top; mscAt = t; msc = mainScroller(); }
     const lbl = k => {
       const a = sp && sp[k];
-      if (!a || !(a.fn ? !a.when || a.when() : target(a))) return '';
+      if (!a || (a.when && !a.when()) || !(a.fn || target(a))) return '';
       return typeof a.label === 'function' ? a.label() : a.label;
     };
     // (1.0, bloque J) Lo que hace A con lo seleccionado: [data-pad-ok] de la selección (o de lo que la contiene).
@@ -906,6 +906,8 @@ G.Pad = (() => {
 
   return {
     poll, rumble, grab, label, glyph, hint, hintHtml, btnLabel, btnGlyph,
+    /** (1.0, bloque J) La selección vuelve a empezar donde diga la pantalla (G.PadUI first): al entrar o salir de una ficha. */
+    refocus() { lastPos = null; fresh = true; tabPanel = null; if (focus) focus.classList.remove('pad-focus'); focus = null; autoT = 0.05; },
     ACTS, LIST, resolve, assign, pick, familyOf, context, repeatGap, sigOf,
     /** Los botones de cada acción, ya resueltos ({ acción: [botones] }). */
     map,

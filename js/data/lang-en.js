@@ -3123,5 +3123,13 @@ G.I18n.add({
   "Shinies": "Shinies",
   "Páginas": "Pages",
   "Cooperativo: la partida sigue.": "Co-op: the game keeps going.",
-  "Tu Pokémon se queda quieto, pero te pueden golpear: si te dan, el borde se pone rojo y el mando vibra.": "Your Pokémon stands still, but it can still be hit: if it is, the border flashes red and the controller rumbles."
+  "Tu Pokémon se queda quieto, pero te pueden golpear: si te dan, el borde se pone rojo y el mando vibra.": "Your Pokémon stands still, but it can still be hit: if it is, the border flashes red and the controller rumbles.",
+  // (1.0, bloque J) Pantallas en plantillas con mando
+  "Apartado": "Section",
+  "Apartados": "Sections",
+  "Elegir mueble": "Pick furniture",
+  "Responder": "Answer",
+  "Ver ficha": "View entry",
+  "Poner / quitar": "Add / remove",
+  "Atajos": "Shortcuts"
 });

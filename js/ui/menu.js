@@ -44,6 +44,14 @@ G.MenuUI = (() => {
     document.querySelectorAll('.sheet-head [data-back]').forEach(b => { b.onclick = open; });
     // Pokédex: «Volver» (y Esc) cierra primero el panel de filtros y, en el móvil, la ficha.
     $('scr-dex').querySelector('[data-back]').onclick = back;
+    // (1.0, bloque J) Con mando, en el ordenador la ficha sigue a la selección de la rejilla.
+    let dexFT = 0;
+    $('dex-grid').addEventListener('nav-focus', e => {
+      const c = e.target.closest && e.target.closest('.dx-cell');
+      if (!c || NARROW.matches || dexIn) return;
+      clearTimeout(dexFT);
+      dexFT = setTimeout(() => { if (G.UI.isOpen('scr-dex') && !dexIn && +c.dataset.dex !== dexSel) select(+c.dataset.dex, false); }, 140);
+    });
     G.Social.on(() => { if (G.UI.isOpen('scr-menu')) socialLine(); });
     // Al girar el móvil o cambiar el tamaño de la ventana, los escenarios (compañero,
     // ficha de la colección, Mejoras) cambian de tamaño: sus lienzos se ajustan.
@@ -249,8 +257,30 @@ G.MenuUI = (() => {
     else if (r.right > s.right) strip.scrollLeft += r.right - s.right + 16;
   }
 
-  /** «Volver» (y Esc): cierra el panel de filtros, luego la ficha (móvil) y luego la Pokédex. */
+  /**
+   * (1.0, bloque J) Con mando, A en un Pokémon entra en su ficha: la zona con cursor (ui/nav.js) pasa de la lista a la
+   * ficha, y B vuelve a la lista. LB / RB: en la lista, la región; en la ficha, sus pestañas.
+   */
+  let dexIn = false;
+  function detailMode(on) {
+    dexIn = !!on;
+    $('dex-list').toggleAttribute('data-nav-skip', dexIn);
+    $('dex-detail').toggleAttribute('data-nav-skip', !dexIn);
+    $('scr-dex').classList.toggle('dx-pad-in', dexIn);
+    if (G.Pad && G.Pad.refocus) G.Pad.refocus();
+  }
+  /** LB / RB en la lista: la región de al lado. */
+  function dexRegion(d) {
+    const n = GEN_NAMES.length + 1;
+    dexGen = ((dexGen + d) % n + n) % n; dexF.q = '';
+    G.Audio.sfx('select');
+    openDex();
+    keepInView($('dex-gens'), $('dex-gens').querySelector('.on'));
+  }
+
+  /** «Volver» (y Esc): sale de la ficha (con mando), cierra el panel de filtros, luego la ficha (móvil) y luego la Pokédex. */
   function back() {
+    if (dexIn) { if (sheetOn()) sheet(false); detailMode(false); return; }
     if (panelOn) { panel(false); return; }
     if (sheetOn()) { sheet(false); return; }
     $('scr-dex').classList.remove('detail-open');
@@ -269,7 +299,7 @@ G.MenuUI = (() => {
 
   function openDex() {
     const first = !G.UI.isOpen('scr-dex');
-    if (first) { $('scr-dex').classList.remove('detail-open'); panelOn = false; }
+    if (first) { $('scr-dex').classList.remove('detail-open'); panelOn = false; if (dexIn) detailMode(false); }
     $('dex-panel').classList.toggle('hidden', !panelOn);
     G.UI.show('scr-dex', true);
     const s = G.DB.save;
@@ -359,13 +389,13 @@ G.MenuUI = (() => {
     const f = dexF;
     const chip = (key, html, on) => `<button class="chip${on ? ' on' : ''}" type="button" data-f="${key}" aria-pressed="${on}">${html}</button>`;
     box.innerHTML = `
-      <div class="dx-pg"><span class="dx-pl">Mostrar</span><div class="dx-pc">
+      <div class="dx-pg" data-nav-row><span class="dx-pl">Mostrar</span><div class="dx-pc">
         ${[['all', 'Todos'], ['own', 'Tengo'], ['miss', 'Me faltan']].map(([k, l]) => chip('s:' + k, `<span>${l}</span>`, f.status === k)).join('')}</div></div>
-      <div class="dx-pg"><span class="dx-pl">Marcas</span><div class="dx-pc">
+      <div class="dx-pg" data-nav-row><span class="dx-pl">Marcas</span><div class="dx-pc">
         ${chip('shiny', G.Icons.html('shiny', 16) + '<span>Shiny</span>', f.shiny)}${chip('fav', G.Icons.html('star', 30) + '<span>Favoritos</span>', f.fav)}</div></div>
-      <div class="dx-pg"><span class="dx-pl">Rareza</span><div class="dx-pc">
+      <div class="dx-pg" data-nav-row><span class="dx-pl">Rareza</span><div class="dx-pc">
         ${[5, 4, 3, 2, 1].map(r => chip('r:' + r, G.Icons.html(G.Icons.RARITY_BALL[r], 30) + `<span>${G.Gacha.RARITY_NAME[r]}</span>`, f.rar.has(r))).join('')}</div></div>
-      <div class="dx-pf"><span id="dex-count" class="dx-count"></span>
+      <div class="dx-pf" data-nav-row><span id="dex-count" class="dx-count"></span>
         <button class="btn small ghost" type="button" data-f="clear">Limpiar</button>
         <button class="btn small" type="button" data-f="close">Listo</button></div>`;
     box.querySelectorAll('[data-f]').forEach(b => {
@@ -497,7 +527,7 @@ G.MenuUI = (() => {
     const [w, h] = COMPACT.matches ? [76, 60] : [92, 76];
     cell.appendChild(G.UI.spriteCanvas(p.dex, w, h, { scale: 2, silhouette: !own, shadow: own, shiny: useShiny }));
     cell.insertAdjacentHTML('beforeend', `<b>${own ? p.name : '???'}</b>`);
-    cell.onclick = () => select(p.dex, true);
+    cell.onclick = () => { select(p.dex, true); if (document.body.classList.contains('pad')) detailMode(true); };
     // Con el teclado: Intro o espacio la abren, como un botón.
     cell.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.click(); } };
     return cell;
@@ -564,7 +594,7 @@ G.MenuUI = (() => {
     const nav = (m, cls, label, ico) => (m ? `<button class="icon-btn dx-nav ${cls}" type="button" data-dx-go="${m.dex}" aria-label="${label}" title="${label}">${G.UI.svg(ico, 18)}</button>` : '');
 
     const hero = `<div class="dx-hero">
-        <div class="dx-stage${own && viewShiny ? ' shiny' : ''}" id="dex-stage">
+        <div class="dx-stage${own && viewShiny ? ' shiny' : ''}" id="dex-stage" data-nav-row>
           <canvas id="dex-big"></canvas>
           <span class="dx-no"><b>#${pad3(p.dex)}</b><span>${gen}</span></span>
           ${own ? `<button id="dex-fav" class="icon-btn dx-fav${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${favTxt}" title="${favTxt}">${G.Icons.html(fav ? 'star' : 'starDim', 30)}</button>` : ''}
@@ -575,10 +605,10 @@ G.MenuUI = (() => {
           <span class="dx-rar" style="color:${G.Gacha.RARITY_COLOR[p.rarity]}">${G.Icons.rarity(p.rarity, 30)}<span>${G.Gacha.RARITY_NAME[p.rarity]}</span></span>
         </div>
         ${own ? `<div class="dx-types">${G.UI.typeChips(p.types)}</div>` : ''}
-        ${own && hasSh ? `<div class="seg dx-seg">
+        ${own && hasSh ? `<div class="seg dx-seg" data-nav-row>
             <button type="button" class="${viewShiny ? '' : 'on'}" data-v="0">Normal</button>
             <button type="button" class="${viewShiny ? 'on' : ''}" data-v="1">${G.Icons.html('shiny', 16)} Shiny</button></div>` : ''}
-        ${own ? `<div class="dx-foot">${usingThis
+        ${own ? `<div class="dx-foot" data-nav-row>${usingThis
           ? `<div class="dx-partner">${G.Icons.html('crown', 30)}<span>Es tu compañero</span></div>`
           : `<button id="dex-pick" class="btn gold block" type="button" data-sfx="confirm">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}${buildBtn('dex-build', dex)}</div>` : ''}
       </div>`;
@@ -587,12 +617,12 @@ G.MenuUI = (() => {
     if (own) {
       if (!TABS.some(([k]) => k === dexTab)) dexTab = 'info';
       body = `<div class="dx-body">
-        <div class="dx-tabs" role="tablist">${TABS.map(([k, label]) =>
+        <div class="dx-tabs" role="tablist" data-nav-row>${TABS.map(([k, label]) =>
           `<button class="dx-tab${k === dexTab ? ' on' : ''}" type="button" role="tab" data-tab="${k}" aria-selected="${k === dexTab}">${label}</button>`).join('')}</div>
-        <div class="dx-pane" role="tabpanel">${({ info: paneInfo, evo: paneEvo, moves: paneMoves, recs: paneRecs })[dexTab](dex)}</div>
+        <div class="dx-pane" role="tabpanel" data-nav-row data-nav-cols="1">${({ info: paneInfo, evo: paneEvo, moves: paneMoves, recs: paneRecs })[dexTab](dex)}</div>
       </div>`;
     } else {
-      body = `<div class="dx-body"><div class="dx-pane"><div class="dx-missing">
+      body = `<div class="dx-body"><div class="dx-pane" data-nav-row data-nav-cols="1"><div class="dx-missing">
         <p><b>Aún no lo tienes.</b></p>
         <p>${G.I18n.f('Consíguelo en el banner de {x} del gacha o derrotando a un shiny de su familia.', G.T(gen))}</p>
         ${missLine(dex)}
@@ -917,6 +947,8 @@ G.MenuUI = (() => {
   let upgQuickIds = [];           // los de la fila a mano (se fija al abrir: no bailan al comprar)
   let upgInfo = null;             // mejora con su explicación abierta
   let upgBump = null;             // la que se acaba de comprar (destello en su fila)
+  // (1.0, bloque J) Una pestaña por apartado (G.Upgrades.GROUPS) y la de los atajos: LB / RB con mando.
+  let upgTab = 'stats';
   const upgLv = d => { const u = (G.DB.save.pupg || {})[d] || {}; let t = 0; for (const k in u) if (G.Upgrades.BY[k]) t += +u[k] || 0; return t; };
 
   /** Lo que no está en dev.html: la cara del selector, cómo se compra, «Elegir de compañero» y la fila a mano. */
@@ -930,12 +962,14 @@ G.MenuUI = (() => {
     sel.parentNode.insertBefore(face, sel);
     face.appendChild(sel);
     who.insertAdjacentHTML('beforeend', `
-      <div class="upg-mode"><span class="eyebrow" id="upg-mode-lbl">Comprar</span>
+      <div class="upg-mode" data-nav-row><span class="eyebrow" id="upg-mode-lbl">Comprar</span>
         <div class="seg" role="group" aria-labelledby="upg-mode-lbl">
           <button type="button" data-n="1" title="Un nivel cada vez">×1</button><button type="button" data-n="0" title="Todos los niveles que puedes pagar">Máx.</button></div></div>
-      <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm">Elegir de compañero</button>
-      <div id="upg-build-box"></div>`);
-    who.parentNode.insertAdjacentHTML('beforeend', '<div class="upg-quick hidden" id="upg-quick"><span class="eyebrow">Tus Pokémon</span><div class="upg-qgrid" id="upg-qgrid"></div></div>');
+      <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm" data-nav-row>Elegir de compañero</button>
+      <div id="upg-build-box" data-nav-row></div>`);
+    who.parentNode.insertAdjacentHTML('beforeend', '<div class="upg-quick hidden" id="upg-quick"><span class="eyebrow">Tus Pokémon</span><div class="upg-qgrid" id="upg-qgrid" data-nav-row></div></div>');
+    // Con mando, al lado de la lista: qué hace la mejora seleccionada.
+    $('upg-list').addEventListener('nav-focus', e => upgDetail(e.target.closest && e.target.closest('.upg-card')));
     who.querySelectorAll('.upg-mode button').forEach(b => {
       b.onclick = () => { const n = +b.dataset.n; if (n === upgMode) return; upgMode = n; G.Audio.sfx('select'); renderUpgrades(); };
     });
@@ -967,7 +1001,7 @@ G.MenuUI = (() => {
     // Se recuerda el último que miraste, salvo que hayas cambiado de compañero: entonces se abre en el nuevo.
     if (!upgDex || !s.owned[upgDex] || s.partner !== upgPartner) upgDex = s.partner;
     upgPartner = s.partner;
-    upgMode = 1; upgInfo = null; upgBump = null; upgStageKey = '';
+    upgMode = 1; upgInfo = null; upgBump = null; upgStageKey = ''; upgTab = 'stats';
     upgSelect();
     const sel = $('upg-mon');
     sel.onchange = () => { upgDex = +sel.value; upgInfo = null; G.Audio.sfx('select'); renderUpgrades(); };
@@ -1053,15 +1087,25 @@ G.MenuUI = (() => {
     $('upg-sum').innerHTML = `<span class="upg-types">${G.UI.typeChips(mon.types)}</span>
       <span class="upg-prog"><span class="meter green"><i style="width:${(done / all * 100).toFixed(1)}%"></i></span><b>${done}<small>/${all}</small></b></span>${tax}`;
 
-    // La lista, por apartados (sin perder por dónde ibas: se rehace entera al comprar).
+    // Las pestañas: un apartado cada una (con cuántos niveles llevas) y los atajos.
+    const grpN = g => { const l = G.Upgrades.LIST.filter(u => u.grp === g.id); return [l.reduce((a, u) => a + Math.min(u.max, levels[u.id] || 0), 0), l.reduce((a, u) => a + u.max, 0)]; };
+    const tabs = $('upg-tabs');
+    tabs.innerHTML = [...G.Upgrades.GROUPS.map(g => [g.id, g.name, grpN(g)]), ['binds', 'Atajos', null]].map(([id, name, n]) =>
+      `<button class="gen-tab${id === upgTab ? ' on' : ''}" type="button" role="tab" aria-selected="${id === upgTab}" data-utab="${id}"><b>${G.T(name)}</b>${n ? `<small>${n[0]}/${n[1]}</small>` : ''}</button>`).join('');
+    tabs.querySelectorAll('[data-utab]').forEach(b => {
+      b.onclick = () => { if (upgTab === b.dataset.utab) return; upgTab = b.dataset.utab; upgInfo = null; G.Audio.sfx('select'); renderUpgrades(); const bd = document.querySelector('#scr-upgrades .upg-body'); if (bd) bd.scrollTop = 0; };
+    });
+
+    // La lista del apartado (sin perder por dónde ibas: se rehace entera al comprar).
     const body = st.closest('.upg-body'), top = body ? body.scrollTop : 0;
     const box = $('upg-list');
     box.innerHTML = '';
     box.classList.toggle('mode-max', upgMode === 0);
     for (const g of G.Upgrades.GROUPS) {
+      if (g.id !== upgTab) continue;
       const list = G.Upgrades.LIST.filter(u => u.grp === g.id);
       if (!list.length) continue;
-      const gd = list.reduce((a, u) => a + Math.min(u.max, levels[u.id] || 0), 0), ga = list.reduce((a, u) => a + u.max, 0);
+      const [gd, ga] = grpN(g);
       box.insertAdjacentHTML('beforeend', `<h3 class="upg-h"><span>${g.name}</span><small>${gd}/${ga}</small></h3>`);
       for (const u of list) {
         box.appendChild(upgRow(u, levels, mon));
@@ -1072,9 +1116,29 @@ G.MenuUI = (() => {
       }
       if (g.id === 'moves') { box.appendChild(ringCard(mon)); for (const id of G.Shop.megaIds(upgDex)) box.appendChild(megaCard(mon, id)); if (zTypeOpen && zTypeCan()) box.appendChild(zTypePicker(mon)); }
     }
-    box.appendChild(bindPanel());
+    if (upgTab === 'binds') box.appendChild(bindPanel());
+    // (1.0, bloque J) El orden del mando (ui/nav.js): cada tarjeta, una fila (sus botones); los chips y los atajos, otra.
+    box.querySelectorAll('.upg-card').forEach(c => { c.setAttribute('data-nav-row', ''); c.dataset.navCols = '9'; });
+    box.querySelectorAll('.upg-chips, .upg-slots').forEach(c => c.setAttribute('data-nav-row', ''));
+    box.querySelectorAll('.upg-acts').forEach(c => { c.dataset.padOk = 'Comprar'; });
     if (body) body.scrollTop = top;
     upgBump = null;
+  }
+
+  /** (1.0, bloque J) Con mando: qué hace la mejora de la tarjeta `card` (nombre, efecto por nivel y explicación). */
+  function upgDetail(card) {
+    const d = $('upg-detail');
+    if (!d) return;
+    if (!card) { d.innerHTML = ''; return; }
+    const u = G.Upgrades.BY[card.dataset.id], name = card.querySelector('.upg-top b'), unit = card.querySelector('.upg-info > small');
+    d.innerHTML = `<b>${name ? name.textContent : ''}</b>${unit ? `<span>${unit.textContent}</span>` : ''}${u && u.desc ? `<p>${u.desc}</p>` : ''}`;
+  }
+  /** LT / RT en Mejoras: el Pokémon de al lado (en el orden del selector). */
+  function upgStep(d) {
+    const sel = $('upg-mon'), n = sel ? sel.options.length : 0;
+    if (n < 2) return;
+    sel.selectedIndex = ((sel.selectedIndex + d) % n + n) % n;
+    sel.onchange();
   }
 
   /** Segmentos del nivel (uno por nivel) y la cifra «3/10» que va junto al nombre. */
@@ -1402,5 +1466,5 @@ G.MenuUI = (() => {
     return el;
   }
 
-  return { init, open, openDex, openUpgrades, fitTiles, GEN_NAMES };
+  return { init, open, openDex, openUpgrades, fitTiles, GEN_NAMES, dexRegion, get dexIn() { return dexIn; }, upgStep };
 })();

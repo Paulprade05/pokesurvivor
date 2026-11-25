@@ -704,8 +704,8 @@
 
 <!-- ====== Planear la build de un Pokémon (21-11-2026, js/ui/build-ui.js): encima de la Pokédex, Mejoras o la pausa.
      «Tu plan» a la izquierda (arriba en el móvil de pie) y lo que puede llevar en pestañas a la derecha. ====== -->
-<section id="scr-build" class="scr dim modal hidden" role="dialog" aria-modal="true" aria-labelledby="bld-title">
-  <div class="box sheet-box wide tall bld-box">
+<section id="scr-build" class="scr dim modal fs-scr hidden" role="dialog" aria-modal="true" aria-labelledby="bld-title">
+  <div class="box fs sheet-box t-cat bld-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
@@ -714,7 +714,7 @@
       </div>
       <button id="bld-clear" class="btn small ghost ic" type="button" data-ico="close" data-ico-size="18"><span>Vaciar</span></button>
     </header>
-    <div class="sheet-body bld-body">
+    <div class="sheet-body bld-body" data-nav>
       <aside class="bld-plan" id="bld-plan" aria-label="Tu plan"></aside>
       <div class="bld-pick">
         <div class="tabs bld-tabs" role="tablist" aria-label="Qué planear">
@@ -722,10 +722,11 @@
           <button class="tab" type="button" role="tab" data-k="p" aria-selected="false" aria-controls="bld-grid">Pasivas</button>
           <button class="tab" type="button" role="tab" data-k="i" aria-selected="false" aria-controls="bld-grid">Objetos</button>
         </div>
-        <div class="bld-tools" id="bld-tools"></div>
-        <div class="bld-grid" id="bld-grid"></div>
+        <div class="bld-tools" id="bld-tools" data-nav-row></div>
+        <div class="bld-grid" id="bld-grid" data-nav-row data-pad-ok="Poner / quitar"></div>
       </div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -763,8 +764,8 @@
      sola fila: buscador, región (en el móvil; en el ordenador, pestañas), tipo, orden
      y «Filtros» (tengo / me faltan, shiny, favoritos y rarezas, en un panel que se
      abre debajo). Lo de dentro lo pinta menu.js (openDex, dexCell, showDetail). -->
-<section id="scr-dex" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall dex-box">
+<section id="scr-dex" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-cat dex-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <h2>Pokédex</h2>
@@ -772,8 +773,8 @@
       <div class="sheet-row"><div class="gen-tabs" id="dex-gens" role="tablist" aria-label="Región"></div></div>
     </header>
     <div class="dex-main">
-      <div class="dex-list" id="dex-list">
-        <div class="dx-tools" id="dex-tools">
+      <div class="dex-list" id="dex-list" data-nav>
+        <div class="dx-tools" id="dex-tools" data-nav-row>
           <label class="dx-q" data-ico="search" data-ico-size="18">
             <input id="dex-q" class="field" type="search" placeholder="Buscar por nombre o número" aria-label="Buscar por nombre o número" autocomplete="off" spellcheck="false">
           </label>
@@ -783,10 +784,11 @@
           <button class="chip dx-more" id="dex-more" type="button" aria-expanded="false" aria-controls="dex-panel"></button>
         </div>
         <div class="dx-panel hidden" id="dex-panel"></div>
-        <div class="dx-grid" id="dex-grid"></div>
+        <div class="dx-grid" id="dex-grid" data-nav-row data-pad-ok="Ver ficha"></div>
       </div>
-      <aside class="dex-detail" id="dex-detail"></aside>
+      <aside class="dex-detail" id="dex-detail" data-nav data-nav-skip></aside>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 
@@ -837,26 +839,29 @@
 <!-- ====== Mejoras (hoja). menu.js: openUpgrades / renderUpgrades ======
      Escritorio: el Pokémon a la izquierda (fijo) y las mejoras en tarjetas a la
      derecha. Móvil: el Pokémon arriba y las tarjetas debajo, en una columna. -->
-<section id="scr-upgrades" class="scr dim under-bar hidden">
-  <div class="box sheet-box wide tall upg-box">
+<section id="scr-upgrades" class="scr dim fs-scr under-bar hidden">
+  <div class="box fs sheet-box t-list upg-box">
     <header class="sheet-head">
       <button class="icon-btn" type="button" data-back data-ico="back" aria-label="Volver" title="Volver"></button>
       <div class="grow">
         <h2>Mejoras</h2>
         <p class="sub">Cada Pokémon tiene sus propias mejoras: sólo cuentan cuando juegas con él.</p>
       </div>
+      <div class="sheet-row"><div class="gen-tabs upg-tabs" id="upg-tabs" role="tablist" aria-label="Apartados"></div></div>
     </header>
-    <div class="sheet-body upg-body">
+    <div class="sheet-body upg-body" data-nav>
       <div class="upg-mon">
         <div class="upg-stage" id="upg-stage-box"><canvas id="upg-stage"></canvas></div>
         <div class="upg-who">
           <span class="eyebrow" id="upg-mon-lbl">Pokémon</span>
           <select id="upg-mon" class="field" aria-labelledby="upg-mon-lbl"></select>
           <div class="upg-sum" id="upg-sum"></div>
+          <div class="upg-detail" id="upg-detail" aria-live="polite"></div>
         </div>
       </div>
       <div class="upg-grid" id="upg-list"></div>
     </div>
+    <footer class="fs-bar" data-auto aria-hidden="true"></footer>
   </div>
 </section>
 

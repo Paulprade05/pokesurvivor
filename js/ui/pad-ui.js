@@ -16,15 +16,22 @@
  */
 G.PadUI = (() => {
   const SPEC = {
+    // (1.0, bloque J) LB / RB apartado, LT / RT Pokémon, X ×1 / Máx., Y su build.
     'scr-upgrades': {
-      first: '.upg-buy:not([disabled]); .upg-acts',
-      x: { sel: '#upg-build', label: 'Planear build' },
-      y: { sel: '.upg-mode [data-n]:not(.on)', label: '×1 / Máx.' }
+      first: '#upg-list .upg-buy:not([disabled]); #upg-list',
+      x: { sel: '.upg-mode [data-n]:not(.on)', label: '×1 / Máx.' },
+      y: { sel: '#upg-build', label: 'Planear build' },
+      tabs: 'Apartado',
+      lt: { fn: () => G.MenuUI.upgStep(-1), when: () => $n('#upg-mon option') > 1, label: 'Pokémon' },
+      rt: { fn: () => G.MenuUI.upgStep(1), when: () => $n('#upg-mon option') > 1, label: 'Pokémon' }
     },
+    // (1.0, bloque J) Lista: LB / RB región, X filtros, Y orden; A en un Pokémon entra en su ficha (LB / RB sus pestañas).
     'scr-dex': {
-      first: '#dex-grid',
-      x: { sel: '#dex-more', label: 'Filtros' },
-      y: { sel: '#dex-sort', label: 'Orden' }
+      first: '#dex-detail #dex-pick; #dex-detail .dx-tab.on; #dex-detail .dx-pane; #dex-grid .cell.on; #dex-grid',
+      x: { sel: '#dex-more', label: 'Filtros', when: () => !G.MenuUI.dexIn },
+      y: { sel: '#dex-sort', label: 'Orden', when: () => !G.MenuUI.dexIn },
+      lb: { fn: () => G.MenuUI.dexRegion(-1), when: () => !G.MenuUI.dexIn, label: 'Región' },
+      rb: { fn: () => G.MenuUI.dexRegion(1), when: () => !G.MenuUI.dexIn, label: 'Región' }
     },
     'scr-compendium': {
       first: '#cmp-rows .cmp-row.on; #cmp-rows',
@@ -65,6 +72,9 @@ G.PadUI = (() => {
     'scr-result': { first: '#res-ok', noBack: true },
     'scr-evo': { noBack: true, ok: 'Elegir' }
   };
+
+  /** Cuántos hay (para los «when» de los atajos). */
+  function $n(sel) { return typeof document !== 'undefined' && document.querySelectorAll ? document.querySelectorAll(sel).length : 0; }
 
   // ---------------- barra de pistas ----------------
   let bar = null, last = '', timer = 0;
