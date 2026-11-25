@@ -875,6 +875,480 @@ G.LegendFX = (() => {
     }
   });
 
+  // ================= tanda 2 (25-11-2026): tercera generación =================
+
+  /** Estrella de 5 puntas rellena. */
+  function star5(ctx, x, y, r, rot) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const a = rot - Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    ctx.closePath(); ctx.fill();
+  }
+  /** Lluvia en diagonal (n gotas en una franja de ancho w). */
+  function rain(ctx, l, now, a, n, w, col) {
+    if (a <= 0) return;
+    ctx.fillStyle = col;
+    for (let i = 0; i < n; i++) {
+      const ph = (now * (1.8 + H(l.seed, i, 171) * 0.7) + H(l.seed, i, 172)) % 1;
+      ctx.globalAlpha = 0.55 * a; ctx.fillRect(Math.round(l.x - w / 2 + H(l.seed, i, 173) * w - ph * 70), Math.round(l.y - 300 + ph * 330), 1, 10);
+    }
+  }
+  /*
+   * Los puntos de los Regi: se encienden uno a uno en el suelo delante de él y se apagan al llegar. Cada uno con su dibujo
+   * (fila, columna o cuadro), en baldosas de 20 × 9 desde (x, y + 34).
+   */
+  const BRAILLE = {
+    377: [[-3, 0], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [3, 0]],
+    378: [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-2, 0], [2, 0]],
+    379: [[-1, -1], [1, -1], [-1, 1], [1, 1], [-2, 0], [2, 0], [0, 0]]
+  };
+  function braille(ctx, l, k, col, now) {
+    const P = BRAILLE[l.dex] || BRAILLE[377], off = cl((k - 0.82) / 0.18);
+    for (let i = 0; i < P.length; i++) {
+      const on = cl((k - 0.04 - i * 0.035) / 0.05) * (1 - off);
+      if (on <= 0) continue;
+      const x = l.x + P[i][0] * 20, y = l.y + 34 + P[i][1] * 9, pu = 0.8 + 0.2 * Math.sin(now * 8 + i);
+      glow(ctx, x, y, 16, 9, col, 0.8 * on * pu);
+      ctx.globalAlpha = on; ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, 5, 3, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(x, y - 1, 2, 1.2, 0, 0, TAU); ctx.fill();
+    }
+  }
+
+  /* ---------- Regirock (377): sus puntos se encienden, las rocas vuelan y se amontonan, sale del montón y lo revienta ---------- */
+  const ROCKS = 10;
+  const rockAt = (l, i) => ({ t: 0.26 + i * 0.03, an: H(l.seed, i, 101) * TAU, px: (H(l.seed, i, 102) - 0.5) * 60, py: -8 - H(l.seed, i, 103) * 44, s: 13 + H(l.seed, i, 104) * 9 });
+  function rock(ctx, x, y, s) {
+    ctx.fillStyle = '#5a4430'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.15, s, s * 0.8, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#8a6a48'; ctx.beginPath(); ctx.ellipse(x - s * 0.1, y - s * 0.05, s * 0.85, s * 0.65, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#b89a70'; ctx.fillRect(Math.round(x - s * 0.45), Math.round(y - s * 0.4), Math.max(1, Math.round(s * 0.35)), 2);
+  }
+  add(377, {
+    title: 'Coloso de roca', dur: 2.3, short: 0.9, cue: 0.72,
+    sprite(l, k) { return { a: k > 0.6 ? 1 : 0, rise: 1 - ease(cl((k - 0.6) / 0.16)), lift: 0, flash: k > 0.72 && k < 0.8 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.3 && k < 0.62 && Math.random() < dt * 24) G.FX.px(l.x + (Math.random() - 0.5) * 70, l.y - Math.random() * 10, '#a08868', { vx: (Math.random() - 0.5) * 80, vy: -30 - Math.random() * 40, life: 0.5, drag: 0.85 });
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      braille(ctx, l, k, '#ff9a3a', now);
+      // El suelo se agrieta bajo el montón.
+      const g = ease(cl((k - 0.3) / 0.3)) * (1 - cl((k - 0.9) / 0.1) * 0.7);
+      if (g > 0) {
+        ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.globalAlpha = 0.8 * g; ctx.beginPath();
+        for (let i = 0; i < 5; i++) { const an = H(l.seed, i, 105) * TAU; jag(ctx, l.x, l.y, l.x + Math.cos(an) * 80 * g, l.y + Math.sin(an) * 32 * g, 4, 5, l.seed + i); }
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      for (let i = 0; i < ROCKS; i++) {
+        const r = rockAt(l, i), f = cl((k - r.t) / 0.14);
+        if (f <= 0) continue;
+        if (k < 0.72) {
+          // Vuela en arco desde fuera hasta su sitio en el montón.
+          const e = ease(f), sx = l.x + Math.cos(r.an) * 220, sy = l.y + Math.sin(r.an) * 90;
+          const x = sx + (l.x + r.px - sx) * e, y = sy + (l.y + r.py - sy) * e - Math.sin(e * Math.PI) * 90;
+          rock(ctx, x, y, r.s);
+        } else {
+          // Revienta: sale despedida y se apaga.
+          const b = cl((k - 0.72) / 0.22), d = 30 + 150 * ease(b);
+          if (b >= 1) continue;
+          ctx.globalAlpha = 1 - b;
+          rock(ctx, l.x + r.px + (r.px >= 0 ? 1 : -1) * d, l.y + r.py - 40 * Math.sin(b * Math.PI) + d * 0.2, r.s * (1 - 0.4 * b));
+        }
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 54, 60, '#ff9a3a', 0.25 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#a08868', 30, 260);
+      G.FX.ring(l.x, l.y, 10, 160, '#ff9a3a', 0.5, 6);
+      shake(l, 1.1);
+    }
+  });
+
+  /* ---------- Regice (378): sus puntos se encienden, sube un bloque de hielo con su silueta dentro, se agrieta y estalla ---------- */
+  add(378, {
+    title: 'Coloso de hielo', dur: 2.3, short: 0.9, cue: 0.74,
+    sprite(l, k) { return { a: k > 0.42 ? 1 : 0, rise: 0, lift: 0, flash: k > 0.74 && k < 0.82, dark: k < 0.74 ? 1 : 0 }; },
+    tick(l, k, dt) {
+      if (G.FX && k < 0.8 && Math.random() < dt * 14) G.FX.px(l.x + (Math.random() - 0.5) * 120, l.y - Math.random() * 16, '#e6f6ff', { vx: (Math.random() - 0.5) * 20, vy: -10 - Math.random() * 15, life: 0.9, drag: 0.95 });
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      braille(ctx, l, k, '#7ad8ff', now);
+      const f = ease(cl((k - 0.15) / 0.3)) * (1 - cl((k - 0.9) / 0.1) * 0.6);
+      if (f > 0) { ctx.globalAlpha = 0.5 * f; ctx.fillStyle = '#d8f2ff'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 70 * f, 28 * f, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El bloque crece del suelo hacia arriba.
+      const up = ease(cl((k - 0.28) / 0.24));
+      if (up > 0 && k < 0.74) {
+        const w = 40, h = 120 * up, top = l.y - h;
+        glow(ctx, l.x, l.y - h / 2, w * 1.6, h / 2 + 16, '#9ad8ff', 0.4);
+        ctx.globalAlpha = 0.45; ctx.fillStyle = '#bfe9ff'; ctx.fillRect(Math.round(l.x - w), Math.round(top), w * 2, Math.round(h));
+        ctx.globalAlpha = 0.35; ctx.fillStyle = '#e6f6ff'; ctx.fillRect(Math.round(l.x - w), Math.round(top - 10), w * 2, 10);
+        ctx.globalAlpha = 0.8; ctx.fillStyle = '#ffffff';
+        ctx.fillRect(Math.round(l.x - w), Math.round(top), 2, Math.round(h)); ctx.fillRect(Math.round(l.x + w - 2), Math.round(top), 2, Math.round(h));
+        ctx.fillRect(Math.round(l.x - w), Math.round(top - 10), w * 2, 2);
+        ctx.globalAlpha = 0.5; ctx.fillRect(Math.round(l.x - w + 8), Math.round(top + 6), 4, Math.round(Math.max(0, h * 0.6)));
+        // Grietas.
+        const cr = cl((k - 0.58) / 0.16);
+        if (cr > 0) {
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.globalAlpha = cr; ctx.beginPath();
+          for (let i = 0; i < 5; i++) { const x0 = l.x + (H(l.seed, i, 111) - 0.5) * w * 1.6, y0 = top + H(l.seed, i, 112) * h; jag(ctx, x0, y0, x0 + (H(l.seed, i, 113) - 0.5) * 50 * cr, y0 + (H(l.seed, i, 114) - 0.5) * 60 * cr, 3, 4, l.seed + i); }
+          ctx.stroke();
+        }
+      }
+      // Estalla en esquirlas.
+      const b = cl((k - 0.74) / 0.24);
+      if (b > 0 && b < 1) {
+        for (let i = 0; i < 14; i++) {
+          const an = H(l.seed, i, 115) * TAU, d = 20 + 150 * ease(b) * (0.5 + 0.5 * H(l.seed, i, 116)), x = l.x + Math.cos(an) * d, y = l.y - 60 + Math.sin(an) * d * 0.6 + 60 * b * b, s = 4 + (i % 3) * 3;
+          ctx.globalAlpha = 1 - b; ctx.fillStyle = i % 2 ? '#bfe9ff' : '#ffffff';
+          ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s * 0.6, y + s * 0.5); ctx.lineTo(x - s * 0.6, y + s * 0.5); ctx.closePath(); ctx.fill();
+        }
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 52, 60, '#9ad8ff', 0.28);
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 50, '#e6f6ff', 30, 260);
+      G.FX.ring(l.x, l.y, 10, 150, '#7ad8ff', 0.5, 5);
+      shake(l, 0.9);
+    }
+  });
+
+  /* ---------- Registeel (379): sus puntos se encienden, caen cuatro planchas de acero con chispas y él cae de golpe ---------- */
+  const PLATES = [0.2, 0.3, 0.4, 0.5];
+  const steelDrop = k => { const e = cl((k - 0.55) / 0.15); return 240 * (1 - e * e); };
+  add(379, {
+    title: 'Coloso de acero', dur: 2.2, short: 0.9, cue: 0.7,
+    sprite(l, k) { return { a: k > 0.55 ? 1 : 0, rise: 0, lift: steelDrop(k), flash: k > 0.7 && k < 0.78 }; },
+    tick(l, k, dt) {
+      if (!G.FX) return;
+      l.plates = l.plates || 0;
+      for (let i = 0; i < 4; i++) {
+        if (k >= PLATES[i] + 0.08 && !(l.plates & (1 << i))) {
+          l.plates |= 1 << i;
+          const an = i / 4 * TAU + TAU / 8;
+          G.FX.burst(l.x + Math.cos(an) * 74, l.y + Math.sin(an) * 30, '#fff2a8', 10, 160);
+          shake(l, 0.25);
+        }
+      }
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      braille(ctx, l, k, '#c8d0e0', now);
+      // Las planchas caen del cielo y se clavan alrededor.
+      for (let i = 0; i < 4; i++) {
+        const f = cl((k - PLATES[i]) / 0.08);
+        if (f <= 0) continue;
+        const an = i / 4 * TAU + TAU / 8, x = l.x + Math.cos(an) * 74, y = l.y + Math.sin(an) * 30, dy = 220 * (1 - f * f), out = 1 - cl((k - 0.88) / 0.12);
+        ctx.globalAlpha = 0.3 * f * out; ctx.fillStyle = '#10141c'; ctx.beginPath(); ctx.ellipse(x, y, 20, 7, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = out;
+        ctx.fillStyle = '#5a6478'; ctx.fillRect(Math.round(x - 18), Math.round(y - dy - 26), 36, 26);
+        ctx.fillStyle = '#9aa4b8'; ctx.fillRect(Math.round(x - 18), Math.round(y - dy - 26), 36, 6);
+        ctx.fillStyle = '#d8dee8'; for (const ox of [-12, 10]) ctx.fillRect(Math.round(x + ox), Math.round(y - dy - 17), 3, 3);
+      }
+      // Al caer él: hoyo en el suelo y ondas magnéticas.
+      if (k >= 0.7) {
+        const o = 1 - cl((k - 0.9) / 0.1);
+        ctx.globalAlpha = 0.45 * o; ctx.fillStyle = '#1a1c22'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 46, 16, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#c8d0e0'; ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) { const ph = (now * 1.2 + i / 3) % 1; ctx.globalAlpha = 0.6 * o * (1 - ph); ctx.beginPath(); ctx.ellipse(l.x, l.y, 30 + 70 * ph, 11 + 26 * ph, 0, 0, TAU); ctx.stroke(); }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      if (k > 0.72) glow(ctx, l.x, l.y - 40, 52, 60, '#c8d0e0', 0.25);
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 10, '#c8d0e0', 30, 280);
+      G.FX.ring(l.x, l.y, 12, 170, '#9aa4b8', 0.5, 7);
+      shake(l, 1.3);
+    }
+  });
+
+  /* ---------- Latias (380): tres espejismos suyos aparecen y se deshacen alrededor; la de verdad se hace visible en medio ---------- */
+  const MIRAGE = [0.08, 0.24, 0.4];
+  add(380, {
+    title: 'Espejismo carmesí', dur: 2.2, short: 0.9, cue: 0.74,
+    sprite(l, k) { const d = cl((k - 0.6) / 0.4); return { a: cl((k - 0.6) / 0.14), rise: 0, lift: 22 * (1 - ease(d)), flash: k > 0.74 && k < 0.8, scan: k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      for (let i = 0; i < 3; i++) {
+        const m = cl((k - MIRAGE[i]) / 0.08) * (1 - cl((k - MIRAGE[i] - 0.18) / 0.08));
+        if (m <= 0) continue;
+        const x = l.x + (i === 1 ? 1 : -1) * (90 + 40 * H(l.seed, i, 121)), y = l.y - 10 + (H(l.seed, i, 122) - 0.5) * 40;
+        ctx.globalAlpha = 0.5 * m; ctx.strokeStyle = '#ffd6e0'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(x, y, 24 + 12 * (1 - m), 9 + 4 * (1 - m), 0, 0, TAU); ctx.stroke();
+      }
+      const g = cl((k - 0.55) / 0.2) * (1 - cl((k - 0.9) / 0.1));
+      if (g > 0) { glow(ctx, l.x, l.y, 80, 30, '#ff6a8a', 0.45 * g); ctx.globalAlpha = 0.3 * g; ctx.fillStyle = '#ff8aa0'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 46, 16, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Los espejismos: ella misma, medio transparente, que se deshace.
+      for (let i = 0; i < 3; i++) {
+        const m = cl((k - MIRAGE[i]) / 0.08) * (1 - cl((k - MIRAGE[i] - 0.18) / 0.08));
+        if (m <= 0) continue;
+        const x = l.x + (i === 1 ? 1 : -1) * (90 + 40 * H(l.seed, i, 121)), y = l.y - 10 + (H(l.seed, i, 122) - 0.5) * 40;
+        if (l.an) l.an.draw(ctx, x, y - 16 - 6 * Math.sin(now * 3 + i), { alpha: 0.45 * m });
+        glow(ctx, x, y - 36, 34, 40, '#ff8aa0', 0.35 * m);
+        ctx.fillStyle = '#ffffff';
+        for (let j = 0; j < 4; j++) { ctx.globalAlpha = m * (0.5 + 0.5 * Math.sin(now * 9 + j * 2 + i)); star4(ctx, x + (H(l.seed, i * 4 + j, 123) - 0.5) * 50, y - 20 - H(l.seed, i * 4 + j, 124) * 50, 2); }
+      }
+      // Antes de verse: plumas de luz roja que giran hacia el centro.
+      const sw = cl((k - 0.35) / 0.1) * (1 - cl((k - 0.72) / 0.08));
+      if (sw > 0) {
+        for (let i = 0; i < 10; i++) {
+          const an = i / 10 * TAU + now * 4, d = 20 + 70 * (1 - ease(cl((k - 0.35) / 0.4)));
+          ctx.globalAlpha = 0.85 * sw; ctx.fillStyle = i % 2 ? '#ff6a8a' : '#ffffff';
+          ctx.beginPath(); ctx.ellipse(l.x + Math.cos(an) * d, l.y - 40 + Math.sin(an) * d * 0.5, 5, 2, an, 0, TAU); ctx.fill();
+        }
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 48, 56, '#ff8aa0', 0.28);
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 40, '#ff8aa0', 22, 200);
+      G.FX.ring(l.x, l.y - 20, 8, 130, '#ffd6e0', 0.5, 4);
+      shake(l, 0.4);
+    }
+  });
+
+  /* ---------- Latios (381): cruza el cielo como un avión con estela, rompe la barrera del sonido, da la vuelta y aterriza ---------- */
+  const latP = k => {
+    if (k < 0.45) { const e = cl((k - 0.15) / 0.3); return { ox: 420 - 840 * e, lift: 130 }; }
+    const e = ease(cl((k - 0.45) / 0.31));
+    return { ox: -420 * (1 - e), lift: 130 * (1 - e) + 50 * Math.sin(e * Math.PI) };
+  };
+  add(381, {
+    title: 'Estela azul', dur: 2.2, short: 0.9, cue: 0.76,
+    sprite(l, k) { const p = latP(k); return { a: k > 0.15 ? 1 : 0, rise: 0, lift: p.lift, ox: p.ox, flash: k > 0.76 && k < 0.82 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      if (k > 0.15 && k < 0.9) { const p = latP(k), e = 1 - p.lift / 180; ctx.globalAlpha = 0.25 * cl(e); ctx.fillStyle = '#0b1020'; ctx.beginPath(); ctx.ellipse(l.x + p.ox, l.y, 30, 9, 0, 0, TAU); ctx.fill(); }
+      const w = cl((k - 0.76) / 0.24);
+      if (w > 0 && w < 1) { ctx.lineWidth = 3; ctx.strokeStyle = '#b8d8ff'; ctx.globalAlpha = 0.8 * (1 - w); ctx.beginPath(); ctx.ellipse(l.x, l.y, 30 + 140 * w, 12 + 52 * w, 0, 0, TAU); ctx.stroke(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Estela: dos cintas (azul y blanca) por donde ha pasado.
+      if (k > 0.15) {
+        for (let j = 30; j >= 1; j--) {
+          const kk = k - j * 0.01;
+          if (kk < 0.15 || kk > 0.78) continue;
+          const p = latP(kk), f = 1 - j / 30;
+          ctx.globalAlpha = 0.7 * f; ctx.fillStyle = j % 3 ? '#6aa8ff' : '#ffffff';
+          ctx.beginPath(); ctx.arc(l.x + p.ox, l.y - p.lift - 30, 2 + 5 * f, 0, TAU); ctx.fill();
+        }
+      }
+      // La barrera del sonido, al pasar por encima del sitio.
+      const sb = cl((k - 0.3) / 0.12);
+      if (sb > 0 && sb < 1) {
+        const p = latP(0.3);
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3 * (1 - sb) + 1; ctx.globalAlpha = 0.9 * (1 - sb);
+        ctx.beginPath(); ctx.ellipse(l.x + p.ox, l.y - p.lift - 30, 10 + 40 * sb, 26 + 70 * sb, 0, 0, TAU); ctx.stroke();
+        glow(ctx, l.x + p.ox, l.y - p.lift - 30, 50, 70, '#b8d8ff', 0.6 * (1 - sb));
+      }
+      if (k > 0.78) glow(ctx, l.x, l.y - 40, 50, 56, '#6aa8ff', 0.28);
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 20, '#b8d8ff', 24, 260);
+      G.FX.ring(l.x, l.y, 10, 160, '#6aa8ff', 0.5, 5);
+      shake(l, 0.7);
+    }
+  });
+
+  /* ---------- Kyogre (382): llueve, el mar cubre el suelo, una ola gigante cruza y rompe, y él sale del agua ---------- */
+  const kyoW = k => -280 * (1 - ease(cl((k - 0.28) / 0.36)));
+  add(382, {
+    title: 'Rey de las profundidades', dur: 2.5, short: 1.0, cue: 0.8,
+    sprite(l, k) { return { a: k > 0.6 ? 1 : 0, rise: 1 - ease(cl((k - 0.6) / 0.24)), lift: 0, flash: k > 0.8 && k < 0.88 }; },
+    tick(l, k, dt) {
+      if (G.FX && k > 0.6 && k < 0.9 && Math.random() < dt * 40) {
+        const an = Math.random() * TAU;
+        G.FX.px(l.x + Math.cos(an) * 50, l.y + Math.sin(an) * 18, Math.random() < 0.5 ? '#9ad8ff' : '#ffffff', { vx: Math.cos(an) * 50, vy: -140 - Math.random() * 120, life: 0.7, grav: 380, drag: 1 });
+      }
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // El mar sube y cubre el suelo; luego se retira un poco.
+      const s = ease(cl(k / 0.3)) * (1 - cl((k - 0.88) / 0.12) * 0.7);
+      if (s > 0) {
+        glow(ctx, l.x, l.y, 200 * s, 70 * s, '#2a6ad9', 0.4 * s);
+        ctx.globalAlpha = 0.6 * s; ctx.fillStyle = '#1a4aa8'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 170 * s, 60 * s, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.35 * s; ctx.fillStyle = '#5aa8ff'; ctx.beginPath(); ctx.ellipse(l.x, l.y - 4, 120 * s, 36 * s, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e6f4ff';
+        for (let i = 0; i < 10; i++) { const ph = (now * 0.5 + H(l.seed, i, 131)) % 1, an = H(l.seed, i, 132) * TAU, r = 0.3 + 0.6 * ph; ctx.globalAlpha = 0.6 * s * (1 - ph); ctx.fillRect(Math.round(l.x + Math.cos(an) * 160 * r * s) - 3, Math.round(l.y + Math.sin(an) * 56 * r * s), 6, 1); }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      rain(ctx, l, now, cl(k / 0.1) * (1 - cl((k - 0.86) / 0.14)), 46, 520, '#a8c8ff');
+      // La ola: una pared de agua que llega de la izquierda y rompe sobre el sitio.
+      const on = cl((k - 0.28) / 0.06), brk = cl((k - 0.64) / 0.1);
+      if (on > 0 && brk < 1) {
+        const wx = l.x + kyoW(k), hgt = 110 * on * (1 - brk);
+        if (hgt > 1) {
+          ctx.globalAlpha = 0.85; ctx.fillStyle = '#2a6ad9';
+          ctx.beginPath(); ctx.moveTo(wx - 120, l.y + 20);
+          for (let i = 0; i <= 12; i++) { const q = i / 12, x = wx - 120 + q * 170, h = hgt * Math.sin(q * Math.PI * 0.85) * (0.9 + 0.1 * Math.sin(now * 6 + i)); ctx.lineTo(x, l.y + 10 - h); }
+          ctx.lineTo(wx + 50, l.y + 20); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 0.5; ctx.fillStyle = '#5aa8ff'; ctx.fillRect(Math.round(wx - 100), Math.round(l.y - hgt * 0.4), 110, Math.max(1, Math.round(hgt * 0.15)));
+          // Espuma en la cresta.
+          ctx.globalAlpha = 0.95; ctx.fillStyle = '#ffffff';
+          for (let i = 0; i < 9; i++) { const q = 0.35 + i / 16, x = wx - 120 + q * 170, h = hgt * Math.sin(q * Math.PI * 0.85); ctx.beginPath(); ctx.arc(x, l.y + 10 - h, 3 + (i % 3), 0, TAU); ctx.fill(); }
+        }
+      }
+      // Rompe: espuma que salta.
+      if (brk > 0 && brk < 1) {
+        for (let i = 0; i < 14; i++) {
+          const an = -Math.PI * (0.1 + 0.8 * H(l.seed, i, 133)), d = 20 + 90 * ease(brk);
+          ctx.globalAlpha = 1 - brk; ctx.fillStyle = i % 2 ? '#ffffff' : '#9ad8ff';
+          ctx.beginPath(); ctx.arc(l.x + Math.cos(an) * d, l.y - 20 + Math.sin(an) * d + 70 * brk * brk, 4 - 2 * brk, 0, TAU); ctx.fill();
+        }
+      }
+      if (k > 0.82) glow(ctx, l.x, l.y - 40, 60, 60, '#5aa8ff', 0.3);
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.ring(l.x, l.y, 12, 190, '#9ad8ff', 0.6, 6);
+      G.FX.burst(l.x, l.y - 20, '#ffffff', 26, 260);
+      shake(l, 1.1);
+    }
+  });
+
+  /* ---------- Jirachi (385): se hace de noche, pasa una estrella fugaz, una estrella baja despacio, gira y se abre en él ---------- */
+  const jiY = k => 200 - 160 * ease(cl((k - 0.28) / 0.4));
+  add(385, {
+    title: 'El que concede deseos', dur: 2.3, short: 0.9, cue: 0.76,
+    sprite(l, k) { const d = cl((k - 0.74) / 0.26); return { a: cl((k - 0.72) / 0.08), rise: 0, lift: 26 * (1 - ease(d)), flash: k > 0.74 && k < 0.82 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Noche: un velo oscuro alrededor (no toda la pantalla).
+      const n = cl(k / 0.15) * (1 - cl((k - 0.85) / 0.15));
+      if (n > 0) { ctx.globalAlpha = 0.4 * n; ctx.fillStyle = '#0a0e2a'; ctx.beginPath(); ctx.ellipse(l.x, l.y - 60, 300, 200, 0, 0, TAU); ctx.fill(); }
+      const g = cl((k - 0.6) / 0.15) * (1 - cl((k - 0.9) / 0.1));
+      if (g > 0) { glow(ctx, l.x, l.y, 80, 30, '#ffe23a', 0.45 * g); ctx.globalAlpha = 0.3 * g; ctx.fillStyle = '#fff2a8'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 40, 14, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const n = cl(k / 0.15) * (1 - cl((k - 0.85) / 0.15));
+      // Estrellas que titilan.
+      if (n > 0) {
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 18; i++) { ctx.globalAlpha = n * (0.4 + 0.6 * Math.abs(Math.sin(now * (2 + H(l.seed, i, 141) * 3) + i))); star4(ctx, l.x + (H(l.seed, i, 142) - 0.5) * 520, l.y - 60 - H(l.seed, i, 143) * 150, i % 4 ? 1 : 2); }
+      }
+      // Estrella fugaz.
+      const sh = cl((k - 0.08) / 0.18);
+      if (sh > 0 && sh < 1) {
+        for (let j = 0; j < 8; j++) { const q = Math.max(0, sh - j * 0.03); ctx.globalAlpha = (1 - j / 8) * (1 - sh * 0.5); ctx.fillStyle = j ? '#fff2a8' : '#ffffff'; ctx.beginPath(); ctx.arc(l.x + 240 - 480 * q, l.y - 190 + 60 * q, 3 - j * 0.3, 0, TAU); ctx.fill(); }
+      }
+      // La estrella del deseo baja, gira y se abre.
+      const sw = cl((k - 0.28) / 0.06);
+      if (sw > 0 && k < 0.78) {
+        const y = l.y - jiY(k), spin = cl((k - 0.64) / 0.12), r = 16 * (1 - 0.8 * spin) + 2 * Math.sin(now * 8), rot = now * 0.8 + spin * spin * 12;
+        glow(ctx, l.x, y, 50, 50, '#ffe23a', 0.8 * sw);
+        // Rayos al abrirse.
+        if (spin > 0) {
+          ctx.fillStyle = '#fff6c8';
+          for (let i = 0; i < 5; i++) { const a = rot + i / 5 * TAU; ctx.globalAlpha = spin * 0.8; ctx.save(); ctx.translate(l.x, y); ctx.rotate(a); ctx.fillRect(0, -1.5, 20 + 60 * spin, 3); ctx.restore(); }
+        }
+        ctx.globalAlpha = sw; ctx.fillStyle = '#ffe23a'; star5(ctx, l.x, y, r, rot);
+        ctx.fillStyle = '#ffffff'; star5(ctx, l.x, y, r * 0.5, rot);
+        // Su estela de chispitas.
+        ctx.fillStyle = '#fff2a8';
+        for (let j = 1; j < 7; j++) { const kk = k - j * 0.03; if (kk < 0.28) continue; ctx.globalAlpha = 0.7 * (1 - j / 7); star4(ctx, l.x + Math.sin(j * 1.7 + now) * 6, l.y - jiY(kk) - 6, 1); }
+      }
+      if (k > 0.78) glow(ctx, l.x, l.y - 44, 44, 52, '#fff2a8', 0.3 * (0.75 + 0.25 * Math.sin(now * 5)));
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.burst(l.x, l.y - 40, '#fff2a8', 24, 220);
+      G.FX.ring(l.x, l.y - 30, 8, 130, '#ffe23a', 0.5, 4);
+      shake(l, 0.35);
+    }
+  });
+
+  /* ---------- Deoxys (386): un meteorito cae y abre un cráter; del cráter sube su núcleo de cristal y él se forma alrededor ---------- */
+  const deoM = k => cl((k - 0.1) / 0.3);
+  add(386, {
+    title: 'Visitante del espacio', dur: 2.4, short: 1.0, cue: 0.78,
+    sprite(l, k) { return { a: cl((k - 0.58) / 0.2), rise: 0, lift: 0, flash: k > 0.78 && k < 0.86, scan: k < 0.8 }; },
+    tick(l, k, dt) {
+      if (G.FX && k >= 0.4 && !l.hit) {
+        l.hit = true;
+        G.FX.burst(l.x, l.y - 10, '#c89a6a', 28, 260);
+        G.FX.ring(l.x, l.y, 10, 150, '#ff9a3a', 0.4, 6);
+        shake(l, 1);
+      }
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // El cráter: borde de tierra, hoyo oscuro y, luego, luz morada dentro.
+      const c = cl((k - 0.4) / 0.05) * (1 - cl((k - 0.9) / 0.1) * 0.6);
+      if (c > 0) {
+        ctx.globalAlpha = 0.9 * c; ctx.fillStyle = '#6a4a30'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 64, 24, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a1018'; ctx.beginPath(); ctx.ellipse(l.x, l.y + 2, 48, 16, 0, 0, TAU); ctx.fill();
+        const p = cl((k - 0.45) / 0.2);
+        if (p > 0) { glow(ctx, l.x, l.y, 70, 26, '#b060ff', 0.7 * p); ctx.globalAlpha = 0.6 * p * c; ctx.fillStyle = '#7a3ad8'; ctx.beginPath(); ctx.ellipse(l.x, l.y + 2, 34, 11, 0, 0, TAU); ctx.fill(); }
+        // Onda del golpe.
+        const w = cl((k - 0.4) / 0.2);
+        if (w < 1) { ctx.globalAlpha = 0.8 * (1 - w); ctx.strokeStyle = '#ffb06a'; ctx.lineWidth = 4 * (1 - w) + 1; ctx.beginPath(); ctx.ellipse(l.x, l.y, 40 + 150 * w, 15 + 56 * w, 0, 0, TAU); ctx.stroke(); }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El meteorito cae en diagonal con su cola de fuego.
+      const m = deoM(k);
+      if (k > 0.1 && m < 1) {
+        const pos = q => ({ x: l.x + 260 * (1 - q), y: l.y - 10 - 250 * (1 - q) });
+        for (let j = 10; j >= 1; j--) { const q = Math.max(0, m - j * 0.025), p = pos(q * q); ctx.globalAlpha = 0.8 * (1 - j / 11); ctx.fillStyle = j % 2 ? '#ff6a1f' : '#ffb03a'; ctx.beginPath(); ctx.arc(p.x, p.y, 9 * (1 - j / 12), 0, TAU); ctx.fill(); }
+        const p = pos(m * m);
+        glow(ctx, p.x, p.y, 40, 40, '#ff9a3a', 0.9);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#5a3a2a'; ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff0a8'; ctx.beginPath(); ctx.arc(p.x - 3, p.y + 3, 4, 0, TAU); ctx.fill();
+      }
+      // El núcleo: un cristal morado que sube del cráter, con anillos cian que giran; se esconde dentro de él al llegar.
+      const co = cl((k - 0.45) / 0.15) * (1 - cl((k - 0.78) / 0.06));
+      if (co > 0) {
+        const y = l.y - 8 - 38 * ease(cl((k - 0.45) / 0.25)), pu = 1 + 0.15 * Math.sin(now * 10);
+        glow(ctx, l.x, y, 30 * pu, 30 * pu, '#b060ff', 0.9 * co);
+        ctx.globalAlpha = co; ctx.fillStyle = '#7a3ad8'; ctx.beginPath(); ctx.arc(l.x, y, 8 * pu, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#7dffd8'; ctx.beginPath(); ctx.arc(l.x, y, 3.5, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#7dffd8'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 2; i++) { ctx.globalAlpha = 0.8 * co; ctx.beginPath(); ctx.ellipse(l.x, y, 22, 7, (i ? -1 : 1) * (0.5 + now * 2), 0, TAU); ctx.stroke(); }
+      }
+      if (k > 0.8) glow(ctx, l.x, l.y - 40, 50, 60, '#b060ff', 0.28);
+      ctx.restore();
+    },
+    onCue(l) {
+      if (!G.FX) return;
+      G.FX.ring(l.x, l.y - 30, 8, 150, '#7dffd8', 0.5, 4);
+      G.FX.burst(l.x, l.y - 40, '#b060ff', 24, 230);
+      shake(l, 0.6);
+    }
+  });
+
   return {
     add, def, GENERIC,
     /** dex que ya tienen animación propia. */

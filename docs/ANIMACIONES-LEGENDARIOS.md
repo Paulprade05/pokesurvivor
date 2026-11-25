@@ -18,10 +18,11 @@ tenga una animación personal; cuando haya dos se verá primero una animación y
    genérica (columna de luz de su tipo + su estilo y su toque de `APPEAR` en `rift.js`, que ya es distinta para cada
    uno).
 
-Tienen animación propia **13 de 88** (lista con su estado en el vault, «Animaciones de legendarios»): del bloque H,
+Tienen animación propia **21 de 88** (lista con su estado en el vault, «Animaciones de legendarios»): del bloque H,
 **Mewtwo (150)**, **Groudon (383)** y **Rayquaza (384)**; de la tanda 1 (25-11-2026), **Articuno (144)**, **Zapdos (145)**,
 **Moltres (146)**, **Mew (151)**, **Raikou (243)**, **Entei (244)**, **Suicune (245)**, **Lugia (249)**, **Ho-Oh (250)** y
-**Celebi (251)**. Todas sirven de ejemplo.
+**Celebi (251)**; de la tanda 2 (25-11-2026), **Regirock (377)**, **Regice (378)**, **Registeel (379)**, **Latias (380)**,
+**Latios (381)**, **Kyogre (382)**, **Jirachi (385)** y **Deoxys (386)**. Todas sirven de ejemplo.
 
 ## Cómo añadir la animación de un legendario
 
