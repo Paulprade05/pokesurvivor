@@ -128,7 +128,7 @@ G.Vitamins = (() => {
 })();
 
 G.Encounters = (() => {
-  const TRAMO = 300, MAX_ALIVE = 5;
+  const TRAMO = 300, MAX_ALIVE = 5, AFTER_RIFT = 190;
   const DIST = [760, 1300];              // a cuánto de ti aparecen (fuera de la vista, a 1-2 pantallas)
   const SEEN_R = 420;                    // a esta distancia cuenta como «encontrado» (registro)
   const TEMPLE_R = 88, TEMPLE_T = 8, CHALLENGE_R = 170, CHALLENGE_T = 30, AWAY_T = 6;
@@ -162,12 +162,15 @@ G.Encounters = (() => {
    * Qué sale y cuándo: por cada tramo de 5 min, uno seguro y otro el 60 % de las veces. El 1.º del tramo: templo en los
    * pares, Kecleon en los impares (así hay tienda 3 veces). El 2.º: Smeargle o reto desde el 2.º tramo, la máquina desde
    * el 3.º (ya llevas objetos), o otro templo. Nunca dos iguales en un tramo.
+   * (Dueño, 26-11-2026: que no coincidan con la grieta. Las grietas se abren a k·5 min ±22,5 s y, con sus 45 s abierta
+   *  y hasta 2 min de arena, acaban como tarde a k·5 min + 187,5 s: el 1.º de cada tramo desde el 2.º sale después,
+   *  AFTER_RIFT. Además, con una grieta abierta o en la arena no se coloca ninguno: esperan a que acabe.)
    */
   function makePlan(rnd = Math.random) {
     const out = [];
     for (let k = 0; k < 6; k++) {
       const first = k % 2 ? 'shop' : 'temple';
-      out.push({ t: k * TRAMO + (k ? 15 : 35) + rnd() * 40, type: first });
+      out.push({ t: k * TRAMO + (k ? AFTER_RIFT : 35) + rnd() * 40, type: first });
       if (k === 0 || rnd() >= 0.6) continue;
       const opts = [['smeargle', 1], ['challenge', 1], ['machine', k >= 2 ? 1 : 0], ['temple', 0.5]].filter(o => o[1] > 0 && o[0] !== first);
       let u = rnd() * opts.reduce((a, o) => a + o[1], 0), pick = opts[0][0];
@@ -230,7 +233,7 @@ G.Encounters = (() => {
   function update(dt, pl) {
     if (!pl) return;
     const t = now();
-    if (authority() && !G.Rift.inArena && !(G.Judgment && G.Judgment.active)) {
+    if (authority() && !G.Rift.inArena && !G.Rift.rift && !(G.Judgment && G.Judgment.active)) {
       while (plan.length && plan[0].t <= t) {
         const who = G.Game.everyone().filter(p => !p.dead);
         if (!place(plan[0].type, G.U.pick(who.length ? who : [pl]))) break;   // sin sitio: se vuelve a mirar en un momento
@@ -497,7 +500,7 @@ G.Encounters = (() => {
   }
 
   return {
-    TYPES, CATALOG, PRICE, RAR_K, MACHINE, LUCK, LUCK_PER_SHOP, TEMPLE_R, TEMPLE_T, CHALLENGE_R, CHALLENGE_T, TRAMO, MAX_ALIVE,
+    TYPES, CATALOG, PRICE, RAR_K, MACHINE, LUCK, LUCK_PER_SHOP, TEMPLE_R, TEMPLE_T, CHALLENGE_R, CHALLENGE_T, TRAMO, MAX_ALIVE, AFTER_RIFT,
     reset, update, makePlan, press, pressable, purse, price, machinePrice, shopOffers, canBuy, buy, forgettable, forget, upgradeItem,
     near, drawables, onNet,
     get list() { return list; }, get plan() { return plan; }, get challenge() { return ch; },

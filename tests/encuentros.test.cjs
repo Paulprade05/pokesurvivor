@@ -102,6 +102,14 @@ test('el plan: 1-2 por tramo de 5 min, templo y Kecleon alternos, sin repetir en
       assert.equal(new Set(t).size, t.length, 'repetido en el tramo');
       if (k === 0) assert.equal(t.length, 1);
     }
+    // (Dueño, 26-11-2026) El 1.º de cada tramo, desde el 2.º, después de la grieta (k·5 min ±22,5 s, 45 s abierta, 2 min de arena).
+    for (const x of plan) {
+      const k = Math.floor(x.t / E.TRAMO);
+      if (k >= 1 && x.type === (k % 2 ? 'shop' : 'temple') && x.t - k * E.TRAMO >= E.AFTER_RIFT)
+        assert.ok(x.t - k * E.TRAMO > 22.5 + 45 + 120, 'después de la grieta: ' + x.t);
+    }
+    assert.match(source('js/systems/encounters.js'), /!G\.Rift\.inArena && !G\.Rift\.rift/, 'con la grieta abierta no se coloca ninguno');
+    assert.ok(plan.filter(x => x.t >= E.TRAMO && x.t < 2 * E.TRAMO && x.type === 'shop').every(x => x.t >= E.TRAMO + E.AFTER_RIFT), 'el 1.er Kecleon, tras la 1.ª grieta');
     for (let i = 1; i < plan.length; i++) assert.ok(plan[i].t >= plan[i - 1].t);
   }
 });
