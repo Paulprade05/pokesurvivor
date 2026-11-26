@@ -7,8 +7,8 @@
  */
 G.CHANGELOG = [
   { d: '2026-11-25', title: ["Encuentros en el mapa", "Encounters on the map"], new: [
-    ["Explorando el mapa te encuentras, cada 5 minutos, uno o dos encuentros que te esperan quietos (sin avisos ni flechas: hay que buscarlos). Al acercarte sale su botón, como el de los cofres.",
-     "While exploring the map you find one or two encounters every 5 minutes, waiting in place (no alerts or arrows: you have to look for them). Get close and their button shows up, like a chest's."],
+    ["Explorando el mapa te encuentras, cada 5 minutos, uno o dos encuentros que te esperan quietos (sin avisos ni flechas: hay que buscarlos). Al acercarte sale su botón, como el de los cofres. No aparecen mientras hay una grieta abierta: salen después.",
+     "While exploring the map you find one or two encounters every 5 minutes, waiting in place (no alerts or arrows: you have to look for them). Get close and their button shows up, like a chest's. They don't appear while a rift is open: they come afterwards."],
     ["Kecleon, tendero ambulante: vende un objeto con rareza, curarte, una vitamina y suerte. Pagas con las monedas que te llevarías a la cuenta al acabar (en cooperativo, cada uno con las suyas).",
      "Kecleon, travelling merchant: sells an item with a rarity, healing, a vitamin and luck. You pay with the coins you would take to your account at the end of the run (in co-op, each player with their own)."],
     ["Templo de vitaminas: quédate dentro de su círculo hasta llenarlo y elige una vitamina con rareza (Más PS, Proteína, Calcio, Hierro, Zinc, Carburante o Más PP). Cada una tiene su tope. Más PP da +1 de cantidad a tu mejor ataque, aunque ya tenga el máximo de Réplica.",
