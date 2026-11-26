@@ -1618,7 +1618,7 @@ G.LegendFX = (() => {
         if (up <= 0) continue;
         const an = i / 10 * TAU, x = l.x + Math.cos(an) * 80, y = l.y + Math.sin(an) * 30, h = (32 + 14 * H(l.seed, i, 154)) * up;
         if (Math.sin(an) < -0.2 && k > 0.4) ctx.globalAlpha = 0.75; else ctx.globalAlpha = 1;
-        ctx.fillStyle = '#5a5a68'; ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 9, y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#5a5a68'; ctx.beginPath(); ctx.moveTo(x - 12, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 12, y); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#9a9aac'; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 3, y); ctx.closePath(); ctx.fill();
         const hot = cl((k - 0.3) / 0.2) * (1 - cl((k - 0.86) / 0.1));
         if (hot > 0) { ctx.globalAlpha = hot; ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.moveTo(x - 3.5, y - h * 0.65); ctx.lineTo(x, y - h); ctx.lineTo(x + 3.5, y - h * 0.65); ctx.closePath(); ctx.fill(); }
@@ -3515,6 +3515,410 @@ G.LegendFX = (() => {
       ctx.restore();
     },
     onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 10, '#9aa0b0', 28, 260); G.FX.ring(l.x, l.y, 10, 180, '#d8b040', 0.55, 6); shake(l, 1.4); }
+  });
+
+  // ================= tanda 7 (26-11-2026): octava generación =================
+
+  /* ---------- Zacian (888): dos tajos de luz cruzan el suelo en X; de la cruz suben pétalos de luz y aparece ---------- */
+  const zacCut = (l, j) => { const sg = j ? -1 : 1; return [l.x - 120, l.y - 42 * sg, l.x + 120, l.y + 42 * sg]; };
+  add(888, {
+    title: 'Espada del héroe', dur: 2.1, short: 0.85, cue: 0.66,
+    sprite(l, k) { return { a: cl((k - 0.54) / 0.12), rise: 0, lift: 0, flash: k > 0.66 && k < 0.72 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const o = 1 - cl((k - 0.82) / 0.16);
+      for (let j = 0; j < 2; j++) {
+        const f = cl((k - 0.12 - j * 0.16) / 0.1);
+        if (f <= 0 || o <= 0) continue;
+        const [x0, y0, x1, y1] = zacCut(l, j), xe = x0 + (x1 - x0) * f, ye = y0 + (y1 - y0) * f;
+        glow(ctx, (x0 + xe) / 2, (y0 + ye) / 2, 70 * f + 10, 22, '#6ac8ff', 0.5 * o);
+        ctx.globalAlpha = 0.9 * o; ctx.strokeStyle = '#ff7ac0'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xe, ye); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xe, ye); ctx.stroke();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // La hoja que corta: una media luna de luz en la punta de cada tajo.
+      for (let j = 0; j < 2; j++) {
+        const f = cl((k - 0.12 - j * 0.16) / 0.1);
+        if (f <= 0 || f >= 1) continue;
+        const [x0, y0, x1, y1] = zacCut(l, j), x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f - 30, an = Math.atan2(y1 - y0, x1 - x0);
+        glow(ctx, x, y, 40, 40, '#6ac8ff', 0.7);
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(x, y, 30, an - 1.9, an - 0.3); ctx.stroke();
+        ctx.strokeStyle = '#ff7ac0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 35, an - 1.8, an - 0.4); ctx.stroke();
+      }
+      // Pétalos de luz que suben de la cruz.
+      const p = cl((k - 0.42) / 0.06) * (1 - cl((k - 0.8) / 0.16));
+      for (let i = 0; i < 14 && p > 0; i++) {
+        const ph = (now * 0.7 + H(l.seed, i, 471)) % 1, x = l.x + (H(l.seed, i, 472) - 0.5) * 130 + Math.sin(now * 3 + i) * 6, y = l.y - ph * 130;
+        ctx.globalAlpha = p * (1 - ph); ctx.fillStyle = i % 2 ? '#ff9ad0' : '#a8e0ff';
+        ctx.beginPath(); ctx.ellipse(x, y, 4, 2, now * 2 + i, 0, TAU); ctx.fill();
+      }
+      if (k > 0.66) glow(ctx, l.x, l.y - 34, 50, 54, '#6ac8ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ff9ad0', 22, 230); G.FX.burst(l.x, l.y - 30, '#a8e0ff', 14, 200); G.FX.ring(l.x, l.y, 10, 160, '#6ac8ff', 0.5, 5); shake(l, 0.9); }
+  });
+
+  /* ---------- Zamazenta (889): sube un escudo de luz, aguanta tres golpes y se rompe en pedazos; detrás está él ---------- */
+  function shield(ctx, x, y, r) {
+    ctx.fillStyle = '#d8a040'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    for (let j = 0; j < 4; j++) {
+      const a = j / 4 * TAU + Math.PI / 4;
+      ctx.beginPath(); ctx.moveTo(x + Math.cos(a - 0.3) * r, y + Math.sin(a - 0.3) * r); ctx.lineTo(x + Math.cos(a) * r * 1.35, y + Math.sin(a) * r * 1.35); ctx.lineTo(x + Math.cos(a + 0.3) * r, y + Math.sin(a + 0.3) * r); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#b8283a'; ctx.beginPath(); ctx.arc(x, y, r * 0.78, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd860'; ctx.beginPath(); ctx.arc(x, y, r * 0.3, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e84a5a'; ctx.fillRect(Math.round(x - r * 0.6), Math.round(y - r * 0.5), Math.round(r * 0.2), Math.round(r));
+  }
+  add(889, {
+    title: 'Escudo del héroe', dur: 2.2, short: 0.9, cue: 0.6,
+    sprite(l, k) { return { a: k > 0.56 ? 1 : 0, rise: 0, lift: 0, flash: k > 0.6 && k < 0.66 }; },
+    back() {},   // (sin la columna de la genérica)
+    front(ctx, l, k, now) {
+      ctx.save();
+      const u = ease(cl((k - 0.06) / 0.18)), cy = l.y - 50 * u;
+      if (u > 0 && k < 0.56) {
+        let hit = 0;
+        for (let j = 0; j < 3; j++) { const f = cl((k - 0.3 - j * 0.08) / 0.07); if (f > 0 && f < 1) hit = Math.max(hit, 1 - f); }
+        glow(ctx, l.x, cy, 70, 70, '#ffd860', 0.4 + 0.4 * hit);
+        ctx.globalAlpha = 1; shield(ctx, l.x + (hit ? (H(l.seed, Math.floor(k * 200), 481) - 0.5) * 6 : 0), cy, 54 * u + 1);
+        for (let j = 0; j < 3; j++) {
+          const f = cl((k - 0.3 - j * 0.08) / 0.07);
+          if (f <= 0 || f >= 1) continue;
+          ctx.globalAlpha = 1 - f; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(l.x, cy, 60 + 40 * f, 0, TAU); ctx.stroke();
+        }
+        // Grietas que crecen con cada golpe.
+        const cr = cl((k - 0.32) / 0.22);
+        if (cr > 0) { ctx.globalAlpha = 1; ctx.strokeStyle = '#2a0a10'; ctx.lineWidth = 2; ctx.beginPath(); for (let j = 0; j < 4; j++) { const a = j * 1.7 + 0.5; jag(ctx, l.x, cy, l.x + Math.cos(a) * 40 * cr, cy + Math.sin(a) * 52 * cr, 4, 4, l.seed + j); } ctx.stroke(); }
+      }
+      // Pedazos del escudo que saltan.
+      const s = cl((k - 0.56) / 0.3);
+      if (s > 0 && s < 1) {
+        for (let i = 0; i < 12; i++) {
+          const an = i / 12 * TAU + H(l.seed, i, 482), d = 30 + 140 * s, x = l.x + Math.cos(an) * d, y = l.y - 50 + Math.sin(an) * d * 0.6 + 120 * s * s, sz = 7 + 4 * H(l.seed, i, 483);
+          ctx.globalAlpha = 1 - s; ctx.fillStyle = i % 3 ? '#b8283a' : '#d8a040';
+          ctx.save(); ctx.translate(x, y); ctx.rotate(s * 8 + i); ctx.fillRect(-sz / 2, -sz / 3, sz, sz * 0.66); ctx.restore();
+        }
+      }
+      if (k > 0.6) glow(ctx, l.x, l.y - 34, 50, 54, '#e84a5a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    tick(l, k) {
+      for (let j = 0; j < 3; j++) { const key = 'zh' + j; if (k > 0.3 + j * 0.08 && !l[key]) { l[key] = 1; shake(l, 0.35); } }
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 40, '#ffd860', 24, 240); G.FX.ring(l.x, l.y, 10, 160, '#e84a5a', 0.5, 5); shake(l, 1.0); }
+  });
+
+  /* ---------- Eternatus (890): el cielo se vuelve rojo, sube una columna de energía entre pinchos rojos y él sale del suelo ---------- */
+  add(890, {
+    title: 'Noche sin fin', dur: 2.5, short: 1.0, cue: 0.74,
+    sprite(l, k) { return { a: k > 0.5 ? 1 : 0, rise: 1 - ease(cl((k - 0.5) / 0.22)), lift: 0, flash: k > 0.74 && k < 0.8 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const t = cl((k - 0.02) / 0.2) * (1 - cl((k - 0.82) / 0.18));
+      if (t > 0) { ctx.globalAlpha = 0.38 * t; ctx.fillStyle = '#3a0618'; ctx.fillRect(Math.round(l.x - 900), Math.round(l.y - 600), 1800, 1000); }
+      // Corro de pinchos rojos que salen del suelo.
+      const s = ease(cl((k - 0.16) / 0.2)) * (1 - cl((k - 0.86) / 0.14));
+      if (s > 0) {
+        for (let i = 0; i < 8; i++) {
+          const an = i / 8 * TAU, x = l.x + Math.cos(an) * 95, y = l.y + Math.sin(an) * 34, h = (42 + 18 * H(l.seed, i, 491)) * s;
+          ctx.globalAlpha = 1; ctx.fillStyle = '#6a0a2a'; ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 9, y); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#ff3a5a'; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x, y - h * 0.8); ctx.lineTo(x + 3, y); ctx.closePath(); ctx.fill();
+        }
+        glow(ctx, l.x, l.y, 110, 40, '#ff3a5a', 0.5 * s);
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // La columna de energía.
+      const c = ease(cl((k - 0.26) / 0.16)) * (1 - cl((k - 0.7) / 0.1));
+      if (c > 0) {
+        const h = 280 * c, w = 52 + 8 * Math.sin(now * 20);
+        glow(ctx, l.x, l.y - h / 2, w + 20, h / 2 + 10, '#ff3a5a', 0.6 * c);
+        ctx.globalAlpha = 0.55 * c; ctx.fillStyle = '#ff3a5a'; ctx.fillRect(Math.round(l.x - w / 2), Math.round(l.y - h), Math.round(w), Math.round(h));
+        ctx.globalAlpha = 0.85 * c; ctx.fillStyle = '#ffc0d0'; ctx.fillRect(Math.round(l.x - 9), Math.round(l.y - h), 18, Math.round(h));
+        for (let i = 0; i < 8; i++) {
+          const ph = (now * 1.2 + i / 8) % 1, y = l.y - ph * h;
+          ctx.globalAlpha = c * (1 - ph); ctx.strokeStyle = '#ff8aa0'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.ellipse(l.x, y, w * 0.9 + 4, 6, 0, 0, TAU); ctx.stroke();
+        }
+      }
+      if (k > 0.74) glow(ctx, l.x, l.y - 60, 80, 80, '#ff3a5a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 50, '#ff3a5a', 30, 280); G.FX.burst(l.x, l.y - 50, '#a03ad0', 14, 220); G.FX.ring(l.x, l.y, 12, 200, '#ff3a5a', 0.6, 7); shake(l, 1.5); }
+  });
+
+  /* ---------- Kubfu (891): llega dando tres saltitos que levantan polvo y suelta un puñetazo al aire ---------- */
+  const KUB = [-170, -110, -55, 0];
+  const kubHop = k => { const s = cl((k - 0.1) / 0.48) * 3, i = Math.min(2, Math.floor(s)), q = s - i; return { ox: KUB[i] + (KUB[i + 1] - KUB[i]) * q, lift: 36 * Math.sin(Math.PI * q) }; };
+  add(891, {
+    title: 'Pequeño aprendiz', dur: 1.9, short: 0.8, cue: 0.68,
+    sprite(l, k) { const h = kubHop(k); return { a: k > 0.1 ? 1 : 0, rise: 0, lift: h.lift, ox: h.ox, flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const h = kubHop(k);
+      if (k > 0.1 && k < 0.6) { ctx.globalAlpha = 0.3; ctx.fillStyle = '#0b0f1a'; ctx.beginPath(); ctx.ellipse(l.x + h.ox, l.y, 16, 6, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Polvo al caer de cada salto.
+      for (let j = 0; j < 3; j++) {
+        const f = cl((k - 0.1 - (j + 1) / 3 * 0.48) / 0.16);
+        if (f <= 0 || f >= 1) continue;
+        for (let i = 0; i < 4; i++) {
+          const sx = i < 2 ? -1 : 1, x = l.x + KUB[j + 1] + sx * (8 + 22 * f) * (1 + (i % 2) * 0.5), y = l.y - 4 - 8 * f * (i % 2);
+          ctx.globalAlpha = 0.7 * (1 - f); ctx.fillStyle = '#d8c8a8'; ctx.beginPath(); ctx.arc(x, y, 4 + 5 * f, 0, TAU); ctx.fill();
+        }
+      }
+      // El puñetazo: líneas de golpe delante de él.
+      const p = cl((k - 0.66) / 0.04) * (1 - cl((k - 0.8) / 0.1));
+      if (p > 0) {
+        ctx.globalAlpha = p; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath();
+        for (let i = 0; i < 6; i++) { const a = -0.9 + i * 0.36, r0 = 12, r1 = 22 + 10 * (i % 2); ctx.moveTo(l.x + 34 + Math.cos(a) * r0, l.y - 26 + Math.sin(a) * r0); ctx.lineTo(l.x + 34 + Math.cos(a) * r1, l.y - 26 + Math.sin(a) * r1); }
+        ctx.stroke(); glow(ctx, l.x + 34, l.y - 26, 22, 22, '#ffb060', 0.6 * p);
+      }
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x + 30, l.y - 26, '#ffb060', 16, 180); G.FX.ring(l.x, l.y, 8, 100, '#d8c8a8', 0.4, 4); shake(l, 0.4); }
+  });
+
+  /* ---------- Urshifu (892): un pergamino se desenrolla en el aire, arde en llamas negras y él cae de un golpe ---------- */
+  add(892, {
+    title: 'Maestro del puño oscuro', dur: 2.2, short: 0.9, cue: 0.66,
+    sprite(l, k) { const e = cl((k - 0.5) / 0.16); return { a: k > 0.5 ? 1 : 0, rise: 0, lift: 120 * (1 - e * e), flash: k > 0.66 && k < 0.72 }; },
+    back(ctx, l, k, now) { ctx.save(); dropShadow(ctx, l, cl((k - 0.5) / 0.16), 0, 0.4); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const sy = l.y - 130, w = 160 * ease(cl((k - 0.06) / 0.18)), burn = cl((k - 0.36) / 0.18);
+      if (w > 1 && burn < 1) {
+        const hw = w / 2 * (1 - burn * 0.3), top = sy - 26 + burn * 10, hh = 64 * (1 - burn);
+        ctx.globalAlpha = 1 - burn;
+        ctx.fillStyle = '#f0e0c0'; ctx.fillRect(Math.round(l.x - hw), Math.round(top), Math.round(hw * 2), Math.round(hh));
+        ctx.fillStyle = '#8a5a2a'; ctx.fillRect(Math.round(l.x - hw - 4), Math.round(top - 3), 5, Math.round(hh + 6)); ctx.fillRect(Math.round(l.x + hw - 1), Math.round(top - 3), 5, Math.round(hh + 6));
+        // Trazos de tinta (sin letras de verdad).
+        const ink = cl((k - 0.2) / 0.14);
+        ctx.fillStyle = '#1a1018';
+        for (let i = 0; i < 4; i++) { const x = l.x - 42 + i * 26; if (Math.abs(x - l.x) + 6 > hw) continue; ctx.fillRect(Math.round(x), Math.round(top + 8), 5, Math.round((hh - 16) * ink * (0.6 + 0.4 * H(l.seed, i, 501)))); ctx.fillRect(Math.round(x - 5), Math.round(top + 14 + 8 * (i % 2)), Math.round(14 * ink), 4); }
+      }
+      // Llamas negras con borde morado que se comen el pergamino.
+      const f = cl((k - 0.32) / 0.06) * (1 - cl((k - 0.62) / 0.1));
+      for (let i = 0; i < 10 && f > 0; i++) {
+        const ph = (now * 1.8 + H(l.seed, i, 502)) % 1, x = l.x + (H(l.seed, i, 503) - 0.5) * 130, y = sy + 20 - ph * 70;
+        ctx.globalAlpha = f * (1 - ph); ctx.fillStyle = '#8a3ad0'; ctx.beginPath(); ctx.ellipse(x, y, 9 * (1 - ph) + 2, 14 * (1 - ph) + 2, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a0a20'; ctx.beginPath(); ctx.ellipse(x, y + 2, 6 * (1 - ph) + 1, 10 * (1 - ph) + 1, 0, 0, TAU); ctx.fill();
+      }
+      if (k > 0.66) glow(ctx, l.x, l.y - 40, 50, 54, '#8a3ad0', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 10, '#1a0a20', 22, 240); G.FX.burst(l.x, l.y - 10, '#8a3ad0', 12, 200); G.FX.ring(l.x, l.y, 10, 170, '#8a3ad0', 0.55, 6); shake(l, 1.2); }
+  });
+
+  /* ---------- Regieleki (894): líneas de corriente recorren el suelo como un circuito y se juntan en él ---------- */
+  const elePath = (l, i) => { const an = i / 6 * TAU + 0.3, c = Math.cos(an), s = Math.sin(an); return [[l.x + c * 250, l.y + s * 95], [l.x + c * 70, l.y + s * 95], [l.x + c * 70, l.y], [l.x, l.y]]; };
+  add(894, {
+    title: 'Rey de la electricidad', dur: 2.0, short: 0.8, cue: 0.62,
+    sprite(l, k) { return { a: cl((k - 0.52) / 0.1), rise: 0, lift: 0, flash: k > 0.62 && k < 0.68 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const f = cl((k - 0.08) / 0.42), o = 1 - cl((k - 0.8) / 0.16);
+      if (f > 0 && o > 0) {
+        for (let i = 0; i < 6; i++) {
+          const P = elePath(l, i), L = [0]; for (let j = 1; j < 4; j++) L.push(L[j - 1] + Math.hypot(P[j][0] - P[j - 1][0], P[j][1] - P[j - 1][1]));
+          const want = L[3] * f; let hx = P[0][0], hy = P[0][1];
+          ctx.globalAlpha = 0.9 * o; ctx.strokeStyle = '#ffe23a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]);
+          for (let j = 1; j < 4; j++) {
+            if (want <= L[j - 1]) break;
+            const q = Math.min(1, (want - L[j - 1]) / (L[j] - L[j - 1] || 1));
+            hx = P[j - 1][0] + (P[j][0] - P[j - 1][0]) * q; hy = P[j - 1][1] + (P[j][1] - P[j - 1][1]) * q; ctx.lineTo(hx, hy);
+          }
+          ctx.stroke();
+          ctx.fillStyle = '#ffe23a'; ctx.fillRect(Math.round(P[0][0] - 4), Math.round(P[0][1] - 4), 8, 8);
+          if (f < 1) { glow(ctx, hx, hy, 18, 18, '#fff7a0', 0.9); ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(hx - 3), Math.round(hy - 3), 6, 6); }
+        }
+      }
+      const c = cl((k - 0.46) / 0.06) * o;
+      if (c > 0) { glow(ctx, l.x, l.y, 60, 24, '#ffe23a', 0.7 * c); ctx.globalAlpha = c; ctx.strokeStyle = '#fff7a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(l.x, l.y, 40, 15, 0, 0, TAU); ctx.stroke(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const z = cl((k - 0.48) / 0.04) * (1 - cl((k - 0.66) / 0.06));
+      if (z > 0) { ctx.globalAlpha = z; ctx.strokeStyle = '#fff7a0'; ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 3; i++) jag(ctx, l.x, l.y - 160, l.x + (i - 1) * 16, l.y - 20, 6, 10, l.seed + i + Math.floor(now * 20)); ctx.stroke(); }
+      if (k > 0.62) glow(ctx, l.x, l.y - 34, 50, 54, '#ffe23a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ffe23a', 26, 260); G.FX.ring(l.x, l.y, 10, 160, '#fff7a0', 0.5, 5); shake(l, 0.9); }
+  });
+
+  /* ---------- Regidrago (895): una cinta de energía de dragón da vueltas en espiral y se cierra en él ---------- */
+  const draPos = (l, t) => { const an = t * 9, r = 170 * (1 - t) + 6; return [l.x + Math.cos(an) * r, l.y - 40 - 30 * (1 - t) + Math.sin(an) * r * 0.42]; };
+  add(895, {
+    title: 'Rey del dragón', dur: 2.2, short: 0.9, cue: 0.68,
+    sprite(l, k) { return { a: cl((k - 0.56) / 0.1), rise: 0, lift: 0, flash: k > 0.68 && k < 0.74 }; },
+    back() {},   // (sin la columna de la genérica)
+    front(ctx, l, k, now) {
+      ctx.save();
+      const T = cl((k - 0.06) / 0.52);
+      if (T > 0 && T < 1) {
+        for (let j = 16; j >= 0; j--) {
+          const t = T - j * 0.022;
+          if (t <= 0) continue;
+          const [x, y] = draPos(l, t), r = (j ? 13 - j * 0.5 : 17);
+          ctx.globalAlpha = 1; ctx.fillStyle = j % 2 ? '#6a2ab8' : '#3ac88a';
+          ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+          if (!j) {
+            const [px, py] = draPos(l, Math.max(0, t - 0.01)), an = Math.atan2(y - py, x - px);
+            ctx.fillStyle = '#3ac88a';
+            for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + Math.cos(an + s * 0.5) * 8, y + Math.sin(an + s * 0.5) * 8); ctx.lineTo(x + Math.cos(an + s * 0.35) * 32, y + Math.sin(an + s * 0.35) * 32); ctx.lineTo(x + Math.cos(an) * 10, y + Math.sin(an) * 10); ctx.closePath(); ctx.fill(); }
+            ctx.fillStyle = '#ffe860'; ctx.fillRect(Math.round(x - 2), Math.round(y - 4), 3, 3);
+            glow(ctx, x, y, 30, 30, '#3ac88a', 0.6);
+          }
+        }
+      }
+      const c = cl((k - 0.52) / 0.06) * (1 - cl((k - 0.72) / 0.06));
+      if (c > 0) glow(ctx, l.x, l.y - 40, 60, 60, '#a06aff', 0.7 * c);
+      if (k > 0.68) glow(ctx, l.x, l.y - 40, 56, 60, '#3ac88a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 40, '#3ac88a', 22, 240); G.FX.burst(l.x, l.y - 40, '#6a2ab8', 14, 200); G.FX.ring(l.x, l.y, 10, 170, '#3ac88a', 0.5, 5); shake(l, 1.0); }
+  });
+
+  /* ---------- Glastrier (896): tres pisadas de hielo se acercan haciendo brotar carámbanos y cae él de un salto ---------- */
+  const GLA = [[-170, 14], [-100, -18], [-40, 10]];
+  function icicle(ctx, x, y, h, w) {
+    ctx.fillStyle = '#a8e0ff'; ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x, y - h); ctx.lineTo(x + w, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(x - w * 0.3, y); ctx.lineTo(x, y - h * 0.8); ctx.lineTo(x + w * 0.1, y); ctx.closePath(); ctx.fill();
+  }
+  add(896, {
+    title: 'Corcel del hielo', dur: 2.2, short: 0.9, cue: 0.64,
+    sprite(l, k) { const e = cl((k - 0.5) / 0.14); return { a: k > 0.5 ? 1 : 0, rise: 0, lift: 110 * (1 - e * e), ox: -30 * (1 - e), flash: k > 0.64 && k < 0.7 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const o = 1 - cl((k - 0.84) / 0.16);
+      for (let j = 0; j < 3; j++) {
+        const f = cl((k - 0.1 - j * 0.12) / 0.06);
+        if (f <= 0 || o <= 0) continue;
+        const x = l.x + GLA[j][0], y = l.y + GLA[j][1];
+        ctx.globalAlpha = 0.8 * o; ctx.fillStyle = '#d8f0ff'; ctx.beginPath(); ctx.ellipse(x, y, 22 * f, 8 * f, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#6ab8e8'; ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; jag(ctx, x, y, x + Math.cos(a) * 34 * f, y + Math.sin(a) * 12 * f, 3, 3, l.seed + j * 7 + i); } ctx.stroke();
+      }
+      const g = cl((k - 0.64) / 0.04) * o;
+      if (g > 0) { ctx.globalAlpha = 0.6 * g; ctx.fillStyle = '#d8f0ff'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 80, 28, 0, 0, TAU); ctx.fill(); }
+      dropShadow(ctx, l, cl((k - 0.5) / 0.14), -30 * (1 - cl((k - 0.5) / 0.14)), 0.35);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Carámbanos en cada pisada.
+      for (let j = 0; j < 3; j++) {
+        const f = cl((k - 0.1 - j * 0.12) / 0.06), d = 1 - cl((k - 0.3 - j * 0.12) / 0.2);
+        if (f <= 0 || d <= 0) continue;
+        ctx.globalAlpha = d;
+        for (let i = 0; i < 3; i++) icicle(ctx, l.x + GLA[j][0] + (i - 1) * 14, l.y + GLA[j][1] + 2 - (i % 2) * 4, (22 + 10 * (i % 2)) * f * d, 6);
+      }
+      // Corro de carámbanos grandes al caer.
+      const g = cl((k - 0.64) / 0.05) * (1 - cl((k - 0.84) / 0.14));
+      if (g > 0) { ctx.globalAlpha = 1; for (let i = 0; i < 7; i++) { const an = i / 7 * TAU + 0.2; icicle(ctx, l.x + Math.cos(an) * 70, l.y + Math.sin(an) * 25, (30 + 12 * H(l.seed, i, 511)) * g, 8); } }
+      if (k > 0.64) glow(ctx, l.x, l.y - 40, 56, 60, '#a8e0ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    tick(l, k) { for (let j = 0; j < 3; j++) { const key = 'gp' + j; if (k > 0.1 + j * 0.12 && !l[key]) { l[key] = 1; shake(l, 0.3); } } },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 10, '#d8f0ff', 26, 250); G.FX.ring(l.x, l.y, 10, 170, '#6ab8e8', 0.55, 6); shake(l, 1.3); }
+  });
+
+  /* ---------- Spectrier (897): fuegos fatuos y su silueta de fantasma galopan en corro cerrándose, y toma cuerpo ---------- */
+  const speAt = (l, k) => { const e = ease(cl((k - 0.08) / 0.48)), an = k * 16, r = 160 * (1 - e); return [l.x + Math.cos(an) * r, l.y + Math.sin(an) * r * 0.4]; };
+  add(897, {
+    title: 'Corcel de las sombras', dur: 2.2, short: 0.9, cue: 0.68,
+    sprite(l, k) { return { a: cl((k - 0.52) / 0.16), rise: 0, lift: 0, flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const on = cl((k - 0.06) / 0.06) * (1 - cl((k - 0.56) / 0.08));
+      if (on > 0 && l.an) {
+        for (let j = 3; j >= 0; j--) { const [x, y] = speAt(l, k - j * 0.025); l.an.draw(ctx, x, y, { alpha: on * (j ? 0.22 - j * 0.04 : 0.45), flash: true }); }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const w = cl((k - 0.04) / 0.08) * (1 - cl((k - 0.7) / 0.14));
+      for (let i = 0; i < 7 && w > 0; i++) {
+        const e = ease(cl((k - 0.08) / 0.5)), an = i / 7 * TAU - now * 2.5, r = 150 * (1 - e * 0.7), x = l.x + Math.cos(an) * r, y = l.y - 30 + Math.sin(an) * r * 0.4 + Math.sin(now * 5 + i) * 6, fl = 0.8 + 0.2 * Math.sin(now * 11 + i);
+        glow(ctx, x, y, 18, 18, '#6a5aff', 0.6 * w);
+        ctx.globalAlpha = w; ctx.fillStyle = '#4a3ad0'; ctx.beginPath(); ctx.ellipse(x, y, 7 * fl, 11 * fl, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#c8c0ff'; ctx.beginPath(); ctx.ellipse(x, y + 2, 3, 5, 0, 0, TAU); ctx.fill();
+      }
+      if (k > 0.68) glow(ctx, l.x, l.y - 40, 56, 60, '#6a5aff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#6a5aff', 24, 230); G.FX.burst(l.x, l.y - 30, '#1a1030', 12, 200); G.FX.ring(l.x, l.y, 10, 160, '#4a3ad0', 0.5, 5); shake(l, 0.9); }
+  });
+
+  /* ---------- Calyrex (898): brota un corro de plantas que florecen y él baja despacio entre tres luces ---------- */
+  add(898, {
+    title: 'Rey de la abundancia', dur: 2.3, short: 0.9, cue: 0.72,
+    sprite(l, k) { const e = cl((k - 0.4) / 0.32); return { a: cl((k - 0.4) / 0.12), rise: 0, lift: 100 * (1 - ease(e)), flash: k > 0.72 && k < 0.78 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const o = 1 - cl((k - 0.86) / 0.14);
+      glow(ctx, l.x, l.y, 100, 36, '#8ae06a', 0.4 * cl((k - 0.1) / 0.2) * o);
+      for (let i = 0; i < 12; i++) {
+        const an = i / 12 * TAU, x = l.x + Math.cos(an) * 85, y = l.y + Math.sin(an) * 30, g = ease(cl((k - 0.08 - i * 0.015) / 0.2)), h = 22 * g;
+        if (g <= 0 || o <= 0) continue;
+        ctx.globalAlpha = o; ctx.fillStyle = '#3a8a3a'; ctx.fillRect(Math.round(x - 1), Math.round(y - h), 3, Math.round(h));
+        ctx.fillStyle = '#6ac84a'; ctx.beginPath(); ctx.ellipse(x - 5, y - h * 0.5, 5 * g, 2.5 * g, -0.5, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.ellipse(x + 5, y - h * 0.7, 5 * g, 2.5 * g, 0.5, 0, TAU); ctx.fill();
+        const b = cl((k - 0.3 - i * 0.01) / 0.12);
+        if (b > 0) { ctx.fillStyle = i % 3 ? '#ffffff' : '#ffd860'; for (let p = 0; p < 4; p++) { const pa = p / 4 * TAU; ctx.beginPath(); ctx.arc(x + Math.cos(pa) * 3 * b, y - h + Math.sin(pa) * 3 * b, 2.5 * b, 0, TAU); ctx.fill(); } ctx.fillStyle = '#ffb040'; ctx.fillRect(Math.round(x - 1), Math.round(y - h - 1), 2, 2); }
+      }
+      dropShadow(ctx, l, cl((k - 0.4) / 0.32), 0, 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const s = cl((k - 0.2) / 0.1) * (1 - cl((k - 0.72) / 0.06)), e = ease(cl((k - 0.4) / 0.32)), cy = l.y - 140 + 100 * e;
+      for (let i = 0; i < 3 && s > 0; i++) {
+        const an = i / 3 * TAU + now * 2.4, x = l.x + Math.cos(an) * 34, y = cy + Math.sin(an) * 12;
+        glow(ctx, x, y, 18, 18, i ? '#8ae06a' : '#ff8ad8', 0.8 * s);
+        ctx.globalAlpha = s; ctx.fillStyle = i ? '#c8ffb0' : '#ffc8f0'; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill();
+      }
+      if (k > 0.72) glow(ctx, l.x, l.y - 34, 50, 54, '#8ae06a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#8ae06a', 20, 200); G.FX.burst(l.x, l.y - 30, '#ff8ad8', 12, 180); G.FX.ring(l.x, l.y, 8, 140, '#8ae06a', 0.5, 5); shake(l, 0.5); }
+  });
+
+  /* ---------- Enamorus (905): un viento de primavera trae pétalos rosas y ella baja en picado desde un lado ---------- */
+  const enaPath = k => { const e = ease(cl((k - 0.36) / 0.32)); return { e, ox: -220 * (1 - e), lift: 170 * (1 - e) * (1 - e) + 30 * Math.sin(Math.PI * e) }; };
+  add(905, {
+    title: 'Viento de la primavera', dur: 2.2, short: 0.9, cue: 0.7,
+    sprite(l, k) { const p = enaPath(k); return { a: cl((k - 0.36) / 0.06), rise: 0, lift: p.lift, ox: p.ox, flash: k > 0.7 && k < 0.76 }; },
+    back(ctx, l, k, now) { ctx.save(); const p = enaPath(k); dropShadow(ctx, l, p.e, p.ox, 0.3); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const w = cl((k - 0.04) / 0.1) * (1 - cl((k - 0.8) / 0.16));
+      // Ráfagas de viento: curvas blancas que cruzan.
+      for (let i = 0; i < 4 && w > 0; i++) {
+        const ph = (now * 0.9 + i / 4) % 1, x = l.x - 260 + ph * 520, y = l.y - 150 + i * 40;
+        ctx.globalAlpha = 0.6 * w * Math.sin(Math.PI * ph); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x - 60, y); ctx.quadraticCurveTo(x - 20, y - 14, x + 10, y - 2); ctx.arc(x + 10, y - 12, 10, Math.PI / 2, -Math.PI / 2, true); ctx.stroke();
+      }
+      // Pétalos rosas en el viento.
+      for (let i = 0; i < 24 && w > 0; i++) {
+        const ph = (now * 0.5 + H(l.seed, i, 521)) % 1, x = l.x - 260 + ph * 520, y = l.y - 170 + H(l.seed, i, 522) * 180 + Math.sin(now * 4 + i) * 10 + ph * 30;
+        ctx.globalAlpha = w; ctx.fillStyle = i % 3 ? '#ff9ac8' : '#ffd0e8';
+        ctx.beginPath(); ctx.ellipse(x, y, 6, 3, now * 3 + i, 0, TAU); ctx.fill();
+      }
+      if (k > 0.7) glow(ctx, l.x, l.y - 40, 56, 60, '#ff9ac8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ff9ac8', 26, 230); G.FX.ring(l.x, l.y, 10, 160, '#ffd0e8', 0.5, 5); shake(l, 0.8); }
   });
 
   return {
