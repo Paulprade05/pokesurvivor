@@ -2988,6 +2988,7 @@ G.LegendFX = (() => {
   add(773, {
     title: 'Quimera liberada', dur: 2.2, short: 0.9, cue: 0.72,
     sprite(l, k) { return { a: cl((k - 0.06) / 0.1), rise: 0, lift: 0, flash: (k > 0.16 && k < 0.22) || (k > 0.72 && k < 0.78) }; },
+    back() {},   // (sin la columna de la genérica)
     tick(l, k) { if (k > 0.18 && !l.helm) { l.helm = 1; if (G.FX) G.FX.burst(l.x, l.y - 50, '#8a8a98', 18, 220); shake(l, 0.5); } },
     front(ctx, l, k, now) {
       ctx.save();
@@ -3160,6 +3161,360 @@ G.LegendFX = (() => {
       ctx.restore();
     },
     onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 40, '#bfe6ff', 24, 220); G.FX.ring(l.x, l.y, 10, 150, '#9ab8ff', 0.5, 5); shake(l, 0.6); }
+  });
+
+  // ================= tanda 6 (26-11-2026): el resto de la séptima generación =================
+
+  /** Tuerca de seis lados (Meltan, Melmetal). */
+  function nut(ctx, x, y, s, rot, c1, c2) {
+    ctx.fillStyle = c1; ctx.beginPath();
+    for (let j = 0; j < 6; j++) { const a = rot + j / 6 * TAU; ctx.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s); }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c2; ctx.beginPath(); ctx.arc(x, y, s * 0.4, 0, TAU); ctx.fill();
+  }
+
+  /* ---------- Cosmog (789): una nubecita de estrellas baja flotando, da vueltas y se condensa en él ---------- */
+  add(789, {
+    title: 'Niño de las estrellas', dur: 2.0, short: 0.8, cue: 0.7,
+    sprite(l, k) { return { a: cl((k - 0.56) / 0.14), rise: 0, lift: 10 * Math.sin(Math.PI * cl((k - 0.56) / 0.44)), flash: k > 0.7 && k < 0.76 }; },
+    back() {},   // (sin la columna de la genérica)
+    front(ctx, l, k, now) {
+      ctx.save();
+      const d = ease(cl((k - 0.04) / 0.4)), c = cl((k - 0.46) / 0.24), out = cl((k - 0.7) / 0.1);
+      if (d > 0 && out < 1) {
+        const cx = l.x + Math.sin(k * 9) * 30 * (1 - d), cy = l.y - 40 - 140 * (1 - d), r = 40 * (1 - c * 0.75);
+        for (let i = 0; i < 8; i++) {
+          const an = i / 8 * TAU + now * (1 + 3 * c), dd = r * (0.4 + 0.6 * H(l.seed, i, 401));
+          ctx.globalAlpha = 0.55 * (1 - out); ctx.fillStyle = i % 2 ? '#3a2a7a' : '#5a4ab8';
+          ctx.beginPath(); ctx.arc(cx + Math.cos(an) * dd, cy + Math.sin(an) * dd * 0.6, 14 * (1 - c * 0.5), 0, TAU); ctx.fill();
+        }
+        glow(ctx, cx, cy, r + 20, r + 10, '#8a7aff', 0.5 * (1 - out));
+        for (let i = 0; i < 10; i++) {
+          const an = H(l.seed, i, 402) * TAU + now * 2, dd = r * H(l.seed, i, 403);
+          ctx.globalAlpha = (0.5 + 0.5 * Math.sin(now * 7 + i)) * (1 - out); ctx.fillStyle = i % 3 ? '#ffffff' : '#ffe08a';
+          star4(ctx, cx + Math.cos(an) * dd, cy + Math.sin(an) * dd * 0.6, i % 4 ? 1 : 2);
+        }
+      }
+      if (k > 0.7) glow(ctx, l.x, l.y - 30, 40, 44, '#8a7aff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#c8b8ff', 20, 180); G.FX.ring(l.x, l.y, 8, 110, '#8a7aff', 0.45, 4); shake(l, 0.3); }
+  });
+
+  /* ---------- Cosmoem (790): polvo dorado gira y se pega a una esfera oscura que se endurece y late por dentro ---------- */
+  add(790, {
+    title: 'Capullo de estrellas', dur: 2.1, short: 0.85, cue: 0.72,
+    sprite(l, k) { return { a: cl((k - 0.6) / 0.12), rise: 0, lift: 20 * (1 - ease(cl((k - 0.6) / 0.4))), flash: k > 0.72 && k < 0.78 }; },
+    back() {},   // (sin la columna de la genérica)
+    front(ctx, l, k, now) {
+      ctx.save();
+      const cy = l.y - 50, s = ease(cl((k - 0.1) / 0.3)), out = cl((k - 0.62) / 0.12);
+      if (s > 0 && out < 1) {
+        const pu = 0.5 + 0.5 * Math.sin(k * (20 + 50 * k));
+        glow(ctx, l.x, cy, 40, 40, '#ffd860', (0.3 + 0.4 * pu) * (1 - out));
+        ctx.globalAlpha = 1 - out; ctx.fillStyle = '#1a1438'; ctx.beginPath(); ctx.arc(l.x, cy, 20 * s, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#d8b040'; ctx.beginPath(); ctx.ellipse(l.x, cy, 22 * s + 1, 5 * s + 1, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a1438'; ctx.beginPath(); ctx.ellipse(l.x, cy - 1, 18 * s, 3 * s, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffe890'; ctx.globalAlpha = (0.4 + 0.6 * pu) * (1 - out); ctx.beginPath(); ctx.arc(l.x, cy - 8 * s, 3 * s, 0, TAU); ctx.fill();
+      }
+      // El polvo dorado: gira en espiral hacia la esfera.
+      const p = cl((k - 0.04) / 0.5);
+      if (p > 0 && p < 1) {
+        for (let i = 0; i < 16; i++) {
+          const t = cl(p * 1.4 - H(l.seed, i, 411) * 0.4), an = i / 16 * TAU + t * 6, d = 120 * (1 - t) + 20;
+          if (t <= 0 || t >= 1) continue;
+          ctx.globalAlpha = 1 - t * 0.5; ctx.fillStyle = i % 2 ? '#ffd860' : '#fff2b0';
+          ctx.fillRect(Math.round(l.x + Math.cos(an) * d), Math.round(cy + Math.sin(an) * d * 0.45), 2, 2);
+        }
+      }
+      if (k > 0.72) glow(ctx, l.x, l.y - 30, 40, 44, '#ffd860', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 40, '#ffd860', 20, 180); G.FX.ring(l.x, l.y, 8, 120, '#8a7aff', 0.45, 4); shake(l, 0.4); }
+  });
+
+  /* ---------- Solgaleo (791): sale un sol con rayos que giran y él aparece en un círculo de luz de sol en el suelo ---------- */
+  add(791, {
+    title: 'Sol radiante', dur: 2.3, short: 0.9, cue: 0.74,
+    sprite(l, k) { return { a: cl((k - 0.56) / 0.18), rise: 0, lift: 0, flash: k > 0.74 && k < 0.8, scan: k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // El sol, alto, detrás.
+      const s = ease(cl((k - 0.04) / 0.26)) * (1 - cl((k - 0.84) / 0.16)), sy = l.y - 150;
+      if (s > 0) {
+        glow(ctx, l.x, sy, 90, 90, '#ffb040', 0.6 * s);
+        ctx.fillStyle = '#ffd060';
+        for (let i = 0; i < 12; i++) { const an = i / 12 * TAU + now * 0.6; ctx.globalAlpha = 0.8 * s; ctx.beginPath(); ctx.moveTo(l.x + Math.cos(an - 0.1) * 34 * s, sy + Math.sin(an - 0.1) * 34 * s); ctx.lineTo(l.x + Math.cos(an) * 58 * s, sy + Math.sin(an) * 58 * s); ctx.lineTo(l.x + Math.cos(an + 0.1) * 34 * s, sy + Math.sin(an + 0.1) * 34 * s); ctx.closePath(); ctx.fill(); }
+        ctx.globalAlpha = s; ctx.fillStyle = '#ff9a2a'; ctx.beginPath(); ctx.arc(l.x, sy, 32 * s, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff2b0'; ctx.beginPath(); ctx.arc(l.x, sy, 22 * s, 0, TAU); ctx.fill();
+      }
+      // El círculo de luz de sol en el suelo.
+      const c = cl((k - 0.3) / 0.2) * (1 - cl((k - 0.86) / 0.14));
+      if (c > 0) {
+        glow(ctx, l.x, l.y, 90, 32, '#ffd060', 0.6 * c);
+        ctx.globalAlpha = 0.5 * c; ctx.fillStyle = '#ffe890'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 70, 25, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.9 * c; ctx.strokeStyle = '#ff9a2a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(l.x, l.y, 70, 25, 0, 0, TAU); ctx.stroke();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Un haz del sol al círculo.
+      const b = cl((k - 0.36) / 0.1) * (1 - cl((k - 0.74) / 0.08));
+      if (b > 0) { ctx.globalAlpha = 0.3 * b; ctx.fillStyle = '#fff2b0'; ctx.fillRect(Math.round(l.x - 26), Math.round(l.y - 150), 52, 150); glow(ctx, l.x, l.y - 75, 40, 80, '#ffd060', 0.4 * b); }
+      if (k > 0.74) glow(ctx, l.x, l.y - 40, 56, 60, '#ffd060', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ffd060', 26, 250); G.FX.ring(l.x, l.y, 10, 170, '#ff9a2a', 0.55, 6); shake(l, 1.1); }
+  });
+
+  /* ---------- Lunala (792): sale una luna llena, la tapa un eclipse y ella baja del círculo oscuro ---------- */
+  add(792, {
+    title: 'Ala de la luna llena', dur: 2.3, short: 0.9, cue: 0.76,
+    sprite(l, k) { const e = cl((k - 0.44) / 0.32); return { a: cl((k - 0.44) / 0.1), rise: 0, lift: 170 * (1 - ease(e)), flash: k > 0.76 && k < 0.82 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const m = ease(cl((k - 0.04) / 0.2)) * (1 - cl((k - 0.84) / 0.16)), my = l.y - 170, ec = ease(cl((k - 0.22) / 0.22));
+      if (m > 0) {
+        glow(ctx, l.x, my, 70, 70, ec > 0.5 ? '#8a4aff' : '#e8e8ff', 0.6 * m);
+        ctx.globalAlpha = m; ctx.fillStyle = '#e8e8f8'; ctx.beginPath(); ctx.arc(l.x, my, 34, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#c8c8e0'; ctx.beginPath(); ctx.arc(l.x - 10, my - 6, 7, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(l.x + 9, my + 9, 5, 0, TAU); ctx.fill();
+        // El eclipse: un disco oscuro que entra de lado y la tapa, con borde morado.
+        if (ec > 0) {
+          ctx.fillStyle = '#8a4aff'; ctx.beginPath(); ctx.arc(l.x + 70 * (1 - ec), my, 36, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#140a2a'; ctx.beginPath(); ctx.arc(l.x + 70 * (1 - ec), my, 33, 0, TAU); ctx.fill();
+        }
+      }
+      dropShadow(ctx, l, cl((k - 0.44) / 0.32), 0, 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Polvo de estrellas que cae del eclipse.
+      const d = cl((k - 0.3) / 0.1) * (1 - cl((k - 0.86) / 0.14));
+      for (let i = 0; i < 12 && d > 0; i++) {
+        const ph = (now * 0.4 + H(l.seed, i, 421)) % 1, x = l.x + (H(l.seed, i, 422) - 0.5) * 140 * ph, y = l.y - 160 + ph * 170;
+        ctx.globalAlpha = d * (1 - ph); ctx.fillStyle = i % 2 ? '#c8a0ff' : '#ffffff'; star4(ctx, x, y, i % 3 ? 1 : 2);
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 56, 60, '#8a4aff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#c8a0ff', 26, 240); G.FX.ring(l.x, l.y, 10, 170, '#8a4aff', 0.55, 6); shake(l, 1.0); }
+  });
+
+  /* ---------- Necrozma (800): cristales negros llegan volando y se juntan; rayos de luz salen de él y se apagan ---------- */
+  add(800, {
+    title: 'Prisma de luz', dur: 2.3, short: 0.9, cue: 0.72,
+    sprite(l, k) { return { a: cl((k - 0.5) / 0.1), rise: 0, lift: 0, flash: k > 0.72 && k < 0.78 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Rayos de luz de colores que salen del centro y giran, y se apagan cuando llega.
+      const r = cl((k - 0.48) / 0.06) * (1 - cl((k - 0.7) / 0.08));
+      if (r > 0) {
+        const cols = ['#ff6a6a', '#ffd860', '#8ae06a', '#6ac8ff', '#c89aff'];
+        for (let i = 0; i < 10; i++) {
+          const an = i / 10 * TAU + now * 1.5, x2 = l.x + Math.cos(an) * 200, y2 = l.y - 40 + Math.sin(an) * 90;
+          ctx.globalAlpha = 0.5 * r; ctx.fillStyle = cols[i % 5];
+          ctx.beginPath(); ctx.moveTo(l.x, l.y - 40); ctx.lineTo(x2 + Math.sin(an) * 10, y2 - Math.cos(an) * 10); ctx.lineTo(x2 - Math.sin(an) * 10, y2 + Math.cos(an) * 10); ctx.closePath(); ctx.fill();
+        }
+        glow(ctx, l.x, l.y - 40, 60, 60, '#ffffff', 0.6 * r);
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      for (let i = 0; i < 10; i++) {
+        const t0 = 0.06 + i * 0.03, f = cl((k - t0) / 0.24);
+        if (f <= 0 || k > 0.52) continue;
+        const an = H(l.seed, i, 431) * TAU, e = ease(f), d = 220 * (1 - e) + 8, x = l.x + Math.cos(an) * d, y = l.y - 40 + Math.sin(an) * d * 0.5, s = 17 + 8 * H(l.seed, i, 432), rot = an + f * 6;
+        ctx.globalAlpha = 1; ctx.fillStyle = '#1a1a2a'; ctx.beginPath();
+        ctx.moveTo(x + Math.cos(rot) * s, y + Math.sin(rot) * s); ctx.lineTo(x + Math.cos(rot + 2.3) * s * 0.6, y + Math.sin(rot + 2.3) * s * 0.6); ctx.lineTo(x + Math.cos(rot + 4) * s * 0.6, y + Math.sin(rot + 4) * s * 0.6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#6ae8ff'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x - 1), Math.round(y - 1), 3, 3);
+      }
+      if (k > 0.72) glow(ctx, l.x, l.y - 40, 56, 60, '#6ae8ff', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 40, '#ffffff', 22, 240); G.FX.burst(l.x, l.y - 40, '#1a1a2a', 14, 200); G.FX.ring(l.x, l.y, 10, 170, '#6ae8ff', 0.55, 6); shake(l, 1.1); }
+  });
+
+  /* ---------- Magearna (801): engranajes giran a su alrededor y un núcleo rosa entra en ella ---------- */
+  function gear(ctx, x, y, r, rot, col) {
+    ctx.fillStyle = col;
+    for (let j = 0; j < 8; j++) { const a = rot + j / 8 * TAU; ctx.save(); ctx.translate(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.rotate(a); ctx.fillRect(-3, -3.5, 7, 7); ctx.restore(); }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#3a3040'; ctx.beginPath(); ctx.arc(x, y, r * 0.35, 0, TAU); ctx.fill();
+  }
+  add(801, {
+    title: 'Corazón de máquina', dur: 2.2, short: 0.9, cue: 0.72,
+    sprite(l, k) { return { a: cl((k - 0.5) / 0.12), rise: 0, lift: 0, flash: k > 0.72 && k < 0.78, scan: k < 0.72 }; },
+    back() {},   // (sin la columna de la genérica)
+    front(ctx, l, k, now) {
+      ctx.save();
+      const g = ease(cl((k - 0.06) / 0.2)) * (1 - cl((k - 0.8) / 0.14));
+      if (g > 0) {
+        const P = [[-60, -60, 14, 1], [56, -78, 11, -1.4], [-40, -110, 9, 1.8], [44, -30, 12, -1.1], [0, -130, 8, 2]];
+        for (let i = 0; i < 5; i++) {
+          const [dx, dy, r0, sp] = P[i], r = r0 * 1.5;
+          ctx.globalAlpha = g; gear(ctx, l.x + dx * (1.4 - 0.4 * g), l.y + dy, r, now * sp * 2, i % 2 ? '#c8a060' : '#a8a8b8');
+        }
+      }
+      // El núcleo rosa: brilla en lo alto, baja y entra en ella al llegar.
+      const c = cl((k - 0.2) / 0.1) * (1 - cl((k - 0.72) / 0.04)), y = l.y - 130 + 90 * ease(cl((k - 0.44) / 0.28));
+      if (c > 0) {
+        const pu = 0.8 + 0.2 * Math.sin(now * 8);
+        glow(ctx, l.x, y, 26, 26, '#ff6aa8', 0.8 * c);
+        ctx.globalAlpha = c; ctx.fillStyle = '#ff6aa8'; ctx.beginPath(); ctx.arc(l.x, y, 8 * pu, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffe0ee'; ctx.beginPath(); ctx.arc(l.x - 2, y - 2, 3, 0, TAU); ctx.fill();
+      }
+      if (k > 0.72) glow(ctx, l.x, l.y - 34, 46, 50, '#ff6aa8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 34, '#ff6aa8', 20, 200); G.FX.burst(l.x, l.y - 34, '#c8a060', 10, 180); G.FX.ring(l.x, l.y, 8, 130, '#ff6aa8', 0.5, 5); shake(l, 0.5); }
+  });
+
+  /* ---------- Marshadow (802): una sombra se mueve por el suelo a saltos, se para y él sale de ella entre llamas verdes ---------- */
+  const MSH = [[-150, 30], [110, -20], [-60, -30], [0, 0]];
+  const mshPos = k => { const s = cl((k - 0.06) / 0.48) * 3, i = Math.min(2, Math.floor(s)), q = ease(cl((s - i) * 1.6)); const a = MSH[i], b = MSH[i + 1]; return [a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q]; };
+  add(802, {
+    title: 'Sombra del luchador', dur: 2.1, short: 0.85, cue: 0.68,
+    sprite(l, k) { return { a: k > 0.56 ? 1 : 0, rise: 1 - ease(cl((k - 0.56) / 0.14)), lift: 0, flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const on = cl((k - 0.04) / 0.06) * (1 - cl((k - 0.76) / 0.14));
+      if (on > 0) {
+        const [dx, dy] = mshPos(k);
+        ctx.globalAlpha = 0.75 * on; ctx.fillStyle = '#0e0a14';
+        ctx.beginPath(); ctx.ellipse(l.x + dx, l.y + dy, 40, 15, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(l.x + dx - 18, l.y + dy - 3, 12, 6, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(l.x + dx + 16, l.y + dy + 2, 10, 5, 0, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Llamas verdes que suben de la sombra al salir.
+      const f = cl((k - 0.54) / 0.06) * (1 - cl((k - 0.82) / 0.14));
+      if (f > 0) {
+        for (let i = 0; i < 9; i++) {
+          const ph = (now * 1.6 + H(l.seed, i, 441)) % 1, x = l.x + (H(l.seed, i, 442) - 0.5) * 50, y = l.y - ph * 70;
+          ctx.globalAlpha = f * (1 - ph); ctx.fillStyle = i % 2 ? '#4ae86a' : '#a8ffb0';
+          ctx.beginPath(); ctx.ellipse(x, y, 5 * (1 - ph) + 1, 9 * (1 - ph) + 1, 0, 0, TAU); ctx.fill();
+        }
+        glow(ctx, l.x, l.y - 30, 40, 40, '#4ae86a', 0.5 * f);
+      }
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#4ae86a', 22, 220); G.FX.ring(l.x, l.y, 8, 130, '#2a1a3a', 0.5, 5); shake(l, 0.7); }
+  });
+
+  /* ---------- Zeraora (807): cruza a saltos de rayo dejando imágenes, frena y deja tres zarpazos de luz ---------- */
+  const ZER = [[-200, -20], [-90, 40], [-140, -40], [0, 0]];
+  const zerPos = k => { const s = cl((k - 0.12) / 0.42) * 3, i = Math.min(2, Math.floor(s)), q = cl((s - i) * 3); const a = ZER[i], b = ZER[i + 1]; return [a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q]; };
+  add(807, {
+    title: 'Zarpa del trueno', dur: 2.0, short: 0.8, cue: 0.6,
+    sprite(l, k) { const [dx, dy] = zerPos(k); return { a: cl((k - 0.12) / 0.04), rise: 0, lift: -dy, ox: dx, flash: k > 0.6 && k < 0.66 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Imágenes que deja en cada salto.
+      for (let j = 0; j < 3; j++) {
+        const t = 0.12 + (j + 1) / 3 * 0.42 - 0.02, f = cl((k - t) / 0.2);
+        if (f <= 0 || f >= 1 || !l.an) continue;
+        const [dx, dy] = ZER[j];
+        l.an.draw(ctx, l.x + dx, l.y + dy, { alpha: 0.4 * (1 - f), flash: true });
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Rayo entre salto y salto.
+      for (let j = 0; j < 3; j++) {
+        const t = 0.12 + (j + 1) / 3 * 0.42, f = cl((k - t + 0.1) / 0.12);
+        if (f <= 0 || f >= 1) continue;
+        const a = ZER[j], b = ZER[j + 1];
+        ctx.globalAlpha = 1 - f; ctx.strokeStyle = '#fff27a'; ctx.lineWidth = 2; ctx.beginPath();
+        jag(ctx, l.x + a[0], l.y + a[1] - 30, l.x + b[0], l.y + b[1] - 30, 6, 8, l.seed + j); ctx.stroke();
+        glow(ctx, l.x + (a[0] + b[0]) / 2, l.y + (a[1] + b[1]) / 2 - 30, 60, 30, '#fff27a', 0.5 * (1 - f));
+      }
+      // Tres zarpazos de luz delante de él.
+      const z = cl((k - 0.58) / 0.06) * (1 - cl((k - 0.8) / 0.14));
+      if (z > 0) {
+        ctx.strokeStyle = '#6ad8ff'; ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) {
+          ctx.globalAlpha = z; ctx.beginPath(); ctx.ellipse(l.x + 40, l.y - 40 + (i - 1) * 12, 26, 12, -0.4, -1.2, -1.2 + 1.8 * z); ctx.stroke();
+        }
+        glow(ctx, l.x + 44, l.y - 40, 30, 30, '#6ad8ff', 0.6 * z);
+      }
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#fff27a', 24, 240); G.FX.ring(l.x, l.y, 8, 140, '#6ad8ff', 0.5, 5); shake(l, 0.8); }
+  });
+
+  /* ---------- Meltan (808): tuercas sueltas llegan rodando, se funden en un charco de metal y él sale de él ---------- */
+  add(808, {
+    title: 'Tuerca errante', dur: 1.9, short: 0.8, cue: 0.68,
+    sprite(l, k) { return { a: k > 0.5 ? 1 : 0, rise: 1 - ease(cl((k - 0.5) / 0.18)), lift: 0, flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const p = ease(cl((k - 0.3) / 0.2)) * (1 - cl((k - 0.86) / 0.14));
+      if (p > 0) {
+        ctx.globalAlpha = 0.95; ctx.fillStyle = '#7a8090'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 40 * p, 14 * p, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#c8ccd8'; ctx.beginPath(); ctx.ellipse(l.x - 8 * p, l.y - 3 * p, 16 * p, 4 * p, 0, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      for (let i = 0; i < 8; i++) {
+        const t0 = 0.04 + H(l.seed, i, 451) * 0.1, f = cl((k - t0) / 0.3);
+        if (f <= 0 || f >= 1) continue;
+        const an = i / 8 * TAU, d = 170 * (1 - ease(f)), x = l.x + Math.cos(an) * d, y = l.y + Math.sin(an) * d * 0.4 - 6;
+        ctx.globalAlpha = 1 - cl((f - 0.85) / 0.15); nut(ctx, x, y + 1, 10, f * 10 + i, '#3a3e4a', '#3a3e4a'); nut(ctx, x, y, 9, f * 10 + i, '#b8bcc8', '#3a3e4a');
+      }
+      if (k > 0.68) glow(ctx, l.x, l.y - 20, 30, 30, '#ffd860', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 10, '#c8ccd8', 18, 180); G.FX.ring(l.x, l.y, 8, 100, '#9aa0b0', 0.45, 4); shake(l, 0.3); }
+  });
+
+  /* ---------- Melmetal (809): un remolino de tuercas sube en columna, se funde en metal brillante y cae él, pesado ---------- */
+  add(809, {
+    title: 'Gigante de metal fundido', dur: 2.4, short: 0.95, cue: 0.76,
+    sprite(l, k) { const e = cl((k - 0.64) / 0.12); return { a: cl((k - 0.64) / 0.04), rise: 0, lift: 60 * (1 - e * e), flash: k > 0.76 && k < 0.82 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const g = cl((k - 0.76) / 0.03) * (1 - cl((k - 0.9) / 0.1));
+      if (g > 0) {
+        ctx.strokeStyle = '#3a3e4a'; ctx.lineWidth = 2; ctx.globalAlpha = g; ctx.beginPath();
+        for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + 0.4; jag(ctx, l.x, l.y, l.x + Math.cos(an) * 80, l.y + Math.sin(an) * 28, 4, 5, l.seed + i); }
+        ctx.stroke();
+      }
+      dropShadow(ctx, l, cl((k - 0.5) / 0.26), 0, 0.4);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // El remolino de tuercas que sube.
+      const w = cl((k - 0.06) / 0.1) * (1 - cl((k - 0.52) / 0.08));
+      if (w > 0) {
+        for (let i = 0; i < 18; i++) {
+          const t = (H(l.seed, i, 461) + k * 1.2) % 1, an = i * 1.7 + now * 5, r = 70 - 40 * t;
+          ctx.globalAlpha = w; nut(ctx, l.x + Math.cos(an) * r, l.y - 10 - t * 120 + Math.sin(an) * r * 0.3, 8, an, i % 3 ? '#9aa0b0' : '#d8b040', '#3a3e4a');
+        }
+      }
+      // La columna de metal fundido que crece y se recoge en él.
+      const c = ease(cl((k - 0.3) / 0.24)) * (1 - ease(cl((k - 0.62) / 0.12)));
+      if (c > 0) {
+        const h = 140 * c, top = l.y - h;
+        glow(ctx, l.x, l.y - h / 2, 40, h / 2 + 10, '#e8ecf4', 0.5 * c);
+        ctx.globalAlpha = 0.95; ctx.fillStyle = '#8a90a0'; ctx.fillRect(Math.round(l.x - 22), Math.round(top), 44, Math.round(h));
+        ctx.fillStyle = '#d8dce8'; ctx.fillRect(Math.round(l.x - 14), Math.round(top), 8, Math.round(h));
+        ctx.fillStyle = '#5a6070'; ctx.fillRect(Math.round(l.x + 12), Math.round(top), 6, Math.round(h));
+        ctx.fillStyle = '#8a90a0'; ctx.beginPath(); ctx.ellipse(l.x, top, 22, 8, 0, 0, TAU); ctx.fill();
+      }
+      if (k > 0.76) glow(ctx, l.x, l.y - 40, 56, 60, '#d8b040', 0.28 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 10, '#9aa0b0', 28, 260); G.FX.ring(l.x, l.y, 10, 180, '#d8b040', 0.55, 6); shake(l, 1.4); }
   });
 
   return {
