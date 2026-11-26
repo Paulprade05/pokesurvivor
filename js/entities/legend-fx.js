@@ -3921,6 +3921,249 @@ G.LegendFX = (() => {
     onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ff9ac8', 26, 230); G.FX.ring(l.x, l.y, 10, 160, '#ffd0e8', 0.5, 5); shake(l, 0.8); }
   });
 
+  // ================= tanda 8 (26-11-2026): novena generación =================
+
+  /* ---------- Chi-Yu (1004): un corro de llamas negras y rojas se cierra en una sola, que sube y la deja flotando ---------- */
+  add(1004, {
+    title: 'Llama de la ruina', dur: 2.1, short: 0.85, cue: 0.68,
+    sprite(l, k) { const e = cl((k - 0.5) / 0.18); return { a: cl((k - 0.5) / 0.1), rise: 0, lift: 30 * Math.sin(Math.PI * e) + 6, flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const o = cl((k - 0.04) / 0.1) * (1 - cl((k - 0.8) / 0.16));
+      if (o > 0) { ctx.globalAlpha = 0.45 * o; ctx.fillStyle = '#140a10'; ctx.beginPath(); ctx.ellipse(l.x, l.y, 110, 38, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const c = ease(cl((k - 0.26) / 0.24)), on = cl((k - 0.06) / 0.1) * (1 - cl((k - 0.5) / 0.06));
+      for (let i = 0; i < 10 && on > 0; i++) {
+        const an = i / 10 * TAU + now * 0.8 + c * 3, r = 100 * (1 - c), x = l.x + Math.cos(an) * r, y = l.y + Math.sin(an) * r * 0.35, fl = 0.85 + 0.15 * Math.sin(now * 13 + i), s = (1 - c * 0.4) * fl;
+        ctx.globalAlpha = on; ctx.fillStyle = '#e83a1a'; ctx.beginPath(); ctx.ellipse(x, y - 14 * s, 9 * s, 16 * s, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a0a10'; ctx.beginPath(); ctx.ellipse(x, y - 10 * s, 5 * s, 10 * s, 0, 0, TAU); ctx.fill();
+      }
+      // La llama única que sube del centro.
+      const u = cl((k - 0.48) / 0.08) * (1 - cl((k - 0.7) / 0.06)), uy = l.y - 20 - 40 * cl((k - 0.48) / 0.2);
+      if (u > 0) {
+        glow(ctx, l.x, uy, 46, 56, '#ff5a2a', 0.7 * u);
+        ctx.globalAlpha = u; ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.ellipse(l.x, uy, 22, 34, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffd860'; ctx.beginPath(); ctx.ellipse(l.x, uy + 6, 12, 20, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a0a10'; ctx.beginPath(); ctx.ellipse(l.x, uy + 10, 5, 9, 0, 0, TAU); ctx.fill();
+      }
+      if (k > 0.68) glow(ctx, l.x, l.y - 34, 46, 50, '#ff5a2a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ff7a2a', 24, 230); G.FX.burst(l.x, l.y - 30, '#1a0a10', 12, 200); G.FX.ring(l.x, l.y, 10, 150, '#e83a1a', 0.5, 5); shake(l, 0.8); }
+  });
+
+  /* ---------- Koraidon (1007): llega a la carrera levantando polvo, derrapa, frena y ruge con ondas ---------- */
+  const korPath = k => { const e = cl((k - 0.12) / 0.4); return { e, ox: -300 * (1 - e) * (1 - e) }; };
+  add(1007, {
+    title: 'Bestia del pasado', dur: 2.2, short: 0.9, cue: 0.6,
+    sprite(l, k) { const p = korPath(k); return { a: k > 0.12 ? 1 : 0, rise: 0, lift: k < 0.52 ? Math.abs(Math.sin(k * 60)) * 6 : 0, ox: p.ox, flash: k > 0.6 && k < 0.66 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      // Marcas de derrape en el suelo.
+      const d = cl((k - 0.4) / 0.12) * (1 - cl((k - 0.84) / 0.14));
+      if (d > 0) {
+        ctx.globalAlpha = 0.5 * d; ctx.fillStyle = '#3a2a1a';
+        for (const dy of [-8, 8]) ctx.fillRect(Math.round(l.x - 90 * d - 10), Math.round(l.y + dy - 2), Math.round(90 * d), 4);
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Nube de polvo que deja detrás.
+      for (let i = 0; i < 10; i++) {
+        const t0 = 0.14 + i * 0.04, f = cl((k - t0) / 0.3);
+        if (f <= 0 || f >= 1) continue;
+        const x = l.x + korPath(t0).ox - 20 - 20 * f, y = l.y - 6 - 14 * f - 6 * H(l.seed, i, 531);
+        ctx.globalAlpha = 0.6 * (1 - f); ctx.fillStyle = '#c8b090'; ctx.beginPath(); ctx.arc(x, y, 8 + 14 * f, 0, TAU); ctx.fill();
+      }
+      // El rugido: ondas que salen de su cabeza.
+      const r = cl((k - 0.58) / 0.24);
+      if (r > 0 && r < 1) {
+        ctx.strokeStyle = '#ffb060'; ctx.lineWidth = 3;
+        for (let j = 0; j < 3; j++) { const q = cl(r * 1.6 - j * 0.3); if (q <= 0 || q >= 1) continue; ctx.globalAlpha = 1 - q; ctx.beginPath(); ctx.ellipse(l.x, l.y - 50, 30 + 110 * q, 14 + 44 * q, 0, 0, TAU); ctx.stroke(); }
+      }
+      if (k > 0.6) glow(ctx, l.x, l.y - 40, 56, 60, '#e84a3a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 20, '#c8b090', 22, 230); G.FX.burst(l.x, l.y - 40, '#e84a3a', 14, 200); G.FX.ring(l.x, l.y, 10, 170, '#ffb060', 0.5, 6); shake(l, 1.3); }
+  });
+
+  /* ---------- Munkidori (1015): asoma tres veces en sitios distintos entre charcos de veneno y se queda en el centro ---------- */
+  const MUN = [[-130, -20], [120, 10], [-40, 30], [0, 0]];
+  const munAt = k => { const s = cl((k - 0.1) / 0.5) * 4; return Math.min(3, Math.floor(s)); };
+  add(1015, {
+    title: 'Mono del veneno', dur: 2.1, short: 0.85, cue: 0.62,
+    sprite(l, k) {
+      const i = munAt(k), s = cl((k - 0.1) / 0.5) * 4 - i, vis = k > 0.1 && (i === 3 || s < 0.55);
+      return { a: vis ? 1 : 0, rise: 0, lift: 0, ox: MUN[i][0], flash: (i < 3 && s < 0.12) || (k > 0.62 && k < 0.68) };
+    },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const o = 1 - cl((k - 0.82) / 0.16);
+      for (let j = 0; j < 4; j++) {
+        const f = cl((k - 0.1 - j * 0.125) / 0.06);
+        if (f <= 0 || o <= 0) continue;
+        const x = l.x + MUN[j][0], y = l.y + MUN[j][1] * (j < 3 ? 1 : 0);
+        ctx.globalAlpha = 0.85 * o; ctx.fillStyle = '#6a2a8a'; ctx.beginPath(); ctx.ellipse(x, y, 30 * f, 11 * f, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#b05ad8'; ctx.beginPath(); ctx.ellipse(x - 6 * f, y - 2 * f, 12 * f, 4 * f, 0, 0, TAU); ctx.fill();
+        for (let b = 0; b < 3; b++) { const ph = (now * 1.4 + b / 3 + j * 0.2) % 1; ctx.globalAlpha = o * (1 - ph); ctx.fillStyle = '#d88aff'; ctx.beginPath(); ctx.arc(x + (b - 1) * 10, y - ph * 24, 3 + 2 * ph, 0, TAU); ctx.fill(); }
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // Anillos de mente al asomar.
+      for (let j = 0; j < 4; j++) {
+        const f = cl((k - 0.1 - j * 0.125) / 0.1);
+        if (f <= 0 || f >= 1) continue;
+        ctx.globalAlpha = 1 - f; ctx.strokeStyle = '#ff6ad8'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(l.x + MUN[j][0], l.y + (j < 3 ? MUN[j][1] : 0) - 30, 14 + 40 * f, 6 + 16 * f, 0, 0, TAU); ctx.stroke();
+      }
+      if (k > 0.62) glow(ctx, l.x, l.y - 34, 46, 50, '#b05ad8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#b05ad8', 22, 220); G.FX.ring(l.x, l.y, 8, 140, '#ff6ad8', 0.5, 5); shake(l, 0.6); }
+  });
+
+  /* ---------- Fezandipiti (1016): abre detrás un abanico de plumas, suelta un perfume de chispas y baja planeando ---------- */
+  add(1016, {
+    title: 'Ave del perfume', dur: 2.2, short: 0.9, cue: 0.7,
+    sprite(l, k) { const e = ease(cl((k - 0.36) / 0.34)); return { a: cl((k - 0.36) / 0.08), rise: 0, lift: 120 * (1 - e), ox: 160 * (1 - e), flash: k > 0.7 && k < 0.76 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const f = ease(cl((k - 0.06) / 0.24)) * (1 - cl((k - 0.82) / 0.16));
+      if (f > 0) {
+        const cy = l.y - 30;
+        glow(ctx, l.x, cy - 40, 120 * f, 70 * f, '#ff8ad8', 0.4 * f);
+        for (let i = 0; i < 11; i++) {
+          const an = Math.PI + (i + 0.5) / 11 * Math.PI, len = 110 * f, x = l.x + Math.cos(an) * len, y = cy + Math.sin(an) * len * 0.8;
+          ctx.globalAlpha = f; ctx.fillStyle = i % 2 ? '#8a3ab8' : '#d85ac8';
+          ctx.beginPath(); ctx.moveTo(l.x, cy); ctx.lineTo(l.x + Math.cos(an - 0.12) * len * 0.9, cy + Math.sin(an - 0.12) * len * 0.72); ctx.lineTo(x, y); ctx.lineTo(l.x + Math.cos(an + 0.12) * len * 0.9, cy + Math.sin(an + 0.12) * len * 0.72); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#ffe0f4'; ctx.beginPath(); ctx.arc(l.x + Math.cos(an) * len * 0.82, cy + Math.sin(an) * len * 0.66, 5 * f, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#3a1a5a'; ctx.beginPath(); ctx.arc(l.x + Math.cos(an) * len * 0.82, cy + Math.sin(an) * len * 0.66, 2.5 * f, 0, TAU); ctx.fill();
+        }
+      }
+      dropShadow(ctx, l, cl((k - 0.36) / 0.34), 160 * (1 - ease(cl((k - 0.36) / 0.34))), 0.3);
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const p = cl((k - 0.2) / 0.1) * (1 - cl((k - 0.84) / 0.14));
+      for (let i = 0; i < 16 && p > 0; i++) {
+        const ph = (now * 0.35 + H(l.seed, i, 541)) % 1, x = l.x + (H(l.seed, i, 542) - 0.5) * 220 + Math.sin(now * 2 + i) * 14, y = l.y - 20 - ph * 140;
+        ctx.globalAlpha = p * Math.sin(Math.PI * ph); ctx.fillStyle = i % 3 ? '#ffb0e8' : '#c8ff8a'; star4(ctx, x, y, i % 4 ? 1 : 2);
+      }
+      if (k > 0.7) glow(ctx, l.x, l.y - 34, 50, 54, '#ff8ad8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 30, '#ff8ad8', 24, 220); G.FX.ring(l.x, l.y, 10, 150, '#8a3ab8', 0.5, 5); shake(l, 0.6); }
+  });
+
+  /* ---------- Ogerpon (1017): un remolino de hojas gira cada vez más alto y ella sale de él de un salto con giro ---------- */
+  add(1017, {
+    title: 'Máscara de la montaña', dur: 2.1, short: 0.85, cue: 0.68,
+    sprite(l, k) { const e = cl((k - 0.48) / 0.2); return { a: k > 0.48 ? 1 : 0, rise: 0, lift: 90 * Math.sin(Math.PI * e), flash: k > 0.68 && k < 0.74 }; },
+    back(ctx, l, k, now) { ctx.save(); const e = cl((k - 0.48) / 0.2); if (e > 0 && e < 1) dropShadow(ctx, l, 1 - 0.6 * Math.sin(Math.PI * e), 0, 0.35); ctx.restore(); },
+    front(ctx, l, k, now) {
+      ctx.save();
+      const w = cl((k - 0.06) / 0.12) * (1 - cl((k - 0.5) / 0.12)), hgt = 40 + 110 * cl((k - 0.06) / 0.4);
+      for (let i = 0; i < 34 && w > 0; i++) {
+        const t = (H(l.seed, i, 551) + now * 0.3) % 1, an = i * 2.4 + now * 7, r = 24 + 64 * t, x = l.x + Math.cos(an) * r, y = l.y - 6 - t * hgt + Math.sin(an) * r * 0.35;
+        ctx.globalAlpha = w; ctx.fillStyle = i % 3 ? '#4aa83a' : '#8ad84a';
+        ctx.beginPath(); ctx.ellipse(x, y, 10, 4, an, 0, TAU); ctx.fill();
+      }
+      // Hojas que salen despedidas cuando salta.
+      const s = cl((k - 0.48) / 0.3);
+      if (s > 0 && s < 1) {
+        for (let i = 0; i < 12; i++) {
+          const an = i / 12 * TAU, d = 30 + 150 * s, x = l.x + Math.cos(an) * d, y = l.y - 50 + Math.sin(an) * d * 0.5 + 60 * s * s;
+          ctx.globalAlpha = 1 - s; ctx.fillStyle = i % 2 ? '#4aa83a' : '#d87a2a'; ctx.beginPath(); ctx.ellipse(x, y, 7, 3, an + s * 6, 0, TAU); ctx.fill();
+        }
+      }
+      if (k > 0.68) glow(ctx, l.x, l.y - 34, 46, 50, '#4aa83a', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 20, '#4aa83a', 24, 220); G.FX.ring(l.x, l.y, 8, 140, '#8ad84a', 0.5, 5); shake(l, 0.8); }
+  });
+
+  /* ---------- Terapagos (1024): sale del suelo un cristal grande de caras de colores, brilla y se rompe en prismas ---------- */
+  const TERA = ['#ff6a6a', '#ffb04a', '#ffe860', '#6ae08a', '#6ac8ff', '#a87aff'];
+  add(1024, {
+    title: 'Corona de cristal', dur: 2.3, short: 0.9, cue: 0.66,
+    sprite(l, k) { return { a: k > 0.62 ? 1 : 0, rise: 0, lift: 0, flash: k > 0.66 && k < 0.72 }; },
+    back() {},   // (sin la columna de la genérica)
+    front(ctx, l, k, now) {
+      ctx.save();
+      const u = ease(cl((k - 0.08) / 0.24)), shine = cl((k - 0.4) / 0.2);
+      if (u > 0 && k < 0.62) {
+        const h = 110 * u, w = 46, top = l.y - h, crk = cl((k - 0.48) / 0.14);
+        glow(ctx, l.x, l.y - h / 2, 70, h / 2 + 20, TERA[Math.floor(now * 6) % 6], 0.3 + 0.5 * shine);
+        // Seis caras de colores, las de los lados más estrechas.
+        const xs = [-w, -w * 0.55, 0, w * 0.55, w];
+        for (let i = 0; i < 4; i++) {
+          ctx.globalAlpha = 0.92; ctx.fillStyle = TERA[(i + Math.floor(now * 4)) % 6];
+          ctx.beginPath(); ctx.moveTo(l.x + xs[i], l.y - 4); ctx.lineTo(l.x + xs[i + 1], l.y - 4); ctx.lineTo(l.x + xs[i + 1] * 0.7, top + 20); ctx.lineTo(l.x + xs[i] * 0.7, top + 20); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.moveTo(l.x - w * 0.7, top + 20); ctx.lineTo(l.x, top - 10); ctx.lineTo(l.x + w * 0.7, top + 20); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 0.6 * shine; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(l.x - w * 0.4), Math.round(top + 24), 6, Math.round(Math.max(0, h - 34)));
+        if (crk > 0) { ctx.globalAlpha = 1; ctx.strokeStyle = '#2a1a3a'; ctx.lineWidth = 2; ctx.beginPath(); for (let j = 0; j < 3; j++) jag(ctx, l.x + (j - 1) * 14, top + 10, l.x + (j - 1) * 24, top + 10 + (h - 20) * crk, 5, 6, l.seed + j); ctx.stroke(); }
+      }
+      // Prismas de colores que saltan al romperse.
+      const s = cl((k - 0.62) / 0.3);
+      if (s > 0 && s < 1) {
+        for (let i = 0; i < 14; i++) {
+          const an = i / 14 * TAU + H(l.seed, i, 561), d = 20 + 160 * s, x = l.x + Math.cos(an) * d, y = l.y - 55 + Math.sin(an) * d * 0.6 + 100 * s * s, z = 6 + 4 * H(l.seed, i, 562);
+          ctx.globalAlpha = 1 - s; ctx.fillStyle = TERA[i % 6];
+          ctx.beginPath(); ctx.moveTo(x, y - z); ctx.lineTo(x + z * 0.6, y); ctx.lineTo(x, y + z); ctx.lineTo(x - z * 0.6, y); ctx.closePath(); ctx.fill();
+        }
+      }
+      if (k > 0.66) glow(ctx, l.x, l.y - 34, 50, 54, TERA[Math.floor(now * 3) % 6], 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; for (let i = 0; i < 3; i++) G.FX.burst(l.x, l.y - 40, TERA[i * 2], 10, 230); G.FX.ring(l.x, l.y, 10, 170, '#ffffff', 0.55, 6); shake(l, 1.1); }
+  });
+
+  /* ---------- Pecharunt (1025): sube una niebla de veneno, una cadena de bolas moradas gira y él asoma de su concha ---------- */
+  add(1025, {
+    title: 'Amo de las cadenas', dur: 2.2, short: 0.9, cue: 0.7,
+    sprite(l, k) { return { a: k > 0.5 ? 1 : 0, rise: 1 - ease(cl((k - 0.5) / 0.2)), lift: 0, flash: k > 0.7 && k < 0.76 }; },
+    back(ctx, l, k, now) {
+      ctx.save();
+      const f = cl((k - 0.04) / 0.2) * (1 - cl((k - 0.82) / 0.16));
+      if (f > 0) {
+        for (let i = 0; i < 7; i++) {
+          const an = i / 7 * TAU + now * 0.4, x = l.x + Math.cos(an) * 70 * f, y = l.y + Math.sin(an) * 22 * f;
+          ctx.globalAlpha = 0.45 * f; ctx.fillStyle = i % 2 ? '#5a2a7a' : '#7a3a9a'; ctx.beginPath(); ctx.ellipse(x, y, 42 * f, 16 * f, 0, 0, TAU); ctx.fill();
+        }
+        glow(ctx, l.x, l.y, 110, 36, '#a04ad8', 0.4 * f);
+      }
+      ctx.restore();
+    },
+    front(ctx, l, k, now) {
+      ctx.save();
+      // La cadena: bolas moradas que giran alrededor, cada vez más cerca, y se recogen.
+      const c = cl((k - 0.14) / 0.1) * (1 - cl((k - 0.62) / 0.1)), r = 120 - 50 * cl((k - 0.14) / 0.48);
+      for (let i = 0; i < 12 && c > 0; i++) {
+        const an = i / 12 * TAU + now * 2.2, x = l.x + Math.cos(an) * r, y = l.y - 30 + Math.sin(an) * r * 0.38;
+        ctx.globalAlpha = c; ctx.fillStyle = '#3a1a4a'; ctx.beginPath(); ctx.arc(x, y + 1, 8, 0, TAU); ctx.fill();
+        ctx.fillStyle = i % 2 ? '#b05ad8' : '#ff6ac8'; ctx.beginPath(); ctx.arc(x, y, 7, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffe0f4'; ctx.fillRect(Math.round(x - 3), Math.round(y - 3), 2, 2);
+      }
+      // Burbujas de veneno que suben.
+      const b = cl((k - 0.1) / 0.1) * (1 - cl((k - 0.8) / 0.14));
+      for (let i = 0; i < 10 && b > 0; i++) {
+        const ph = (now * 0.8 + H(l.seed, i, 571)) % 1, x = l.x + (H(l.seed, i, 572) - 0.5) * 150, y = l.y - ph * 90;
+        ctx.globalAlpha = b * (1 - ph); ctx.strokeStyle = '#d88aff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 3 + 4 * ph, 0, TAU); ctx.stroke();
+      }
+      if (k > 0.7) glow(ctx, l.x, l.y - 30, 44, 48, '#b05ad8', 0.3 * (1 - cl((k - 0.9) / 0.1) * 0.5));
+      ctx.restore();
+    },
+    onCue(l) { if (!G.FX) return; G.FX.burst(l.x, l.y - 24, '#b05ad8', 22, 220); G.FX.burst(l.x, l.y - 24, '#ff6ac8', 12, 180); G.FX.ring(l.x, l.y, 8, 140, '#a04ad8', 0.5, 5); shake(l, 0.6); }
+  });
+
   return {
     add, def, GENERIC,
     /** dex que ya tienen animación propia. */
