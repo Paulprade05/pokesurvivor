@@ -307,6 +307,12 @@ G.Props3D = (() => {
       });
       return out;
     },
+    // (Templos 3D, 27-11-2026) Encuentros del mapa (systems/encounters.js): templo, santuario de reto, santuario maldito
+    // y las piedras con runa del borde de su zona. U: ya usado (apagado).
+    temple: k => temple(k, false), templeU: k => temple(k, true),
+    shrine: k => shrine(k, false), shrineU: k => shrine(k, true),
+    curse: k => curse(k, false), curseU: k => curse(k, true),
+    zst_t: k => zstone('#ffc23a'), zst_c: k => zstone('#ff5a3a'), zst_k: k => zstone('#b56cff'), zst_u: k => zstone(null),
     wall0: k => wallPile(k, 0), wall1: k => wallPile(k, 1), wall2: k => wallPile(k, 2), wall3: k => wallPile(k, 3),
     wallI0: k => wallInner(k, 0), wallI1: k => wallInner(k, 1),
     // Flora suelta: seta que brilla y cristal pequeño.
@@ -340,6 +346,94 @@ G.Props3D = (() => {
     for (const sx of [-1, 1]) out.push(part(CO(2.2, 9, 5), { x: sx * 8.5, y: 48, rz: -sx * 0.35 }, 'stone', '#dcdcdc', { ao: false }));
     out.push(part(SP(6.4, seg(16, 8), seg(12, 6)), { y: 51 }, 'white', col, { glow: used ? 0 : 1.1, ao: false }));
     return out;
+  }
+  /*
+   * (Templos 3D, 27-11-2026, el dueño: «los templos y santuarios quiero que sean en 3d y abarquen una zona más grande»)
+   * El mismo diseño que su pixel art (tools/pxl/encuentros.px.js, maldicion.px.js), con volumen: piedra del bioma, tejados
+   * y lo que brilla (frasco, fuego, llama fantasma, runas) con brillo propio. Delante es +z (el sur, hacia la cámara).
+   */
+  const BX = (w, h, d) => new T.BoxGeometry(w, h, d);
+  const ROOF = '#3fa07c', EAVE = '#24684f';
+  // (La luz del juego viene del norte: lo de delante queda en sombra. Un poco de brillo propio en la piedra para que se lea.)
+  const LIT = { glow: 0.18 };
+  function temple(k, used) {
+    const out = [], q = seg(10, 6), glow = used ? 0 : 1, vit = used ? '#8a8494' : '#ff8ab4';
+    // Plataforma y escalones.
+    out.push(part(BX(100, 9, 78), { y: 4.5 }, 'stone', '#d6d6d6', { aoH: 12, glow: 0.12 }));
+    [[44, 3, 46], [36, 6, 42]].forEach(([w, y, z]) => out.push(part(BX(w, 3, 8), { y: y - 1.5, z }, 'stone', '#e8e8e8', { ao: false })));
+    // Columnas (cuatro) con su pie.
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      out.push(part(CY(4.4, 5, 42, seg(10, 6)), { x: sx * 38, y: 30, z: sz * 27 }, 'stone', '#ffffff', { aoH: 50, vk: 0.5, ...LIT }));
+      out.push(part(BX(12, 3, 12), { x: sx * 38, y: 10.5, z: sz * 27 }, 'stone', '#cfcfcf', { ao: false }));
+    }
+    // Altar y el frasco de vitamina que flota sobre él (brilla).
+    out.push(part(BX(24, 14, 18), { y: 16, z: 8 }, 'stone', '#efefef', { aoH: 24, ...LIT }));
+    out.push(part(CY(7.5, 7.5, 16, q), { y: 34, z: 10 }, 'white', vit, { glow: 1.2 * glow, ao: false }));
+    out.push(part(CY(4, 4.4, 5, q), { y: 44.5, z: 10 }, 'white', used ? '#9a9a9a' : '#ffffff', { glow: 0.7 * glow, ao: false }));
+    // Viga y tejado de abajo (pirámide truncada de 4 lados, con el alero y sus puntas levantadas).
+    out.push(part(BX(88, 5, 66), { y: 53.5 }, 'stone', '#d8d8d8', { ao: false, ...LIT }));
+    out.push(part(CY(34, 66, 15, 4), { y: 63.5, ry: Math.PI / 4, sz: 0.82 }, 'white', ROOF, { ao: false }));
+    out.push(part(CY(66, 66, 2, 4), { y: 56.5, ry: Math.PI / 4, sz: 0.82 }, 'white', EAVE, { ao: false }));
+    // Piso de arriba: muro con su ventana y tejado.
+    out.push(part(BX(36, 11, 26), { y: 76 }, 'stone', '#ececec', { ao: false, ...LIT }));
+    out.push(part(BX(10, 6, 27), { y: 76 }, 'white', vit, { glow: 0.8 * glow, ao: false }));
+    out.push(part(CY(12, 38, 14, 4), { y: 88, ry: Math.PI / 4, sz: 0.82 }, 'white', ROOF, { ao: false }));
+    out.push(part(CY(38, 38, 2, 4), { y: 81.5, ry: Math.PI / 4, sz: 0.82 }, 'white', EAVE, { ao: false }));
+    // Puntas de los aleros (las esquinas, levantadas) y el remate.
+    for (const [r, y] of [[47, 58.5], [27, 83.5]]) for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      out.push(part(CO(2.6, 7, 4), { x: sx * r, y: y + 2, z: sz * r * 0.82, rz: -sx * 0.6, rx: sz * 0.6 }, 'white', ROOF, { ao: false }));
+    out.push(part(CY(1.6, 1.6, 9, 6), { y: 99.5 }, 'stone', '#dddddd', { ao: false }));
+    out.push(part(SP(4.2, q, seg(8, 5)), { y: 106 }, 'white', vit, { glow: 0.9 * glow, ao: false }));
+    return out;
+  }
+  function shrine(k, used) {
+    const out = [], fire = used ? '#4a4450' : '#ffa020', g = used ? 0 : 1;
+    out.push(part(BX(54, 8, 40), { y: 4 }, 'stone', '#d0d0d0', { aoH: 10, glow: 0.12 }));
+    out.push(part(BX(38, 6, 28), { y: 11 }, 'stone', '#e2e2e2', { ao: false, ...LIT }));
+    out.push(part(CY(7, 8.4, 34, seg(10, 6)), { y: 31 }, 'stone', '#ffffff', { aoH: 46, vk: 0.5, ...LIT }));
+    out.push(part(CY(8.8, 8.8, 2.6, seg(10, 6)), { y: 36 }, 'white', '#d84a34', { ao: false }));
+    out.push(part(BX(5, 4, 5), { y: 40, z: 6 }, 'white', fire, { glow: 0.8 * g, ao: false }));
+    out.push(part(BX(36, 5, 28), { y: 50.5 }, 'stone', '#e6e6e6', { ao: false, ...LIT }));
+    // Caja del fuego: la piedra y, asomando por delante y por detrás, las ventanas encendidas.
+    out.push(part(BX(26, 20, 22), { y: 63 }, 'stone', '#f2f2f2', { ao: false, ...LIT }));
+    out.push(part(BX(14, 11, 23), { y: 63 }, 'white', fire, { glow: 1.1 * g, ao: false }));
+    out.push(part(BX(27, 11, 4), { y: 63 }, 'white', fire, { glow: 1.1 * g, ao: false }));
+    // Sombrero (seis lados) y su punta.
+    out.push(part(CY(6, 34, 12, 6), { y: 79 }, 'stone', '#dcdcdc', { ao: false, ...LIT }));
+    out.push(part(CY(34, 34, 1.6, 6), { y: 72.2 }, 'stone', '#a8a8a8', { ao: false }));
+    out.push(part(SP(4, seg(8, 6), seg(6, 4)), { y: 87 }, 'stone', '#ececec', { ao: false }));
+    if (!used) {
+      out.push(part(CO(5.5, 13, 6), { y: 97.5 }, 'white', '#ff7a1a', { glow: 1.2, ao: false }));
+      out.push(part(CO(3, 8, 6), { y: 95.5, z: 1 }, 'white', '#fff0a0', { glow: 1.4, ao: false }));
+    }
+    return out;
+  }
+  function curse(k, used) {
+    const out = [], ghost = used ? '#5a5464' : '#9a4ae0', g = used ? 0 : 1;
+    out.push(part(BX(60, 9, 42), { y: 4.5 }, 'stone', '#a89cb8', { aoH: 12, glow: 0.12 }));
+    out.push(part(BX(42, 8, 30), { y: 13 }, 'stone', '#b4a8c4', { ao: false, ...LIT }));
+    out.push(part(BX(22, 58, 14), { y: 46 }, 'stone', '#9a8eae', { aoH: 70, vk: 0.5, ...LIT }));
+    out.push(part(BX(30, 5, 20), { y: 77.5 }, 'stone', '#b0a4c0', { ao: false, ...LIT }));
+    // Ojo grabado que brilla (asoma por delante) y la cuerda con las dos etiquetas de papel.
+    out.push(part(BX(12, 6, 15.4), { y: 46 }, 'white', ghost, { glow: 1.3 * g, ao: false }));
+    out.push(part(BX(25, 2.6, 16), { y: 67 }, 'white', '#d84a34', { ao: false }));
+    for (const sx of [-1, 1]) out.push(part(BX(5, 13, 1.2), { x: sx * 13, y: 59, z: 8.4, rz: sx * 0.08 }, 'white', '#f0e8cc', { ao: false }));
+    // Piedras rotas al lado.
+    out.push(part(new T.DodecahedronGeometry(6, 0), { x: -33, y: 3, z: 14, sy: 0.6 }, 'stone', '#a090b4', { ao: false }));
+    out.push(part(new T.DodecahedronGeometry(4.6, 0), { x: 32, y: 2.4, z: 16, sy: 0.6, ry: 1 }, 'stone', '#968aaa', { ao: false }));
+    if (!used) {
+      out.push(part(CO(9, 20, seg(8, 6)), { y: 92 }, 'white', ghost, { glow: 1.2, ao: false }));
+      out.push(part(CO(5, 13, seg(8, 6)), { y: 89.5, z: 1.5 }, 'white', '#d8a8ff', { glow: 1.5, ao: false }));
+    }
+    return out;
+  }
+  /** Piedra del borde de la zona: menhir de 4 lados con su runa que brilla (col; null: apagada). */
+  function zstone(col) {
+    // (La runa, en la punta y asomando por delante: desde arriba es lo que se ve.)
+    return [part(CY(4, 5.6, 24, 4), { y: 12, ry: Math.PI / 4 + 0.15 }, 'stone', '#e4e4e4', { aoH: 30, ...LIT }),
+      part(CO(4, 5, 4), { y: 26.5, ry: Math.PI / 4 + 0.15 }, 'white', col || '#6a6570', { glow: col ? 0.9 : 0, ao: false }),
+      part(BX(3.4, 9, 9), { y: 14 }, 'white', col || '#5a5560', { glow: col ? 1.1 : 0, ao: false }),
+      part(new T.DodecahedronGeometry(3, 0), { x: 7, y: 1.4, z: 3, sy: 0.6 }, 'stone', '#cfcfcf', { ao: false })];
   }
   function spring(k, dry) {
     const out = [], n = seg(14, 9);
@@ -432,7 +526,10 @@ G.Props3D = (() => {
     tree0: [64, 30, true, 1.6], tree1: [66, 24, true, 1.6], dead: [52, 22, true, 1.2], crystal: [46, 20, true, 1.3], basalt: [50, 20, true, 1.3],
     altar0: [58, 18, true, 1.3], altar1: [58, 18, true, 1.3], altar2: [58, 18, true, 1.3], altar3: [58, 18, true, 1.3], altarU: [58, 18, true, 1.3],
     spring: [6, 26, false, 1], springD: [6, 26, false, 1], boom: [18, 18, true, 0.9],
-    fshroom: [14, 12, false, 0.8], fcrystal: [22, 10, false, 0.8]
+    fshroom: [14, 12, false, 0.8], fcrystal: [22, 10, false, 0.8],
+    temple: [112, 52, true, 1.4], templeU: [112, 52, true, 1.4], shrine: [104, 28, true, 1.3], shrineU: [104, 28, true, 1.3],
+    curse: [104, 32, true, 1.3], curseU: [104, 32, true, 1.3],
+    zst_t: [30, 8, true, 0.9], zst_c: [30, 8, true, 0.9], zst_k: [30, 8, true, 0.9], zst_u: [30, 8, true, 0.9]
   };
 
   /** La geometría (y su contorno) de un modelo en el bioma bi, o null. */

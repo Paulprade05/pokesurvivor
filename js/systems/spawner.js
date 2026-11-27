@@ -482,16 +482,17 @@ G.Spawner = (() => {
    * (1.0, bloque E) Santuario de reto (systems/encounters.js): n enemigos de élite del elenco de ahora alrededor de
    * (x, y), a 220-320 px, con la élite de siempre (vida ×1,6, daño ×1,25, experiencia ×1,6).
    */
-  function challenge(x, y, n, t = G.Game.st.time) {
+  // (Templos 3D, 27-11-2026) o.plain: sin la élite (las oleadas del templo); o.d: a qué distancia salen [de, a].
+  function challenge(x, y, n, t = G.Game.st.time, o = {}) {
     players = G.Game.everyone();
-    const out = [];
+    const out = [], D = o.d || [220, 320];
     for (let i = 0; i < n && G.EnemyMgr.count < capAt(t) + OVER; i++) {
-      const def = plainPick(t), a = i / n * 6.2832 + G.U.rand(-0.3, 0.3), d = G.U.rand(220, 320);
+      const def = plainPick(t), a = i / n * 6.2832 + G.U.rand(-0.3, 0.3), d = G.U.rand(D[0], D[1]);
       const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 0.8;
       if (!isFlyer(def) && !G.World.isFree(px, py, 14)) continue;
       const e = make(def, px, py, t, { noChamp: true });
-      if (!e.elite) { e.elite = true; e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
-      G.FX.ring(px, py, 4, 36, '#ff6b6b', 0.4, 3);
+      if (!o.plain && !e.elite) { e.elite = true; e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
+      G.FX.ring(px, py, 4, 36, o.plain ? '#ffd23f' : '#ff6b6b', 0.4, 3);
       out.push(e);
     }
     return out;

@@ -70,7 +70,9 @@ G.Interact = (() => {
       // (1.0, bloque E) Los encuentros que se pulsan (Kecleon, Smeargle, Porygon, santuario de reto): el mismo botón.
       if (p.enc ? !G.Encounters.pressable(p) : p.type !== 'chest' && p.type !== 'bigchest') continue;
       const d2 = G.U.dist2(pl.x, pl.y, p.x, p.y);
-      if (can && d2 < reach(p, pl) ** 2 && d2 < bd) { bd = d2; near = p; }
+      // (Templos 3D, 27-11-2026) Santuario de reto y maldito: su botón, en cualquier sitio de su zona.
+      const rr = p.enc && p.zone ? p.zone : reach(p, pl);
+      if (can && d2 < rr * rr && d2 < bd) { bd = d2; near = p; }
     }
     const held = !!near && G.Input.actHeld('open');
     for (const p of list) if (p.open > 0 && !(held && p === near)) p.open = Math.max(0, p.open - dt * 1.5);

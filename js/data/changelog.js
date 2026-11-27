@@ -6,6 +6,15 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-27', title: ["Templos y santuarios en 3D", "Temples and shrines in 3D"], new: [
+    ["El templo de vitaminas, el santuario de reto y el santuario maldito ahora son edificios en 3D (en el ordenador con calidad Alta o más; en el móvil, dibujos más grandes y con volumen) y tienen una zona grande marcada en el suelo con piedras de runa alrededor.",
+     "The vitamin temple, the challenge shrine and the cursed shrine are now 3D buildings (on computer at High quality or above; on mobile, bigger drawings with depth) and have a large zone marked on the ground with rune stones around it."]],
+  chg: [
+    ["Templo de vitaminas: quédate 12 s dentro de su zona mientras salen oleadas de enemigos que te presionan. Si sales a medias, vuelve a empezar.",
+     "Vitamin temple: stay 12 s inside its zone while waves of enemies close in on you. If you leave halfway, it starts over."],
+    ["Santuario de reto y santuario maldito: su botón sale en cualquier sitio de su zona, no sólo pegado a ellos. La zona del reto es algo más grande.",
+     "Challenge shrine and cursed shrine: their button shows up anywhere inside their zone, not only right next to them. The challenge zone is a bit bigger."]] },
+
   { d: '2026-11-27', title: ["Huevo y compañero", "Egg and companion"], new: [
     ["Chansey: una vez por partida, entre los minutos 5 y 10 (después de la grieta), te espera en el mapa y te da un huevo. Kecleon también los vende. La carta te dice qué Pokémon lleva; cuanta más rareza (y suerte), más fuerte es su línea.",
      "Chansey: once per run, between minutes 5 and 10 (after the rift), it waits on the map and gives you an egg. Kecleon sells them too. The card shows which Pokémon is inside; the higher the rarity (and luck), the stronger its line."],

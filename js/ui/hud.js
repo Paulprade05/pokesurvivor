@@ -1341,7 +1341,8 @@ G.HUD = (() => {
   function drawChestCue(ctx, w, h, c, touch) {
     const big = c.type === 'bigchest', f = big ? G.U.clamp(c.open / G.Interact.CHEST_TIME, 0, 1) : 0;
     if (!touch) {
-      const p = G.Camera.toScreen(c.x, c.y - 72), key = String(G.Input.keyLabel('open'));
+      // (Templos 3D) Los santuarios son altos: el aviso, encima.
+      const p = G.Camera.toScreen(c.x, c.y - (c.enc && c.zone ? 160 : 72)), key = String(G.Input.keyLabel('open'));
       // (1.0, bloque E) Los encuentros dicen qué se hace con ellos: «Hablar» (Kecleon, Smeargle, Porygon) o «Activar» (reto).
       const act = c.enc && G.Encounters.TYPES[c.type].act, txt = act ? G.T(act) : big ? 'Mantén para abrir' : 'Abrir';
       ctx.font = F(600, 13);
