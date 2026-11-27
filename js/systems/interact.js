@@ -67,7 +67,8 @@ G.Interact = (() => {
     let bd = Infinity;
     near = null;
     for (const p of list) {
-      if (p.type !== 'chest' && p.type !== 'bigchest') continue;
+      // (1.0, bloque E) Los encuentros que se pulsan (Kecleon, Smeargle, Porygon, santuario de reto): el mismo botón.
+      if (p.enc ? !G.Encounters.pressable(p) : p.type !== 'chest' && p.type !== 'bigchest') continue;
       const d2 = G.U.dist2(pl.x, pl.y, p.x, p.y);
       if (can && d2 < reach(p, pl) ** 2 && d2 < bd) { bd = d2; near = p; }
     }
@@ -75,7 +76,9 @@ G.Interact = (() => {
     for (const p of list) if (p.open > 0 && !(held && p === near)) p.open = Math.max(0, p.open - dt * 1.5);
     if (!near) return;
     const c = near;
-    if (c.type === 'chest') {
+    if (c.enc) {
+      if (G.Input.act('open')) { near = null; G.Encounters.press(c); }
+    } else if (c.type === 'chest') {
       if (G.Input.act('open')) { near = null; G.Reg.ev('cofre', 'peq'); G.World.breakProp(c); }
     } else if (held) {
       if (c.open === 0) G.Audio.sfx('select');

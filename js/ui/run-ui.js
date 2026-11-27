@@ -3,6 +3,8 @@
  * icono a 60 px, insignia, nombre, chips de tipo / categoría / familia y
  * descripción). La pausa y el resumen comparten la lista de ataques
  * (movesTable). Los estilos, en «pantallas: partida» de css/style.css.
+ * (1.0, bloque B) Las cinco son plantillas a pantalla completa (ui/nav.js): la pausa y el resumen, «Menú» (botones a la
+ * izquierda; a la derecha, páginas para leer con LB / RB: setPage); las cartas, «Elección».
  */
 G.RunUI = (() => {
   const $ = G.UI.$;
@@ -92,11 +94,14 @@ G.RunUI = (() => {
    * vacíos, «Libre». Lo enseñan la pausa (arriba del todo) y, en pequeño y sin niveles
    * (mini), la cabecera de las cartas de nivel.
    */
+  /** Huecos de ataque vacíos que aún pueden llenarse (1.0, bloque C: fusionar no libera ninguno). */
+  const freeAtk = pl => Math.max(0, pl.maxMoves - pl.moves.length);
   function slotsHtml(pl, mini = false) {
     const SZ = mini ? 20 : 30;
     const free = mini ? '<span class="sl sl-free"></span>' : '<span class="sl sl-free"><span>Libre</span></span>';
     const atk = [], pas = [];
-    for (let i = 0; i < Math.max(pl.maxMoves, pl.slots.length); i++) {
+    // (1.0, bloque C) Libres, sólo los que aún pueden llenarse: con 4 ataques (fusionados o no) no queda ninguno.
+    for (let i = 0; i < pl.slots.length + freeAtk(pl); i++) {
       const g = pl.slots[i];
       if (!g || !g[0]) { atk.push(free); continue; }
       const m = g[0];
@@ -115,7 +120,7 @@ G.RunUI = (() => {
     }
     const group = (lbl, used, max, tiles, cls) => `<div class="sl-group ${cls}${used >= max ? ' full' : ''}">`
       + `<span class="sl-lbl"><b>${lbl}</b><span class="sl-n">${used}/${max}</span></span><span class="sl-row">${tiles.join('')}</span></div>`;
-    return group('Ataques', pl.slots.length, pl.maxMoves, atk, 'sl-atk') + group('Pasivas', mine.length, MAX, pas, 'sl-pas');
+    return group('Ataques', pl.moves.length, pl.maxMoves, atk, 'sl-atk') + group('Pasivas', mine.length, MAX, pas, 'sl-pas');
   }
 
   /** Carta nueva (ataque o pasiva): qué hueco ocupa, «Hueco de ataque 3/4», o si es el último. */
@@ -160,6 +165,7 @@ G.RunUI = (() => {
     el.className = 'card pick-card' + (o.cls ? ' ' + o.cls : '') + (o.build ? ' in-build' : '');
     el.style.setProperty('--i', i);
     if (o.tileC) el.style.setProperty('--pc', o.tileC);
+    if (o.rc) el.style.setProperty('--rc', o.rc);
     el.innerHTML = `<span class="key">${i + 1}</span>
       <span class="pc-art"><span class="ico-tile pc-ico${o.tile ? ' ' + o.tile : ''}"${o.tileC ? ` style="--tile-c:${o.tileC}"` : ''}>${G.Icons.html(o.icon, 60)}</span>${o.build ? buildMark() : ''}${o.badge || ''}</span>
       <span class="pc-txt">${o.eyebrow ? `<span class="pc-eyebrow">${o.eyebrow}</span>` : ''}<span class="nm">${o.title}</span>`
@@ -273,8 +279,14 @@ G.RunUI = (() => {
     // (El que hace evolucionar a tu Pokémon —Tangela con Poder Pasado—, dorado y lo dice arriba.)
     if (c.type === 'new') return { cls: 'is-new' + (c.evoTo ? ' unlocks' : ''), icon: c.icon, tile: 'tint', tileC: c.color, badge: badge('¡Nuevo!'), title: c.title, chips: chips + zChip(m), desc: c.desc, evo,
                                    eyebrow: c.evoTo && G.DEX_BY[c.evoTo] ? `<span class="pc-slot evo-mon">${G.I18n.f('¡Evoluciona a {x}!', G.T(G.DEX_BY[c.evoTo].name))}</span>`
-                                     : pl ? slotNote('atk', pl.slots.length, pl.maxMoves) : '' };
-    if (c.type === 'up') return { cls: 'is-up', icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips, desc: c.desc, evo };
+                                     : pl ? slotNote('atk', pl.moves.length, pl.maxMoves) : '' };
+    // (1.0, bloque D) Con rareza: su chapa arriba, el borde con su brillo y el extra que da, del color de la rareza.
+    if (c.type === 'up') {
+      const r = c.r | 0, rc = r ? G.Rarity.color(r) : '';
+      return { cls: 'is-up' + (r ? ' rar-on' : ''), rc, icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips,
+               eyebrow: r ? rarBadge(r) : '',
+               desc: c.desc + (c.rx ? `<span class="pc-rar">${G.Icons.html('luck', 20)}<span>${c.rx}</span></span>` : ''), evo };
+    }
     // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
     // desbloquea ya una evolución (el ataque está al máximo), dorada. Una pasiva que
     // ya llevas sube de nivel («Nv. 2 → 3»); una nueva dice qué hueco de pasiva ocupa.
@@ -306,6 +318,7 @@ G.RunUI = (() => {
     list.forEach((c, i) => {
       const el = cardEl(Object.assign(levelCard(c), { build: G.Build.card(p, c) }), i, () => pick(i));
       if (!G.LevelUp.canDiscard(p, c)) el.classList.add('no-discard');
+      if (c.r != null) el.dataset.r = c.r;          // (rareza 0-3: la lee el bot, tools/curve.cjs)
       box.appendChild(el);
     });
     const dc = G.LevelUp.discardsLeft(p);
@@ -392,26 +405,27 @@ G.RunUI = (() => {
     const tickets = r.t1 || r.t10 ? `<div class="ov-tickets"><span class="ov-lbl">Tickets del gacha</span>
         ${r.t1 ? `<span class="ov-tk"><span class="ico-tile s">${G.Icons.html('ticket', 30)}</span><b>+${r.t1}</b></span>` : ''}
         ${r.t10 ? `<span class="ov-tk"><span class="ico-tile s t-purple">${G.Icons.html('ticket10', 30)}</span><b>+${r.t10}</b></span>` : ''}</div>` : '';
-    // Arriba, en dos columnas (una en el móvil de pie): las cifras a la izquierda y lo
-    // ganado a la derecha. Debajo, a todo el ancho, los movimientos y los shinies.
+    // (1.0) Plantilla «Menú»: las monedas y «Volver al menú» a la izquierda; a la derecha, en páginas (LB / RB), el
+    // resumen, los movimientos y los shinies.
+    $('over-coins').innerHTML = `<div class="ov-coins">
+          <span class="ico-tile l round t-gold">${G.Icons.html('coin', 60)}</span>
+          <div class="ov-coins-txt"><span class="ov-lbl">Pokémonedas ganadas</span><b class="ov-big">+${n(r.coins)}</b><small>${r.breakdown}</small></div>
+          ${tickets}
+        </div>`;
     $('over-stats').innerHTML = `
-      <div class="ov-top">
+      <div class="fs-pg ov-top" data-pg="sum">
         <div class="ov-figs">
           <div class="ov-tiles">${ovTile('clock', 'Tiempo', G.U.mmss(r.time))}${ovTile('up', 'Nivel', r.level)}${ovTile('ball', 'Derrotados', n(r.kills))}${ovTile('crown', 'Jefes', r.bosses)}${r.megas ? ovTile('mring', 'Megas', r.megas) : ''}</div>
           ${r.judge ? `<div class="ov-judge"><span class="ico-tile s t-gold">${G.Icons.html('ball4', 30)}</span>
             <div class="grow"><span class="ov-lbl">Ante Arceus</span><b>${G.U.mmss(r.judge.time)} · ${r.judge.bosses} ${r.judge.bosses === 1 ? 'legendario' : 'legendarios'}</b></div></div>` : ''}
           <div class="ov-tiles ov-dmg">${dmg('choiceband', 'Daño total', r.dealt)}${dmg('rockyhelmet', 'Daño recibido', r.taken)}${dmg('berry', 'Curación', r.healed)}</div>
         </div>
-        <div class="ov-coins">
-          <span class="ico-tile l round t-gold">${G.Icons.html('coin', 60)}</span>
-          <div class="ov-coins-txt"><span class="ov-lbl">Pokémonedas ganadas</span><b class="ov-big">+${n(r.coins)}</b><small>${r.breakdown}</small></div>
-          ${tickets}
-        </div>
       </div>
-      <section class="ov-sec ov-moves"><h3>Movimientos</h3>
+      <section class="fs-pg ov-sec ov-moves" data-pg="moves"><h3>Movimientos</h3>
         ${r.moves.length ? movesTable(r.moves, r.time, false) : '<p class="muted">—</p>'}</section>
-      ${r.caught && r.caught.length ? `<section class="ov-sec caught"><h3>${G.Icons.html('shiny', 18)}<span>${r.caught.length} Shinies conseguidos</span></h3>
+      ${r.caught && r.caught.length ? `<section class="fs-pg ov-sec caught" data-pg="caught"><h3>${G.Icons.html('shiny', 18)}<span>${r.caught.length} Shinies conseguidos</span></h3>
         <div class="caught-row" id="over-caught"></div></section>` : ''}`;
+    $('over-pg-caught').classList.toggle('hidden', !(r.caught && r.caught.length));
     $('btn-again').onclick = onBack;
     if (r.caught && r.caught.length) {
       const row = $('over-caught');
@@ -422,9 +436,9 @@ G.RunUI = (() => {
         row.appendChild(w);
       }
     }
+    headIcons('scr-over');
     G.UI.show('scr-over');
-    const body = $('scr-over').querySelector('.over-body');
-    if (body) body.scrollTop = 0;
+    setPage('scr-over', 'over-stats', 'sum');
   }
 
   // ---------------- objeto ----------------
@@ -500,7 +514,7 @@ G.RunUI = (() => {
     box.innerHTML = '';
     bond.list.forEach((m, i) => {
       const desc = opt.mode === 'add' ? 'Se lanzará a la vez que ' + names(opt.group) + '.'
-        : step2 ? 'Se lanzará a la vez que ' + G.T(first.name) + '. Queda un hueco libre.'
+        : step2 ? 'Se lanzará a la vez que ' + G.T(first.name) + '.'
         : m.desc || '';
       box.appendChild(cardEl({ cls: opt.mode === 'add' || step2 ? 'bond' : '', icon: 'move:' + m.id, tile: 'tint', tileC: typeCol(m),
         badge: lvBadge(m.lvl, false, 'ghost'), title: G.T(m.name), chips: moveChips(m, false), desc, build: G.Build.fuse(G.Game.player, m.id),
@@ -663,6 +677,8 @@ G.RunUI = (() => {
    *    que pide para evolucionar, a qué nivel la llevas y lo que falta.
    *  - A la derecha, tus pasivas (con lo que evolucionan), tu Pokémon (todas sus
    *    estadísticas), el objeto y el movimiento Z o la megaevolución.
+ *  (1.0) A pantalla completa y en tres páginas (LB / RB): Ataques · Pasivas y objetos · Estadísticas. Los botones
+ *  (Continuar, Planear build, Compendio, Ajustes, Abandonar) van en la columna de la izquierda.
    * Es una rejilla: con columnas CSS y column-span, WebKit montaba unas tarjetas encima
    * de otras. El sonido ya no está aquí: va en Ajustes (botón de la propia pausa).
    */
@@ -693,7 +709,7 @@ G.RunUI = (() => {
     const pct = hits && total ? Math.round(dealt / total * 100) : 0;
     const bond = g.length > 1 ? `<i class="pz-bond" title="${g.map(x => G.T(x.name)).join(' + ')}">+${g.length - 1}</i>` : '';
     const names = `<b>${G.T(m.name)}</b>` + (g.length > 1 ? g.slice(1).map(x => `<span class="pz-also">+ ${G.T(x.name)}</span>`).join('') : '');
-    const tags = (m.evolved ? `<span class="pz-tag evo">${G.T('Evolucionado')}</span>` : '') + (g.length > 1 ? `<span class="pz-tag bond">${G.T('Vínculo')}</span>` : '');
+    const tags = (m.evolved ? `<span class="pz-tag evo">${G.T('Evolucionado')}</span>` : '') + (g.length > 1 ? `<span class="pz-tag bond">${G.T('Vínculo')}</span>` : '') + pzRar(m);
     const dmg = hits
       ? `<b>${pzN(dealt)}</b><small>${pct} % · ${pzN(dealt / secs)}/s</small><i class="pz-bar"><i style="width:${pct}%;background:${c}"></i></i>`
       : `<b>—</b><small>${G.T('no hace daño')}</small>`;
@@ -708,6 +724,14 @@ G.RunUI = (() => {
         <div class="pz-lv"><span><span>Nv.</span> ${m.lvl}/${max}</span>${pzPips(m.lvl, max, c)}</div>
         <div class="pz-dmg">${dmg}</div></div>
       ${need}</div>`;
+  }
+  /** (1.0, bloque D) El extra de rareza que lleva el ataque (de sus cartas de mejora), del color de la más alta que cogió. */
+  function pzRar(m) {
+    const CR = G.CardRarity, b = CR ? CR.best(m) : -1;
+    if (b < 1) return '';
+    const p = v => Math.round(v * 100), d = p(m.rx || 0), a = p(m.ra || 0);
+    const txt = d && a ? G.I18n.f('+{x} % de daño y +{x} % de área', d, a) : d ? G.I18n.f('+{x} % de daño', d) : G.I18n.f('+{x} % de área', a);
+    return `<span class="pz-tag rar" style="--rc:${G.Rarity.color(b)}" title="${G.T('Extra de rareza')}">${txt}</span>`;
   }
   /** Tus pasivas: su nivel y qué ataques tuyos evolucionan con ella (los que la usan, en verde). */
   function pzPassives(pl, used) {
@@ -739,6 +763,11 @@ G.RunUI = (() => {
       ['assaultvest', 'Def. Esp.', n(mon.sd), guard(esp)],
       ['boot', 'Velocidad', n(pl.spd)],
       ['scope-lens', 'Crítico', pct(pl.critChance || 0)],
+      // (1.0, bloque D) Suerte: sube la rareza de las cartas de mejora y de los objetos que coges (systems/fortune.js).
+      ['luck', 'Suerte', (G.Fortune ? G.Fortune.pct(pl) : 0) + ' %'],
+      // (1.0, bloque F) Maldición: su nivel y lo que les suma a los enemigos (systems/curse.js).
+      ['curse', 'Maldición', (G.Curse ? G.Curse.level : 0) + ' / ' + (G.Curse ? G.Curse.MAX : 5),
+        G.Curse && G.Curse.level ? G.I18n.f('vida de los enemigos +{x} %', Math.round(G.Curse.at(G.Curse.level).hp * 100)) : ''],
       ['shield', 'Reducción de daño', pct(pl.reduction)],
       ['clock', 'Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
       ['sprout', 'Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],
@@ -761,10 +790,10 @@ G.RunUI = (() => {
   function pzBuild(pl) {
     if (pl.buildDex == null) return '';
     const b = G.Build.get(pl.buildDex), pr = G.Build.progress(pl, b);
-    const btn = `<button id="pause-build" class="btn small ghost ic" type="button">${G.Icons.html('build', 20)}<span>${pr && pr.total ? 'Editar' : 'Planear build'}</span></button>`;
+    // (1.0) «Planear build» / «Editar build» va en la columna de botones de la pausa (#pause-build).
     if (!pr || !pr.total) {
       return `<section class="ps-card pz-card pz-build empty"><h3><span>Tu build</span></h3>
-        <p class="pzb-txt">${G.T('Planea qué ataques, pasivas y objetos quieres: en las cartas y en el suelo verás su sello.')}</p>${btn}</section>`;
+        <p class="pzb-txt">${G.T('Planea qué ataques, pasivas y objetos quieres: en las cartas y en el suelo verás su sello.')}</p></section>`;
     }
     const mine = new Set(pl.moves.map(m => m.id)), pas = new Set(G.LevelUp.passivesOf(pl).map(p => p.id)), its = new Set(pl.items.map(i => i.id));
     const ok = `<i class="pzb-ok">${G.UI.svg('check', 12)}</i>`;
@@ -775,7 +804,7 @@ G.RunUI = (() => {
     const mv = b.m.map(id => tile(mine.has(id), 'move:' + id, G.Moves.BY_ID[id].name, '', b.f.length >= 2 && b.f.includes(id) ? fz : ''));
     const ps = b.p.map(id => { const s = G.LevelUp.STATS.find(x => x.id === id); return tile(pas.has(id), s.icon, s.title); });
     const it = b.i.map(id => tile(its.has(id), id, G.Items.BY[id].name));
-    return `<section class="ps-card pz-card pz-build"><h3><span class="pzb-h">${G.Icons.html('build', 20)}<span>Tu build</span></span> <small>${pr.done}/${pr.total}</small>${btn}</h3>
+    return `<section class="ps-card pz-card pz-build"><h3><span class="pzb-h">${G.Icons.html('build', 20)}<span>Tu build</span></span> <small>${pr.done}/${pr.total}</small></h3>
       ${row(G.T('Ataques'), pr.m, mv)}${row(G.T('Pasivas'), pr.p, ps)}${row(G.T('Objetos'), pr.i, it)}</section>`;
   }
 
@@ -784,7 +813,7 @@ G.RunUI = (() => {
     if (!pl) return '';
     const t = G.Game.st.time, total = pl.moves.reduce((a, m) => a + (m.cat ? m.dealt || 0 : 0), 0);
     const rows = pl.slots.filter(g => g && g[0]).map(g => pzRow(g, pl, total, t));
-    for (let i = rows.length; i < pl.maxMoves; i++) rows.push(`<div class="pz-row empty"><span class="pz-med empty"></span><span class="pz-free">${G.T('Hueco de ataque libre')}</span></div>`);
+    for (let i = 0, free = freeAtk(pl); i < free; i++) rows.push(`<div class="pz-row empty"><span class="pz-med empty"></span><span class="pz-free">${G.T('Hueco de ataque libre')}</span></div>`);
     const used = new Set(pl.moves.map(m => { const e = G.LevelUp.evoNeed(m, pl); return e && e.needs; }).filter(Boolean));
     // Su habilidad (17-11-2026): qué hace, para verla también en partida (las de legendario, en dorado).
     const fx = pl.abil, abName = pl.abilId && G.Mons.abilityName(pl.abilId);
@@ -795,9 +824,11 @@ G.RunUI = (() => {
     const item = pl.items && pl.items.length ? `<section class="ps-card pz-card ps-gear"><h3><span>${slots > 1 ? 'Objetos' : 'Objeto'}</span> <small>${pl.items.length}/${slots}</small></h3>
         ${pl.items.map(i => `<div class="ps-item"><span class="ico-tile tint${i.evo ? ' it-evo-ico' : ''}" style="--tile-c:${G.Items.color(i.r)}">${G.Icons.html(i.id, 30)}</span>`
           + `<div><b>${G.Items.nameOf(i)}</b> ${rarBadge(i.r, i.evo)}<small>${itemLines(i.id, i.r, i.evo)}${itemProg(i)}</small></div></div>`).join('')}</section>` : '';
-    return `<section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.slots.length}/${pl.maxMoves}</small>
-        <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section>
-      <div class="pz-side">${pzBuild(pl)}${pzPassives(pl, used)}${pzStats(pl)}${abil}${item}${zCard(pl)}</div>`;
+
+    return `<div class="fs-pg" data-pg="atk"><section class="ps-card pz-card pz-atk"><h3><span>Ataques y evoluciones</span> <small>${pl.moves.length}/${pl.maxMoves}</small>
+        <span class="pz-legend"><span>Daño</span> · <span>%</span> · <span>Por segundo</span></span></h3><div class="pz-rows">${rows.join('')}</div></section></div>
+      <div class="fs-pg pz-side" data-pg="pas">${pzBuild(pl)}${pzPassives(pl, used)}${abil}${item}${zCard(pl)}</div>
+      <div class="fs-pg" data-pg="stats">${pzStats(pl)}</div>`;
   }
 
   /** Pista de teclas de la pausa, con las que haya elegido el jugador (Ajustes > Controles). */
@@ -828,21 +859,89 @@ G.RunUI = (() => {
   // Al coger o soltar el mando con la pausa abierta, o al cambiar sus botones.
   G.Pad.on(() => { if (G.Game.state === 'paused' && G.UI.isOpen('scr-pause')) hints(); });
 
+  /*
+   * (1.0, bloque B) Cabecera de la pausa: el tiempo, el nivel, los derrotados y las monedas; a la izquierda, tu Pokémon
+   * con su vida. En grupo la partida no se para (game.js: sólo se congela tu Pokémon): aviso, la vida al día y, si te
+   * dan, el borde rojo un momento (el mando ya vibra al recibir un golpe, player.js).
+   */
+  let coopT = 0, coopHp = 0;
+  function pauseHead() {
+    const pl = G.Game.player;
+    if (!pl) return;
+    const n = v => Math.round(v || 0).toLocaleString(G.I18n.locale);
+    $('pause-info').innerHTML = `<span class="fs-pill">${G.Icons.html('clock', 20)}<b>${G.U.mmss(G.Game.st.time)}</b></span>`
+      + `<span class="fs-pill"><span>Nv.</span> <b>${pl.level}</b></span>`
+      + `<span class="fs-pill">${G.Icons.html('ball', 20)}<b>${n(pl.kills)}</b></span>`
+      + `<span class="fs-pill gold">${G.Icons.html('coin', 20)}<b>${n(pl.coins)}</b></span>`;
+    const who = $('pause-who'), pct = Math.max(0, Math.min(100, pl.hp / pl.maxHp * 100));
+    if (!who.firstChild || who.dataset.dex !== String(pl.dex)) {
+      who.dataset.dex = pl.dex;
+      const nm = pl.mon ? (G.Mons.name ? G.Mons.name(pl.mon.name) : pl.mon.name) : '';
+      who.innerHTML = `<span class="fs-face"></span><div class="fs-who-t"><b translate="no">${nm}</b>`
+        + `<i class="fs-hp"><i></i></i><small><span>Vida</span> <b class="fs-hp-n"></b></small></div>`;
+      who.querySelector('.fs-face').appendChild(G.UI.spriteCanvas(pl.dex, 64, 64, { scale: 2 }));
+    }
+    who.querySelector('.fs-hp > i').style.width = pct + '%';
+    who.querySelector('.fs-hp-n').textContent = n(Math.max(0, pl.hp)) + ' / ' + n(pl.maxHp);
+    who.classList.toggle('low', pct < 35);
+  }
+  /** En grupo, con la pausa abierta: la vida al día y el borde rojo si te dan. */
+  function coopTick() {
+    const pl = G.Game.player;
+    if (!pl || !G.UI.isOpen('scr-pause')) { clearInterval(coopT); coopT = 0; return; }
+    if (pl.hp < coopHp - 0.5) {
+      const s = $('scr-pause');
+      s.classList.remove('hit'); void s.offsetWidth; s.classList.add('hit');
+    }
+    coopHp = pl.hp;
+    pauseHead();
+  }
+
   function showPause(coop = false) {
     hints();
     renderPauseSum();
+    pauseHead();
+    const scr = $('scr-pause');
+    scr.classList.toggle('coop', coop);
+    scr.classList.remove('hit');
     $('pause-coop').classList.toggle('hidden', !coop);
     $('btn-quit').querySelector('.quit-t').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
+    headIcons('scr-pause');
     G.UI.show('scr-pause');
-    const body = $('scr-pause').querySelector('.pause-body');
-    if (body) body.scrollTop = 0;
+    setPage('scr-pause', 'pause-sum', $('pause-sum').dataset.page || 'atk');
+    clearInterval(coopT); coopT = 0;
+    if (coop && G.Game.player) { coopHp = G.Game.player.hp; coopT = setInterval(coopTick, 200); }
   }
 
-  /** La mesa de la pausa y su botón de la build (al cerrar el planificador se redibuja con lo nuevo). */
+  /** La mesa de la pausa y el botón de la build (al cerrar el planificador se redibuja con lo nuevo). */
   function renderPauseSum() {
+    const pl = G.Game.player, b = $('pause-build'), has = !!pl && pl.buildDex != null;
     $('pause-sum').innerHTML = pauseSummary();
-    const b = $('pause-build'), pl = G.Game.player;
-    if (b && pl) b.onclick = () => G.BuildUI.open(pl.buildDex, { host: 'scr-pause', onClose: () => { if (G.UI.isOpen('scr-pause')) renderPauseSum(); } });
+    b.classList.toggle('hidden', !has);
+    $('pause-y-hint').classList.toggle('hidden', !has);
+    if (!has) return;
+    const pr = G.Build.progress(pl, G.Build.get(pl.buildDex));
+    $('pause-build-t').textContent = G.T(pr && pr.total ? 'Editar build' : 'Planear build');
+    b.onclick = () => G.BuildUI.open(pl.buildDex, { host: 'scr-pause', onClose: () => { if (G.UI.isOpen('scr-pause')) renderPauseSum(); } });
+  }
+
+  /**
+   * (1.0) Páginas de lo que se lee a la derecha (pausa y resumen): LB / RB (gamepad.js: son [role=tab]), el ratón o el
+   * dedo. Enseña sólo lo de esa página (.fs-pg[data-pg], CSS) y la lista vuelve arriba.
+   */
+  function setPage(scr, box, pg) {
+    const tabs = [...$(scr).querySelectorAll('.fs-page')].filter(t => !t.classList.contains('hidden'));
+    if (!tabs.some(t => t.dataset.page === pg)) pg = tabs[0] ? tabs[0].dataset.page : pg;
+    for (const t of tabs) {
+      const on = t.dataset.page === pg;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    $(box).dataset.page = pg;
+    $(box).scrollTop = 0;
+  }
+  for (const [scr, box] of [['scr-pause', 'pause-sum'], ['scr-over', 'over-stats']]) {
+    $(scr).querySelectorAll('.fs-page').forEach(t => { t.onclick = () => setPage(scr, box, t.dataset.page); });
   }
 
   function wirePause(onResume, onQuit) {
@@ -851,5 +950,7 @@ G.RunUI = (() => {
     $('btn-pause-cmp').onclick = () => G.CompendiumUI.openInPause();
   }
 
-  return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME };
+  return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME,
+           // (1.0, bloque E) Piezas de las cartas para las pantallas de los encuentros (ui/encounter-ui.js).
+           parts: { cardEl, headIcons, guard, guarded, fitCards, badge, lvBadge, rarBadge, itemLines, itemEvo, itemProg, moveChips } };
 })();

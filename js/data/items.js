@@ -22,14 +22,48 @@
  *   drop  'neg' si el evolucionado quita lo que tenía en contra
  * Claves que empiezan por 'cd' son segundos: bajan con la rareza. pow: «golpes» (como las habilidades).
  */
-G.Items = (() => {
-  const RAR = [
-    { name: 'Común', col: '#c9d1d9', k: 0.85 },
-    { name: 'Raro', col: '#5aa9ff', k: 1.1 },
-    { name: 'Épico', col: '#b77bff', k: 1.35 },
-    { name: 'Legendario', col: '#ffb23f', k: 1.65 }
+/*
+ * Una sola rareza (1.0, bloque D, 25-11-2026, lo decidió el dueño): los mismos 4 escalones y colores para los objetos
+ * y para las cartas de mejora de ataque (systems/fortune.js), con una sola tabla que mueve la suerte del jugador.
+ *   W        tabla normal (cofres, cartas): común 55 %, raro 30 %, épico 12 %, legendario 3 %
+ *   W_LUCK   la de jefes y cofres grandes, y a la que llega la normal con la suerte al tope (G.PowerBudget.FORTUNE)
+ *   table(f) la tabla con suerte f (0-1): se desliza de W a W_LUCK. Con f = 1 no sube más (el legendario no pasa del 7 %).
+ *   roll(f)  una rareza (0-3) con esa tabla.
+ *   lift(r, f)  sube (nunca baja) una rareza que salió con la tabla normal para que, al final, salga como con la suerte f.
+ *            Así la suerte la pone quien coge el objeto, también en cooperativo (el cofre lo abre el anfitrión).
+ */
+G.Rarity = (() => {
+  const TIERS = [
+    { name: 'Común', col: '#c9d1d9' },
+    { name: 'Raro', col: '#5aa9ff' },
+    { name: 'Épico', col: '#b77bff' },
+    { name: 'Legendario', col: '#ffb23f' }
   ];
   const W = [55, 30, 12, 3], W_LUCK = [30, 40, 23, 7];
+  const f01 = f => Math.max(0, Math.min(1, +f || 0));
+  const table = (f = 0) => { const k = f01(f); return W.map((w, i) => w + (W_LUCK[i] - w) * k); };
+  /** Acumulada de abajo arriba (0-1): cum[i] = probabilidad de salir i o menos. */
+  const cum = w => { const t = w.reduce((a, b) => a + b, 0); let s = 0; return w.map(x => (s += x) / t); };
+  function roll(f = 0, rnd = Math.random) {
+    const c = cum(table(f)), u = rnd();
+    for (let i = 0; i < c.length; i++) if (u < c[i]) return i;
+    return c.length - 1;
+  }
+  function lift(r, f, rnd = Math.random) {
+    r = Math.max(0, Math.min(3, r | 0));
+    if (!(f01(f) > 0)) return r;
+    const a = cum(W), b = cum(table(f)), lo = r ? a[r - 1] : 0;
+    const u = lo + (a[r] - lo) * rnd();
+    for (let i = r; i < b.length; i++) if (u < b[i]) return i;
+    return b.length - 1;
+  }
+  const name = r => TIERS[r].name;
+  const color = r => TIERS[r].col;
+  return { TIERS, W, W_LUCK, table, roll, lift, name, color };
+})();
+
+G.Items = (() => {
+  const RAR = G.Rarity.TIERS.map((t, i) => Object.assign({ k: [0.85, 1.1, 1.35, 1.65][i] }, t));
   const EVO_T = 600, EVO_K = 1.6, EX_K = [0, 0, 1, 1.5];
   // Topes de la suma de todos los objetos (fracciones). spd puede bajar (Brazal Firme) hasta SPD_MIN.
   const CAP = { atk: 0.9, cd: 0.4, spd: 0.6, red: 0.35, regen: 0.035, xp: 1.2, coin: 1.5, crit: 0.25, critD: 0.6,
@@ -134,22 +168,24 @@ G.Items = (() => {
   for (const it of LIST) BY[it.id] = it;
 
   // ---------------- claves, rareza y números ----------------
-  const key = (id, r = 0) => id + ':' + (r | 0);
-  /** 'id:r' (o un id suelto, de una versión de antes) → { id, r } (null si no existe). */
+  const key = (id, r = 0, fixed = false) => id + ':' + (r | 0) + (fixed ? ':t' : '');
+  /**
+   * 'id:r' (o un id suelto, de una versión de antes) → { id, r, fixed } (null si no existe).
+   * (1.0, bloque D) 'id:r:t': rareza ya decidida (jefes, cofres grandes o ya subida por la suerte de quien lo cogió):
+   * la suerte ya no la mueve (Rarity.lift). Las versiones de antes leen sólo 'id:r'.
+   */
   function parse(k) {
     if (!k || typeof k !== 'string') return null;
-    const [id, r] = k.split(':');
+    const [id, r, t] = k.split(':');
     if (!BY[id]) return null;
-    return { id, r: G.U.clamp((r | 0), 0, 3) };
+    const o = { id, r: G.U.clamp((r | 0), 0, 3) };
+    if (t === 't') o.fixed = true;
+    return o;
   }
-  function rollRarity(luck = 0) {
-    const w = luck ? W_LUCK : W;
-    let x = Math.random() * w.reduce((a, b) => a + b, 0);
-    for (let i = 0; i < w.length; i++) if ((x -= w[i]) < 0) return i;
-    return 0;
-  }
-  /** Uno al azar, como clave 'id:r'. luck: 1 en jefes y cofres grandes (mejores rarezas). */
-  function roll(luck = 0) { return key(G.U.pick(LIST).id, rollRarity(luck)); }
+  /** Rareza con la tabla única (G.Rarity): luck 1 = la de jefes y cofres grandes. */
+  const rollRarity = (luck = 0) => G.Rarity.roll(luck ? 1 : 0);
+  /** Uno al azar, como clave 'id:r'. luck: 1 en jefes y cofres grandes (mejores rarezas; ya no los sube la suerte). */
+  function roll(luck = 0) { return key(G.U.pick(LIST).id, rollRarity(luck), !!luck); }
 
   const add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
   /** Los números de un objeto con su rareza r, evolucionado o no. */
@@ -198,8 +234,8 @@ G.Items = (() => {
   /** La pasiva que ganará al evolucionar, con los números de su rareza. */
   const evoLines = (id, r = 0) => (BY[id].pt || []).map(t => fill(t, vals(id, r, true).p));
   const nameOf = it => (it.evo ? BY[it.id].evo : BY[it.id].name);
-  const rarName = r => RAR[r].name;
-  const color = r => RAR[r].col;
+  const rarName = G.Rarity.name;
+  const color = G.Rarity.color;
 
   // ---------------- llevarlos: suma, topes y aplicar ----------------
   /** Suma de todos los objetos que llevas, con los topes. */

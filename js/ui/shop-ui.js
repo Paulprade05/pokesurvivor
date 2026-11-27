@@ -667,7 +667,10 @@ G.ShopUI = (() => {
     box.innerHTML = `<nav class="tabs shop-tabs" role="tablist">${TABS.map(([k, ico, label]) =>
       `<button class="tab shop-tab${k === tab ? ' on' : ''}" type="button" role="tab" data-tab="${k}" aria-selected="${k === tab}">`
         + `${G.Icons.html(ico || zIco, 30)}<span>${G.T(label)}</span>${k === 'z' && nz ? `<i class="shop-tab-n">${nz}/${G.Shop.Z_TYPES.length}</i>` : ''}</button>`).join('')}</nav>`
-      + `<div class="shop-pane pane-${tab}" role="tabpanel">${tab === 'ring' ? ringHtml() : tab === 'z' ? zHtml() : tab === 'tm' ? tmHtml() : itemsHtml()}</div>`;
+      + `<div class="shop-pane pane-${tab}" role="tabpanel" data-nav>${tab === 'ring' ? ringHtml() : tab === 'z' ? zHtml() : tab === 'tm' ? tmHtml() : itemsHtml()}</div>`;
+    // (1.0, bloque J) Orden del mando (ui/nav.js): cada rejilla y cada bloque con botones, una fila; las pestañas, con LB / RB.
+    box.querySelectorAll(['.shop-grid', '.z-grid', '.z-detail', '.ring-card', '.ring-worn'].map(c => '.shop-pane ' + c).join()).forEach(r => r.setAttribute('data-nav-row', ''));
+    box.querySelectorAll('.shop-pane .shop-buy').forEach(b => { b.dataset.padOk = 'Comprar'; });
     box.querySelectorAll('[data-tab]').forEach(b => {
       b.onclick = () => {
         if (b.dataset.tab === tab) return;

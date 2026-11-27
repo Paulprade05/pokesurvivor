@@ -363,6 +363,10 @@ G.Game = (() => {
     G.Rift.reset();
     G.Judgment.reset();
     G.Events.reset();
+    G.Encounters.reset();
+    G.EncounterUI.reset();
+    G.Companion.reset();
+    if (G.Curse) G.Curse.reset();
     G.Weather.reset();
     G.Path.clear();
     G.Hazards.clear();
@@ -472,7 +476,7 @@ G.Game = (() => {
   /** Rama (Eevee...): se elige con una carta; mientras, todo parado. */
   function offerEvo(opts) {
     if (!pl || pl.dead || state !== 'playing') return;
-    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return;   // se vuelve a mirar en un momento
+    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup', 'scr-encounter'].some(G.UI.isOpen)) return;   // se vuelve a mirar en un momento
     state = 'choice';
     pl.evo.wait = opts;
     if (G.Coop.active) G.Coop.holdStart();
@@ -499,7 +503,7 @@ G.Game = (() => {
   let megaPick = false;
   function offerMega(ids, cb) {
     if (!pl || pl.dead || state !== 'playing' || G.EvoUI.isOpen()) return false;
-    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return false;
+    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup', 'scr-encounter'].some(G.UI.isOpen)) return false;
     state = 'choice';
     megaPick = true;
     if (G.Coop.active) G.Coop.holdStart();
@@ -613,6 +617,7 @@ G.Game = (() => {
       // (Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.)
       if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       cancelEvo();                       // (la carta de rama vuelve a salir al terminar)
+      G.EncounterUI.abort();             // (1.0, bloque E: Kecleon y compañía, como si te fueras)
       state = 'levelup';
       G.UI.hide('scr-pause');
       // Pase lo que pase al aplicar la carta, se avisa de que has elegido: si
@@ -743,7 +748,9 @@ G.Game = (() => {
       // (+ las monedas de las cartas de todo al máximo: de cada jugador, también en cooperativo)
       recogidas: pl.coins + (pl.bonusCoins || 0)
     };
-    const coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
+    // (1.0, bloque E) Menos lo gastado en Kecleon y en la máquina (de cada jugador: G.Encounters.purse).
+    const spent = Math.round(pl.spent || 0);
+    const coins = Math.max(0, Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul) - spent);
     const PART_NAME = { tiempo: 'Tiempo', derrotados: 'Derrotados', jefes: 'Jefes', recogidas: 'Recogidas' };
     const record = !!guard('DB', () => time > save.stats.bestTime);
 
@@ -791,7 +798,7 @@ G.Game = (() => {
       moves: pl.moves, caught, dealt: pl.dmgDealt, taken: pl.dmgTaken, healed: pl.healed, megas: pl.mg ? pl.mg.uses : 0,
       // (Con los nombres traducidos, 29-10-2026: antes salían las claves, «recogidas» también en inglés o chino.)
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${G.T(PART_NAME[k])} ${v}`).join(' · ') +
-                 (mul > 1 ? ` · ×${mul.toFixed(2)} ${G.T('Fortuna')}` : '')
+                 (mul > 1 ? ` · ×${mul.toFixed(2)} ${G.T('Fortuna')}` : '') + (spent ? ` · ${G.T('Gastado en la partida')} −${spent}` : '')
     }, () => { pl = null; G.Flow.afterRun(); }];
     showResults();
   }
@@ -904,7 +911,7 @@ G.Game = (() => {
    * de nivel en grupo, pausa), vuelve a salir al cerrarla.
    * @param quiet  no avisar si todavía no se puede
    */
-  /** Sobrefusión: gasta un vínculo en +15 % de daño al grupo de 4 (Player.overFuse), con su aviso. */
+  /** Sobrefusión: gasta un vínculo en +8 % de daño al grupo de 4 (Player.OVER_K, hasta OVER_MAX; 1.0, bloque C), con su aviso. */
   function overFuse() {
     if (!pl.canOverFuse() || !pl.overFuse()) return false;
     G.Reg.ev('sobrefusion', pl.over);
@@ -918,7 +925,7 @@ G.Game = (() => {
 
   function offerBond(quiet = false) {
     if (!pl || pl.bonds <= 0 || pl.dead || (state !== 'playing' && state !== 'held') || G.Rift.inArena) return;
-    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen) || G.EvoUI.isOpen()) return;
+    if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup', 'scr-encounter'].some(G.UI.isOpen) || G.EvoUI.isOpen()) return;
     const opt = pl.bondOptions();
     if (!opt) {
       // (07-11-2026) Sin ataques sueltos que unir y con un grupo de 4: sobrefusión directa (no hay nada más que elegir).
@@ -928,6 +935,7 @@ G.Game = (() => {
     }
     // (07-11-2026, lo eligió el dueño) Con un grupo de 4 ya hecho, la pantalla del vínculo trae también la carta de
     // sobrefusión (+15 % a ese grupo, hasta 3 veces): el 2.º grupo, de ataques recién aprendidos, no compensaba la grieta.
+    // (1.0, bloque C) Con el tope de 4 ataques ya no hay 2.º grupo: +8 % hasta 8 veces (Player.OVER_K, OVER_MAX).
     opt.over = pl.canOverFuse() ? { group: pl.fullGroup(), n: pl.over, k: G.Player.OVER_K } : null;
     // Se para el juego; en grupo, para todos hasta que cada uno elige (G.Coop.holdStart).
     state = 'choice';
@@ -993,8 +1001,18 @@ G.Game = (() => {
   function offerItem(k) {
     const o = pl && G.Items.parse(k);
     if (!o) return;
-    k = G.Items.key(o.id, o.r);
-    if (state === 'levelup' || G.UI.isOpen('scr-levelup') || G.EvoUI.isOpen()) { laterItems.push(k); return; }
+    // (1.0, bloque D) Tu suerte puede subirle la rareza al cogerlo (también en grupo: el cofre lo abre el anfitrión,
+    // pero cuenta la de quien lo coge). Los de jefes y cofres grandes ya salen con la tabla de arriba (fixed).
+    if (!o.fixed && G.Fortune) {
+      const r = G.Rarity.lift(o.r, G.Fortune.of(pl));
+      if (r > o.r) {
+        G.Spawner.say(G.I18n.f('¡Suerte! Sube a {x}', G.T(G.Rarity.name(r))), 2.4, true);
+        G.FX.burst(pl.x, pl.y - pl.bodyH * 0.6, G.Rarity.color(r), 16, 140);
+        o.r = r;
+      }
+    }
+    k = G.Items.key(o.id, o.r, true);
+    if (state === 'levelup' || G.UI.isOpen('scr-levelup') || G.EvoUI.isOpen() || G.EncounterUI.isOpen()) { laterItems.push(k); return; }
     const same = pl.items.findIndex(i => i.id === o.id);
     if (same >= 0 && pl.items[same].r >= o.r) { G.Spawner.say('Ya llevas ' + G.Items.nameOf(pl.items[same]), 2, true); return; }
     let mine = false;            // esta elección es la que ha parado el juego
@@ -1106,6 +1124,14 @@ G.Game = (() => {
       for (let i = 0; i < 9; i++) {
         if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) G.EvoUI.pick(i);
       }
+      return;
+    }
+    if (G.EncounterUI.isOpen()) {
+      const cards = document.querySelectorAll('#enc-cards .card');
+      for (let i = 0; i < cards.length; i++) {
+        if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) cards[i].click();
+      }
+      if (G.Input.tap('escape')) G.EncounterUI.close();
       return;
     }
     if (G.UI.isOpen('scr-item')) {
@@ -1265,7 +1291,7 @@ G.Game = (() => {
     const lost = !pl ? false
       : s === 'over' ? !G.UI.isOpen('scr-over')
       : (s === 'levelup' || s === 'choice') && !G.Coop.active &&
-        !(s === 'levelup' ? G.UI.isOpen('scr-levelup') : G.UI.isOpen('scr-item') || G.UI.isOpen('scr-bond') || G.EvoUI.isOpen());
+        !(s === 'levelup' ? G.UI.isOpen('scr-levelup') : G.UI.isOpen('scr-item') || G.UI.isOpen('scr-bond') || G.EvoUI.isOpen() || G.EncounterUI.isOpen());
     if (!lost) { lostT = 0; return; }
     lostT += Math.min(Math.max(real, 0), 0.1);
     if (lostT < 1.5) return;
@@ -1279,7 +1305,7 @@ G.Game = (() => {
     }
     console.warn('[Game] estado ' + s + ' sin su pantalla: se sigue jugando');
     if (s === 'levelup') G.RunUI.closeLevelUp();
-    else { openItem = null; G.UI.hide('scr-item'); G.UI.hide('scr-bond'); cancelEvo(); }
+    else { openItem = null; G.UI.hide('scr-item'); G.UI.hide('scr-bond'); G.EncounterUI.reset(); cancelEvo(); }
     state = 'playing';
   }
 
@@ -1317,7 +1343,7 @@ G.Game = (() => {
       G.FX.ring(pl.x, pl.y, 10, G.Camera.outerRadius(), '#ffffff', 0.7, 6);
     }
 
-    pl.frozen = coop && (G.UI.isOpen('scr-pause') || G.UI.isOpen('scr-item'));
+    pl.frozen = coop && (G.UI.isOpen('scr-pause') || G.UI.isOpen('scr-item') || G.UI.isOpen('scr-encounter'));
     pl.update(dt);
     evoTick(dt);
     if (coop) {
@@ -1341,6 +1367,8 @@ G.Game = (() => {
     G.Pickups.update(dt, all, onCollect);
     G.Hazards.update(dt);
     G.Interact.update(dt, pl);
+    G.Encounters.update(dt, pl);
+    G.Companion.update(dt, pl);
     G.Rift.update(dt, pl, time);
     G.Judgment.update(dt, pl, time);
     G.Events.update(dt, all, time);
@@ -1396,7 +1424,7 @@ G.Game = (() => {
     if (rift) items.push({ y: rift.y, ent: rift });
     const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
     if (arceus) items.push({ y: arceus.y, ent: arceus });
-    if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
+    if (pl && state !== 'ui') for (const d of G.Events.drawables().concat(G.Encounters.drawables(), G.Companion.drawables(pl))) items.push({ y: d.y, ent: d });
     items.sort((a, b) => a.y - b.y);
     for (const it of items) {
       if (it.prop) G.World.drawProp(ctx, it.prop, t);
@@ -1516,7 +1544,7 @@ G.Game = (() => {
       }
       const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
       if (arceus) items.push({ y: arceus.y, ent: arceus });
-      if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
+      if (pl && state !== 'ui') for (const d of G.Events.drawables().concat(G.Encounters.drawables(), G.Companion.drawables(pl))) items.push({ y: d.y, ent: d });
       items.sort((p, q) => p.y - q.y);
       const TS = G.World.TS, PX = G.World.GS, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
       // Dónde cae cada uno en la pantalla (P: sx, sy, k, ky, fx, fy) o null si no se ve.
@@ -1714,7 +1742,7 @@ G.Game = (() => {
     if (!G.Judgment.cinematic) G.HUD.draw(ctx, w, h, pl, st);
     G.Judgment.drawOverlay(ctx, w, h);
     // (En el viaje por la grieta no hay HUD ni joystick: toda la pantalla es el botón de saltarlo.)
-    if (!G.Rift.traveling) G.Touch.draw(ctx);
+    if (!G.Rift.traveling && !G.Rift.presenting) G.Touch.draw(ctx);
     drawAimMark();
     if (G.Settings.get('fps')) {
       ctx.save();
@@ -1896,6 +1924,17 @@ G.Game = (() => {
 
   return {
     init, startRun, everyone, levelXp, flash, offerBond, offerMega,
+    /** (1.0, bloque E) Un objeto que te dan (Kecleon, el santuario de reto): como cogerlo del suelo. */
+    giveItem(k) { if (pl && state !== 'over' && state !== 'ui') offerItem(k); },
+    /**
+     * (1.0, bloque E) La pantalla de un encuentro abierta (on) o cerrada: en solitario la partida se para mientras;
+     * en grupo sigue (pl.frozen, como la pausa del grupo).
+     */
+    encounterHold(on) {
+      if (G.Coop.active) { if (!on) afterLevelUp(); return; }
+      if (on && state === 'playing') state = 'choice';
+      else if (!on && state === 'choice') { state = 'playing'; afterLevelUp(); }
+    },
     /** Experiencia de un objeto (Huevo Dorado): sube niveles con sus cartas, como recogerla. */
     giveXp(n) { if (pl && n > 0) pendingLevels += pl.gainXp(n); },
     /** Para pruebas: salta el reloj de la run. */
@@ -1923,6 +1962,7 @@ G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
+    G.EncounterUI.init();
     G.SocialUI.init(); G.RankingUI.init(); G.ModUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.NewsUI.init(); G.RunsUI.init(); G.Updater.init();
     G.Reg.init();          // (la partida que se quedó a medias al cerrar la app, a «cerrada»)
     // Tu nombre arriba a la derecha abre tu perfil.

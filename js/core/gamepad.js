@@ -16,9 +16,9 @@
  *                   (sin botón)                 ataque 1-4                           m1..m4
  *                   stick derecho               apuntar (con "Apuntar a mano" en Accesibilidad; no se cambia)
  *   En menús, cartas y pausa (mando-menus, 22-11-2026: navegación de verdad):
- *                   stick o cruceta             mover la selección al vecino más cercano en esa dirección (recuadro
- *                                               dorado que late); mantenido repite, cada vez más deprisa; en una barra
- *                                               (volumen), izquierda / derecha la mueven; colocando un mueble, lo mueven
+ *                   stick o cruceta             mover la selección en un orden fijo (recuadro dorado que late; abajo);
+ *                                               mantenido repite, cada vez más deprisa; en una barra (volumen),
+ *                                               izquierda / derecha la mueven; colocando un mueble, lo mueven
  *                   A                           pulsar · un desplegable abre su lista (cruceta, A elige, B cierra)  ok
  *                   B (o Back)                  atrás / cerrar (como Esc); lo abierto desde «Ir a…» vuelve a «Ir a…»  back
  *                   LB / RB                     pestaña anterior / siguiente (la fila más cercana a la selección)  tabPrev / tabNext
@@ -29,6 +29,10 @@
  *                   stick derecho               desplazar las listas
  *   Al volver a una pantalla (o a «Ir a…») la selección sigue en lo último que elegiste. Dónde empieza cada pantalla y sus
  *   atajos X / Y, en ui/pad-ui.js, que también pinta la barra de pistas.
+ *   (1.0, bloques B y J) Todas las pantallas son plantillas (ui/nav.js): el cursor sólo va por su zona [data-nav], en un
+ *   orden fijo (G.Nav.step), y no se busca «el vecino más cercano» en la pantalla. Fuera de ellas (la barra de arriba, los
+ *   botones de la aldea, «Pulsa para empezar») el orden es el de lectura: de arriba abajo y de izquierda a derecha
+ *   (G.Nav.lines). Al redibujarse una pantalla, la selección vuelve a la misma fila y columna.
  * Dos acciones que se usan a la vez (las de la partida, o las de los menús) no comparten botón: al elegir uno ocupado se
  * intercambian. Aceptar, Atrás y Pausa nunca se quedan sin botón.
  *
@@ -51,7 +55,7 @@ G.Pad = (() => {
   let vec = [0, 0], aimVec = [0, 0], aimAt = 0;
   let focus = null, focusScope = null, showing = false, lastPos = null;
   let navDir = null, navT = 0, navHeld = 0, autoT = 0, fresh = false;
-  let backTo = null, wantQuick = 0, walkT = 0, memWait = 0, tabPanel = null;   // volver a «Ir a…» al cerrar con B lo que se abrió desde ahí
+  let backTo = null, wantQuick = 0, walkT = 0, memWait = 0, tabPanel = null, wantCol = null;   // volver a «Ir a…» al cerrar con B lo que se abrió desde ahí
   // Por índice de mando: qué tenía pulsado, cuándo se usó, su eje "hat" y cuánto lleva cada eje en el centro.
   const sigs = [], used = [], hats = [], still = [];
   const prevs = [];   // botones del fotograma anterior, de cada mando (para saber qué se acaba de pulsar)
@@ -186,10 +190,14 @@ G.Pad = (() => {
 
   // ---------------- con qué se juega: mando, o teclado / ratón / táctil ----------------
 
-  let otherAt = 0, isActive = false;
+  let otherAt = -1, isActive = false;
   const fns = new Set();
+  // (1.0, escritorio) La app de Windows sabe si al abrirla ya había un mando conectado (el navegador no lo enseña hasta
+  //  que se pulsa un botón): entonces se empieza en modo mando, con la selección a la vista y sin cursor. El ratón, el
+  //  teclado o la pantalla lo quitan como siempre. En la web, nada cambia.
+  let boot = typeof window !== 'undefined' && window.pokeEscritorio && window.pokeEscritorio.mandoAlAbrir ? 0 : -2;
   /** ¿Lo último que se ha tocado es el mando? */
-  const padNow = () => act >= 0 && (used[act] || -1) > otherAt;
+  const padNow = () => (act >= 0 ? used[act] || boot : boot) > otherAt;
   for (const ev of ['keydown', 'mousemove', 'pointerdown', 'wheel']) {
     addEventListener(ev, e => {
       if (!e.isTrusted || (ev === 'mousemove' && !(e.movementX || e.movementY))) return;
@@ -250,7 +258,7 @@ G.Pad = (() => {
     forget(e.gamepad.index);
     if (enabled() && G.UI && G.UI.toast) G.UI.toast('Mando conectado', 2200);
   });
-  addEventListener('gamepaddisconnected', e => { forget(e.gamepad.index); if (!pad()) { hideFocus(); act = -1; sync(); } });
+  addEventListener('gamepaddisconnected', e => { forget(e.gamepad.index); if (!pad()) { hideFocus(); act = -1; boot = -2; sync(); } });
 
   // ---------------- mandos sin distribución "standard" ----------------
 
@@ -310,6 +318,8 @@ G.Pad = (() => {
 
   /** Lo que se puede pulsar ahora: botones, enlaces y lo que tiene cursor de mano. */
   function candidates() {
+    const z = navZone();
+    if (z) { const rs = G.Nav.rows(z); if (rs.length) return rs.flat(); }
     const out = [];
     for (const sc of scopes()) {
       if (sc.id === 'tap-start') { out.push(sc); continue; }
@@ -336,8 +346,6 @@ G.Pad = (() => {
     return !(hit && !el.contains(hit) && !hit.contains(el));
   }
 
-  const center = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
-  const rect = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
 
   // (mando-menus, 22-11-2026) Lo último elegido en cada pantalla (y en cada ventanita, como «Ir a…»): al volver, sigue ahí.
   const mem = new Map();
@@ -360,6 +368,7 @@ G.Pad = (() => {
   }
   function setFocus(el, auto) {
     if (focus) focus.classList.remove('pad-focus');
+    if (auto) wantCol = null;
     focus = el;
     focusScope = topScreen();
     if (!el) return;
@@ -367,9 +376,11 @@ G.Pad = (() => {
     showing = true;
     // (scroll-margin de .pad-focus: se ve con algo de aire, no pegado al borde de la lista.)
     try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nada */ }
-    lastPos = { scr: focusScope, at: center(el) };
+    lastPos = { scr: focusScope, at: spot(el) };
     const k = !auto && memKey();
     if (k) mem.set(k, sigOf(el));
+    // (1.0, bloque J) La ficha de al lado sigue a la selección (Pokédex, Mejoras, Compendio...): se avisa a la pantalla.
+    try { el.dispatchEvent(new CustomEvent('nav-focus', { bubbles: true, detail: { auto: !!auto } })); } catch (e) { /* nada */ }
   }
   function hideFocus() {
     if (focus) focus.classList.remove('pad-focus');
@@ -387,6 +398,19 @@ G.Pad = (() => {
     const d = [...top.querySelectorAll('[role="dialog"]:not(.hidden)')].filter(e => e.getClientRects().length);
     return d[d.length - 1] || null;
   }
+  /** La zona con orden fijo de la pantalla de arriba (o de su ventanita), si es de las plantillas (ui/nav.js). */
+  function navZone() {
+    if (!G.Nav) return null;
+    const t = innerDialog() || topScreen();
+    return t ? G.Nav.zone(t) : null;
+  }
+  /** Lo elegible en filas: las de la zona de la plantilla o, fuera de ellas, las líneas como se lee (ui/nav.js). */
+  function navRows(list) {
+    const z = navZone(), rs = z ? G.Nav.rows(z) : [];
+    return rs.length ? rs : G.Nav.lines(list || candidates());
+  }
+  /** Dónde está `el` en esas filas: [fila, columna] o null. */
+  const spot = el => G.Nav.locate(navRows(), el);
   const TAB = '[role="tab"], .vh-tab, .tabs > .tab';
   const isTab = el => el.matches(TAB);
   /** Lo que dice G.PadUI de la pantalla de arriba (o de su ventanita): primera selección y atajos X / Y. */
@@ -414,7 +438,8 @@ G.Pad = (() => {
     const pool = noTabs.length ? noTabs : rest.length ? rest : inWin.length ? inWin : list;
     const main = pool.find(el => el.matches('.play, .btn.gold, .card'));
     if (main) return main;
-    return pool.slice().sort((a, b) => { const [ax, ay] = center(a), [bx, by] = center(b); return (ay - by) || (ax - bx); })[0] || null;
+    const ls = G.Nav.lines(pool);       // (si no, lo primero, como se lee)
+    return ls.length ? ls[0][0] : null;
   }
 
   /** ¿La selección sigue entre lo que se puede pulsar? Igual que candidates().includes(focus), sin recorrer toda la pantalla. */
@@ -423,6 +448,8 @@ G.Pad = (() => {
     // (mando-menus) Con una ventanita abierta («Ir a…»), la selección va dentro de ella.
     const dlg = innerDialog();
     if (dlg && !dlg.contains(focus)) return false;
+    const z = navZone();
+    if (z) return G.Nav.rows(z).some(r => r.includes(focus));
     for (const sc of scopes()) {
       if (sc.id === 'tap-start') return focus === sc;
       if (focus === sc || !sc.contains(focus)) continue;
@@ -433,56 +460,22 @@ G.Pad = (() => {
     return false;
   }
 
-  /**
-   * El siguiente en una dirección: de los recuadros `rs` ([izq, arriba, der, abajo]), el más cercano a `from` hacia
-   * (dx, dy). Antes los que están en línea (se solapan de lado: la fila o la columna), aunque haya otro más cerca en
-   * diagonal; si no hay, el más cercano castigando lo que se desvía a los lados. → índice, o -1 si no hay nada por ese lado.
-   */
-  function pick(from, rs, dx, dy) {
-    const fc = [(from[0] + from[2]) / 2, (from[1] + from[3]) / 2];
-    let best = -1, bs = Infinity;
-    for (let i = 0; i < rs.length; i++) {
-      const r = rs[i], ax = (r[0] + r[2]) / 2 - fc[0], ay = (r[1] + r[3]) / 2 - fc[1];
-      const main = ax * dx + ay * dy;              // avance en la dirección pedida
-      if (main <= 4) continue;
-      const side = Math.abs(ax * dy - ay * dx);    // desvío hacia los lados
-      // En línea: se solapan en el otro eje (más de 2 px).
-      const lap = dx ? Math.min(r[3], from[3]) - Math.max(r[1], from[1]) : Math.min(r[2], from[2]) - Math.max(r[0], from[0]);
-      const s = (lap > 2 ? 0 : 1e6) + main + side * 2.5;
-      if (s < bs) { bs = s; best = i; }
-    }
-    return best;
-  }
-  /** El que se desliza (lista con su barra) por encima de `el` y aún puede ir hacia (dx, dy). */
-  function scrollerFor(el, dx, dy) {
-    for (let s = el && el.parentElement; s && s !== document.body; s = s.parentElement) {
-      const cs = getComputedStyle(s);
-      if (dy && /(auto|scroll)/.test(cs.overflowY) && (dy > 0 ? s.scrollTop + s.clientHeight < s.scrollHeight - 1 : s.scrollTop > 0)) return s;
-      if (dx && /(auto|scroll)/.test(cs.overflowX) && (dx > 0 ? s.scrollLeft + s.clientWidth < s.scrollWidth - 1 : s.scrollLeft > 0)) return s;
-    }
-    return null;
-  }
-
   function move(dx, dy) {
-    let list = candidates();
+    const list = candidates();
     if (!list.length) { hideFocus(); return; }
     if (!valid()) { setFocus(firstOf(list), true); return; }
-    // Si no hay nada más por ese lado pero la lista sigue (lo de debajo, recortado, no cuenta), se desliza y se mira otra vez.
-    for (let tries = 0; tries < 4; tries++) {
-      const others = list.filter(el => el !== focus);
-      const i = pick(rect(focus), others.map(rect), dx, dy);
-      if (i >= 0) { setFocus(others[i]); return; }
-      const sc = scrollerFor(focus, dx, dy);
-      if (!sc) return;
-      const by = Math.max(60, (dy ? sc.clientHeight : sc.clientWidth) * 0.5);
-      try { sc.scrollTo({ top: sc.scrollTop + dy * by, left: sc.scrollLeft + dx * by, behavior: 'instant' }); }
-      catch (e) { sc.scrollTop += dy * by; sc.scrollLeft += dx * by; }
-      list = candidates();
-    }
+    // Orden fijo: el de la zona de la plantilla o, fuera de ellas, el de lectura (sin mirar qué cae más cerca).
+    const rs = navRows(list), at = G.Nav.locate(rs, focus);
+    if (!at) return;
+    const dir = dx > 0 ? 'r' : dx < 0 ? 'l' : dy > 0 ? 'd' : 'u';
+    if (dy && wantCol === null) wantCol = at[1];
+    const [r, c] = G.Nav.step(rs.map(x => x.length), at[0], at[1], dir, wantCol);
+    if (dx) wantCol = null;
+    if (rs[r][c] !== focus) setFocus(rs[r][c]);
   }
 
   /** Con el mando en la mano y nada seleccionado (se acaba de abrir una ventana o se ha redibujado), elige algo:
-   *  lo que haya en el mismo sitio, si sigue la misma pantalla; si no, lo principal. */
+   *  lo de la misma fila y columna, si sigue la misma pantalla; si no, lo principal. */
   function autoFocus(dt) {
     if ((autoT -= dt) > 0) return;
     autoT = 0.15;
@@ -490,13 +483,12 @@ G.Pad = (() => {
     const list = candidates();
     if (!list.length) { if (focus) hideFocus(); return; }
     let best = null;
-    if (lastPos && lastPos.scr === topScreen()) {
-      const [ox, oy] = lastPos.at;
-      let bd = Infinity;
-      for (const c of list) { const [x, y] = center(c); const d = (x - ox) ** 2 + (y - oy) ** 2; if (d < bd) { bd = d; best = c; } }
+    if (lastPos && lastPos.at && lastPos.scr === topScreen()) {
+      const rs = navRows(list), row = rs[Math.min(lastPos.at[0], rs.length - 1)];
+      best = row ? row[Math.min(lastPos.at[1], row.length - 1)] : null;
       // (Si se acaba de abrir una ventanita, mejor empezar en ella.)
       const dlg = innerDialog();
-      if (dlg && !dlg.contains(best) && list.some(el => dlg.contains(el))) best = null;
+      if (dlg && best && !dlg.contains(best) && list.some(el => dlg.contains(el))) best = null;
     }
     // (mando-menus) Si se vuelve a una pantalla (o a «Ir a…»), lo que se eligió la última vez.
     if (!best && !fresh) {
@@ -533,7 +525,7 @@ G.Pad = (() => {
     // (mando-menus) Lo que se abre desde «Ir a…» vuelve a «Ir a…» con B (y con lo que se eligió ahí).
     const q = document.getElementById('vil-quick');
     if (q && q.contains(el)) backTo = el.matches('.play') ? null : 'quick';
-    lastPos = { scr: topScreen(), at: center(el) };
+    lastPos = { scr: topScreen(), at: spot(el) };
     el.click();
     // Si al pulsar se redibuja la misma pantalla (un Sí/No de Ajustes), sigue en lo que haya en el mismo sitio; si cambia
     // de pantalla, empieza en la nueva (autoFocus).
@@ -553,18 +545,25 @@ G.Pad = (() => {
     return true;
   }
 
-  /** Atrás: colocando un mueble, lo cancela; si no, el botón de cerrar o volver de la ventana, si lo tiene; si no, Esc. */
+  /**
+   * Atrás: colocando un mueble, lo cancela; si no, el botón de cerrar o volver de la ventanita abierta (o, si ella no
+   * tiene, lo que diga ella: [data-nav-back] recibe 'nav-back'); luego el de la pantalla; si no, Esc.
+   */
   function back() {
     if (G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen) { G.HomeIn.cancelPlace(); G.HomeUI.selected(-1); return; }
     const q = typeof document.getElementById === 'function' && document.getElementById('vil-quick');
-    if (q && innerDialog() === q) backTo = null;      // se cierra «Ir a…» mismo
+    const dlg = innerDialog();
+    if (q && dlg === q) backTo = null;      // se cierra «Ir a…» mismo
     else if (backTo === 'quick') wantQuick = performance.now();
-    const top = topScreen();
-    if (top) {
-      const btns = [...top.querySelectorAll('button, a')].filter(b => b.getBoundingClientRect().width > 0);
-      const close = btns.find(isBack);
-      if (close) { close.click(); return; }
+    const closeIn = root => [...root.querySelectorAll('button, a')].filter(b => b.getBoundingClientRect().width > 0).find(isBack);
+    if (dlg) {
+      const c = closeIn(dlg);
+      if (c) { c.click(); return; }
+      if (dlg.hasAttribute('data-nav-back')) { dlg.dispatchEvent(new CustomEvent('nav-back')); return; }
     }
+    const top = topScreen();
+    const close = top && closeIn(top);
+    if (close) { close.click(); return; }
     G.Input.virtual('escape');
   }
 
@@ -638,45 +637,45 @@ G.Pad = (() => {
     }
     return best;
   }
-  /** LT / RT: una página de la lista hacia arriba o hacia abajo, con la selección en el mismo sitio de la pantalla. */
+  /** LT / RT: una página de la lista hacia arriba o hacia abajo; la selección, en lo primero que se ve de la página. */
   function page(d) {
     if (G.Dropdown && G.Dropdown.open && G.Dropdown.padMove) { G.Dropdown.padMove(d * 8); return; }
     let sc = null;
     for (let s = valid() ? focus.parentElement : null; s && s !== document.body; s = s.parentElement) if (scrolls(s)) { sc = s; break; }
     sc = sc || mainScroller();
     if (!sc) return;
-    const had = valid() && sc.contains(focus) ? center(focus) : null;
     const from = sc.scrollTop;
     sc.scrollTop = from + d * Math.max(60, sc.clientHeight * 0.85);
     const moved = sc.scrollTop !== from;
     const box = sc.getBoundingClientRect();
-    const inside = candidates().filter(el => sc.contains(el));
+    const inside = navRows().flat().filter(el => sc.contains(el));      // (en el orden del mando)
     if (!inside.length) return;
-    let best = null;
-    if (!moved) {
-      // Ya en el borde: el primero o el último.
-      const ord = inside.slice().sort((a, b) => { const [ax, ay] = center(a), [bx, by] = center(b); return (ay - by) || (ax - bx); });
-      best = d > 0 ? ord[ord.length - 1] : ord[0];
-    } else {
-      // El que quede en el mismo sitio de la pantalla (sin selección dentro, arriba a la izquierda de la lista).
-      const at = had || [box.left + 30, box.top + 30];
-      const seen = inside.filter(el => { const r = el.getBoundingClientRect(); return r.top >= box.top - 2 && r.bottom <= box.bottom + 2; });
-      let bd = Infinity;
-      for (const el of seen.length ? seen : inside) { const [x, y] = center(el); const dd = (x - at[0]) ** 2 + (y - at[1]) ** 2; if (dd < bd) { bd = dd; best = el; } }
-    }
-    if (best) setFocus(best);
+    let best;
+    // Ya en el borde: el primero o el último. Si no, lo primero que se ve entero de la página nueva.
+    if (!moved) best = d > 0 ? inside[inside.length - 1] : inside[0];
+    else best = inside.find(el => { const r = el.getBoundingClientRect(); return r.top >= box.top - 2 && r.bottom <= box.bottom + 2; }) || inside[0];
+    setFocus(best);
   }
 
-  /** X / Y: el atajo de la pantalla (G.PadUI), si lo tiene y se ve. → true si lo ha hecho. */
+  /** X / Y (y LT / RT): el atajo de la pantalla (G.PadUI), si lo tiene y se ve. → true si lo ha hecho.
+   *  (1.0, bloque J) Un atajo puede ser una función: { fn, when, label } (cambiar de Pokémon en Mejoras...); when: sólo
+   *  si devuelve true (también con sel). */
   function shortcut(k) {
     const sp = spec(), a = sp && sp[k];
-    if (!a) return false;
+    if (!a || (a.when && !a.when())) return false;
+    if (a.fn) {
+      const here = valid() ? { scr: topScreen(), at: spot(focus) } : null;
+      a.fn();
+      if (here) lastPos = here;
+      autoT = 0.1;
+      return true;
+    }
     const el = target(a);
     if (!el) return false;
     if (a.key) { G.Input.virtual(a.key); return true; }
     if (el.matches('select, input, textarea')) { setFocus(el); activate(el); return true; }
     // Un atajo no mueve la selección: si la pantalla se vuelve a pintar, sigue donde estaba.
-    const here = valid() ? { scr: topScreen(), at: center(focus) } : null;
+    const here = valid() ? { scr: topScreen(), at: spot(focus) } : null;
     activate(el);
     if (here) lastPos = here;
     return true;
@@ -730,7 +729,13 @@ G.Pad = (() => {
   /** Lo llama el bucle del juego antes de mirar las teclas. */
   function poll(dt) {
     const p = enabled() ? pad() : null;
-    if (!p) { vec = [0, 0]; aimVec = [0, 0]; prevs.length = 0; if (isActive) sync(); return; }
+    if (!p) {
+      vec = [0, 0]; aimVec = [0, 0]; prevs.length = 0;
+      if (isActive || boot === 0) sync();
+      // (1.0) Abierta la app con el mando ya conectado: la selección se ve antes de pulsar nada.
+      if (isActive && boot === 0 && !grabFn && uiMode()) autoFocus(dt);
+      return;
+    }
     const now = p.buttons.map(pressed);
     const was = prevs[p.index] || [];
     const hit = i => now[i] && !was[i];
@@ -788,10 +793,10 @@ G.Pad = (() => {
       if (on('back')) back();
       // La pausa (Start) también cierra, si ningún botón de los menús lo usa.
       else if (M.pause.some(i => hit(i) && !LIST.some(a => ACTS[a].ctx === 'ui' && M[a].includes(i)))) G.Input.virtual('escape');
-      if (on('tabPrev')) tab(-1);
-      if (on('tabNext')) tab(1);
-      if (on('pageUp')) page(-1);
-      if (on('pageDown')) page(1);
+      if (on('tabPrev') && !shortcut('lb')) tab(-1);
+      if (on('tabNext') && !shortcut('rb')) tab(1);
+      if (on('pageUp') && !shortcut('lt')) page(-1);
+      if (on('pageDown') && !shortcut('rt')) page(1);
       // Y / X: en las cartas, cambiar y descartar; en otras pantallas, su atajo (G.PadUI); colocando un mueble, voltearlo.
       if (on('reroll')) { if (placing) G.HomeIn.flipGhost(); else if (!shortcut('y')) G.Input.virtual('keyr'); }
       if (on('discard') && !placing && !cycleFurniture() && !shortcut('x')) G.Input.virtual('keyx');
@@ -831,12 +836,19 @@ G.Pad = (() => {
     const top = topScreen(), f = valid() ? focus : null, sp = spec();
     const t = performance.now();
     if (top !== mscTop || t - mscAt > 1000) { mscTop = top; mscAt = t; msc = mainScroller(); }
-    const lbl = k => (sp && sp[k] && target(sp[k]) ? sp[k].label : '');
+    const lbl = k => {
+      const a = sp && sp[k];
+      if (!a || (a.when && !a.when()) || !(a.fn || target(a))) return '';
+      return typeof a.label === 'function' ? a.label() : a.label;
+    };
+    // (1.0, bloque J) Lo que hace A con lo seleccionado: [data-pad-ok] de la selección (o de lo que la contiene).
+    const okEl = f && f.closest('[data-pad-ok]');
     return {
       mode: 'ui', top: top ? top.id : '', dialog: (innerDialog() || {}).id || '',
       focus: !f ? '' : f.matches('select') ? 'select' : f.matches('input[type=range]') ? 'range' : f.matches('input, textarea') ? 'text' : 'btn',
       placing: !!(G.HomeIn && G.HomeIn.placing && G.HomeUI && G.HomeUI.isOpen),
-      tabs: tabRows().length > 0, page: !!(msc && msc.isConnected && scrolls(msc)), x: lbl('x'), y: lbl('y')
+      tabs: tabRows().length > 0, page: !!(msc && msc.isConnected && scrolls(msc)), x: lbl('x'), y: lbl('y'),
+      ok: okEl ? okEl.dataset.padOk : '', lt: lbl('lt'), rt: lbl('rt'), lb: lbl('lb'), rb: lbl('rb')
     };
   }
 
@@ -856,7 +868,9 @@ G.Pad = (() => {
 
   return {
     poll, rumble, grab, label, glyph, hint, hintHtml, btnLabel, btnGlyph,
-    ACTS, LIST, resolve, assign, pick, familyOf, context, repeatGap, sigOf,
+    /** (1.0, bloque J) La selección vuelve a empezar donde diga la pantalla (G.PadUI first): al entrar o salir de una ficha. */
+    refocus() { lastPos = null; fresh = true; tabPanel = null; if (focus) focus.classList.remove('pad-focus'); focus = null; autoT = 0.05; },
+    ACTS, LIST, resolve, assign, familyOf, context, repeatGap, sigOf,
     /** Los botones de cada acción, ya resueltos ({ acción: [botones] }). */
     map,
     /** Pone el botón b a la acción a y lo guarda. → lo mismo que assign() (sin map). */

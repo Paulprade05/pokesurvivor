@@ -106,6 +106,7 @@ G.DB = (() => {
       tickets: { t1: 0, t10: 0 },   // tickets del gacha (x1 y x10)
       pity: {},               // generación del banner -> tiradas sin ★5
       legends: {},            // dex -> fecha: legendarios vencidos en grietas
+      lseen: {},              // dex -> fecha: legendarios de grieta ya vistos (su llegada es más corta: rift.js, bloque H)
       arenas: {},             // tipo -> fecha: arenas de grieta ganadas
       itemsFound: {},         // id -> fecha: objetos equipables encontrados
       evoMoves: {},           // id -> fecha: movimientos evolucionados alguna vez
@@ -573,7 +574,7 @@ G.DB = (() => {
     }
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
     // (y Cristales Z y Pulseras Z: comprado en cualquier aparato, lo tienes en todos, una vez).
-    for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz', 'mst', 'mop']) {
+    for (const coll of ['legends', 'lseen', 'arenas', 'itemsFound', 'evoMoves', 'ach', 'pjudg', 'zc', 'pz', 'mst', 'mop']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }
@@ -1003,6 +1004,12 @@ G.DB = (() => {
     clearTimeout(retryT);
     retryT = setTimeout(() => { if (pending) pushNow(); }, ms);
   }
+  // (1.0, jugar sin conexión) Al volver la conexión, lo pendiente se sube enseguida: sin esperar al reintento, que tras
+  // un rato sin red puede ir por 10 min. (Respeta lo de siempre: como mucho una subida cada MIN_GAP.)
+  addEventListener('online', () => {
+    fails = 0;
+    if (mode === 'cloud' && !guest && pending) { clearTimeout(retryT); retryT = setTimeout(() => { if (pending) pushNow(); }, 3000); }
+  });
 
   /**
    * Sube YA lo pendiente, sin esperar los 65 s entre subidas: al cerrar sesión y

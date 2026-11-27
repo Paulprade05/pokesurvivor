@@ -37,6 +37,24 @@
  * Al acabar, una línea REG con el daño de cada ataque (G.Reg: dealt, boss, active, lvl, evolved), para contrastar el modelo.
  * Con G.Director, el bot le pasa su vida virtual (hpFrac) y sus caídas (noteFall); «dir» = vida/daño/geo del director
  * (geo: lo que tarda en caer un enemigo normal, ver systems/director.js) y el informe da sus medianas.
+ *
+ * 1.0, bloque A (24-11-2026): lo que decide el bot está en tools/bot-decide.js (funciones puras, con test).
+ *   Cada partida tiene un estilo (atk / def / mix) y un apetito de riesgo, del azar de la partida (con CURVE_SEED, el
+ *   mismo para la misma partida); --estilo atk|def|mix lo fija. Hoy ya elige con criterio: objetos (quedarse o cambiar,
+ *   según rareza, progreso de evolución y tiempo que queda), qué ataque fusionar y la rareza de las cartas (si la tienen).
+ *   --maldicion si|no|auto  --companero si|no|auto  fuerzan esas decisiones para medir con y sin.
+ *   «pw=» en cada minuto: multiplicador de ataque / reducción de daño / vida máxima (presupuesto: js/data/power-budget.js);
+ *   en RESULT, «bot=» (lo que ha decidido) y «v1=» (suerte, maldición, vitaminas, compañero y lo gastado en la tienda).
+ *   CONTRATO para los bloques de la 1.0 (así el bot lo juega sin tocar este archivo):
+ *     - Encuentros en el mapa, en G.World.specialsNear con type 'shop' (Kecleon), 'temple', 'curse' (santuario maldito),
+ *       'challenge', 'egg' (Chansey), 'smeargle' o 'machine', y used/done = true cuando ya no sirven. Templo: p.r (radio)
+ *       y p.charge (0-1). El bot va hacia ellos y los abre con la acción 'open', como los cofres.
+ *     - Lo que se elige, en #scr-encounter: cartas .pick-card con data-kind = item | heal | vitamin | egg | luck | curse |
+ *       forget | rarity (Porygon) | leave, y data-id, data-r (rareza 0-3) y data-price si toca; .enc-off = no se
+ *       puede (no llega el dinero, vendida). Sin carta «leave», [data-close]. El dinero: G.Encounters.purse(pl).
+ *     - Cartas de nivel con rareza: data-r en la .pick-card (bloque D).
+ *     - En el jugador: pl.coins, pl.fortune (suerte), pl.curse (nivel de maldición), pl.vit ({ id: lo sumado }) y
+ *       pl.companion ({ dex, evolved, dead, dealt }). Topes en G.PowerBudget (FORTUNE.MAX, VIT, ...); maldición: G.Curse.MAX.
  */
 'use strict';
 const path = require('path'), fs = require('fs'), http = require('http'), os = require('os');
@@ -53,6 +71,8 @@ function report(dirs) {
   const G2 = () => ({ ia: [], lv: { 5: [], 10: [], 15: [], 20: [], 29: [] }, m5: [], ev: [], ttk: { 5: [], 10: [], 15: [], 20: [], 29: [] },
                       boss: { '3-12': [], '15-21': [], '24-27': [] }, dh: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dd: { 5: [], 10: [], 15: [], 20: [], 29: [] }, dg: { 5: [], 10: [], 15: [], 20: [], 29: [] }, sig1: 0, sig2: 0, nb: 0, leg: {}, legSig: 0, nl: 0, rw: 0, rn: 0, hn: [], hs: [], tk: { 5: [], 10: [], 15: [], 20: [], 25: [], 30: [] } });
   const agg = { max: G2(), zero: G2() };
+  const P1 = () => ({ atk: [], red: [], hp: [], dealt: [], st: {}, dec: {}, rar: [0, 0, 0, 0], items: { n: 0, evo: 0, r: [0, 0, 0, 0] } });
+  const V1 = { max: P1(), zero: P1() };
   for (const dir of dirs) {
     console.log('== ' + dir);
     for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.txt')).sort()) {
@@ -80,6 +100,21 @@ function report(dirs) {
           }
           for (const a of JSON.parse(jb[2])) { A.rn++; A.hn.push(...(a.hn || [])); A.hs.push(...(a.hs || [])); if (a.won) { A.rw++; (A.leg[a.n] = A.leg[a.n] || []).push(a.ttk); } }
         }
+      }
+      // (1.0, bloque A) Poder al final (pw del minuto 29 o el último), daño total y decisiones del bot.
+      if (gg) {
+        const P = V1[gg], pws = [...s.matchAll(/\[\s*(\d+):\d+\] .*? pw=([\d.]+)\/([\d.]+)\/(\d+)/g)].map(m => ({ m: +m[1], a: +m[2], r: +m[3], h: +m[4] }));
+        const pe = pws.filter(x => x.m <= 29).pop();
+        if (pe && pe.m >= 28) { P.atk.push(pe.a); P.red.push(pe.r); P.hp.push(pe.h); }
+        const rr = /RESULT .*? dealt=(\d+) estilo=(\w+):[\d.]+ .*? bot=(\{.*?\}) v1=/.exec(s);
+        if (rr) {
+          P.dealt.push(+rr[1]); P.st[rr[2]] = (P.st[rr[2]] || 0) + 1;
+          const d = JSON.parse(rr[3]);
+          for (const k in d) if (k !== 'rar') P.dec[k] = (P.dec[k] || 0) + d[k];
+          (d.rar || []).forEach((n, i) => { P.rar[i] += n; });
+        }
+        const it = /RESULT .*? it=(\S+) bot=/.exec(s);
+        if (it && it[1] !== '-') for (const x of it[1].split(',')) { P.items.n++; P.items.r[+x.split(':')[1][0] || 0]++; if (x.endsWith('*')) P.items.evo++; }
       }
       const res = /RESULT .*?primera=(\S+) caídas=\[([^\]]*)\]/.exec(s);
       if (!rows.length) { console.log(`${f.replace('.txt', '').padEnd(12)} (sin datos)`); continue; }
@@ -113,6 +148,13 @@ function report(dirs) {
     if (A.ia.length) console.log(`         IA: atascados ${md(A.ia)} % de mediana por minuto (máx. ${Math.max(...A.ia)} %, ${A.ia.filter(x => x > 1).length}/${A.ia.length} minutos > 1 %)`);
     if (A.dh[5].length) console.log(`         director vida ${per(A.dh)} · daño ${per(A.dd)} · geo (s) ${per(A.dg)}`);
   }
+  // (1.0, bloque A) Lo que compara cada bloque de la 1.0 con la medida «antes» (presupuesto: js/data/power-budget.js).
+  for (const g of ['max', 'zero']) {
+    const P = V1[g]; if (!P.dealt.length && !P.atk.length) continue;
+    console.log(`1.0 ${g.padEnd(4)}: poder al final (m29) ataque ×${md(P.atk)} · reducción ${md(P.red)} · vida ${md(P.hp)} · daño total ${P.dealt.length ? (med(P.dealt) / 1e6).toFixed(1) + ' M' : '-'} (${P.dealt.length} partidas)`);
+    console.log(`         estilos ${JSON.stringify(P.st)} · decisiones ${JSON.stringify(P.dec)} · rareza de cartas cogidas ${P.rar.join('/')}`);
+    console.log(`         objetos al final: ${P.items.n} (común/raro/épico/legendario ${P.items.r.join('/')}, evolucionados ${P.items.evo})`);
+  }
 }
 
 // ---------------------------------------------------------------- el bot (se ejecuta en la página)
@@ -122,7 +164,11 @@ window.home = async () => {
   for (const id of ['scr-settings', 'scr-news', 'scr-legal', 'scr-install', 'scr-profile']) { const e = document.getElementById(id); if (e) e.classList.add('hidden'); }
   if (document.querySelector('.scr:not(.hidden):not(#scr-menu)')) { G.Flow.goMenu(); await sleep(300); }
 };
-window.BOT = { on: false, log: [], wander: Math.random() * 6.28, wt: 0, seen: {}, spin: Math.random() < 0.5 ? 1 : -1, target: null };
+window.BOT = { on: false, log: [], wander: Math.random() * 6.28, wt: 0, seen: {}, spin: Math.random() < 0.5 ? 1 : -1, target: null,
+  style: BotDecide.style(Math.random), dec: { keep: 0, swap: 0, bond: 0, over: 0, buy: 0, spent: 0, vit: 0, temple: 0, curseY: 0, curseN: 0, eggY: 0, eggN: 0, forget: 0, mach: 0, rar: [0, 0, 0, 0] } };
+BOT.dmin = () => (G.Game.st ? (G.Game.st.time || 0) : 0) / 60;
+BOT.hpFrac = () => { const pl = G.Game.player; return window.V ? V.hp / pl.maxHp : pl.hp / pl.maxHp; };
+BOT.isSupport = m => G.Moves.nonAttacking(m.kind || (m.def && m.def.kind));
 // Cartas como una persona que sabe jugar: evoluciones, subir sus ataques, 2-3 ataques que pegan y pasivas de daño.
 BOT.pick = function (cards, cardInfo) {
   const info = cards.map(cardInfo), pl = G.Game.player;
@@ -143,8 +189,10 @@ BOT.pick = function (cards, cardInfo) {
     if (/unlocks/.test(c.cls)) return 90;
     const mv = byName[c.title], atk = mv && (!G.Moves.nonAttacking(mv.kind) || (BOT.want && BOT.want.includes(mv.id)));
     if (BOT.want && mv && BOT.want.includes(mv.id) && /is-new/.test(c.cls)) return 95;
-    if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 + (BOT.want && mv ? (BOT.want.length - BOT.want.indexOf(mv.id)) * 5 : 0) : 12; }
-    if (/is-new/.test(c.cls)) return atk ? (attacks < 2 ? 75 : attacks < 3 ? 48 : 22) : 4;
+    // (1.0, bloque D) La rareza de la carta (data-r) suma: entre dos mejoras parecidas, la más rara.
+    const rar = BotDecide.cardRarity(c.r);
+    if (/is-up/.test(c.cls)) { const own = pl.moves.find(m => m.id === (mv && mv.id)); return atk ? 60 + (own ? own.lvl : 0) * 2 + (BOT.want && mv ? (BOT.want.length - BOT.want.indexOf(mv.id)) * 5 : 0) + rar : 12; }
+    if (/is-new/.test(c.cls)) return atk ? (attacks < 2 ? 75 : attacks < 3 ? 48 : 22) + rar : 4;
     if (c.title === 'Baya Zidra') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
     // Todo al máximo (1-11-2026): curarte un poco (20 %) si va mal de vida; si no, «Monedas» (15, abajo).
     if (c.title === 'Curarte un poco') return pl.hp < pl.maxHp * 0.5 ? 70 : 1;
@@ -205,9 +253,9 @@ BOT.pick = function (cards, cardInfo) {
       const low = window.V ? V.hp / pl.maxHp < 0.55 : pl.hp / pl.maxHp < 0.55;
       let gd = 1e12, goal = null;
       for (const p of G.World.specialsNear(pl.x, pl.y, 620)) {
-        const ok = p.type === 'bigchest' || (p.type === 'altar' && !p.used) || (p.type === 'spring' && low && !p.dry);
+        const ok = p.type === 'bigchest' || (p.type === 'altar' && !p.used) || (p.type === 'spring' && low && !p.dry) || BOT.wantsSpot(p, pl);
         if (!ok) continue;
-        const d2 = ((p.x - pl.x) ** 2 + (p.y - pl.y) ** 2) * (p.type === 'spring' ? 0.3 : p.type === 'altar' ? 0.8 : 1);
+        const d2 = ((p.x - pl.x) ** 2 + (p.y - pl.y) ** 2) * (p.type === 'spring' ? 0.3 : p.type === 'altar' || p.type === 'temple' ? 0.8 : 1);
         if (d2 < gd) { gd = d2; goal = p; }
       }
       if (goal) { tx = goal.x; ty = goal.y; tw = 1.3; }
@@ -267,6 +315,22 @@ BOT.pick = function (cards, cardInfo) {
     }
     return [bx, by];
   }
+  // (1.0, bloque A) Encuentros del mapa (contrato arriba): a cuáles va. El templo, mientras quiera quedarse a cargarlo.
+  const SPOTS = { shop: 1, temple: 1, curse: 1, challenge: 1, egg: 1, smeargle: 1, machine: 1 };
+  BOT.wantsSpot = (p, pl) => {
+    if (!SPOTS[p.type] || p.used || p.done) return false;
+    if (p.type === 'temple') {
+      const PB = G.PowerBudget || {}, full = Object.keys(PB.VIT || {}).every(id => ((pl.vit || {})[id] || 0) >= PB.VIT[id].cap - 1e-9);
+      const near = G.EnemyMgr.queryCircle ? G.EnemyMgr.queryCircle(p.x, p.y, (p.r || 80) + 120).length : 0;
+      const stay = BotDecide.temple({ hpFrac: BOT.hpFrac(), enemies: near, full, charge: p.charge || 0, style: BOT.style });
+      if (stay && (p.charge || 0) > 0 && !p._botIn) { p._botIn = 1; BOT.dec.temple++; }
+      return stay;
+    }
+    if (p.type === 'curse') return BOT.force.curse !== 'no';
+    if (p.type === 'egg') return BOT.force.egg !== 'no';
+    if (p.type === 'challenge') return BOT.hpFrac() > 0.5;
+    return true;
+  };
   G.Input.axis = function () {
     if (!BOT.on) return orig();
     const pl = G.Game.player; if (!pl) return [0, 0];
@@ -281,13 +345,91 @@ BOT.pick = function (cards, cardInfo) {
   };
   const visible = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
   const T = () => Math.round(G.Game.st ? (G.Game.st.time || 0) : 0);
-  const cardInfo = el => ({ cls: el.className.replace('card pick-card', '').trim(), title: (el.querySelector('.nm') || {}).textContent || '' });
+  const cardInfo = el => ({ cls: el.className.replace('card pick-card', '').trim(), title: (el.querySelector('.nm') || {}).textContent || '', r: el.dataset.r != null ? +el.dataset.r : 0 });
+  // (1.0, bloque A) Objeto: lo que se ofrece se apunta al abrir la elección (game.js: showItemChoice(pl, k, same, cb)).
+  const showItem0 = G.RunUI.showItemChoice;
+  G.RunUI.showItemChoice = function (pl, k, same, cb) { BOT.itemOffer = { k, same }; return showItem0.apply(this, arguments); };
+  // Cartas del objeto: [quedarme, cambiar el hueco same] o [quedarme, cambiar 0, cambiar 1].
+  function pickItemCard() {
+    const pl = G.Game.player, o = BOT.itemOffer && G.Items.parse(BOT.itemOffer.k);
+    if (!o) return 0;
+    const same = BOT.itemOffer.same, t = G.Game.st ? G.Game.st.time || 0 : 0;
+    const slot = BotDecide.pickItem({ mine: pl.items.map(i => ({ id: i.id, r: i.r, evo: i.evo, t: i.t })), offer: o, same, now: t,
+      EVO_T: G.Items.EVO_T, END: 1800, vals: G.Items.vals, style: BOT.style, minute: t / 60 });
+    BOT.dec[slot < 0 ? 'keep' : 'swap']++;
+    if (slot >= 0) BOT.log.push(Math.round(t) + 's objeto ' + o.id + ':' + o.r + ' por ' + pl.items[slot].id + ':' + pl.items[slot].r);
+    return slot < 0 ? 0 : same >= 0 ? 1 : slot + 1;
+  }
+  // Vínculo: la sobrefusión si se puede; si no, el ataque que más pega y más subido está (BotDecide.pickBond).
+  function pickBondCard(cards) {
+    const ov = cards.findIndex(c => c.dataset.over);
+    // (1.0, bloque C) «over» en bot= son las sobrefusiones de verdad (pl.over): con 4 ataques casi siempre van directas,
+    // sin esta carta (game.js offerBond), y antes se contaba cada clic.
+    if (ov >= 0) return ov;
+    const pl = G.Game.player, byName = {};
+    for (const m of pl.moves) byName[G.T(m.name)] = m;
+    const ms = cards.map(c => { const m = byName[(c.querySelector('.nm') || {}).textContent || ''] || {}; return { id: m.id, lvl: m.lvl, evolved: m.evolved, dealt: m.dealt, support: m.id ? BOT.isSupport(m) : true }; });
+    BOT.dec.bond++;
+    return BotDecide.pickBond(ms);
+  }
+  // (1.0) Pantalla de encuentro (bloques E-G, contrato arriba): tienda, vitamina, maldición, huevo, olvidar.
+  function encounter() {
+    const pl = G.Game.player, box = document.getElementById('scr-encounter');
+    const C = [...box.querySelectorAll('.pick-card:not(.enc-off)')].map(c => ({ el: c, kind: c.dataset.kind || '', id: c.dataset.id || '', r: +(c.dataset.r || 0), price: +(c.dataset.price || 0) }));
+    const leave = () => { const l = C.find(c => c.kind === 'leave'), b = l ? l.el : box.querySelector('[data-close]'); if (b) b.click(); };
+    const kinds = new Set(C.map(c => c.kind)), only = k => kinds.has(k) && !kinds.has('item') && !kinds.has('heal');
+    const PB = G.PowerBudget || {}, min = BOT.dmin(), hp = BOT.hpFrac();
+    const coins = G.Encounters && G.Encounters.purse ? G.Encounters.purse(pl) : pl.coins || 0;
+    const atks = pl.moves.filter(m => !BOT.isSupport(m)), phys = atks.length ? atks.filter(m => m.cat === 'physical').length / atks.length : 0.5;
+    const vitOk = c => BotDecide.vitamin([c], pl.vit || {}, PB.VIT || {}, phys, BOT.style) === 0;
+    const curseOk = () => BotDecide.curse({ hpFrac: hp, minute: min, upg: BOT.upg, recentFalls: window.V ? V.deaths.filter(d => d > min * 60 - 120).length : 0,
+      level: pl.curse || 0, cap: (G.Curse && G.Curse.MAX) || 3, style: BOT.style, roll: Math.random(), force: BOT.force.curse });
+    const bst = d => (G.DEX_BY[d] && G.DEX_BY[d].bst) || 0;
+    const eggOk = c => BotDecide.egg({ has: !!pl.companion, hasEvolved: !!(pl.companion && pl.companion.evolved), newBst: c ? bst(+c.id) : 0,
+      curBst: pl.companion ? bst(pl.companion.dex) : 0, force: BOT.force.egg });
+    const itemGain = c => {
+      const o = G.Items.parse(c.id + ':' + c.r); if (!o) return 0;
+      if (pl.items.length < pl.itemSlots()) return 50;
+      return BotDecide.pickItem({ mine: pl.items.map(i => ({ id: i.id, r: i.r, evo: i.evo, t: i.t })), offer: o, same: -1, now: min * 60, EVO_T: G.Items.EVO_T, END: 1800, vals: G.Items.vals, style: BOT.style, minute: min }) >= 0 ? 40 : 0;
+    };
+    if (only('vitamin')) {                     // templo: elige una (o se va si todas están al tope)
+      const v = C.filter(c => c.kind === 'vitamin'), i = BotDecide.vitamin(v, pl.vit || {}, PB.VIT || {}, phys, BOT.style);
+      if (i >= 0) { BOT.dec.vit++; v[i].el.click(); } else leave();
+      return;
+    }
+    if (only('curse')) { const y = curseOk(); BOT.dec[y ? 'curseY' : 'curseN']++; if (y) C.find(c => c.kind === 'curse').el.click(); else leave(); return; }
+    if (only('egg')) { const c = C.find(x => x.kind === 'egg'), y = eggOk(c); BOT.dec[y ? 'eggY' : 'eggN']++; if (y) c.el.click(); else leave(); return; }
+    if (kinds.has('forget')) {
+      const f = C.filter(c => c.kind === 'forget'), ms = f.map(c => pl.moves.find(m => m.id === c.id) || {});
+      const i = BotDecide.forget(ms.map(m => ({ lvl: m.lvl, evolved: m.evolved, support: m.id ? BOT.isSupport(m) : false })), min);
+      if (i >= 0) { BOT.dec.forget++; f[i].el.click(); } else leave();
+      return;
+    }
+    if (kinds.has('rarity')) {                 // Porygon: sube la rareza del objeto que más gana por moneda
+      const f = C.filter(c => c.kind === 'rarity'), V = (id, r, evo) => BotDecide.itemValue(id, r, !!evo, G.Items.vals(id, r, !!evo), BOT.style, min);
+      const i = BotDecide.machine(f.map(c => { const it = pl.items.find(x => x.id === c.id && x.r === c.r) || {};
+        return { id: c.id, r: c.r, price: c.price, gain: V(c.id, c.r + 1, it.evo) - V(c.id, c.r, it.evo) }; }), { coins, style: BOT.style });
+      if (i >= 0) { BOT.dec.mach++; BOT.dec.spent += f[i].price; BOT.log.push(Math.round(min * 60) + 's máquina ' + f[i].id + ':' + f[i].r + ' por ' + f[i].price); f[i].el.click(); } else leave();
+      return;
+    }
+    // Tienda: una compra por vuelta (la pantalla se vuelve a pintar tras cada una); sin nada que comprar, se va.
+    const buy = BotDecide.shop(C.map(c => ({ kind: c.kind, id: c.id, r: c.r, price: c.price })), { coins, hpFrac: hp, minute: min, style: BOT.style,
+      itemGain, vitOk, eggOk, curseOk, luck: pl.fortune || 0, luckCap: (PB.FORTUNE || {}).MAX || 1 });
+    if (!buy.length) { leave(); return; }
+    const c = C[buy[0]]; BOT.dec.buy++; BOT.dec.spent += c.price;
+    if (c.kind === 'curse') BOT.dec.curseY++;
+    if (c.kind === 'egg') BOT.dec.eggY++;
+    BOT.log.push(Math.round(min * 60) + 's compra ' + c.kind + ':' + c.id + ':' + c.r + ' por ' + c.price);
+    c.el.click();
+  }
   setInterval(() => {
     if (!BOT.on) return;
     try {
-      if (visible('scr-levelup')) { const cards = [...document.querySelectorAll('#cards .pick-card')]; if (cards.length) cards[BOT.pick(cards, cardInfo)].click(); }
-      else if (visible('scr-item')) { const c = document.querySelector('#item-cards .pick-card'); if (c) c.click(); }
-      else if (visible('scr-bond')) { const c = document.querySelector('#bond-cards .pick-card[data-over]') || document.querySelector('#bond-cards .pick-card'); if (c) c.click(); }   // (07-11-2026: la sobrefusión antes que un 2.º grupo)
+      if (visible('scr-levelup')) { const cards = [...document.querySelectorAll('#cards .pick-card')]; if (cards.length) { const c = cards[BOT.pick(cards, cardInfo)]; if (c.dataset.r != null) BOT.dec.rar[+c.dataset.r]++; c.click(); } }
+      // (1.0, bloque A) Objeto y vínculo con criterio (antes: siempre la primera carta, es decir, nunca cambiaba de objeto).
+      else if (visible('scr-item')) { const cards = [...document.querySelectorAll('#item-cards .pick-card')]; if (cards.length) (cards[pickItemCard()] || cards[0]).click(); }
+      else if (visible('scr-bond')) { const cards = [...document.querySelectorAll('#bond-cards .pick-card')]; if (cards.length) cards[pickBondCard(cards)].click(); }   // (07-11-2026: la sobrefusión antes que un 2.º grupo)
+      else if (visible('scr-encounter')) encounter();
       else if (visible('scr-evo')) { const c = document.querySelector('#evo-cards .pick-card'); if (c) c.click(); }
       if (G.Rift.traveling) G.Rift.skipTravel();
     } catch (e) { BOT.log.push('bot err ' + e.message); }
@@ -385,7 +527,7 @@ const STUCK_PROBE = String.raw`
 `;
 
 // ---------------------------------------------------------------- una partida
-async function one(dex, upg, tag, speed, cap, want, pref) {
+async function one(dex, upg, tag, speed, cap, want, pref, v1) {
   const ppDir = opt('pp', process.env.PUPPETEER_CORE || '');
   let puppeteer;
   // (path.resolve: una ruta relativa se lee desde la carpeta en la que se lanza, no desde tools/.)
@@ -429,6 +571,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
   try {
     // (Con muchas a la vez, cargar puede tardar: 30 s no bastaban con 12.)
     await page.goto(`http://127.0.0.1:${server.address().port}/dev.html?dev`, { waitUntil: 'load', timeout: 180000 });
+    await page.evaluate(fs.readFileSync(path.join(__dirname, 'bot-decide.js'), 'utf8'));
     await page.evaluate(PRELUDE);
     // Entrar como invitado (y pasar el test de naturaleza si sale).
     await page.evaluate(async () => {
@@ -442,8 +585,12 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
     });
     // (13-11-2026) CURVE_ZOOM=0.85 (o 1.25): la partida con ese zoom de cámara, para ver que no cambia el juego.
     if (process.env.CURVE_ZOOM) { await page.evaluate(z => G.Settings.set('zoom', z), +process.env.CURVE_ZOOM); log('zoom ' + process.env.CURVE_ZOOM); }
-    await page.evaluate(async (dex, upg, want, pref, mega) => {
+    await page.evaluate(async (dex, upg, want, pref, mega, v1) => {
       if (pref) BOT.pref = pref;
+      // (1.0, bloque A) Estilo de la partida (--estilo lo fija) y decisiones forzadas para medir con y sin.
+      BOT.upg = upg;
+      BOT.force = { curse: v1.curse || 'auto', egg: v1.egg || 'auto' };
+      if (v1.style) BOT.style = BotDecide.style(Math.random, v1.style);
       if (want) {       // (--quiere: sólo esos ataques en las cartas y el primero, de inicio)
         BOT.want = want;
         BOT.cerca = true;
@@ -468,6 +615,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
       if (G.Tickets) G.Tickets.debugIgnoreTamper = true;
       G.Flow.play();
       await sleep(1500);
+      BOT.log.push('estilo ' + BOT.style.name + ' riesgo ' + BOT.style.risk);
       // Vida «virtual»: no cae nunca, pero apunta cuándo habría caído.
       const pl = G.Game.player, h = pl.hurt.bind(pl), hl = pl.heal.bind(pl);
       window.V = { hp: pl.maxHp, deaths: [], heal: 0 };
@@ -550,7 +698,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
           }
         }
       }, 200);
-    }, dex, upg, want || null, pref || null, process.argv.includes('--mega'));
+    }, dex, upg, want || null, pref || null, process.argv.includes('--mega'), v1 || {});
     if (process.argv.includes('--atascos')) await page.evaluate(STUCK_PROBE);
     await page.evaluate(k => G.Game.debugSpeed(k), speed);
     const t0 = Date.now();
@@ -568,7 +716,14 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
           dir: G.Director ? (+G.Director.hp()).toFixed(2) + '/' + (+G.Director.dmg()).toFixed(2) + '/' + (+G.Director.geo || 0).toFixed(2) : '-',
           m5: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.lvl >= 5).length,
           ev: pl.moves.filter(m => !G.Moves.nonAttacking(m.kind || (m.def && m.def.kind)) && m.evolved).length,
-          ai: Object.assign({}, AI) };
+          ai: Object.assign({}, AI),
+          // (1.0, bloque A) Poder: multiplicador de ataque, reducción de daño y vida máxima (presupuesto: power-budget.js).
+          pw: [+(pl.atkMul || 1).toFixed(2), +(pl.reduction || 0).toFixed(2), Math.round(pl.maxHp)],
+          it: (pl.items || []).map(i => i.id + ':' + i.r + (i.evo ? '*' : '')).join(',') || '-',
+          v1: { fortune: pl.fortune || 0, curse: pl.curse || 0, vit: pl.vit || null, comp: pl.companion ? { dex: pl.companion.dex, evo: pl.companion.evolved ? 1 : 0, dealt: Math.round(pl.companion.dealt || 0),
+            // (bloque G) su vida en s, tu daño desde que nació y lo de todos tus compañeros de la partida: su trozo = dealt / (dealt + own)
+            t: Math.round(pl.companion.t || 0), own: pl.companion.own0 != null ? Math.round((pl.dmgDealt || 0) - (pl.compDealt || 0) - pl.companion.own0) : 0, all: Math.round(pl.compDealt || 0) } : null, coins: pl.coins || 0 },
+          dec: Object.assign({}, BOT.dec, { over: pl.over || 0 }), style: BOT.style.name + ':' + BOT.style.risk };
       });
       ttks.push(...s.ttk);
       if (s.t - lastLog >= 60 || s.over) {
@@ -581,7 +736,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
         log(`${tag} [${String(Math.floor(s.t / 60)).padStart(2)}:${String(s.t % 60).padStart(2, '0')}] Nv.${s.lv} ${s.form} v${s.vhp}/${s.max} en=${s.en} dmg/min=${Math.round(dm)} (${(dm / s.max).toFixed(1)}x) caídas=${nd} ` +
             `bajas=${s.kills - lastKills} mg=${s.mg} hecho=${s.dealt - lastDealt} ttk=${ttks.length ? med(ttks).toFixed(2) : '-'} sdps=${s.sdps} dir=${s.dir} tk=${s.t1}/${s.t10} m5=${s.m5} ev=${s.ev} cartas=${cards || '-'} ` +
             `ia=${s.ai.live > lastAi.live ? (100 * (s.ai.stuck - lastAi.stuck) / (s.ai.live - lastAi.live)).toFixed(1) : '-'}%/${s.ai.n > lastAi.n ? ((s.ai.under - lastAi.under) / (s.ai.n - lastAi.n)).toFixed(1) : '-'}/${s.ai.n > lastAi.n ? ((s.ai.swim - lastAi.swim) / (s.ai.n - lastAi.n)).toFixed(1) : '-'} ` +
-            `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} | ${s.moves}`);
+            `${s.boss ? 'JEFE ' + s.boss : ''}${s.arena ? ' ARENA' : ''}${s.judge ? ' SENTENCIA' : ''} t/p/h/s=${Math.round(s.dmg.touch)}/${Math.round(s.dmg.proj)}/${Math.round(s.dmg.hz)}/${Math.round(s.dmg.sig)} pw=${s.pw.join('/')} it=${s.it} | ${s.moves}`);
         lastKills = s.kills; lastDealt = s.dealt; ttks = []; lastAi = s.ai;
       }
       // (Al empezar la Sentencia, 2 s más para ver lo que pasa al llegar.)
@@ -594,6 +749,7 @@ async function one(dex, upg, tag, speed, cap, want, pref) {
     if (reg) log(`${tag} REG ${JSON.stringify(reg)}`);
     if (process.argv.includes('--atascos')) log(`${tag} ATASCOS ${JSON.stringify(await page.evaluate(() => STK.report()))}`);
     log(`${tag} RESULT dex=${dex} upg=${upg} INMORTAL primera=${s.deaths[0] || '-'} caídas=${JSON.stringify(s.deaths)} t=${s.t} lv=${s.lv} kills=${s.kills} tk=${s.t1}/${s.t10} real=${Math.round((Date.now() - t0) / 1000)}s errores=${errors} fus=${s.fz} sobre=${s.ov} ` +
+        `dealt=${s.dealt} estilo=${s.style} pw=${s.pw.join('/')} it=${s.it} bot=${JSON.stringify(s.dec)} v1=${JSON.stringify(s.v1)} ` +
         `abiertas=${JSON.stringify(meas.opened)} jefes=${JSON.stringify(meas.boss)} grietas=${JSON.stringify(meas.arenas)} log=${blog}`);
   } catch (e) { log(`${tag} FALLO ${e && e.stack || e}`); }
   finally { await browser.close(); server.close(); }
@@ -606,9 +762,11 @@ async function main() {
   if (flag('one')) {
     const [dex, upg, tag] = args;
     const want = opt('quiere', ''), pref = opt('pref', '');
-    return one(+dex, upg, tag, +opt('speed', 2), +opt('cap', 1860), want ? want.split(',') : null, pref ? pref.split(',') : null);
+    const v1 = { style: opt('estilo', ''), curse: opt('maldicion', ''), egg: opt('companero', '') };
+    return one(+dex, upg, tag, +opt('speed', 2), +opt('cap', 1860), want ? want.split(',') : null, pref ? pref.split(',') : null, v1);
   }
   const par = +opt('par', 6), speed = opt('speed', '2'), cap = opt('cap', '1860'), chrome = opt('chrome', ''), want = opt('quiere', ''), pref = opt('pref', '');
+  const estilo = opt('estilo', ''), maldicion = opt('maldicion', ''), companero = opt('companero', '');
   const pp0 = opt('pp', process.env.PUPPETEER_CORE || ''), pp = pp0 && path.resolve(pp0);
   const out = path.resolve(opt('out', path.join(os.tmpdir(), 'ps-curve-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-'))));
   const jobs = args.filter(a => /^\d+:(max|zero)(:\d+)?$/.test(a));
@@ -630,6 +788,9 @@ async function main() {
       if (args.includes('--mega')) a.push('--mega');
       if (args.includes('--atascos')) a.push('--atascos');
       if (pref) a.push('--pref', pref);
+      if (estilo) a.push('--estilo', estilo);
+      if (maldicion) a.push('--maldicion', maldicion);
+      if (companero) a.push('--companero', companero);
       spawn(process.execPath, a, { stdio: ['ignore', f, f] }).on('exit', () => { running--; console.log('hecha', j.tag); next(); });
     };
     // (Escalonadas: si arrancan todas a la vez, Chrome tarda tanto en cargar que alguna falla.)

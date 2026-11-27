@@ -415,15 +415,19 @@ G.HUD = (() => {
   function infoLine(ctx, w, y, k, tall, touch, sa, cardR, pl) {
     const fs = (cmp ? 12 : 13) * k, ic = (cmp ? 14 : 15) * k, gap = 3 * k, sep = (cmp ? 10 : 14) * k;
     ctx.font = F(600, fs);
-    const ks = String(pl.kills), cs = String(pl.coins + (pl.bonusCoins || 0));   // (+ las de todo al máximo)
-    const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width;
+    const ks = String(pl.kills), cs = String(Math.max(0, pl.coins + (pl.bonusCoins || 0) - (pl.spent || 0)));   // (+ las de todo al máximo; − lo gastado en Kecleon y Porygon)
+    // (1.0, bloque D) La suerte, detrás de las monedas, sólo si llevas (systems/fortune.js).
+    const fp = G.Fortune ? G.Fortune.pct(pl) : 0, fs2 = fp ? fp + ' %' : '';
+    // (1.0, bloque F) Y la maldición, si llevas (systems/curse.js): su nivel.
+    const cl = G.Curse ? G.Curse.level : 0, cs2 = cl ? String(cl) : '';
+    const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width, fw = (fp ? sep + ic + gap + ctx.measureText(fs2).width : 0) + (cl ? sep + ic + gap + ctx.measureText(cs2).width : 0);
     let bio = '', bw = 0;
     if (!cmp) {
       bio = G.World.biomeName().toUpperCase();
       ctx.font = N(800, 11 * k);
       bw = ctx.measureText(bio).width + sep;
     }
-    const tw = bw + ic + gap + kw + sep + ic + gap + cw;
+    const tw = bw + ic + gap + kw + sep + ic + gap + cw + fw;
     let x = w / 2 - tw / 2;
     if (!tall) {
       const right = w - 12 - sa.right - (touch ? 44 : 0);
@@ -437,6 +441,18 @@ G.HUD = (() => {
     outlined(ctx, ks, x, y, C.ink, 3); x += kw + sep;
     G.Icons.draw(ctx, 'coin', x, iy, ic); x += ic + gap;
     outlined(ctx, cs, x, y, '#FFE58A', 3);
+    x += cw;
+    if (fp) {
+      x += sep;
+      G.Icons.draw(ctx, 'luck', x, iy, ic); x += ic + gap;
+      outlined(ctx, fs2, x, y, '#9BF0A0', 3);
+      x += ctx.measureText(fs2).width;
+    }
+    if (cl) {
+      x += sep;
+      G.Icons.draw(ctx, 'curse', x, iy, ic); x += ic + gap;
+      outlined(ctx, cs2, x, y, '#D9A8FF', 3);
+    }
   }
 
   /*
@@ -702,7 +718,8 @@ G.HUD = (() => {
     // 44 px (antes 54; se siguen acertando con el dedo) y más juntos.
     const kb = touch ? 1 : k, W = w / kb, H = h / kb;
     const S = D.S, GAP = D.GAP, IG = D.IG;
-    const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.maxMoves);
+    // (1.0, bloque C) Los vacíos, sólo los que aún pueden llenarse: fusionar no deja sitio para otro ataque.
+    const n = Math.max(1, pl.slots.length), nAll = Math.max(n, pl.slots.length + (pl.freeSlots ? pl.freeSlots() : pl.maxMoves - pl.slots.length));
     // Movimiento Z (24-10-2026): su botón, del tamaño de un hueco, a la derecha de los huecos
     // (separado como el objeto a la izquierda). Sólo con el Cristal Z de un tipo de tu compañero.
     const z = G.Combat.zOf(pl), mg = G.Mega ? G.Mega.of(pl) : null, ZW = z || mg ? IG + S : 0;     // (mega: el mismo hueco)
@@ -1325,7 +1342,8 @@ G.HUD = (() => {
     const big = c.type === 'bigchest', f = big ? G.U.clamp(c.open / G.Interact.CHEST_TIME, 0, 1) : 0;
     if (!touch) {
       const p = G.Camera.toScreen(c.x, c.y - 72), key = String(G.Input.keyLabel('open'));
-      const txt = big ? 'Mantén para abrir' : 'Abrir';
+      // (1.0, bloque E) Los encuentros dicen qué se hace con ellos: «Hablar» (Kecleon, Smeargle, Porygon) o «Activar» (reto).
+      const act = c.enc && G.Encounters.TYPES[c.type].act, txt = act ? G.T(act) : big ? 'Mantén para abrir' : 'Abrir';
       ctx.font = F(600, 13);
       const tw = ctx.measureText(txt).width;
       ctx.font = N(900, 12);
@@ -1352,7 +1370,7 @@ G.HUD = (() => {
       ctx.beginPath(); ctx.arc(cx, cy, s / 2, -Math.PI / 2, -Math.PI / 2 + f * 6.2832);
       ctx.lineWidth = 5; ctx.strokeStyle = C.yellow; ctx.stroke();
     }
-    const img = G.Tileset && G.Tileset.pxImg(c.type);
+    const img = !c.enc && G.Tileset && G.Tileset.pxImg(c.type);
     if (img) {
       const ih = s * 0.42, iw = ih * img.width / img.height;
       ctx.save();
@@ -1362,7 +1380,7 @@ G.HUD = (() => {
     }
     ctx.font = F(700, 11);
     ctx.textAlign = 'center';
-    outlined(ctx, big ? 'Mantén' : 'Abrir', cx, cy + s * 0.32, C.yellow, 3, s - 8);
+    outlined(ctx, c.enc && G.Encounters.TYPES[c.type].act ? G.T(G.Encounters.TYPES[c.type].act) : big ? 'Mantén' : 'Abrir', cx, cy + s * 0.32, C.yellow, 3, s - 8);
     G.Touch.addButton(cx - s / 2, cy - s / 2, s, s, () => { if (G.Game.state === 'playing') G.Input.virtualAct('open'); }, 6, 'open');
   }
 

@@ -87,3 +87,12 @@ Name: "{autodesktop}\PokéSurvivor"; Filename: "{app}\PokeSurvivor.exe"; Tasks: 
 
 [Run]
 Filename: "{app}\PokeSurvivor.exe"; Description: "{cm:LaunchProgram,PokéSurvivor}"; Flags: nowait postinstall skipifsilent
+; Actualizar con un clic (la app, src/actualizar.rs): instala en silencio con /RELANZAR=1 y el juego
+; vuelve a abrirse al acabar, como el usuario normal aunque se haya instalado para todos (administrador).
+Filename: "{app}\PokeSurvivor.exe"; Flags: nowait runasoriginaluser; Check: Relanzar
+
+[Code]
+function Relanzar: Boolean;
+begin
+  Result := ExpandConstant('{param:RELANZAR|0}') = '1';
+end;

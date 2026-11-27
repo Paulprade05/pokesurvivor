@@ -159,7 +159,8 @@ G.Coop = (() => {
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
             r2(local.reviveT || 0), api.choosing && api.choosing() ? 1 : 0, doneSeq, api.watching ? api.watching() : '',
             r1(G.Camera ? G.Camera.spawnW : 0), r1(G.Camera ? G.Camera.spawnH : 0),   // lo que ve (de pie o tumbado): el anfitrión no saca enemigos dentro
-            local.form || 0];                                                   // su fase (evoluciones en partida)
+            local.form || 0,                                                    // su fase (evoluciones en partida)
+            G.Companion ? G.Companion.netState(local) : 0];                     // (1.0, bloque G) su compañero del huevo
   }
 
   /** Número que llega por la red: si no es un número de verdad vale `def`, y si se pasa se queda en el tope. */
@@ -176,7 +177,8 @@ G.Coop = (() => {
              wa: typeof a[15] === 'string' ? a[15].slice(0, 64) : '',
              vw: num(a[16], 0, 0, 5000), vh: num(a[17], 0, 0, 5000),
              // Fase: sólo un Pokémon o una mega que exista (si no, o de una versión anterior, 0: el que eligió).
-             fm: Number.isInteger(a[18]) && (G.DEX_BY[a[18]] || (G.MEGA && G.MEGA[a[18]])) ? a[18] : 0 };
+             fm: Number.isInteger(a[18]) && (G.DEX_BY[a[18]] || (G.MEGA && G.MEGA[a[18]])) ? a[18] : 0,
+             cp: G.Companion ? G.Companion.readNet(a[19]) : null };
   }
 
   /** Anfitrión: dónde mira un invitado (él mismo, o el compañero vivo que mira estando caído). */
@@ -405,6 +407,7 @@ G.Coop = (() => {
         case 'hs': holdOn(from); break;
         case 'he': holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
+        case 'enc': if (G.Encounters && (ev[1] === 'c' || ev[1] === 'k')) G.Encounters.onNet(ev, from); break;   // (1.0, bloques E y F) un invitado activa el reto o acepta la maldición
         case 'bye': mateGone(from); break;
       }
     }
@@ -504,12 +507,15 @@ G.Coop = (() => {
       case 'ov': { const cb = api.over; const d = ev[1]; end(); cb(d); break; }
       case 'rift': case 'riftx': case 'arena': case 'aw': case 'al': G.Rift.onEvent(ev); break;
       // (26-10-2026) Viaje por la grieta: el anfitrión lo salta ('rk') y dónde aparecen los legendarios ('lgi').
-      case 'rk': case 'lgi': G.Rift.onEvent(ev); break;
+      // (Bloque H de la 1.0) El anfitrión salta la llegada de los legendarios ('lk'). Una versión anterior no lo conoce.
+      case 'rk': case 'lgi': case 'lk': G.Rift.onEvent(ev); break;
       // (26-10-2026) Firmas de los jefes: campos y marcas (G.BossSig). Una versión anterior no lo conoce y lo ignora.
       case 'bsg': if (G.BossSig) G.BossSig.onNet(ev[1]); break;
       case 'jd': case 'jk': G.Judgment.onEvent(ev); break;
       case 'wx': G.Weather.onEvent(ev); break;
       case 'ev': G.Events.onNet(ev); break;
+      // (1.0, bloque E) Encuentros del mapa: dónde los pone el anfitrión y el santuario de reto. Una versión anterior lo ignora.
+      case 'enc': if (G.Encounters) G.Encounters.onNet(ev); break;
       case 'hz': G.Hazards.add(ev[1], true); break;
       // (20-11-2026) Su dueño murió o se le inmovilizó antes de que cayeran: sus avisos se borran (hazards.js cut).
       case 'hzx': if (typeof ev[1] === 'number' && G.Hazards.cut) G.Hazards.cut(ev[1]); break;

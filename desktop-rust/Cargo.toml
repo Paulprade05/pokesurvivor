@@ -22,9 +22,15 @@ windows = { version = "=0.62.2", features = [
   "Win32_Globalization",
   "Win32_Graphics_Dxgi",
   "Win32_Graphics_Dxgi_Common",
+  # Actualizar con un clic (src/actualizar.rs): bajar de GitHub (WinHTTP) y comprobar el SHA-256 (BCrypt).
+  "Win32_Networking_WinHttp",
   "Win32_Security",
+  "Win32_Security_Cryptography",
   "Win32_System_Com",
   "Win32_System_Threading",
+  # ¿Hay un mando conectado al abrir? (XInput y los HID de juego: modo mando desde el principio)
+  "Win32_UI_Input",
+  "Win32_UI_Input_XboxController",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
   # Prioridad del proceso de la GPU de WebView2 en el planificador de la gráfica (D3DKMT).

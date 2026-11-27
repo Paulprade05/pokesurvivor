@@ -68,8 +68,19 @@ test('la partida nunca se borra: sólo se toca la carpeta del programa', () => {
   assert.match(rs, /WebContext::new\(Some\(o\.base\.join\("WebView2"\)\)\)/);
 });
 
-test('la app avisa con el instalador primero y el .zip de Rust de reserva', () => {
-  const rs = source('desktop-rust/src/main.rs');
-  assert.match(rs, /const INSTALADOR: &str = "PokeSurvivor-Windows-Setup\.exe";/);
-  assert.match(rs, /const ARCHIVOS: \[&str; 2\] = \[INSTALADOR, "PokeSurvivor-Windows-Rust\.zip"\];/);
+test('actualizar con un clic: la app baja el instalador de la release oficial y lo abre en silencio', () => {
+  const rs = source('desktop-rust/src/actualizar.rs');
+  assert.match(rs, /pub const INSTALADOR: &str = "PokeSurvivor-Windows-Setup\.exe";/);
+  assert.match(rs, /pub const REPO: &str = "Paulprade05\/pokesurvivor";/);
+  // La dirección la arma la app con la etiqueta (no usa la que da el API) y comprueba el SHA-256 de GitHub.
+  assert.match(rs, /"\{\}\/\{REPO\}\/releases\/download\/\{etiqueta\}\/\{INSTALADOR\}"/);
+  assert.doesNotMatch(rs, /browser_download_url"\]/);
+  assert.match(rs, /strip_prefix\("sha256:"\)/);
+  // Silencioso, en la misma carpeta y que vuelva a abrir el juego (/RELANZAR=1 → [Run] con Check: Relanzar).
+  assert.match(rs, /\/SILENT \/SP- \/SUPPRESSMSGBOXES \/NORESTART \/NOCANCEL \/RELANZAR=1/);
+  linea(/^Filename: "\{app\}\\PokeSurvivor\.exe"; Flags: nowait runasoriginaluser; Check: Relanzar$/m);
+  linea(/^  Result := ExpandConstant\('\{param:RELANZAR\|0\}'\) = '1';$/m);
+  // Antes de abrirlo se suelta el candado de una sola copia (AppMutex): si no, en silencio se cancelaría.
+  const main = source('desktop-rust/src/main.rs');
+  assert.match(main, /soltar_candado\(\);\s+let dir = /);
 });

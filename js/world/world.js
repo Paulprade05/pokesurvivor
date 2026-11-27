@@ -545,6 +545,8 @@ G.World = (() => {
         if (SPECIAL.has(p.type) && G.U.dist2(x, y, p.x, p.y) <= (r + p.r) ** 2) out.push(p);
       }
     }
+    // (1.0, bloque E) Y los encuentros (Kecleon, templo, Smeargle, santuario, Porygon: systems/encounters.js).
+    if (G.Encounters) for (const e of G.Encounters.near(x, y, r)) out.push(e);
     return out;
   }
 

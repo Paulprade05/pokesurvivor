@@ -166,13 +166,15 @@ G.EvoUI = (() => {
     if (el) return el;
     el = document.createElement('section');
     el.id = 'scr-evo';
-    el.className = 'scr dim hidden';
-    el.innerHTML = `<div class="box pick-box evo-box">
+    // (1.0, bloque J) Plantilla «Elección» (ui/nav.js), como las cartas de nivel: a pantalla completa, cartas en fila (← →).
+    el.className = 'scr dim fs-scr hidden';
+    el.innerHTML = `<div class="box fs t-pick pick-box evo-box" data-nav>
       <header class="pick-head">
         <div class="pick-title"><span class="ico-tile pick-ico" id="evo-ico">${G.Icons.html('up', 30)}</span><h2 id="evo-title"></h2></div>
         <p class="sub"><span id="evo-sub">${T('Elige su evolución')}</span><span class="kbd-hint"> · <kbd>1</kbd> <kbd>2</kbd>…</span><span class="pad-hint">&nbsp;· ${G.Pad.hintHtml('ok')}</span></p>
       </header>
-      <div id="evo-cards" class="cards pick-cards evo-cards"></div>
+      <div id="evo-cards" class="cards pick-cards evo-cards" data-nav-row></div>
+      <footer class="fs-bar" data-auto aria-hidden="true"></footer>
     </div>`;
     document.body.appendChild(el);
     return el;

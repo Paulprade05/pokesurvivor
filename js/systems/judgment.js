@@ -131,6 +131,7 @@ G.Judgment = (() => {
   /** Salta la animación (tecla o toque; en grupo, el anfitrión). */
   function skip() {
     if (G.Rift.traveling) { G.Rift.skipTravel(); return; }     // (el viaje por la grieta, 26-10-2026)
+    if (G.Rift.presenting) { G.Rift.skipPresent(); return; }   // (la llegada de los legendarios, bloque H)
     if (phase !== 'cine' || !canSkip || ct >= T_BACK) return;
     if (G.Coop.isHost) G.Coop.broadcast(['jk']);
     doSkip();
@@ -205,6 +206,8 @@ G.Judgment = (() => {
     // El viaje por la grieta (26-10-2026) también para el juego: va por aquí (game.js sólo
     // conoce las animaciones de la Sentencia). Lo lleva rift.js.
     if (G.Rift.traveling) { G.Rift.travelTick(dt); return; }
+    // (Bloque H de la 1.0) Y la llegada de los legendarios de la grieta, uno detrás de otro.
+    if (G.Rift.presenting) { G.Rift.presentTick(dt); return; }
     const prev = ct;
     ct += dt;
     const at = x => prev < x && ct >= x;
@@ -502,6 +505,7 @@ G.Judgment = (() => {
   /** En pantalla: la animación, o el aviso de la pelea. */
   function drawOverlay(ctx, w, h) {
     if (G.Rift.traveling) { G.Rift.drawTravel(ctx, w, h); return; }
+    if (G.Rift.presenting) { G.Rift.drawPresent(ctx, w, h); return; }
     if (phase === 'cine') drawCine(ctx, w, h);
     else if (phase === 'fight') drawFight(ctx, w, h);
   }
@@ -730,9 +734,9 @@ G.Judgment = (() => {
     /** DPS a un solo objetivo (media de los 6 mejores segundos de los últimos 30). */
     singleDps, longDps,
     // (También mientras viajas por una grieta: el juego se para igual. Ver rift.js.)
-    get cinematic() { return phase === 'cine' || G.Rift.traveling; },
+    get cinematic() { return phase === 'cine' || G.Rift.traveling || !!G.Rift.presenting; },
     /** Lo que suena: nada en la animación hasta que aterriza (y la de la grieta en el viaje). */
-    get music() { return G.Rift.traveling ? 'rift' : phase === 'cine' && ct < T_LAND ? null : 'judgment'; },
+    get music() { return G.Rift.traveling || G.Rift.presenting ? 'rift' : phase === 'cine' && ct < T_LAND ? null : 'judgment'; },
     /** Para el resumen de la partida: { time, bosses } o null. */
     summary() { return phase === 'fight' ? { time: arenaT, bosses: downs } : null; },
     /** Para pruebas: vida del primer legendario y daño medido. */

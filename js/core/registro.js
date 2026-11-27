@@ -18,6 +18,10 @@
  * Rendimiento: lo de cada golpe son sumas en objetos que ya existen (hit, taken);
  * nada crea objetos por golpe. Lo demás se mira una vez por segundo.
  *
+ * Lo nuevo de la 1.0 (bloque A, 24-11-2026; lo pidió el dueño), en r.v1 (ver V1()): compras en la tienda de Kecleon,
+ * vitaminas, maldición, compañero del huevo, suerte y encuentros encontrados. Cada bloque llama a G.Reg.v1.* cuando
+ * su sistema exista; hasta entonces sólo está la estructura (vacía).
+ *
  * Guardado: IndexedDB (ps-partidas), las MAX últimas. Cada SNAP_EVERY s de partida se
  * guarda cómo va y, al cerrar u ocultar la app, también en localStorage (síncrono):
  * al volver a abrir, la que se quedó a medias sale como «cerrada». A la nube sólo sube
@@ -100,7 +104,7 @@ G.Reg = (() => {
       upg: Object.assign({}, o.upg || {}),
       startMoves: (pl.moves || []).map(m => m.id),
       cards: [], pass: [], items: [], ev: [], bosses: [], downs: [], lv: [], kinds: { h: 0, b: 0, l: 0, a: 0 },
-      moves: {}, tl: []
+      moves: {}, tl: [], v1: V1()
     };
     seen = { item: itemKey(pl), form: pl.form, arena: false, judge: false, biome: '', wx: '', lvl: pl.level, pass: {} };
     last = { dealt: 0, healed: 0, taken: 0, kills: 0 };
@@ -114,6 +118,49 @@ G.Reg = (() => {
     if (!r) r = cur.moves[m.id] = { got: t1(), name: m.name || m.id, type: m.type || '', kind: m.kind || '', lv: [[t1(), m.lvl || 1]] };
     return r;
   }
+
+  // ---------------- lo nuevo de la 1.0 (bloque A) ----------------
+  /**
+   * r.v1 de una partida:
+   *   buy   [[t, qué, id, rareza, precio]]  compras a Kecleon (qué: item | heal | vitamin | egg | luck | curse) y a
+   *         Porygon (qué: rarity; rareza: la que queda)
+   *   spent monedas gastadas en la tienda y la máquina (de las que te llevarías a tu cuenta)
+   *   vit   { id: lo sumado }  y  vitT [[t, id, rareza]]  vitaminas (templo o tienda)
+   *   curse [[t, nivel, 1 aceptada | 0 rechazada]]  santuarios malditos y tienda
+   *   comp  { dex, t (eclosión), evo [[t, dex]], downs, dealt } compañero del huevo (null si no llevas)
+   *   fortune  la suerte más alta que has tenido
+   *   enc   [[t, tipo]]  encuentros que has encontrado (el primer contacto con cada uno)
+   */
+  const V1 = () => ({ buy: [], spent: 0, vit: {}, vitT: [], curse: [], comp: null, fortune: 0, enc: [] });
+  const v1 = {
+    /** Una compra en la tienda. */
+    buy(kind, id, r, price) {
+      if (!cur) return;
+      cur.v1.buy.push([t1(), kind, id == null ? null : id, r == null ? null : r, Math.round(price || 0)]);
+      cur.v1.spent += Math.round(price || 0);
+    },
+    /** Una vitamina tomada: add, lo que suma (con su rareza y su tope ya aplicados). */
+    vitamin(id, r, add) {
+      if (!cur) return;
+      cur.v1.vit[id] = Math.round(((cur.v1.vit[id] || 0) + (add || 0)) * 1000) / 1000;
+      cur.v1.vitT.push([t1(), id, r | 0]);
+    },
+    /** Maldición ofrecida: aceptada o no, y el nivel con el que quedas. */
+    curse(level, ok) { if (cur) cur.v1.curse.push([t1(), level | 0, ok ? 1 : 0]); },
+    /** Compañero: 'hatch' (dex), 'evo' (dex), 'down'. */
+    companion(what, dex) {
+      if (!cur) return;
+      const c = cur.v1.comp || (cur.v1.comp = { dex: dex || 0, t: t1(), evo: [], downs: 0, dealt: 0 });
+      if (what === 'hatch') { c.dex = dex; c.t = t1(); }
+      else if (what === 'evo') { c.evo.push([t1(), dex]); c.dex = dex; }
+      else if (what === 'down') c.downs++;
+    },
+    /** Daño del compañero (cada golpe: sólo una suma). */
+    compHit(d) { if (cur && cur.v1.comp) cur.v1.comp.dealt += d; },
+    fortune(v) { if (cur && v > cur.v1.fortune) cur.v1.fortune = v; },
+    /** Has encontrado un encuentro del mapa (la primera vez que llegas a él). */
+    encounter(type) { if (cur) cur.v1.enc.push([t1(), type]); }
+  };
 
   // ---------------- cada golpe ----------------
   /** Un golpe tuyo (combat.js, donde suma pl.dmgDealt): d ya con tipos, críticos... */
@@ -179,6 +226,8 @@ G.Reg = (() => {
     if (!cur || !list) return;
     if (offer && offer.p === undefined) offer.p = null;
     offer = { t: t1(), lvl: lvl || (P ? P.level : 0), o: list.map(cardKey) };
+    // (1.0, bloque D) La rareza de cada carta (0-3), si alguna la tiene: r[i] es la de o[i].
+    if (list.some(c => c && c.r)) offer.r = list.map(c => (c && c.r) | 0);
     cur.cards.push(offer);
   }
   function picked(c) {
@@ -213,6 +262,8 @@ G.Reg = (() => {
       if (r.lv[r.lv.length - 1][1] !== lv) r.lv.push([t, lv]);
       if (m.evolved && r.evo == null) r.evo = t;
       if (s.length > 1 && r.fuse == null) r.fuse = t;
+      // (1.0, bloque D) Cartas de mejora de cada rareza que ha cogido (común, raro, épico, legendario).
+      if (m.rc) r.rc = m.rc.slice();
     }
     const ik = itemKey(pl);
     if (ik !== seen.item) { seen.item = ik; cur.items.push([t, ik]); }
@@ -306,6 +357,9 @@ G.Reg = (() => {
     out.ev = cur.ev.slice(); out.pass = cur.pass.slice(); out.items = cur.items.slice(); out.lv = cur.lv.slice();
     out.downs = cur.downs.slice(); out.tl = cur.tl.slice(); out.kinds = Object.assign({}, cur.kinds);
     out.killer = out.downs.length ? out.downs[out.downs.length - 1].by : null;
+    const w = cur.v1 || V1();
+    out.v1 = Object.assign({}, w, { buy: w.buy.slice(), vit: Object.assign({}, w.vit), vitT: w.vitT.slice(), curse: w.curse.slice(), enc: w.enc.slice(),
+      comp: w.comp ? Object.assign({}, w.comp, { evo: w.comp.evo.slice(), dealt: r1(w.comp.dealt) }) : null });
     return out;
   }
 
@@ -442,7 +496,7 @@ G.Reg = (() => {
   }
 
   return {
-    start, tick, hit, hurt, down, heal, kill, ev, offered, picked, end, finish, build, summary, init, stash,
+    start, tick, hit, hurt, down, heal, kill, ev, offered, picked, end, finish, build, summary, init, stash, v1,
     /** Vuelve a guardar una partida ya acabada (net/stats.js: marcada como subida). */
     resave: r => save(r).catch(() => {}),
     exportData, download, castOf, who, TL_KEYS, MAX,

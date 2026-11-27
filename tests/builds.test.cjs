@@ -153,7 +153,7 @@ test('build: en el juego (pantallas, sello, cartas, suelo, pausa, mando y textos
   const tag = f => dev.indexOf('<script defer src="' + f + '"></script>');
   assert.ok(tag('js/systems/build.js') > tag('js/systems/levelup.js') && tag('js/systems/levelup.js') > 0);
   assert.ok(tag('js/ui/build-ui.js') > tag('js/ui/run-ui.js') && tag('js/ui/run-ui.js') > 0);
-  assert.ok(/<section id="scr-build" class="scr dim modal hidden"/.test(dev));
+  assert.ok(/<section id="scr-build" class="scr dim modal fs-scr hidden"/.test(dev));
   assert.ok(/role="tab" data-k="m"/.test(dev) && /role="tab" data-k="p"/.test(dev) && /role="tab" data-k="i"/.test(dev), 'pestañas (LB / RB del mando)');
   assert.ok(/data-back/.test(dev.slice(dev.indexOf('id="scr-build"'), dev.indexOf('id="scr-build"') + 600)), 'B / Esc cierran');
   assert.ok(source('js/ui/ui.js').includes("'scr-build'"));

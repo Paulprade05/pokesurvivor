@@ -207,6 +207,8 @@ test('aldea: todos los textos también en inglés', () => {
   for (const m of read('js/world/village.js').match(/lines: \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)) all.add(m[1]);
   for (const p of V.PLACES) { all.add(p.name); all.add(p.act); all.add(p.sub); if (p.npc) p.npc.lines.forEach(l => all.add(l)); }
   for (const c of V.CAST) c.lines.forEach(l => all.add(l));
+  // (Bloque H) Charlas, lluvia, bienvenida y dormidos.
+  for (const k of ['CHAT', 'RAIN', 'WELCOME', 'NAP']) { assert.ok(V[k] && V[k].length, k); V[k].forEach(l => all.add(l)); }
   const has = s => s === '...' || en.includes(JSON.stringify(s)) || en.includes("'" + s.replace(/'/g, "\\'") + "'");
   const miss = [...all].filter(s => !has(s));
   assert.deepEqual(miss, []);

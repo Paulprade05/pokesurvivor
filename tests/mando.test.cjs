@@ -30,6 +30,7 @@ function boot(state = 'playing') {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(source('js/ui/nav.js'), ctx, { filename: 'nav.js' });
   vm.runInContext(source('js/core/gamepad.js'), ctx, { filename: 'gamepad.js' });
   const P = ctx.G.Pad;
   /** Un fotograma con estos botones pulsados. */
@@ -158,22 +159,6 @@ test('elegir el botón en Ajustes: espera a soltar el que lo ha pedido y no lleg
   assert.equal(got, null);
 });
 
-test('navegación: lo que está en línea va antes que lo de la diagonal, y nada hacia atrás', () => {
-  const { P } = boot();
-  // La pantalla de entrar: desde «Entrar» (derecha) a la izquierda va «Jugar como invitado», no «¿Olvidaste…?».
-  const entrar = [402, 383, 690, 420], invitado = [106, 362, 376, 394], olvido = [397, 350, 505, 364];
-  assert.equal(P.pick(entrar, [olvido, invitado], -1, 0), 1);
-  // Una rejilla: abajo, la de debajo; a la derecha, la de al lado.
-  const g = (c, r) => [c * 110, r * 60, c * 110 + 100, r * 60 + 50];
-  const cells = [g(0, 0), g(1, 0), g(0, 1), g(1, 1)];
-  assert.equal(P.pick(g(0, 0), cells.slice(1), 0, 1), 1);
-  assert.equal(P.pick(g(0, 0), cells.slice(1), 1, 0), 0);
-  assert.equal(P.pick(g(0, 0), cells.slice(1), -1, 0), -1);
-  assert.equal(P.pick(g(1, 1), cells.slice(0, 3), 0, 1), -1);
-  // Sin nada en línea, el más cercano en diagonal.
-  assert.equal(P.pick(g(0, 0), [g(1, 1), g(3, 4)], 1, 0), 0);
-});
-
 test('nombres de los botones según el mando (Xbox, PlayStation, Switch) y la pista del HUD', () => {
   const b = boot();
   assert.equal(b.P.familyOf('054c-0ce6-Wireless Controller'), 'ps');
@@ -288,7 +273,7 @@ test('los atajos y primeras selecciones de pad-ui apuntan a cosas que existen', 
 test('textos nuevos de los menús con mando: en inglés', () => {
   const en = source('js/data/lang-en.js'), js = source('js/ui/pad-ui.js');
   const has = k => en.includes(JSON.stringify(k) + ':') || en.includes("'" + k.replace(/'/g, "\'") + "':");
-  const keys = new Set([...js.matchAll(/(?:label: |item\((?:stick|g\('\w+'\)|pair\('\w+', '\w+'\)), )'([^']+)'/g)].map(m => m[1]));
+  const keys = new Set([...js.matchAll(/(?:label: |\[(?:stick|g\('\w+'\)|pair\('\w+', '\w+'\)), )'([^']+)'/g)].map(m => m[1]));
   assert.ok(keys.size > 15, 'pocas etiquetas: ' + keys.size);
   for (const k of keys) assert.ok(has(k), 'sin inglés: ' + k);
 });

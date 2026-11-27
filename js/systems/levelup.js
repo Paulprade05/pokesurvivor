@@ -1,7 +1,7 @@
 /* ============ levelup.js — las tres cartas de subida de nivel ============
  * Tipos de carta:
- *   new   aprender un movimiento nuevo (sólo si quedan huecos de los 4; un vínculo libera huecos)
- *   up    mejorar un movimiento que ya tienes
+ *   new   aprender un movimiento nuevo (sólo con menos de 4 ataques distintos; fusionar no libera huecos: 1.0, bloque C)
+ *   up    mejorar un movimiento que ya tienes (con rareza: r 0-3 y su extra, 1.0 bloque D, systems/fortune.js)
  *   stat  mejora permanente de la run (pasiva: como mucho 4 distintas, ver MAX_PASSIVES)
  */
 G.LevelUp = (() => {
@@ -194,6 +194,9 @@ G.LevelUp = (() => {
              need: evoLvl(ev.needs, pl), n: taken[ev.needs] || 0, has: ev.ready, max, ready: ev.ready && max, blocked: !ev.ready && !!pl && !canTake(pl, ev.needs) };
   }
 
+  /** ¿Puede aprender otro ataque? Menos de maxMoves ataques distintos (fusionados o no): 1.0, bloque C. */
+  const canLearn = pl => pl.moves.length < pl.maxMoves;
+
   /**
    * Ataques que evolucionan con la carta `id`: los tuyos (sin evolucionar; ready si
    * ya están al máximo y con esta carta la pasiva llega justo al nivel que piden) y,
@@ -203,7 +206,7 @@ G.LevelUp = (() => {
     const E = G.Moves.EVO, mine = [], more = [], n = (pl.statsTaken && pl.statsTaken[id]) || 0;
     const reach = n + 1 === evoLvl(id, pl);
     for (const m of pl.moves) if (!m.evolved && E[m.id] && E[m.id][1] === id) mine.push({ id: m.id, name: m.name, ready: reach && m.lvl >= m.def.maxLvl });
-    if (pl.slots.length < pl.maxMoves) {
+    if (canLearn(pl)) {
       for (const mid of runPool(pl)) {
         if (E[mid] && E[mid][1] === id && !pl.hasMove(mid) && !(pl.banned && pl.banned.has(mid))) more.push(mid);
       }
@@ -243,7 +246,8 @@ G.LevelUp = (() => {
     const out = [];
 
     // --- movimientos nuevos ---
-    if (pl.slots.length < pl.maxMoves) {
+    // (1.0, bloque C) Cuentan los ataques, no los huecos: con 4 (fusionados o no) ya no salen más.
+    if (canLearn(pl)) {
       // Con 2 potenciadores ya no se ofrecen más: los buff no hacen daño y
       // llenar los 4 huecos con ellos deja la run sin salida. (Desde el 22-10-2026
       // cuentan juntos con los escudos y los barridos de pantalla: G.Moves.nonAttacking.)
@@ -299,15 +303,18 @@ G.LevelUp = (() => {
     }
 
     // --- mejoras de movimientos que ya tienes ---
+    // (1.0, bloque D) Cada una sale con rareza (la tabla única con tu suerte, systems/fortune.js): sube el nivel de
+    // siempre (uno, nunca dos) y su extra (r, rx: lo que da) se queda en el ataque.
     for (const m of pl.moves) {
       const txt = G.Moves.nextUpText(m);
       if (!txt) continue;
+      const CR = G.CardRarity, r = CR ? CR.roll(pl) : 0, rx = CR && r ? CR.text(m, r) : '';
       out.push({
-        w: 8, type: 'up', key: 'up:' + m.id,
+        w: 8, type: 'up', key: 'up:' + m.id, r,
         icon: 'move:' + m.id, color: G.U.TYPE_COLOR[m.type],
         tag: 'Nv.' + m.lvl + ' > ' + (m.lvl + 1),
-        title: G.T(m.name), desc: txt, evo: evoNeed(m, pl),
-        apply: () => G.Moves.levelUp(m)
+        title: G.T(m.name), desc: txt, rx, evo: evoNeed(m, pl),
+        apply: () => { G.Moves.levelUp(m); if (CR && r) CR.apply(m, r); }
       });
     }
 
@@ -335,10 +342,10 @@ G.LevelUp = (() => {
       const evoFor = waiting[s.id], done = evoFor && (pl.statsTaken[s.id] || 0) + 1 >= evoLvl(s.id, pl);
       // Un pasivo que no le sirve a ninguno de tus movimientos (Réplica con sólo
       // cuerpo a cuerpo...) sale la mitad. Con huecos libres no: aún puede servir.
-      const idle = !evoFor && s.id !== 'luck' && PASSIVES.includes(s) && pl.slots.length >= pl.maxMoves &&
+      const idle = !evoFor && s.id !== 'luck' && PASSIVES.includes(s) && !canLearn(pl) &&
                    !pl.moves.some(m => G.Moves.passiveAffects(m.kind, s.id));
       out.push({
-        w: evoFor ? 14 : needed[s.id] ? 11 : (pl.slots.length < pl.maxMoves ? 4 : 7) * (idle ? 0.5 : 1),
+        w: evoFor ? 14 : needed[s.id] ? 11 : (canLearn(pl) ? 4 : 7) * (idle ? 0.5 : 1),
         type: 'stat', key: 'stat:' + s.id,
         icon: s.icon, color: done ? '#ffd23f' : '#8fa3c4', tag: done ? 'Evoluciona ' + evoFor.map(m => G.T(m.name)).join(', ') : 'Mejora',
         title: s.title, desc: s.desc, evolves: evolvesWith(s.id, pl),

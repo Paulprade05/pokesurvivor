@@ -39,7 +39,8 @@ test('Coraza en su techo: la carta deja de salir, salvo que la pida una evoluciÃ
   const G = boot(), L = G.LevelUp;
   G.T = t => t;
   const ids = pl => { const seen = new Set(); for (let i = 0; i < 200; i++) for (const c of L.offer(pl, 20)) seen.add(c.key); return seen; };
-  const base = extra => Object.assign(player({ def: 4 }), { slots: [1, 2, 3, 4], dmgReduce: 0.6 }, extra);
+  // (sin sitio para otro ataque: desde la 1.0, bloque C, cuentan los ataques, no los huecos)
+  const base = extra => Object.assign(player({ def: 4 }), { maxMoves: 0, dmgReduce: 0.6 }, extra);
   assert.equal(ids(base()).has('stat:def'), false);
   assert.equal(ids(base({ dmgReduce: 0.54 })).has('stat:def'), true);
   const id = Object.keys(G.Moves.EVO).find(k => G.Moves.EVO[k][1] === 'def' && G.Moves.BY_ID[k] && G.Moves.BY_ID[k].kind !== 'buff');

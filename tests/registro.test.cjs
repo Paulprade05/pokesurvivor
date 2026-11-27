@@ -218,6 +218,33 @@ test('registro: no objects per hit; a hit with no run going is a no-op', () => {
   assert.equal(R.build().moves.ember.hits, 1001);
 });
 
+test('registro 1.0 (bloque A): shop, vitamins, curse, companion, fortune and encounters in r.v1', () => {
+  const { R } = load();
+  const { pl } = player();
+  R.v1.buy('item', 'lifeorb', 2, 500);      // sin partida: nada
+  R.start(pl, {});
+  assert.deepEqual(J(R.build().v1), { buy: [], spent: 0, vit: {}, vitT: [], curse: [], comp: null, fortune: 0, enc: [] }, 'vacío hasta que los bloques lo usen');
+  R.tick(5, 5);
+  R.v1.encounter('shop');
+  R.v1.buy('item', 'lifeorb', 2, 500); R.v1.buy('heal', null, null, 120);
+  R.v1.vitamin('protein', 1, 0.03); R.v1.vitamin('protein', 3, 0.06);
+  R.v1.curse(1, true); R.v1.curse(1, false);
+  R.v1.companion('hatch', 4); R.v1.compHit(10); R.v1.compHit(2.5); R.v1.companion('evo', 5); R.v1.companion('down');
+  R.v1.fortune(0.4); R.v1.fortune(0.2);
+  const v = J(R.build().v1);
+  assert.equal(v.spent, 620);
+  assert.deepEqual(v.buy.map(b => b.slice(1)), [['item', 'lifeorb', 2, 500], ['heal', null, null, 120]]);
+  assert.deepEqual(v.vit, { protein: 0.09 });
+  assert.deepEqual(v.vitT.map(x => x.slice(1)), [['protein', 1], ['protein', 3]]);
+  assert.deepEqual(v.curse.map(x => x.slice(1)), [[1, 1], [1, 0]]);
+  assert.equal(v.comp.dex, 5); assert.equal(v.comp.downs, 1); assert.equal(v.comp.dealt, 13); assert.equal(v.comp.evo.length, 1);
+  assert.equal(v.fortune, 0.4);
+  assert.deepEqual(v.enc.map(x => x[1]), ['shop']);
+  // build() copia: lo que se cambie después no toca lo ya construido.
+  const b = R.build(); R.v1.buy('luck', null, null, 50);
+  assert.equal(b.v1.buy.length, 2);
+});
+
 test('analizar-partidas: summary of an export (attacks, killers, healing, cards, bosses)', async () => {
   const { R } = load();
   const runs = [];

@@ -40,3 +40,40 @@ for (const f of lista) {
   bytes += fs.statSync(a).size;
 }
 console.log(`Copiados ${lista.length} archivos (${(bytes / 1048576).toFixed(1)} MB) a ${path.relative(RAIZ, DESTINO)}`);
+
+// (1.0, jugar sin conexión) El SDK de Firebase que carga js/core/db.js, dentro de la app: la app lo sirve
+// ella en su dirección de siempre (src/main.rs, SDK_FIREBASE), así que el juego abre la nube y la última
+// sesión aunque no haya internet. Se baja de su sitio oficial (www.gstatic.com) y se comprueba su SHA-256;
+// queda guardado en target/firebasejs/ para no bajarlo cada vez.
+const SDK_VERSION = '13.0.0';
+const SDK = {
+  'firebase-app-compat.js': 'ea496cf11c04c22f4472b953b2571d9837bef6c2172742e0d12d6cf113bc29fe',
+  'firebase-auth-compat.js': '8fd505bd78e9df31526019424eea695141a083c686e01783317b3b3759db9eac',
+  'firebase-firestore-compat.js': '4631281ec75348173cb1f20dfdbff84bff3044c04de67580ffb0361c22275327',
+  'firebase-database-compat.js': '235d12f716e9a766244f577e5f8ba83f3a28a1a7429e5cb438ede8d0ea810cb6',
+};
+const usada = fs.readFileSync(path.join(RAIZ, 'js', 'core', 'db.js'), 'utf8').match(/firebasejs\/([\d.]+)\//)[1];
+if (usada !== SDK_VERSION) {
+  console.error(`js/core/db.js usa el SDK de Firebase ${usada} y aquí está el ${SDK_VERSION}: pon la versión y las SHA-256 nuevas en SDK.`);
+  process.exit(1);
+}
+const sha = b => require('crypto').createHash('sha256').update(b).digest('hex');
+(async () => {
+  const cache = path.join(__dirname, 'target', 'firebasejs', SDK_VERSION);
+  const dest = path.join(DESTINO, 'firebasejs', SDK_VERSION);
+  fs.mkdirSync(cache, { recursive: true });
+  fs.mkdirSync(dest, { recursive: true });
+  for (const [f, h] of Object.entries(SDK)) {
+    const c = path.join(cache, f);
+    let d = fs.existsSync(c) ? fs.readFileSync(c) : null;
+    if (!d || sha(d) !== h) {
+      const r = await fetch(`https://www.gstatic.com/firebasejs/${SDK_VERSION}/${f}`);
+      if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`);
+      d = Buffer.from(await r.arrayBuffer());
+      if (sha(d) !== h) throw new Error(`${f}: la SHA-256 no coincide (${sha(d)})`);
+      fs.writeFileSync(c, d);
+    }
+    fs.writeFileSync(path.join(dest, f), d);
+  }
+  console.log(`SDK de Firebase ${SDK_VERSION} (${Object.keys(SDK).length} archivos) en ${path.relative(RAIZ, dest)}`);
+})().catch(e => { console.error('No se pudo copiar el SDK de Firebase:', e.message); process.exit(1); });
