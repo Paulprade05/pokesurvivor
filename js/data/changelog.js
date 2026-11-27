@@ -6,6 +6,20 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-27', title: ["La maldición", "The curse"], new: [
+    ["Santuarios malditos: desde el minuto 5, uno en cada tramo de 5 minutos, esperándote en el mapa (sin avisos: hay que encontrarlos). Al tocarlo eliges si aceptas un nivel más de maldición para el resto de la partida. Si dices que no, se apaga.",
+     "Cursed shrines: from minute 5, one in every 5-minute stretch, waiting on the map (no alerts: you have to find them). Touch it and choose whether to take one more curse level for the rest of the run. If you say no, it goes dark."],
+    ["Maldición (hasta el nivel 5): cada nivel da a los enemigos +8 % de vida, +6 % de daño y salen un 10 % más (el número de enemigos a la vez no sube). A cambio, al aceptarla +6 % de suerte, y por cada nivel +9 % de experiencia y +12 % de monedas de la partida. Al tope: +45 % de experiencia y +60 % de monedas.",
+     "Curse (up to level 5): each level gives enemies +8% HP, +6% damage and 10% more spawns (the number of enemies at once does not go up). In return, +6% luck when you accept it, and per level +9% experience and +12% run coins. At the cap: +45% experience and +60% coins."],
+    ["Kecleon también vende maldición (250 monedas, una por visita). Tu nivel de maldición se ve en la pausa y junto a las monedas.",
+     "Kecleon also sells curse (250 coins, one per visit). Your curse level shows in the pause screen and next to your coins."],
+    ["En grupo, la maldición es de todos: la acepta cualquiera y cada uno recibe sus premios.",
+     "In co-op, the curse belongs to the whole group: anyone can accept it and everyone gets their own rewards."]],
+  chg: [
+    ["Ranking: con el mismo tiempo, va delante quien ha derrotado más enemigos.",
+     "Leaderboard: with the same time, whoever defeated more enemies ranks higher."],
+    ["Smeargle, el santuario de reto y Porygon salen algo menos (en el 35 % de los tramos, antes el 60 %), porque ahora cada tramo trae un santuario maldito.",
+     "Smeargle, the challenge shrine and Porygon show up a bit less often (in 35% of stretches, 60% before), since every stretch now brings a cursed shrine."]] },
   { d: '2026-11-25', title: ["Encuentros en el mapa", "Encounters on the map"], new: [
     ["Explorando el mapa te encuentras, cada 5 minutos, uno o dos encuentros que te esperan quietos (sin avisos ni flechas: hay que buscarlos). Al acercarte sale su botón, como el de los cofres. No aparecen mientras hay una grieta abierta: salen después.",
      "While exploring the map you find one or two encounters every 5 minutes, waiting in place (no alerts or arrows: you have to look for them). Get close and their button shows up, like a chest's. They don't appear while a rift is open: they come afterwards."],

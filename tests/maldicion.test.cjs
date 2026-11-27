@@ -191,6 +191,6 @@ test('pantalla, pausa, HUD, icono, arte e inglés', () => {
   for (const f of ['js/systems/curse.js', 'js/ui/encounter-ui.js', 'js/ui/run-ui.js'])
     for (const m of source(f).matchAll(/G\.(?:T|I18n\.f)\('([^']+)'/g)) keys.add(m[1]);
   for (const k of ['Maldición', 'Tocar', 'No aceptar', 'Santuario maldito']) keys.add(k);
-  const miss = [...keys].filter(k => /maldici|Maldici|Tocar|No aceptar|Nv\. \{x\} \/|Enemigos:|Premio:|vida de los enemigos/.test(k) && !en.includes(`'${k}'`));
+  const miss = [...keys].filter(k => /maldici|Maldici|Tocar|No aceptar|Nv\. \{x\} \/|enemigos \+|% suerte, |vida de los enemigos/.test(k) && !en.includes(`'${k}'`));
   assert.deepEqual(miss, []);
 });

@@ -3163,10 +3163,10 @@ G.I18n.add({
 
 // (1.0, bloque F) La maldición: santuarios malditos y Kecleon (systems/curse.js).
 G.I18n.add({
-  'Tocar': 'Touch', 'No aceptar': 'Decline', 'Maldición': 'Curse', 'Nv. {x} / {x}': 'Lv. {x} / {x}',
+  'Tocar': 'Touch', 'No aceptar': 'Decline', 'Maldición': 'Curse',
   'Maldición: Nv. {x} / {x} · para el resto de la partida': 'Curse: Lv. {x} / {x} · for the rest of the run',
-  'Enemigos: +{x} % de vida, +{x} % de daño y +{x} % de aparición': 'Enemies: +{x} % HP, +{x} % damage and +{x} % spawns',
-  'Premio: +{x} % de suerte ya; +{x} % de experiencia y +{x} % de monedas': 'Reward: +{x} % luck now; +{x} % experience and +{x} % coins',
+  'Nv. {x}: enemigos +{x} % vida, +{x} % daño, +{x} % más': 'Lv. {x}: enemies +{x} % HP, +{x} % damage, +{x} % more',
+  '+{x} % suerte, +{x} % exp., +{x} % monedas': '+{x} % luck, +{x} % exp., +{x} % coins',
   'Ya llevas la maldición al tope': 'Your curse is already at its cap',
   'Maldición Nv. {x}: enemigos más duros · +{x} % de suerte': 'Curse Lv. {x}: tougher enemies · +{x} % luck',
   'vida de los enemigos +{x} %': 'enemy HP +{x} %'

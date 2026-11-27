@@ -110,10 +110,10 @@ G.EncounterUI = (() => {
   function curseCard(pl) {
     const C = G.Curse, nx = Math.min(C.MAX, C.level + 1), top = C.level >= C.MAX, a = C.at(nx), pc = v => Math.round(v * 100);
     return { cls: 'is-stat', icon: 'curse', tile: 'tint', tileC: C.COL,
-             eyebrow: `<span class="pc-eyebrow">${top ? G.T('Al máximo') : G.I18n.f('Nv. {x} / {x}', nx, C.MAX)}</span>`, title: G.T('Maldición'),
+             eyebrow: top ? `<span class="pc-eyebrow">${G.T('Al máximo')}</span>` : '', title: G.T('Maldición'),
              desc: top ? G.T('Ya llevas la maldición al tope')
-               : G.I18n.f('Enemigos: +{x} % de vida, +{x} % de daño y +{x} % de aparición', pc(a.hp), pc(a.dmg), pc(a.rate))
-                 + `<span class="enc-note">${G.I18n.f('Premio: +{x} % de suerte ya; +{x} % de experiencia y +{x} % de monedas', pc(C.GIFT.luck), pc(a.xp), pc(a.coin))}</span>` };
+               : G.I18n.f('Nv. {x}: enemigos +{x} % vida, +{x} % daño, +{x} % más', nx, pc(a.hp), pc(a.dmg), pc(a.rate))
+                 + `<span class="enc-note">${G.I18n.f('+{x} % suerte, +{x} % exp., +{x} % monedas', pc(C.GIFT.luck), pc(a.xp), pc(a.coin))}</span>` };
   }
 
   function curseCards(pl, o) {
