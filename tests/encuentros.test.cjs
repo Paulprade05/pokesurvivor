@@ -85,7 +85,7 @@ test('Más PP: +1 de cantidad por toma, por encima del tope de Réplica (EXTRA_M
   assert.equal(full.count, noPP + 2 * n, 'Más PP no cuenta para EXTRA_MAX');
 });
 
-test('el plan: 1-2 por tramo de 5 min, templo y Kecleon alternos, sin repetir en un tramo, sin F/G', () => {
+test('el plan: templo y Kecleon alternos, un santuario maldito por tramo desde el 2.º (F), sin repetir en un tramo, sin G', () => {
   for (let s = 1; s <= 300; s++) {
     const plan = E.makePlan(seeded(s)), tr = {};
     for (const x of plan) {
@@ -97,7 +97,8 @@ test('el plan: 1-2 por tramo de 5 min, templo y Kecleon alternos, sin repetir en
     }
     for (let k = 0; k < 6; k++) {
       const t = tr[k] || [];
-      assert.ok(t.length >= 1 && t.length <= 2, `semilla ${s} tramo ${k}: ${t}`);
+      // (Bloque F, dueño 27-11-2026) Desde el 2.º tramo, además, un santuario maldito: 2-3 en esos tramos.
+      assert.ok(k ? t.length >= 2 && t.length <= 3 && t.includes('curse') : t.length === 1, `semilla ${s} tramo ${k}: ${t}`);
       assert.equal(t.includes(k % 2 ? 'shop' : 'temple'), true);
       assert.equal(new Set(t).size, t.length, 'repetido en el tramo');
       if (k === 0) assert.equal(t.length, 1);
@@ -134,7 +135,7 @@ test('la bolsa: lo que te llevarías a la cuenta, menos lo gastado; comprar y qu
   assert.equal(E.purse(p), want);
   const e = { type: 'shop' };
   const offers = E.shopOffers(p, e);
-  assert.deepEqual(J(offers.map(o => o.kind).sort()), ['heal', 'item', 'luck', 'vitamin']);
+  assert.deepEqual(J(offers.map(o => o.kind).sort()), ['curse', 'heal', 'item', 'luck', 'vitamin']);
   assert.equal(E.shopOffers(p, e), offers, 'la misma visita, lo mismo');
   const it = offers.find(o => o.kind === 'item'), luck = offers.find(o => o.kind === 'luck'), heal = offers.find(o => o.kind === 'heal');
   assert.equal(E.buy(p, heal, () => {}), false, 'con la vida llena no se cura');
@@ -156,10 +157,11 @@ test('la bolsa: lo que te llevarías a la cuenta, menos lo gastado; comprar y qu
   G.Game.st.time = 0;
 });
 
-test('Kecleon: huevos y maldición sólo como hueco (bloques G y F)', () => {
-  assert.deepEqual(J(E.CATALOG.filter(c => c.off).map(c => c.kind).sort()), ['curse', 'egg']);
-  assert.ok(E.TYPES.curse.off && E.TYPES.egg.off);
-  assert.ok(!E.shopOffers(player({ bonusCoins: 9999 }), { type: 'shop' }).some(o => o.kind === 'egg' || o.kind === 'curse'));
+test('Kecleon: huevos sólo como hueco (bloque G); la maldición ya se vende (bloque F: tests/maldicion.test.cjs)', () => {
+  assert.deepEqual(J(E.CATALOG.filter(c => c.off).map(c => c.kind).sort()), ['egg']);
+  assert.ok(E.TYPES.egg.off && !E.TYPES.curse.off);
+  const offers = E.shopOffers(player({ bonusCoins: 9999 }), { type: 'shop' });
+  assert.ok(!offers.some(o => o.kind === 'egg') && offers.some(o => o.kind === 'curse'));
 });
 
 test('Smeargle: sólo ataques sueltos, nunca el último; el activo sigue siendo el mismo', () => {

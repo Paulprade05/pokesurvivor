@@ -179,14 +179,16 @@ G.Spawner = (() => {
     // (2.0, bloque 2) Vida base más suave desde el minuto 5 (hpBase) y, encima, lo que pida el director según lo rápido
     //  que matas: una parte en vida y el resto como «defensa» (defK). Su daño, también con el director.
     //  Cooperativo: vida y daño ×N (los que jugáis al crearlo, G.Coop.scale; el director lo descuenta al medir: coopN).
-    const D = G.Director, n = G.Coop.scale(players.length);
+    //  (1.0, bloque F) La maldición, aparte y encima (G.Curse): vida y daño. e.curseK: el director la descuenta al medir.
+    const D = G.Director, n = G.Coop.scale(players.length), CK = G.Curse ? G.Curse.hp() : 1;
     const e = new G.Enemy(def, x, y, scaled(G.Enemies.scale(t), n * hpK(t) * lateHp(t) * G.Enemies.earlyHp(t) *
-                                                                G.Enemies.hpBase(t) * (D ? D.hpPart() : 1) * (o.hp || 1)));
+                                                                G.Enemies.hpBase(t) * (D ? D.hpPart() : 1) * CK * (o.hp || 1)));
     if (D) e.defK = D.defK();
+    if (CK !== 1) e.curseK = CK;
     e.coopN = n;
     if (o.weak) e.weak = true;
     // (Experiencia: de la tabla por reloj G.Enemies.xpAt desde la 2.0; antes tramo × XP_K × xpLag.)
-    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (D ? D.dmg() : 1) * (o.dmg || 1) * n;
+    e.dmg *= DMG_K * lateDmg(t) * G.Enemies.earlyK(t) * (D ? D.dmg() : 1) * (G.Curse ? G.Curse.dmg() : 1) * (o.dmg || 1) * n;
     e.xp = Math.max(1, Math.round(G.Enemies.xpAt(t) * (def.behavior === 'tank' ? 1.3 : 1) * (o.xp || 1)));
     // (Con el tope más bajo de los primeros minutos, la élite sigue saliendo a partir de los mismos que antes.)
     e.elite = !o.weak && G.EnemyMgr.count >= Math.max(capAt(t), CAP_EARLY) * ELITE_FROM;
@@ -228,7 +230,7 @@ G.Spawner = (() => {
     //  techo de bossCap se calcula con la vida de solitario y el DPS de cada uno, y luego ×N; antes ×(1+0,3·(N-1))×1,4).
     const n = G.Coop.scale(players.length);
     const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), (G.Director ? G.Director.lvHp() : 1)), true);
-    e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1) * n;   // (principio suave, 28-10-2026; director, 2.0)
+    e.dmg *= G.Enemies.earlyK(t) * (G.Director ? G.Director.dmg() : 1) * (G.Curse ? G.Curse.dmg() : 1) * n;   // (principio suave, 28-10-2026; director, 2.0; maldición, 1.0)
     // (11-11-2026) Los dúos del final (25:00 y 27:30): cada uno pega DUO_DMG (sus golpes y zonas; las firmas con % de tu vida,
     //  igual). Dos a la vez son el doble de golpes y de avisos en el suelo: medido, en el minuto 25 había jefe en 12 de 12
     //  partidas y se recibían 14 vidas por minuto.
@@ -442,7 +444,7 @@ G.Spawner = (() => {
     // --- goteo normal ---
     const cap = capAt(t);
     if (G.EnemyMgr.count < cap) {
-      acc += rate(t) * G.Coop.scaleRate(players.length) * (bossFight ? 0.25 : 1) * dt;
+      acc += rate(t) * G.Coop.scaleRate(players.length) * (G.Curse ? G.Curse.rate() : 1) * (bossFight ? 0.25 : 1) * dt;   // (maldición: +10 %/nivel, mismo tope)
       let n = Math.floor(acc);
       acc -= n;
       while (n-- > 0 && G.EnemyMgr.count < cap) spawnOne(anchor(), t, null, bossFight ? FIGHT_XP : undefined);

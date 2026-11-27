@@ -96,7 +96,8 @@ G.Director = (() => {
     //  y × cuántos le han pegado. Si le pegáis todos, cuenta como siempre; si cada uno va a lo suyo, tardar el doble
     //  con dos es lo pedido y el director no lo deshace.)
     const share = e.coopN > 1 ? Math.min(e.coopN, e.hitBy ? e.hitBy.size : 1) / e.coopN : 1;
-    const te = e.maxHp * share / (e.dmgIn / Math.max(0.25, ttk));
+    // (1.0, bloque F) Sin la maldición (e.curseK, spawner.js): va aparte y el director no la compensa bajando la vida.
+    const te = e.maxHp / (e.curseK || 1) * share / (e.dmgIn / Math.max(0.25, ttk));
     if (!(te > 0) || !isFinite(te)) return;
     lnSum += Math.log(te); wSum += 1;
   }

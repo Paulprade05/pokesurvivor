@@ -765,6 +765,9 @@ G.RunUI = (() => {
       ['scope-lens', 'Crítico', pct(pl.critChance || 0)],
       // (1.0, bloque D) Suerte: sube la rareza de las cartas de mejora y de los objetos que coges (systems/fortune.js).
       ['luck', 'Suerte', (G.Fortune ? G.Fortune.pct(pl) : 0) + ' %'],
+      // (1.0, bloque F) Maldición: su nivel y lo que les suma a los enemigos (systems/curse.js).
+      ['curse', 'Maldición', (G.Curse ? G.Curse.level : 0) + ' / ' + (G.Curse ? G.Curse.MAX : 5),
+        G.Curse && G.Curse.level ? G.I18n.f('vida de los enemigos +{x} %', Math.round(G.Curse.at(G.Curse.level).hp * 100)) : ''],
       ['shield', 'Reducción de daño', pct(pl.reduction)],
       ['clock', 'Recarga', pl.cdMul < 0.995 ? '−' + pct(1 - pl.cdMul) : '0 %'],
       ['sprout', 'Regeneración', pl.regen.toFixed(1).replace('.', ',') + ' /s'],
