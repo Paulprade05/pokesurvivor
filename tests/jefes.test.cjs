@@ -270,15 +270,16 @@ test('co-op: boss signatures, the rift skip and where the legendaries appear rea
   const field = { k: 'wave', x: 12, y: -40, r0: 30, spd: 165, th: 22, gaps: [1.25, -2.5], gw: 0.36, delay: 0.7, dur: 4, dmg: 33, st: 'ice', col: '#8fe4ff', col2: '#ffffff' };
   host.G.Coop.broadcast(['bsg', field]);
   host.G.Coop.broadcast(['bsg', { k: 'sky', st: 'bolt', pts: [[1, 2, 0.85], [3, 4, 1.1]], dur: 1.6 }]);
-  host.G.Coop.broadcast(['lgi', [[383, 100, -20], [382, -100, -20]]]);
+  host.G.Coop.broadcast(['lgi', [[383, 100, -20, 1], [382, -100, -20, 0]]]);
   host.G.Coop.broadcast(['rk']);
+  host.G.Coop.broadcast(['lk']);
   host.G.Coop.broadcast(['arena', { tx: 5000, ty: 5000, r: 11, dex: 383, shiny: false, type: 'ground', dexes: [383, 382], shinies: [false, false], time: 170, intro: 2 }]);
   deliver();
   assert.deepEqual(guest.got.bsg[0], field);
   assert.deepEqual(guest.got.bsg[1].pts, [[1, 2, 0.85], [3, 4, 1.1]]);
-  assert.deepEqual(guest.got.rift.map(e => e[0]), ['lgi', 'rk', 'arena']);
-  assert.deepEqual(guest.got.rift[0][1], [[383, 100, -20], [382, -100, -20]]);
-  assert.equal(guest.got.rift[2][1].intro, 2);
+  assert.deepEqual(guest.got.rift.map(e => e[0]), ['lgi', 'rk', 'lk', 'arena']);
+  assert.deepEqual(guest.got.rift[0][1], [[383, 100, -20, 1], [382, -100, -20, 0]]);
+  assert.equal(guest.got.rift[3][1].intro, 2);
 });
 
 test('co-op: the new signature fields (wave across, square cage, spinning arms, status zaps, swap, clouds, pull) reach guests intact', () => {
@@ -336,21 +337,27 @@ function loadRift(opts = {}) {
   return w;
 }
 
-test('rift: entering travels through the tunnel, the legendary takes ~2 s to appear and then the fight starts', () => {
+test('rift: entering, the rift pulls you in, you travel through the tunnel, the legendary is presented and then the fight starts', () => {
   const w = loadRift();
   const R = w.G.Rift;
+  const S = Math.ceil(R.SUCK * 30);                              // (bloque H) la absorción, antes del túnel
   R.debugArena('ground', 1, 383);
   assert.ok(R.traveling, 'viaja');
   assert.ok(!R.inArena, 'aún en el mapa');
-  for (let i = 0; i < 20; i++) R.travelTick(1 / 30);           // 0,66 s: ya en la arena (tapado por el túnel)
+  for (let i = 0; i < S; i++) R.travelTick(1 / 30);
+  assert.ok(!R.inArena, 'la absorción aún es en el mapa');
+  for (let i = 0; i < 20; i++) R.travelTick(1 / 30);           // 0,66 s de túnel: ya en la arena (tapado por el túnel)
   assert.ok(R.inArena && R.traveling);
   for (let i = 0; i < 60; i++) R.travelTick(1 / 30);
-  assert.ok(!R.traveling && R.arena.phase === 'intro');
+  assert.ok(!R.traveling && R.arena.phase === 'intro' && R.presenting);
   assert.equal(w.log.spawned.length, 0, 'el legendario aún no ha salido');
-  for (let i = 0; i < 50; i++) R.update(1 / 30, w.me, 600);
+  // Sin legend-fx.js (aquí): 0,5 s de cámara + 2 s de aparición + 0,8 s con su nombre + 0,45 s de vuelta = 3,75 s.
+  assert.ok(Math.abs(R.introPlan.total - 3.75) < 1e-6, String(R.introPlan.total));
+  for (let i = 0; i < 105; i++) R.update(1 / 30, w.me, 600);
   assert.equal(w.log.spawned.length, 0);
-  for (let i = 0; i < 20; i++) R.update(1 / 30, w.me, 600);
+  for (let i = 0; i < 15; i++) R.update(1 / 30, w.me, 600);
   assert.equal(w.log.spawned.length, 1);
+  assert.ok(!R.presenting);
   assert.equal(w.log.spawned[0].dex, 383);
   assert.equal(R.arena.phase, 'fight');
   assert.ok(R.timeLeft >= R.arena.time - 0.5, 'el reloj de la arena empieza al aparecer');
@@ -380,6 +387,121 @@ test('rift: the skip works only for whoever decides; the host tells everyone ("r
   assert.ok(!guest.G.Rift.traveling && guest.G.Rift.arena.phase === 'intro');
   guest.G.Rift.onEvent(['lgi', lgi]);
   assert.equal(guest.log.spawned.length, 0, 'el invitado no crea legendarios');
+});
+
+// ---------------- bloque H de la 1.0: uno detrás de otro, se puede saltar y más corta la segunda vez ----------------
+
+/** Hasta la llegada (presentando) con n legendarios. */
+function toPresent(w, n, dex = 382) {
+  const R = w.G.Rift;
+  R.debugArena('water', n, dex);
+  for (let i = 0; i < 200 && R.traveling; i++) R.travelTick(1 / 30);
+  assert.ok(R.presenting, 'presentando');
+  return R;
+}
+
+test('rift (block H): with 3 legendaries each one appears after the previous one ends, the camera visits each and they all spawn at the end', () => {
+  const w = loadRift();
+  const R = toPresent(w, 3);
+  const P = R.introPlan, L = P.list;
+  assert.equal(L.length, 3);
+  for (let i = 1; i < 3; i++) assert.ok(L[i].at >= L[i - 1].end, 'el ' + (i + 1) + '.º sale cuando acaba el anterior');
+  // La cámara va hasta cada uno mientras sale.
+  const intro = () => R.introPlan;
+  const visited = new Set();
+  w.G.Camera.follow = () => {};
+  for (let i = 0; i < 400 && R.presenting; i++) {
+    R.presentTick(1 / 30);
+    const t = R.introT;
+    for (const l of intro() ? intro().list : []) if (t > l.at + 0.05 && t < l.end) visited.add(l.dex + ':' + Math.round(w.G.Camera.x));
+    if (!R.presenting) break;
+    assert.equal(w.log.spawned.length, 0, 'nadie sale antes de acabar la presentación');
+  }
+  assert.ok(!R.presenting && R.arena.phase === 'fight');
+  assert.equal(w.log.spawned.length, 3);
+  assert.ok(new Set([...visited].map(v => v.split(':')[0])).size === 3, 'la cámara ha estado en los tres');
+  // Al acabar, ya vistos (en tu partida, no en best).
+  for (const l of L) assert.ok(w.G.DB.save.lseen[l.dex] > 0);
+});
+
+test('rift (block H): a legendary you have already seen has a shorter arrival', () => {
+  const first = loadRift();
+  const long = toPresent(first, 1, 383).introPlan;
+  const again = loadRift();
+  again.G.DB.save.lseen = { 383: Date.now() };
+  const short = toPresent(again, 1, 383).introPlan;
+  assert.ok(!long.list[0].short && short.list[0].short);
+  assert.ok(short.total < long.total * 0.6, long.total + ' → ' + short.total);
+});
+
+test('rift (block H): only the host skips the arrival; it tells everyone ("lk") and the short/long choice travels in "lgi"', () => {
+  const host = loadRift({ host: true, uid: 'host' });
+  host.G.DB.save.lseen = { 382: 1 };
+  const R = toPresent(host, 2, 382);
+  const lgi = host.log.sent.find(e => e[0] === 'lgi')[1];
+  assert.equal(lgi.map(p => p.length).join(), '4,4');
+  assert.equal(lgi.find(p => p[0] === 382)[3], 1, 'el anfitrión ya lo había visto: corta');
+  R.presentTick(0.1);
+  R.skipPresent();
+  assert.ok(R.presenting, 'no se salta en las primeras décimas');
+  R.presentTick(0.4);
+  R.skipPresent();
+  assert.ok(!R.presenting && host.log.spawned.length === 2);
+  assert.ok(host.log.sent.some(e => e[0] === 'lk'));
+  // Invitado: no lo salta él; con el 'lgi' copia la corta/larga del anfitrión; el 'lk' lo salta.
+  const guest = loadRift({ uid: 'guest' });
+  guest.G.Coop.active = true; guest.G.Coop.isHost = false;
+  guest.G.Rift.onEvent(['arena', host.log.sent[0][1]]);
+  for (let i = 0; i < 200 && guest.G.Rift.traveling; i++) guest.G.Rift.travelTick(1 / 30);
+  guest.G.Rift.onEvent(['lgi', lgi]);
+  assert.ok(guest.G.Rift.introPlan.list.find(l => l.dex === 382).short, 'corta, como el anfitrión');
+  guest.G.Rift.presentTick(0.5);
+  guest.G.Rift.skipPresent();
+  assert.ok(guest.G.Rift.presenting);
+  guest.G.Rift.onEvent(['lk']);
+  assert.ok(!guest.G.Rift.presenting && guest.log.spawned.length === 0);
+});
+
+test('rift (block H): an "lk" that arrives while the guest is still in the tunnel skips the arrival as soon as it lands', () => {
+  const guest = loadRift({ uid: 'guest' });
+  guest.G.Coop.active = true; guest.G.Coop.isHost = false;
+  guest.G.Rift.onEvent(['arena', { tx: 5000, ty: 5000, r: 11, dex: 383, shiny: false, type: 'ground', dexes: [383], shinies: [false], time: 120, intro: 2 }]);
+  guest.G.Rift.travelTick(0.9);
+  guest.G.Rift.onEvent(['lk']);
+  for (let i = 0; i < 200 && guest.G.Rift.traveling; i++) guest.G.Rift.travelTick(1 / 30);
+  assert.ok(!guest.G.Rift.presenting && guest.G.Rift.arena.phase === 'fight');
+});
+
+test('legend-fx (block H): own animations by dex, the generic one for the rest, and every one draws without errors', () => {
+  const calls = [];
+  // (Animaciones de legendarios) Como el lienzo de verdad: un radio negativo en arc/ellipse lanza un error y corta el dibujo
+  //  (el legendario no se ve); y nada de números que no sean finitos.
+  const check = (k, a) => {
+    assert.ok(a.every(v => typeof v !== 'number' || Number.isFinite(v)), k + ' con un número no finito: ' + a.join(', '));
+    if (k === 'arc') assert.ok(a[2] >= 0, 'arc con radio negativo: ' + a[2]);
+    if (k === 'ellipse') assert.ok(a[2] >= 0 && a[3] >= 0, 'ellipse con radio negativo: ' + a[2] + ', ' + a[3]);
+  };
+  const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' && /^[a-z]/.test(k) && !['globalAlpha', 'fillStyle', 'strokeStyle', 'lineWidth', 'lineCap', 'font'].includes(k) ? (...a) => { check(k, a); calls.push(k); } : undefined), set: (o, k, v) => { o[k] = v; return true; } });
+  const G = { U: { hash: (a, b, c) => ((Math.sin(a * 12.9898 + b * 78.233 + (c || 0) * 37.719) * 43758.5453) % 1 + 1) % 1 },
+    FX: { glowAt() {}, ring() {}, burst() {}, px() {} }, Camera: { kick() {} }, Settings: { get: () => false }, T: s => s,
+    BossFX: { appear() {}, accent() {}, appearSprite: () => ({ a: 1, rise: 0, lift: 0 }) } };
+  vm.runInContext(source('js/entities/legend-fx.js'), vm.createContext({ G, Math }));
+  const L = G.LegendFX;
+  assert.ok(L.own.length >= 3, 'al menos tres propias de ejemplo');
+  for (const dex of [...L.own, 999]) {
+    const d = L.def(dex), l = { dex, x: 0, y: 0, col: '#ff6a1f', col2: '#ffd25e', seed: dex * 7, sc: 1.5, st: 'erupt', acc: 'embers', short: false };
+    assert.equal(d.own, dex !== 999);
+    assert.ok(d.dur >= 1.2 && d.dur <= 3 && d.short >= 0.5 && d.short < d.dur && d.cue > 0 && d.cue < 1, 'duraciones de ' + dex);
+    for (let k = 0; k <= 1.0001; k += 0.01) {       // (fino: un radio negativo puede durar pocos fotogramas)
+      d.back(ctx, l, k, k * 2); d.front(ctx, l, k, k * 2);
+      const s = d.sprite(l, k);
+      assert.ok(s && s.a >= 0 && s.a <= 1, 'sprite de ' + dex);
+      if (d.tick) d.tick(l, k, 1 / 30);
+    }
+    if (d.onCue) d.onCue(l);
+    assert.ok(typeof L.title(dex) === 'string' && L.title(dex).length > 3);
+  }
+  assert.ok(calls.length > 50);
 });
 
 test('rift: every legendary arrives in its own way (style + touch, never the same pair) and the drawing knows them all', () => {
@@ -513,7 +635,7 @@ test('rift: pickSpots, with 200 seeds, puts every legendary inside, free, away f
   const w = loadRift();
   const R = w.G.Rift;
   R.debugArena('ground', 3, 383);
-  for (let i = 0; i < 30; i++) R.travelTick(1 / 30);
+  for (let i = 0; i < 30 + Math.ceil(R.SUCK * 30); i++) R.travelTick(1 / 30);
   const a = R.arena, ts = 32;                                      // (baldosas de U = 32 de rift.js, no casillas de 48)
   w.G.World.isFree = (x, y) => !(Math.abs(x - a.x - 5 * ts) < 40 && Math.abs(y - a.y) < 60);     // una columna a la derecha
   const seen = new Set();
@@ -564,8 +686,8 @@ test('rift: in co-op the legendaries get ×N hp and damage (N = 1, 2, 4), with b
     const Base = w.G.Enemy;
     w.G.Enemy = class extends Base { constructor(def, ...a) { super(def, ...a); this.dmg = def.dmg; } };
     w.G.Rift.debugArena('ground', 1, 383);
-    for (let i = 0; i < 80; i++) w.G.Rift.travelTick(1 / 30);
-    for (let i = 0; i < 90 && !w.log.spawned.length; i++) w.G.Rift.update(1 / 30, w.me, 600);
+    for (let i = 0; i < 80 + Math.ceil(w.G.Rift.SUCK * 30); i++) w.G.Rift.travelTick(1 / 30);
+    for (let i = 0; i < 150 && !w.log.spawned.length; i++) w.G.Rift.update(1 / 30, w.me, 600);
     assert.equal(w.log.spawned.length, 1, 'N=' + n);
     assert.deepEqual(asked, [n]);
     return w.log.spawned[0];

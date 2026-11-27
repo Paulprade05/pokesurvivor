@@ -507,7 +507,8 @@ G.Coop = (() => {
       case 'ov': { const cb = api.over; const d = ev[1]; end(); cb(d); break; }
       case 'rift': case 'riftx': case 'arena': case 'aw': case 'al': G.Rift.onEvent(ev); break;
       // (26-10-2026) Viaje por la grieta: el anfitrión lo salta ('rk') y dónde aparecen los legendarios ('lgi').
-      case 'rk': case 'lgi': G.Rift.onEvent(ev); break;
+      // (Bloque H de la 1.0) El anfitrión salta la llegada de los legendarios ('lk'). Una versión anterior no lo conoce.
+      case 'rk': case 'lgi': case 'lk': G.Rift.onEvent(ev); break;
       // (26-10-2026) Firmas de los jefes: campos y marcas (G.BossSig). Una versión anterior no lo conoce y lo ignora.
       case 'bsg': if (G.BossSig) G.BossSig.onNet(ev[1]); break;
       case 'jd': case 'jk': G.Judgment.onEvent(ev); break;

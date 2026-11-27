@@ -1742,7 +1742,7 @@ G.Game = (() => {
     if (!G.Judgment.cinematic) G.HUD.draw(ctx, w, h, pl, st);
     G.Judgment.drawOverlay(ctx, w, h);
     // (En el viaje por la grieta no hay HUD ni joystick: toda la pantalla es el botón de saltarlo.)
-    if (!G.Rift.traveling) G.Touch.draw(ctx);
+    if (!G.Rift.traveling && !G.Rift.presenting) G.Touch.draw(ctx);
     drawAimMark();
     if (G.Settings.get('fps')) {
       ctx.save();
