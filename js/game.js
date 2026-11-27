@@ -1410,6 +1410,7 @@ G.Game = (() => {
     watchFloor(ctx, cv);                 // (el vigilante mira el suelo antes de la niebla: sobre negro, la niebla parecería mundo)
     G.Atmos.ground(ctx, cam);            // (ambientación: la niebla va aquí, debajo de avisos, recompensas, enemigos y disparos)
     G.EnemyAI.drawGround(ctx);           // (los que van bajo tierra: su montículo)
+    if (pl && state !== 'ui') G.Encounters.drawGround(ctx);   // (templos 3D: la zona de templos y santuarios)
     G.Hazards.draw(ctx);
     G.Combat.drawGroundFields(ctx);
     G.Pickups.draw(ctx);
@@ -1501,6 +1502,7 @@ G.Game = (() => {
       // (Partida en 3D) Los planos que van en 3D (manantiales, setas explosivas) no se pintan en el suelo.
       for (const p of props) if (p.flat && !(u3 && G.Ultra3D.owns(p))) G.World.drawProp(gx, p, t);
       G.EnemyAI.drawGround(gx);
+      if (pl && state !== 'ui') G.Encounters.drawGround(gx);
       G.Hazards.draw(gx);
       G.Combat.drawGroundFields(gx);
       G.Pickups.draw(gx);

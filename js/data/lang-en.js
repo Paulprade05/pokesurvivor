@@ -3275,6 +3275,7 @@ G.I18n.add({
   'Has olvidado {x}': 'You forgot {x}', 'Ya tienes todas las vitaminas al tope · +{x} % de suerte': 'All your vitamins are at their cap · +{x} % luck',
   '¡Reto! Aguanta {x} s en el círculo': 'Challenge! Hold out {x} s in the circle', '¡Reto superado! +{x} % de suerte': 'Challenge cleared! +{x} % luck',
   'Reto superado, pero estabas fuera del círculo': 'Challenge cleared, but you were outside the circle', 'Reto fallido': 'Challenge failed',
+  'Has salido del templo: vuelve a empezar': 'You left the temple: it starts over',
   'Gastado en la partida': 'Spent in the run'
 });
 

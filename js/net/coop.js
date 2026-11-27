@@ -407,7 +407,7 @@ G.Coop = (() => {
         case 'hs': holdOn(from); break;
         case 'he': holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
-        case 'enc': if (G.Encounters && (ev[1] === 'c' || ev[1] === 'k')) G.Encounters.onNet(ev, from); break;   // (1.0, bloques E y F) un invitado activa el reto o acepta la maldición
+        case 'enc': if (G.Encounters && (ev[1] === 'c' || ev[1] === 'k' || ev[1] === 'tw')) G.Encounters.onNet(ev, from); break;   // (1.0, bloques E y F) un invitado activa el reto o acepta la maldición; (templos 3D) pide una oleada del templo
         case 'bye': mateGone(from); break;
       }
     }

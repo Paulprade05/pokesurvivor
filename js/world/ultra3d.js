@@ -801,7 +801,7 @@ G.Ultra3D = (() => {
   }
 
   /** Lo que va con instancing de este fotograma: los objetos de world.js (vis) y la flora de ambient.js. */
-  function collect(vis, bi, t) {
+  function collect(vis, bi, t, box) {
     ins.clear();
     allIns = [];
     const P3 = G.Props3D, pl = G.Game && G.Game.player;
@@ -845,6 +845,13 @@ G.Ultra3D = (() => {
     if (P3 && fl) for (const f of fl) {
       const key = P3.FLORA[f.row];
       if (key) push('f' + f.x + ',' + f.y, key, f.x, f.y - 4, 0, (H(f.x, f.y, 43) - 0.5) * 0.8, 0.85 + H(f.x, f.y, 44) * 0.3, 1);
+    }
+    // (Templos 3D, 27-11-2026) Templos y santuarios (systems/encounters.js) y las piedras de su zona; ids 'e…', como la flora
+    // van solos en el orden por Y (rows). box: lo que se ve, con margen.
+    if (P3 && G.Encounters && box) for (const m of G.Encounters.models()) {
+      if (m.x < box[0] || m.x > box[2] || m.y < box[1] || m.y > box[3]) continue;
+      if (push(m.id, m.key, m.x, m.y, 0, 0, 1, 1) && m.glow && G.Settings.fx > 0)
+        glowSeen.push({ x: m.x, y: m.y, z: m.glow[0], s: m.glow[2], k: 0.5 * (0.85 + Math.sin(t * 3 + m.x * 0.01) * 0.15), col: m.glow[1] });
     }
     if (sig !== insSig) { insSig = sig; shadowDirty = true; }
   }
@@ -963,7 +970,9 @@ G.Ultra3D = (() => {
     const t = performance.now() / 1000;
     for (const p of vis) if (OWN[p.type]) syncProp(p, t);
     uni.time.value = G.Anim && !G.Anim.on ? 0 : t;
-    collect(vis, bi, t);
+    collect(vis, bi, t, [cam.x - ex - 140, top - 60, cam.x + ex + 140, bot + 180]);
+    // (Templos 3D) Los modelos de los encuentros que hay en el mapa, preparados de uno en uno por fotograma antes de verse.
+    if (G.Encounters && G.Props3D) for (const k of G.Encounters.keys3d()) if (!kinds.has(bi + ':' + k)) { kindOf(bi + ':' + k); break; }
     for (const q of rockAll) allIns.push(q);
     syncRift(bi, t);
     // (Los que no se ven, ni se dibujan ni dan sombra: un cofre roto dejaba su sombra en el suelo.)
@@ -1073,8 +1082,11 @@ G.Ultra3D = (() => {
     if (!b) b = { objs: [], inst: [], ids: dbg.on ? [] : null, x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, ay: -1 };
     if (rockRow) for (const q of rockRow) b.inst.push(q); else if (e) b.inst.push(e); else b.objs.push(o);
     let ux0 = Infinity, uy0 = Infinity, ux1 = -Infinity, uy1 = -Infinity;
-    for (const x of [x0, x1]) for (const [y, z] of [[y0, h], [y1, 0], [y1, h], [y0, 0]]) {
-      const [u, v] = proj(x, y, z);
+    // (Las 8 esquinas, sin crear arreglos: con la flora y las piedras de los templos eran la basura de cada fotograma.)
+    for (let i = 0; i < 8; i++) {
+      const k = i >> 1, x = i & 1 ? x1 : x0, y = k === 1 || k === 2 ? y1 : y0, z = k === 0 || k === 2 ? h : 0;
+      const w = P[12] * x + P[13] * y + P[14] * z + P[15];
+      const u = ((P[0] * x + P[1] * y + P[2] * z + P[3]) / w + 1) * Wl / 2, v = (1 - (P[4] * x + P[5] * y + P[6] * z + P[7]) / w) * Hl / 2;
       if (u < ux0) ux0 = u; if (u > ux1) ux1 = u; if (v < uy0) uy0 = v; if (v > uy1) uy1 = v;
     }
     if (ux0 < b.x0) b.x0 = ux0; if (ux1 > b.x1) b.x1 = ux1; if (uy0 < b.y0) b.y0 = uy0; if (uy1 > b.y1) b.y1 = uy1;
@@ -1095,6 +1107,8 @@ G.Ultra3D = (() => {
     const ov = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
     const box = b => [b.x0 * R + Ox, b.y0 * R + Oy, b.x1 * R + Ox, b.y1 * R + Oy];
     const area = b => Math.max(0, b.x1 - b.x0) * Math.max(0, b.y1 - b.y0);
+    // (= ov(box(c), r), sin crear la caja.)
+    const ovb = (c, r) => c.x0 * R + Ox < r[2] && r[0] < c.x1 * R + Ox && c.y0 * R + Oy < r[3] && r[1] < c.y1 * R + Oy;
     const join = (a, b) => {
       for (const o of b.objs) a.objs.push(o);
       for (const e of b.inst) a.inst.push(e);
@@ -1115,9 +1129,9 @@ G.Ultra3D = (() => {
         // En su hueco: con los lotes que se le cruzan (todos en uno) o con uno al lado si apenas crece; si no, uno nuevo.
         let into = null;
         for (let k = 0; k < list.length; k++) {
-          const c = list[k], cr = box(c);
-          const u = { x0: Math.min(c.x0, one.x0), y0: Math.min(c.y0, one.y0), x1: Math.max(c.x1, one.x1), y1: Math.max(c.y1, one.y1) };
-          if (!ov(cr, r) && area(u) > (area(c) + area(one)) * 1.25) continue;
+          const c = list[k];
+          const uA = Math.max(0, Math.max(c.x1, one.x1) - Math.min(c.x0, one.x0)) * Math.max(0, Math.max(c.y1, one.y1) - Math.min(c.y0, one.y0));
+          if (!ovb(c, r) && uA > (area(c) + area(one)) * 1.25) continue;
           if (!into) { into = c; join(c, one); } else { join(into, c); list.splice(k, 1); k--; }
         }
         if (!into) list.push(one);

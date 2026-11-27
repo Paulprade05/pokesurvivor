@@ -10,15 +10,15 @@
  *              jefes y recogidas, con tu Fortuna, menos lo gastado: endRun lo descuenta). Vende un objeto con rareza,
  *              curarte, una vitamina, suerte, un huevo (bloque G) y maldición (bloque F).
  *              No vende cambiar cartas. Una visita por Kecleon: al irte, se va.
- *   temple     Templo de vitaminas: quedarte en su círculo lo carga (salir lo descarga); lleno, eliges 1 de 3 vitaminas con
- *              rareza (G.Vitamins) y te da suerte. Una vez por jugador.
+ *   temple     Templo de vitaminas: quedarte en su círculo lo carga (salir lo vuelve a 0) mientras salen oleadas de enemigos
+ *              que te presionan; lleno, eliges 1 de 3 vitaminas con rareza (G.Vitamins) y te da suerte. Una vez por jugador.
  *   smeargle   Smeargle: olvidas un ataque SUELTO (no fusionado). El olvidado puede volver a salir en las cartas.
  *   challenge  Santuario de reto: lo activas y salen enemigos de élite CHALLENGE_T s. Si aguantas en su círculo, objeto
  *              épico (70 %) o legendario (30 %) y suerte. Si te alejas más de AWAY_T s seguidos o caes, nada.
  *   machine    Porygon: sube un escalón la rareza de uno de tus objetos (conserva su evolución). Una vez por máquina.
  *   egg        Chansey (bloque G, systems/companion.js): una vez por partida, en el 2.º tramo después de la grieta; te da un
  *              huevo (eliges si te lo quedas). Kecleon también los vende. Una visita: al irte, se va.
- *   curse      Santuario maldito (bloque F, systems/curse.js): lo tocas y eliges si aceptas un nivel más de maldición (enemigos
+ *   curse      Santuario maldito (bloque F, systems/curse.js): lo tocas (dentro de su círculo) y eliges si aceptas un nivel más de maldición (enemigos
  *              más duros el resto de la partida, a cambio de experiencia, monedas y suerte). Uno por tramo desde el minuto 5.
  *              Si dices que no, se apaga para ti. En grupo, la maldición es del grupo (la sube el anfitrión).
  *
@@ -26,9 +26,17 @@
  *   ×1,3 / ×1,7 / ×2,2 si es raro / épico / legendario y +25 % cada vez que compras lo mismo. Máquina: a raro 400, a épico
  *   800, a legendario 1.200 (+5 %/min). Suerte (dueño, «media»): templo +5 %, Kecleon +10 % (hasta 2 por tienda), reto +15 %.
  *
+ * (Templos 3D, 27-11-2026, el dueño: «los templos y santuarios quiero que sean en 3d y abarquen una zona más grande para
+ *  tener que quedarme en ellos o interactuar con ellos»; lo eligió entre propuestas) Templo, santuario de reto y santuario
+ *  maldito tienen una zona grande (ZONE_R, media pantalla) marcada en el suelo y con piedras de runa en el borde. Templo:
+ *  quedarse TEMPLE_T s; si sales, vuelve a empezar; mientras, oleadas (TEMPLE_WAVE). Reto y maldito: su botón sale en
+ *  cualquier sitio de la zona (interact.js). Se ven en 3D en PC (world/props3d.js, ultra3d.js) y en pixel art grande con
+ *  volumen en móvil (tools/pxl/encuentros.px.js, maldicion.px.js).
+ *
  * Cooperativo: el anfitrión los coloca y avisa ('enc', 'a': el invitado los pone en el mismo sitio). Lo demás es de cada
  *   uno (cada ordenador lo suyo, nada por la red): tu bolsa, tu templo, tu Smeargle, tu máquina. El reto es compartido: lo
- *   lleva el anfitrión (salen sus enemigos), y al acabar cada uno cobra si estaba en el círculo.
+ *   lleva el anfitrión (salen sus enemigos), y al acabar cada uno cobra si estaba en el círculo. Las oleadas del templo
+ *   también las crea el anfitrión (el invitado que lo carga se las pide: 'enc', 'tw').
  *
  * El bot de tools/curve.cjs los juega por su contrato: tipos en G.World.specialsNear, used/done, p.r y p.charge del
  *   templo, y la pantalla #scr-encounter (ui/encounter-ui.js) con sus cartas data-kind / data-id / data-r / data-price.
@@ -135,7 +143,9 @@ G.Encounters = (() => {
   const TRAMO = 300, MAX_ALIVE = 5, AFTER_RIFT = 190;
   const DIST = [760, 1300];              // a cuánto de ti aparecen (fuera de la vista, a 1-2 pantallas)
   const SEEN_R = 420;                    // a esta distancia cuenta como «encontrado» (registro)
-  const TEMPLE_R = 88, TEMPLE_T = 8, CHALLENGE_R = 170, CHALLENGE_T = 30, AWAY_T = 6;
+  // (Templos 3D) Zona grande para los tres (antes, templo 88 y reto 170), templo más largo (antes 8 s) y sus oleadas.
+  const ZONE_R = 220, TEMPLE_R = ZONE_R, TEMPLE_T = 12, CHALLENGE_R = ZONE_R, CHALLENGE_T = 30, AWAY_T = 6;
+  const TEMPLE_WAVE = 3, RING_N = 12;     // cada cuánto sale una oleada mientras cargas; piedras del borde de la zona
   const LUCK = { temple: 0.05, shop: 0.10, challenge: 0.15 }, LUCK_PER_SHOP = 2;
   const PRICE = { heal: 80, vitamin: 200, item: 300, luck: 250, egg: 250, curse: 250 };
   const RAR_K = [1, 1.3, 1.7, 2.2], MIN_K = 0.05, AGAIN_K = 1.25, MACHINE = [0, 400, 800, 1200];
@@ -147,11 +157,11 @@ G.Encounters = (() => {
   /** Los encuentros. dex: el Pokémon que lo lleva (sprite de siempre); art: dibujo hecho con pxl (assets/pxl). */
   const TYPES = {
     shop:      { dex: 352, name: 'Kecleon', act: 'Hablar' },
-    temple:    { art: 'temple', name: 'Templo de vitaminas', zone: TEMPLE_R },
+    temple:    { art: 'temple', name: 'Templo de vitaminas', zone: TEMPLE_R, col: '#ffd23f', stone: 'zst_t' },
     smeargle:  { dex: 235, name: 'Smeargle', act: 'Hablar' },
-    challenge: { art: 'shrine', name: 'Santuario de reto', act: 'Retar', zone: CHALLENGE_R },
+    challenge: { art: 'shrine', name: 'Santuario de reto', act: 'Retar', zone: CHALLENGE_R, col: '#ff6b6b', stone: 'zst_c' },
     machine:   { dex: 137, name: 'Porygon', act: 'Hablar' },
-    curse:     { art: 'curse', name: 'Santuario maldito', act: 'Tocar' },   // bloque F (systems/curse.js)
+    curse:     { art: 'curse', name: 'Santuario maldito', act: 'Tocar', zone: ZONE_R, col: '#b56cff', stone: 'zst_k' },   // bloque F (systems/curse.js)
     egg:       { dex: 113, name: 'Chansey', act: 'Hablar' }      // bloque G
   };
   const authority = () => !G.Coop.active || G.Coop.isHost;
@@ -196,26 +206,49 @@ G.Encounters = (() => {
 
   // ---------------- colocarlos ----------------
   /** Un sitio libre a DIST de pl, fuera de la vista y lejos de los demás encuentros. */
-  function spotFor(pl, rnd = Math.random) {
+  function spotFor(pl, rnd = Math.random, zone = 0) {
     const view = G.Camera.outerRadius ? G.Camera.outerRadius() : 600;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       const a = rnd() * 6.2832, d = Math.max(view + 120, DIST[0]) + rnd() * (DIST[1] - DIST[0]);
       const x = Math.round(pl.x + Math.cos(a) * d), y = Math.round(pl.y + Math.sin(a) * d * 0.8);
       if (!G.World.isFree(x, y, 40) || !G.World.isFree(x + 30, y, 20) || !G.World.isFree(x - 30, y, 20)) continue;
       if (G.World.isLiquid && G.World.isLiquid(x, y)) continue;
-      if (list.some(e => G.U.dist2(e.x, e.y, x, y) < 500 * 500)) continue;
-      if (G.Rift.rift && G.U.dist2(G.Rift.rift.x, G.Rift.rift.y, x, y) < 400 * 400) continue;
+      if (list.some(e => G.U.dist2(e.x, e.y, x, y) < Math.max(500, (e.zone || 0) + zone + 100) ** 2)) continue;
+      if (G.Rift.rift && G.U.dist2(G.Rift.rift.x, G.Rift.rift.y, x, y) < (400 + zone * 0.5) ** 2) continue;
+      // (Templos 3D) Con zona: casi toda por donde se puede andar (6 de 8 puntos a 0,6 del radio, sin pared ni agua).
+      if (zone && !zoneOk(x, y, zone)) continue;
       return [x, y];
     }
     return null;
+  }
+
+  function zoneOk(x, y, R) {
+    let ok = 0;
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * 6.2832, px = x + Math.cos(a) * R * 0.6, py = y + Math.sin(a) * R * 0.6;
+      if (G.World.isFree(px, py, 16) && !(G.World.isLiquid && G.World.isLiquid(px, py))) ok++;
+    }
+    return ok >= 6;
+  }
+
+  /** (Templos 3D) Las piedras del borde de la zona (sólo dibujo): RING_N, sin las que caen en pared o agua. */
+  function ringOf(e) {
+    const out = [], W = G.World, R = e.zone;
+    for (let i = 0; i < RING_N; i++) {
+      const j = ((e.x * 7 + e.y * 13 + i * 31) % 17 + 17) % 17 / 17 - 0.5;
+      const a = (i + j * 0.3) / RING_N * 6.2832, x = Math.round(e.x + Math.cos(a) * R), y = Math.round(e.y + Math.sin(a) * R);
+      if (W && W.isFree && (!W.isFree(x, y, 10) || (W.isLiquid && W.isLiquid(x, y)))) continue;
+      out.push({ x, y, i });
+    }
+    return out;
   }
 
   function make(o) {
     const T = TYPES[o.type];
     const e = Object.assign({ id: nextId++, r: 18, used: false, done: false, charge: 0, seen: false, fade: 0, t0: now() }, o);
     e.enc = true;
-    if (T.zone) e.zone = T.zone;
-    if (o.type === 'temple') e.r = TEMPLE_R;       // (el bot lee p.r como el radio del círculo)
+    // (El bot lee p.r como el radio del círculo; interact.js saca el botón de reto y maldito en toda la zona.)
+    if (T.zone) { e.zone = T.zone; e.r = T.zone; e.ring = ringOf(e); e.wt = 0; }
     if (T.dex) { e.dex = T.dex; e.anim = new G.Sprites.Animator(T.dex, 1); e.anim.dir = 0; }
     list.push(e);
     // Sin sitio para todos: se va el más viejo sin usar que no se ve.
@@ -225,7 +258,7 @@ G.Encounters = (() => {
   }
 
   function place(type, pl) {
-    const at = spotFor(pl);
+    const at = spotFor(pl, Math.random, TYPES[type].zone || 0);
     if (!at) return null;
     const e = make({ type, x: at[0], y: at[1] });
     if (G.Coop.isHost) G.Coop.broadcast(['enc', 'a', e.id, type, e.x, e.y]);
@@ -265,8 +298,16 @@ G.Encounters = (() => {
   // ---------------- templo ----------------
   function temple(dt, pl, e, d2) {
     const inside = !pl.dead && !pl.frozen && d2 < TEMPLE_R * TEMPLE_R;
-    e.charge = G.U.clamp(e.charge + (inside ? dt / TEMPLE_T : -dt / (TEMPLE_T * 2)), 0, 1);
-    if (inside && Math.random() < dt * 10) G.FX.px(e.x + G.U.rand(-30, 30), e.y - G.U.rand(10, 60), '#ffe9a8', { vy: -40, life: 0.6 });
+    // (Templos 3D, el dueño: «se reinicia») Si sales a medias, vuelve a empezar.
+    if (!inside) {
+      if (e.charge > 0.12) G.Spawner.say(G.T('Has salido del templo: vuelve a empezar'), 2.2, true, { col: '#ffd23f' });
+      e.charge = 0; e.wt = 0;
+      return;
+    }
+    e.charge = Math.min(1, e.charge + dt / TEMPLE_T);
+    // Mientras cargas, oleadas que te presionan (la primera nada más entrar).
+    if ((e.wt -= dt) <= 0 && e.charge < 1) { e.wt = TEMPLE_WAVE; templeWave(e); }
+    if (Math.random() < dt * 10) G.FX.px(e.x + G.U.rand(-30, 30), e.y - G.U.rand(10, 60), '#ffe9a8', { vy: -40, life: 0.6 });
     if (e.charge < 1) return;
     e.used = true; e.charge = 1;
     G.Audio.sfx('legend');
@@ -275,6 +316,15 @@ G.Encounters = (() => {
     const opts = G.Vitamins.offer(pl, 3);
     if (!opts.length) { G.Spawner.say(G.I18n.f('Ya tienes todas las vitaminas al tope · +{x} % de suerte', Math.round(LUCK.temple * 100)), 3, true); return; }
     open(e, { kind: 'temple', vit: opts });
+  }
+
+  /** Una oleada del templo: enemigos normales del elenco de ahora, desde fuera de la zona. La crea el anfitrión. */
+  function templeWave(e) {
+    if (!authority()) { G.Coop.toHost(['enc', 'tw', e.id]); return; }
+    const t = now();
+    if (e.lastWave && t - e.lastWave < TEMPLE_WAVE * 0.6) return;   // (dos cargándolo a la vez: una oleada, no dos)
+    e.lastWave = t;
+    G.Spawner.challenge(e.x, e.y, 3 + Math.floor(minute() / 5), undefined, { plain: true, d: [ZONE_R + 30, ZONE_R + 110] });
   }
 
   // ---------------- abrir uno (botón 'open', desde interact.js) ----------------
@@ -449,6 +499,8 @@ G.Encounters = (() => {
       // (Bloque F) La maldición: un invitado la acepta (k, al anfitrión) y el anfitrión dice el nivel nuevo a todos (ku).
       case 'k': if (G.Coop.isHost && G.Curse.level < G.Curse.MAX) { const e = byId(ev[2]); if (e) e.used = true; G.Curse.setLevel(G.Curse.level + 1); G.Coop.broadcast(['enc', 'ku', G.Curse.level, ev[2] | 0]); } break;
       case 'ku': { const e = byId(ev[3]); if (e) e.used = true; G.Curse.setLevel(ev[2]); break; }
+      // (Templos 3D) Un invitado carga su templo: la oleada la crea el anfitrión.
+      case 'tw': { const e = byId(ev[2]); if (e && e.type === 'temple' && G.Coop.isHost) templeWave(e); break; }
     }
   }
 
@@ -466,62 +518,122 @@ G.Encounters = (() => {
     if (!im) { im = imgs[name] = new Image(); im.src = 'assets/pxl/' + name + '.png'; }
     return im.complete && im.naturalWidth ? im : null;
   }
+  const live = e => !!ch && ch.e === e;                       // el reto en marcha
+  const dead = e => (e.used || e.done) && !live(e);           // ya usado: apagado
+  const sees = (x, y, p) => !G.Camera.sees || G.Camera.sees(x, y, p);
 
-  function drawZone(ctx, e, col, k) {
-    const rx = e.zone, ry = e.zone * 0.72, t = performance.now() / 1000;
-    ctx.save();
-    ctx.globalAlpha = 0.16 + 0.06 * Math.sin(t * 3);
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.ellipse(e.x, e.y, rx, ry, 0, 0, 6.2832); ctx.fill();
-    ctx.globalAlpha = 0.75;
-    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
-    ctx.beginPath(); ctx.ellipse(e.x, e.y, rx, ry, 0, 0, 6.2832); ctx.stroke();
-    if (k > 0) {
-      ctx.setLineDash([]); ctx.lineWidth = 5; ctx.globalAlpha = 0.95;
-      ctx.beginPath(); ctx.ellipse(e.x, e.y, rx, ry, 0, -Math.PI / 2, -Math.PI / 2 + k * 6.2832); ctx.stroke();
+  /*
+   * (Templos 3D) La zona, en el suelo (game.js: después de los avisos del suelo y antes de lo que está de pie). Un círculo de
+   * verdad (el mismo que cuenta para jugar), con su color, el borde a trazos y, encima, lo que llevas: la carga del templo o
+   * lo que queda del reto.
+   */
+  function drawGround(ctx) {
+    const t = performance.now() / 1000;
+    for (const e of list) {
+      if (!e.zone || dead(e) || !sees(e.x, e.y, e.zone + 40)) continue;
+      const R = e.zone, col = live(e) ? '#ff6b6b' : TYPES[e.type].col;
+      const k = live(e) ? 1 - ch.t / CHALLENGE_T : e.type === 'temple' ? e.charge : 0;
+      ctx.save();
+      ctx.fillStyle = col;
+      ctx.globalAlpha = 0.09 + 0.03 * Math.sin(t * 2.4) + 0.12 * k;
+      ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 0.1;
+      ctx.beginPath(); ctx.arc(e.x, e.y, R * 0.42, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.globalAlpha = 0.75; ctx.setLineDash([14, 10]);
+      ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, 6.2832); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineWidth = 2; ctx.globalAlpha = 0.35;
+      ctx.beginPath(); ctx.arc(e.x, e.y, R - 10, 0, 6.2832); ctx.stroke();
+      if (k > 0) {
+        ctx.lineWidth = 8; ctx.globalAlpha = 0.95;
+        ctx.beginPath(); ctx.arc(e.x, e.y, R, -Math.PI / 2, -Math.PI / 2 + k * 6.2832); ctx.stroke();
+      }
+      ctx.restore();
     }
-    ctx.restore();
   }
 
-  /** Para ordenarlos por Y con el resto (game.js drawScene). */
+  /** Para ordenarlos por Y con el resto (game.js drawScene y D3): el encuentro y las piedras de su zona. */
   function drawables() {
-    const out = [];
+    const out = [], u3 = !!(G.Ultra3D && G.Ultra3D.floraOn);
     for (const e of list) {
-      if (e.zone && !e.used && !e.done) out.push({ y: e.y - 4000, draw: ctx => drawZone(ctx, e, e.type === 'temple' ? '#ffd23f' : '#ff6b6b', e.type === 'temple' ? e.charge : 0) });
-      if (e === (ch && ch.e)) out.push({ y: e.y - 4000, draw: ctx => drawZone(ctx, e, '#ff6b6b', 1 - ch.t / CHALLENGE_T) });
-      out.push({ y: e.y, draw: ctx => drawOne(ctx, e) });
+      const T = TYPES[e.type];
+      if (e.ring) for (const s of e.ring) {
+        if (!sees(s.x, s.y - 40, 60) || (u3 && G.Ultra3D.owns({ id: 'e' + e.id + 's' + s.i }))) continue;
+        out.push({ x: s.x, y: s.y, draw: ctx => drawStone(ctx, e, s) });
+      }
+      const own = u3 && !T.dex && G.Ultra3D.owns({ id: 'e' + e.id });     // (en 3D: aquí sólo su texto)
+      out.push({ x: e.x, y: e.y, draw: ctx => drawOne(ctx, e, own) });
     }
     return out;
   }
 
-  function drawOne(ctx, e) {
+  function drawStone(ctx, e, s) {
+    const im = img(dead(e) ? 'zst_u' : TYPES[e.type].stone);
+    if (!im) return;
+    const w = im.width * 2, h = im.height * 2;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(im, Math.round((s.x - w / 2) / 2) * 2, Math.round((s.y - h + 4) / 2) * 2, w, h);
+  }
+
+  function label(ctx, txt, x, y, col) {
+    ctx.font = '700 18px Grenze,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,4,4,.9)'; ctx.strokeText(txt, x, y);
+    ctx.fillStyle = col; ctx.fillText(txt, x, y);
+  }
+
+  function drawOne(ctx, e, own) {
     const T = TYPES[e.type];
     ctx.save();
-    if (e.fade) ctx.globalAlpha = T.dex ? 1 - e.fade : 0.55;
+    if (e.fade && !own) ctx.globalAlpha = T.dex ? 1 - e.fade : 0.55;
     if (T.dex) {
       G.Sprites.drawShadow(ctx, e.dex, e.x, e.y, 1);
       e.anim.draw(ctx, e.x, e.y, {});
     } else {
-      const im = img(T.art);
+      const im = !own && img(T.art);
       if (im) {
         const w = im.width * 2, h = im.height * 2;
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(im, Math.round((e.x - w / 2) / 2) * 2, Math.round((e.y - h + 6) / 2) * 2, w, h);
       }
-      if (e === (ch && ch.e)) {
-        const left = Math.max(0, Math.ceil(CHALLENGE_T - ch.t));
-        ctx.font = '700 18px Grenze,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,4,4,.9)'; ctx.strokeText(left + ' s', e.x, e.y - 86);
-        ctx.fillStyle = '#ff8b8b'; ctx.fillText(left + ' s', e.x, e.y - 86);
-      }
+      // Lo que queda: del reto, y del templo mientras lo cargas.
+      if (live(e)) label(ctx, Math.max(0, Math.ceil(CHALLENGE_T - ch.t)) + ' s', e.x, e.y - 146, '#ff8b8b');
+      else if (e.type === 'temple' && !dead(e) && e.charge > 0) label(ctx, Math.max(1, Math.ceil(TEMPLE_T * (1 - e.charge))) + ' s', e.x, e.y - 152, '#ffd23f');
     }
     ctx.restore();
   }
 
+  /*
+   * (Templos 3D) Lo que va en 3D en PC (ultra3d.js collect): el modelo de cada templo y santuario (props3d.js; U: apagado) y
+   * las piedras de su zona, con su luz en el suelo. y: donde va el centro del modelo (sus pies, un poco al norte de e.y).
+   */
+  const OFF = { temple: 18, challenge: 6, curse: 7 };
+  // (El halo va detrás del modelo: en lo alto, alrededor de lo que brilla arriba.)
+  const GLOW = { temple: [104, '#ff8ab4', 70], challenge: [95, '#ffa020', 90], curse: [92, '#b56cff', 96] };
+  function models() {
+    const out = [];
+    for (const e of list) {
+      const T = TYPES[e.type];
+      if (T.dex || !e.zone) continue;
+      const off = dead(e);
+      out.push({ id: 'e' + e.id, key: T.art + (off ? 'U' : ''), x: e.x, y: e.y - OFF[e.type], glow: off ? null : GLOW[e.type] });
+      for (const s of e.ring) out.push({ id: 'e' + e.id + 's' + s.i, key: off ? 'zst_u' : T.stone, x: s.x, y: s.y - 2 });
+    }
+    return out;
+  }
+  /** Los modelos que pueden hacer falta pronto (ultra3d.js los prepara de uno en uno antes de verse: sin tirones). */
+  function keys3d() {
+    const out = [];
+    for (const e of list) {
+      const T = TYPES[e.type];
+      if (T.dex || !e.zone) continue;
+      for (const k of [T.art, T.art + 'U', T.stone, 'zst_u']) if (!out.includes(k)) out.push(k);
+    }
+    return out;
+  }
+
   return {
-    TYPES, CATALOG, PRICE, RAR_K, MACHINE, LUCK, LUCK_PER_SHOP, TEMPLE_R, TEMPLE_T, CHALLENGE_R, CHALLENGE_T, TRAMO, MAX_ALIVE, AFTER_RIFT,
+    TYPES, CATALOG, PRICE, RAR_K, MACHINE, LUCK, LUCK_PER_SHOP, ZONE_R, TEMPLE_R, TEMPLE_T, TEMPLE_WAVE, CHALLENGE_R, CHALLENGE_T, TRAMO, MAX_ALIVE, AFTER_RIFT,
     reset, update, makePlan, press, pressable, purse, price, machinePrice, shopOffers, canBuy, buy, forgettable, forget, upgradeItem,
-    near, drawables, onNet,
+    near, drawables, drawGround, models, keys3d, onNet,
     get list() { return list; }, get plan() { return plan; }, get challenge() { return ch; },
     /** Para pruebas: pone uno ya, cerca de ti (d px). */
     debugPlace(type, d = 160) { const pl = G.Game.player; return make({ type, x: Math.round(pl.x + d), y: Math.round(pl.y) }); }
