@@ -19,7 +19,8 @@ function load() {
     Coop: { active: false, isHost: false }, Rift: {}, Judgment: null,
     Reg: { v1: { buy: (...a) => bought.push(a), vitamin() {}, encounter() {} } },
     Audio: { sfx() {} }, FX: { ring() {}, burst() {}, px() {} }, Spawner: { say: t => said.push(t) },
-    Projectiles: { clearOrbs() {} }, Sprites: { preload() {} }
+    Projectiles: { clearOrbs() {} }, Sprites: { preload() {} },
+    Companion: { rollEgg: () => ({ dex: 4, r: 1 }), give: (pl, g) => { pl.companion = { dex: g.dex, r: g.r, egg: true }; } }   // (bloque G: tests/companero.test.cjs)
   };
   const c = { G, Math, console, window: {} };
   c.window.G = G;
@@ -134,7 +135,7 @@ test('la bolsa: lo que te llevarías a la cuenta, menos lo gastado; comprar y qu
   assert.equal(E.purse(p), want);
   const e = { type: 'shop' };
   const offers = E.shopOffers(p, e);
-  assert.deepEqual(J(offers.map(o => o.kind).sort()), ['heal', 'item', 'luck', 'vitamin']);
+  assert.deepEqual(J(offers.map(o => o.kind).sort()), ['egg', 'heal', 'item', 'luck', 'vitamin']);
   assert.equal(E.shopOffers(p, e), offers, 'la misma visita, lo mismo');
   const it = offers.find(o => o.kind === 'item'), luck = offers.find(o => o.kind === 'luck'), heal = offers.find(o => o.kind === 'heal');
   assert.equal(E.buy(p, heal, () => {}), false, 'con la vida llena no se cura');
@@ -157,9 +158,9 @@ test('la bolsa: lo que te llevarías a la cuenta, menos lo gastado; comprar y qu
 });
 
 test('Kecleon: huevos y maldición sólo como hueco (bloques G y F)', () => {
-  assert.deepEqual(J(E.CATALOG.filter(c => c.off).map(c => c.kind).sort()), ['curse', 'egg']);
-  assert.ok(E.TYPES.curse.off && E.TYPES.egg.off);
-  assert.ok(!E.shopOffers(player({ bonusCoins: 9999 }), { type: 'shop' }).some(o => o.kind === 'egg' || o.kind === 'curse'));
+  assert.deepEqual(J(E.CATALOG.filter(c => c.off).map(c => c.kind).sort()), ['curse']);
+  assert.ok(E.TYPES.curse.off && !E.TYPES.egg.off);
+  assert.ok(!E.shopOffers(player({ bonusCoins: 9999 }), { type: 'shop' }).some(o => o.kind === 'curse'));
 });
 
 test('Smeargle: sólo ataques sueltos, nunca el último; el activo sigue siendo el mismo', () => {

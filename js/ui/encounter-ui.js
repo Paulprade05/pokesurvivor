@@ -6,6 +6,7 @@
  *   temple   Templo: elige 1 de 3 vitaminas (o ninguna).
  *   forget   Smeargle: el ataque suelto que olvidas (o ninguno).
  *   machine  Porygon: el objeto al que subes la rareza (o ninguno).
+ *   egg      Chansey (bloque G): el huevo que te da; si ya llevas compañero o huevo, eliges cuál se queda («Irse»: el tuyo).
  * En solitario la partida se para mientras está abierta (G.Game.encounterHold); en grupo sigue, como la pausa.
  * Contrato con el bot (tools/curve.cjs): .pick-card con data-kind (item | heal | vitamin | luck | forget | rarity), data-id,
  * data-r, data-price; «Irse» lleva data-close.
@@ -32,22 +33,26 @@ G.EncounterUI = (() => {
     shop: { ico: 'shop', title: 'Kecleon, tendero ambulante', leave: 'Irse' },
     temple: { ico: 'hpup', title: 'Templo de vitaminas', leave: 'Ninguna' },
     forget: { ico: 'book', title: 'Smeargle', leave: 'No olvidar nada' },
-    machine: { ico: 'up', title: 'Porygon', leave: 'Irse' }
+    machine: { ico: 'up', title: 'Porygon', leave: 'Irse' },
+    egg: { ico: 'egg', title: 'Chansey', leave: 'Irse' }
   };
 
   function render(first = false) {
     const { e, o } = cur, pl = G.Game.player, h = HEAD[o.kind];
     $('enc-ico').innerHTML = G.Icons.html(h.ico, 30);
     $('enc-title').textContent = G.T(h.title);
-    $('enc-leave-t').textContent = G.T(h.leave);
+    $('enc-leave-t').textContent = G.T(o.kind === 'egg' && pl.companion ? 'Quedarme con el mío' : h.leave);
     const purse = G.Encounters.purse(pl);
     $('enc-sub').innerHTML = o.kind === 'shop' || o.kind === 'machine'
       ? `${G.Icons.html('coin', 20)}<span>${G.T('Te llevarías a la cuenta')}</span> <b>${n(purse)}</b>`
-      : o.kind === 'temple' ? G.T('Elige una vitamina: cada una tiene su tope') : G.T('Olvida un ataque suelto: deja sitio para aprender otro');
+      : o.kind === 'temple' ? G.T('Elige una vitamina: cada una tiene su tope')
+      : o.kind === 'egg' ? G.I18n.f('Un huevo: eclosiona andando (unos {x} min) y te acompaña toda la partida', Math.round(G.Companion.HATCH_D / 110 / 60))
+      : G.T('Olvida un ataque suelto: deja sitio para aprender otro');
     const box = $('enc-cards');
     box.innerHTML = '';
     const cards = o.kind === 'shop' ? shopCards(pl, o) : o.kind === 'temple' ? templeCards(pl, o)
-                : o.kind === 'forget' ? forgetCards(pl, o) : machineCards(pl, o);
+                : o.kind === 'forget' ? forgetCards(pl, o) : o.kind === 'egg' ? [Object.assign(eggCard(pl, o.egg), { kind: 'egg', id: o.egg.dex, r: o.egg.r,
+                    go: () => { G.Companion.give(pl, o.egg); G.Audio.sfx('confirm'); close(); } })] : machineCards(pl, o);
     if (!cards.length) box.innerHTML = `<p class="enc-none">${G.T(o.kind === 'forget' ? 'No tienes ataques sueltos que olvidar' : 'Nada que hacer aquí ahora')}</p>`;
     cards.forEach((c, i) => {
       const el = P().cardEl(c, i, () => { if (!P().guarded() && !c.off) c.go(); }, false);
@@ -75,6 +80,8 @@ G.EncounterUI = (() => {
               desc: P().itemLines(it.id, it.r, false) + `<span class="enc-note">${G.T('Te lo da al irte')}</span>` };
       } else if (it.kind === 'vitamin') {
         c = vitCard(pl, it);
+      } else if (it.kind === 'egg') {
+        c = eggCard(pl, it);
       } else if (it.kind === 'heal') {
         c = { cls: 'is-stat', icon: 'heal', tile: 't-blue', title: G.T('Curarte'), desc: G.T('Recuperas la mitad de tu vida') };
       } else {
@@ -93,6 +100,16 @@ G.EncounterUI = (() => {
     return { cls: 'is-up' + (v.r ? ' rar-on' : ''), rc: v.r ? G.Rarity.color(v.r) : '', icon: v.id, tile: 'tint', tileC: G.Rarity.color(v.r),
              eyebrow: P().rarBadge(v.r), title: G.T(V.NAME[v.id]),
              desc: V.desc(pl, v.id, v.r, v.m) + `<span class="enc-note">${G.T('Llevas')} ${V.progress(pl, v.id)}</span>` };
+  }
+
+  /** Huevo (bloque G): qué Pokémon lleva, su ataque y, si ya tienes uno, a cuál sustituye. */
+  function eggCard(pl, g) {
+    const dex = +(g.dex || g.id), mon = G.DEX_BY[dex] || {}, C = G.Companion, mv = G.Moves.get(C.moveOf(dex)), cur = pl.companion;
+    const side = G.T(C.sideOf(dex) === 'physical' ? 'Físico' : 'Especial');
+    return { cls: 'is-next' + (g.r ? ' rar-on' : ''), rc: g.r ? G.Rarity.color(g.r) : '', icon: 'egg', tile: 'tint', tileC: G.Rarity.color(g.r | 0),
+             eyebrow: P().rarBadge(g.r | 0), title: G.I18n.f('Huevo de {x}', mon.name || '?'),
+             desc: G.I18n.f('Ataca con {x} ({x})', mv ? G.T(mv.name) : '', side)
+               + (cur && !g.sold ? `<span class="enc-note">${G.I18n.f(cur.egg ? 'Sustituye a tu huevo de {x}' : 'Sustituye a tu {x}', (G.DEX_BY[cur.dex] || {}).name || '')}</span>` : '') };
   }
 
   function templeCards(pl, o) {
@@ -127,7 +144,7 @@ G.EncounterUI = (() => {
     const { e, gifts } = cur;
     cur = null;
     e.used = e.type !== 'temple' ? true : e.used;
-    if (e.type === 'shop' || e.type === 'smeargle' || e.type === 'machine') e.done = true;
+    if (e.type === 'shop' || e.type === 'smeargle' || e.type === 'machine' || e.type === 'egg') e.done = true;
     G.UI.hide('scr-encounter');
     G.Game.encounterHold(false);
     for (const k of gifts) G.Game.giveItem(k);

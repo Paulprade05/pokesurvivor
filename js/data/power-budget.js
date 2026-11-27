@@ -49,6 +49,8 @@ G.PowerBudget = (() => {
   const FORTUNE = { MAX: 1, TABLE_MAX: [30, 40, 23, 7] };
 
   // ---- Compañero del huevo (bloque G): un trozo fijo del daño total ----
+  // Su objetivo va de SHARE[0] (+1 % por rareza del huevo) a SHARE[1] con su última evolución, y G.Companion.strike recorta
+  // cada golpe para que nunca pase de SHARE[1]: ni en los últimos 20 s ni en toda la partida (systems/companion.js).
   const COMPANION = { SHARE: [0.10, 0.15] };
 
   // ---- Sobrefusión (bloque C): +8 % cada una, hasta 8, también las 3 primeras (dueño, 24-11-2026) ----

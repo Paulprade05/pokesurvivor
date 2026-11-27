@@ -159,7 +159,8 @@ G.Coop = (() => {
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
             r2(local.reviveT || 0), api.choosing && api.choosing() ? 1 : 0, doneSeq, api.watching ? api.watching() : '',
             r1(G.Camera ? G.Camera.spawnW : 0), r1(G.Camera ? G.Camera.spawnH : 0),   // lo que ve (de pie o tumbado): el anfitrión no saca enemigos dentro
-            local.form || 0];                                                   // su fase (evoluciones en partida)
+            local.form || 0,                                                    // su fase (evoluciones en partida)
+            G.Companion ? G.Companion.netState(local) : 0];                     // (1.0, bloque G) su compañero del huevo
   }
 
   /** Número que llega por la red: si no es un número de verdad vale `def`, y si se pasa se queda en el tope. */
@@ -176,7 +177,8 @@ G.Coop = (() => {
              wa: typeof a[15] === 'string' ? a[15].slice(0, 64) : '',
              vw: num(a[16], 0, 0, 5000), vh: num(a[17], 0, 0, 5000),
              // Fase: sólo un Pokémon o una mega que exista (si no, o de una versión anterior, 0: el que eligió).
-             fm: Number.isInteger(a[18]) && (G.DEX_BY[a[18]] || (G.MEGA && G.MEGA[a[18]])) ? a[18] : 0 };
+             fm: Number.isInteger(a[18]) && (G.DEX_BY[a[18]] || (G.MEGA && G.MEGA[a[18]])) ? a[18] : 0,
+             cp: G.Companion ? G.Companion.readNet(a[19]) : null };
   }
 
   /** Anfitrión: dónde mira un invitado (él mismo, o el compañero vivo que mira estando caído). */

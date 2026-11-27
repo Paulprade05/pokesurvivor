@@ -8,7 +8,7 @@
  *
  *   shop       Kecleon, tendero ambulante. Gasta LAS MONEDAS QUE TE LLEVARÍAS A LA CUENTA (purse: tiempo, derrotados,
  *              jefes y recogidas, con tu Fortuna, menos lo gastado: endRun lo descuenta). Vende un objeto con rareza,
- *              curarte, una vitamina y suerte. Huevos y maldición (bloques G y F): sólo su hueco, apagados (CATALOG.off).
+ *              curarte, una vitamina, suerte y un huevo (bloque G). La maldición (bloque F): sólo su hueco, apagada (CATALOG.off).
  *              No vende cambiar cartas. Una visita por Kecleon: al irte, se va.
  *   temple     Templo de vitaminas: quedarte en su círculo lo carga (salir lo descarga); lleno, eliges 1 de 3 vitaminas con
  *              rareza (G.Vitamins) y te da suerte. Una vez por jugador.
@@ -16,7 +16,9 @@
  *   challenge  Santuario de reto: lo activas y salen enemigos de élite CHALLENGE_T s. Si aguantas en su círculo, objeto
  *              épico (70 %) o legendario (30 %) y suerte. Si te alejas más de AWAY_T s seguidos o caes, nada.
  *   machine    Porygon: sube un escalón la rareza de uno de tus objetos (conserva su evolución). Una vez por máquina.
- *   (curse, egg: santuario maldito y Chansey, de los bloques F y G: en TYPES con off, no salen.)
+ *   egg        Chansey (bloque G, systems/companion.js): una vez por partida, en el 2.º tramo después de la grieta; te da un
+ *              huevo (eliges si te lo quedas). Kecleon también los vende. Una visita: al irte, se va.
+ *   (curse: santuario maldito, del bloque F: en TYPES con off, no sale.)
  *
  * Precios (dueño, 25-11-2026, «medios»): curar 80, vitamina 200, objeto 300, suerte 250, +5 % por minuto de partida,
  *   ×1,3 / ×1,7 / ×2,2 si es raro / épico / legendario y +25 % cada vez que compras lo mismo. Máquina: a raro 400, a épico
@@ -133,12 +135,12 @@ G.Encounters = (() => {
   const SEEN_R = 420;                    // a esta distancia cuenta como «encontrado» (registro)
   const TEMPLE_R = 88, TEMPLE_T = 8, CHALLENGE_R = 170, CHALLENGE_T = 30, AWAY_T = 6;
   const LUCK = { temple: 0.05, shop: 0.10, challenge: 0.15 }, LUCK_PER_SHOP = 2;
-  const PRICE = { heal: 80, vitamin: 200, item: 300, luck: 250, egg: 0, curse: 0 };
+  const PRICE = { heal: 80, vitamin: 200, item: 300, luck: 250, egg: 250, curse: 0 };
   const RAR_K = [1, 1.3, 1.7, 2.2], MIN_K = 0.05, AGAIN_K = 1.25, MACHINE = [0, 400, 800, 1200];
   /** Qué vende Kecleon. egg y curse: el hueco de los bloques G y F (off: no salen hasta entonces). */
   const CATALOG = [
     { kind: 'item' }, { kind: 'heal' }, { kind: 'vitamin' }, { kind: 'luck' },
-    { kind: 'egg', off: true }, { kind: 'curse', off: true }
+    { kind: 'egg' }, { kind: 'curse', off: true }
   ];
   /** Los encuentros. dex: el Pokémon que lo lleva (sprite de siempre); art: dibujo hecho con pxl (assets/pxl). */
   const TYPES = {
@@ -148,7 +150,7 @@ G.Encounters = (() => {
     challenge: { art: 'shrine', name: 'Santuario de reto', act: 'Retar', zone: CHALLENGE_R },
     machine:   { dex: 137, name: 'Porygon', act: 'Hablar' },
     curse:     { off: true, name: 'Santuario maldito' },        // bloque F
-    egg:       { off: true, dex: 113, name: 'Chansey' }          // bloque G
+    egg:       { dex: 113, name: 'Chansey', act: 'Hablar' }      // bloque G
   };
   const authority = () => !G.Coop.active || G.Coop.isHost;
   const now = () => (G.Game.st ? G.Game.st.time || 0 : 0);
@@ -171,6 +173,8 @@ G.Encounters = (() => {
     for (let k = 0; k < 6; k++) {
       const first = k % 2 ? 'shop' : 'temple';
       out.push({ t: k * TRAMO + (k ? AFTER_RIFT : 35) + rnd() * 40, type: first });
+      // (Bloque G, dueño 27-11-2026) Chansey una vez por partida: el 2.º del 2.º tramo, después de la grieta y de Kecleon.
+      if (k === 1) { out.push({ t: k * TRAMO + AFTER_RIFT + 60 + rnd() * 40, type: 'egg' }); continue; }
       if (k === 0 || rnd() >= 0.6) continue;
       const opts = [['smeargle', 1], ['challenge', 1], ['machine', k >= 2 ? 1 : 0], ['temple', 0.5]].filter(o => o[1] > 0 && o[0] !== first);
       let u = rnd() * opts.reduce((a, o) => a + o[1], 0), pick = opts[0][0];
@@ -280,6 +284,7 @@ G.Encounters = (() => {
       case 'shop': open(e, { kind: 'shop', offers: shopOffers(pl, e) }); break;
       case 'smeargle': open(e, { kind: 'forget', moves: forgettable(pl) }); break;
       case 'machine': open(e, { kind: 'machine' }); break;
+      case 'egg': open(e, { kind: 'egg', egg: e.egg || (e.egg = G.Companion.rollEgg(pl)) }); break;
       case 'challenge':
         if (authority()) startChallenge(e);
         else G.Coop.toHost(['enc', 'c', e.id]);
@@ -300,7 +305,7 @@ G.Encounters = (() => {
   /** Precio de lo que vende (sube con el minuto, la rareza y cada vez que compras lo mismo). */
   function price(pl, kind, r = 0) {
     const n = (pl && pl.encBuy && pl.encBuy[kind]) || 0;
-    const rk = kind === 'item' || kind === 'vitamin' ? RAR_K[r | 0] : 1;
+    const rk = kind === 'item' || kind === 'vitamin' || kind === 'egg' ? RAR_K[r | 0] : 1;
     return r5(PRICE[kind] * (1 + MIN_K * minute()) * rk * Math.pow(AGAIN_K, n));
   }
   const machinePrice = r => r5(MACHINE[Math.min(3, (r | 0) + 1)] * (1 + MIN_K * minute()));
@@ -319,6 +324,7 @@ G.Encounters = (() => {
         if (v) out.push({ kind: 'vitamin', id: v.id, r: v.r, m: v.m });
       } else if (c.kind === 'heal') out.push({ kind: 'heal', id: 'heal', r: 0 });
       else if (c.kind === 'luck') out.push({ kind: 'luck', id: 'luck', r: 0, left: LUCK_PER_SHOP });
+      else if (c.kind === 'egg') { const g = G.Companion.rollEgg(pl); out.push({ kind: 'egg', id: g.dex, r: g.r }); }
     }
     return (e.offers = out);
   }
@@ -344,6 +350,7 @@ G.Encounters = (() => {
       case 'heal': o.sold = true; pl.heal(pl.maxHp * 0.5, 'tienda'); break;
       case 'vitamin': o.sold = true; G.Vitamins.apply(pl, o.id, o.r, o.m); break;
       case 'luck': G.Fortune.add(pl, LUCK.shop); if (--o.left <= 0) o.sold = true; break;
+      case 'egg': o.sold = true; G.Companion.give(pl, { dex: +o.id, r: o.r }); break;
     }
     G.Audio.sfx('coin');
     return true;

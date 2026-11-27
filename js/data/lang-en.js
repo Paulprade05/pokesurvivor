@@ -3160,3 +3160,13 @@ G.I18n.add({
   'Reto superado, pero estabas fuera del círculo': 'Challenge cleared, but you were outside the circle', 'Reto fallido': 'Challenge failed',
   'Gastado en la partida': 'Spent in the run'
 });
+
+// (1.0, bloque G) Huevo y compañero: Chansey, el huevo de Kecleon y el compañero que te sigue.
+G.I18n.add({
+  '¡Tienes un huevo! Anda para que eclosione': 'You got an egg! Walk to hatch it', '¡El huevo se mueve!': 'The egg is moving!',
+  '¡Ha nacido {x}! Te sigue y ataca': '{x} hatched! It follows you and attacks', '¡{x} ha evolucionado en {x}!': '{x} evolved into {x}!',
+  '{x} se ha debilitado: se levanta en {x} s': '{x} fainted: it gets back up in {x} s', '¡{x} vuelve a la carga!': '{x} is back in the fight!',
+  'Quedarme con el mío': 'Keep mine', 'Un huevo: eclosiona andando (unos {x} min) y te acompaña toda la partida': 'An egg: it hatches as you walk (about {x} min) and joins you for the whole run',
+  'Huevo de {x}': '{x} Egg', 'Ataca con {x} ({x})': 'Attacks with {x} ({x})',
+  'Sustituye a tu huevo de {x}': 'Replaces your {x} egg', 'Sustituye a tu {x}': 'Replaces your {x}'
+});

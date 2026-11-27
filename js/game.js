@@ -365,6 +365,7 @@ G.Game = (() => {
     G.Events.reset();
     G.Encounters.reset();
     G.EncounterUI.reset();
+    G.Companion.reset();
     G.Weather.reset();
     G.Path.clear();
     G.Hazards.clear();
@@ -1366,6 +1367,7 @@ G.Game = (() => {
     G.Hazards.update(dt);
     G.Interact.update(dt, pl);
     G.Encounters.update(dt, pl);
+    G.Companion.update(dt, pl);
     G.Rift.update(dt, pl, time);
     G.Judgment.update(dt, pl, time);
     G.Events.update(dt, all, time);
@@ -1421,7 +1423,7 @@ G.Game = (() => {
     if (rift) items.push({ y: rift.y, ent: rift });
     const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
     if (arceus) items.push({ y: arceus.y, ent: arceus });
-    if (pl && state !== 'ui') for (const d of G.Events.drawables().concat(G.Encounters.drawables())) items.push({ y: d.y, ent: d });
+    if (pl && state !== 'ui') for (const d of G.Events.drawables().concat(G.Encounters.drawables(), G.Companion.drawables(pl))) items.push({ y: d.y, ent: d });
     items.sort((a, b) => a.y - b.y);
     for (const it of items) {
       if (it.prop) G.World.drawProp(ctx, it.prop, t);
@@ -1541,7 +1543,7 @@ G.Game = (() => {
       }
       const arceus = pl && state !== 'ui' ? G.Judgment.drawable() : null;
       if (arceus) items.push({ y: arceus.y, ent: arceus });
-      if (pl && state !== 'ui') for (const d of G.Events.drawables().concat(G.Encounters.drawables())) items.push({ y: d.y, ent: d });
+      if (pl && state !== 'ui') for (const d of G.Events.drawables().concat(G.Encounters.drawables(), G.Companion.drawables(pl))) items.push({ y: d.y, ent: d });
       items.sort((p, q) => p.y - q.y);
       const TS = G.World.TS, PX = G.World.GS, RAISE_W = G.Tiles.RAISE * PX, CAP_H = G.Tiles.CAP_H;
       // Dónde cae cada uno en la pantalla (P: sx, sy, k, ky, fx, fy) o null si no se ve.
