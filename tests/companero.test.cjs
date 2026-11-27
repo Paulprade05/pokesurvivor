@@ -185,6 +185,19 @@ test('su trozo del daño: cerca del objetivo y NUNCA más del 15 % (ni con tipos
   assert.equal(n.c.dealt, 0);
 });
 
+test('si pega menos de lo previsto (enemigos duros, fallos), se corrige hasta su trozo, sin pasar del 15 %', () => {
+  const taken = G.Stats.taken;
+  G.Stats.taken = () => 0.4;                 // cada golpe hace el 40 % de lo previsto
+  try {
+    const a = sim({ dex: 4 });
+    if (process.env.VER) console.log('duros', a.share, a.c.gain);
+    assert.ok(a.c.gain > 2, 'la corrección sube: ' + a.c.gain);
+    assert.ok(a.share > 0.085 && a.share <= 0.15 + 1e-6, 'cerca del 10 %: ' + a.share);
+    const z = sim({ dex: 4, evolve: 2, r: 3 });
+    assert.ok(z.share <= 0.15 + 1e-6 && z.worst <= 0.15 + 0.02, 'nunca más del 15 %: ' + z.share + ' / ' + z.worst);
+  } finally { G.Stats.taken = taken; }
+});
+
 test('cooperativo: su estado viaja en el tuyo y lo de otro se comprueba', () => {
   const pl = player(); G.Game.player = pl;
   assert.equal(C.netState(pl), 0);
