@@ -14,15 +14,24 @@
 //   - Siempre a pantalla completa (sin modo ventana; 21-11-2026, pedido del dueño).
 //   - Copia de la partida en disco (%APPDATA%\PokeSurvivor\guardado\, la misma
 //     carpeta que usaba la app Electron), que se recupera sola si se vacía el navegador.
-//   - Al abrir, mira si hay una versión nueva en GitHub Releases y avisa.
+//   - Al abrir, mira si hay una versión nueva en GitHub Releases, avisa en el juego y, con un
+//     clic, la baja, comprueba su SHA-256, la instala encima y vuelve a abrirse (src/actualizar.rs).
+//   - Mando primero (1.0): si al abrir hay un mando conectado, el juego empieza en modo mando; y
+//     «Salir del juego» (window.pokeEscritorio.salir) cierra la app guardando como al cerrar la ventana.
+//   - Sin conexión: lleva dentro también el SDK de Firebase (www/firebasejs/, copiar-web.cjs), así
+//     que se abre y se juega sin internet con la última sesión guardada.
 //   - window.pokeEscritorio para el juego (src/puente.js; lista en LEEME.md).
 #![windows_subsystem = "windows"]
 
+mod actualizar;
+
 use std::{
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+
+use actualizar::{Fuente, Nueva};
 
 use serde_json::{Value, json};
 use tao::{
@@ -44,10 +53,14 @@ use windows::{
         System::Threading::{
             ABOVE_NORMAL_PRIORITY_CLASS, CreateMutexW, GetCurrentProcess, OpenProcess, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
             PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION, PROCESS_POWER_THROTTLING_STATE,
-            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, ProcessPowerThrottling, SetPriorityClass,
+            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, ProcessPowerThrottling, ReleaseMutex, SetPriorityClass,
             SetProcessInformation,
         },
         UI::{
+            Input::{
+                GetRawInputDeviceInfoW, GetRawInputDeviceList, RAWINPUTDEVICELIST, RID_DEVICE_INFO, RIDI_DEVICEINFO, RIM_TYPEHID,
+                XboxController::{XINPUT_STATE, XInputGetState},
+            },
             Shell::{SHCreateMemStream, ShellExecuteW},
             WindowsAndMessaging::*,
         },
@@ -66,21 +79,30 @@ pub static AmdPowerXpressRequestHighPerformance: i32 = 1;
 
 const ORIGEN: &str = "http://127.0.0.1:39017";
 const RELEASES_ULTIMA: &str = "https://github.com/Paulprade05/pokesurvivor/releases/latest";
-/// Archivos de la release que sirven a esta app, por orden de preferencia: el
-/// instalador (desde la 0.7.0) y, si la release no lo trae, el .zip de esta app.
-/// (Desde la 0.9.0 no hay app Electron ni su PokeSurvivor-Windows.zip.)
-const INSTALADOR: &str = "PokeSurvivor-Windows-Setup.exe";
-const ARCHIVOS: [&str; 2] = [INSTALADOR, "PokeSurvivor-Windows-Rust.zip"];
+/// El SDK de Firebase que carga el juego (js/core/db.js). La app lleva una copia en www/firebasejs/
+/// (copiar-web.cjs) y la sirve ella: así el juego arranca con la nube aunque no haya internet.
+const SDK_FIREBASE: &str = "https://www.gstatic.com/firebasejs/";
 const TITULO: &str = "PokéSurvivor";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug)]
 enum Evento {
     Guardar(String),
-    Version(Value),
     /// Al cerrar: la última copia de la partida que da la página.
     FotoCierre(String),
     Salir,
+    /// La página pide cerrar el juego («Salir del juego»).
+    Cerrar,
+    // ---- Actualizar con un clic (src/actualizar.rs) ----
+    Nueva(Nueva),
+    /// El jugador ha dicho que sí: a bajarla.
+    Actualizar,
+    Progreso(u64, u64),
+    Descargado(PathBuf),
+    Fallo(String),
+    /// La página ya ha subido lo pendiente a la nube: cerrar e instalar.
+    Instalar,
+    AbrirDescarga,
 }
 
 // ---- Opciones ---------------------------------------------------------------
@@ -92,6 +114,9 @@ struct Opciones {
     sin_tope: bool,
     sin_avisos: bool,
     depuracion: Option<u16>,
+    actualizaciones: Fuente,
+    /// Sólo para probar el modo mando sin mando: --con-mando hace como si hubiera uno conectado al abrir.
+    con_mando: bool,
 }
 
 fn opciones() -> Opciones {
@@ -116,15 +141,54 @@ fn opciones() -> Opciones {
     }
     if tiene("--sin-tope") { sin_tope = true; }
     if tiene("--gpu-integrada") { gpu_dedicada = false; }
+    // Sólo para probar el aviso de versión nueva sin publicar nada: un servidor en 127.0.0.1 hace de GitHub.
+    let prueba = valor("--actualizaciones=").and_then(|u| Fuente::prueba(&u));
     Opciones {
         base,
         perfil_prueba,
         www,
         gpu_dedicada,
         sin_tope,
-        sin_avisos: tiene("--sin-avisos") || cfg!(debug_assertions),
+        sin_avisos: (tiene("--sin-avisos") || cfg!(debug_assertions)) && prueba.is_none(),
         // Sólo para medir y probar: abre la depuración remota de WebView2 en ese puerto (127.0.0.1).
         depuracion: valor("--depuracion=").and_then(|p| p.parse().ok()),
+        actualizaciones: prueba.unwrap_or_else(Fuente::oficial),
+        con_mando: tiene("--con-mando"),
+    }
+}
+
+// ---- ¿Hay un mando conectado al abrir? (mando primero, 1.0) --------------------
+/// Un mando de Xbox (XInput) o cualquier mando o joystick HID (PlayStation, Switch, genéricos).
+/// El navegador no enseña los mandos hasta que se pulsa un botón; la app sí lo sabe al abrir, y así
+/// el juego empieza en modo mando (selección a la vista y sin cursor) sin tocar el ratón.
+fn hay_mando() -> bool {
+    unsafe {
+        for i in 0..4 {
+            let mut st = XINPUT_STATE::default();
+            if XInputGetState(i, &mut st) == 0 {
+                return true;
+            }
+        }
+        let tam = size_of::<RAWINPUTDEVICELIST>() as u32;
+        let mut n = 0u32;
+        if GetRawInputDeviceList(None, &mut n, tam) == u32::MAX || n == 0 {
+            return false;
+        }
+        let mut lista = vec![RAWINPUTDEVICELIST::default(); n as usize];
+        let n = GetRawInputDeviceList(Some(lista.as_mut_ptr()), &mut n, tam);
+        if n == u32::MAX {
+            return false;
+        }
+        lista.iter().take(n as usize).filter(|d| d.dwType == RIM_TYPEHID).any(|d| {
+            let mut info = RID_DEVICE_INFO { cbSize: size_of::<RID_DEVICE_INFO>() as u32, ..Default::default() };
+            let mut t = info.cbSize;
+            if GetRawInputDeviceInfoW(Some(d.hDevice), RIDI_DEVICEINFO, Some(&mut info as *mut _ as *mut _), &mut t) == u32::MAX {
+                return false;
+            }
+            let h = info.Anonymous.hid;
+            // Página «Generic Desktop» (1): joystick (4), mando (5) o multieje (8).
+            h.usUsagePage == 1 && matches!(h.usUsage, 4 | 5 | 8)
+        })
     }
 }
 
@@ -243,9 +307,18 @@ fn decodificar(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-/// (estado, tipo, contenido) para una dirección de ORIGEN.
-fn archivo(www: &Path, url: &str) -> (u16, &'static str, Vec<u8>) {
-    let ruta = url[ORIGEN.len()..].split(['?', '#']).next().unwrap_or("/");
+/// La ruta dentro de www/ de una dirección que sirve la app: las del juego (ORIGEN) y las del SDK
+/// de Firebase (www/firebasejs/). Las demás van a internet.
+fn ruta_local(url: &str) -> Option<String> {
+    if let Some(r) = url.strip_prefix(ORIGEN) {
+        return Some(if r.is_empty() { "/".into() } else { r.to_owned() }).filter(|r| r.starts_with(['/', '?', '#']));
+    }
+    url.strip_prefix(SDK_FIREBASE).map(|r| format!("/firebasejs/{r}"))
+}
+
+/// (estado, tipo, contenido) para una ruta de www/ (con su ?consulta o #ancla, que no cuentan).
+fn archivo(www: &Path, ruta: &str) -> (u16, &'static str, Vec<u8>) {
+    let ruta = ruta.split(['?', '#']).next().filter(|r| !r.is_empty()).unwrap_or("/");
     // Sin service worker: la app ya lleva todo dentro y se actualiza entera.
     if ruta == "/sw.js" {
         return (404, "text/plain", Vec::new());
@@ -274,14 +347,16 @@ fn servir_desde_la_app(wv: &wry::WebView, www: PathBuf) -> windows::core::Result
     unsafe {
         let webview = wv.webview();
         let env = wv.environment();
-        let filtro = HSTRING::from(format!("{ORIGEN}/*"));
-        match windows::core::Interface::cast::<ICoreWebView2_22>(&webview) {
-            Ok(w22) => w22.AddWebResourceRequestedFilterWithRequestSourceKinds(
-                &filtro,
-                COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
-                COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
-            )?,
-            Err(_) => webview.AddWebResourceRequestedFilter(&filtro, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?,
+        for f in [format!("{ORIGEN}/*"), format!("{SDK_FIREBASE}*")] {
+            let filtro = HSTRING::from(f);
+            match windows::core::Interface::cast::<ICoreWebView2_22>(&webview) {
+                Ok(w22) => w22.AddWebResourceRequestedFilterWithRequestSourceKinds(
+                    &filtro,
+                    COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                    COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+                )?,
+                Err(_) => webview.AddWebResourceRequestedFilter(&filtro, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?,
+            }
         }
         let mut token = 0i64;
         webview.add_WebResourceRequested(
@@ -290,10 +365,12 @@ fn servir_desde_la_app(wv: &wry::WebView, www: PathBuf) -> windows::core::Result
                 let mut uri = PWSTR::null();
                 args.Request()?.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
-                if !uri.starts_with(ORIGEN) {
+                let Some(ruta) = ruta_local(&uri) else { return Ok(()) };
+                let (estado, tipo, datos) = archivo(&www, &ruta);
+                // El SDK de Firebase que no esté en la copia (otra versión): de internet, como siempre.
+                if estado != 200 && !uri.starts_with(ORIGEN) {
                     return Ok(());
                 }
-                let (estado, tipo, datos) = archivo(&www, &uri);
                 let razon = HSTRING::from(match estado { 200 => "OK", 400 => "Bad Request", 403 => "Forbidden", _ => "Not Found" });
                 let cabeceras = HSTRING::from(format!("Content-Type: {tipo}\nCache-Control: no-cache"));
                 let flujo = if datos.is_empty() { None } else { SHCreateMemStream(Some(&datos)) };
@@ -349,8 +426,25 @@ fn soy_la_unica(candado: &str) -> bool {
             }
             return false;
         }
-        std::mem::forget(m); // que el mutex dure lo que la app
+        // Que el mutex dure lo que la app (se suelta antes de abrir el instalador de una actualización).
+        if let Ok(h) = m {
+            let _ = CANDADO.set(h.0 as usize);
+        }
         true
+    }
+}
+
+static CANDADO: OnceLock<usize> = OnceLock::new();
+
+/// Suelta el candado de una sola copia: el instalador (AppMutex) cree que el juego sigue abierto
+/// mientras exista, y en modo silencioso se cancelaría.
+fn soltar_candado() {
+    if let Some(&h) = CANDADO.get() {
+        unsafe {
+            let h = HANDLE(h as *mut _);
+            let _ = ReleaseMutex(h);
+            let _ = CloseHandle(h);
+        }
     }
 }
 
@@ -427,22 +521,7 @@ fn procesos_a_toda_maquina(env: &ICoreWebView2Environment) {
     }
 }
 
-// ---- ¿Hay versión nueva? ------------------------------------------------------
-fn mas_nueva(a: &str, b: &str) -> bool {
-    // ¿la versión a es mayor que b? ('win-v0.10.0' > '0.9.1')
-    let num = |s: &str| -> Vec<u64> {
-        s.trim_start_matches(|c: char| !c.is_ascii_digit()).split('.').map(|n| n.parse().unwrap_or(0)).collect()
-    };
-    let (pa, pb) = (num(a), num(b));
-    for i in 0..3 {
-        let (x, y) = (pa.get(i).copied().unwrap_or(0), pb.get(i).copied().unwrap_or(0));
-        if x != y {
-            return x > y;
-        }
-    }
-    false
-}
-
+// ---- ¿Hay versión nueva? (actualizar con un clic: src/actualizar.rs) ----------------------
 fn ahora() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
@@ -455,33 +534,27 @@ fn toca_comprobar(o: &Opciones) -> bool {
     marca.is_none_or(|m| ahora().saturating_sub(m) >= 20 * 3600 * 1000)
 }
 
-fn revisar_version(base: &Path, v: &Value) {
-    let _ = std::fs::create_dir_all(base);
-    let _ = std::fs::write(base.join("ultima-comprobacion.txt"), ahora().to_string());
-    if v["ok"] != json!(true) || v["draft"] == json!(true) || v["prerelease"] == json!(true) {
-        return;
-    }
-    let tag = v["tag"].as_str().unwrap_or("");
-    let assets = v["assets"].as_array().cloned().unwrap_or_default();
-    let elegido = ARCHIVOS.iter().find_map(|n| assets.iter().find(|a| a["name"] == json!(n)).and_then(|a| a["url"].as_str().map(|u| (*n, u.to_owned()))));
-    let Some((nombre, zip)) = elegido else { return };
-    let instalador = nombre == INSTALADOR;
-    if !mas_nueva(tag, VERSION) {
-        return;
-    }
-    let nueva = tag.trim_start_matches(|c: char| !c.is_ascii_digit()).to_owned();
-    // En otro hilo, para que el juego siga mientras se lee el aviso.
+/// A los 8 s de abrir (que el juego cargue antes), en otro hilo: ¿hay release nueva? Sin conexión no
+/// pasa nada y se vuelve a mirar la próxima vez que se abra (sólo se apunta la hora si GitHub contesta).
+fn comprobar_version(o: &Opciones, proxy: EventLoopProxy<Evento>) {
+    let (base, fuente) = (o.base.clone(), o.actualizaciones.clone());
     std::thread::spawn(move || {
-        let texto = match (en_espanol(), instalador) {
-            (true, true) => format!("Hay una versión nueva para PC ({nueva}).\n\nTienes la {VERSION}. Descarga el instalador, cierra el juego y ábrelo: actualiza el juego y tu partida se queda.\n\n¿Descargarlo ahora?"),
-            (true, false) => format!("Hay una versión nueva para PC ({nueva}).\n\nTienes la {VERSION}. Descarga el .zip, cierra el juego y descomprime la nueva encima: tu partida se queda.\n\n¿Descargarla ahora?"),
-            (false, true) => format!("A new PC version is available ({nueva}).\n\nYou have {VERSION}. Download the installer, close the game and open it: it updates the game and your save stays.\n\nDownload it now?"),
-            (false, false) => format!("A new PC version is available ({nueva}).\n\nYou have {VERSION}. Download the .zip, close the game and unzip the new one over it: your save stays.\n\nDownload it now?"),
-        };
-        if aviso(&texto, true) {
-            abrir_fuera(if zip.starts_with("https://github.com/") { &zip } else { RELEASES_ULTIMA });
+        std::thread::sleep(Duration::from_secs(8));
+        match actualizar::ultima_release(&fuente) {
+            Ok(v) => {
+                let _ = std::fs::write(base.join("ultima-comprobacion.txt"), ahora().to_string());
+                if let Some(n) = actualizar::leer_release(&v, VERSION) {
+                    let _ = proxy.send_event(Evento::Nueva(n));
+                }
+            }
+            Err(e) => eprintln!("[version] {e}"),
         }
     });
+}
+
+/// Llama a una función del puente (src/puente.js) con un dato en JSON.
+fn al_juego(wv: &wry::WebView, funcion: &str, dato: &Value) {
+    let _ = wv.evaluate_script(&format!("window.{funcion} && window.{funcion}({dato})"));
 }
 
 // ---- Ventana -------------------------------------------------------------------
@@ -500,6 +573,8 @@ fn main() {
     if !soy_la_unica(&nombre_candado(o.perfil_prueba.as_deref())) {
         return;
     }
+    // El instalador de la actualización anterior ya no hace falta.
+    let _ = std::fs::remove_dir_all(actualizar::carpeta());
     if !o.www.join("index.html").is_file() {
         aviso(&format!("No encuentro el juego en {}.\nVuelve a instalarlo con PokeSurvivor-Windows-Setup.exe (o descomprime otra vez el .zip entero).", o.www.display()), false);
         return;
@@ -529,7 +604,7 @@ fn main() {
         "webview2": webview2,
         "gpu": graficas(o.gpu_dedicada),
         "ajustes": { "gpuDedicada": o.gpu_dedicada, "sinTope": o.sin_tope, "pantallaCompleta": true },
-        "comprobar": toca_comprobar(&o),
+        "mando": o.con_mando || hay_mando(),
     });
     let puente = include_str!("puente.js").replace("__INFO__", &info.to_string()).replace("__DISCO__", &leer_guardado(&o.base));
 
@@ -573,7 +648,10 @@ fn main() {
             let Ok(m) = serde_json::from_str::<Value>(req.body()) else { return };
             let ev = match m["t"].as_str() {
                 Some("guardar") => m["texto"].as_str().map(|t| Evento::Guardar(t.to_owned())),
-                Some("version") => Some(Evento::Version(m)),
+                Some("salir") => Some(Evento::Cerrar),
+                Some("actualizar") => Some(Evento::Actualizar),
+                Some("instalar") => Some(Evento::Instalar),
+                Some("abrir-descarga") => Some(Evento::AbrirDescarga),
                 _ => None,
             };
             if let Some(ev) = ev {
@@ -622,50 +700,131 @@ fn main() {
     procesos_a_toda_maquina(&webview.environment());
     let _ = webview.load_url(&format!("{ORIGEN}/index.html"));
 
+    if toca_comprobar(&o) {
+        comprobar_version(&o, proxy.clone());
+    }
+
     let base = o.base.clone();
+    let fuente = o.actualizaciones.clone();
     let mut cerrando = false;
+    let mut nueva: Option<Nueva> = None;
+    let mut descargando = false;
+    let mut listo: Option<PathBuf> = None;
+    let mut instalar: Option<PathBuf> = None;
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         let _ = (&contexto, &window); // el contexto de WebView2 y la ventana viven lo que la app
+        let cerrar = |cerrando: &mut bool, control_flow: &mut ControlFlow, instalar: &mut Option<PathBuf>| {
+            if *cerrando {
+                return;
+            }
+            *cerrando = true;
+            // Pide la última copia de la partida y sale cuando llega (o a los 3 s).
+            let p = proxy.clone();
+            let r = webview.evaluate_script_with_callback("(window.__psFoto ? window.__psFoto() : null)", move |r| {
+                let _ = p.send_event(Evento::FotoCierre(r));
+            });
+            let p = proxy.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_secs(3));
+                let _ = p.send_event(Evento::Salir);
+            });
+            if r.is_err() {
+                terminar(control_flow, instalar);
+            }
+        };
         match event {
             Event::NewEvents(StartCause::Init) => {}
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                if cerrando {
-                    return;
-                }
-                cerrando = true;
-                // Pide la última copia de la partida y sale cuando llega (o a los 3 s).
-                let p = proxy.clone();
-                let r = webview.evaluate_script_with_callback("(window.__psFoto ? window.__psFoto() : null)", move |r| {
-                    let _ = p.send_event(Evento::FotoCierre(r));
-                });
-                let p = proxy.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_secs(3));
-                    let _ = p.send_event(Evento::Salir);
-                });
-                if r.is_err() {
-                    *control_flow = ControlFlow::Exit;
-                }
-            }
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => cerrar(&mut cerrando, control_flow, &mut instalar),
             Event::UserEvent(ev) => match ev {
                 Evento::Guardar(t) => {
                     let b = base.clone();
                     std::thread::spawn(move || escribir_guardado(&b, &t));
                 }
-                Evento::Version(v) => revisar_version(&base, &v),
                 Evento::FotoCierre(r) => {
                     // r es el resultado en JSON: una cadena con la copia, o null.
                     if let Ok(Some(t)) = serde_json::from_str::<Option<String>>(&r) {
                         escribir_guardado(&base, &t);
                     }
-                    *control_flow = ControlFlow::Exit;
+                    terminar(control_flow, &mut instalar);
                 }
-                Evento::Salir => *control_flow = ControlFlow::Exit,
+                Evento::Salir => terminar(control_flow, &mut instalar),
+                Evento::Cerrar => cerrar(&mut cerrando, control_flow, &mut instalar),
+                Evento::Nueva(n) => {
+                    let mb = (n.bytes as f64 / 1_048_576.0).round();
+                    al_juego(&webview, "__psNueva", &json!({ "version": n.version, "actual": VERSION, "clic": n.sha256.is_some(), "mb": mb }));
+                    nueva = Some(n);
+                }
+                Evento::Actualizar => {
+                    let Some(n) = nueva.clone().filter(|n| n.sha256.is_some()) else { return };
+                    if descargando || listo.is_some() {
+                        return;
+                    }
+                    descargando = true;
+                    let (p, f) = (proxy.clone(), fuente.clone());
+                    std::thread::spawn(move || {
+                        let mut visto = u64::MAX;
+                        let r = actualizar::bajar_instalador(&f, &n, &actualizar::carpeta(), |hecho, total| {
+                            let pct = if total > 0 { hecho * 100 / total } else { 0 };
+                            if pct != visto {
+                                visto = pct;
+                                let _ = p.send_event(Evento::Progreso(hecho, total));
+                            }
+                        });
+                        let _ = p.send_event(match r {
+                            Ok(f) => Evento::Descargado(f),
+                            Err(e) => Evento::Fallo(e),
+                        });
+                    });
+                }
+                Evento::Progreso(hecho, total) => al_juego(&webview, "__psProgreso", &json!([hecho, total])),
+                Evento::Descargado(f) => {
+                    descargando = false;
+                    listo = Some(f);
+                    // La página sube a la nube lo pendiente y contesta «instalar».
+                    al_juego(&webview, "__psInstalar", &json!(nueva.as_ref().map(|n| n.version.clone())));
+                }
+                Evento::Fallo(e) => {
+                    descargando = false;
+                    eprintln!("[actualizar] {e}");
+                    al_juego(&webview, "__psFallo", &json!(e));
+                }
+                Evento::Instalar => {
+                    if let Some(f) = listo.take() {
+                        instalar = Some(f);
+                        cerrar(&mut cerrando, control_flow, &mut instalar);
+                    }
+                }
+                Evento::AbrirDescarga => abrir_fuera(RELEASES_ULTIMA),
             },
             _ => {}
         }
     });
+}
+
+/// Salir de la app. Si hay una actualización bajada, antes se suelta el candado de una sola copia y se
+/// abre su instalador (silencioso, en la misma carpeta; al acabar vuelve a abrir el juego).
+fn terminar(control_flow: &mut ControlFlow, instalar: &mut Option<PathBuf>) {
+    if let Some(f) = instalar.take() {
+        soltar_candado();
+        let dir = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_default();
+        let r = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(f.as_os_str()), &HSTRING::from(actualizar::parametros(&dir)), None, SW_SHOWNORMAL) };
+        if r.0 as usize <= 32 {
+            aviso(
+                &if en_espanol() {
+                    format!("No se pudo abrir el instalador ({}).
+
+Ábrelo tú: {}", r.0 as usize, f.display())
+                } else {
+                    format!("The installer could not be opened ({}).
+
+Open it yourself: {}", r.0 as usize, f.display())
+                },
+                false,
+            );
+        }
+    }
+    *control_flow = ControlFlow::Exit;
 }
 
 #[cfg(test)]
@@ -673,21 +832,12 @@ mod pruebas {
     use super::*;
 
     #[test]
-    fn versiones_como_numeros() {
-        assert!(mas_nueva("win-v0.10.0", "0.9.1"));
-        assert!(!mas_nueva("win-v0.4.0", "0.4.0"));
-        assert!(!mas_nueva("v0.3.9", "0.4.0"));
-        assert!(mas_nueva("1.0", "0.9.9"));
-        assert!(!mas_nueva("", "0.4.0"));
-    }
-
-    #[test]
     fn rutas_dentro_de_www() {
         let www = std::env::temp_dir().join("ps-www-prueba");
         std::fs::create_dir_all(www.join("js")).unwrap();
         std::fs::write(www.join("index.html"), "<p>hola</p>").unwrap();
         std::fs::write(www.join("js").join("a b.js"), "1").unwrap();
-        let p = |u: &str| archivo(&www, &format!("{ORIGEN}{u}"));
+        let p = |u: &str| archivo(&www, &ruta_local(&format!("{ORIGEN}{u}")).unwrap());
         assert_eq!(p("/").0, 200);
         assert_eq!(p("/index.html?x=1#y").1, "text/html; charset=utf-8");
         assert_eq!(p("/js/a%20b.js").0, 200);
@@ -698,6 +848,23 @@ mod pruebas {
         assert_eq!(p("/js%5c..%5c..%5csecreto.txt").0, 403);
         assert_eq!(p("/C:/Windows/win.ini").0, 403);
         assert_eq!(p("/no-existe.png").0, 404);
+        assert_eq!(ruta_local(ORIGEN).as_deref(), Some("/"));
+        assert_eq!(ruta_local("http://127.0.0.1:390170/x"), None);
+        assert_eq!(ruta_local("https://example.com/x"), None);
+    }
+
+    #[test]
+    fn sdk_de_firebase_desde_la_app() {
+        assert_eq!(ruta_local("https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js").as_deref(), Some("/firebasejs/13.0.0/firebase-app-compat.js"));
+        assert_eq!(ruta_local("https://www.gstatic.com/otra/cosa.js"), None);
+        let www = std::env::temp_dir().join("ps-www-prueba-fb");
+        std::fs::create_dir_all(www.join("firebasejs").join("13.0.0")).unwrap();
+        std::fs::write(www.join("firebasejs").join("13.0.0").join("a.js"), "1").unwrap();
+        let r = |u: &str| archivo(&www, &ruta_local(u).unwrap());
+        assert_eq!(r("https://www.gstatic.com/firebasejs/13.0.0/a.js").0, 200);
+        assert_eq!(r("https://www.gstatic.com/firebasejs/13.0.0/a.js").1, "text/javascript; charset=utf-8");
+        assert_eq!(r("https://www.gstatic.com/firebasejs/9.9.9/a.js").0, 404);
+        assert_eq!(r("https://www.gstatic.com/firebasejs/../../x").0, 403);
     }
 
     #[test]

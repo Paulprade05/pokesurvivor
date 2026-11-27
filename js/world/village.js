@@ -1266,9 +1266,13 @@ G.Village = (() => {
     { name: 'Jugadores', color: '#6fd8f2', items: [['friends', 'Grupo'], ['rank', 'Ranking'], ['profile', 'Tu perfil']] },
     { name: 'Aldea y ajustes', color: '#9be36a', items: [['home', 'Tu choza'], ['news', 'Novedades'], ['settings', 'Ajustes']] }
   ];
+  // (1.0, escritorio) En la app de Windows, que va siempre a pantalla completa, se sale del juego desde aquí (también con mando).
+  const QUIT = typeof window !== 'undefined' && window.pokeEscritorio && typeof window.pokeEscritorio.salir === 'function';
+  if (QUIT) GROUPS[GROUPS.length - 1].items.push(['quit', 'Salir del juego']);
   const ORDER = ['play'].concat(...GROUPS.map(g => g.items.map(i => i[0])));
   /** Lo del desplegable que no es un sitio de la aldea. */
-  const EXTRA = { profile: { name: 'Tu perfil', sub: 'Tu perfil y tus partidas', icon: 'crown' } };
+  const EXTRA = { profile: { name: 'Tu perfil', sub: 'Tu perfil y tus partidas', icon: 'crown' },
+    quit: { name: 'Salir del juego', sub: 'Cierra PokéSurvivor; tu partida se guarda', icon: 'logout' } };
   function buildQuick() {
     const box = $('vil-quick');
     if (!box || box.dataset.built) return;
@@ -1290,7 +1294,7 @@ G.Village = (() => {
         `<div class="vq-glist">${g.items.map(([go, label]) => item(go, label, '')).join('')}</div></section>`).join('') + '</div>' +
       '<div class="vq-foot"><button class="vq-partner" id="vq-partner" type="button" data-nav-row></button><div class="vq-stats" id="vq-stats"></div></div></div>' +
       '<footer class="fs-bar" data-auto aria-hidden="true"></footer>';
-    box.querySelectorAll('[data-vgo]').forEach(b => { b.onclick = () => { setQuick(false); go(b.dataset.vgo); }; });
+    box.querySelectorAll('[data-vgo]').forEach(b => { b.onclick = () => { setQuick(false); if (b.dataset.vgo === 'quit') quitGame(); else go(b.dataset.vgo); }; });
     $('vil-quick-close').onclick = () => { G.Audio.sfx('click'); setQuick(false); };
     $('vq-partner').onclick = () => { setQuick(false); go('partner'); };
     $('vil-go').onclick = () => { G.Audio.sfx('click'); setQuick(!quick); };
@@ -1306,6 +1310,11 @@ G.Village = (() => {
     const dec = $('vil-deco'), out = $('vil-out');
     if (dec) dec.onclick = () => { if (G.HomeUI) G.HomeUI.open('in'); };
     if (out) out.onclick = () => exitHome();
+  }
+  /** «Salir del juego» (sólo en la app de Windows): pregunta y la app se cierra guardando, como al cerrar su ventana. */
+  async function quitGame() {
+    G.Audio.sfx('click');
+    if (await G.UI.ask('¿Salir de PokéSurvivor? Tu partida se guarda.', { yes: 'Salir del juego', no: 'Seguir jugando' })) window.pokeEscritorio.salir();
   }
   /** ¿Se corre? (Mayús, B del mando o el botón táctil) */
   function running() {

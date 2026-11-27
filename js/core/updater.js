@@ -38,8 +38,9 @@ G.Updater = (() => {
     } catch (e) { /* sin red: se mira la próxima vez */ }
   }
 
-  /** ¿Se puede recargar ahora sin cortar nada? */
-  function safe() {
+  /** ¿Se puede recargar ahora sin cortar nada? (preguntar: para una pregunta de la app de Windows, un campo vacío
+   *  con el foco, como el «Nombre» de la entrada, no cuenta como «escribiendo»). */
+  function safe(preguntar) {
     if (G.DB.leaving) return false;                                       // cerrando sesión: que acabe antes
     if (!G.Game || G.Game.state !== 'ui') return false;                   // en partida o en el resumen
     // (11-11-2026) También dentro de la Tienda Kecleon: comprando. Paseando por la aldea del menú sí se recarga (es «fuera de partida»).
@@ -52,7 +53,7 @@ G.Updater = (() => {
     const fx = document.getElementById('pull-fx');
     if (fx && !fx.classList.contains('hidden')) return false;             // tirada del gacha en marcha
     const a = document.activeElement;
-    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;   // escribiendo (contraseña, apodo...)
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !(preguntar && a.tagName !== 'SELECT' && !a.value)) return false;   // escribiendo (contraseña, apodo...)
     return true;
   }
 
@@ -120,6 +121,21 @@ G.Updater = (() => {
     timer = setInterval(loop, 2000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - lastCheck > 60000) check(); });
     setTimeout(check, 30000);
+  }
+
+  // (1.0, bloque I) La app de Windows (desktop-rust/src/puente.js) avisa de su versión nueva y la instala con la interfaz
+  // del juego (se maneja con mando). Como G es privado en la versión compilada, aquí se le da lo que necesita: cuándo se
+  // puede preguntar (lo mismo que para recargar), la ventana de preguntas, las traducciones y subir lo pendiente a la nube.
+  if (typeof window !== 'undefined' && window.pokeEscritorio && typeof window.pokeEscritorio.conectar === 'function') {
+    window.pokeEscritorio.conectar({
+      libre: () => !!(G.UI && G.DB) && safe(true),
+      preguntar: (texto, o) => G.UI.ask(texto, o),
+      T: s => G.T(s),
+      subir: () => {
+        const dirty = G.DB.syncState && G.DB.syncState !== 'ok' && G.DB.syncState !== 'local';
+        return dirty ? Promise.race([G.DB.flush(), new Promise(r => setTimeout(r, 25000))]).catch(() => {}) : Promise.resolve();
+      }
+    });
   }
 
   return { init, check, get pending() { return pending; }, get version() { return mine; } };

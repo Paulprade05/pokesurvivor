@@ -126,8 +126,9 @@ test('Ajustes › Acerca de lleva la fila, con el aviso de SmartScreen, en espa�
 });
 
 test('la app de Windows busca el mismo archivo y su versión sigue el formato de las etiquetas', () => {
-  const rs = source('desktop-rust/src/main.rs');
-  assert.match(rs, /const INSTALADOR: &str = "PokeSurvivor-Windows-Setup\.exe";/);
+  // (1.0) El aviso y la descarga van en src/actualizar.rs (actualizar con un clic).
+  const rs = source('desktop-rust/src/actualizar.rs');
+  assert.match(rs, /pub const INSTALADOR: &str = "PokeSurvivor-Windows-Setup\.exe";/);
   assert.match(rs, /releases\/latest/);
   // (Comparar versiones como números: cargo test versiones_como_numeros, en desktop-rust.)
   assert.match(rs, /fn versiones_como_numeros\(\)/);

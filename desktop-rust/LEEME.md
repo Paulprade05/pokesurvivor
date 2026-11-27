@@ -26,6 +26,9 @@ target/debug/PokeSurvivor.exe --www=www
 node empaquetar.cjs                 # dist/PokeSurvivor/ y dist/PokeSurvivor-Windows-Rust.zip
 node instalador.cjs                 # dist/PokeSurvivor-Windows-Setup.exe (Inno Setup 6, ver abajo)
 node probar.cjs                     # prueba el .exe empaquetado como un jugador
+node probar-1-0.cjs                 # sin red, mando primero y aviso de versión (servidor falso)
+node prueba-instalador.cjs 0.10.0 A.exe   # instalador DE PRUEBA (otro AppId) para…
+node probar-actualizar.cjs A.exe B.exe 0.10.1   # …actualizar con un clic de punta a punta
 node medir-perf.cjs                 # tools/perf.cjs en Rust, Edge y Chrome
 ```
 
@@ -79,6 +82,13 @@ Lo mismo que hacía la app Electron, con los mismos archivos de `%APPDATA%\PokeS
 - Sirve el juego desde dentro de la app en `http://127.0.0.1:39017` sin abrir ningún puerto:
   WebView2 pide los archivos a la app (`WebResourceRequested`). Firebase y `db.js` ya
   aceptan esa dirección, así que la nube y el cooperativo funcionan como en la web.
+- **Sin conexión** (1.0, bloque I): el SDK de Firebase que carga el juego
+  (`https://www.gstatic.com/firebasejs/13.0.0/…-compat.js`) va dentro de la app (`www/firebasejs/`,
+  lo baja `copiar-web.cjs` de gstatic con su SHA-256 fijo) y la app lo sirve en esa misma dirección.
+  Así, sin internet el juego abre en modo nube igual (invitado o la última sesión guardada por
+  Firebase), se juega, y lo pendiente sube cuando vuelve la red (`db.js`, evento `online`). Ranking
+  y Grupo avisan como siempre. Si `db.js` cambia de versión del SDK, `copiar-web.cjs` falla hasta
+  poner la versión y las huellas nuevas.
 - **Copia de la partida en disco**: `%APPDATA%\PokeSurvivor\guardado\partida.json` (la misma
   que usaba Electron), cada 20 s y al cerrar la ventana. Si el navegador aparece vacío, la recupera.
 - **Gráfica potente**: `--force_high_performance_gpu` a WebView2 y los símbolos
@@ -102,17 +112,31 @@ Lo mismo que hacía la app Electron, con los mismos archivos de `%APPDATA%\PokeS
 - Los enlaces se abren en el navegador normal; sólo las ventanas de inicio de sesión de Google
   y Firebase se abren dentro (Google no deja entrar desde ventanas dentro de apps).
 - Sin service worker, sin menú contextual ni atajos del navegador (Ctrl+R, F5...).
-- **Avisa de versiones nuevas**: al abrir (como mucho una vez cada 20 h) mira la última release
-  de GitHub; si la etiqueta `win-vX.Y.Z` es más nueva que la versión de `Cargo.toml`, ofrece
-  abrir la descarga: el instalador `PokeSurvivor-Windows-Setup.exe` si la release lo trae; si
-  no, `PokeSurvivor-Windows-Rust.zip` (el texto cambia: abrir el instalador o descomprimir encima).
-  `--sin-avisos` lo apaga.
+- **Actualizar con un clic** (1.0, bloque I; `src/actualizar.rs`): al abrir (como mucho una vez
+  cada 20 h; la hora sólo se apunta si GitHub contesta) mira la última release de
+  `Paulprade05/pokesurvivor` (WinHTTP). Si la etiqueta `win-vX.Y.Z` es más nueva que `Cargo.toml` y
+  trae `PokeSurvivor-Windows-Setup.exe`, el juego pregunta fuera de partida con su propia ventana
+  (se maneja con mando). «Actualizar ahora»: baja el instalador **de la dirección de la release**
+  (`github.com/<repo>/releases/download/<etiqueta>/…`, no la que dé el API), con barra; comprueba el
+  tamaño y el **SHA-256** que publica GitHub (`digest` del API; BCrypt de Windows); sube a la nube lo
+  pendiente, guarda la partida en disco, se cierra y abre el instalador en silencio
+  (`/SILENT /SP- /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /RELANZAR=1`, en la misma carpeta y modo).
+  El instalador vuelve a abrir el juego (`[Run]` con `Check: Relanzar`). Si algo falla (red, huella,
+  tamaño), no instala, borra lo bajado y lo dice. Sin huella en la release no se instala solo: se
+  ofrece abrir la descarga en el navegador. `--sin-avisos` lo apaga (y las compilaciones de depuración).
+  Las apps 0.10.0 o anteriores aún avisan a la antigua (abrir la descarga); el clic llega a partir
+  de la primera release con esto.
+- **Mando primero** (1.0, bloque I): si al abrir hay un mando (XInput o un mando HID), el juego
+  empieza en modo mando sin tener que pulsar nada (selección a la vista) y sin cursor; mover el
+  ratón lo devuelve. En «Ir a…» está **«Salir del juego»** (sólo en la app): pregunta, guarda y cierra.
 - Si falta WebView2 (Windows 10 muy antiguo), avisa y ofrece la página de Microsoft.
 
 Para probar: `--perfil=<carpeta>` usa otra carpeta en vez de `%APPDATA%\PokeSurvivor` (y su
 propio candado de una sola copia: se puede abrir con el juego del jugador abierto),
 `--www=<carpeta>` otra copia del juego y `--depuracion=<puerto>` abre la depuración remota de
-WebView2 en 127.0.0.1 (para Playwright y `tools/perf.cjs --cdp`).
+WebView2 en 127.0.0.1 (para Playwright y `tools/perf.cjs --cdp`). `--actualizaciones=http://127.0.0.1:<puerto>`
+mira las versiones en un servidor de prueba (sólo 127.0.0.1) y `--con-mando` hace como si hubiera un
+mando al abrir.
 
 ## `window.pokeEscritorio`
 
@@ -135,18 +159,24 @@ completa dentro de la app) y la calidad de gráficos (Máxima la primera vez só
 | `ajustes` | `{gpuDedicada, sinTope, pantallaCompleta}` al abrir la app (`pantallaCompleta` siempre `true`) | `{gpuDedicada: true, …}` |
 | `pantallaCompleta()` | No hace nada (la app ya lo está siempre); se deja por compatibilidad | — |
 | `contenedor` | `'rust'` | `'rust'` |
+| `mandoAlAbrir` | Había un mando conectado al abrir la app (el juego empieza en modo mando) | `false` |
+| `salir()` | Guarda y cierra la app («Salir del juego») | — |
+| `conectar(o)` | El juego (`updater.js`) da `{libre, preguntar, T, subir}` para el aviso de versión nueva (`G` es privado al compilar) | — |
 
 ## Archivos
 
 | Archivo | Qué es |
 |---|---|
-| `src/main.rs` | La app: ventana a pantalla completa, WebView2, servir el juego, guardado, prioridad, aviso de versión |
+| `src/main.rs` | La app: ventana a pantalla completa, WebView2, servir el juego y el SDK de Firebase, guardado, prioridad, mando al abrir, aviso de versión |
+| `src/actualizar.rs` | Versión nueva: release de GitHub, descarga con SHA-256 (WinHTTP, BCrypt) y parámetros del instalador |
 | `src/puente.js` | Lo que corre en la página antes que el juego: copia de la partida y `window.pokeEscritorio` |
 | `build.rs`, `pokesurvivor.rc`, `pokesurvivor.manifest` | Icono, datos de versión y manifiesto del .exe |
 | `empaquetar.cjs`, `copiar-web.cjs` | Compila, copia la web compilada (sólo lo que está en git) y hace el .zip |
 | `icono.ico` | Icono del .exe y del instalador |
 | `instalador.iss`, `instalador.cjs` | El instalador (Inno Setup 6) y quien lo compila con la versión de `Cargo.toml` |
 | `probar.cjs` | Prueba el .exe como un jugador |
+| `probar-1-0.cjs` | Sin red, mando primero y aviso de versión contra un servidor falso |
+| `prueba-instalador.cjs`, `probar-actualizar.cjs` | Instaladores de prueba (otro AppId) y actualizar con un clic de punta a punta |
 | `medir-perf.cjs` | Mide con `tools/perf.cjs` en Rust, Edge y Chrome |
 
 `target/` y `dist/` no van a git. `Cargo.lock` sí (el workflow compila con `--locked`).
@@ -169,7 +199,10 @@ web), hace el instalador (`instalador.cjs`, Inno Setup 6) y sube `PokeSurvivor-W
    con `Cargo.toml`. Si la release ya existe, sustituye los archivos.
 4. Con eso, en la web sale Ajustes › Acerca de › «Descargar para Windows» (sólo en PC con Windows
    y si la release trae el instalador; `js/ui/windows-dl.js`) y las apps ya instaladas avisan de la
-   versión nueva.
+   versión nueva (y se actualizan con un clic si la release trae la huella SHA-256 del instalador,
+   que GitHub pone sola a los archivos subidos).
+5. El runner necesita red para `copiar-web.cjs`: baja el SDK de Firebase de www.gstatic.com y
+   comprueba sus huellas.
 
 Las apps Electron que aún tenga alguien (0.7.0-0.8.0) buscan primero el instalador: avisarán y
 bajarán esta app, y la partida sigue. Las Electron 0.6.0 o anteriores sólo buscaban

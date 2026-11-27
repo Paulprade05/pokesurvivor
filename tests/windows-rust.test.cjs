@@ -44,7 +44,7 @@ test('siempre a pantalla completa, sin modo ventana', () => {
   assert.match(source('js/ui/settings-ui.js'), /function canFull\(\) \{ return !G\.Settings\.desk && /);
 });
 
-function puente({ origin = 'http://127.0.0.1:39017', top = true, disco = null, store = {} } = {}) {
+function puente({ origin = 'http://127.0.0.1:39017', top = true, disco = null, store = {}, info: extra = {} } = {}) {
   const enviados = [], teclas = [];
   const ls = {
     get length() { return Object.keys(store).length; },
@@ -58,7 +58,7 @@ function puente({ origin = 'http://127.0.0.1:39017', top = true, disco = null, s
   ctx.window = ctx;
   ctx.top = top ? ctx : {};
   const info = { version: '0.4.0', juego: 'abc', webview2: '157.0.1', gpu: { dispositivos: [], activa: null, varias: false, probableDedicada: null },
-    ajustes: { gpuDedicada: true, sinTope: false, pantallaCompleta: true }, comprobar: false };
+    ajustes: { gpuDedicada: true, sinTope: false, pantallaCompleta: true }, mando: false, ...extra };
   const js = source('desktop-rust/src/puente.js').replaceAll('__INFO__', JSON.stringify(info)).replaceAll('__DISCO__', JSON.stringify(disco));
   vm.createContext(ctx);
   vm.runInContext(js, ctx);
@@ -139,4 +139,81 @@ test('el workflow compila la app de Rust y sube sólo el instalador y su .zip', 
   assert.match(y, /ARCHIVOS=\("desktop-rust\/dist\/PokeSurvivor-Windows-Setup\.exe" "desktop-rust\/dist\/\$ZIP_RUST"\)/);
   assert.doesNotMatch(y, /npm ci|ZIP_ELECTRON|app\.asar|desktop\//);
   assert.match(source('desktop-rust/empaquetar.cjs'), /PokeSurvivor-Windows-Rust\.zip/);
+});
+
+// ---- 1.0 · bloque I: mando primero, actualizar con un clic y jugar sin conexión ----
+
+test('mando primero: la app dice si había un mando al abrir y el juego empieza en modo mando', () => {
+  assert.equal(puente().ctx.pokeEscritorio.mandoAlAbrir, false);
+  assert.equal(puente({ info: { mando: true } }).ctx.pokeEscritorio.mandoAlAbrir, true);
+  assert.match(source('desktop-rust/src/main.rs'), /"mando": o\.con_mando \|\| hay_mando\(\)/);
+  const g = source('js/core/gamepad.js');
+  assert.match(g, /window\.pokeEscritorio\.mandoAlAbrir \? 0 : -2/);
+  // Sin cursor jugando con mando (sólo en la app: lo pone el puente).
+  assert.match(source('desktop-rust/src/puente.js'), /body\.pad, body\.pad \* \{ cursor: none !important; \}/);
+});
+
+test('modo mando: en la web nada cambia; en la app empieza activo y el ratón lo quita', () => {
+  const pad = (desk, eventos) => {
+    const ls = {};
+    const ctx = { console, performance: { now: () => 1000 }, navigator: { getGamepads: () => [] }, document: { body: { classList: { toggle() {} } }, querySelectorAll: () => [], getElementById: () => null },
+      addEventListener: (t, f) => { (ls[t] = ls[t] || []).push(f); }, matchMedia: () => ({ matches: false }) };
+    ctx.window = ctx;
+    if (desk) ctx.pokeEscritorio = { esEscritorio: true, mandoAlAbrir: true };
+    ctx.G = { Settings: { get: () => null, on() {} }, Game: { state: 'playing' }, I18n: { f: s => s } };
+    vm.createContext(ctx);
+    vm.runInContext(source('js/core/gamepad.js'), ctx);
+    for (const [t, e] of eventos || []) for (const f of ls[t] || []) f({ isTrusted: true, ...e });
+    ctx.G.Pad.poll(0.016);
+    return ctx.G.Pad.active;
+  };
+  assert.equal(pad(false), false, 'web: sin pulsar nada, no hay modo mando');
+  assert.equal(pad(true), true, 'app con mando al abrir: modo mando desde el principio');
+  assert.equal(pad(true, [['mousemove', { movementX: 3, movementY: 0 }]]), false, 'al mover el ratón se quita');
+});
+
+test('«Salir del juego»: sólo en la app, en «Ir a…», y cierra la app guardando', () => {
+  const { ctx, enviados } = puente();
+  ctx.pokeEscritorio.salir();
+  assert.deepEqual(enviados, [{ t: 'salir' }]);
+  const v = source('js/world/village.js');
+  assert.match(v, /const QUIT = typeof window !== 'undefined' && window\.pokeEscritorio && typeof window\.pokeEscritorio\.salir === 'function';/);
+  assert.match(v, /if \(QUIT\) GROUPS\[GROUPS\.length - 1\]\.items\.push\(\['quit', 'Salir del juego'\]\);/);
+  assert.match(source('desktop-rust/src/main.rs'), /Some\("salir"\) => Some\(Evento::Cerrar\)/);
+  assert.match(source('js/data/lang-en.js'), /"Salir del juego": "Quit game"/);
+});
+
+test('versión nueva: se pregunta fuera de partida y «Actualizar ahora» lo pide a la app', async () => {
+  const { ctx, enviados } = puente();
+  let pregunta = null, tick = null;
+  ctx.setInterval = f => { tick = f; return 1; };
+  ctx.clearInterval = () => { tick = null; };
+  ctx.document = { querySelector: () => null, body: { appendChild() {} }, createElement: () => ({ setAttribute() {}, style: {}, firstChild: {}, querySelector: () => ({ style: {} }) }) };
+  let libre = false;
+  ctx.__psNueva({ version: '0.11.0', actual: '0.10.0', clic: true, mb: 76 });
+  tick();
+  assert.equal(pregunta, null, 'sin el juego cargado no se pregunta');
+  // El juego (js/core/updater.js) se conecta con su interfaz; G es privado en la versión compilada.
+  ctx.pokeEscritorio.conectar({ libre: () => libre, preguntar: (t, o) => { pregunta = { t, o }; return Promise.resolve(true); }, T: s => s, subir: () => Promise.resolve() });
+  tick();
+  assert.equal(pregunta, null, 'en plena partida (o comprando) no se pregunta');
+  libre = true;
+  tick();
+  assert.match(pregunta.t, /la 0\.11\.0 \(tienes la 0\.10\.0\)\. Se descarga \(76 MB\)/);
+  assert.equal(pregunta.o.yes, 'Actualizar ahora');
+  await new Promise(r => setImmediate(r));
+  assert.deepEqual(enviados, [{ t: 'actualizar' }]);
+  // El juego se conecta desde updater.js, y la plantilla está traducida.
+  assert.match(source('js/core/updater.js'), /window\.pokeEscritorio\.conectar\(\{\s+libre: \(\) => !!\(G\.UI && G\.DB\) && safe\(true\),/);
+  assert.ok(source('js/data/lang-en.js').includes('"Hay una versión nueva de PokéSurvivor para PC: la {x} (tienes la {x}). Se descarga ({x} MB), se instala sola y el juego vuelve a abrirse. Tu partida se queda."'));
+});
+
+test('sin conexión: la app lleva el SDK de Firebase que usa el juego y sube lo pendiente al volver la red', () => {
+  const db = source('js/core/db.js');
+  const usada = db.match(/firebasejs\/([\d.]+)\//)[1];
+  const copia = source('desktop-rust/copiar-web.cjs');
+  assert.equal(copia.match(/const SDK_VERSION = '([\d.]+)';/)[1], usada, 'misma versión del SDK en la app y en el juego');
+  for (const f of ['app', 'auth', 'firestore', 'database']) assert.match(copia, new RegExp(`'firebase-${f}-compat\.js': '[0-9a-f]{64}'`));
+  assert.match(source('desktop-rust/src/main.rs'), /const SDK_FIREBASE: &str = "https:\/\/www\.gstatic\.com\/firebasejs\/";/);
+  assert.match(db, /addEventListener\('online', \(\) => \{/);
 });
