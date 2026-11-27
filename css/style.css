@@ -2617,7 +2617,8 @@ body.touch .dx-tab { min-height: var(--tap); }
 .upg-q.on { border-color: var(--c-yellow); background: rgba(var(--hl-rgb), .13); box-shadow: inset 0 0 0 1px var(--c-yellow); }
 /* Las mejoras: una columna estrecha, dos o más con sitio; un título por apartado. */
 .upg-grid { min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); align-content: start; gap: 6px 8px; }
-/* (1.0, bloque J) Con mando: qué hace la mejora seleccionada, debajo del Pokémon (la lista va por pestañas: .upg-tabs). */
+/* (1.0, bloque J) Con mando: qué hace la mejora seleccionada, debajo del Pokémon (la lista va por pestañas: .upg-tabs);
+   en el ordenador, a la derecha de la lista (menu.js upgShell la mueve; abajo, en la media del ordenador). */
 .upg-detail { display: none; }
 /* (Con mando, una columna: la cruceta baja y sube por la lista en el orden en que se ve.) */
 body.pad .upg-grid { grid-template-columns: minmax(0, 1fr); }
@@ -2699,6 +2700,8 @@ body.pad .upg-detail:not(:empty) { display: grid; gap: 4px; padding: 10px 12px; 
   .upg-stage { width: 100%; height: 150px; }
   .upg-who, .upg-quick { flex: none; }
   .upg-qgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.pad .upg-box .upg-body { grid-template-columns: 236px minmax(0, 1fr) minmax(220px, 300px); }
+  .upg-body > .upg-detail { position: sticky; top: 0; }
 }
 /* ---- Móvil (de pie y tumbado), modo compacto ---- */
 @media (max-width: 599px), (max-height: 520px) {
@@ -4979,11 +4982,9 @@ body.touch #scr-runs .btn.small { padding-top: calc(var(--tap) / 2 - 11px); padd
   width: min(1040px, 100%); max-height: 100%; overflow: hidden;
   padding: 22px 24px 20px; text-align: center;
 }
-/* (Sólo tableta y ordenador. En el móvil, a pantalla completa como sus hermanas, sección 4b: con este id la regla
-   ganaba a la de 4b y el panel se quedaba en 760 px, con una franja del juego a la derecha en el móvil tumbado.) */
-@media (min-width: 600px) and (min-height: 521px) {
-  #scr-item > .pick-box { width: min(760px, 100%); }
-}
+/* (27-11-2026) Sin ancho propio para #scr-item: desde el bloque B es una plantilla a pantalla completa (.fs-scr, más
+   abajo) como nivel y vínculo. La regla de 760 px, con id, ganaba a la de .fs-scr y en PC y tableta la elección de
+   objeto (sólo sale cuando ya llevas uno) quedaba pegada a la izquierda con la partida asomando a la derecha. */
 .pick-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
 .pick-title { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
 .ico-tile.pick-ico { --tile: 48px; border-radius: 15px; }

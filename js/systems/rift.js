@@ -279,6 +279,12 @@ G.Rift = (() => {
     if (travel.t >= TRAVEL) endTravel();
   }
 
+  /** El aviso de «saltar» (túnel, llegada de los legendarios y el juicio): con mando, su botón (27-11-2026: decía Espacio). */
+  function skipText() {
+    if (G.Touch.active) return G.T('Toca la pantalla para saltar');
+    if (G.Pad && G.Pad.active) return G.I18n.f('Pulsa {x} para saltar', G.Pad.label('open') || '—');
+    return G.T('Pulsa Espacio para saltar');
+  }
   /** Salta el viaje (tecla o toque; en grupo, el anfitrión para todos). */
   function skipTravel() {
     if (!travel || !travel.canSkip || travel.t + travel.suck < 0.3) return;
@@ -624,7 +630,7 @@ G.Rift = (() => {
     }
     // Saltar (sólo quien manda; en grupo, el anfitrión para todos).
     if (authority() && t > 0.3 && t < intro.end) {
-      const s = G.T(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar');
+      const s = skipText();
       ctx.font = N(800, 13);
       const tw = Math.min(ctx.measureText(s).width, w - 60), ph = 24, pw = tw + 22;
       const x1 = w - 12 - (sa.right || 0), y0 = Math.max(8, band - ph - 6) + (band ? 0 : 4);
@@ -742,7 +748,7 @@ G.Rift = (() => {
     if (travel.canSkip && travel.t > 0.3 && travel.t < TRAVEL - 0.3) {
       // (29-10-2026) En una chapa oscura, como los avisos del HUD, y casi opaco: en lila sobre los anillos del
       // túnel, a 12 px y medio transparente, apenas se leía.
-      const sa = G.Touch.safeArea(), s = G.T(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar');
+      const sa = G.Touch.safeArea(), s = skipText();
       ctx.save();
       ctx.font = G.HUD.N(800, 13);
       const tw = Math.min(ctx.measureText(s).width, w - 60), ph = 24, pw = tw + 22;
@@ -1019,7 +1025,7 @@ G.Rift = (() => {
   return {
     reset, update, drawable, onEvent, leftBehind, enterRequest() { if (!arena && !travel) start(); },
     // Viaje por la grieta: lo lleva la Sentencia (judgment.js), que es quien pone las animaciones del juego.
-    travelTick, skipTravel, drawTravel, get traveling() { return !!travel; },
+    travelTick, skipTravel, skipText, drawTravel, get traveling() { return !!travel; },
     /** (Bloque H) La llegada de los legendarios, uno detrás de otro: también para el juego (judgment.js cinematic). */
     get presenting() { return !!(arena && arena.phase === 'intro' && intro && !intro.done); },
     presentTick(dt) { if (arena && intro && !intro.done) introTick(dt); }, skipPresent, drawPresent,

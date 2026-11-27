@@ -6,6 +6,30 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-27', title: ["Arreglos de la 1.0", "1.0 fixes"], fix: [
+    ["Con mando: ya se puede aceptar (A) o rechazar (B) una invitación a una sala.",
+     "With a controller: you can now accept (A) or decline (B) an invitation to a room."],
+    ["Compendio en el ordenador con mando: A entra en la ficha para seguir sus enlaces (evolución, familia, quién lo aprende...) y B vuelve a la lista.",
+     "Compendium on PC with a controller: A enters the entry so you can follow its links (evolution, family, who learns it...) and B goes back to the list."],
+    ["Mejoras en el ordenador con mando: lo que hace la mejora elegida sale a la derecha de la lista, no debajo de tu Pokémon.",
+     "Upgrades on PC with a controller: what the selected upgrade does now shows to the right of the list, not under your Pokémon."],
+    ["Grietas y juicio con mando: el aviso para saltar la animación dice el botón del mando, no «Espacio» (y el del juicio sale en inglés).",
+     "Rifts and judgment with a controller: the hint to skip the animation shows the controller button, not \"Space\" (and the judgment one is now in English too)."],
+    ["App de Windows: fuera el error de la consola al abrir («…when fetching the script»).",
+     "Windows app: no more console error on launch (\"…when fetching the script\")."]] },
+
+  { d: '2026-11-27', title: ["Pantalla de objeto", "Item screen"], fix: [
+    ["En ordenador y tableta, la pantalla para elegir objeto cuando ya llevas uno salía pegada a la izquierda y con la partida asomando a la derecha. Ahora ocupa toda la pantalla, como la de subir de nivel.",
+     "On computer and tablet, the screen to choose an item when you already hold one was stuck to the left with the game showing on the right. It now fills the whole screen, like the level-up one."]] },
+  { d: '2026-11-27', title: ["Templos y santuarios en 3D", "Temples and shrines in 3D"], new: [
+    ["El templo de vitaminas, el santuario de reto y el santuario maldito ahora son edificios en 3D (en el ordenador con calidad Alta o más; en el móvil, dibujos más grandes y con volumen) y tienen una zona grande marcada en el suelo con piedras de runa alrededor.",
+     "The vitamin temple, the challenge shrine and the cursed shrine are now 3D buildings (on computer at High quality or above; on mobile, bigger drawings with depth) and have a large zone marked on the ground with rune stones around it."]],
+  chg: [
+    ["Templo de vitaminas: quédate 12 s dentro de su zona mientras salen oleadas de enemigos que te presionan. Si sales a medias, vuelve a empezar.",
+     "Vitamin temple: stay 12 s inside its zone while waves of enemies close in on you. If you leave halfway, it starts over."],
+    ["Santuario de reto y santuario maldito: su botón sale en cualquier sitio de su zona, no sólo pegado a ellos. La zona del reto es algo más grande.",
+     "Challenge shrine and cursed shrine: their button shows up anywhere inside their zone, not only right next to them. The challenge zone is a bit bigger."]] },
+
   { d: '2026-11-27', title: ["Huevo y compañero", "Egg and companion"], new: [
     ["Chansey: una vez por partida, entre los minutos 5 y 10 (después de la grieta), te espera en el mapa y te da un huevo. Kecleon también los vende. La carta te dice qué Pokémon lleva; cuanta más rareza (y suerte), más fuerte es su línea.",
      "Chansey: once per run, between minutes 5 and 10 (after the rift), it waits on the map and gives you an egg. Kecleon sells them too. The card shows which Pokémon is inside; the higher the rarity (and luck), the stronger its line."],

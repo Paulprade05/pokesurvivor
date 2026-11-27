@@ -147,11 +147,12 @@ G.CompendiumUI = (() => {
     if (ready) return;
     ready = true;
     document.querySelectorAll('#cmp-tabs .tab').forEach(t => {
-      t.onclick = () => { if (tab === t.dataset.tab) return; tab = t.dataset.tab; detail(false); render(); };
+      t.onclick = () => { if (tab === t.dataset.tab) return; tab = t.dataset.tab; detail(false); padIn(false); render(); };
     });
-    // «Volver»: con la ficha tapando la lista (ventana estrecha), la cierra; si no, al menú.
+    // «Volver»: con mando dentro de la ficha, a la lista; con la ficha tapando la lista (ventana estrecha), la cierra;
+    // si no, al menú.
     const back = document.querySelector('#scr-compendium .sheet-head [data-back]');
-    back.onclick = () => { if (detailOn()) detail(false); else if (inPause) closePause(); else G.MenuUI.open(); };
+    back.onclick = () => { if (padOn) padIn(false); else if (detailOn()) detail(false); else if (inPause) closePause(); else G.MenuUI.open(); };
     // Esc hace lo mismo que «Volver» (si no hay otra ventana encima ni se está escribiendo).
     addEventListener('keydown', e => {
       if (e.key !== 'Escape' || !isOpen() || !onTop()) return;
@@ -167,6 +168,8 @@ G.CompendiumUI = (() => {
       markSel();
       renderDetail();
       detail(true);
+      // (27-11-2026) Con mando en el ordenador, A entra en la ficha (sus enlaces: evolución, familia, quién lo aprende...).
+      if (!NARROW.matches && document.body.classList.contains('pad')) padIn(true);
     });
     // (1.0, bloque J) Con mando, en el ordenador la ficha sigue a la selección de la lista.
     let fT = 0;
@@ -197,6 +200,19 @@ G.CompendiumUI = (() => {
     return true;
   }
   const detailOn = () => $('scr-compendium').classList.contains('detail-open');
+  /**
+   * (27-11-2026) Con mando en el ordenador la lista y la ficha se ven a la vez, pero la zona con cursor (ui/nav.js) era
+   * sólo la lista: los enlaces de la ficha no se alcanzaban. Como en la Pokédex: A en la lista pasa la zona a la ficha
+   * (si tiene algo que pulsar) y B vuelve a la lista.
+   */
+  let padOn = false;
+  function padIn(on) {
+    on = !!on && !!$('cmp-detail').querySelector('button, a[href]');
+    if (on === padOn) return;
+    padOn = on;
+    document.querySelector('#scr-compendium .cmp-list').toggleAttribute('data-nav-skip', on);
+    if (G.Pad && G.Pad.refocus) G.Pad.refocus();
+  }
   function detail(on) {
     const scr = $('scr-compendium');
     on = !!on && NARROW.matches;
@@ -213,6 +229,7 @@ G.CompendiumUI = (() => {
     if (t && F[t]) tab = t;
     G.UI.show('scr-compendium', true);
     detail(false);
+    padIn(false);
     // Con algo concreto (p. ej. desde los logros): sin filtros, para que salga en la lista.
     if (id != null) go({ moves: 'm', passives: 'p', items: 'i', mons: 'd' }[tab] + ':' + id);
     else render();
@@ -228,11 +245,13 @@ G.CompendiumUI = (() => {
     scr.classList.add('in-pause');
     scr.classList.remove('hidden');
     detail(false);
+    padIn(false);
     render();
   }
   /** Cierra el compendio de la pausa (la pausa, si sigue abierta, queda como estaba). */
   function closePause() {
     inPause = false;
+    padIn(false);
     const scr = $('scr-compendium');
     scr.classList.add('hidden');
     scr.classList.remove('in-pause', 'detail-open');
@@ -253,6 +272,8 @@ G.CompendiumUI = (() => {
     render();
     // En la ventana estrecha: a una ficha, se queda en la ficha; a una lista filtrada, a la lista.
     detail(k === 'm' || k === 'p' || k === 'i' || k === 'd');
+    // Con mando dentro de la ficha: a otra ficha, sigue en ella (desde arriba); a una lista filtrada, a la lista.
+    if (padOn) { if (k === 't' || k === 'f') padIn(false); else if (G.Pad && G.Pad.refocus) G.Pad.refocus(); }
   }
 
   // ---------------- pintar ----------------

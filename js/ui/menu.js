@@ -968,6 +968,12 @@ G.MenuUI = (() => {
       <button id="upg-partner" class="btn small gold block hidden" type="button" data-sfx="confirm" data-nav-row>Elegir de compañero</button>
       <div id="upg-build-box" data-nav-row></div>`);
     who.parentNode.insertAdjacentHTML('beforeend', '<div class="upg-quick hidden" id="upg-quick"><span class="eyebrow">Tus Pokémon</span><div class="upg-qgrid" id="upg-qgrid" data-nav-row></div></div>');
+    // (27-11-2026) En el ordenador (el Pokémon en su columna fija), el detalle va a la derecha de la lista, como en la
+    // maqueta del bloque B; en el móvil, debajo del Pokémon.
+    const wide = mq('(min-width: 900px) and (min-height: 600px)'), det = $('upg-detail');
+    const place = () => { if (wide.matches) who.parentNode.parentNode.appendChild(det); else $('upg-sum').after(det); };
+    place();
+    if (wide.addEventListener) wide.addEventListener('change', place);
     // Con mando, al lado de la lista: qué hace la mejora seleccionada.
     $('upg-list').addEventListener('nav-focus', e => upgDetail(e.target.closest && e.target.closest('.upg-card')));
     who.querySelectorAll('.upg-mode button').forEach(b => {
