@@ -18,6 +18,9 @@ G.CHANGELOG = [
     ["App de Windows: fuera el error de la consola al abrir («…when fetching the script»).",
      "Windows app: no more console error on launch (\"…when fetching the script\")."]] },
 
+  { d: '2026-11-27', title: ["Pantalla de objeto", "Item screen"], fix: [
+    ["En ordenador y tableta, la pantalla para elegir objeto cuando ya llevas uno salía pegada a la izquierda y con la partida asomando a la derecha. Ahora ocupa toda la pantalla, como la de subir de nivel.",
+     "On computer and tablet, the screen to choose an item when you already hold one was stuck to the left with the game showing on the right. It now fills the whole screen, like the level-up one."]] },
   { d: '2026-11-27', title: ["Huevo y compañero", "Egg and companion"], new: [
     ["Chansey: una vez por partida, entre los minutos 5 y 10 (después de la grieta), te espera en el mapa y te da un huevo. Kecleon también los vende. La carta te dice qué Pokémon lleva; cuanta más rareza (y suerte), más fuerte es su línea.",
      "Chansey: once per run, between minutes 5 and 10 (after the rift), it waits on the map and gives you an egg. Kecleon sells them too. The card shows which Pokémon is inside; the higher the rarity (and luck), the stronger its line."],
