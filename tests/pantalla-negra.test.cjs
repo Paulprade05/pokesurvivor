@@ -84,9 +84,9 @@ test('el vigilante sale antes del HUD y el rescate, entre fotogramas', () => {
   assert.ok(src.indexOf('if (rescueDue)') < src.indexOf('function render()'));
 });
 
-test('pantalla de objeto: el tope de 760 px no se aplica en el móvil (de pie o tumbado)', () => {
-  const css = read('css/style.css').replace(/\r\n/g, '\n');
-  const m = /@media \(min-width: 600px\) and \(min-height: 521px\) \{\n\s*#scr-item > \.pick-box \{ width: min\(760px, 100%\); \}\n\}/.test(css);
-  assert.ok(m, 'va dentro de la media de tableta y ordenador');
-  assert.equal(css.split('#scr-item > .pick-box').length - 1, 1, 'y no hay otra regla igual fuera');
+// (27-11-2026) Ya no hay tope de 760 px en ningún tamaño: desde el bloque B la pantalla de objeto es a pantalla
+// completa como sus hermanas, y en PC y tableta el tope la dejaba pegada a la izquierda (tests/objeto-pantalla.test.cjs).
+test('pantalla de objeto: sin tope de 760 px (ni en el móvil ni en PC)', () => {
+  const css = read('css/style.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.equal(css.split('#scr-item > .pick-box').length - 1, 0);
 });
