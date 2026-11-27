@@ -29,6 +29,9 @@ G.Companion = (() => {
   const HATCH_D = 180 * 110;             // unos 3 min andando a velocidad normal (mon.spd ~110)
   const EVO_AT = [240, 540];             // s desde que nace: 1.ª y 2.ª evolución
   const REVIVE_T = 20, HP_K = 0.7, WIN = 20;
+  // Aguante: cada toque (0,5 s) como mucho HIT_MAX de su vida, con tu defensa; sin tocarle REGEN_AFTER s, se cura REGEN por s.
+  // (Medido con el bot el 27-11-2026: sin esto pasaba caído el 60-70 % del tiempo; con 8 %/3 s/10 %, el 33 %.)
+  const HIT_MAX = 0.05, REGEN_AFTER = 2, REGEN = 0.15;
   const GAIN_MAX = 4, DEBT_K = 0.3;      // perCast: corrección por lo que no llega (fallos, resistencias) y parte de lo que le falta por golpe
   const CD = { physical: 1.4, special: 1.6 };
   const SIGHT = 300, LEASH = 280, MELEE_R = 72, MELEE_ARC = 2.4, SHOT_R = 300, TELE = 700;
@@ -166,7 +169,7 @@ G.Companion = (() => {
     }
     move(dt, pl, c);
     if (!pl.dead) attack(dt, pl, c);
-    contact(dt, c);
+    contact(dt, pl, c);
   }
 
   function eggTick(dt, pl, c) {
@@ -309,13 +312,15 @@ G.Companion = (() => {
   }
 
   // ---------------- lo que le pasa ----------------
-  function contact(dt, c) {
+  function contact(dt, pl, c) {
+    c.calm = (c.calm || 0) + dt;
+    if (c.calm >= REGEN_AFTER && c.hp < c.maxHp) c.hp = Math.min(c.maxHp, c.hp + c.maxHp * REGEN * dt);
     if ((c.hitCd -= dt) > 0) return;
     let d = 0;
     for (const e of G.EnemyMgr.queryCircle(c.x, c.y, c.r0 + 4)) if (!e.dead && e.behavior !== 'thief') d += (e.dmg || 5) * 0.35;
     if (!d) return;
-    c.hitCd = 0.5;
-    c.hp -= Math.min(c.maxHp * 0.25, d);
+    c.hitCd = 0.5; c.calm = 0;
+    c.hp -= Math.min(c.maxHp * HIT_MAX, d * (1 - (pl.reduction || 0)));
     c.flash = 0.1;
     G.FX.burst(c.x, c.y - 10, '#ff5f6d', 4, 60);
     if (c.hp <= 0) down(c);

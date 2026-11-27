@@ -46,7 +46,7 @@ const C = G.Companion;
 function player(o = {}) {
   const p = Object.create(G.Player.prototype);
   Object.assign(p, { x: 0, y: 0, r: 14, bodyH: 30, maxHp: 200, hp: 200, dmgDealt: 0, kills: 0, bosses: 0, coins: 0, bonusCoins: 0, coinMul: 1,
-    items: [], pass: {}, fortune: 0, moveAngle: 0, slots: [[]], moves: [], active: 0 }, o);
+    items: [], pass: {}, fortune: 0, moveAngle: 0, slots: [[]], moves: [], active: 0, dmgReduce: 0, buffs: { def: { n: 0, amount: 0 } } }, o);
   Object.defineProperty(p, 'spd', { value: 110 });
   return p;
 }
@@ -134,13 +134,26 @@ test('si cae, se levanta a los 20 s', () => {
   C.give(pl, { dex: 66, r: 0 }); C.debugHatch(pl);
   const c = pl.companion;
   G._enemies = [{ x: c.x, y: c.y, r: 12, dmg: 400, types: ['normal'], hurt() {} }];
-  for (let t = 0; t < 2.5 && !c.dead; t += 0.1) C.update(0.1, pl);
-  assert.equal(c.dead, true, 'como mucho un cuarto de su vida por golpe: cae en el 4.º');
+  for (let t = 0; t < 9.4; t += 0.1) C.update(0.1, pl);
+  assert.equal(c.dead, false, 'como mucho un 5 % de su vida por toque (cada 0,5 s): aguanta 9 s rodeado');
+  for (let t = 0; t < 2 && !c.dead; t += 0.1) C.update(0.1, pl);
+  assert.equal(c.dead, true, 'cae en el 20.º toque');
   G._enemies = [];
   for (let t = 0; t < 19.5; t += 0.5) C.update(0.5, pl);
   assert.equal(c.dead, true, 'a los 19,5 s sigue caído');
   C.update(0.6, pl);
   assert.equal(c.dead, false); assert.equal(c.hp, c.maxHp);
+  // Con tu defensa recibe menos, y sin que le toquen 2 s se cura (15 % por s).
+  pl.dmgReduce = 0.5;                        // su defensa (Player.reduction)
+  G._enemies = [{ x: c.x, y: c.y, r: 12, dmg: 10, types: ['normal'], hurt() {} }];
+  c.hitCd = 0; C.update(0.1, pl);
+  assert.ok(Math.abs(c.maxHp - c.hp - 10 * 0.35 * 0.5) < 1e-6, 'toque con tu defensa: ' + (c.maxHp - c.hp));
+  G._enemies = [];
+  c.hp = c.maxHp * 0.5;
+  for (let t = 0; t < 1.9; t += 0.1) C.update(0.1, pl);
+  assert.equal(c.hp, c.maxHp * 0.5, 'antes de 2 s, nada');
+  for (let t = 0; t < 2; t += 0.1) C.update(0.1, pl);
+  assert.ok(c.hp > c.maxHp * 0.6, 'después, se cura: ' + c.hp / c.maxHp);
 });
 
 /** Partida simulada: tú haces `rate` de daño por segundo; el compañero pega a un enemigo que tiene al lado. */
