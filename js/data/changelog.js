@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-27', title: ["Huevo y compañero", "Egg and companion"], new: [
+    ["Chansey: una vez por partida, entre los minutos 5 y 10 (después de la grieta), te espera en el mapa y te da un huevo. Kecleon también los vende. La carta te dice qué Pokémon lleva; cuanta más rareza (y suerte), más fuerte es su línea.",
+     "Chansey: once per run, between minutes 5 and 10 (after the rift), it waits on the map and gives you an egg. Kecleon sells them too. The card shows which Pokémon is inside; the higher the rarity (and luck), the stronger its line."],
+    ["El huevo eclosiona andando (unos 3 minutos; quieto no avanza). Lo llevas a tu lado con un aro que se va llenando.",
+     "The egg hatches as you walk (about 3 minutes; standing still doesn't count). You carry it beside you with a ring that fills up."],
+    ["Tu compañero te sigue y ataca con un solo ataque, el de su tipo principal y su lado (físico: un zarpazo junto al enemigo; especial: un disparo o un rayo). Hace un trozo fijo del daño (del 10 % al 15 % como mucho), no ocupa hueco de ataque ni cuenta para la Sobrefusión.",
+     "Your companion follows you and attacks with a single move, the one for its main type and its side (physical: a swipe next to the enemy; special: a shot or a beam). It deals a fixed share of the damage (10% up to 15% at most), doesn't take an attack slot and doesn't count for Overfusion."],
+    ["Evoluciona a los 4 minutos de nacer y otra vez 5 minutos después (si su línea sigue), y su trozo del daño sube. Si los enemigos lo debilitan, se levanta a los 20 s.",
+     "It evolves 4 minutes after hatching and again 5 minutes later (if its line goes on), and its share of the damage goes up. If enemies knock it out, it gets back up after 20 s."],
+    ["Un compañero (o huevo) por jugador: si coges otro huevo, eliges cuál se queda. Es sólo para la partida: no va a tu colección. En cooperativo, cada uno el suyo.",
+     "One companion (or egg) per player: if you get another egg, you choose which one stays. It's only for the run: it doesn't go to your collection. In co-op, everyone has their own."]] },
+
   { d: '2026-11-25', title: ["Encuentros en el mapa", "Encounters on the map"], new: [
     ["Explorando el mapa te encuentras, cada 5 minutos, uno o dos encuentros que te esperan quietos (sin avisos ni flechas: hay que buscarlos). Al acercarte sale su botón, como el de los cofres. No aparecen mientras hay una grieta abierta: salen después.",
      "While exploring the map you find one or two encounters every 5 minutes, waiting in place (no alerts or arrows: you have to look for them). Get close and their button shows up, like a chest's. They don't appear while a rift is open: they come afterwards."],

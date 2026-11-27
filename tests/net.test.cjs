@@ -147,7 +147,7 @@ test('real Coop.tick frames pass through the codec without changing gameplay fie
     assert.equal(sent.length, 1);
     assert.deepEqual(C.decode(C.encode(sent[0])), sent[0]);
     if (host) { assert.deepEqual(sent[0].e, [[123, 50, -10, 126, 1, 3, 1]]); assert.ok('ho' in sent[0]); }
-    else { assert.equal(sent[0].p.length, 19); assert.equal(sent[0].p[15], ''); assert.equal(sent[0].p[18], 0); }   // 16.º: a quién mira estando caído; 17.º y 18.º: ancho y alto de su vista; 19.º: su fase (0: sin evoluciones)
+    else { assert.equal(sent[0].p.length, 20); assert.equal(sent[0].p[15], ''); assert.equal(sent[0].p[18], 0); assert.equal(sent[0].p[19], 0); }   // 16.º: a quién mira estando caído; 17.º y 18.º: ancho y alto de su vista; 19.º: su fase (0: sin evoluciones); 20.º: su compañero del huevo (0: ninguno, bloque G)
   }
 });
 
@@ -774,7 +774,7 @@ test('24-10-2026: each player sends its evolution form; mates start as the first
   // Lo que manda el anfitrión (su fase, 5) llega por el codificador binario al invitado.
   host.G.Coop.tick(1);
   const f = C.decode(C.encode(host.G.sent));
-  assert.equal(f.p.host.length, 19);
+  assert.equal(f.p.host.length, 20);   // el 20.º es el compañero del huevo (bloque G)
   assert.equal(f.p.host[18], 5);
   guest.G.recv('host', f);
   assert.equal(guest.G.Coop.mate('host').pl.net.fm, 5);
