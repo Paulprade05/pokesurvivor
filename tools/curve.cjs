@@ -720,7 +720,9 @@ async function one(dex, upg, tag, speed, cap, want, pref, v1) {
           // (1.0, bloque A) Poder: multiplicador de ataque, reducción de daño y vida máxima (presupuesto: power-budget.js).
           pw: [+(pl.atkMul || 1).toFixed(2), +(pl.reduction || 0).toFixed(2), Math.round(pl.maxHp)],
           it: (pl.items || []).map(i => i.id + ':' + i.r + (i.evo ? '*' : '')).join(',') || '-',
-          v1: { fortune: pl.fortune || 0, curse: pl.curse || 0, vit: pl.vit || null, comp: pl.companion ? { dex: pl.companion.dex, evo: pl.companion.evolved ? 1 : 0, dealt: Math.round(pl.companion.dealt || 0) } : null, coins: pl.coins || 0 },
+          v1: { fortune: pl.fortune || 0, curse: pl.curse || 0, vit: pl.vit || null, comp: pl.companion ? { dex: pl.companion.dex, evo: pl.companion.evolved ? 1 : 0, dealt: Math.round(pl.companion.dealt || 0),
+            // (bloque G) su vida en s, tu daño desde que nació y lo de todos tus compañeros de la partida: su trozo = dealt / (dealt + own)
+            t: Math.round(pl.companion.t || 0), own: pl.companion.own0 != null ? Math.round((pl.dmgDealt || 0) - (pl.compDealt || 0) - pl.companion.own0) : 0, all: Math.round(pl.compDealt || 0) } : null, coins: pl.coins || 0 },
           dec: Object.assign({}, BOT.dec, { over: pl.over || 0 }), style: BOT.style.name + ':' + BOT.style.risk };
       });
       ttks.push(...s.ttk);
