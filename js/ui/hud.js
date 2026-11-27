@@ -418,7 +418,9 @@ G.HUD = (() => {
     const ks = String(pl.kills), cs = String(Math.max(0, pl.coins + (pl.bonusCoins || 0) - (pl.spent || 0)));   // (+ las de todo al máximo; − lo gastado en Kecleon y Porygon)
     // (1.0, bloque D) La suerte, detrás de las monedas, sólo si llevas (systems/fortune.js).
     const fp = G.Fortune ? G.Fortune.pct(pl) : 0, fs2 = fp ? fp + ' %' : '';
-    const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width, fw = fp ? sep + ic + gap + ctx.measureText(fs2).width : 0;
+    // (1.0, bloque F) Y la maldición, si llevas (systems/curse.js): su nivel.
+    const cl = G.Curse ? G.Curse.level : 0, cs2 = cl ? String(cl) : '';
+    const kw = ctx.measureText(ks).width, cw = ctx.measureText(cs).width, fw = (fp ? sep + ic + gap + ctx.measureText(fs2).width : 0) + (cl ? sep + ic + gap + ctx.measureText(cs2).width : 0);
     let bio = '', bw = 0;
     if (!cmp) {
       bio = G.World.biomeName().toUpperCase();
@@ -439,10 +441,17 @@ G.HUD = (() => {
     outlined(ctx, ks, x, y, C.ink, 3); x += kw + sep;
     G.Icons.draw(ctx, 'coin', x, iy, ic); x += ic + gap;
     outlined(ctx, cs, x, y, '#FFE58A', 3);
+    x += cw;
     if (fp) {
-      x += cw + sep;
+      x += sep;
       G.Icons.draw(ctx, 'luck', x, iy, ic); x += ic + gap;
       outlined(ctx, fs2, x, y, '#9BF0A0', 3);
+      x += ctx.measureText(fs2).width;
+    }
+    if (cl) {
+      x += sep;
+      G.Icons.draw(ctx, 'curse', x, iy, ic); x += ic + gap;
+      outlined(ctx, cs2, x, y, '#D9A8FF', 3);
     }
   }
 

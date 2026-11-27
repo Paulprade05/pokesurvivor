@@ -366,6 +366,7 @@ G.Game = (() => {
     G.Encounters.reset();
     G.EncounterUI.reset();
     G.Companion.reset();
+    if (G.Curse) G.Curse.reset();
     G.Weather.reset();
     G.Path.clear();
     G.Hazards.clear();

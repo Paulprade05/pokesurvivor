@@ -7,8 +7,9 @@
  *   forget   Smeargle: el ataque suelto que olvidas (o ninguno).
  *   machine  Porygon: el objeto al que subes la rareza (o ninguno).
  *   egg      Chansey (bloque G): el huevo que te da; si ya llevas compañero o huevo, eliges cuál se queda («Irse»: el tuyo).
+ *   curse    Santuario maldito (bloque F): un nivel más de maldición, con lo que hace y lo que da (o «No aceptar»: se apaga).
  * En solitario la partida se para mientras está abierta (G.Game.encounterHold); en grupo sigue, como la pausa.
- * Contrato con el bot (tools/curve.cjs): .pick-card con data-kind (item | heal | vitamin | luck | forget | rarity), data-id,
+ * Contrato con el bot (tools/curve.cjs): .pick-card con data-kind (item | heal | vitamin | luck | curse | forget | rarity), data-id,
  * data-r, data-price; «Irse» lleva data-close.
  */
 G.EncounterUI = (() => {
@@ -34,7 +35,8 @@ G.EncounterUI = (() => {
     temple: { ico: 'hpup', title: 'Templo de vitaminas', leave: 'Ninguna' },
     forget: { ico: 'book', title: 'Smeargle', leave: 'No olvidar nada' },
     machine: { ico: 'up', title: 'Porygon', leave: 'Irse' },
-    egg: { ico: 'egg', title: 'Chansey', leave: 'Irse' }
+    egg: { ico: 'egg', title: 'Chansey', leave: 'Irse' },
+    curse: { ico: 'curse', title: 'Santuario maldito', leave: 'No aceptar' }
   };
 
   function render(first = false) {
@@ -47,13 +49,14 @@ G.EncounterUI = (() => {
       ? `${G.Icons.html('coin', 20)}<span>${G.T('Te llevarías a la cuenta')}</span> <b>${n(purse)}</b>`
       : o.kind === 'temple' ? G.T('Elige una vitamina: cada una tiene su tope')
       : o.kind === 'egg' ? G.I18n.f('Un huevo: eclosiona andando (unos {x} min) y te acompaña toda la partida', Math.round(G.Companion.HATCH_D / 110 / 60))
+      : o.kind === 'curse' ? G.I18n.f('Maldición: Nv. {x} / {x} · para el resto de la partida', G.Curse.level, G.Curse.MAX)
       : G.T('Olvida un ataque suelto: deja sitio para aprender otro');
     const box = $('enc-cards');
     box.innerHTML = '';
     const cards = o.kind === 'shop' ? shopCards(pl, o) : o.kind === 'temple' ? templeCards(pl, o)
                 : o.kind === 'forget' ? forgetCards(pl, o) : o.kind === 'egg' ? [Object.assign(eggCard(pl, o.egg), { kind: 'egg', id: o.egg.dex, r: o.egg.r,
-                    go: () => { G.Companion.give(pl, o.egg); G.Audio.sfx('confirm'); close(); } })] : machineCards(pl, o);
-    if (!cards.length) box.innerHTML = `<p class="enc-none">${G.T(o.kind === 'forget' ? 'No tienes ataques sueltos que olvidar' : 'Nada que hacer aquí ahora')}</p>`;
+                    go: () => { G.Companion.give(pl, o.egg); G.Audio.sfx('confirm'); close(); } })] : o.kind === 'curse' ? curseCards(pl, o) : machineCards(pl, o);
+    if (!cards.length) box.innerHTML = `<p class="enc-none">${G.T(o.kind === 'forget' ? 'No tienes ataques sueltos que olvidar' : o.kind === 'curse' ? 'Ya llevas la maldición al tope' : 'Nada que hacer aquí ahora')}</p>`;
     cards.forEach((c, i) => {
       const el = P().cardEl(c, i, () => { if (!P().guarded() && !c.off) c.go(); }, false);
       el.dataset.kind = c.kind; el.dataset.id = c.id; el.dataset.r = c.r | 0;
@@ -82,6 +85,8 @@ G.EncounterUI = (() => {
         c = vitCard(pl, it);
       } else if (it.kind === 'egg') {
         c = eggCard(pl, it);
+      } else if (it.kind === 'curse') {
+        c = curseCard(pl);
       } else if (it.kind === 'heal') {
         c = { cls: 'is-stat', icon: 'heal', tile: 't-blue', title: G.T('Curarte'), desc: G.T('Recuperas la mitad de tu vida') };
       } else {
@@ -117,6 +122,22 @@ G.EncounterUI = (() => {
       go: () => { G.Vitamins.apply(pl, v.id, v.r, v.m); G.Audio.sfx('confirm'); close(); } }));
   }
 
+  /** La carta de la maldición: el nivel al que pasas, qué hace y qué da (bloque F, systems/curse.js). */
+  function curseCard(pl) {
+    const C = G.Curse, nx = Math.min(C.MAX, C.level + 1), top = C.level >= C.MAX, a = C.at(nx), pc = v => Math.round(v * 100);
+    return { cls: 'is-stat', icon: 'curse', tile: 'tint', tileC: C.COL,
+             eyebrow: top ? `<span class="pc-eyebrow">${G.T('Al máximo')}</span>` : '', title: G.T('Maldición'),
+             desc: top ? G.T('Ya llevas la maldición al tope')
+               : G.I18n.f('Nv. {x}: enemigos +{x} % vida, +{x} % daño, +{x} % más', nx, pc(a.hp), pc(a.dmg), pc(a.rate))
+                 + `<span class="enc-note">${G.I18n.f('+{x} % suerte, +{x} % exp., +{x} % monedas', pc(C.GIFT.luck), pc(a.xp), pc(a.coin))}</span>` };
+  }
+
+  function curseCards(pl, o) {
+    if (G.Curse.level >= G.Curse.MAX) return [];
+    return [Object.assign(curseCard(pl), { kind: 'curse', id: 'curse', r: 0,
+      go: () => { if (G.Curse.accept(cur.e)) { cur.accepted = true; close(); } } })];
+  }
+
   function forgetCards(pl, o) {
     return o.moves.filter(m => pl.moves.includes(m)).map(m => ({
       kind: 'forget', id: m.id, r: 0, cls: 'is-stat', icon: 'move:' + m.id, tile: 'tint', tileC: G.U.TYPE_COLOR[m.type],
@@ -141,8 +162,9 @@ G.EncounterUI = (() => {
   /** Te vas (o ya has elegido): el encuentro se da por usado y, si compraste objetos, te los da. */
   function close() {
     if (!cur) return;
-    const { e, gifts } = cur;
+    const { e, gifts, o, accepted } = cur;
     cur = null;
+    if (o.kind === 'curse' && !accepted) G.Curse.decline(e);
     e.used = e.type !== 'temple' ? true : e.used;
     if (e.type === 'shop' || e.type === 'smeargle' || e.type === 'machine' || e.type === 'egg') e.done = true;
     G.UI.hide('scr-encounter');

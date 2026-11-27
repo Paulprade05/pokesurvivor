@@ -179,7 +179,12 @@ G.Ranking = (() => {
              names: U.list(v.names, 4).map(x => U.str(x, 24)), dex: U.list(v.dex, 4).map(x => U.int(x, 2000)),
              shiny: U.list(v.shiny, 4).map(x => x === true), lv: U.int(v.lv, 999) || 1, kills: U.int(v.kills, 1e9) };
   };
-  const sorted = top => Object.entries(top || {}).map(([id, v]) => rowOf(id, v)).sort((a, b) => b.t - a.t);
+  // (1.0, bloque F, dueño 24-11-2026) Con el mismo tiempo, va delante quien ha derrotado más enemigos (sin dato nuevo:
+  //  kills ya se guardaba). Así cuenta la maldición, que saca más enemigos. Las reglas ya dejan sacar del top una marca
+  //  con el mismo tiempo (old.t <= e.t); mejorar la tuya propia sigue pidiendo más tiempo (las reglas no se tocan).
+  const order = (a, b) => b.t - a.t || (b.kills || 0) - (a.kills || 0);
+  const beats = (a, b) => a.t > b.t || (a.t === b.t && (a.kills || 0) > (b.kills || 0));
+  const sorted = top => Object.entries(top || {}).map(([id, v]) => rowOf(id, v)).sort(order);
   const now = () => firebase.firestore.FieldValue.serverTimestamp();
 
   // ---------------- anti-trampas ----------------
@@ -266,7 +271,7 @@ G.Ranking = (() => {
         // Si no llegas a la 50.ª marca que conoce este navegador, no entras: en
         // diario, semanal, mensual y por Pokémon no hay nada que hacer (ni leer).
         const thr = thresholds()[b] || 0;
-        if (topOnly && thr && entry.t <= thr) return;
+        if (topOnly && thr && entry.t < thr) return;   // (con el mismo tiempo puede entrar por derrotados: se mira)
         // ¿Ya tenías una marca mejor? En el histórico, si este navegador no lo
         // sabe, se mira una vez tu marca (pequeña). En las demás lo dice el
         // resumen, que se lee igualmente dentro de la transacción de abajo.
@@ -280,7 +285,7 @@ G.Ranking = (() => {
         // (y en diario, semanal y mensual, ni siquiera se guarda la marca).
         const cached = cacheGet('s:' + b);
         let waiting = false;
-        if (thr && entry.t <= thr && !(cached && id in cached)) {
+        if (thr && entry.t < thr && !(cached && id in cached)) {
           if (topOnly) { known[key] = entry.t; return; }
           // Histórico fuera del top 50: como mucho cada DEFER (ver arriba).
           if (dueOrDefer(b, id, entry)) await col(b).doc(id).set(data);
@@ -299,7 +304,7 @@ G.Ranking = (() => {
             if (id in top && top[id].t >= entry.t) { entered = false; newTop = top; return; }
             if (!(id in top) && Object.keys(top).length >= TOP) {
               const low = sorted(top).pop();
-              if (low.t >= entry.t) {                                // no entra en el top
+              if (!beats(entry, low)) {                              // no entra en el top
                 if (!topOnly) tx.set(col(b).doc(id), data);
                 entered = false; newTop = top; return;
               }
@@ -433,7 +438,7 @@ G.Ranking = (() => {
     }
     const all = new Map();
     for (const r of [...inTop, ...extra]) all.set(r.id, r);
-    return [...all.values()].sort((a, c) => c.t - a.t).slice(0, TOP);
+    return [...all.values()].sort(order).slice(0, TOP);
   }
 
   /** Tu puesto en la tabla (aunque no salgas en el top). → { pos, t, row } | null */
