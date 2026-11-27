@@ -144,7 +144,7 @@ test('si cae, se levanta a los 20 s', () => {
 });
 
 /** Partida simulada: tú haces `rate` de daño por segundo; el compañero pega a un enemigo que tiene al lado. */
-function sim({ dex, r = 0, rate = 1000, secs = 600, mult = 1, evolve = 0 }) {
+function sim({ dex, r = 0, rate = 1000, secs = 600, mult = 1, evolve = 0, away = false }) {
   const pl = player(); G.Game.player = pl;
   C.give(pl, { dex, r }); C.debugHatch(pl);
   const c = pl.companion;
@@ -156,7 +156,7 @@ function sim({ dex, r = 0, rate = 1000, secs = 600, mult = 1, evolve = 0 }) {
   const dt = 1 / 30, hist = [];
   for (let t = 0; t < secs; t += dt) {
     pl.dmgDealt += rate * dt;
-    foe.x = c.x + 30; foe.y = c.y;
+    foe.x = c.x + (away && Math.floor(t / 7) % 2 ? 5000 : 30); foe.y = c.y;   // away: 7 s sí, 7 s sin enemigo a su alcance
     C.update(dt, pl);
     for (const p of G._shots.splice(0)) p.onHit && p.onHit(p, foe);
     hist.push([pl.dmgDealt - pl.compDealt, c.dealt]);
@@ -177,7 +177,7 @@ test('su trozo del daño: cerca del objetivo y NUNCA más del 15 % (ni con tipos
   const z = sim({ dex: 4, mult: 2, evolve: 2, r: 3 });
   if (process.env.VER) console.log('trozo', a.share, b.share, z.share, z.worst);
   assert.ok(z.share > 0.12 && z.share <= 0.15 + 1e-6, 'Charizard, tipos a favor ' + z.share);
-  assert.ok(z.worst <= 0.15 + 0.02, 'en ninguna ventana de 20 s (casillas de 1 s) ' + z.worst);
+  assert.ok(z.worst <= 0.15 + 1e-6, 'en ninguna ventana de 20 s ' + z.worst);
   // Lo que hace suma a tu daño (es del equipo) y aparte en el suyo.
   assert.ok(Math.abs(z.pl.compDealt - z.c.dealt) < 1e-6);
   // Sin que tú pegues, él tampoco.
@@ -194,7 +194,11 @@ test('si pega menos de lo previsto (enemigos duros, fallos), se corrige hasta su
     assert.ok(a.c.gain > 2, 'la corrección sube: ' + a.c.gain);
     assert.ok(a.share > 0.085 && a.share <= 0.15 + 1e-6, 'cerca del 10 %: ' + a.share);
     const z = sim({ dex: 4, evolve: 2, r: 3 });
-    assert.ok(z.share <= 0.15 + 1e-6 && z.worst <= 0.15 + 0.02, 'nunca más del 15 %: ' + z.share + ' / ' + z.worst);
+    assert.ok(z.share <= 0.15 + 1e-6 && z.worst <= 0.15 + 1e-6, 'nunca más del 15 %: ' + z.share + ' / ' + z.worst);
+    // Y la mitad del tiempo sin enemigo a su alcance: lo que le falta lo va pagando.
+    const w = sim({ dex: 4, away: true });
+    if (process.env.VER) console.log('a ratos', w.share, w.worst);
+    assert.ok(w.share > 0.085 && w.share <= 0.15 + 1e-6 && w.worst <= 0.15 + 1e-6, 'a ratos: ' + w.share + ' / ' + w.worst);
   } finally { G.Stats.taken = taken; }
 });
 

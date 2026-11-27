@@ -29,7 +29,7 @@ G.Companion = (() => {
   const HATCH_D = 180 * 110;             // unos 3 min andando a velocidad normal (mon.spd ~110)
   const EVO_AT = [240, 540];             // s desde que nace: 1.ª y 2.ª evolución
   const REVIVE_T = 20, HP_K = 0.7, WIN = 20;
-  const GAIN_MAX = 4, IDLE_MAX = 3;      // perCast: corrección por lo que no llega (fallos, resistencias) y golpes «guardados» sin enemigo a tiro
+  const GAIN_MAX = 4, DEBT_K = 0.3;      // perCast: corrección por lo que no llega (fallos, resistencias) y parte de lo que le falta por golpe
   const CD = { physical: 1.4, special: 1.6 };
   const SIGHT = 300, LEASH = 280, MELEE_R = 72, MELEE_ARC = 2.4, SHOT_R = 300, TELE = 700;
   /** Su ataque: [físico, especial] por tipo (los que ya existen en data/moves.js). */
@@ -109,10 +109,10 @@ G.Companion = (() => {
 
   function hatch(pl, c) {
     c.egg = false;
-    c.t = 0; c.cd = 1; c.hitCd = 0; c.down = 0; c.hitsK = 1.5; c.gain = 1; c.since = 0; c.flash = 0; c.look = 0; c.tgt = null; c.seq = 0; c.stuck = 0;
+    c.t = 0; c.cd = 1; c.hitCd = 0; c.down = 0; c.hitsK = 1.5; c.gain = 1; c.want = 0; c.flash = 0; c.look = 0; c.tgt = null; c.seq = 0; c.stuck = 0;
     c.x = pl.x - 30; c.y = pl.y + 10;
     if (!G.World.isFree(c.x, c.y, 12)) { c.x = pl.x; c.y = pl.y; }
-    c.win = { own: new Array(WIN).fill(0), comp: new Array(WIN).fill(0), plan: new Array(WIN).fill(0), hit: new Array(WIN).fill(0), i: 0, t: 0, n: 0 };
+    c.win = { own: new Array(WIN).fill(0), comp: new Array(WIN).fill(0), plan: new Array(WIN).fill(0), hit: new Array(WIN).fill(0), old: 0, i: 0, t: 0, n: 0 };
     pl.compDealt = pl.compDealt || 0;
     c.lastOwn = own(pl);
     c.own0 = c.lastOwn;
@@ -151,9 +151,10 @@ G.Companion = (() => {
     if (!c) return;
     if (c.egg) return eggTick(dt, pl, c);
     // Ventana de daño (1 s por casilla): lo tuyo y lo suyo.
-    const W = c.win, o = own(pl);
-    W.own[W.i] += Math.max(0, o - c.lastOwn); c.lastOwn = o;
-    if ((W.t += dt) >= 1) { W.t -= 1; W.i = (W.i + 1) % WIN; W.own[W.i] = 0; W.comp[W.i] = 0; W.plan[W.i] = 0; W.hit[W.i] = 0; W.n = Math.min(WIN, W.n + 1); }
+    const W = c.win, o = own(pl), dOwn = Math.max(0, o - c.lastOwn);
+    W.own[W.i] += dOwn; c.lastOwn = o;
+    if (!c.dead) c.want += K_OF(share(c)) * dOwn;      // lo que le toca mientras está en pie (caído no le toca nada)
+    if ((W.t += dt) >= 1) { W.t -= 1; W.i = (W.i + 1) % WIN; W.old = W.comp[W.i]; W.own[W.i] = 0; W.comp[W.i] = 0; W.plan[W.i] = 0; W.hit[W.i] = 0; W.n = Math.min(WIN, W.n + 1); }
     c.maxHp = Math.max(1, Math.round(pl.maxHp * HP_K)); if (c.hp > c.maxHp) c.hp = c.maxHp;
     c.t += dt;
     if (c.stage < c.maxStage && c.t >= EVO_AT[c.stage]) evolve(pl, c);
@@ -163,7 +164,6 @@ G.Companion = (() => {
       if ((c.down -= dt) <= 0) revive(pl, c);
       return;
     }
-    c.since += dt;
     move(dt, pl, c);
     if (!pl.dead) attack(dt, pl, c);
     contact(dt, c);
@@ -241,14 +241,15 @@ G.Companion = (() => {
 
   /** Daño de cada golpe para llevar su trozo: lo tuyo de la ventana × s/(1−s), repartido en sus golpes. */
   //  En partida no todo llega (golpes que fallan, resistencias, la defensa del enemigo): W.plan es lo que se quiso hacer y W.hit
-  //  lo que se habría hecho sin el recorte; c.gain = plan / hit (suavizado, 1..GAIN_MAX). Y lo que no pudo pegar por no tener
-  //  enemigo a tiro lo guarda (c.since, hasta IDLE_MAX golpes). strike sigue recortando: nunca pasa de SHARE[1].
+  //  lo que se habría hecho sin el recorte; c.gain = plan / hit (suavizado, 1..GAIN_MAX). Y lo que le falta (c.want − c.dealt:
+  //  ratos sin enemigo a tiro, recortes) lo va pagando, DEBT_K por golpe; más de una ventana de atraso se perdona.
+  //  strike sigue recortando: nunca pasa de SHARE[1].
   function perCast(pl, c) {
-    const W = c.win, ownDps = sum(W.own) / Math.max(3, W.n), cd = CD[c.cat];
+    const W = c.win, so = sum(W.own), ownDps = so / Math.max(3, W.n), K = K_OF(share(c));
     const sp = sum(W.plan), sh = sum(W.hit);
     if (W.n >= WIN && sp > 0) c.gain = Math.min(GAIN_MAX, Math.max(1, c.gain * 0.8 + 0.2 * (sh > 0 ? sp / sh : GAIN_MAX)));
-    const total = K_OF(share(c)) * ownDps * Math.min(Math.max(c.since, cd), cd * IDLE_MAX) * c.gain;
-    c.since = 0;
+    if (c.want - c.dealt > K * so) c.want = c.dealt + K * so;
+    const total = (K * ownDps * CD[c.cat] + DEBT_K * Math.max(0, c.want - c.dealt)) * c.gain;
     W.plan[W.i] += total;
     const hits = c.beam || c.cat === 'physical' ? Math.max(1, c.hitsK) : 1;
     return total / hits;
@@ -260,7 +261,9 @@ G.Companion = (() => {
     const m = G.Types.mult(c.type, e.types);
     const k = (e.legend && G.Types.legK ? G.Types.legK(m) : m) * (G.Weather ? G.Weather.mult(c.type) : 1) * (G.Stats ? G.Stats.taken(e.mon, c.cat) : 1);
     const K = K_OF(SHARE[1]), W = c.win;
-    const room = Math.min(K * sum(W.own) - sum(W.comp), K * (own(pl) - c.own0) - c.dealt);
+    // Lo suyo cuenta también la casilla que acaba de salir (W.old): su ventana es ≥ 20 s y la tuya ≤ 20 s, así que ninguna
+    // ventana de 20 s pasa del tope.
+    const room = Math.min(K * sum(W.own) - sum(W.comp) - W.old, K * (own(pl) - c.own0) - c.dealt);
     W.hit[W.i] += dmg * k;
     const d = Math.min(dmg * k, room);
     if (!(d >= 1)) { G.FX.sp('impact', c.vis.pal || 'normal', e.x, e.y - (e.bodyH || 20) * 0.5, { life: 0.12, scale: 0.8 }); return 0; }
@@ -326,7 +329,7 @@ G.Companion = (() => {
   }
 
   function revive(pl, c) {
-    c.dead = false; c.hp = c.maxHp; c.cd = 0.8; c.since = 0;
+    c.dead = false; c.hp = c.maxHp; c.cd = 0.8;
     teleport(pl, c);
     c.anim = new G.Sprites.Animator(c.dex, 1);
     G.FX.ring(c.x, c.y - 10, 6, 70, '#5fe08a', 0.5, 3);
