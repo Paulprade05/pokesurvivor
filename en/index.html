@@ -126,7 +126,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/style.css?v=a83dbdc319">
+<link rel="stylesheet" href="css/style.css?v=6124acf2c0">
 <script src="js/core/locales.js?v=0c3fd21e64"></script>
 <script src="js/noframe.js"></script>
 </head>
@@ -698,7 +698,7 @@
     <div class="cmp-main">
       <div class="cmp-list" data-nav>
         <div class="cmp-tools" id="cmp-tools" data-nav-row data-nav-auto></div>
-        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio" data-nav-row data-nav-cols="1"></div>
+        <div class="cmp-rows" id="cmp-rows" role="listbox" aria-label="Compendio" data-nav-row data-nav-cols="1" data-pad-ok="Ver ficha"></div>
       </div>
       <!-- (Con la ficha tapando la lista, en el móvil, la zona del mando es la ficha.) -->
       <article class="cmp-detail" id="cmp-detail" data-nav data-nav-auto></article>
@@ -756,9 +756,9 @@
     <span class="eyebrow">Invitación</span>
     <div id="inv-text"></div>
   </div>
-  <div class="inv-acts">
+  <div class="inv-acts" data-nav data-nav-cols="2">
     <button id="inv-yes" class="btn gold small" type="button" data-sfx="confirm">Unirme</button>
-    <button id="inv-no" class="icon-btn" type="button" data-ico="close" aria-label="No, gracias" title="No, gracias"></button>
+    <button id="inv-no" class="icon-btn" type="button" data-ico="close" data-back aria-label="No, gracias" title="No, gracias"></button>
   </div>
 </div>
 
@@ -1099,6 +1099,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=cdc152b7f8"></script>
+<script defer src="js/app.min.js?v=287069472d"></script>
 </body>
 </html>

@@ -750,7 +750,7 @@ G.I18n.add({
   'Ruinas del Juicio': 'Ruins of Judgment', 'LA SENTENCIA': 'THE JUDGMENT', 'DE ARCEUS': 'OF ARCEUS',
   'El tiempo se ha agotado…': 'Time has run out…', '¡ARCEUS HA DESCENDIDO!': 'ARCEUS HAS DESCENDED!',
   'Es invencible: huye y aguanta todo lo que puedas': 'It is invincible: run and survive as long as you can',
-  'Toca la pantalla para saltar': 'Tap the screen to skip', 'Pulsa Espacio para saltar': 'Press Space to skip',
+  'Toca la pantalla para saltar': 'Tap the screen to skip', 'Pulsa Espacio para saltar': 'Press Space to skip', 'Pulsa {x} para saltar': 'Press {x} to skip',
   '¡Huye de Arceus! Es invencible': 'Run from Arceus! It is invincible',
 
   // ---------------- 1.0 · bloque H: animaciones (llegada de los legendarios y vida de la aldea) ----------------

@@ -60,7 +60,9 @@
   else boot();
 
   // Instalable como app (PWA). Sólo con http(s): abierto con doble clic (file://) no hace falta.
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  // (27-11-2026) Ni en la app de Windows: lleva el juego dentro, no sirve sw.js (404) y el registro fallido salía como
+  // error en la consola al abrir.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !(window.pokeEscritorio && window.pokeEscritorio.esEscritorio)) {
     addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('[PWA]', e.message)));
   }
 })();

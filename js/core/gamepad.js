@@ -289,6 +289,8 @@ G.Pad = (() => {
 
   /** La pantalla que se ve por encima: la de mayor z-index (Ajustes va por delante de la pausa) y, si empatan, la última. */
   function topScreen() {
+    const inv = invite();
+    if (inv) return inv;
     let top = null, tz = -Infinity;
     for (const s of document.querySelectorAll('.scr:not(.hidden)')) {
       const z = parseInt(getComputedStyle(s).zIndex, 10) || 0;
@@ -296,8 +298,17 @@ G.Pad = (() => {
     }
     return top;
   }
+  /**
+   * (27-11-2026) La invitación a una sala (social-ui.js, #invite-pop) no es una pantalla .scr: con mando no se llegaba
+   * a «Unirme». Mientras se ve (sólo en los menús y la aldea) manda ella: A se une, B («No, gracias») la rechaza.
+   */
+  function invite() {
+    const el = typeof document.getElementById === 'function' && document.getElementById('invite-pop');
+    return el && !el.classList.contains('hidden') ? el : null;
+  }
   /** En un menú, cartas, pausa o ventana: el mando mueve la selección en vez de al Pokémon. */
   function uiMode() {
+    if (invite()) return true;
     // (11-11-2026) Paseando por la aldea del menú, el mando mueve a tu Pokémon (A: entrar o hablar; Start: «Ir a…»).
     if (G.Village && G.Village.walking()) return false;
     return G.Game.state !== 'playing' || !!topScreen();

@@ -602,7 +602,7 @@ G.Judgment = (() => {
       ctx.textAlign = 'right';
       ctx.fillStyle = '#f3e2b0';
       // (Lejos de la muesca y de la barra de inicio del iPhone.)
-      ctx.fillText(G.Touch.active ? 'Toca la pantalla para saltar' : 'Pulsa Espacio para saltar', w - 16 - sa.right, h - 14 - Math.min(28, sa.bottom));
+      ctx.fillText(G.Rift.skipText(), w - 16 - sa.right, h - 14 - Math.min(28, sa.bottom));
       // Toda la pantalla es un botón (móvil y ratón).
       G.Touch.addButton(0, 0, w, h, skip, 0);
     }

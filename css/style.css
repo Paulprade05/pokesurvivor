@@ -2617,7 +2617,8 @@ body.touch .dx-tab { min-height: var(--tap); }
 .upg-q.on { border-color: var(--c-yellow); background: rgba(var(--hl-rgb), .13); box-shadow: inset 0 0 0 1px var(--c-yellow); }
 /* Las mejoras: una columna estrecha, dos o más con sitio; un título por apartado. */
 .upg-grid { min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); align-content: start; gap: 6px 8px; }
-/* (1.0, bloque J) Con mando: qué hace la mejora seleccionada, debajo del Pokémon (la lista va por pestañas: .upg-tabs). */
+/* (1.0, bloque J) Con mando: qué hace la mejora seleccionada, debajo del Pokémon (la lista va por pestañas: .upg-tabs);
+   en el ordenador, a la derecha de la lista (menu.js upgShell la mueve; abajo, en la media del ordenador). */
 .upg-detail { display: none; }
 /* (Con mando, una columna: la cruceta baja y sube por la lista en el orden en que se ve.) */
 body.pad .upg-grid { grid-template-columns: minmax(0, 1fr); }
@@ -2699,6 +2700,8 @@ body.pad .upg-detail:not(:empty) { display: grid; gap: 4px; padding: 10px 12px; 
   .upg-stage { width: 100%; height: 150px; }
   .upg-who, .upg-quick { flex: none; }
   .upg-qgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.pad .upg-box .upg-body { grid-template-columns: 236px minmax(0, 1fr) minmax(220px, 300px); }
+  .upg-body > .upg-detail { position: sticky; top: 0; }
 }
 /* ---- Móvil (de pie y tumbado), modo compacto ---- */
 @media (max-width: 599px), (max-height: 520px) {

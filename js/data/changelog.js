@@ -6,6 +6,18 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-27', title: ["Arreglos de la 1.0", "1.0 fixes"], fix: [
+    ["Con mando: ya se puede aceptar (A) o rechazar (B) una invitación a una sala.",
+     "With a controller: you can now accept (A) or decline (B) an invitation to a room."],
+    ["Compendio en el ordenador con mando: A entra en la ficha para seguir sus enlaces (evolución, familia, quién lo aprende...) y B vuelve a la lista.",
+     "Compendium on PC with a controller: A enters the entry so you can follow its links (evolution, family, who learns it...) and B goes back to the list."],
+    ["Mejoras en el ordenador con mando: lo que hace la mejora elegida sale a la derecha de la lista, no debajo de tu Pokémon.",
+     "Upgrades on PC with a controller: what the selected upgrade does now shows to the right of the list, not under your Pokémon."],
+    ["Grietas y juicio con mando: el aviso para saltar la animación dice el botón del mando, no «Espacio» (y el del juicio sale en inglés).",
+     "Rifts and judgment with a controller: the hint to skip the animation shows the controller button, not \"Space\" (and the judgment one is now in English too)."],
+    ["App de Windows: fuera el error de la consola al abrir («…when fetching the script»).",
+     "Windows app: no more console error on launch (\"…when fetching the script\")."]] },
+
   { d: '2026-11-27', title: ["Huevo y compañero", "Egg and companion"], new: [
     ["Chansey: una vez por partida, entre los minutos 5 y 10 (después de la grieta), te espera en el mapa y te da un huevo. Kecleon también los vende. La carta te dice qué Pokémon lleva; cuanta más rareza (y suerte), más fuerte es su línea.",
      "Chansey: once per run, between minutes 5 and 10 (after the rift), it waits on the map and gives you an egg. Kecleon sells them too. The card shows which Pokémon is inside; the higher the rarity (and luck), the stronger its line."],
