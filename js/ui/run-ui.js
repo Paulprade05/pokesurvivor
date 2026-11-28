@@ -106,7 +106,7 @@ G.RunUI = (() => {
       if (!g || !g[0]) { atk.push(free); continue; }
       const m = g[0];
       atk.push(`<span class="sl ico-tile tint${m.evolved ? ' evo' : ''}${g.length > 1 ? ' bond' : ''}" style="--tile-c:${typeCol(m)}" title="${g.map(x => G.T(x.name)).join(' + ')}">`
-        + G.Icons.html('move:' + m.id, SZ) + (mini ? '' : `<i class="sl-lv">${m.lvl}</i>`)
+        + G.Icons.html('move:' + m.id, SZ) + (mini ? '' : `<i class="sl-lv">${m.lvl}</i>`) + rarGems(slotRar(g), 'sl-rar')
         + (g.length > 1 ? `<i class="sl-plus">+${g.length - 1}</i>` : '') + '</span>');
     }
     const mine = G.LevelUp.passivesOf(pl), MAX = G.LevelUp.MAX_PASSIVES;
@@ -145,6 +145,16 @@ G.RunUI = (() => {
     return `<span class="pc-evo evo-for${e.mine.some(m => m.ready) ? ' ready' : e.mine.length ? ' has' : ''}">`
       + `<span class="evo-k">Hace evolucionar</span>${mine}${more}</span>`;
   }
+
+  /**
+   * (28-11-2026) Rareza de un ataque, para que se vea de un vistazo y sin depender del color: rombos de su color
+   * (1 raro, 2 épico, 3 legendario; común, ninguno) y, en la chapa, su nombre. best: la más alta que cogió (−1 nada).
+   */
+  const rarGems = (r, cls = '') => (r > 0 ? `<span class="rar-gems${cls ? ' ' + cls : ''}" style="--rc:${G.Rarity.color(r)}">${'<i></i>'.repeat(r)}</span>` : '');
+  const atkRar = (r, extra = '', cls = '', tip = '') => `<span class="atk-rar r${r}${cls ? ' ' + cls : ''}" style="--rc:${G.Rarity.color(r)}"${tip ? ` title="${tip}"` : ''}>`
+    + `${rarGems(r)}<span>${G.Rarity.name(r)}</span>${extra}</span>`;
+  /** La rareza más alta de un hueco (con su vínculo). */
+  const slotRar = g => (G.CardRarity ? Math.max(-1, ...g.map(x => G.CardRarity.best(x))) : -1);
 
   const badge = (txt, cls = '') => `<span class="badge pc-badge${cls ? ' ' + cls : ''}">${txt}</span>`;
   /** «Nv. 2 → 3» (o «Nv. 2»): «Nv.» en su propio nodo para que se traduzca. */
@@ -281,10 +291,11 @@ G.RunUI = (() => {
                                    eyebrow: c.evoTo && G.DEX_BY[c.evoTo] ? `<span class="pc-slot evo-mon">${G.I18n.f('¡Evoluciona a {x}!', G.T(G.DEX_BY[c.evoTo].name))}</span>`
                                      : pl ? slotNote('atk', pl.moves.length, pl.maxMoves) : '' };
     // (1.0, bloque D) Con rareza: su chapa arriba, el borde con su brillo y el extra que da, del color de la rareza.
+    // (28-11-2026) Más a la vista: carta teñida y marco grueso de su color, chapa con rombos y nombre (la común, en gris).
     if (c.type === 'up') {
-      const r = c.r | 0, rc = r ? G.Rarity.color(r) : '';
-      return { cls: 'is-up' + (r ? ' rar-on' : ''), rc, icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips,
-               eyebrow: r ? rarBadge(r) : '',
+      const r = c.r | 0, rc = G.Rarity.color(r);
+      return { cls: 'is-up rar-on r' + r, rc, icon: c.icon, tile: 'tint', tileC: c.color, badge: lvBadge(m ? m.lvl : 1, true), title: c.title, chips,
+               eyebrow: atkRar(r),
                desc: c.desc + (c.rx ? `<span class="pc-rar">${G.Icons.html('luck', 20)}<span>${c.rx}</span></span>` : ''), evo };
     }
     // Mejora de la run (stat o pasivo): los ataques que hace evolucionar. Si
@@ -576,9 +587,10 @@ G.RunUI = (() => {
       const secs = Math.max(5, t - (m.since || 0)), col = typeCol(m), d = m.dealt || 0;
       const pct = m.cat && total ? Math.round(d / total * 100) : 0;
       const nums = m.cat ? `<b>${n(d)}</b><small>${total ? pct + ' %' : '—'} · ${n(d / secs)}/s</small>` : '<b>—</b>';
+      const rb = G.CardRarity ? G.CardRarity.best(m) : -1;   // (28-11-2026: su rareza, con rombos y nombre)
       return `<div class="mv-row${m.evolved ? ' evolved' : ''}">
-        <span class="ico-tile s tint" style="--tile-c:${col}">${G.Icons.html('move:' + m.id, 30)}</span>
-        <div class="mv-main"><div class="mv-name"><b>${G.T(m.name)}</b><span class="badge ghost"><span>Nv.</span> ${m.lvl}</span></div>
+        <span class="ico-tile s tint" style="--tile-c:${col}">${G.Icons.html('move:' + m.id, 30)}${rarGems(rb, 'sl-rar')}</span>
+        <div class="mv-main"><div class="mv-name"><b>${G.T(m.name)}</b><span class="badge ghost"><span>Nv.</span> ${m.lvl}</span>${rb > 0 ? atkRar(rb, '', 'sm') : ''}</div>
           <div class="mv-tags">${moveChips(m, withCat)}${evoHtml(m, G.LevelUp.evoNeed(m, pl), 'mv-evo')}</div></div>
         <div class="mv-num">${nums}</div>
         ${m.cat ? `<i class="mv-bar"><i style="width:${pct}%;background:${col}"></i></i>` : ''}</div>`;
@@ -719,7 +731,7 @@ G.RunUI = (() => {
           <div class="pz-nt"><b>${G.T(ev.title)}</b>${pzStatus(m, ev)}<small class="pz-into">→ ${G.T(ev.name)}</small></div></div>`
       : `<span class="pz-link none" aria-hidden="true"></span><div class="pz-need">${pzStatus(m, ev)}</div>`;
     return `<div class="pz-row${ev && ev.ready ? ' ready' : ''}${m.evolved ? ' evolved' : ''}">
-      <span class="pz-med" style="--tc:${c}">${G.Icons.html('move:' + m.id, 30)}${bond}</span>
+      <span class="pz-med" style="--tc:${c}">${G.Icons.html('move:' + m.id, 30)}${bond}${rarGems(slotRar(g), 'sl-rar')}</span>
       <div class="pz-info"><div class="pz-name">${names}${tags}</div>
         <div class="pz-lv"><span><span>Nv.</span> ${m.lvl}/${max}</span>${pzPips(m.lvl, max, c)}</div>
         <div class="pz-dmg">${dmg}</div></div>
@@ -731,7 +743,8 @@ G.RunUI = (() => {
     if (b < 1) return '';
     const p = v => Math.round(v * 100), d = p(m.rx || 0), a = p(m.ra || 0);
     const txt = d && a ? G.I18n.f('+{x} % de daño y +{x} % de área', d, a) : d ? G.I18n.f('+{x} % de daño', d) : G.I18n.f('+{x} % de área', a);
-    return `<span class="pz-tag rar" style="--rc:${G.Rarity.color(b)}" title="${G.T('Extra de rareza')}">${txt}</span>`;
+    // (28-11-2026) Delante, su chapa con rombos y nombre (cada una puede bajar de línea si no cabe).
+    return atkRar(b, '', 'sm', G.T('Extra de rareza')) + `<span class="pz-tag rar" style="--rc:${G.Rarity.color(b)}">${txt}</span>`;
   }
   /** Tus pasivas: su nivel y qué ataques tuyos evolucionan con ella (los que la usan, en verde). */
   function pzPassives(pl, used) {
@@ -952,5 +965,5 @@ G.RunUI = (() => {
 
   return { showLevelUp, reroll, toggleDiscard, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause, KIND_NAME,
            // (1.0, bloque E) Piezas de las cartas para las pantallas de los encuentros (ui/encounter-ui.js).
-           parts: { cardEl, headIcons, guard, guarded, fitCards, badge, lvBadge, rarBadge, itemLines, itemEvo, itemProg, moveChips } };
+           parts: { cardEl, headIcons, guard, guarded, fitCards, badge, lvBadge, rarBadge, itemLines, itemEvo, itemProg, moveChips, atkRar, rarGems, slotRar } };
 })();

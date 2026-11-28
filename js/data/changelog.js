@@ -6,6 +6,12 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-28', title: ["Rareza de los ataques más a la vista", "Move rarity easier to see"], chg: [
+    ["Cartas de subir de nivel un ataque: la carta sale teñida del color de su rareza y con un marco grueso, y arriba una chapa con rombos y el nombre (1 rombo raro, 2 épico, 3 legendario; la común lo dice en gris). Los rombos ayudan si no distingues bien los colores.",
+     "Move level-up cards: the card is tinted in its rarity colour with a thick frame, and a badge at the top shows diamonds and the name (1 diamond rare, 2 epic, 3 legendary; common says so in grey). The diamonds help if you can't tell the colours apart."],
+    ["Los rombos de la rareza más alta que lleva cada ataque salen también sobre sus iconos de abajo en la partida, en la cabecera de las cartas, en la pausa (con su chapa y el extra) y en el resumen de fin de partida.",
+     "The diamonds for the highest rarity each move has also show over its icons at the bottom during the run, on the card header, in the pause menu (with its badge and bonus) and on the end-of-run summary."]] },
+
   { d: '2026-11-27', title: ["Arreglos de la 1.0", "1.0 fixes"], fix: [
     ["Con mando: ya se puede aceptar (A) o rechazar (B) una invitación a una sala.",
      "With a controller: you can now accept (A) or decline (B) an invitation to a room."],
