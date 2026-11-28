@@ -56,6 +56,12 @@ G.Coop = (() => {
   // pantalla y no entró), START_MS; si dejó de mandar (móvil bloqueado, una
   // llamada...), IDLE_MS. Si vuelve, cuenta otra vez.
   const START_MS = 10000, IDLE_MS = 45000;
+  // (28-11-2026) Y a un invitado que sí responde pero lleva HOLD_MAX_MS con una elección abierta (objeto, vínculo,
+  // evolución, mega, Kecleon, templo...), tampoco: los demás siguen y él sigue eligiendo a salvo (su partida está
+  // parada mientras tenga la pantalla abierta). holdAt: cuándo empezó cada uno; slowHold: a quién ya no se espera
+  // en esta elección (hasta que la cierre). Al anfitrión no se le puede dejar atrás: él mueve el mundo.
+  const HOLD_MAX_MS = 60000;
+  const holdAt = new Map(), slowHold = new Set();
   let beganAt = 0;
   let members = [];
 
@@ -87,7 +93,7 @@ G.Coop = (() => {
     api = cb;
     members = cfg.members;
     mates.clear();
-    outEv = []; flushT = 0; waiting = new Set(); holds = new Set();
+    outEv = []; flushT = 0; waiting = new Set(); holds = new Set(); holdAt.clear(); slowHold.clear();
     hostAway = false; stalled = false; lastHostAt = beganAt = performance.now();
     levelSeq = 0; levelNow = 1; seenSeq = 0; doneSeq = 0; lastHo = '';
     cfg.members.forEach((m, i) => {
@@ -110,7 +116,7 @@ G.Coop = (() => {
   function end() {
     for (const u of [...graceT.keys()]) stopGrace(u);
     active = false; host = false; local = null;
-    mates.clear(); outEv = []; waiting = new Set(); holds = new Set();
+    mates.clear(); outEv = []; waiting = new Set(); holds = new Set(); holdAt.clear(); slowHold.clear();
   }
 
   /** Te vas de la partida (los demás siguen). */
@@ -356,6 +362,13 @@ G.Coop = (() => {
       // (Después: holdOff rehace el aviso de quién elige y borraría éste.)
       G.Spawner.say(m.name + ' no responde: seguimos sin esperar', 3);
     }
+    for (const u of [...holds]) {
+      const m = u !== me && mates.get(u);
+      if (!m || now - (holdAt.get(u) || now) < HOLD_MAX_MS) continue;
+      slowHold.add(u);
+      holdOff(u);
+      G.Spawner.say(m.name + ' tarda mucho: seguimos sin esperar', 3);
+    }
   }
 
   // --- en el anfitrión ---
@@ -405,7 +418,7 @@ G.Coop = (() => {
           break;
         case 'lp': picked(from); break;
         case 'hs': holdOn(from); break;
-        case 'he': holdOff(from); break;
+        case 'he': slowHold.delete(from); holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
         case 'enc': if (G.Encounters && (ev[1] === 'c' || ev[1] === 'k' || ev[1] === 'tw')) G.Encounters.onNet(ev, from); break;   // (1.0, bloques E y F) un invitado activa el reto o acepta la maldición; (templos 3D) pide una oleada del templo
         case 'bye': mateGone(from); break;
@@ -416,6 +429,7 @@ G.Coop = (() => {
   /** Anfitrión: lo que dice cada envío del invitado manda sobre avisos que se hayan perdido. */
   function reconcile(from, n) {
     if (n.ch === undefined) return;                        // versión vieja del juego
+    if (!n.ch) slowHold.delete(from);
     if (n.ch && !holds.has(from)) holdOn(from);
     else if (!n.ch && holds.has(from)) holdOff(from);
     if (waiting.has(from) && n.ld >= levelSeq) picked(from);
@@ -620,7 +634,8 @@ G.Coop = (() => {
 
   /** Anfitrión: `u` empieza a elegir. */
   function holdOn(u) {
-    holds.add(u);
+    if (slowHold.has(u) || holds.has(u)) return;           // (ya no se le espera en esta elección / ya contado)
+    holds.add(u); holdAt.set(u, performance.now());
     emit(['hp', holdNames()]); flushAll();
     api.hold && api.hold(holdNames());
   }
@@ -628,6 +643,7 @@ G.Coop = (() => {
   /** Anfitrión: `u` ha terminado (o se ha ido). */
   function holdOff(u) {
     if (!holds.delete(u)) return;
+    holdAt.delete(u);
     emit(['hp', holdNames()]); flushAll();
     api.hold && api.hold(holdNames());
   }
