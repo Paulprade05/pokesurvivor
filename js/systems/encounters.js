@@ -1,10 +1,14 @@
 /* ============ encounters.js — encuentros del mapa (1.0, bloque E, 25-11-2026) ============
  * Lo decidió el dueño (nota del vault «Bloque E - Encuentros», «Decisiones del dueño», 1.0):
  *
- * Ritmo: 1-2 encuentros por tramo de 5 min, COLOCADOS EN EL MUNDO ESPERÁNDOTE: aparecen fuera de la vista, a 1-2
- *   pantallas, y se encuentran explorando. Sin avisos, sin flechas ni marcas en el borde. Sólo al tenerlos al alcance sale
+ * Ritmo: 1-2 encuentros por tramo de 5 min, COLOCADOS EN EL MUNDO ESPERÁNDOTE: aparecen fuera de la vista y se
+ *   encuentran andando. Sin avisos, sin flechas ni marcas en el borde. Sólo al tenerlos al alcance sale
  *   su botón, como el de los cofres (interact.js). Se quedan hasta que los usas (como mucho MAX_ALIVE sin usar: si sobran,
  *   se va el más viejo que no se ve).
+ *   (28-11-2026, el dueño: «no me han salido nunca, parece que no existen») Antes salían a 760-1300 px en cualquier
+ *   dirección: una persona, que sólo ve su pantalla, casi nunca daba con ellos (el bot sí: los ve a 620 px + su radio).
+ *   Ahora salen DELANTE de por donde vas, justo fuera de la vista (spotFor), y si en MOVE_T s nadie los ha tenido en la
+ *   pantalla (found) se recolocan otra vez delante (relocate; en grupo, 'enc' 'm').
  *
  *   shop       Kecleon, tendero ambulante. Gasta LAS MONEDAS QUE TE LLEVARÍAS A LA CUENTA (purse: tiempo, derrotados,
  *              jefes y recogidas, con tu Fortuna, menos lo gastado: endRun lo descuenta). Vende un objeto con rareza,
@@ -141,7 +145,9 @@ G.Vitamins = (() => {
 
 G.Encounters = (() => {
   const TRAMO = 300, MAX_ALIVE = 5, AFTER_RIFT = 190;
-  const DIST = [760, 1300];              // a cuánto de ti aparecen (fuera de la vista, a 1-2 pantallas)
+  // (28-11-2026) Dónde aparecen: delante de por donde vas (±AHEAD rad), entre el borde de la vista (+ su zona) y GAP px más;
+  // si en MOVE_T s nadie lo ha encontrado (visto en la pantalla), se recolocan delante otra vez.
+  const AHEAD = 0.6, GAP = [40, 220], MOVE_T = 25, FOUND_R = 260;   // FOUND_R: un compañero (su pantalla no se sabe)
   const SEEN_R = 420;                    // a esta distancia cuenta como «encontrado» (registro)
   // (Templos 3D) Zona grande para los tres (antes, templo 88 y reto 170), templo más largo (antes 8 s) y sus oleadas.
   const ZONE_R = 220, TEMPLE_R = ZONE_R, TEMPLE_T = 12, CHALLENGE_R = ZONE_R, CHALLENGE_T = 30, AWAY_T = 6;
@@ -205,15 +211,19 @@ G.Encounters = (() => {
   }
 
   // ---------------- colocarlos ----------------
-  /** Un sitio libre a DIST de pl, fuera de la vista y lejos de los demás encuentros. */
-  function spotFor(pl, rnd = Math.random, zone = 0) {
-    const view = G.Camera.outerRadius ? G.Camera.outerRadius() : 600;
-    for (let i = 0; i < 40; i++) {
-      const a = rnd() * 6.2832, d = Math.max(view + 120, DIST[0]) + rnd() * (DIST[1] - DIST[0]);
-      const x = Math.round(pl.x + Math.cos(a) * d), y = Math.round(pl.y + Math.sin(a) * d * 0.8);
+  /**
+   * Un sitio libre delante de pl (por donde anda: moveAngle), justo fuera de la vista (también su zona) y lejos de los
+   * demás encuentros. Si delante no hay sitio (paredes, agua), en cualquier dirección. self: el que se recoloca.
+   */
+  function spotFor(pl, rnd = Math.random, zone = 0, self = null) {
+    const view = G.Camera.outerRadius ? G.Camera.outerRadius() : 600, ang = pl.moveAngle || 0;
+    for (let i = 0; i < 60; i++) {
+      const a = i < 40 ? ang + (rnd() * 2 - 1) * AHEAD * (1 + i / 20) : rnd() * 6.2832;
+      const d = view + zone + GAP[0] + rnd() * (GAP[1] - GAP[0]);
+      const x = Math.round(pl.x + Math.cos(a) * d), y = Math.round(pl.y + Math.sin(a) * d);
       if (!G.World.isFree(x, y, 40) || !G.World.isFree(x + 30, y, 20) || !G.World.isFree(x - 30, y, 20)) continue;
       if (G.World.isLiquid && G.World.isLiquid(x, y)) continue;
-      if (list.some(e => G.U.dist2(e.x, e.y, x, y) < Math.max(500, (e.zone || 0) + zone + 100) ** 2)) continue;
+      if (list.some(e => e !== self && G.U.dist2(e.x, e.y, x, y) < Math.max(500, (e.zone || 0) + zone + 100) ** 2)) continue;
       if (G.Rift.rift && G.U.dist2(G.Rift.rift.x, G.Rift.rift.y, x, y) < (400 + zone * 0.5) ** 2) continue;
       // (Templos 3D) Con zona: casi toda por donde se puede andar (6 de 8 puntos a 0,6 del radio, sin pared ni agua).
       if (zone && !zoneOk(x, y, zone)) continue;
@@ -251,9 +261,10 @@ G.Encounters = (() => {
     if (T.zone) { e.zone = T.zone; e.r = T.zone; e.ring = ringOf(e); e.wt = 0; }
     if (T.dex) { e.dex = T.dex; e.anim = new G.Sprites.Animator(T.dex, 1); e.anim.dir = 0; }
     list.push(e);
-    // Sin sitio para todos: se va el más viejo sin usar que no se ve.
+    // Sin sitio para todos: se va el más viejo sin usar que no se ve; antes uno que ya encontraste (28-11-2026: antes se
+    // iba alguno que nadie había visto).
     const idle = list.filter(x => !x.used && !x.done && x !== e && !onScreen(x));
-    if (list.filter(x => !x.used && !x.done).length > MAX_ALIVE && idle.length) list.splice(list.indexOf(idle[0]), 1);
+    if (list.filter(x => !x.used && !x.done).length > MAX_ALIVE && idle.length) list.splice(list.indexOf(idle.find(x => x.found) || idle[0]), 1);
     return e;
   }
 
@@ -265,6 +276,23 @@ G.Encounters = (() => {
     return e;
   }
 
+  /**
+   * (28-11-2026) El que nadie ha encontrado en MOVE_T s (found) y no está cerca de nadie: otra vez delante de alguien.
+   * Lo hace quien manda (el anfitrión en grupo) y lo dice ('enc' 'm').
+   */
+  function relocate(e, who) {
+    const t = now();
+    if (e.found || e.used || e.done || t - e.t0 < MOVE_T) return;
+    const view = G.Camera.outerRadius ? G.Camera.outerRadius() : 600, R = view + (e.zone || 0) + 60;
+    if (who.some(p => G.U.dist2(p.x, p.y, e.x, e.y) < R * R)) return;
+    e.t0 = t;                                                  // (sin sitio: se vuelve a probar dentro de MOVE_T s)
+    const at = spotFor(G.U.pick(who), Math.random, e.zone || 0, e);
+    if (!at) return;
+    moveTo(e, at[0], at[1]);
+    if (G.Coop.isHost) G.Coop.broadcast(['enc', 'm', e.id, e.x, e.y]);
+  }
+  function moveTo(e, x, y) { e.x = x; e.y = y; if (e.zone) e.ring = ringOf(e); }
+
   function onScreen(e) {
     const p = G.Camera.toScreen(e.x, e.y), w = innerWidth, h = innerHeight;
     return p.x > -60 && p.x < w + 60 && p.y > -80 && p.y < h + 60;
@@ -275,10 +303,18 @@ G.Encounters = (() => {
     if (!pl) return;
     const t = now();
     if (authority() && !G.Rift.inArena && !G.Rift.rift && !(G.Judgment && G.Judgment.active)) {
+      let who = G.Game.everyone().filter(p => !p.dead);
+      if (!who.length) who = [pl];
       while (plan.length && plan[0].t <= t) {
-        const who = G.Game.everyone().filter(p => !p.dead);
-        if (!place(plan[0].type, G.U.pick(who.length ? who : [pl]))) break;   // sin sitio: se vuelve a mirar en un momento
+        if (!place(plan[0].type, G.U.pick(who))) break;   // sin sitio: se vuelve a mirar en un momento
         plan.shift();
+      }
+      // (28-11-2026) Encontrado: lo has tenido en la pantalla (de su zona, la mitad) o un compañero lo ha tenido cerca.
+      // Si nadie lo encuentra, se recoloca (relocate).
+      for (const e of list) {
+        const z = (e.zone || 0) * 0.5, R = FOUND_R + z;
+        if (!e.found && ((G.Camera.sees && G.Camera.sees(e.x, e.y, z)) || who.some(p => p !== pl && G.U.dist2(p.x, p.y, e.x, e.y) < R * R))) e.found = true;
+        relocate(e, who);
       }
     }
     for (const e of list) {
@@ -493,6 +529,7 @@ G.Encounters = (() => {
     const byId = id => list.find(e => e.id === id);
     switch (ev[1]) {
       case 'a': if (!byId(ev[2])) { make({ id: ev[2], type: ev[3], x: ev[4], y: ev[5] }); nextId = Math.max(nextId, ev[2] + 1); } break;
+      case 'm': { const e = byId(ev[2]); if (e && !e.used && !e.done) moveTo(e, ev[3], ev[4]); break; }   // (recolocado: relocate)
       case 'c': { const e = byId(ev[2]); if (e && G.Coop.isHost) startChallenge(e); break; }            // (de un invitado)
       case 'cs': { const e = byId(ev[2]); if (e && !ch) { e.used = true; ch = { e, t: 0, away: 0, wave: 0 }; G.Spawner.say(G.I18n.f('¡Reto! Aguanta {x} s en el círculo', CHALLENGE_T), 3, true, { col: '#ff6b6b' }); } break; }
       case 'ce': { const e = byId(ev[2]); if (e) { ch = null; e.done = true; reward(e, !!ev[3]); } break; }
@@ -631,11 +668,13 @@ G.Encounters = (() => {
   }
 
   return {
-    TYPES, CATALOG, PRICE, RAR_K, MACHINE, LUCK, LUCK_PER_SHOP, ZONE_R, TEMPLE_R, TEMPLE_T, TEMPLE_WAVE, CHALLENGE_R, CHALLENGE_T, TRAMO, MAX_ALIVE, AFTER_RIFT,
+    TYPES, CATALOG, PRICE, RAR_K, MACHINE, LUCK, LUCK_PER_SHOP, ZONE_R, TEMPLE_R, TEMPLE_T, TEMPLE_WAVE, CHALLENGE_R, CHALLENGE_T, TRAMO, MAX_ALIVE, AFTER_RIFT, MOVE_T, SEEN_R,
     reset, update, makePlan, press, pressable, purse, price, machinePrice, shopOffers, canBuy, buy, forgettable, forget, upgradeItem,
     near, drawables, drawGround, models, keys3d, onNet,
     get list() { return list; }, get plan() { return plan; }, get challenge() { return ch; },
     /** Para pruebas: pone uno ya, cerca de ti (d px). */
+    /** Para pruebas: dónde saldría uno de este tipo ahora (spotFor, sin ponerlo). */
+    debugSpot(type) { return spotFor(G.Game.player, Math.random, TYPES[type].zone || 0); },
     debugPlace(type, d = 160) { const pl = G.Game.player; return make({ type, x: Math.round(pl.x + d), y: Math.round(pl.y) }); }
   };
 })();

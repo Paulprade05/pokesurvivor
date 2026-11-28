@@ -931,6 +931,21 @@ G.HUD = (() => {
 
       if (!m) continue;
 
+      // (28-11-2026) Rareza más alta que lleva (sus cartas de mejora, systems/fortune.js): rombos de su color sobre el
+      // borde de arriba, 1 raro, 2 épico, 3 legendario (se ve también sin distinguir colores, como en las cartas).
+      let rb = -1;
+      if (G.CardRarity) for (const gm of g) rb = Math.max(rb, G.CardRarity.best(gm));
+      if (rb > 0) {
+        const D = cmp ? 3.5 : 4.5, step = D * 2 + (cmp ? 1.5 : 2), gx = x + S / 2 - (rb - 1) * step / 2, gy = y + 1;
+        ctx.beginPath();
+        for (let k = 0; k < rb; k++) {
+          const cx = gx + k * step;
+          ctx.moveTo(cx, gy - D); ctx.lineTo(cx + D, gy); ctx.lineTo(cx, gy + D); ctx.lineTo(cx - D, gy); ctx.closePath();
+        }
+        ctx.lineWidth = 2.5; ctx.strokeStyle = C.barkInk; ctx.stroke();
+        ctx.fillStyle = G.Rarity.color(rb); ctx.fill();
+      }
+
       if (fused) {
         // Vínculo: los movimientos en una cuadrícula de 2×2, cada uno con su recarga.
         const CC = cmp ? 18 : 22, P = (S - CC * 2) / 3;

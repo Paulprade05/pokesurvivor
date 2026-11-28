@@ -6513,14 +6513,31 @@ html:not(.no-anim) #scr-menu .logo .t1 { animation: logo-float 4.6s ease-in-out 
 .rar-badge { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 999px; font: 800 11px/1.5 var(--font-ui, inherit); letter-spacing: .02em;
   color: #10160f; background: var(--rc); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); white-space: nowrap; vertical-align: middle; }
 .rar-badge.evo { box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 10px var(--rc); }
-/* (1.0, bloque D) Carta de mejora de ataque con rareza (systems/fortune.js): brillo y franja de su color, su chapa arriba
-   y el extra que da debajo del texto. En la pausa, el extra que lleva cada ataque (.pz-tag.rar). */
-.card.pick-card.rar-on { box-shadow: var(--sh-2), inset 0 0 0 2px color-mix(in srgb, var(--rc) 75%, transparent), 0 0 18px -4px var(--rc); }
-.card.pick-card.rar-on::after { content: ''; position: absolute; inset: 0 0 auto; height: 5px; background: var(--rc); opacity: .85; pointer-events: none; }
+/* (1.0, bloque D) Carta de mejora de ataque con rareza (systems/fortune.js): su chapa arriba y el extra que da debajo
+   del texto (también vitaminas y huevos de encounter-ui.js). En la pausa, el extra que lleva cada ataque (pzRar). */
+/* (28-11-2026) Más a la vista (lo pidió el dueño): la carta teñida de su color con marco grueso, y la rareza con
+   rombos además del color (1 raro, 2 épico, 3 legendario), para verla sin distinguir colores. La común lo dice en gris. Sin animación. */
+.card.pick-card.rar-on:not(.r0) {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--rc) 38%, transparent), color-mix(in srgb, var(--rc) 14%, transparent) 75%), url('../assets/ui/musgo.png');
+  box-shadow: var(--sh-2), inset 0 0 0 4px var(--rc), inset 0 0 26px -6px var(--rc), 0 0 22px -2px color-mix(in srgb, var(--rc) 70%, transparent);
+}
 .pick-card .pc-eyebrow .rar-badge { margin-top: 0; letter-spacing: .02em; text-transform: none; }
 .pick-card .pc-rar { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; font: 800 13px/1.25 var(--font); color: var(--rc); }
 .pick-card .pc-rar img, .pick-card .pc-rar svg { width: 20px; height: 20px; flex: none; }
+/* Rombos de la rareza (en em: crecen con la chapa) y la chapa con rombos y nombre. */
+.rar-gems { display: inline-flex; align-items: center; gap: .3em; padding: 0 .1em; line-height: 0; }
+.rar-gems > i { display: block; width: .62em; height: .62em; background: var(--rc); transform: rotate(45deg); box-shadow: 0 0 0 1.5px #0b120c; }
+.atk-rar { display: inline-flex; align-items: center; gap: .45em; max-width: 100%; padding: 2px 11px; border-radius: 999px; white-space: nowrap; vertical-align: middle;
+  font: 800 14px/1.4 var(--font); letter-spacing: .03em; text-transform: uppercase;
+  color: var(--rc); background: color-mix(in srgb, var(--rc) 22%, #0c1610); box-shadow: 0 0 0 2px var(--rc); }
+.atk-rar.r0 { color: #c9d1d9; background: rgba(201, 209, 217, .12); box-shadow: 0 0 0 1.5px rgba(201, 209, 217, .55); }
+@media (max-height: 520px), (max-width: 599px) { .pick-card .pc-eyebrow .atk-rar { padding: 1px 9px; font-size: 12px; } }
+.atk-rar.sm { gap: .4em; padding: 0 8px; font-size: 11px; letter-spacing: .03em; box-shadow: 0 0 0 1.5px var(--rc); }
 .pz-tag.rar { background: color-mix(in srgb, var(--rc) 22%, #10160f); color: var(--rc); }
+/* En los iconos (cabecera de las cartas, pausa, fin de partida): los rombos sobre el borde de arriba. */
+.rar-gems.sl-rar { position: absolute; left: 50%; top: -5px; transform: translateX(-50%); z-index: 1; font-size: 10px; pointer-events: none; }
+.lvl-slots .rar-gems.sl-rar { top: -4px; font-size: 7px; }
+.mv-row > .ico-tile { position: relative; }
 .pick-card.is-next, .pick-card.is-cur { border-color: color-mix(in srgb, var(--pc) 70%, transparent); }
 .it-ln { display: block; }
 .it-prog { display: block; margin-top: 3px; color: #ffd86b; font-weight: 700; }
