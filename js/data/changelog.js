@@ -6,6 +6,10 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-11-28', title: ["Encuentros del mapa", "Map encounters"], fix: [
+    ["Templos, santuarios, Kecleon (la tienda), Smeargle, Porygon y Chansey casi nunca se llegaban a ver: salían lejos y en cualquier dirección. Ahora aparecen delante de por donde vas, justo fuera de la pantalla, y si no te los cruzas en un rato vuelven a salir delante.",
+     "Temples, shrines, Kecleon (the shop), Smeargle, Porygon and Chansey were almost never seen: they appeared far away in any direction. They now show up ahead of where you're heading, just off screen, and if you don't come across them after a while they show up ahead of you again."]] },
+
   { d: '2026-11-27', title: ["Arreglos de la 1.0", "1.0 fixes"], fix: [
     ["Con mando: ya se puede aceptar (A) o rechazar (B) una invitación a una sala.",
      "With a controller: you can now accept (A) or decline (B) an invitation to a room."],
