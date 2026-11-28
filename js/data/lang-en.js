@@ -1098,6 +1098,7 @@ G.I18n.add({
   "No se pudo conectar": "Could not connect",
   "Este navegador no permite jugar en grupo (WebRTC está desactivado o bloqueado). Prueba con otro navegador.": "This browser can't play co-op (WebRTC is disabled or blocked). Try another browser.",
   "{name} no responde: seguimos sin esperar": "{name} isn't responding: carrying on without waiting",
+  "{name} tarda mucho: seguimos sin esperar": "{name} is taking too long: carrying on without waiting",
   "Tu marca no se ha podido guardar en el ranking: el servidor la ha rechazado.": "Your record couldn't be saved on the leaderboard: the server rejected it.",
   "Tu marca no se ha podido guardar en el ranking: no hay conexión.": "Your record couldn't be saved on the leaderboard: no connection.",
   "Tu marca no se ha podido guardar en el ranking: el servidor estaba ocupado.": "Your record couldn't be saved on the leaderboard: the server was busy.",

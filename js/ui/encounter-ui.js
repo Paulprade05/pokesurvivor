@@ -8,7 +8,7 @@
  *   machine  Porygon: el objeto al que subes la rareza (o ninguno).
  *   egg      Chansey (bloque G): el huevo que te da; si ya llevas compañero o huevo, eliges cuál se queda («Irse»: el tuyo).
  *   curse    Santuario maldito (bloque F): un nivel más de maldición, con lo que hace y lo que da (o «No aceptar»: se apaga).
- * En solitario la partida se para mientras está abierta (G.Game.encounterHold); en grupo sigue, como la pausa.
+ * La partida se para mientras está abierta (G.Game.encounterHold); en grupo, para todos (28-11-2026; antes seguía).
  * Contrato con el bot (tools/curve.cjs): .pick-card con data-kind (item | heal | vitamin | luck | curse | forget | rarity), data-id,
  * data-r, data-price; «Irse» lleva data-close.
  */

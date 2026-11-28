@@ -320,6 +320,7 @@ G.Game = (() => {
 
   /** Pausa/continúa (tecla Esc o P, o el botón de pausa del móvil). */
   let holdBy = [];                   // grupo: quién está eligiendo fusión (todo parado)
+  let encMine = false;               // la pantalla de un encuentro abierta ha parado la partida (encounterHold)
 
   function togglePause() {
     // En grupo la pausa no para el juego (los demás siguen jugando).
@@ -337,8 +338,8 @@ G.Game = (() => {
 
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
-    holdBy = []; awayBy = null;
-    Dyn.reset();                              // (rendimiento: cada partida empieza con la resolución de siempre)
+    holdBy = []; awayBy = null; encMine = false;
+    Dyn.reset();                             // (rendimiento: cada partida empieza con la resolución de siempre)
     irisT = performance.now();                // (pulido 12-11-2026) la partida se abre en círculo desde tu Pokémon
     // (13-11-2026) Si vienes del portal de la aldea (su animación de entrada), se abre desde su destello de luz.
     irisLight = !!(G.Village && G.Village.takeFlash && G.Village.takeFlash());
@@ -614,10 +615,11 @@ G.Game = (() => {
       bankTickets();
     },
     levelStart(level) {
-      // (Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.)
-      if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       cancelEvo();                       // (la carta de rama vuelve a salir al terminar)
-      G.EncounterUI.abort();             // (1.0, bloque E: Kecleon y compañía, como si te fueras)
+      G.EncounterUI.abort();             // (1.0, bloque E: Kecleon y compañía, como si te fueras; suelta su pausa)
+      // (Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp. Después del encuentro: lo que
+      //  te diera al irte puede abrirla.)
+      if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       state = 'levelup';
       G.UI.hide('scr-pause');
       // Pase lo que pase al aplicar la carta, se avisa de que has elegido: si
@@ -1259,7 +1261,12 @@ G.Game = (() => {
     G.Camera.persp = G.Settings.ultra ? D3.PERSP : 0;
 
     if (state === 'playing') update(dt);
-    else if (pl && state !== 'ui') { G.FX.update(dt * 0.25); pl.anim.update(dt * 0.25); }
+    else if (pl && state !== 'ui') {
+      G.FX.update(dt * 0.25); pl.anim.update(dt * 0.25);
+      // (28-11-2026) Grupo parado porque otro elige: el aviso «Pausa: X está eligiendo…» tiene que aparecer (su
+      //  fundido sólo avanzaba jugando y se quedaba invisible).
+      if (state === 'held') G.Spawner.tickBanner(dt);
+    }
     // La red se atiende siempre (también con las cartas de nivel abiertas).
     if (G.Coop.active && pl && state !== 'ui' && state !== 'over') G.Coop.tick(dt);
 
@@ -1929,13 +1936,23 @@ G.Game = (() => {
     /** (1.0, bloque E) Un objeto que te dan (Kecleon, el santuario de reto): como cogerlo del suelo. */
     giveItem(k) { if (pl && state !== 'over' && state !== 'ui') offerItem(k); },
     /**
-     * (1.0, bloque E) La pantalla de un encuentro abierta (on) o cerrada: en solitario la partida se para mientras;
-     * en grupo sigue (pl.frozen, como la pausa del grupo).
+     * (1.0, bloque E) La pantalla de un encuentro abierta (on) o cerrada: la partida se para mientras.
+     * (28-11-2026, lo pidió el dueño) En grupo, para TODOS (G.Coop.holdStart, como el vínculo o el objeto). Antes en
+     * grupo seguía: el que elegía vitamina, compraba a Kecleon... se quedaba quieto y los enemigos lo mataban.
      */
     encounterHold(on) {
-      if (G.Coop.active) { if (!on) afterLevelUp(); return; }
-      if (on && state === 'playing') state = 'choice';
-      else if (!on && state === 'choice') { state = 'playing'; afterLevelUp(); }
+      if (on) {
+        if (encMine || (state !== 'playing' && state !== 'held')) return;
+        encMine = true;
+        state = 'choice';
+        if (G.Coop.active) G.Coop.holdStart();
+        return;
+      }
+      if (!encMine) { if (G.Coop.active) afterLevelUp(); return; }
+      encMine = false;
+      if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
+      if (G.Coop.active) G.Coop.holdEnd();
+      afterLevelUp();
     },
     /** Experiencia de un objeto (Huevo Dorado): sube niveles con sus cartas, como recogerla. */
     giveXp(n) { if (pl && n > 0) pendingLevels += pl.gainXp(n); },
